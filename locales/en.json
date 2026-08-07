@@ -1,0 +1,65 @@
+{
+  "navigation": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "login": "Login",
+    "register": "Register",
+    "logout": "Log Out",
+    "products": "Products",
+    "freight": "Freight",
+    "price": "Price",
+    "chart": "Chart"
+  },
+  "home": {
+    "title": "Welcome to AgriGuru Online",
+    "subtitle": "The future-oriented SaaS platform designed to scale seamlessly for 10,000+ daily active users.",
+    "cta_primary": "Get Started",
+    "cta_secondary": "Read Docs",
+    "feature_title": "Optimized Core Web Vitals",
+    "feature_description": "Powered by Next.js 16 caching system and Partial Prerendering (PPR) for blazing fast load times."
+  },
+  "header": {
+    "announcement": "Download Our Mobile App Now ! Click Here",
+    "download_app": "Download Application",
+    "contact_us": "Contact Us",
+    "search_placeholder": "Search Product",
+    "home": "Home",
+    "about_us": "About Us",
+    "register_here": "Register Here",
+    "menu": "Menu",
+    "categories": {
+      "rice": "Rice",
+      "sugar": "Sugar",
+      "grains": "Grains",
+      "pulses": "Pulses",
+      "spices": "Spices",
+      "oil_seeds": "Oil Seeds",
+      "feed_meal": "Feed Meal",
+      "flours": "Flours",
+      "edible_oil": "Edible Oil",
+      "others": "Others",
+      "fertilizers": "Fertilizers",
+      "pesticides": "Pesticides",
+      "machinery": "Machinery"
+    }
+  },
+  "footer": {
+    "tagline": "\"Your AgriTrade & Our AgriTech\"",
+    "download_today": "Download AgriGuru Online Today!",
+    "company_details": "Company Details",
+    "trade_services": "Trade Services",
+    "membership_plans": "Membership Plans",
+    "regulatory_norms": "Regulatory Norms",
+    "contact_us": "Contact Us",
+    "about_us": "About Us",
+    "founder_profile": "Founder Profile",
+    "user_manual": "User Manual",
+    "user_guide": "User Guide",
+    "disclaimer": "Disclaimer",
+    "terms_conditions": "Terms & Condition",
+    "refund_cancellation": "Refund & Cancellation",
+    "privacy_policy": "Privacy & Policy",
+    "copyright": "Copyright © by Agriguru Online Trade Pvt Ltd"
+  }
+}

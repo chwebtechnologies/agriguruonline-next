@@ -1,0 +1,2 @@
+# Theme Compliance Rules
+- **Strict Theme Adherence**: ALWAYS use `var(--background)` and `var(--foreground)` or their Tailwind equivalents (`bg-background` and `text-foreground`) for main structural elements. DO NOT hardcode colors like `bg-zinc-50` or `text-zinc-900` unless explicitly overriding the theme for a specific component. Ensure all newly added code strictly supports both light and dark modes dynamically through these CSS variables.

@@ -1,0 +1,65 @@
+{
+  "navigation": {
+    "home": "الرئيسية",
+    "dashboard": "لوحة التحكم",
+    "profile": "الملف الشخصي",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج",
+    "products": "المنتجات",
+    "freight": "الشحن",
+    "price": "الأسعار",
+    "chart": "الرسم البياني"
+  },
+  "home": {
+    "title": "مرحباً بك في AgriGuru عبر الإنترنت",
+    "subtitle": "منصة SaaS المستقبلية المصممة للتوسع بسلاسة لأكثر من 10,000 مستخدم نشط يوميًا.",
+    "cta_primary": "ابدأ الآن",
+    "cta_secondary": "اقرأ الوثائق",
+    "feature_title": "تحسين مؤشرات الويب الحيوية الأساسية",
+    "feature_description": "مدعوم بنظام التخزين المؤقت لـ Next.js 16 والتقديم المسبق الجزئي (PPR) لأوقات تحميل فائقة السرعة."
+  },
+  "header": {
+    "announcement": "حمل تطبيقنا للهاتف الآن! اضغط هنا",
+    "download_app": "تحميل التطبيق",
+    "contact_us": "اتصل بنا",
+    "search_placeholder": "البحث عن منتج",
+    "home": "الرئيسية",
+    "about_us": "من نحن",
+    "register_here": "سجل هنا",
+    "menu": "القائمة",
+    "categories": {
+      "rice": "الأرز",
+      "sugar": "السكر",
+      "grains": "الحبوب",
+      "pulses": "البقوليات",
+      "spices": "البهارات",
+      "oil_seeds": "البذور الزيتية",
+      "feed_meal": "علف الحيوانات",
+      "flours": "الدقيق",
+      "edible_oil": "زيت الطعام",
+      "others": "أخرى",
+      "fertilizers": "الأسمدة",
+      "pesticides": "المبيدات الحشرية",
+      "machinery": "الآلات الزراعية"
+    }
+  },
+  "footer": {
+    "tagline": "\"تجارتك الزراعية وتقنيتنا الزراعية\"",
+    "download_today": "حمل تطبيق AgriGuru Online اليوم!",
+    "company_details": "تفاصيل الشركة",
+    "trade_services": "خدمات التجارة",
+    "membership_plans": "خطط العضوية",
+    "regulatory_norms": "القواعد التنظيمية",
+    "contact_us": "اتصل بنا",
+    "about_us": "من نحن",
+    "founder_profile": "ملف المؤسس",
+    "user_manual": "دليل المستخدم",
+    "user_guide": "إرشادات المستخدم",
+    "disclaimer": "إخلاء المسؤولية",
+    "terms_conditions": "الشروط والأحكام",
+    "refund_cancellation": "سياسة الاسترجاع والإلغاء",
+    "privacy_policy": "سياسة الخصوصية",
+    "copyright": "حقوق الطبع والنشر © محفوظة لشركة Agriguru Online Trade Pvt Ltd"
+  }
+}

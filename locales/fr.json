@@ -1,0 +1,62 @@
+{
+  "navigation": {
+    "home": "Accueil",
+    "dashboard": "Tableau de Bord",
+    "profile": "Profil",
+    "login": "Connexion",
+    "register": "Inscription",
+    "logout": "Déconnexion",
+    "products": "Produits",
+    "freight": "Fret",
+    "price": "Prix",
+    "chart": "Graphique"
+  },
+  "home": {
+    "title": "Bienvenue sur AgriGuru en Ligne",
+    "subtitle": "La plateforme SaaS orientée vers l'avenir, conçue pour évoluer de manière transparente pour plus de 10 000 utilisateurs actifs par jour.",
+    "cta_primary": "Commencer",
+    "cta_secondary": "Lire la Documentation",
+    "feature_title": "Optimisation des Core Web Vitals",
+    "feature_description": "Propulsé par le système de cache Next.js 16 et le pré-rendu partiel (PPR) pour des temps de chargement ultra-rapides."
+  },
+  "header": {
+    "announcement": "Téléchargez notre application mobile maintenant ! Cliquez ici",
+    "download_app": "Télécharger l'application",
+    "contact_us": "Contactez-nous",
+    "search_placeholder": "Rechercher un produit",
+    "home": "Accueil",
+    "about_us": "À Propos de Nous",
+    "register_here": "S'inscrire Ici",
+    "menu": "Menu",
+    "categories": {
+      "rice": "Riz",
+      "sugar": "Sucre",
+      "grains": "Grains",
+      "pulses": "Légumineuses",
+      "spices": "Épices",
+      "oil_seeds": "Graines Oléagineuses",
+      "feed_meal": "Tourteaux d'aliments",
+      "flours": "Farines",
+      "edible_oil": "Huile Alimentaire",
+      "others": "Autres"
+    }
+  },
+  "footer": {
+    "tagline": "\"Votre AgriCommerce & Notre AgriTechnologie\"",
+    "download_today": "Téléchargez AgriGuru en Ligne Aujourd'hui !",
+    "company_details": "Détails de l'Entreprise",
+    "trade_services": "Services Commerciaux",
+    "membership_plans": "Plans d'Adhésion",
+    "regulatory_norms": "Normes Réglementaires",
+    "contact_us": "Contactez-Nous",
+    "about_us": "À Propos de Nous",
+    "founder_profile": "Profil du Fondateur",
+    "user_manual": "Manuel de l'Utilisateur",
+    "user_guide": "Guide de l'Utilisateur",
+    "disclaimer": "Clause de Non-Responsabilité",
+    "terms_conditions": "Conditions Générales",
+    "refund_cancellation": "Remboursement & Annulation",
+    "privacy_policy": "Politique de Confidentialité",
+    "copyright": "Droit d'auteur © par Agriguru Online Trade Pvt Ltd"
+  }
+}

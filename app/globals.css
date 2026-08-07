@@ -1,26 +1,332 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Primitive color definitions (proper color codes registry) */
+  --raw-white: #ffffff;
+  --raw-black: #000000;
+  
+  --raw-slate-50: #f8fafc;
+  --raw-slate-100: #f1f5f9;
+  --raw-slate-200: #e2e8f0;
+  --raw-slate-300: #cbd5e1;
+  --raw-slate-500: #64748b;
+  --raw-slate-600: #475569;
+  --raw-slate-700: #334155;
+  --raw-slate-900: #0f172a;
+  
+  --raw-zinc-800: #27272a;
+  --raw-zinc-900: #18181b;
+  --raw-zinc-950: #0a0a0a;
+  
+  --raw-teal-50: #e6f4f2;
+  --raw-teal-800: #0c5a53;
+  
+  --brand-blue: #1D92EB;
+  --brand-green: #2AAF85;
+  --brand-red: #DB5F67;
+  
+  --raw-emerald-500: var(--brand-green);
+  --raw-emerald-600: #239470;
+  
+  --raw-sky-600: var(--brand-blue);
+  --raw-sky-400: #6cbfff;
+
+  /* Default semantic fallback mapping (Defaulting to light theme mapping) */
+  --ag-announcement-bg: var(--raw-teal-50);
+  --ag-announcement-text: var(--raw-teal-800);
+  
+  --ag-header-bg: var(--raw-white);
+  --ag-header-text: var(--raw-slate-900);
+  --ag-header-border: var(--raw-slate-300);
+  
+  --ag-subheader-bg: var(--raw-slate-50);
+  --ag-subheader-text: var(--raw-slate-600);
+  --ag-subheader-border: var(--raw-slate-200);
+  
+  --ag-search-bg: var(--raw-slate-100);
+  --ag-search-border: var(--raw-slate-300);
+  --ag-search-text: var(--raw-slate-900);
+  --ag-search-placeholder: var(--raw-slate-500);
+  
+  --ag-dropdown-bg: var(--raw-white);
+  --ag-dropdown-border: var(--raw-slate-200);
+  --ag-dropdown-text: var(--raw-slate-700);
+  --ag-dropdown-hover-bg: var(--raw-slate-100);
+  --ag-dropdown-hover-text: var(--raw-slate-900);
+
+  --ag-nav-link: var(--raw-slate-600);
+  --ag-nav-link-hover: var(--raw-slate-900);
+  
+  --ag-login-bg: var(--raw-slate-100);
+  --ag-login-border: var(--raw-slate-300);
+  --ag-login-text: var(--raw-slate-700);
+  
+  --ag-footer-bg: var(--raw-slate-100);
+  --ag-footer-border: var(--raw-slate-300);
+  --ag-footer-bottom-bg: var(--raw-slate-200);
+  --ag-footer-card-bg: var(--raw-white);
+  --ag-footer-heading-text: var(--raw-slate-900);
+  --ag-footer-text: var(--raw-slate-700);
+  
+  --ag-primary: var(--brand-blue);
+  --ag-primary-hover: #1080d0;
+  --ag-accent-cyan: var(--raw-sky-600);
+  --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
+  
+  --background: var(--raw-white);
+  --foreground: var(--raw-slate-900);
 }
 
-@theme inline {
+/* Explicit Light Theme configuration override */
+.light {
+  --ag-announcement-bg: var(--raw-teal-50);
+  --ag-announcement-text: var(--raw-teal-800);
+  
+  --ag-header-bg: var(--raw-white);
+  --ag-header-text: var(--raw-slate-900);
+  --ag-header-border: var(--raw-slate-300);
+  
+  --ag-subheader-bg: var(--raw-slate-50);
+  --ag-subheader-text: var(--raw-slate-600);
+  --ag-subheader-border: var(--raw-slate-200);
+  
+  --ag-search-bg: var(--raw-slate-100);
+  --ag-search-border: var(--raw-slate-300);
+  --ag-search-text: var(--raw-slate-900);
+  --ag-search-placeholder: var(--raw-slate-500);
+  
+  --ag-dropdown-bg: var(--raw-white);
+  --ag-dropdown-border: var(--raw-slate-200);
+  --ag-dropdown-text: var(--raw-slate-700);
+  --ag-dropdown-hover-bg: var(--raw-slate-100);
+  --ag-dropdown-hover-text: var(--raw-slate-900);
+
+  --ag-nav-link: var(--raw-slate-600);
+  --ag-nav-link-hover: var(--raw-slate-900);
+  
+  --ag-login-bg: var(--raw-slate-100);
+  --ag-login-border: var(--raw-slate-300);
+  --ag-login-text: var(--raw-slate-700);
+  
+  --ag-footer-bg: var(--raw-slate-100);
+  --ag-footer-border: var(--raw-slate-300);
+  --ag-footer-bottom-bg: var(--raw-slate-200);
+  --ag-footer-card-bg: var(--raw-white);
+  --ag-footer-heading-text: var(--raw-slate-900);
+  --ag-footer-text: var(--raw-slate-700);
+  
+  --ag-primary: var(--brand-blue);
+  --ag-primary-hover: #1080d0;
+  --ag-accent-cyan: var(--raw-sky-600);
+  --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
+  
+  --background: var(--raw-white);
+  --foreground: var(--raw-slate-900);
+}
+
+/* Explicit Dark Theme configuration override */
+.dark {
+  --ag-announcement-bg: var(--raw-teal-800);
+  --ag-announcement-text: var(--raw-white);
+  
+  --ag-header-bg: var(--raw-zinc-950);
+  --ag-header-text: var(--raw-white);
+  --ag-header-border: var(--raw-zinc-800);
+  
+  --ag-subheader-bg: var(--raw-zinc-900);
+  --ag-subheader-text: var(--raw-slate-200);
+  --ag-subheader-border: var(--raw-zinc-800);
+  
+  --ag-search-bg: var(--raw-zinc-900);
+  --ag-search-border: var(--raw-zinc-800);
+  --ag-search-text: var(--raw-white);
+  --ag-search-placeholder: var(--raw-slate-500);
+  
+  --ag-dropdown-bg: var(--raw-zinc-900);
+  --ag-dropdown-border: var(--raw-zinc-800);
+  --ag-dropdown-text: var(--raw-slate-200);
+  --ag-dropdown-hover-bg: var(--raw-zinc-800);
+  --ag-dropdown-hover-text: var(--raw-white);
+
+  --ag-nav-link: var(--raw-slate-200);
+  --ag-nav-link-hover: var(--raw-white);
+  
+  --ag-login-bg: var(--raw-zinc-900);
+  --ag-login-border: var(--raw-zinc-800);
+  --ag-login-text: var(--raw-slate-200);
+  
+  --ag-footer-bg: #111111;
+  --ag-footer-border: var(--raw-zinc-800);
+  --ag-footer-bottom-bg: #090909;
+  --ag-footer-card-bg: var(--raw-zinc-950);
+  --ag-footer-heading-text: var(--raw-white);
+  --ag-footer-text: var(--raw-slate-200);
+  
+  --ag-primary: var(--brand-blue);
+  --ag-primary-hover: #1080d0;
+  --ag-accent-cyan: var(--raw-sky-400);
+  --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
+  
+  --background: var(--raw-zinc-950);
+  --foreground: var(--raw-slate-200);
+}
+
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-primary: var(--ag-primary);
+  --color-primary-hover: var(--ag-primary-hover);
+  
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-green: var(--brand-green);
+  --color-brand-red: var(--brand-red);
+  
+  --color-emerald-500: var(--brand-green);
+  --color-emerald-600: #239470;
+  
+  /* Custom AgriGuru color tokens */
+  --color-ag-announcement-bg: var(--ag-announcement-bg);
+  --color-ag-announcement-text: var(--ag-announcement-text);
+  
+  --color-ag-header-bg: var(--ag-header-bg);
+  --color-ag-header-text: var(--ag-header-text);
+  --color-ag-header-border: var(--ag-header-border);
+  
+  --color-ag-subheader-bg: var(--ag-subheader-bg);
+  --color-ag-subheader-text: var(--ag-subheader-text);
+  --color-ag-subheader-border: var(--ag-subheader-border);
+  
+  --color-ag-search-bg: var(--ag-search-bg);
+  --color-ag-search-border: var(--ag-search-border);
+  --color-ag-search-text: var(--ag-search-text);
+  --color-ag-search-placeholder: var(--ag-search-placeholder);
+  
+  --color-ag-dropdown-bg: var(--ag-dropdown-bg);
+  --color-ag-dropdown-border: var(--ag-dropdown-border);
+  --color-ag-dropdown-text: var(--ag-dropdown-text);
+  --color-ag-dropdown-hover-bg: var(--ag-dropdown-hover-bg);
+  --color-ag-dropdown-hover-text: var(--ag-dropdown-hover-text);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ag-nav-link: var(--ag-nav-link);
+  --color-ag-nav-link-hover: var(--ag-nav-link-hover);
+  
+  --color-ag-login-bg: var(--ag-login-bg);
+  --color-ag-login-border: var(--ag-login-border);
+  --color-ag-login-text: var(--ag-login-text);
+
+  --color-ag-footer-bg: var(--ag-footer-bg);
+  --color-ag-footer-bottom-bg: var(--ag-footer-bottom-bg);
+  --color-ag-footer-border: var(--ag-footer-border);
+  --color-ag-footer-card-bg: var(--ag-footer-card-bg);
+  --color-ag-footer-heading-text: var(--ag-footer-heading-text);
+  --color-ag-footer-text: var(--ag-footer-text);
+  
+  --color-ag-accent-cyan: var(--ag-accent-cyan);
+  
+  --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  
+  /* Large Screen / TV & Projector breakpoints */
+  --breakpoint-3xl: 120rem; /* 1920px */
+  --breakpoint-4xl: 150rem; /* 2400px */
 }
 
 body {
-  background: var(--background);
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Universal Focus States for Keypad & Accessibility Users */
+*:focus-visible:not(input):not(select):not(textarea) {
+  outline: 3px solid var(--ag-primary);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Custom transitions and helper styles */
+.transition-theme {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Custom horizontal scrolling animation for commodities ticker */
+@keyframes scrollTicker {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-ticker {
+  display: flex;
+  width: max-content;
+  animation: scrollTicker 30s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* Custom vertical text style for membership floating tabs */
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Custom device constraints & media queries */
+
+/* Keypad Phones (Nokia, KaiOS style narrow devices) */
+@media (max-width: 22rem) { /* <= 352px */
+  html {
+    font-size: 13px; /* scale down typography */
+  }
+  
+  /* Ensure grids stack vertically */
+  .grid {
+    grid-template-cols: 1fr !important;
+  }
+  
+  /* Extra spacing for tactile keypad navigation */
+  a, button {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+    padding: 0.5rem 0.75rem !important;
+  }
+}
+
+/* TV & Large Projectors (scaling fonts up so it's readable from a distance) */
+@media (min-width: 120rem) {
+  html {
+    font-size: 20px;
+  }
+  
+  .max-w-7xl {
+    max-w: 96rem !important; /* 1536px */
+  }
+}
+
+@media (min-width: 150rem) {
+  html {
+    font-size: 24px;
+  }
+  
+  .max-w-7xl {
+    max-w: 120rem !important; /* 1920px */
+  }
+}
+
+/* Reusable Primary Gradient Class */
+.bg-primary-gradient {
+  background: var(--ag-gradient-primary) !important;
+}
+
+

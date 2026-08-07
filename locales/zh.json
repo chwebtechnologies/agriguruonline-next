@@ -1,0 +1,62 @@
+{
+  "navigation": {
+    "home": "首页",
+    "dashboard": "仪表板",
+    "profile": "个人资料",
+    "login": "登录",
+    "register": "注册",
+    "logout": "登出",
+    "products": "产品",
+    "freight": "货运",
+    "price": "价格",
+    "chart": "图表"
+  },
+  "home": {
+    "title": "欢迎来到 AgriGuru 线上平台",
+    "subtitle": "面向未来的 SaaS 平台，旨在为每日 10,000+ 活跃用户提供无缝扩展。",
+    "cta_primary": "开始使用",
+    "cta_secondary": "阅读文档",
+    "feature_title": "核心 Web 指标优化",
+    "feature_description": "依托 Next.js 16 缓存系统和部分预渲染 (PPR) 技术，带来极速加载体验。"
+  },
+  "header": {
+    "announcement": "立即下载我们的移动应用！点击这里",
+    "download_app": "下载应用",
+    "contact_us": "联系我们",
+    "search_placeholder": "搜索产品",
+    "home": "首页",
+    "about_us": "关于我们",
+    "register_here": "点击注册",
+    "menu": "菜单",
+    "categories": {
+      "rice": "大米",
+      "sugar": "糖",
+      "grains": "谷物",
+      "pulses": "豆类",
+      "spices": "香料",
+      "oil_seeds": "油籽",
+      "feed_meal": "饲料粉",
+      "flours": "面粉",
+      "edible_oil": "食用油",
+      "others": "其他"
+    }
+  },
+  "footer": {
+    "tagline": "\"您的农业贸易与我们的农业科技\"",
+    "download_today": "立即下载 AgriGuru 线上版！",
+    "company_details": "公司详情",
+    "trade_services": "贸易服务",
+    "membership_plans": "会员计划",
+    "regulatory_norms": "监管规范",
+    "contact_us": "联系我们",
+    "about_us": "关于我们",
+    "founder_profile": "创始人简介",
+    "user_manual": "用户手册",
+    "user_guide": "用户指南",
+    "disclaimer": "免责声明",
+    "terms_conditions": "条款与条件",
+    "refund_cancellation": "退款与取消政策",
+    "privacy_policy": "隐私政策",
+    "copyright": "版权所有 © Agriguru Online Trade Pvt Ltd"
+  }
+}

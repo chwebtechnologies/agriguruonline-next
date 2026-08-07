@@ -1,0 +1,23 @@
+
+> agriguru-online@0.1.0 dev
+> next dev
+
+▲ Next.js 16.3.0 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.29.15:3001
+- Environments: .env
+✓ Ready in 351ms
+⚠ Warning: Next.js ignored package-lock.json in /Users/harshit because it is outside the current Git repository (/Users/harshit/Desktop/agriguru-online).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+✓ Running next.config.ts took 98ms
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          44346
+- Dir:          /Users/harshit/Desktop/agriguru-online
+- Log:          .next/dev/logs/next-development.log
+
+You can access the existing server at http://localhost:3000,
+or run kill 44346 to stop it and start a new one.
+[?25h
