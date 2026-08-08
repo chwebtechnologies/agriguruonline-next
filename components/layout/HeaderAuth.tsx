@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import CategoryLink from '@/components/ui/CategoryLink'
 import { usePathname } from 'next/navigation'
 import MobileMenu from './MobileMenu'
 import { AgriGuruLogo } from './HeaderGuest'
@@ -319,16 +320,16 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories 
               {displayCategories.map((category, index) => {
                 const isActive = pathname === category.href
                 return (
-                  <Link
+                  <CategoryLink
                     key={index}
                     href={category.href}
-                    className={`transition-colors border-y-2 border-t-transparent pt-1 pb-1 ${isActive
-                        ? 'text-primary border-b-primary font-extrabold'
-                        : 'text-ag-nav-link border-b-transparent hover:text-ag-nav-link-hover hover:border-b-primary font-bold'
-                      }`}
+                    isActive={isActive}
+                    baseClassName="transition-colors border-y-2 border-t-transparent pt-1 pb-1"
+                    activeClassName="text-primary border-b-primary font-extrabold"
+                    inactiveClassName="text-ag-nav-link border-b-transparent hover:text-ag-nav-link-hover hover:border-b-primary font-bold"
                   >
                     {category.name}
-                  </Link>
+                  </CategoryLink>
                 )
               })}
 

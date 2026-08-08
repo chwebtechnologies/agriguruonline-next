@@ -71,7 +71,8 @@ export default async function LocalizedRootLayout({
           <Header />
         </Suspense>
         
-        <main className="flex-grow w-full">
+        <main className="flex-grow w-full relative">
+          <div id="skeleton-portal" className="absolute inset-0 z-50 pointer-events-none empty:hidden"></div>
           {children}
         </main>
         

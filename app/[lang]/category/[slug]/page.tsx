@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
@@ -61,19 +62,11 @@ export async function generateMetadata(
   const lang = params.lang || 'en'
   const slug = params.slug
 
-  const data = await getSubCategories(slug, lang)
-  
   const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.com'
   const categoriesList = await getCategories(lang, { apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`, stale: 3600, revalidate: 3600, expire: 3600 })
   const exactCategory = categoriesList.find(c => c.slug === slug)
   
-  const getTranslatedName = (translations: Array<{ name: string; lang_code: string }> | undefined, defaultName: string) => {
-    if (!translations || !Array.isArray(translations)) return defaultName
-    const translation = translations.find(t => t.lang_code === lang)
-    return translation ? translation.name : defaultName
-  }
-
-  const categoryName = data ? getTranslatedName(data.category?.translations, data.category?.name || 'Category') : 'Category'
+  const categoryName = exactCategory ? exactCategory.name : 'Category'
   const title = `${categoryName} - AgriGuru Online`
   const description = `Explore ${categoryName} and related sub-categories on AgriGuru Online.`
 
@@ -84,9 +77,6 @@ export async function generateMetadata(
   
   if (exactCategory && exactCategory.image) {
     imageUrl = exactCategory.image.startsWith('http') ? exactCategory.image : `${imageBaseUrl}${exactCategory.image}`
-  } else if (data?.sub_categories && data.sub_categories.length > 0) {
-    const firstSubCat = data.sub_categories[0]
-    imageUrl = firstSubCat.image.startsWith('http') ? firstSubCat.image : `${imageBaseUrl}${firstSubCat.image}`
   }
 
   return {
@@ -129,7 +119,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
 
   const data = await getSubCategories(slug, lang)
   const dict = await getDictionary(lang)
-  const commonDict = (dict as Record<string, Record<string, string>>).common || {}
+  const commonDict = (dict as Record<string, any>).common || {}
   const common = {
     back: commonDict.back || "Back",
     all_country_origins: commonDict.all_country_origins || "All Country Origins",
@@ -181,7 +171,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                   className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm"
                 >
                   <Link href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-background overflow-hidden border-b border-ag-header-border block">
-                    <Image
+                    <ImageWithSkeleton
                       src={imageUrl}
                       alt={name}
                       fill

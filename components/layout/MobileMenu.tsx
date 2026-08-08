@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import CategoryLink from '@/components/ui/CategoryLink'
 
 interface MobileMenuProps {
   dict: {
@@ -39,6 +41,7 @@ interface MobileMenuProps {
 
 export default function MobileMenu({ dict, activeLang, label, showLabel = false, categories: apiCategories }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname()
 
   // Prevent scroll when menu is open
   useEffect(() => {
@@ -136,17 +139,20 @@ export default function MobileMenu({ dict, activeLang, label, showLabel = false,
                 <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-4">{dict.header.menu}</h3>
                 <div className="grid grid-cols-1 gap-2">
                   {categories.map((cat, i) => (
-                    <Link
+                    <CategoryLink
                       key={i}
                       href={cat.href}
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-between text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text transition-colors py-2 px-3 rounded-lg"
+                      isActive={pathname === cat.href}
+                      baseClassName="flex items-center justify-between text-[17px] py-2 px-3 rounded-lg border-b border-ag-search-border/30 last:border-0 hover:bg-ag-dropdown-hover-bg"
+                      activeClassName="text-primary font-bold"
+                      inactiveClassName="text-ag-nav-link"
                     >
-                      <span>{cat.name}</span>
+                      {cat.name}
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 text-zinc-500">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                       </svg>
-                    </Link>
+                    </CategoryLink>
                   ))}
                 </div>
               </div>
