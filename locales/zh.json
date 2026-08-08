@@ -58,5 +58,10 @@
     "refund_cancellation": "退款与取消政策",
     "privacy_policy": "隐私政策",
     "copyright": "版权所有 © Agriguru Online Trade Pvt Ltd"
+  },
+  "common": {
+    "back": "返回",
+    "all_country_origins": "所有原产国",
+    "explore": "探索"
   }
 }

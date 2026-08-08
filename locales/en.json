@@ -61,5 +61,10 @@
     "refund_cancellation": "Refund & Cancellation",
     "privacy_policy": "Privacy & Policy",
     "copyright": "Copyright © by Agriguru Online Trade Pvt Ltd"
+  },
+  "common": {
+    "back": "Back",
+    "all_country_origins": "All Country Origins",
+    "explore": "Explore"
   }
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 
 interface SubCategory {
   id: string
@@ -58,6 +59,13 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   const slug = params.slug
 
   const data = await getSubCategories(slug, lang)
+  const dict = await getDictionary(lang)
+  const commonDict = (dict as any).common || {}
+  const common = {
+    back: commonDict.back || "Back",
+    all_country_origins: commonDict.all_country_origins || "All Country Origins",
+    explore: commonDict.explore || "Explore"
+  }
 
   if (!data) {
     return (
@@ -90,7 +98,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
       {/* Main Content */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-        <PageHeader title={categoryName + " (All Country Origins)"} />
+        <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} />
 
         {data.sub_categories && data.sub_categories.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 px-2 sm:px-0">
@@ -122,7 +130,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                         href={`/${lang}/category/${slug}/${subCat.slug}`}
                         className="text-[11px] sm:text-[13px] uppercase tracking-wide font-bold text-brand-blue hover:text-[#1080d0] transition-colors flex items-center gap-1 sm:gap-1.5 group/link"
                       >
-                        Explore
+                        {common.explore}
                         <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
                       </Link>
                       

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-export function PageHeader({ title }: { title: string }) {
+export function PageHeader({ title, backText = "Back" }: { title: string, backText?: string }) {
   const router = useRouter()
   return (
     <div className="sticky top-[63px] z-40 bg-background py-2 flex items-center justify-center w-full mb-2 min-h-[40px]">
@@ -15,7 +15,7 @@ export function PageHeader({ title }: { title: string }) {
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-ag-header-border shadow-sm group-hover:border-ag-primary transition-colors">
             <i className="fa-solid fa-arrow-left text-[14px] group-hover:-translate-x-0.5 transition-transform"></i>
           </div>
-          <span className="text-[21px] font-bold hidden sm:block leading-none pb-[2px]">Back</span>
+          <span className="text-[21px] font-bold hidden sm:block leading-none pb-[2px]">{backText}</span>
         </button>
       </div>
       

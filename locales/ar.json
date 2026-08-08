@@ -61,5 +61,10 @@
     "refund_cancellation": "سياسة الاسترجاع والإلغاء",
     "privacy_policy": "سياسة الخصوصية",
     "copyright": "حقوق الطبع والنشر © محفوظة لشركة Agriguru Online Trade Pvt Ltd"
+  },
+  "common": {
+    "back": "رجوع",
+    "all_country_origins": "جميع دول المنشأ",
+    "explore": "استكشف"
   }
 }
