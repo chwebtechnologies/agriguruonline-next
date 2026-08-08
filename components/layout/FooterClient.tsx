@@ -273,19 +273,19 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* Left side tab - Crown at the top pointing right, text goes top-to-bottom (facing right/inwards) */}
       <Link
         href={`/${activeLang}/membership`}
-        className="group hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-r border-emerald-500/30 text-white rounded-r-xl shadow-lg shadow-emerald-500/10 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer py-5 px-2 select-none flex flex-col items-center gap-3 w-[38px] hover:scale-105 active:scale-95 origin-left duration-200 transition-all"
+        className="group hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-r border-emerald-500/30 text-white rounded-r-xl shadow-lg shadow-emerald-500/10 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer lg:py-3.5 lg:px-1.5 xl:py-5 xl:px-2 select-none flex-col items-center gap-2.5 xl:gap-3 w-[32px] xl:w-[38px] hover:scale-105 active:scale-95 origin-left duration-200 transition-all"
       >
-        <i className="fa-solid fa-crown text-white/90 text-[14px] shrink-0 rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
-        <span className="[writing-mode:vertical-lr] text-sm font-black uppercase tracking-widest leading-none">Membership</span>
+        <i className="fa-solid fa-crown text-white/90 text-[12px] xl:text-[14px] shrink-0 rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
+        <span className="[writing-mode:vertical-lr] text-[11px] xl:text-sm font-black uppercase tracking-widest leading-none">Membership</span>
       </Link>
 
       {/* Right side tab - Crown at the top pointing left, text goes bottom-to-top (facing left/inwards) */}
       <Link
         href={`/${activeLang}/membership`}
-        className="group hidden lg:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-l border-emerald-500/30 text-white rounded-l-xl shadow-lg shadow-emerald-500/10 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer py-5 px-2 select-none flex flex-col items-center gap-3 w-[38px] hover:scale-105 active:scale-95 origin-right duration-200 transition-all"
+        className="group hidden lg:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-l border-emerald-500/30 text-white rounded-l-xl shadow-lg shadow-emerald-500/10 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer lg:py-3.5 lg:px-1.5 xl:py-5 xl:px-2 select-none flex-col items-center gap-2.5 xl:gap-3 w-[32px] xl:w-[38px] hover:scale-105 active:scale-95 origin-right duration-200 transition-all"
       >
-        <i className="fa-solid fa-crown text-white/90 text-[14px] shrink-0 -rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
-        <span className="[writing-mode:vertical-lr] rotate-180 text-sm font-black uppercase tracking-widest leading-none">Membership</span>
+        <i className="fa-solid fa-crown text-white/90 text-[12px] xl:text-[14px] shrink-0 -rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
+        <span className="[writing-mode:vertical-lr] rotate-180 text-[11px] xl:text-sm font-black uppercase tracking-widest leading-none">Membership</span>
       </Link>
 
       {/* ======================================================== */}
