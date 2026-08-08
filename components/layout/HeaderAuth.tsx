@@ -94,10 +94,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories 
     let scrolled = false
     const handleScroll = () => {
       const sy = window.scrollY
-      if (!scrolled && sy > 110) {
+      if (!scrolled && sy > 20) {
         scrolled = true
         setIsScrolled(true)
-      } else if (scrolled && sy < 20) {
+      } else if (scrolled && sy < 10) {
         scrolled = false
         setIsScrolled(false)
       }
@@ -301,10 +301,11 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories 
         </div>
       </header>
 
-      {/* 3. Categories Subheader Bar (Collapses smoothly on scroll) */}
+      {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 shadow-inner transition-all duration-350 ease-in-out border-b border-ag-subheader-border ${isScrolled ? 'h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'py-1 opacity-100 overflow-visible'
-          }`}
+        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 shadow-inner transition-all duration-355 ease-in-out border-b border-ag-subheader-border ${
+          isScrolled ? 'h-0 py-0 border-b-0 overflow-hidden' : 'py-1 opacity-100 overflow-visible'
+        }`}
       >
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           {/* Left-aligned Menu Trigger */}
