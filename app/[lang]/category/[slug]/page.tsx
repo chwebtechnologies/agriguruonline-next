@@ -93,7 +93,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
         <PageHeader title={categoryName + " (All Country Origins)"} />
 
         {data.sub_categories && data.sub_categories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 px-2 sm:px-0">
             {data.sub_categories.map((subCat) => {
               const name = getTranslatedName(subCat.translations, subCat.name)
               const imageUrl = subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`
@@ -112,18 +112,18 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                     />
                   </div>
                   
-                  <div className="px-3 py-2.5 flex flex-col">
-                    <h3 className="text-[19px] font-semibold text-foreground mb-1 line-clamp-1" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                  <div className="px-2 sm:px-3 py-2 sm:py-2.5 flex flex-col">
+                    <h3 className="text-[16px] sm:text-[19px] font-semibold text-foreground mb-0 sm:mb-1 line-clamp-1" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
                       {name}
                     </h3>
                     
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mt-0 sm:mt-0">
                       <Link 
                         href={`/${lang}/category/${slug}/${subCat.slug}`}
-                        className="text-[13px] uppercase tracking-wide font-bold text-brand-blue hover:text-[#1080d0] transition-colors flex items-center gap-1.5 group/link"
+                        className="text-[11px] sm:text-[13px] uppercase tracking-wide font-bold text-brand-blue hover:text-[#1080d0] transition-colors flex items-center gap-1 sm:gap-1.5 group/link"
                       >
                         Explore
-                        <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
+                        <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
                       </Link>
                       
                       <ShareButton 

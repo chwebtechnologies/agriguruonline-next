@@ -20,10 +20,17 @@ export function PageHeader({ title }: { title: string }) {
       </div>
       
       <h1 
-        className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0c5a53] to-[#138a7f] bg-clip-text text-transparent text-center px-24"
+        className="text-lg sm:text-xl md:text-3xl font-bold text-center pl-10 pr-2 sm:px-16 md:px-24 truncate whitespace-nowrap"
         style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
       >
-        {title}
+        {title.split(' ').map((word, index, arr) => (
+          <span key={index}>
+            <span className="bg-[image:var(--ag-gradient-heading)] bg-clip-text text-transparent">
+              {word}
+            </span>
+            {index < arr.length - 1 && ' '}
+          </span>
+        ))}
       </h1>
     </div>
   )

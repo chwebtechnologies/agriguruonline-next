@@ -72,6 +72,7 @@
   --ag-primary-hover: #1080d0;
   --ag-accent-cyan: var(--raw-sky-600);
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
+  --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
   
   --background: var(--raw-white);
   --foreground: var(--raw-slate-900);
@@ -119,6 +120,7 @@
   --ag-primary-hover: #1080d0;
   --ag-accent-cyan: var(--raw-sky-600);
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
+  --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
   
   --background: var(--raw-white);
   --foreground: var(--raw-slate-900);
@@ -166,6 +168,7 @@
   --ag-primary-hover: #1080d0;
   --ag-accent-cyan: var(--raw-sky-400);
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
+  --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
   
   --background: var(--raw-zinc-950);
   --foreground: var(--raw-slate-200);
