@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 export function PageHeader({ title }: { title: string }) {
   const router = useRouter()
   return (
-    <div className="sticky top-[63px] z-40 bg-background/95 backdrop-blur-md py-2 flex items-center justify-center w-full mb-2 min-h-[40px]">
+    <div className="sticky top-[63px] z-40 bg-background py-2 flex items-center justify-center w-full mb-2 min-h-[40px]">
       <div className="absolute left-0 top-1/2 -translate-y-1/2">
         <button 
           onClick={() => router.back()}

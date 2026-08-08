@@ -61,7 +61,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+      <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Category not found</h1>
           <Link href={`/${lang}`} className="text-[#0c5a53] hover:underline">
@@ -86,14 +86,14 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20">
+    <div className="bg-background text-foreground">
       {/* Main Content */}
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-8">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
         <PageHeader title={categoryName + " (All Country Origins)"} />
 
         {data.sub_categories && data.sub_categories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
             {data.sub_categories.map((subCat) => {
               const name = getTranslatedName(subCat.translations, subCat.name)
               const imageUrl = subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`
@@ -103,7 +103,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                   key={subCat.id} 
                   className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm"
                 >
-                  <div className="relative w-full aspect-[3/2] bg-background overflow-hidden border-b border-ag-header-border">
+                  <div className="relative w-full aspect-[16/10] bg-background overflow-hidden border-b border-ag-header-border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={imageUrl}
@@ -112,8 +112,8 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                     />
                   </div>
                   
-                  <div className="p-3 flex flex-col">
-                    <h3 className="text-[17px] font-semibold text-foreground mb-2 line-clamp-1" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                  <div className="px-3 py-2.5 flex flex-col">
+                    <h3 className="text-[19px] font-semibold text-foreground mb-1 line-clamp-1" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
                       {name}
                     </h3>
                     
