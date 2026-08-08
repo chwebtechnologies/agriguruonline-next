@@ -1,6 +1,7 @@
 import { getDictionary } from './dictionaries'
 import { lang } from 'next/root-params'
 import Script from 'next/script'
+import type { Metadata } from 'next'
 
 // SEO Organization schema component helper
 function OrganizationSchema() {
@@ -20,6 +21,49 @@ function OrganizationSchema() {
       dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
     />
   )
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const activeLang = await lang()
+  const rawDict = await getDictionary()
+  const title = rawDict?.home?.title || "Welcome to AgriGuru Online"
+  const description = "The premium B2B SaaS platform for global agricultural trade."
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `https://agriguru.online/${activeLang}`,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: 'https://agriguru.online/logo.png',
+          width: 800,
+          height: 600,
+          alt: 'AgriGuru Online Logo',
+        },
+      ],
+      locale: activeLang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['https://agriguru.online/logo.png'],
+    },
+    alternates: {
+      canonical: `https://agriguru.online/${activeLang}`,
+      languages: {
+        'en': 'https://agriguru.online/en',
+        'ar': 'https://agriguru.online/ar',
+        'fr': 'https://agriguru.online/fr',
+        'zh': 'https://agriguru.online/zh',
+      },
+    },
+  }
 }
 
 export default async function LocalizedHomePage() {

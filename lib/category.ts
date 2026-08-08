@@ -9,6 +9,7 @@ export interface Category {
   slug: string
   translations: CategoryTranslation[]
   is_active?: boolean
+  image?: string
 }
 
 export interface CacheConfig {

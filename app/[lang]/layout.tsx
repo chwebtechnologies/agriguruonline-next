@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { lang } from 'next/root-params'
 import ThemeInitializer from '@/components/ui/ThemeInitializer'
@@ -20,8 +20,19 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://agriguru.online'),
   title: 'AgriGuru Online',
   description: 'The future-oriented SaaS platform built on Next.js 16',
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fafafa' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+  ],
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
 }
 
 export default async function LocalizedRootLayout({
@@ -39,6 +50,10 @@ export default async function LocalizedRootLayout({
     >
       <head>
         <ThemeInitializer />
+        <link rel="preconnect" href="https://assets.agriguruonline.com" />
+        <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
+        <link rel="preconnect" href="https://trading-api.agriguruonline.com" />
+        <link rel="dns-prefetch" href="https://trading-api.agriguruonline.com" />
         <link
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
