@@ -58,16 +58,21 @@ export function AgriGuruLogo({ size = 42 }: { size?: number }) {
   )
 }
 
-export function HeaderGuest({
+interface HeaderGuestBaseProps extends HeaderGuestProps {
+  pathname: string;
+}
+
+export function HeaderGuestBase({
   dict: rawDict,
   activeLang = 'en',
   categories: apiCategories = [],
   loading = false,
-}: HeaderGuestProps) {
+  pathname,
+}: HeaderGuestBaseProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
 
-  const pathname = usePathname() || '/'
+
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
   const isAboutActive = pathname === `/${activeLang}/about` || pathname === `/about`
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
@@ -394,3 +399,13 @@ export function HeaderGuest({
     </div>
   )
 }
+
+export function HeaderGuest(props: HeaderGuestProps) {
+  const pathname = usePathname() || '/'
+  return <HeaderGuestBase {...props} pathname={pathname} />
+}
+
+export function HeaderGuestSkeleton(props: Omit<HeaderGuestProps, 'loading'>) {
+  return <HeaderGuestBase {...props} pathname="/" loading={true} />
+}
+

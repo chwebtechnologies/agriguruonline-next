@@ -1,6 +1,7 @@
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import FooterClient from './FooterClient'
+import { Suspense } from 'react'
 
 export default async function Footer() {
   const activeLang = (await lang()) || 'en'
@@ -33,5 +34,9 @@ export default async function Footer() {
     navigation: rawDict?.navigation || {}
   }
 
-  return <FooterClient dict={dict} activeLang={activeLang} />
+  return (
+    <Suspense fallback={null}>
+      <FooterClient dict={dict} activeLang={activeLang} />
+    </Suspense>
+  )
 }

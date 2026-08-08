@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { lang } from 'next/root-params'
 import ThemeInitializer from '@/components/ui/ThemeInitializer'
 import Header from '@/components/layout/Header'
-import { HeaderGuest } from '@/components/layout/HeaderGuest'
+import { HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
 import Footer from '@/components/layout/Footer'
 import AnnouncementBar from '@/components/layout/AnnouncementBar'
 import { Suspense } from 'react'
@@ -52,7 +52,7 @@ export default async function LocalizedRootLayout({
           <AnnouncementBar />
         </Suspense>
 
-        <Suspense fallback={<HeaderGuest loading={true} />}>
+        <Suspense fallback={<HeaderGuestSkeleton />}>
           <Header />
         </Suspense>
         
