@@ -329,4 +329,22 @@ body {
   background: var(--ag-gradient-primary) !important;
 }
 
+/* Custom padding to prevent Membership badges from overlapping content on specific tight screen widths */
+.pad-for-badges {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
 
+@media (min-width: 1024px) {
+  .pad-for-badges {
+    padding-left: max(1rem, 40px - max(0px, calc((100vw - 1280px) / 2)));
+    padding-right: max(1rem, 40px - max(0px, calc((100vw - 1280px) / 2)));
+  }
+}
+
+@media (min-width: 1280px) {
+  .pad-for-badges {
+    padding-left: max(1rem, 48px - max(0px, calc((100vw - 1280px) / 2)));
+    padding-right: max(1rem, 48px - max(0px, calc((100vw - 1280px) / 2)));
+  }
+}

@@ -88,8 +88,8 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
       {/* Main Content */}
-      <div className="w-full px-4 lg:px-12 xl:px-14 2xl:px-4">
-        <div className="max-w-7xl mx-auto py-8">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-8">
         <PageHeader title={categoryName + " (All Country Origins)"} />
 
         {data.sub_categories && data.sub_categories.length > 0 ? (
