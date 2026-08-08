@@ -65,6 +65,11 @@
   "common": {
     "back": "Back",
     "all_country_origins": "All Country Origins",
-    "explore": "Explore"
+    "explore": "Explore",
+    "add_product": "Add Product",
+    "buy": "Buy",
+    "sell": "Sell",
+    "view_details": "View Details",
+    "product_list": "Product List"
   }
 }

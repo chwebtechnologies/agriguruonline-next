@@ -39,7 +39,22 @@ interface MobileMenuProps {
   categories?: Array<{ name: string; href: string }>
 }
 
-export default function MobileMenu({ dict, activeLang, label, showLabel = false, categories: apiCategories }: MobileMenuProps) {
+import { Suspense } from 'react'
+
+export default function MobileMenu(props: MobileMenuProps) {
+  return (
+    <Suspense fallback={
+      <button className="flex flex-col items-center justify-center p-2 text-ag-menu-text">
+        <i className="fa-solid fa-bars text-xl mb-1"></i>
+        {props.showLabel && <span className="text-[10px] leading-tight font-medium">{props.label}</span>}
+      </button>
+    }>
+      <MobileMenuContent {...props} />
+    </Suspense>
+  )
+}
+
+function MobileMenuContent({ dict, activeLang, label, showLabel = false, categories: apiCategories }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
 

@@ -65,6 +65,11 @@
   "common": {
     "back": "رجوع",
     "all_country_origins": "جميع دول المنشأ",
-    "explore": "استكشف"
+    "explore": "استكشف",
+    "add_product": "إضافة منتج",
+    "buy": "شراء",
+    "sell": "بيع",
+    "view_details": "عرض التفاصيل",
+    "product_list": "قائمة المنتجات"
   }
 }

@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
+import ProductLink from '@/components/ui/ProductLink'
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
+import { cache } from 'react'
 
 interface SubCategory {
   id: string
@@ -31,7 +33,7 @@ interface CategoryData {
   }
 }
 
-async function getSubCategories(slug: string, lang: string): Promise<CategoryData | null> {
+const getSubCategories = cache(async (slug: string, lang: string): Promise<CategoryData | null> => {
   const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
   const url = `${tradingApiUrl}/sub-category/for-category/web/${slug}?lang_code=${lang}&source=web`
 
@@ -53,7 +55,7 @@ async function getSubCategories(slug: string, lang: string): Promise<CategoryDat
     console.error('Failed to fetch sub-categories:', error)
     return null
   }
-}
+})
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -62,22 +64,17 @@ export async function generateMetadata(
   const lang = params.lang || 'en'
   const slug = params.slug
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.com'
-  const categoriesList = await getCategories(lang, { apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`, stale: 3600, revalidate: 3600, expire: 3600 })
-  const exactCategory = categoriesList.find(c => c.slug === slug)
-  
-  const categoryName = exactCategory ? exactCategory.name : 'Category'
+  // Instantly format slug instead of awaiting the slow API call
+  // Example: 'rice' -> 'Rice'
+  const categoryName = slug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+    
   const title = `${categoryName} - AgriGuru Online`
   const description = `Explore ${categoryName} and related sub-categories on AgriGuru Online.`
 
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com'
-  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  
   let imageUrl = 'https://agriguru.online/logo.png'
-  
-  if (exactCategory && exactCategory.image) {
-    imageUrl = exactCategory.image.startsWith('http') ? exactCategory.image : `${imageBaseUrl}${exactCategory.image}`
-  }
 
   return {
     title,
@@ -117,8 +114,10 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   const lang = params.lang || 'en'
   const slug = params.slug
 
-  const data = await getSubCategories(slug, lang)
-  const dict = await getDictionary(lang)
+  const [data, dict] = await Promise.all([
+    getSubCategories(slug, lang),
+    getDictionary(lang)
+  ])
   const commonDict = (dict as Record<string, any>).common || {}
   const common = {
     back: commonDict.back || "Back",
@@ -170,32 +169,32 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                   key={subCat.id} 
                   className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm"
                 >
-                  <Link href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-background overflow-hidden border-b border-ag-header-border block">
+                  <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-background overflow-hidden border-b border-ag-header-border block">
                     <ImageWithSkeleton
                       src={imageUrl}
                       alt={name}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                      priority={index < 4}
+                      priority={index < 10}
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                  </Link>
+                  </ProductLink>
                   
                   <div className="px-2 sm:px-3 py-2 sm:py-2.5 flex flex-col">
                     <h3 className="text-[16px] sm:text-[19px] font-semibold text-foreground mb-0 sm:mb-1 line-clamp-1" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-                      <Link href={`/${lang}/category/${slug}/${subCat.slug}`} className="hover:text-brand-blue transition-colors">
+                      <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="hover:text-brand-blue transition-colors">
                         {name}
-                      </Link>
+                      </ProductLink>
                     </h3>
                     
                     <div className="flex items-center justify-between mt-0 sm:mt-0">
-                      <Link 
+                      <ProductLink 
                         href={`/${lang}/category/${slug}/${subCat.slug}`}
                         className="text-[11px] sm:text-[13px] uppercase tracking-wide font-bold text-brand-blue hover:text-[#1080d0] transition-colors flex items-center gap-1 sm:gap-1.5 group/link"
                       >
                         {common.explore}
                         <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
-                      </Link>
+                      </ProductLink>
                       
                       <ShareButton 
                         title={name} 
