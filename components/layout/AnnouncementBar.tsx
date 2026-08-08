@@ -21,7 +21,8 @@ export default async function AnnouncementBar() {
   // Fetch announcements from dynamic CMS endpoint
   let announcements = []
   try {
-    const res = await fetch(`https://cms-api.agriguruonline.cloud/marketingheaders/?page=1&limit=25&is_active=1&source=web&lang_code=${activeLang}`, {
+    const cmsApiUrl = process.env.NEXT_PUBLIC_CMS_API_URL || "https://cms-api.agriguruonline.cloud";
+    const res = await fetch(`${cmsApiUrl}/marketingheaders/?page=1&limit=25&is_active=1&source=web&lang_code=${activeLang}`, {
       next: { revalidate: 300 } // cache on edge server for 5 minutes
     })
     

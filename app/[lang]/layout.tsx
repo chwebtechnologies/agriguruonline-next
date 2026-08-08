@@ -7,6 +7,7 @@ import { HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
 import Footer from '@/components/layout/Footer'
 import AnnouncementBar from '@/components/layout/AnnouncementBar'
 import { Suspense } from 'react'
+import { Toaster } from 'sonner'
 import '../globals.css'
 
 const geistSans = Geist({
@@ -77,6 +78,7 @@ export default async function LocalizedRootLayout({
         </main>
         
         <Footer />
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   )

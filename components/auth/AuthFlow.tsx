@@ -6,6 +6,8 @@ import OtpStep from "./OtpStep";
 import RegisterStep from "./RegisterStep";
 import { useRouter } from "next/navigation";
 
+import { PageHeader } from "@/components/ui/PageHeader";
+
 type AuthStep = "EMAIL" | "OTP" | "REGISTER";
 
 interface AuthFlowProps {
@@ -22,17 +24,11 @@ export default function AuthFlow({ lang }: AuthFlowProps) {
     setStep("OTP");
   };
 
-  const handleOtpVerify = (otp: string) => {
-    // Here you would typically verify the OTP via your API
-    console.log("Verifying OTP:", otp, "for email:", email);
-    
-    // For demonstration, let's pretend if the email contains "new", they go to register
-    // Otherwise they are considered "logged in" and we redirect to profile/home
-    if (email.includes("new")) {
+  const handleOtpVerify = (otp: string, nextStep: string | null) => {
+    if (nextStep === "REQUIRE_REGISTRATION") {
       setStep("REGISTER");
     } else {
-      // Simulate successful login
-      router.push(`/${lang}/profile`); // Or wherever you want them to go
+      router.push(`/${lang}/profile`);
     }
   };
 
@@ -41,8 +37,16 @@ export default function AuthFlow({ lang }: AuthFlowProps) {
     router.push(`/${lang}/profile`);
   };
 
+  const getTitle = () => {
+    if (step === "EMAIL") return "Sign In / Register";
+    if (step === "OTP") return "OTP Verification";
+    return "Register";
+  };
+
   return (
-    <div className="w-full flex justify-center px-4 sm:px-0">
+    <>
+      <PageHeader title={getTitle()} backText="Back" hideBack={step === "REGISTER"} />
+      <div className="w-full flex justify-center px-4 sm:px-0">
       {step === "EMAIL" && (
         <EmailStep onNext={handleEmailNext} lang={lang} />
       )}
@@ -62,5 +66,6 @@ export default function AuthFlow({ lang }: AuthFlowProps) {
         />
       )}
     </div>
+    </>
   );
 }

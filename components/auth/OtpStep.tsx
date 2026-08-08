@@ -1,17 +1,60 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
+import { toast } from "sonner";
+import { createSession } from "@/app/actions/auth";
 
 interface OtpStepProps {
   email: string;
   onBack: () => void;
-  onVerify: (otp: string) => void;
+  onVerify: (otp: string, nextStep: string | null) => void;
   lang: string;
 }
 
 export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [isPending, startTransition] = useTransition();
+
+  const handleVerify = (otpString: string) => {
+    startTransition(async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
+        const response = await fetch(`${apiUrl}/auth/verify-otp?lang_code=${lang}&source=web`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, otp: otpString, source: "WEB" }),
+        });
+
+        if (!response.ok) {
+          let errorMessage = "Failed to verify OTP. Please try again.";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (e) {}
+          toast.error(errorMessage);
+          return;
+        }
+
+        let nextStep = null;
+        try {
+          const successData = await response.json();
+          nextStep = successData?.data?.next_step || null;
+
+          if (nextStep === "LOGGED_IN" && successData.data?.access_token) {
+            await createSession(successData.data.access_token, successData.data.user);
+          }
+        } catch (e) {}
+
+        toast.success("OTP verified successfully!");
+        onVerify(otpString, nextStep);
+      } catch (err) {
+        toast.error("Something went wrong verifying the OTP.");
+      }
+    });
+  };
 
   useEffect(() => {
     // Focus first input on mount
@@ -36,7 +79,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
 
     // Trigger verify if all filled
     if (value && index === 5 && newOtp.every((digit) => digit !== "")) {
-      onVerify(newOtp.join(""));
+      handleVerify(newOtp.join(""));
     }
   };
 
@@ -50,7 +93,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (otp.every((digit) => digit !== "")) {
-      onVerify(otp.join(""));
+      handleVerify(otp.join(""));
     }
   };
 
@@ -75,18 +118,22 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
               inputMode="numeric"
               maxLength={1}
               value={digit}
+              disabled={isPending}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
-              className="w-12 h-14 text-center text-xl font-bold rounded-lg border border-foreground/20 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/50 transition-all"
+              className="w-12 h-14 text-center text-xl font-bold rounded-lg border border-foreground/20 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/50 transition-all disabled:opacity-50"
             />
           ))}
         </div>
         
         <button
           type="submit"
-          disabled={!otp.every((digit) => digit !== "")}
-          className="w-full py-3 px-4 bg-foreground text-background rounded-lg font-medium transition-transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 mb-4"
+          disabled={!otp.every((digit) => digit !== "") || isPending}
+          className="w-full flex items-center justify-center py-3 px-4 bg-foreground text-background rounded-lg font-medium transition-transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed mb-4"
         >
+          {isPending ? (
+            <i className="fa-solid fa-spinner fa-spin mr-2"></i>
+          ) : null}
           Verify
         </button>
 

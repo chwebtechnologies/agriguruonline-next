@@ -1,0 +1,31 @@
+.custom-phone-wrapper .PhoneInput {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.custom-phone-wrapper .PhoneInputCountry {
+  margin-right: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.custom-phone-wrapper .PhoneInputCountrySelectArrow {
+  opacity: 0.5;
+  color: var(--color-foreground);
+}
+
+.custom-phone-wrapper .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+
+.custom-phone-wrapper .PhoneInputInput:focus {
+  outline: none;
+}

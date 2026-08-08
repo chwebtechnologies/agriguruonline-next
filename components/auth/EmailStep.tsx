@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { validateEmailDomain } from "@/app/actions/auth";
+import { toast } from "sonner";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,13 +54,40 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
         const { isValid, error: serverError } = await validateEmailDomain(trimmedEmail);
         
         if (!isValid) {
-          setError(serverError || "Invalid email.");
+          const errMsg = serverError || "Invalid email.";
+          setError(errMsg);
+          toast.error(errMsg);
           return;
         }
         
+        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
+        const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: trimmedEmail }),
+        });
+
+        if (!response.ok) {
+          let errorMessage = "Failed to send OTP. Please try again.";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (e) {
+            // keep default error
+          }
+          setError(errorMessage);
+          toast.error(errorMessage);
+          return;
+        }
+        
+        toast.success("OTP sent successfully!");
         onNext(trimmedEmail);
       } catch (err) {
-        setError("Something went wrong verifying the email.");
+        const errMsg = "Something went wrong verifying the email.";
+        setError(errMsg);
+        toast.error(errMsg);
       }
     });
   };
