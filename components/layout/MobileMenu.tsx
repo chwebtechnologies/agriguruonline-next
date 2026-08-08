@@ -59,7 +59,7 @@ export default function MobileMenu({ dict, activeLang, label, showLabel = false,
       {/* Hamburger Trigger Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 rounded transition-colors"
+        className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors"
         aria-label="Open Menu"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
