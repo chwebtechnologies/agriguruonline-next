@@ -6,3 +6,9 @@
 - **Consistent Layout**: ANY new page's layout MUST perfectly match the start and end of the header layout used in `app/[lang]/category/[slug]/page.tsx`. Do not use arbitrary wrappers like `max-w-[1200px]` if the parent uses `max-w-7xl mx-auto pt-3 pb-5`.
 - **Immediate Skeletons**: Every async page MUST have a corresponding `loading.tsx` that displays immediately (no wait time). The skeleton layout must structurally match the final page exactly (same wrappers, same grid) to prevent layout shifts.
 </RULE[AGENTS.md]>
+
+<RULE[AGENTS.md]>
+# UI and Styling Rules
+- **Icons**: ALWAYS use Font Awesome for standard icons (like Google, Apple, social icons, etc.) instead of pasting raw SVGs. Use the `fa-brands`, `fa-solid`, etc. classes properly (e.g. `<i className="fa-brands fa-apple"></i>`).
+- **Spacing**: Do NOT use excessive vertical spacing or arbitrary padding (like `py-12`, `min-h-screen`, large empty gaps) unless specifically asked. Stick to the spacing matching the category pages (e.g. `pt-3 pb-5`, `px-2 sm:px-0`) for consistency and avoid adding card containers if the page should flow seamlessly.
+</RULE[AGENTS.md]>
