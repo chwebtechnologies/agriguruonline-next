@@ -74,6 +74,10 @@
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
   
+  /* Custom Backgrounds as requested */
+  --ag-bg-main: #ffffff;
+  --ag-bg-alt: #eaeaea;
+  
   --background: var(--raw-white);
   --foreground: var(--raw-slate-900);
 }
@@ -122,6 +126,10 @@
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
   
+  /* Custom Backgrounds as requested */
+  --ag-bg-main: #ffffff;
+  --ag-bg-alt: #eaeaea;
+  
   --background: var(--raw-white);
   --foreground: var(--raw-slate-900);
 }
@@ -169,6 +177,10 @@
   --ag-accent-cyan: var(--raw-sky-400);
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
+  
+  /* Custom Backgrounds as requested */
+  --ag-bg-main: #211f1f;
+  --ag-bg-alt: #000000;
   
   --background: var(--raw-zinc-950);
   --foreground: var(--raw-slate-200);
@@ -225,6 +237,9 @@
   --color-ag-footer-text: var(--ag-footer-text);
   
   --color-ag-accent-cyan: var(--ag-accent-cyan);
+  
+  --color-ag-bg-main: var(--ag-bg-main);
+  --color-ag-bg-alt: var(--ag-bg-alt);
   
   --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -350,4 +365,17 @@ body {
     padding-left: max(1rem, 48px - max(0px, calc((100vw - 1280px) / 2)));
     padding-right: max(1rem, 48px - max(0px, calc((100vw - 1280px) / 2)));
   }
+}
+
+/* Premium Membership Plan Gradients */
+.bg-plan-silver {
+  background: linear-gradient(269.31deg, rgb(93, 93, 93) 0.52%, rgb(0, 0, 0) 48.98%, rgb(97, 97, 97) 99.34%);
+}
+
+.bg-plan-gold {
+  background: linear-gradient(269.31deg, rgb(178, 129, 19) 0.52%, rgb(0, 0, 0) 48.98%, rgb(186, 136, 21) 99.34%);
+}
+
+.bg-plan-platinum {
+  background: linear-gradient(269.31deg, rgb(0, 172, 120) 0.52%, rgb(0, 0, 0) 48.98%, rgb(0, 51, 83) 99.34%);
 }
