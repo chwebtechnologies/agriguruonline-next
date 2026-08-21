@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { toast } from "sonner";
 import "@/components/auth/phone-input.css"; 
+import SearchableCountrySelect from "@/components/ui/SearchableCountrySelect"; 
+import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput"; 
 
 const CATEGORIES = [
   "Agriculture", "Technology", "Trading", "Logistics", "Finance", "Manufacturing", "Retail",
@@ -33,10 +35,6 @@ export default function ProfileForm() {
   const [categorySearch, setCategorySearch] = useState("");
   const categoryRef = useRef<HTMLDivElement>(null);
 
-  const [isCountryOpen, setIsCountryOpen] = useState(false);
-  const [countrySearch, setCountrySearch] = useState("");
-  const countryRef = useRef<HTMLDivElement>(null);
-
   const [businessAddress, setBusinessAddress] = useState("");
   const [altNumber, setAltNumber] = useState("");
   const [altEmail, setAltEmail] = useState("");
@@ -50,9 +48,6 @@ export default function ProfileForm() {
       if (categoryRef.current && !categoryRef.current.contains(event.target as Node)) {
         setIsCategoryOpen(false);
       }
-      if (countryRef.current && !countryRef.current.contains(event.target as Node)) {
-        setIsCountryOpen(false);
-      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -65,8 +60,6 @@ export default function ProfileForm() {
   };
 
   const filteredCategories = CATEGORIES.filter(c => c.toLowerCase().includes(categorySearch.toLowerCase()));
-  const filteredCountries = COUNTRIES.filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()));
-  const selectedCountryName = COUNTRIES.find(c => c.code === country)?.name || "Select Country";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,7 +105,7 @@ export default function ProfileForm() {
                     type="text" 
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium"
+                    className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm text-foreground"
                   />
                 </div>
               </div>
@@ -127,22 +120,18 @@ export default function ProfileForm() {
                     type="email" 
                     value={email}
                     readOnly
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-foreground/5 border border-foreground/10 rounded-xl text-foreground/70 cursor-not-allowed focus:outline-none font-medium"
+                    className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/5 border border-foreground/10 rounded-xl text-foreground/70 cursor-not-allowed focus:outline-none font-medium text-sm"
                   />
                 </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-semibold text-foreground/90 pl-0.5">Mobile Number <span className="text-red-500">*</span></label>
-                <div className="phone-input-wrapper-standard relative">
-                  <PhoneInput
-                    international
-                    defaultCountry="AE"
-                    value={phone}
-                    onChange={(val) => setPhone(val || "")}
-                    className="w-full px-3.5 py-2.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus-within:bg-background focus-within:ring-2 focus-within:ring-[#0c5a53]/50 focus-within:border-[#0c5a53] transition-all [&_input]:bg-transparent [&_input]:outline-none font-medium"
-                  />
-                </div>
+                <SearchablePhoneInput
+                  defaultCountry="AE"
+                  value={phone}
+                  onChange={(val) => setPhone(val || "")}
+                />
               </div>
               </div>
             </div>
@@ -181,7 +170,7 @@ export default function ProfileForm() {
                   type="text" 
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium"
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm text-foreground"
                 />
               </div>
             </div>
@@ -196,60 +185,28 @@ export default function ProfileForm() {
                   type="text" 
                   value={userType}
                   readOnly
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-foreground/5 border border-foreground/10 rounded-xl text-foreground/70 cursor-not-allowed focus:outline-none font-medium"
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/5 border border-foreground/10 rounded-xl text-foreground/70 cursor-not-allowed focus:outline-none font-medium text-sm"
                 />
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5 relative" ref={countryRef}>
+            <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-foreground/90 pl-0.5">Country <span className="text-red-500">*</span></label>
-              <div 
-                onClick={() => setIsCountryOpen(!isCountryOpen)}
-                className="w-full px-3.5 py-2.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium"
-                tabIndex={0}
-              >
-                <div className="flex items-center gap-2">
-                  <i className="fa-solid fa-globe text-foreground/30 text-sm"></i>
-                  <span className={country ? "text-foreground" : "text-foreground/40"}>{selectedCountryName}</span>
-                </div>
-                <i className="fa-solid fa-chevron-down text-xs text-foreground/40"></i>
-              </div>
-              
-              {isCountryOpen && (
-                <div className="absolute top-full mt-1 left-0 w-full bg-background border border-foreground/10 rounded-xl shadow-xl z-20 max-h-60 flex flex-col animate-in fade-in zoom-in-95 duration-100">
-                  <div className="p-2 border-b border-foreground/5 shrink-0">
-                    <input 
-                      type="text" 
-                      placeholder="Search country..." 
-                      value={countrySearch}
-                      onChange={(e) => setCountrySearch(e.target.value)}
-                      className="w-full px-3 py-2 bg-foreground/5 border border-transparent rounded-lg text-sm focus:outline-none focus:border-[#0c5a53]/30 focus:bg-background transition-colors"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                  <div className="overflow-y-auto p-1.5 custom-scrollbar">
-                    {filteredCountries.map(c => (
-                      <div 
-                        key={c.code} 
-                        onClick={() => {setCountry(c.code); setIsCountryOpen(false); setCountrySearch("");}}
-                        className={`px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-foreground/5 transition-colors ${country === c.code ? 'bg-[#0c5a53]/10 text-[#0c5a53] font-semibold' : ''}`}
-                      >
-                        {c.name}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <SearchableCountrySelect
+                value={country}
+                onChange={(val) => setCountry(val || "AE")}
+                showDialCode={false}
+              />
             </div>
 
             <div className="flex flex-col gap-1.5 relative md:col-span-2" ref={categoryRef}>
               <label className="text-sm font-semibold text-foreground/90 pl-0.5">Categories <span className="text-red-500">*</span></label>
               <div 
                 onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                className="w-full px-3.5 py-2.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium"
+                className="w-full px-3.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm"
                 tabIndex={0}
               >
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 py-1.5">
                   {selectedCategories.length > 0 ? (
                     selectedCategories.map(cat => (
                       <span key={cat} className="px-2.5 py-1 bg-[#0c5a53]/10 text-[#0c5a53] border border-[#0c5a53]/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
@@ -303,12 +260,12 @@ export default function ProfileForm() {
             <div className="flex flex-col gap-1.5 md:col-span-2">
               <label className="text-sm font-semibold text-foreground/90 pl-0.5">Business Address</label>
               <div className="relative">
-                <i className="fa-solid fa-location-dot absolute left-3.5 top-3.5 text-foreground/30"></i>
-                <textarea 
+                <i className="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
+                <input 
+                  type="text"
                   value={businessAddress}
                   onChange={(e) => setBusinessAddress(e.target.value)}
-                  rows={2}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all resize-none font-medium"
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm text-foreground"
                   placeholder="Building, Street, City"
                 />
               </div>
@@ -316,16 +273,11 @@ export default function ProfileForm() {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-foreground/90 pl-0.5">Alternate Number</label>
-              <div className="relative">
-                <i className="fa-solid fa-phone absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
-                <input 
-                  type="tel" 
-                  value={altNumber}
-                  onChange={(e) => setAltNumber(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium"
-                  placeholder="+1 234 567 8900"
-                />
-              </div>
+              <SearchablePhoneInput
+                defaultCountry="AE"
+                value={altNumber}
+                onChange={(val) => setAltNumber(val || "")}
+              />
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -336,7 +288,7 @@ export default function ProfileForm() {
                   type="url" 
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium"
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm text-foreground"
                   placeholder="https://www.example.com"
                 />
               </div>

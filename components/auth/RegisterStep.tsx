@@ -5,7 +5,7 @@ import PhoneInput, { isValidPhoneNumber, parsePhoneNumber, type Country } from "
 import "react-phone-number-input/style.css";
 import { toast } from "sonner";
 import { createSession } from "@/app/actions/auth";
-import "./phone-input.css"; // We will create this
+import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput";
 
 interface RegisterStepProps {
   email: string;
@@ -140,16 +140,10 @@ export default function RegisterStep({ email, onComplete, lang }: RegisterStepPr
             Mobile Number
           </label>
           <div className="custom-phone-wrapper">
-            <PhoneInput
-              international
+            <SearchablePhoneInput
               defaultCountry={country}
               value={phone}
               onChange={(val) => setPhone(val || "")}
-              className={`w-full px-4 py-3 rounded-lg border bg-background text-foreground focus-within:ring-2 transition-colors ${
-                phoneError
-                  ? "border-red-500 focus-within:ring-red-500/50"
-                  : "border-foreground/20 focus-within:ring-foreground/50"
-              }`}
             />
             {phoneError && (
               <p className="text-red-500 text-sm mt-1.5 font-medium animate-in fade-in slide-in-from-top-1">
