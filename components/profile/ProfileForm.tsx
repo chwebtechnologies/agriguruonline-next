@@ -84,7 +84,7 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2 lg:gap-6">
         
-      {/* Personal Details Group */}
+      {/* Basic Details Group */}
       <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
         <div onClick={() => setIsPersonalOpen(!isPersonalOpen)} className="px-4 py-2 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
             <div className="flex items-center gap-2.5 sm:gap-3">
@@ -92,7 +92,7 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
                 <i className="fa-regular fa-user text-[11px] sm:text-sm"></i>
               </div>
               <h3 className="text-[15px] sm:text-lg font-bold text-foreground">
-                Personal Details
+                Basic Details
               </h3>
             </div>
             <i className={`fa-solid fa-chevron-down lg:!hidden transition-transform duration-300 text-foreground/50 ${isPersonalOpen ? 'rotate-180' : ''}`}></i>
@@ -139,6 +139,29 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
                   onChange={(val) => setPhone(val || "")}
                 />
               </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-foreground/90 pl-0.5">Alternate Number <span className="text-foreground/40 font-normal text-xs">(Optional)</span></label>
+                <SearchablePhoneInput
+                  defaultCountry="AE"
+                  value={altNumber}
+                  onChange={(val) => setAltNumber(val || "")}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-foreground/90 pl-0.5">Alternate Email <span className="text-foreground/40 font-normal text-xs">(Optional)</span></label>
+                <div className="relative">
+                  <i className="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
+                  <input 
+                    type="email" 
+                    value={altEmail}
+                    onChange={(e) => setAltEmail(e.target.value)}
+                    className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
+                    placeholder="alternate@example.com"
+                  />
+                </div>
+              </div>
               </div>
             </div>
             
@@ -159,7 +182,7 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
                 <i className="fa-solid fa-briefcase text-[11px] sm:text-sm"></i>
               </div>
               <h3 className="text-[15px] sm:text-lg font-bold text-foreground">
-                Business Profile
+                Business Details
               </h3>
             </div>
             <i className={`fa-solid fa-chevron-down lg:!hidden transition-transform duration-300 text-foreground/50 ${isBusinessOpen ? 'rotate-180' : ''}`}></i>
@@ -177,21 +200,6 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
-                />
-              </div>
-            </div>
-            
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5 flex justify-between">
-                User Type <span className="text-[10px] uppercase tracking-wider text-foreground/40 bg-foreground/5 px-2 py-0.5 rounded-md font-bold">Read-only</span>
-              </label>
-              <div className="relative opacity-70">
-                <i className="fa-solid fa-user-tag absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/40"></i>
-                <input 
-                  type="text" 
-                  value={userType}
-                  readOnly
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/5 border border-foreground/10 rounded-xl text-foreground/70 cursor-not-allowed focus:outline-none font-medium text-sm"
                 />
               </div>
             </div>
@@ -278,16 +286,22 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Alternate Number</label>
-              <SearchablePhoneInput
-                defaultCountry="AE"
-                value={altNumber}
-                onChange={(val) => setAltNumber(val || "")}
-              />
+              <label className="text-sm font-semibold text-foreground/90 pl-0.5 flex justify-between">
+                User Type <span className="text-[10px] uppercase tracking-wider text-foreground/40 bg-foreground/5 px-2 py-0.5 rounded-md font-bold">Read-only</span>
+              </label>
+              <div className="relative opacity-70">
+                <i className="fa-solid fa-user-tag absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/40"></i>
+                <input 
+                  type="text" 
+                  value={userType}
+                  readOnly
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/5 border border-foreground/10 rounded-xl text-foreground/70 cursor-not-allowed focus:outline-none font-medium text-sm"
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Website</label>
+              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Website <span className="text-foreground/40 font-normal text-xs">(Optional)</span></label>
               <div className="relative">
                 <i className="fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
                 <input 
