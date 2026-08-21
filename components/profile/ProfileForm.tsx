@@ -5,7 +5,6 @@ import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { toast } from "sonner";
 import "@/components/auth/phone-input.css"; 
-import ProfilePictureUpload from '@/components/profile/ProfilePictureUpload';
 
 const CATEGORIES = [
   "Agriculture", "Technology", "Trading", "Logistics", "Finance", "Manufacturing", "Retail",
@@ -84,16 +83,16 @@ export default function ProfileForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 lg:gap-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2 lg:gap-6">
         
       {/* Personal Details Group */}
-      <div className="group bg-background border border-foreground/10 rounded-2xl shadow-sm flex flex-col">
-        <div onClick={() => setIsPersonalOpen(!isPersonalOpen)} className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-2xl lg:rounded-b-none transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-[#0c5a53]/10 text-[#0c5a53] flex items-center justify-center">
-                <i className="fa-regular fa-user text-sm"></i>
+      <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
+        <div onClick={() => setIsPersonalOpen(!isPersonalOpen)} className="px-4 py-2 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
+                <i className="fa-regular fa-user text-[11px] sm:text-sm"></i>
               </div>
-              <h3 className="text-lg font-bold text-foreground">
+              <h3 className="text-[15px] sm:text-lg font-bold text-foreground">
                 Personal Details
               </h3>
             </div>
@@ -103,11 +102,6 @@ export default function ProfileForm() {
           <div className={`${isPersonalOpen ? 'block' : 'hidden'} lg:!block p-5 sm:p-6 animate-in slide-in-from-top-2 duration-300`}>
           
           <div className="flex flex-col sm:flex-row gap-6 lg:gap-8 items-start">
-            {/* Profile Picture Column */}
-            <div className="shrink-0 w-full sm:w-auto flex flex-col items-center">
-              <ProfilePictureUpload />
-            </div>
-
             {/* Form Fields Column */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 w-full">
               <div className="flex flex-col gap-1.5 md:col-span-2">
@@ -163,13 +157,13 @@ export default function ProfileForm() {
       </div>
 
       {/* Business Details Group */}
-      <div className="group bg-background border border-foreground/10 rounded-2xl shadow-sm flex flex-col">
-        <div onClick={() => setIsBusinessOpen(!isBusinessOpen)} className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-2xl lg:rounded-b-none transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-                <i className="fa-solid fa-briefcase text-sm"></i>
+      <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
+        <div onClick={() => setIsBusinessOpen(!isBusinessOpen)} className="px-4 py-2 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
+                <i className="fa-solid fa-briefcase text-[11px] sm:text-sm"></i>
               </div>
-              <h3 className="text-lg font-bold text-foreground">
+              <h3 className="text-[15px] sm:text-lg font-bold text-foreground">
                 Business Profile
               </h3>
             </div>

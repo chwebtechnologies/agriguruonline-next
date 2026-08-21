@@ -50,28 +50,34 @@ export default function ProfilePictureUpload() {
   }, [imageSrc, croppedAreaPixels]);
 
   return (
-    <div className="flex flex-col items-center gap-3 shrink-0">
+    <div className="flex flex-col items-center gap-1.5 shrink-0 z-20">
       <div 
-        className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border border-foreground/10 overflow-hidden bg-foreground/[0.03] group cursor-pointer"
-        onClick={() => fileInputRef.current?.click()}
+        className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white/60 overflow-hidden bg-white/10 group cursor-pointer shadow-xl backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
+        onClick={(e) => {
+          e.stopPropagation();
+          fileInputRef.current?.click();
+        }}
       >
         {croppedImage ? (
           <img src={croppedImage} alt="Profile" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-foreground/20 text-4xl">
+          <div className="w-full h-full flex items-center justify-center text-white/70 text-2xl">
             <i className="fa-solid fa-user"></i>
           </div>
         )}
         
         {/* Simple clean overlay */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-          <i className="fa-solid fa-camera text-white text-xl"></i>
+          <i className="fa-solid fa-camera text-white text-sm"></i>
         </div>
       </div>
       
       <button 
-        onClick={() => fileInputRef.current?.click()}
-        className="text-xs font-semibold text-[#0c5a53] hover:text-[#0a4b45] hover:underline"
+        onClick={(e) => {
+          e.stopPropagation();
+          fileInputRef.current?.click();
+        }}
+        className="text-[10px] font-bold text-white/70 hover:text-white transition-colors uppercase tracking-wider drop-shadow-sm"
       >
         Change Photo
       </button>
@@ -102,7 +108,7 @@ export default function ProfilePictureUpload() {
                   crop={crop}
                   zoom={zoom}
                   aspect={1}
-                  cropShape="rect"
+                  cropShape="round"
                   showGrid={true}
                   onCropChange={setCrop}
                   onCropComplete={onCropComplete}

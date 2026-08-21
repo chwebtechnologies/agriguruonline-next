@@ -21,7 +21,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   const isKycVerified = false; 
 
   return (
-    <div className="bg-background text-foreground min-h-[calc(100vh-4rem)]">
+    <div className="bg-background text-foreground transition-theme">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5 px-2 sm:px-0">
           <PageHeader title={(common as any).profile || 'My Profile'} backText={common.back || 'Back'} />
@@ -48,21 +48,21 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
             )}
 
             {/* Mobile-only Membership Card (Shows above the form on smaller screens) */}
-            <div className="block lg:hidden mb-6">
+            <div className="block lg:hidden mb-3">
               <MembershipCard />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
               
               {/* Left Column (Main Content) */}
-              <div className="lg:col-span-8 flex flex-col gap-3 lg:gap-6">
+              <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
                 
                 {/* Main Form */}
                 <ProfileForm />
               </div>
 
               {/* Right Column (Sidebar Widgets) */}
-              <div className="lg:col-span-4 flex flex-col gap-3 lg:gap-6">
+              <div className="lg:col-span-4 flex flex-col gap-2 lg:gap-6">
                 
                 {/* Desktop-only Membership Card (Shows in sidebar on large screens) */}
                 <div className="hidden lg:block">
@@ -72,6 +72,14 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
                 <div id="kyc-section" className="scroll-mt-24">
                   <KycSection />
                 </div>
+                
+                {/* Mobile-only Upgrade Plan Button */}
+                <button className="lg:hidden w-[60%] mx-auto mt-2 mb-2 sm:mb-0 bg-plan-platinum p-3.5 sm:p-4 rounded-full text-white font-black flex items-center justify-center gap-2.5 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
+                  <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[15px]"></i>
+                  <span className="tracking-widest uppercase text-sm sm:text-base relative z-10 drop-shadow-md">Upgrade Plan</span>
+                  <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-lg"></i>
+                </button>
                 
               </div>
 

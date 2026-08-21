@@ -69,14 +69,14 @@ export default function KycSection() {
   const isActionRequired = kyc.status === "Missing" || kyc.status === "Rejected" || kyc.status === "Expired";
 
   return (
-    <div className="group bg-background border border-foreground/10 rounded-2xl shadow-sm flex flex-col">
-      <div onClick={() => setIsOpen(!isOpen)} className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-foreground/[0.02] cursor-pointer lg:pointer-events-none list-none rounded-2xl lg:rounded-b-none lg:border-b lg:border-foreground/5 transition-colors select-none">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#0c5a53]/10 text-[#0c5a53] flex items-center justify-center shrink-0">
-            <i className="fa-solid fa-shield-halved text-sm"></i>
+    <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
+      <div onClick={() => setIsOpen(!isOpen)} className="px-4 py-2 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-foreground/[0.02] cursor-pointer lg:pointer-events-none list-none rounded-xl lg:rounded-b-none lg:border-b lg:border-foreground/5 transition-colors select-none">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center shrink-0">
+            <i className="fa-solid fa-shield-halved text-[11px] sm:text-sm"></i>
           </div>
           <div>
-            <h2 className="text-base font-bold text-foreground">KYC Verification</h2>
+            <h2 className="text-[15px] sm:text-base font-bold text-foreground leading-tight">KYC Verification</h2>
             <p className="text-sm text-foreground/60 hidden sm:block">Manage your identity documents.</p>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import ProfilePictureUpload from "./ProfilePictureUpload";
 
 type PlanTier = "SILVER" | "GOLD" | "PLATINUM";
 type PlanDuration = "MONTHLY" | "YEARLY";
@@ -50,18 +51,18 @@ export default function MembershipCard() {
   return (
     <div 
       onClick={cyclePlan}
-      className={`relative w-full aspect-[1.8/1] rounded-2xl ${plan.gradientClass} p-5 sm:p-6 text-white shadow-2xl overflow-hidden group cursor-pointer transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 flex flex-col justify-between`}
+      className={`relative w-full rounded-2xl ${plan.gradientClass} p-4 sm:p-5 text-white shadow-2xl overflow-hidden group cursor-pointer transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 flex flex-col`}
       title="Click to cycle plan styles (Demo)"
     >
       {/* Dynamic Background Texture */}
       <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
 
-      {/* Prominent Logo Watermark at Top Right */}
-      <div className="absolute top-0 right-0 w-44 h-44 opacity-30 pointer-events-none z-0 flex items-center justify-center">
+      {/* Prominent Logo Watermark at Center */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 opacity-15 pointer-events-none z-0 flex items-center justify-center">
          <img src="/logo.svg" alt="Logo Watermark" className="w-full h-full object-contain grayscale drop-shadow-lg" />
       </div>
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col">
         {/* Header Section */}
         <div className="flex justify-between items-start">
           <div className="flex flex-col gap-1">
@@ -72,12 +73,16 @@ export default function MembershipCard() {
               <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span> {plan.duration} MEMBERSHIP
             </p>
           </div>
+          
+          <div className="relative z-20" onClick={(e) => e.stopPropagation()}>
+            <ProfilePictureUpload />
+          </div>
         </div>
 
         {/* Account ID */}
-        <div className="mt-8">
+        <div className="mt-3 sm:mt-4 mb-3 sm:mb-4">
           <p className="text-white/80 text-[10px] uppercase tracking-widest font-bold mb-1 drop-shadow-sm">Account ID</p>
-          <p className="font-mono text-xl sm:text-2xl tracking-[0.2em] drop-shadow-lg font-bold text-white">AG-982341</p>
+          <p className="font-mono text-xl sm:text-2xl tracking-[0.2em] drop-shadow-lg font-bold text-white">AG2606110092</p>
         </div>
       </div>
 

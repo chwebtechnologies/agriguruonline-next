@@ -94,6 +94,15 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories 
   useEffect(() => {
     let scrolled = false
     const handleScroll = () => {
+      // Prevent blinking when page content is too short
+      if (document.documentElement.scrollHeight <= window.innerHeight + 100) {
+        if (scrolled) {
+          scrolled = false
+          setIsScrolled(false)
+        }
+        return
+      }
+
       const sy = window.scrollY
       if (!scrolled && sy > 20) {
         scrolled = true
