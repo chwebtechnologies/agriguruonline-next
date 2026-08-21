@@ -12,7 +12,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false }: { tit
         <div className="absolute left-0 top-1/2 -translate-y-1/2">
           <button 
             onClick={() => router.back()}
-            className="group flex items-center gap-2.5 text-foreground hover:text-[#0c5a53] dark:hover:text-[#138a7f] transition-colors"
+            className="group flex items-center gap-2.5 text-foreground hover:text-[#1D92EB] dark:hover:text-[#1D92EB] transition-colors"
             aria-label="Go back"
           >
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-ag-header-border shadow-sm group-hover:border-ag-primary transition-colors">

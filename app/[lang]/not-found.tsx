@@ -12,10 +12,10 @@ export default async function NotFound() {
 
         {/* Code */}
         <div>
-          <h1 className="text-[120px] sm:text-[160px] font-black leading-none tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-[#0c5a53] via-emerald-500 to-[#1D92EB] dark:from-emerald-400 dark:via-emerald-300 dark:to-sky-400">
+          <h1 className="text-[120px] sm:text-[160px] font-black leading-none tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-[#1D92EB] via-sky-500 to-[#157dc9] dark:from-sky-400 dark:via-sky-300 dark:to-sky-500">
             404
           </h1>
-          <div className="mx-auto mt-2 mb-6 h-1 w-16 rounded-full bg-gradient-to-r from-[#0c5a53] to-emerald-500" />
+          <div className="mx-auto mt-2 mb-6 h-1 w-16 rounded-full bg-gradient-to-r from-[#1D92EB] to-sky-500" />
         </div>
 
         {/* Message */}
@@ -33,14 +33,14 @@ export default async function NotFound() {
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             href={`/${activeLang}`}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-12 px-8 text-sm font-bold transition-all duration-200 rounded-full bg-gradient-to-r from-[#0c5a53] to-emerald-600 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-12 px-8 text-sm font-bold transition-all duration-200 rounded-full bg-gradient-to-r from-[#1D92EB] to-sky-600 text-white shadow-lg shadow-sky-500/20 hover:shadow-sky-500/30 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#1D92EB] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
           >
             <i className="fa-solid fa-house text-sm" />
             Return Home
           </Link>
           <Link
             href={`/${activeLang}/contact`}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-12 px-8 text-sm font-semibold transition-all duration-200 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#0c5a53] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-12 px-8 text-sm font-semibold transition-all duration-200 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#1D92EB] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
           >
             <i className="fa-solid fa-headset text-sm" />
             Contact Support

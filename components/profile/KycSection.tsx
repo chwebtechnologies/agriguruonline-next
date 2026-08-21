@@ -141,7 +141,7 @@ export default function KycSection() {
                 <select 
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-background border border-foreground/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0c5a53] transition-all appearance-none text-sm"
+                  className="w-full px-3.5 py-2.5 bg-background border border-foreground/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1D92EB] transition-all appearance-none text-sm"
                 >
                   {DOC_TYPES.map(type => (
                     <option key={type} value={type}>{type}</option>

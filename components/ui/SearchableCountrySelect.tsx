@@ -270,7 +270,7 @@ export default function SearchableCountrySelect({
                     setSearch(e.target.value);
                     setHighlightedIndex(0);
                   }}
-                  className="w-full pl-8 pr-7 py-2 bg-foreground/5 hover:bg-foreground/[0.07] border border-foreground/10 rounded-xl text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium"
+                  className="w-full pl-8 pr-7 py-2 bg-foreground/5 hover:bg-foreground/[0.07] border border-foreground/10 rounded-xl text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium"
                 />
                 {search && (
                   <button
@@ -308,7 +308,7 @@ export default function SearchableCountrySelect({
                         onClick={() => handleSelect(c.code)}
                         className={`px-3 py-2 rounded-xl flex items-center justify-between cursor-pointer transition-colors text-xs sm:text-sm ${
                           isSelected
-                            ? "bg-[#0c5a53]/10 text-[#0c5a53] font-bold"
+                            ? "bg-[#1D92EB]/10 text-[#1D92EB] font-bold"
                             : "hover:bg-foreground/5 text-foreground"
                         }`}
                       >
@@ -320,7 +320,7 @@ export default function SearchableCountrySelect({
                           {showDialCode && (
                             <span className="text-xs font-semibold text-foreground/70">{c.callingCode}</span>
                           )}
-                          {isSelected && <i className="fa-solid fa-check text-[#0c5a53] text-xs"></i>}
+                          {isSelected && <i className="fa-solid fa-check text-[#1D92EB] text-xs"></i>}
                         </div>
                       </div>
                     );
@@ -349,7 +349,7 @@ export default function SearchableCountrySelect({
                       onMouseEnter={() => setHighlightedIndex(index)}
                       className={`px-3 py-2 rounded-xl flex items-center justify-between cursor-pointer transition-colors text-xs sm:text-sm ${
                         isSelected
-                          ? "bg-[#0c5a53]/10 text-[#0c5a53] font-bold"
+                          ? "bg-[#1D92EB]/10 text-[#1D92EB] font-bold"
                           : isHighlighted
                           ? "bg-foreground/5 text-foreground"
                           : "text-foreground hover:bg-foreground/5"
@@ -363,7 +363,7 @@ export default function SearchableCountrySelect({
                         {showDialCode && (
                           <span className="text-xs font-semibold text-foreground/70">{c.callingCode}</span>
                         )}
-                        {isSelected && <i className="fa-solid fa-check text-[#0c5a53] text-xs"></i>}
+                        {isSelected && <i className="fa-solid fa-check text-[#1D92EB] text-xs"></i>}
                       </div>
                     </div>
                   );

@@ -64,7 +64,7 @@ export default async function LocalizedRootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900 transition-colors duration-200 dark:bg-zinc-950 dark:text-zinc-50">
-        <Suspense fallback={<div className="h-10 w-full bg-[#0c5a53] shrink-0" />}>
+        <Suspense fallback={<div className="h-10 w-full bg-[#1D92EB] shrink-0" />}>
           <AnnouncementBar />
         </Suspense>
 

@@ -5,6 +5,7 @@ import ProfilePictureUpload from '@/components/profile/ProfilePictureUpload';
 import ProfileForm from '@/components/profile/ProfileForm';
 import KycSection from '@/components/profile/KycSection';
 import MembershipCard from '@/components/profile/MembershipCard';
+import { getCategories } from '@/lib/category';
 
 export const metadata: Metadata = {
   title: 'My Profile | AgriGuru Online',
@@ -16,6 +17,20 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   const lang = params.lang || 'en';
   const dict = await getDictionary(lang);
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
+
+  // Fetch categories using identical Next.js cached configuration as Header
+  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
+  const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
+  const cacheStale = Number(process.env.CATEGORIES_CACHE_STALE) || 300
+  const cacheRevalidate = Number(process.env.CATEGORIES_CACHE_REVALIDATE) || 3600
+  const cacheExpire = Number(process.env.CATEGORIES_CACHE_EXPIRE) || 86400
+
+  const apiCategories = await getCategories(lang, {
+    apiUrl: categoriesApiUrl,
+    stale: cacheStale,
+    revalidate: cacheRevalidate,
+    expire: cacheExpire
+  })
 
   // Mocking global state for demonstration. In reality, this comes from API/Auth context.
   const isKycVerified = false; 
@@ -58,7 +73,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
               <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
                 
                 {/* Main Form */}
-                <ProfileForm />
+                <ProfileForm categories={apiCategories} lang={lang} />
               </div>
 
               {/* Right Column (Sidebar Widgets) */}

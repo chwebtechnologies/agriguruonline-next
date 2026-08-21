@@ -127,7 +127,7 @@ export default function ProfilePictureUpload() {
                   step={0.1}
                   aria-labelledby="Zoom"
                   onChange={(e) => setZoom(Number(e.target.value))}
-                  className="w-full h-1 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-[#0c5a53]"
+                  className="w-full h-1 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-[#1D92EB]"
                 />
                 <i className="fa-solid fa-image text-foreground/50 text-lg"></i>
               </div>
@@ -142,7 +142,7 @@ export default function ProfilePictureUpload() {
               </button>
               <button 
                 onClick={showCroppedImage}
-                className="px-5 py-2 rounded-xl bg-[#0c5a53] text-white text-sm font-medium hover:bg-[#094741] transition-colors"
+                className="px-5 py-2 rounded-xl bg-[#1D92EB] text-white text-sm font-medium hover:bg-[#157dc9] transition-colors"
               >
                 Apply Crop
               </button>

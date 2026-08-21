@@ -32,14 +32,14 @@ export default function Error({
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             onClick={() => reset()}
-            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full bg-[#0c5a53] text-white hover:bg-[#09453f] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#0c5a53] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
+            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full bg-[#1D92EB] text-white hover:bg-[#157dc9] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#1D92EB] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
           >
             <i className="fa-solid fa-rotate-right mr-2" />
             Try again
           </button>
           <Link
             href="/"
-            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#0c5a53] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
+            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#1D92EB] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
           >
             <i className="fa-solid fa-home mr-2" />
             Go Home

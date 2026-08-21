@@ -7,22 +7,26 @@ import { toast } from "sonner";
 import "@/components/auth/phone-input.css"; 
 import SearchableCountrySelect from "@/components/ui/SearchableCountrySelect"; 
 import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput"; 
+import type { Category } from "@/lib/category";
 
-const CATEGORIES = [
-  "Agriculture", "Technology", "Trading", "Logistics", "Finance", "Manufacturing", "Retail",
-];
+interface ProfileFormProps {
+  categories?: Category[];
+  lang?: string;
+}
 
-const COUNTRIES = [
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "IN", name: "India" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "CA", name: "Canada" },
-  { code: "AU", name: "Australia" },
-];
+export default function ProfileForm({ categories = [], lang = "en" }: ProfileFormProps) {
+  // Derive category options dynamically from API categories based on active language
+  const availableCategories = categories
+    .filter(cat => cat.is_active !== false)
+    .map(cat => {
+      const translation = cat.translations?.find(t => t.lang_code === lang);
+      return translation ? translation.name : cat.name;
+    });
 
-export default function ProfileForm() {
+  const categoryOptions = availableCategories.length > 0
+    ? availableCategories
+    : ["Agriculture", "Technology", "Trading", "Logistics", "Finance", "Manufacturing", "Retail"];
+
   const [fullName, setFullName] = useState("John Doe");
   const [email] = useState("john.doe@example.com"); 
   const [phone, setPhone] = useState("+971501234567");
@@ -30,7 +34,9 @@ export default function ProfileForm() {
   const [companyName, setCompanyName] = useState("Agriguru Trading LLC");
   const [country, setCountry] = useState("AE");
   
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(["Agriculture", "Trading"]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
+    return categoryOptions.length > 0 ? [categoryOptions[0]] : [];
+  });
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -59,7 +65,7 @@ export default function ProfileForm() {
     );
   };
 
-  const filteredCategories = CATEGORIES.filter(c => c.toLowerCase().includes(categorySearch.toLowerCase()));
+  const filteredCategories = categoryOptions.filter(c => c.toLowerCase().includes(categorySearch.toLowerCase()));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +111,7 @@ export default function ProfileForm() {
                     type="text" 
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm text-foreground"
+                    className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
                   />
                 </div>
               </div>
@@ -170,7 +176,7 @@ export default function ProfileForm() {
                   type="text" 
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm text-foreground"
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
                 />
               </div>
             </div>
@@ -203,18 +209,18 @@ export default function ProfileForm() {
               <label className="text-sm font-semibold text-foreground/90 pl-0.5">Categories <span className="text-red-500">*</span></label>
               <div 
                 onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                className="w-full px-3.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm"
+                className="w-full px-3.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm"
                 tabIndex={0}
               >
                 <div className="flex flex-wrap gap-1.5 py-1.5">
                   {selectedCategories.length > 0 ? (
                     selectedCategories.map(cat => (
-                      <span key={cat} className="px-2.5 py-1 bg-[#0c5a53]/10 text-[#0c5a53] border border-[#0c5a53]/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
+                      <span key={cat} className="px-2.5 py-1 bg-[#1D92EB]/10 text-[#1D92EB] border border-[#1D92EB]/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
                         {cat}
                         <button 
                           type="button"
                           onClick={(e) => { e.stopPropagation(); toggleCategory(cat); }}
-                          className="text-[#0c5a53]/50 hover:text-[#0c5a53] transition-colors"
+                          className="text-[#1D92EB]/50 hover:text-[#1D92EB] transition-colors"
                         >
                           <i className="fa-solid fa-xmark text-xs"></i>
                         </button>
@@ -237,7 +243,7 @@ export default function ProfileForm() {
                       placeholder="Search categories..." 
                       value={categorySearch}
                       onChange={(e) => setCategorySearch(e.target.value)}
-                      className="w-full px-3 py-2 bg-foreground/5 border border-transparent rounded-lg text-sm focus:outline-none focus:border-[#0c5a53]/30 focus:bg-background transition-colors"
+                      className="w-full px-3 py-2 bg-foreground/5 border border-transparent rounded-lg text-sm focus:outline-none focus:border-[#1D92EB]/30 focus:bg-background transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
@@ -249,7 +255,7 @@ export default function ProfileForm() {
                         className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-foreground/5 transition-colors flex items-center justify-between"
                       >
                         <span className={selectedCategories.includes(cat) ? "font-semibold text-foreground" : "text-foreground/80"}>{cat}</span>
-                        {selectedCategories.includes(cat) && <i className="fa-solid fa-check text-[#0c5a53]"></i>}
+                        {selectedCategories.includes(cat) && <i className="fa-solid fa-check text-[#1D92EB]"></i>}
                       </div>
                     ))}
                   </div>
@@ -265,7 +271,7 @@ export default function ProfileForm() {
                   type="text"
                   value={businessAddress}
                   onChange={(e) => setBusinessAddress(e.target.value)}
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm text-foreground"
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
                   placeholder="Building, Street, City"
                 />
               </div>
@@ -288,7 +294,7 @@ export default function ProfileForm() {
                   type="url" 
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0c5a53]/50 focus:border-[#0c5a53] transition-all font-medium text-sm text-foreground"
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
                   placeholder="https://www.example.com"
                 />
               </div>

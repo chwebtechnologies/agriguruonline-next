@@ -36,7 +36,7 @@ export default function GlobalError({
             <div className="pt-8 flex justify-center">
               <button
                 onClick={() => reset()}
-                className="inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full bg-[#0c5a53] text-white hover:bg-[#09453f] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#0c5a53] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
+                className="inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full bg-[#1D92EB] text-white hover:bg-[#157dc9] hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#1D92EB] focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
               >
                 <i className="fa-solid fa-rotate-right mr-2" />
                 Try again

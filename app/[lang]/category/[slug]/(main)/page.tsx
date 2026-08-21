@@ -130,7 +130,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
       <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Category not found</h1>
-          <Link href={`/${lang}`} className="text-[#0c5a53] hover:underline">
+          <Link href={`/${lang}`} className="text-[#1D92EB] hover:underline">
             Return to Home
           </Link>
         </div>
