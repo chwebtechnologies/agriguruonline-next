@@ -5,9 +5,9 @@ import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/lib/cropImage';
 import { toast } from 'sonner';
 
-export default function ProfilePictureUpload() {
+export default function ProfilePictureUpload({ currentImage }: { currentImage?: string }) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [croppedImage, setCroppedImage] = useState<string | null>(null);
+  const [croppedImage, setCroppedImage] = useState<string | null>(currentImage || null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
@@ -34,18 +34,39 @@ export default function ProfilePictureUpload() {
   const showCroppedImage = useCallback(async () => {
     try {
       if (!imageSrc || !croppedAreaPixels) return;
+      setIsCropping(false);
+      
+      const toastId = toast.loading("Uploading profile picture...");
+      
       const croppedImageResult = await getCroppedImg(
         imageSrc,
         croppedAreaPixels,
         0
       );
-      setCroppedImage(croppedImageResult);
-      setIsCropping(false);
+      
+      // Get the blob from the object URL
+      const blob = await fetch(croppedImageResult).then(r => r.blob());
+      const formData = new FormData();
+      formData.append("profile_image", blob, "profile_pic.jpg");
+      
+      // Upload using server action
+      const { uploadProfileImage } = await import('@/app/actions/auth');
+      const res = await uploadProfileImage(formData);
+      
+      if (res.success) {
+        setCroppedImage(croppedImageResult);
+        toast.success("Profile picture updated successfully!", { id: toastId });
+        
+        // Optionally refresh the page so the header catches the new image
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        toast.error(res.error || "Failed to upload image", { id: toastId });
+      }
+      
       setImageSrc(null);
-      toast.success("Profile picture updated successfully!");
     } catch (e) {
       console.error(e);
-      toast.error("Failed to crop image.");
+      toast.error("Failed to crop and upload image.");
     }
   }, [imageSrc, croppedAreaPixels]);
 
@@ -59,12 +80,26 @@ export default function ProfilePictureUpload() {
         }}
       >
         {croppedImage ? (
-          <img src={croppedImage} alt="Profile" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-white/70 text-2xl">
-            <i className="fa-solid fa-user"></i>
-          </div>
-        )}
+          <img 
+            src={croppedImage.startsWith('http') || croppedImage.startsWith('blob:') ? croppedImage : `${process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com'}${croppedImage.startsWith('/') ? '' : '/'}${croppedImage}`} 
+            alt="Profile" 
+            className="w-full h-full object-cover" 
+            onError={(e) => {
+              // Fallback to icon on error
+              e.currentTarget.style.display = 'none';
+              if (e.currentTarget.nextElementSibling) {
+                (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+              }
+            }}
+          />
+        ) : null}
+        
+        <div 
+          className="w-full h-full items-center justify-center text-white/70 text-2xl"
+          style={{ display: croppedImage ? 'none' : 'flex' }}
+        >
+          <i className="fa-solid fa-user"></i>
+        </div>
         
         {/* Simple clean overlay */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">

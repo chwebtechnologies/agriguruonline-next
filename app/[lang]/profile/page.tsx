@@ -1,4 +1,6 @@
 import { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ProfilePictureUpload from '@/components/profile/ProfilePictureUpload';
@@ -12,11 +14,42 @@ export const metadata: Metadata = {
   description: 'Manage your profile and business details on AgriGuru Online',
 };
 
+export const instant = false;
+
 export default async function ProfilePage(props: { params: Promise<{ lang: string }> }) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  
   const params = await props.params;
   const lang = params.lang || 'en';
+
+  if (!token) {
+    redirect(`/${lang}/login`);
+  }
+
   const dict = await getDictionary(lang);
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
+
+  // Fetch profile data
+  const profileApiUrl = `https://user-api.agriguruonline.cloud/user/my-profile?lang_code=${lang}&source=web`;
+  let profileData = null;
+  try {
+    const res = await fetch(profileApiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      cache: 'no-store'
+    });
+    
+    if (res.ok) {
+      const json = await res.json();
+      profileData = json.data;
+    } else if (res.status === 401 || res.status === 403) {
+      redirect(`/${lang}/login`);
+    }
+  } catch (error) {
+    console.error('Failed to fetch profile', error);
+  }
 
   // Fetch categories using identical Next.js cached configuration as Header
   const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
@@ -32,8 +65,8 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     expire: cacheExpire
   })
 
-  // Mocking global state for demonstration. In reality, this comes from API/Auth context.
-  const isKycVerified = false; 
+  // Set KYC state from API (fallback to false if not found)
+  const isKycVerified = profileData?.is_kyc_verified || false;
 
   return (
     <div className="bg-background text-foreground transition-theme">
@@ -64,7 +97,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
 
             {/* Mobile-only Membership Card (Shows above the form on smaller screens) */}
             <div className="block lg:hidden mb-3">
-              <MembershipCard />
+              <MembershipCard profileData={profileData} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
@@ -73,7 +106,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
               <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
                 
                 {/* Main Form */}
-                <ProfileForm categories={apiCategories} lang={lang} />
+                <ProfileForm categories={apiCategories} lang={lang} profileData={profileData} token={token} />
               </div>
 
               {/* Right Column (Sidebar Widgets) */}
@@ -81,7 +114,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
                 
                 {/* Desktop-only Membership Card (Shows in sidebar on large screens) */}
                 <div className="hidden lg:block">
-                  <MembershipCard />
+                  <MembershipCard profileData={profileData} />
                 </div>
 
                 <div id="kyc-section" className="scroll-mt-24">

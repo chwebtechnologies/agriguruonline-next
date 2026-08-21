@@ -12,42 +12,126 @@ import type { Category } from "@/lib/category";
 interface ProfileFormProps {
   categories?: Category[];
   lang?: string;
+  profileData?: any;
+  token?: string;
 }
 
-export default function ProfileForm({ categories = [], lang = "en" }: ProfileFormProps) {
-  // Derive category options dynamically from API categories based on active language
+export default function ProfileForm({ categories = [], lang = "en", profileData = null, token = "" }: ProfileFormProps) {
   const availableCategories = categories
     .filter(cat => cat.is_active !== false)
     .map(cat => {
       const translation = cat.translations?.find(t => t.lang_code === lang);
-      return translation ? translation.name : cat.name;
+      return { id: cat.id, name: translation ? translation.name : cat.name };
     });
+
+  console.log("PROFILE_DATA_CATEGORY:", JSON.stringify(profileData?.category, null, 2));
 
   const categoryOptions = availableCategories.length > 0
     ? availableCategories
-    : ["Agriculture", "Technology", "Trading", "Logistics", "Finance", "Manufacturing", "Retail"];
+    : [{ id: '1', name: "Agriculture" }, { id: '2', name: "Technology" }];
 
-  const [fullName, setFullName] = useState("John Doe");
-  const [email] = useState("john.doe@example.com"); 
-  const [phone, setPhone] = useState("+971501234567");
-  const [userType] = useState("Business User"); 
-  const [companyName, setCompanyName] = useState("Agriguru Trading LLC");
-  const [country, setCountry] = useState("AE");
+  const getE164Phone = (code?: string, no?: string, fallback?: string) => {
+    if (no) {
+      let cCode = code || "";
+      if (cCode && !cCode.startsWith('+')) cCode = `+${cCode}`;
+      return `${cCode}${no}`;
+    }
+    return fallback || "";
+  };
+
+  const [fullName, setFullName] = useState(() => {
+    if (profileData?.first_name) {
+      return `${profileData.first_name} ${profileData.last_name || ''}`.trim();
+    }
+    return profileData?.name || "";
+  });
+  const [email] = useState(profileData?.email || ""); 
+  const [phone, setPhone] = useState(() => getE164Phone(profileData?.country_code, profileData?.mobile_no, profileData?.phone));
+  const [userType] = useState(() => {
+    if (profileData?.role?.name) return String(profileData.role.name);
+    if (profileData?.user_type) {
+      if (typeof profileData.user_type === 'string') return profileData.user_type;
+      if (typeof profileData.user_type === 'object' && profileData.user_type !== null) {
+        return String(profileData.user_type.name || profileData.user_type.title || "Business User");
+      }
+    }
+    return "Business User";
+  });
+  const [companyName, setCompanyName] = useState(profileData?.company_name || profileData?.business_name || "");
+
+  const [country, setCountry] = useState(() => {
+    try {
+      if (profileData?.mobile_no || profileData?.phone) {
+        const { parsePhoneNumber } = require('react-phone-number-input');
+        const phoneStr = getE164Phone(profileData?.country_code, profileData?.mobile_no, profileData?.phone);
+        const parsed = parsePhoneNumber(phoneStr);
+        if (parsed && parsed.country) {
+          return parsed.country;
+        }
+      }
+    } catch (e) {}
+    return profileData?.country_code && !profileData.country_code.startsWith('+') 
+      ? profileData.country_code 
+      : "AE";
+  });
   
   const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
-    return categoryOptions.length > 0 ? [categoryOptions[0]] : [];
+    const cats = profileData?.category || profileData?.categories || profileData?.user_category || profileData?.user_categories;
+    if (cats && Array.isArray(cats)) {
+      return cats.map((c: any) => {
+        const val = typeof c === 'string' ? c : (c.category_id || c.id || c._id || c.name);
+        const matched = categoryOptions.find(opt => opt.id === val || opt.name === val);
+        return matched ? matched.id : val;
+      }).filter(Boolean);
+    }
+    return [];
   });
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const categoryRef = useRef<HTMLDivElement>(null);
 
-  const [businessAddress, setBusinessAddress] = useState("");
-  const [altNumber, setAltNumber] = useState("");
-  const [altEmail, setAltEmail] = useState("");
-  const [website, setWebsite] = useState("");
+  const [businessAddress, setBusinessAddress] = useState(profileData?.business_address || profileData?.address || "");
+  const [altNumber, setAltNumber] = useState(profileData?.alternate_mobile_no || profileData?.alternate_phone || "");
+  const [altEmail, setAltEmail] = useState(profileData?.other_email || profileData?.alternate_email || "");
+  const [website, setWebsite] = useState(profileData?.website || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isPersonalOpen, setIsPersonalOpen] = useState(false);
   const [isBusinessOpen, setIsBusinessOpen] = useState(false);
+
+  // Derive initial values for dirty check
+  const initialState = useRef({
+    fullName: profileData?.first_name ? `${profileData.first_name} ${profileData.last_name || ''}`.trim() : (profileData?.name || ""),
+    phone: getE164Phone(profileData?.country_code, profileData?.mobile_no, profileData?.phone),
+    companyName: profileData?.company_name || profileData?.business_name || "",
+    country: country,
+    selectedCategories: (() => {
+      const cats = profileData?.category || profileData?.categories || profileData?.user_category || profileData?.user_categories;
+      if (cats && Array.isArray(cats)) {
+        return cats.map((c: any) => {
+          const val = typeof c === 'string' ? c : (c.category_id || c.id || c._id || c.name);
+          const matched = categoryOptions.find(opt => opt.id === val || opt.name === val);
+          return matched ? matched.id : val;
+        }).filter(Boolean);
+      }
+      return [];
+    })(),
+    businessAddress: profileData?.business_address || profileData?.address || "",
+    altNumber: profileData?.alternate_mobile_no || profileData?.alternate_phone || "",
+    altEmail: profileData?.other_email || profileData?.alternate_email || "",
+    website: profileData?.website || ""
+  });
+
+  const isDirty = 
+    fullName !== initialState.current.fullName ||
+    phone !== initialState.current.phone ||
+    companyName !== initialState.current.companyName ||
+    country !== initialState.current.country ||
+    JSON.stringify(selectedCategories.sort()) !== JSON.stringify(initialState.current.selectedCategories.sort()) ||
+    businessAddress !== initialState.current.businessAddress ||
+    altNumber !== initialState.current.altNumber ||
+    altEmail !== initialState.current.altEmail ||
+    website !== initialState.current.website;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -59,30 +143,115 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const toggleCategory = (cat: string) => {
+  const toggleCategory = (catId: string) => {
     setSelectedCategories(prev => 
-      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+      prev.includes(catId) ? prev.filter(c => c !== catId) : [...prev, catId]
     );
   };
 
-  const filteredCategories = categoryOptions.filter(c => c.toLowerCase().includes(categorySearch.toLowerCase()));
+  const filteredCategories = categoryOptions.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (!isDirty && !hasSubmitted) return;
+    
+    const newErrors: Record<string, string> = {};
+    if (!fullName.trim()) newErrors.fullName = "Full Name is required";
+    if (!phone || !isValidPhoneNumber(phone)) newErrors.phone = "Valid Mobile Number is required";
+    if (altNumber && !isValidPhoneNumber(altNumber)) newErrors.altNumber = "Valid Mobile Number is required";
+    if (!companyName.trim()) newErrors.companyName = "Company Name is required";
+    if (selectedCategories.length === 0) newErrors.categories = "Please select at least one category";
+    if (altEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(altEmail)) newErrors.altEmail = "Valid email is required";
+    if (website && !/^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z]{2,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/i.test(website)) newErrors.website = "Valid URL (e.g., https://example.com) is required";
+    
+    setErrors(newErrors);
+  }, [fullName, phone, altNumber, companyName, selectedCategories, altEmail, website, isDirty, hasSubmitted]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim()) return toast.error("Full Name is required");
-    if (!phone || !isValidPhoneNumber(phone)) return toast.error("Valid Mobile Number is required");
-    if (!companyName.trim()) return toast.error("Company Name is required");
-    if (selectedCategories.length === 0) return toast.error("Please select at least one category");
+    setHasSubmitted(true);
+    if (!isDirty) return;
+    
+    const newErrors: Record<string, string> = {};
+    if (!fullName.trim()) newErrors.fullName = "Full Name is required";
+    if (!phone || !isValidPhoneNumber(phone)) newErrors.phone = "Valid Mobile Number is required";
+    if (altNumber && !isValidPhoneNumber(altNumber)) newErrors.altNumber = "Valid Mobile Number is required";
+    if (!companyName.trim()) newErrors.companyName = "Company Name is required";
+    if (selectedCategories.length === 0) newErrors.categories = "Please select at least one category";
+    if (altEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(altEmail)) newErrors.altEmail = "Valid email is required";
+    if (website && !/^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z]{2,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/i.test(website)) newErrors.website = "Valid URL (e.g., https://example.com) is required";
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fix the errors in the form");
+      return;
+    }
+    setErrors({});
     
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      const { parsePhoneNumber } = require('react-phone-number-input');
+      const parsed = parsePhoneNumber(phone);
+      
+      const nameParts = fullName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : "";
+      
+      if (!token) throw new Error("Authentication required: No token provided");
+      
+      const userId = profileData?.id || profileData?._id || profileData?.customer_id;
+      if (!userId) throw new Error("User ID not found in profile data");
+
+      const payload = {
+        first_name: firstName,
+        last_name: lastName,
+        country_id: profileData?.country_id || "", 
+        country_code: parsed ? `+${parsed.countryCallingCode}` : "",
+        mobile_no: parsed ? parsed.nationalNumber : phone,
+        user_type: profileData?.user_type?.id || profileData?.user_type || "",
+        email: email,
+        website: website,
+        category: selectedCategories,
+        company_name: companyName,
+        business_address: businessAddress,
+        registration_type: profileData?.registration_type || "",
+        registration_number: profileData?.registration_number || "",
+        other_email: altEmail,
+      };
+
+      const apiUrl = `https://user-api.agriguruonline.cloud/user/update-profile/${userId}?lang_code=${lang}&source=web`;
+      const response = await fetch(apiUrl, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update profile");
+      }
+
+      toast.success(data.message || "Profile updated successfully!");
+      
+      // Update initial state to reflect new saved values
+      initialState.current = {
+        fullName, phone, companyName, country, selectedCategories, businessAddress, altNumber, altEmail, website
+      };
+      
+    } catch (error: any) {
+      toast.error(error.message || "An error occurred while updating profile");
+      console.error("Profile update error:", error);
+    } finally {
       setIsSubmitting(false);
-      toast.success("Profile updated successfully!");
-    }, 1500);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2 lg:gap-6">
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-2 lg:gap-6">
         
       {/* Basic Details Group */}
       <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
@@ -104,16 +273,20 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
             {/* Form Fields Column */}
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 w-full">
               <div className="flex flex-col gap-1.5 md:col-span-2">
-                <label className="text-sm font-semibold text-foreground/90 pl-0.5">Full Name <span className="text-red-500">*</span></label>
+                <label className={`text-sm font-semibold pl-0.5 ${errors.fullName ? 'text-red-500' : 'text-foreground/90'}`}>Full Name <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <i className="fa-regular fa-id-card absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
+                  <i className={`fa-regular fa-id-card absolute left-3.5 top-1/2 -translate-y-1/2 ${errors.fullName ? 'text-red-500/70' : 'text-foreground/30'}`}></i>
                   <input 
                     type="text" 
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      if (errors.fullName) setErrors(prev => ({ ...prev, fullName: "" }));
+                    }}
+                    className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.fullName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.fullName ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
                   />
                 </div>
+                {errors.fullName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.fullName}</p>}
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -132,42 +305,58 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-foreground/90 pl-0.5">Mobile Number <span className="text-red-500">*</span></label>
-                <SearchablePhoneInput
-                  defaultCountry="AE"
-                  value={phone}
-                  onChange={(val) => setPhone(val || "")}
-                />
+                <label className={`text-sm font-semibold pl-0.5 ${errors.phone ? 'text-red-500' : 'text-foreground/90'}`}>Mobile Number <span className="text-red-500">*</span></label>
+                <div className={errors.phone ? 'border border-red-500 rounded-xl focus-within:ring-2 focus-within:ring-red-500/20' : ''}>
+                  <SearchablePhoneInput
+                    defaultCountry="AE"
+                    value={phone}
+                    onChange={(val) => {
+                      setPhone(val || "");
+                      if (errors.phone) setErrors(prev => ({ ...prev, phone: "" }));
+                    }}
+                  />
+                </div>
+                {errors.phone && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.phone}</p>}
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-foreground/90 pl-0.5">Alternate Number <span className="text-foreground/40 font-normal text-xs">(Optional)</span></label>
-                <SearchablePhoneInput
-                  defaultCountry="AE"
-                  value={altNumber}
-                  onChange={(val) => setAltNumber(val || "")}
-                />
+                <label className={`text-sm font-semibold pl-0.5 ${errors.altNumber ? 'text-red-500' : 'text-foreground/90'}`}>Alternate Number <span className={`font-normal text-xs ${errors.altNumber ? 'text-red-500/60' : 'text-foreground/40'}`}>(Optional)</span></label>
+                <div className={errors.altNumber ? 'border border-red-500 rounded-xl focus-within:ring-2 focus-within:ring-red-500/20' : ''}>
+                  <SearchablePhoneInput
+                    defaultCountry="AE"
+                    value={altNumber}
+                    onChange={(val) => {
+                      setAltNumber(val || "");
+                      if (errors.altNumber) setErrors(prev => ({ ...prev, altNumber: "" }));
+                    }}
+                  />
+                </div>
+                {errors.altNumber && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.altNumber}</p>}
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-foreground/90 pl-0.5">Alternate Email <span className="text-foreground/40 font-normal text-xs">(Optional)</span></label>
+                <label className={`text-sm font-semibold pl-0.5 ${errors.altEmail ? 'text-red-500' : 'text-foreground/90'}`}>Alternate Email <span className={`font-normal text-xs ${errors.altEmail ? 'text-red-500/60' : 'text-foreground/40'}`}>(Optional)</span></label>
                 <div className="relative">
-                  <i className="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
+                  <i className={`fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 ${errors.altEmail ? 'text-red-500/70' : 'text-foreground/30'}`}></i>
                   <input 
                     type="email" 
                     value={altEmail}
-                    onChange={(e) => setAltEmail(e.target.value)}
-                    className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
+                    onChange={(e) => {
+                      setAltEmail(e.target.value);
+                      if (errors.altEmail) setErrors(prev => ({ ...prev, altEmail: "" }));
+                    }}
+                    className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.altEmail ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.altEmail ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
                     placeholder="alternate@example.com"
                   />
                 </div>
+                {errors.altEmail && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.altEmail}</p>}
               </div>
               </div>
             </div>
             
             {/* Mobile Save Button (Inside Collapse) */}
             <div className="mt-6 flex lg:!hidden justify-end border-t border-foreground/5 pt-4 pb-1 pr-2">
-              <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold shadow-md flex items-center gap-2">
+              <button type="submit" disabled={isSubmitting || !isDirty} className={`px-6 py-2 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold shadow-md flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {isSubmitting ? <><i className="fa-solid fa-circle-notch fa-spin"></i> Saving...</> : <><i className="fa-solid fa-check"></i> Save</>}
               </button>
             </div>
@@ -192,16 +381,20 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Company Name <span className="text-red-500">*</span></label>
+              <label className={`text-sm font-semibold pl-0.5 ${errors.companyName ? 'text-red-500' : 'text-foreground/90'}`}>Company Name <span className="text-red-500">*</span></label>
               <div className="relative">
-                <i className="fa-regular fa-building absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
+                <i className={`fa-regular fa-building absolute left-3.5 top-1/2 -translate-y-1/2 ${errors.companyName ? 'text-red-500/70' : 'text-foreground/30'}`}></i>
                 <input 
                   type="text" 
                   value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
+                  onChange={(e) => {
+                    setCompanyName(e.target.value);
+                    if (errors.companyName) setErrors(prev => ({ ...prev, companyName: "" }));
+                  }}
+                  className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.companyName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.companyName ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
                 />
               </div>
+              {errors.companyName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.companyName}</p>}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -214,26 +407,29 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
             </div>
 
             <div className="flex flex-col gap-1.5 relative md:col-span-2" ref={categoryRef}>
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Categories <span className="text-red-500">*</span></label>
+              <label className={`text-sm font-semibold pl-0.5 ${errors.categories ? 'text-red-500' : 'text-foreground/90'}`}>Categories <span className="text-red-500">*</span></label>
               <div 
                 onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                className="w-full px-3.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm"
+                className={`w-full px-3.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.categories ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm`}
                 tabIndex={0}
               >
                 <div className="flex flex-wrap gap-1.5 py-1.5">
                   {selectedCategories.length > 0 ? (
-                    selectedCategories.map(cat => (
-                      <span key={cat} className="px-2.5 py-1 bg-[#1D92EB]/10 text-[#1D92EB] border border-[#1D92EB]/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
-                        {cat}
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); toggleCategory(cat); }}
-                          className="text-[#1D92EB]/50 hover:text-[#1D92EB] transition-colors"
-                        >
-                          <i className="fa-solid fa-xmark text-xs"></i>
-                        </button>
-                      </span>
-                    ))
+                    selectedCategories.map(catId => {
+                      const catName = categoryOptions.find(c => c.id === catId)?.name || catId;
+                      return (
+                        <span key={catId} className="px-2.5 py-1 bg-[#1D92EB]/10 text-[#1D92EB] border border-[#1D92EB]/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
+                          {catName}
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleCategory(catId); }}
+                            className="text-[#1D92EB]/50 hover:text-[#1D92EB] transition-colors"
+                          >
+                            <i className="fa-solid fa-xmark text-xs"></i>
+                          </button>
+                        </span>
+                      );
+                    })
                   ) : (
                     <span className="text-foreground/40 flex items-center gap-2">
                       <i className="fa-solid fa-tags text-foreground/30"></i> Select categories...
@@ -258,21 +454,22 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
                   <div className="overflow-y-auto p-1.5 custom-scrollbar">
                     {filteredCategories.map(cat => (
                       <div 
-                        key={cat} 
-                        onClick={() => toggleCategory(cat)}
+                        key={cat.id} 
+                        onClick={() => toggleCategory(cat.id)}
                         className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-foreground/5 transition-colors flex items-center justify-between"
                       >
-                        <span className={selectedCategories.includes(cat) ? "font-semibold text-foreground" : "text-foreground/80"}>{cat}</span>
-                        {selectedCategories.includes(cat) && <i className="fa-solid fa-check text-[#1D92EB]"></i>}
+                        <span className={selectedCategories.includes(cat.id) ? "font-semibold text-foreground" : "text-foreground/80"}>{cat.name}</span>
+                        {selectedCategories.includes(cat.id) && <i className="fa-solid fa-check text-[#1D92EB]"></i>}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+              {errors.categories && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.categories}</p>}
             </div>
 
             <div className="flex flex-col gap-1.5 md:col-span-2">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Business Address</label>
+              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Business Address <span className="text-foreground/40 font-normal text-xs">(Optional)</span></label>
               <div className="relative">
                 <i className="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
                 <input 
@@ -301,23 +498,27 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-foreground/90 pl-0.5">Website <span className="text-foreground/40 font-normal text-xs">(Optional)</span></label>
+              <label className={`text-sm font-semibold pl-0.5 ${errors.website ? 'text-red-500' : 'text-foreground/90'}`}>Website <span className={`font-normal text-xs ${errors.website ? 'text-red-500/60' : 'text-foreground/40'}`}>(Optional)</span></label>
               <div className="relative">
-                <i className="fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"></i>
+                <i className={`fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 ${errors.website ? 'text-red-500/70' : 'text-foreground/30'}`}></i>
                 <input 
                   type="url" 
                   value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
+                  onChange={(e) => {
+                    setWebsite(e.target.value);
+                    if (errors.website) setErrors(prev => ({ ...prev, website: "" }));
+                  }}
+                  className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.website ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.website ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
                   placeholder="https://www.example.com"
                 />
               </div>
+              {errors.website && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.website}</p>}
             </div>
           </div>
           
           {/* Mobile Save Button (Inside Collapse) */}
           <div className="mt-6 flex lg:!hidden justify-end border-t border-foreground/5 pt-4 pb-1 pr-2">
-            <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold shadow-md flex items-center gap-2">
+            <button type="submit" disabled={isSubmitting || !isDirty} className={`px-6 py-2 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold shadow-md flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}>
               {isSubmitting ? <><i className="fa-solid fa-circle-notch fa-spin"></i> Saving...</> : <><i className="fa-solid fa-check"></i> Save</>}
             </button>
           </div>
@@ -329,8 +530,8 @@ export default function ProfileForm({ categories = [], lang = "en" }: ProfileFor
       <div className="hidden lg:!flex justify-end">
         <button 
           type="submit" 
-          disabled={isSubmitting}
-          className="px-6 py-2.5 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+          disabled={isSubmitting || !isDirty}
+          className={`px-6 py-2.5 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-70 cursor-not-allowed transform-none hover:shadow-md hover:translate-y-0' : ''}`}
         >
           {isSubmitting ? (
             <><i className="fa-solid fa-circle-notch fa-spin"></i> Saving changes...</>

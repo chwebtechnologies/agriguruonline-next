@@ -39,20 +39,61 @@ const PLANS: MembershipPlan[] = [
   }
 ];
 
-export default function MembershipCard() {
-  const [currentPlanIndex, setCurrentPlanIndex] = useState(1); // Default to Gold
+interface MembershipCardProps {
+  profileData?: any;
+}
 
-  const plan = PLANS[currentPlanIndex];
+export default function MembershipCard({ profileData = null }: MembershipCardProps) {
+  // Determine tier from profileData using specific API keys
+  let currentTier = "SILVER";
+  const planName = String(profileData?.membership?.plan_name || profileData?.plan_name || "SILVER").toUpperCase();
+  
+  if (planName.includes('GOLD')) currentTier = 'GOLD';
+  else if (planName.includes('PLATINUM')) currentTier = 'PLATINUM';
+  else if (planName.includes('SILVER')) currentTier = 'SILVER';
 
-  const cyclePlan = () => {
-    setCurrentPlanIndex((prev) => (prev + 1) % PLANS.length);
+  // Find the base plan settings
+  const basePlan = PLANS.find(p => p.tier === currentTier) || PLANS[0];
+  
+  // Override duration based on API (e.g. YEARLY / MONTHLY)
+  const planType = String(profileData?.membership?.plan_type || profileData?.plan_type || basePlan.duration).toUpperCase();
+  const displayDuration = planType.includes('YEAR') ? 'YEARLY' : (planType.includes('MONTH') ? 'MONTHLY' : basePlan.duration);
+
+  // Combine to create the final plan object
+  const plan = {
+    ...basePlan,
+    duration: displayDuration as "MONTHLY" | "YEARLY"
   };
+
+  const memberName = profileData?.first_name 
+    ? `${profileData.first_name} ${profileData.last_name || ''}`.trim()
+    : profileData?.name || "N/A";
+    
+  // Account ID key in api is customer_id
+  const accountId = profileData?.customer_id || "N/A";
+  
+  // Expiry date key in api is membership_expiry_date (either inside membership object or root)
+  let validThru = "N/A";
+  const expiry = profileData?.membership?.membership_expiry_date || profileData?.membership_expiry_date;
+  
+  if (expiry) {
+    try {
+      const date = new Date(expiry);
+      validThru = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+    } catch(e) {
+      validThru = expiry;
+    }
+  } else if (profileData?.created_at) {
+    try {
+      const date = new Date(profileData.created_at);
+      date.setFullYear(date.getFullYear() + 1);
+      validThru = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+    } catch(e) {}
+  }
 
   return (
     <div 
-      onClick={cyclePlan}
-      className={`relative w-full rounded-2xl ${plan.gradientClass} p-4 sm:p-5 text-white shadow-2xl overflow-hidden group cursor-pointer transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 flex flex-col`}
-      title="Click to cycle plan styles (Demo)"
+      className={`relative w-full rounded-2xl ${plan.gradientClass} p-4 sm:p-5 text-white shadow-2xl overflow-hidden flex flex-col`}
     >
       {/* Dynamic Background Texture */}
       <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
@@ -75,14 +116,14 @@ export default function MembershipCard() {
           </div>
           
           <div className="relative z-20" onClick={(e) => e.stopPropagation()}>
-            <ProfilePictureUpload />
+            <ProfilePictureUpload currentImage={profileData?.profile_image} />
           </div>
         </div>
 
         {/* Account ID */}
         <div className="mt-3 sm:mt-4 mb-3 sm:mb-4">
           <p className="text-white/80 text-[10px] uppercase tracking-widest font-bold mb-1 drop-shadow-sm">Account ID</p>
-          <p className="font-mono text-xl sm:text-2xl tracking-[0.2em] drop-shadow-lg font-bold text-white">AG2606110092</p>
+          <p className="font-mono text-xl sm:text-2xl tracking-[0.2em] drop-shadow-lg font-bold text-white">{accountId}</p>
         </div>
       </div>
 
@@ -90,18 +131,14 @@ export default function MembershipCard() {
       <div className="flex justify-between items-end pt-3 border-t border-white/20 relative z-10">
         <div>
           <p className="text-white/80 text-[10px] uppercase tracking-[0.15em] font-bold mb-0.5 drop-shadow-sm">Member Name</p>
-          <p className="font-bold tracking-widest drop-shadow-lg text-sm sm:text-base text-white uppercase">JOHN DOE</p>
+          <p className="font-bold tracking-widest drop-shadow-lg text-sm sm:text-base text-white uppercase truncate max-w-[150px] sm:max-w-[180px]">{memberName}</p>
         </div>
         <div className="text-right">
           <p className="text-white/80 text-[10px] uppercase tracking-[0.15em] font-bold mb-0.5 drop-shadow-sm">Valid Thru</p>
-          <p className="font-bold tracking-wider drop-shadow-lg text-sm sm:text-base text-white">24 OCT 2027</p>
+          <p className="font-bold tracking-wider drop-shadow-lg text-sm sm:text-base text-white">{validThru}</p>
         </div>
       </div>
       
-      {/* Tooltip hint */}
-      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-sm z-20">
-         <span className="text-white font-bold tracking-widest text-sm border border-white/40 px-5 py-2.5 rounded-full bg-black/40 shadow-xl">Click to preview tiers</span>
-      </div>
     </div>
   );
 }

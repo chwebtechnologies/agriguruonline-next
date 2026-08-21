@@ -46,7 +46,10 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
           if (nextStep === "LOGGED_IN" && successData.data?.access_token) {
             await createSession(successData.data.access_token, successData.data.user);
           }
-        } catch (e) {}
+        } catch (e) {
+          toast.error("Failed to setup session. Please try again.");
+          return;
+        }
 
         toast.success("OTP verified successfully!");
         onVerify(otpString, nextStep);

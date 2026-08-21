@@ -48,18 +48,24 @@ interface HeaderAuthProps {
 
 // Client Side Mock fetch profile coordinate
 async function fetchUserProfile(token: string) {
-  // Simulate minimal server-side network delay
-  if (!token) return null
-  await new Promise((resolve) => setTimeout(resolve, 50))
-  return {
-    name: 'Harshit',
-    email: 'harshit@example.com',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&h=80&fit=crop&crop=face',
+  if (!token) return null;
+  try {
+    const res = await fetch("https://user-api.agriguruonline.cloud/user/my-profile?lang_code=en&source=web", {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      },
+      next: { revalidate: 300 } // cache lightly, or could be no-store
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.data || null;
+  } catch(e) {
+    return null;
   }
 }
 
 export function HeaderAuth({ token, dict, activeLang, categories: apiCategories }: HeaderAuthProps) {
-  const [profile, setProfile] = useState<{ name: string; email: string; avatar: string } | null>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [isScrolled, setIsScrolled] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
 
@@ -253,59 +259,53 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories 
                 {dict.header.home}
               </Link>
               <Link
-                href={`/${activeLang}/about`}
-                className={`transition-colors duration-150 font-extrabold ${isAboutActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'
-                  }`}
+                href="#"
+                className="transition-colors duration-150 font-extrabold text-ag-nav-link hover:text-ag-nav-link-hover"
               >
-                {dict.header.about_us}
+                Products
               </Link>
-              {dict.navigation.dashboard && (
-                <Link
-                  href={`/${activeLang}/dashboard`}
-                  className={`transition-colors duration-150 font-extrabold ${isDashboardActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'
-                    }`}
-                >
-                  {dict.navigation.dashboard}
-                </Link>
-              )}
             </nav>
 
-            {/* User Profile Info */}
-            <div className="flex items-center gap-2 select-none border-l border-ag-subheader-border pl-2.5 dir-none">
-              <div className="hidden lg:flex flex-col text-right leading-none select-none">
-                <span className="text-xs font-bold text-ag-header-text">{profile?.name || 'User'}</span>
-                <span className="text-[9px] text-ag-search-placeholder mt-0.5">{profile?.email || 'email@example.com'}</span>
+            <div className="flex items-center gap-4 select-none border-l border-ag-subheader-border pl-4 dir-none">
+              <div className="flex items-center gap-3">
+                <Link
+                  href="#"
+                  className="h-10 px-5 hidden lg:inline-flex items-center justify-center rounded-lg bg-primary-gradient text-[15px] font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
+                >
+                  {profile?.membership ? 'Upgrade Plan' : 'Free Trial'}
+                </Link>
+
+                <Link
+                  href={`/${activeLang}/profile`}
+                  className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-ag-login-bg text-ag-login-text hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-ag-login-border shadow-lg hover:scale-105 active:scale-95 duration-200"
+                >
+                  {profile?.profile_image ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      className="h-full w-full rounded-full border border-ag-login-border object-cover"
+                      src={profile.profile_image.startsWith('http') ? profile.profile_image : `${process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com'}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
+                      alt="Profile"
+                      onError={(e) => {
+                        // Fallback to icon on error
+                        e.currentTarget.style.display = 'none';
+                        if (e.currentTarget.nextElementSibling) {
+                          (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                        }
+                      }}
+                    />
+                  ) : null}
+                  
+                  <div 
+                    className="flex flex-col items-center justify-center w-full h-full"
+                    style={{ display: profile?.profile_image ? 'none' : 'flex' }}
+                  >
+                    <i className="fa-solid fa-user text-[15px] mb-0.5"></i>
+                    <span className="text-[9px] font-extrabold leading-none mt-0.5">Profile</span>
+                  </div>
+                  
+                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ag-header-bg ring-2 ring-emerald-500/20" />
+                </Link>
               </div>
-
-              <Link
-                href={`/${activeLang}/profile`}
-                className="relative flex h-9.5 w-9.5 shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500 active:scale-95 transition-transform"
-              >
-                {profile?.avatar ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    className="h-full w-full rounded-full border-2 border-emerald-500/60 object-cover"
-                    src={profile.avatar}
-                    alt={profile.name}
-                  />
-                ) : (
-                  <div className="h-full w-full rounded-full bg-ag-login-bg border-2 border-emerald-500/40 animate-pulse" />
-                )}
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ag-header-bg ring-2 ring-emerald-500/20" />
-              </Link>
-
-              {/* Log out button */}
-              <button
-                onClick={() => {
-                  if (typeof document !== 'undefined') {
-                    document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-                    window.location.reload();
-                  }
-                }}
-                className="rounded px-2 py-1 text-[10px] font-bold text-ag-search-placeholder hover:text-rose-500 transition-colors focus:outline-none focus:ring-1 focus:ring-rose-500"
-              >
-                {dict.navigation.logout}
-              </button>
             </div>
           </div>
         </div>
