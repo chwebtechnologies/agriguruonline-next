@@ -84,13 +84,32 @@ export default async function Header() {
       }
     })
 
+  let userProfile = null
+  if (token) {
+    try {
+      const userApiUrl = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud'
+      const profileRes = await fetch(`${userApiUrl.replace(/\/$/, '')}/user/my-profile?lang_code=${activeLang}&source=web`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        next: { revalidate: 300 }
+      })
+      if (profileRes.ok) {
+        const profileJson = await profileRes.json()
+        userProfile = profileJson?.data || null
+      }
+    } catch (e) {
+      console.error("Failed to fetch user profile in Header", e)
+    }
+  }
+
   if (!token) {
     return <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} />
   }
 
   return (
     <Suspense fallback={<HeaderGuest dict={dict} activeLang={activeLang} loading categories={categories} />}>
-      <HeaderAuth token={token} dict={dict} activeLang={activeLang} categories={categories} />
+      <HeaderAuth token={token} dict={dict} activeLang={activeLang} categories={categories} profile={userProfile} />
     </Suspense>
   )
 }

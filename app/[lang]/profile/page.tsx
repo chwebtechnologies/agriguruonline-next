@@ -44,6 +44,8 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     if (res.ok) {
       const json = await res.json();
       profileData = json.data;
+      console.log("DEBUG: profileData.country =", JSON.stringify(profileData?.country || null, null, 2));
+      console.log("DEBUG: profileData.country_id =", profileData?.country_id || null);
     } else if (res.status === 401 || res.status === 403) {
       redirect(`/${lang}/login`);
     }
@@ -65,8 +67,70 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     expire: cacheExpire
   })
 
+  // Fetch countries list on server
+  let apiCountries: any[] = [];
+  try {
+    const countriesRes = await fetch(`${tradingApiUrl.replace(/\/$/, '')}/country?lang_code=${lang}&source=web`, {
+      cache: 'no-store'
+    });
+    const countriesData = await countriesRes.json();
+    if (countriesData.data?.countries && Array.isArray(countriesData.data.countries)) {
+      apiCountries = countriesData.data.countries;
+    } else if (Array.isArray(countriesData.data)) {
+      apiCountries = countriesData.data;
+    }
+  } catch (e: any) {
+    console.error("Failed to fetch countries on server", e);
+  }
+
   // Set KYC state from API (fallback to false if not found)
   const isKycVerified = profileData?.is_kyc_verified || false;
+
+  // Fetch KYC documents to calculate status dynamically on server
+  let kycStatus = "MISSING";
+  let rawKycDocs: any[] = [];
+  if (profileData) {
+    const userId = profileData.id || profileData._id || profileData.customer_id;
+    try {
+      const kycRes = await fetch(`https://user-api.agriguruonline.cloud/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        cache: 'no-store'
+      });
+      const kycData = await kycRes.json();
+      if (kycData.success && Array.isArray(kycData.data)) {
+        rawKycDocs = kycData.data;
+        const hasActive = kycData.data.some((item: any) => {
+          if (!item.is_uploaded) return false;
+          const status = item.status?.toUpperCase();
+          return status !== "REJECTED" && status !== "EXPIRED";
+        });
+        
+        const hasRejected = kycData.data.some((item: any) => {
+          if (!item.is_uploaded) return false;
+          return item.status?.toUpperCase() === "REJECTED";
+        });
+
+        const hasApproved = kycData.data.some((item: any) => {
+          if (!item.is_uploaded) return false;
+          return item.status?.toUpperCase() === "APPROVED";
+        });
+
+        if (hasApproved) {
+          kycStatus = "APPROVED";
+        } else if (hasActive) {
+          kycStatus = "PROCESSING";
+        } else if (hasRejected) {
+          kycStatus = "REJECTED";
+        } else {
+          kycStatus = "MISSING";
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch KYC status on server", e);
+    }
+  }
 
   return (
     <div className="bg-background text-foreground transition-theme">
@@ -76,20 +140,40 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
 
           <div className="mt-4">
             
-            {/* Compact Global KYC Alert Banner */}
-            {!isKycVerified && (
-              <div className="mb-6 bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-900 rounded-xl p-3 sm:px-5 flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
+            {/* Dynamic KYC Alert Banner */}
+            {!isKycVerified && kycStatus !== "APPROVED" && kycStatus !== "PROCESSING" && (
+              <div className={`mb-6 border rounded-xl p-3 sm:px-5 flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500 ${
+                kycStatus === "REJECTED" 
+                  ? "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900" 
+                  : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900"
+              }`}>
                 <div className="flex items-center gap-3 w-full">
-                  <div className="w-8 h-8 bg-red-100 dark:bg-red-900/50 text-red-600 rounded-full flex items-center justify-center shrink-0 hidden sm:flex">
-                    <i className="fa-solid fa-triangle-exclamation text-sm"></i>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 hidden sm:flex ${
+                    kycStatus === "REJECTED" ? "bg-red-100 dark:bg-red-900/50 text-red-600" : "bg-amber-100 dark:bg-amber-900/50 text-amber-600"
+                  }`}>
+                    <i className={`fa-solid ${kycStatus === "REJECTED" ? "fa-circle-xmark" : "fa-triangle-exclamation"} text-sm`}></i>
                   </div>
                   <div className="flex flex-col md:flex-row md:items-center md:gap-2">
-                    <h3 className="text-red-800 dark:text-red-400 font-extrabold text-sm sm:text-base">Action Required: KYC Verification</h3>
-                    <span className="hidden md:inline text-red-400 font-bold">-</span>
-                    <p className="text-red-700 dark:text-red-300 text-sm font-medium leading-tight sm:leading-normal mt-0.5 md:mt-0">Please verify your identity to unlock features.</p>
+                    <h3 className={`font-extrabold text-sm sm:text-base ${
+                      kycStatus === "REJECTED" ? "text-red-800 dark:text-red-400" : "text-amber-800 dark:text-amber-400"
+                    }`}>
+                      {kycStatus === "REJECTED" ? "KYC Rejected" : "Action Required: KYC Verification"}
+                    </h3>
+                    <span className={`hidden md:inline font-bold ${
+                      kycStatus === "REJECTED" ? "text-red-400" : "text-amber-400"
+                    }`}>-</span>
+                    <p className={`text-sm font-medium leading-tight sm:leading-normal mt-0.5 md:mt-0 ${
+                      kycStatus === "REJECTED" ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"
+                    }`}>
+                      {kycStatus === "REJECTED" 
+                        ? "Please upload a clear new document to verify." 
+                        : "Please upload required document to verify and unlock trading features."}
+                    </p>
                   </div>
                 </div>
-                <a href="#kyc-section" className="shrink-0 px-4 py-2 sm:px-5 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-all whitespace-nowrap">
+                <a href="#kyc-section" className={`shrink-0 px-4 py-2 sm:px-5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-all whitespace-nowrap text-white ${
+                  kycStatus === "REJECTED" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"
+                }`}>
                   Verify Now
                 </a>
               </div>
@@ -106,7 +190,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
               <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
                 
                 {/* Main Form */}
-                <ProfileForm categories={apiCategories} lang={lang} profileData={profileData} token={token} />
+                <ProfileForm categories={apiCategories} countries={apiCountries} lang={lang} profileData={profileData} />
               </div>
 
               {/* Right Column (Sidebar Widgets) */}
@@ -118,7 +202,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
                 </div>
 
                 <div id="kyc-section" className="scroll-mt-24">
-                  <KycSection />
+                  <KycSection profileData={profileData} lang={lang} initialKycDocs={rawKycDocs} />
                 </div>
                 
                 {/* Mobile-only Upgrade Plan Button */}

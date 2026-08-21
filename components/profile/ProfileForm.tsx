@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { toast } from "sonner";
@@ -8,15 +9,18 @@ import "@/components/auth/phone-input.css";
 import SearchableCountrySelect from "@/components/ui/SearchableCountrySelect"; 
 import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput"; 
 import type { Category } from "@/lib/category";
+import { updateProfile } from "@/app/actions/profile";
 
 interface ProfileFormProps {
   categories?: Category[];
+  countries?: any[];
   lang?: string;
   profileData?: any;
   token?: string;
 }
 
-export default function ProfileForm({ categories = [], lang = "en", profileData = null, token = "" }: ProfileFormProps) {
+export default function ProfileForm({ categories = [], countries = [], lang = "en", profileData = null }: ProfileFormProps) {
+  const router = useRouter();
   const availableCategories = categories
     .filter(cat => cat.is_active !== false)
     .map(cat => {
@@ -60,6 +64,24 @@ export default function ProfileForm({ categories = [], lang = "en", profileData 
   const [companyName, setCompanyName] = useState(profileData?.company_name || profileData?.business_name || "");
 
   const [country, setCountry] = useState(() => {
+    // 1. If profileData already has country.iso2, use it directly
+    if (profileData?.country?.iso2) {
+      return profileData.country.iso2.toUpperCase();
+    }
+
+    // 2. Resolve ISO code from DB country_id by searching countries list
+    const dbCountryId = profileData?.country_id || profileData?.country?.id || profileData?.country;
+    if (dbCountryId && countries.length > 0) {
+      const matched = countries.find(c => 
+        c.id === dbCountryId || 
+        c.iso2?.toUpperCase() === (typeof dbCountryId === 'string' ? dbCountryId.toUpperCase() : '')
+      );
+      if (matched && matched.iso2) {
+        return matched.iso2.toUpperCase();
+      }
+    }
+
+    // 2. Fallback to parsing from phone number
     try {
       if (profileData?.mobile_no || profileData?.phone) {
         const { parsePhoneNumber } = require('react-phone-number-input');
@@ -70,6 +92,8 @@ export default function ProfileForm({ categories = [], lang = "en", profileData 
         }
       }
     } catch (e) {}
+
+    // 3. Fallback to raw code or AE
     return profileData?.country_code && !profileData.country_code.startsWith('+') 
       ? profileData.country_code 
       : "AE";
@@ -132,6 +156,8 @@ export default function ProfileForm({ categories = [], lang = "en", profileData 
     altNumber !== initialState.current.altNumber ||
     altEmail !== initialState.current.altEmail ||
     website !== initialState.current.website;
+
+
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -198,15 +224,16 @@ export default function ProfileForm({ categories = [], lang = "en", profileData 
       const firstName = nameParts[0];
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : "";
       
-      if (!token) throw new Error("Authentication required: No token provided");
-      
       const userId = profileData?.id || profileData?._id || profileData?.customer_id;
       if (!userId) throw new Error("User ID not found in profile data");
+
+      const selectedCountryObj = countries.find(c => c.iso2?.toUpperCase() === country?.toUpperCase());
+      const selectedCountryId = selectedCountryObj?.id || profileData?.country_id || "";
 
       const payload = {
         first_name: firstName,
         last_name: lastName,
-        country_id: profileData?.country_id || "", 
+        country_id: selectedCountryId, 
         country_code: parsed ? `+${parsed.countryCallingCode}` : "",
         mobile_no: parsed ? parsed.nationalNumber : phone,
         user_type: profileData?.user_type?.id || profileData?.user_type || "",
@@ -220,27 +247,20 @@ export default function ProfileForm({ categories = [], lang = "en", profileData 
         other_email: altEmail,
       };
 
-      const apiUrl = `https://user-api.agriguruonline.cloud/user/update-profile/${userId}?lang_code=${lang}&source=web`;
-      const response = await fetch(apiUrl, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      const result = await updateProfile(userId, payload, lang);
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update profile");
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update profile");
       }
 
-      toast.success(data.message || "Profile updated successfully!");
+      toast.success(result.message || "Profile updated successfully!");
       
       // Update initial state to reflect new saved values
       initialState.current = {
         fullName, phone, companyName, country, selectedCategories, businessAddress, altNumber, altEmail, website
       };
+      
+      router.refresh();
       
     } catch (error: any) {
       toast.error(error.message || "An error occurred while updating profile");

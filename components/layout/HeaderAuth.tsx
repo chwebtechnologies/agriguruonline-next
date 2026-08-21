@@ -44,28 +44,11 @@ interface HeaderAuthProps {
   }
   activeLang: string
   categories?: Array<{ name: string; href: string }>
+  profile?: any
 }
 
-// Client Side Mock fetch profile coordinate
-async function fetchUserProfile(token: string) {
-  if (!token) return null;
-  try {
-    const res = await fetch("https://user-api.agriguruonline.cloud/user/my-profile?lang_code=en&source=web", {
-      headers: {
-        "Authorization": `Bearer ${token}`
-      },
-      next: { revalidate: 300 } // cache lightly, or could be no-store
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.data || null;
-  } catch(e) {
-    return null;
-  }
-}
-
-export function HeaderAuth({ token, dict, activeLang, categories: apiCategories }: HeaderAuthProps) {
-  const [profile, setProfile] = useState<any>(null)
+export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile }: HeaderAuthProps) {
+  const [profile, setProfile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
 
@@ -75,26 +58,11 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories 
   const isDashboardActive = pathname === `/${activeLang}/dashboard` || pathname === `/dashboard`
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
-  // Scroll horizontal categories on vertical mouse wheel event
   useEffect(() => {
-    const el = categoriesRef.current
-    if (!el) return
-
-    const handleWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0) {
-        e.preventDefault()
-        el.scrollLeft += e.deltaY
-      }
+    if (initialProfile) {
+      setProfile(initialProfile)
     }
-
-    el.addEventListener('wheel', handleWheel, { passive: false })
-    return () => el.removeEventListener('wheel', handleWheel)
-  }, [])
-
-  // Fetch mock user details on mount
-  useEffect(() => {
-    fetchUserProfile(token).then((data) => setProfile(data))
-  }, [token])
+  }, [initialProfile])
 
   // Scroll listener for sticky collapse behavior with hysteresis to prevent blinking loops
   useEffect(() => {
