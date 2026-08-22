@@ -32,7 +32,12 @@ export async function updateProfile(
 
   try {
     if (!USER_API_URL) throw new Error("Missing USER_API_URL in environment");
-    const apiUrl = `${USER_API_URL.replace(/\/$/, '')}/user/update-profile/${userId}?lang_code=${lang}&source=web`;
+    
+    // Sanitize parameters to prevent SSRF / Path Traversal
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    const safeUserId = encodeURIComponent(userId);
+    
+    const apiUrl = `${USER_API_URL.replace(/\/$/, '')}/user/update-profile/${safeUserId}?lang_code=${safeLang}&source=web`;
     const response = await fetch(apiUrl, {
       method: "PATCH",
       headers: {
@@ -82,7 +87,11 @@ export async function uploadKycDocument(
 
   try {
     if (!USER_API_URL) throw new Error("Missing USER_API_URL in environment");
-    const apiUrl = `${USER_API_URL.replace(/\/$/, '')}/user/upload-document?lang_code=${lang}&source=web`;
+    
+    // Sanitize parameters to prevent SSRF
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    
+    const apiUrl = `${USER_API_URL.replace(/\/$/, '')}/user/upload-document?lang_code=${safeLang}&source=web`;
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {

@@ -44,6 +44,7 @@ export async function destroySession() {
   const cookieStore = await cookies();
   cookieStore.delete("auth_token");
   cookieStore.delete("user_info");
+  cookieStore.delete("__Secure-uid");
 }
 
 export async function logoutUser() {

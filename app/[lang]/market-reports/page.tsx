@@ -39,7 +39,16 @@ const getMarketReports = cache(async (lang: string, page: number, limit: number,
       }
     } else {
       const json = await res.json()
-      return json
+      if (json.success === false && (
+          json.message?.toLowerCase().includes('token') || 
+          json.message?.toLowerCase().includes('unauthorized') || 
+          json.message?.toLowerCase().includes('invalid') ||
+          json.message?.toLowerCase().includes('expire')
+      )) {
+         shouldLogout = true;
+      } else {
+         return json;
+      }
     }
   } catch (error) {
     console.error('Failed to fetch market reports:', error)

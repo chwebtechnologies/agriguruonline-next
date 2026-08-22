@@ -136,7 +136,7 @@ async function NewsGrid({ lang, page, limit, search, categoryId }: {
                 "url": `https://agriguru.online/${lang}/news/${article.slug}`
               }
             }))
-          })
+          }).replace(/</g, '\\u003c')
         }}
       />
     </>

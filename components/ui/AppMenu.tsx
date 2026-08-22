@@ -158,7 +158,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                         <i className="fa-solid fa-chevron-right text-[9px] text-ag-nav-link font-bold group-hover:translate-x-0.5 transition-transform"></i>
                       </button>
                     ) : (
-                      <Link href={item.href} className="flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
+                      <Link href={item.href} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
                         <div className="flex items-center gap-3">
                           <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
                             <i className={`${item.icon} text-[12px] text-white`}></i>

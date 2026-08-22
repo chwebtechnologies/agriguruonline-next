@@ -133,7 +133,7 @@ async function MarketUpdatesGrid({ lang, page, limit, search }: {
                 "url": `https://agriguru.online/${lang}/market-updates/${flyer.slug}`
               }
             }))
-          })
+          }).replace(/</g, '\\u003c')
         }}
       />
     </>

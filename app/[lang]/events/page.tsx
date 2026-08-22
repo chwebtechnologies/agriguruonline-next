@@ -139,7 +139,7 @@ async function EventsGrid({ lang, page, limit, search, categoryId }: {
                 "url": `https://agriguru.online/${lang}/events/${eventItem.slug}`
               }
             }))
-          })
+          }).replace(/</g, '\\u003c')
         }}
       />
     </>

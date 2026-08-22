@@ -46,15 +46,23 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     
     if (res.ok) {
       const json = await res.json();
-      profileData = json.data;
-    } else if (res.status === 401 || res.status === 403) {
+      if (json.success === false || !json.data) {
+        // Token might be expired but API returned 200 with success: false
+        shouldLogout = true;
+      } else {
+        profileData = json.data;
+      }
+    } else {
+      // Any non-200 status for profile means we cannot securely render the page
       shouldLogout = true;
     }
   } catch (error) {
     console.error('Failed to fetch profile', error);
+    shouldLogout = true;
   }
 
-  if (shouldLogout) {
+  // 100% Security: If there is no profile data or we marked for logout, redirect immediately
+  if (shouldLogout || !profileData) {
     redirect(`/api/auth/logout?lang=${lang}`);
   }
 
