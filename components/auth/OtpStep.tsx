@@ -19,7 +19,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
   const handleVerify = (otpString: string) => {
     startTransition(async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
+        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
         const response = await fetch(`${apiUrl}/auth/verify-otp?lang_code=${lang}&source=web`, {
           method: "POST",
           headers: {

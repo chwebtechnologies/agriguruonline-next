@@ -60,7 +60,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
           return;
         }
         
-        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
+        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
         const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
           method: "POST",
           headers: {

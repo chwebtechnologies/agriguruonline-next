@@ -46,6 +46,28 @@ export async function destroySession() {
   cookieStore.delete("user_info");
 }
 
+export async function logoutUser() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+  
+  if (token) {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_USER_API_URL}/auth/logout?lang_code=en&source=web`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+    } catch (error) {
+      console.error("Logout API failed", error);
+    }
+  }
+  
+  await destroySession();
+  
+  return { success: true };
+}
+
 export async function uploadProfileImage(formData: FormData) {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth_token")?.value;
@@ -67,7 +89,7 @@ export async function uploadProfileImage(formData: FormData) {
       const apiFormData = new FormData();
       apiFormData.append(fieldName, file);
 
-      const res = await fetch("https://user-api.agriguruonline.cloud/user/upload-profile?lang_code=en&source=web", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_USER_API_URL}/user/upload-profile?lang_code=en&source=web`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`

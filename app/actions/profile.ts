@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 
-const USER_API_URL = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
+const USER_API_URL = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL ;
 
 export interface ServerActionResponse {
   success: boolean;
@@ -31,6 +31,7 @@ export async function updateProfile(
   }
 
   try {
+    if (!USER_API_URL) throw new Error("Missing USER_API_URL in environment");
     const apiUrl = `${USER_API_URL.replace(/\/$/, '')}/user/update-profile/${userId}?lang_code=${lang}&source=web`;
     const response = await fetch(apiUrl, {
       method: "PATCH",
@@ -80,6 +81,7 @@ export async function uploadKycDocument(
   }
 
   try {
+    if (!USER_API_URL) throw new Error("Missing USER_API_URL in environment");
     const apiUrl = `${USER_API_URL.replace(/\/$/, '')}/user/upload-document?lang_code=${lang}&source=web`;
     const response = await fetch(apiUrl, {
       method: "POST",

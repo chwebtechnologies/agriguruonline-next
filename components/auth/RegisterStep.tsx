@@ -63,7 +63,7 @@ export default function RegisterStep({ email, onComplete, lang }: RegisterStepPr
           source: "WEB"
         };
 
-        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
+        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
         const res = await fetch(`${apiUrl}/auth/register?lang_code=${lang}&source=web`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

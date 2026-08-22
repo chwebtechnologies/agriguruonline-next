@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { logoutUser } from '@/app/actions/auth'
 
 interface MenuItem {
   label: string;
@@ -37,6 +38,14 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
       document.documentElement.classList.remove('dark');
     }
     window.dispatchEvent(new Event('theme-changed'));
+  };
+
+  const handleLogout = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    setIsOpen(false);
+    await logoutUser();
+    const lang = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en';
+    window.location.href = `/${lang}/login`;
   };
 
   // Helper to safely extract user type string
@@ -112,17 +121,31 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
               <ul className="flex flex-col">
                 {group.map((item, index) => (
                   <li key={index} className="relative group">
-                    <Link href={item.href} className="flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
-                          <i className={`${item.icon} text-[12px] text-white`}></i>
+                    {item.label === 'Logout' ? (
+                      <button onClick={handleLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+                            <i className={`${item.icon} text-[12px] text-white`}></i>
+                          </div>
+                          <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
+                            {item.label}
+                          </span>
                         </div>
-                        <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
-                          {item.label}
-                        </span>
-                      </div>
-                      <i className="fa-solid fa-chevron-right text-[9px] text-ag-nav-link font-bold group-hover:translate-x-0.5 transition-transform"></i>
-                    </Link>
+                        <i className="fa-solid fa-chevron-right text-[9px] text-ag-nav-link font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                      </button>
+                    ) : (
+                      <Link href={item.href} className="flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+                            <i className={`${item.icon} text-[12px] text-white`}></i>
+                          </div>
+                          <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
+                            {item.label}
+                          </span>
+                        </div>
+                        <i className="fa-solid fa-chevron-right text-[9px] text-ag-nav-link font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                      </Link>
+                    )}
                     {/* Inline separator, except for last item */}
                     {index !== group.length - 1 && (
                       <div className="absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-ag-header-border/50"></div>
@@ -142,12 +165,12 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
             
             {/* Quick Actions Row (Logout, Home, Mode) */}
             <div className="grid grid-cols-3 gap-3">
-              <Link onClick={() => setIsOpen(false)} href="#" className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
+              <button onClick={handleLogout} className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
                 <div className="absolute left-2.5 flex items-center justify-center w-6 h-6 rounded shrink-0 bg-red-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className="fa-solid fa-power-off text-[11px] text-white"></i>
                 </div>
                 <span className="text-[14px] font-semibold text-foreground tracking-tight">Logout</span>
-              </Link>
+              </button>
               <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : 'en'}`} className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
                 <div className="absolute left-2.5 flex items-center justify-center w-6 h-6 rounded shrink-0 bg-blue-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className="fa-solid fa-house text-[11px] text-white"></i>

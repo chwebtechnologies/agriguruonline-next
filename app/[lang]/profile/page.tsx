@@ -31,7 +31,9 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
 
   // Fetch profile data
-  const profileApiUrl = `https://user-api.agriguruonline.cloud/user/my-profile?lang_code=${lang}&source=web`;
+  const userApiUrl = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL;
+  if (!userApiUrl) throw new Error("Missing USER_API_URL in environment");
+  const profileApiUrl = `${userApiUrl.replace(/\/$/, '')}/user/my-profile?lang_code=${lang}&source=web`;
   let profileData = null;
   try {
     const res = await fetch(profileApiUrl, {
@@ -92,7 +94,8 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   if (profileData) {
     const userId = profileData.id || profileData._id || profileData.customer_id;
     try {
-      const kycRes = await fetch(`https://user-api.agriguruonline.cloud/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
+      if (!userApiUrl) throw new Error("Missing USER_API_URL in environment");
+      const kycRes = await fetch(`${userApiUrl.replace(/\/$/, '')}/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },

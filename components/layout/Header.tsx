@@ -87,7 +87,8 @@ export default async function Header() {
   let userProfile = null
   if (token) {
     try {
-      const userApiUrl = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud'
+      const userApiUrl = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL;
+      if (!userApiUrl) throw new Error("Missing USER_API_URL in environment");
       const profileRes = await fetch(`${userApiUrl.replace(/\/$/, '')}/user/my-profile?lang_code=${activeLang}&source=web`, {
         headers: {
           'Authorization': `Bearer ${token}`
