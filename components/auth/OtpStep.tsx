@@ -15,6 +15,61 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [isPending, startTransition] = useTransition();
+  const [countdown, setCountdown] = useState(120);
+
+  useEffect(() => {
+    const lastSentStr = localStorage.getItem(`otp_sent_${email}`);
+    let initialCountdown = 120;
+    if (lastSentStr) {
+      const lastSent = parseInt(lastSentStr, 10);
+      const passedSeconds = Math.floor((Date.now() - lastSent) / 1000);
+      if (passedSeconds < 120) {
+        initialCountdown = 120 - passedSeconds;
+      } else {
+        initialCountdown = 0;
+      }
+    }
+    setCountdown(initialCountdown);
+  }, [email]);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const handleResend = () => {
+    startTransition(async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
+        const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+
+        if (!response.ok) {
+          let errorMessage = "Failed to resend OTP. Please try again.";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          } catch (e) {}
+          toast.error(errorMessage);
+          return;
+        }
+
+        localStorage.setItem(`otp_sent_${email}`, Date.now().toString());
+        setCountdown(120);
+        toast.success("OTP resent successfully!");
+      } catch (err) {
+        toast.error("Something went wrong resending the OTP.");
+      }
+    });
+  };
 
   const handleVerify = (otpString: string) => {
     startTransition(async () => {
@@ -151,9 +206,20 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
       
       <p className="mt-8 text-sm text-foreground/70">
         Didn't receive the code?{" "}
-        <button className="text-foreground font-medium hover:underline">
-          Resend
-        </button>
+        {countdown > 0 ? (
+          <span className="text-foreground/50 font-medium">
+            Resend in {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}
+          </span>
+        ) : (
+          <button 
+            onClick={handleResend}
+            disabled={isPending}
+            className="text-foreground font-medium hover:underline disabled:opacity-50"
+            type="button"
+          >
+            {isPending ? "Sending..." : "Resend"}
+          </button>
+        )}
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import EmailStep from "./EmailStep";
 import OtpStep from "./OtpStep";
 import RegisterStep from "./RegisterStep";
@@ -19,6 +19,30 @@ export default function AuthFlow({ lang }: AuthFlowProps) {
   const [step, setStep] = useState<AuthStep>("EMAIL");
   const [email, setEmail] = useState("");
 
+  useEffect(() => {
+    // Cleanup expired OTPs from localStorage on mount
+    try {
+      const now = Date.now();
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("otp_sent_")) {
+          const timestampStr = localStorage.getItem(key);
+          if (timestampStr) {
+            const timestamp = parseInt(timestampStr, 10);
+            // If older than 2 minutes
+            if (now - timestamp >= 120 * 1000) {
+              keysToRemove.push(key);
+            }
+          }
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {
+      // Ignore errors for localStorage
+    }
+  }, []);
+
   const handleEmailNext = (submittedEmail: string) => {
     setEmail(submittedEmail);
     setStep("OTP");
@@ -28,13 +52,13 @@ export default function AuthFlow({ lang }: AuthFlowProps) {
     if (nextStep === "REQUIRE_REGISTRATION") {
       setStep("REGISTER");
     } else {
-      window.location.href = `/${lang}/profile`;
+      window.location.replace(`/${lang}/profile`);
     }
   };
 
   const handleRegisterComplete = () => {
     // Simulate completing registration and logging in
-    window.location.href = `/${lang}/profile`;
+    window.location.replace(`/${lang}/profile`);
   };
 
   const getTitle = () => {

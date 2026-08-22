@@ -1,5 +1,7 @@
 import AuthFlow from "@/components/auth/AuthFlow";
 import { Metadata } from "next";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Login | Agriguru Online",
@@ -16,6 +18,15 @@ interface LoginPageProps {
 export default async function LoginPage({ params }: LoginPageProps) {
   // We await params if it's a promise, Next 15 requires awaiting it.
   const lang = (await params).lang;
+
+  // Check if the user is already logged in
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+
+  if (token) {
+    // If they have a token, redirect them to the profile page
+    redirect(`/${lang}/profile`);
+  }
 
   return (
     <div className="bg-background text-foreground">

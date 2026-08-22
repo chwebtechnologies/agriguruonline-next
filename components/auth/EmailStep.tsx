@@ -59,6 +59,17 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
           toast.error(errMsg);
           return;
         }
+
+        const lastSentStr = localStorage.getItem(`otp_sent_${trimmedEmail}`);
+        if (lastSentStr) {
+          const lastSent = parseInt(lastSentStr, 10);
+          if (Date.now() - lastSent < 120 * 1000) {
+            // Still within 2 minutes, skip API call
+            toast.success("OTP was already sent recently!");
+            onNext(trimmedEmail);
+            return;
+          }
+        }
         
         const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
         const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
@@ -82,6 +93,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
           return;
         }
         
+        localStorage.setItem(`otp_sent_${trimmedEmail}`, Date.now().toString());
         toast.success("OTP sent successfully!");
         onNext(trimmedEmail);
       } catch (err) {
