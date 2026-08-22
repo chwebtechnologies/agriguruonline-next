@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'assets.agriguruonline.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'assets.agriguruonline.cloud',
+      },
     ],
   },
 };
