@@ -41,9 +41,12 @@ export default function ListingFilters({ categories = [] }: ListingFiltersProps)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm !== (searchParams.get('search') || '')) {
-        router.push(pushParams({ search: searchTerm }))
+        const len = searchTerm?.length || 0
+        if (len === 0 || len >= 3) {
+          router.push(pushParams({ search: searchTerm || '' }))
+        }
       }
-    }, 500)
+    }, 600)
     return () => clearTimeout(timer)
   }, [searchTerm, router, pushParams, searchParams])
 
@@ -84,11 +87,21 @@ export default function ListingFilters({ categories = [] }: ListingFiltersProps)
         </div>
         <input
           type="text"
-          className="block w-full pl-9 pr-3 py-2.5 bg-background border border-ag-header-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all"
+          className="block w-full pl-9 pr-10 py-2.5 bg-background border border-ag-header-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all"
           placeholder="Search..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+        {searchTerm && (
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-foreground/40 hover:text-foreground transition-colors focus:outline-none"
+            aria-label="Clear search"
+          >
+            <i className="fa-solid fa-circle-xmark text-[15px]"></i>
+          </button>
+        )}
       </div>
     </div>
   )

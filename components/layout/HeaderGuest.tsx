@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import CategoryLink from '@/components/ui/CategoryLink'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { AppMenu } from '@/components/ui/AppMenu'
 
 interface HeaderGuestProps {
@@ -72,6 +72,22 @@ export function HeaderGuestBase({
 }: HeaderGuestBaseProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
+  
+  const router = useRouter()
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Debounce global search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const q = searchQuery.trim()
+      if (q.length >= 3) {
+        router.push(`/${activeLang}/search?q=${encodeURIComponent(q)}`)
+      } else if (q.length === 0 && pathname === `/${activeLang}/search`) {
+        router.push(`/${activeLang}/search`)
+      }
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [searchQuery, router, activeLang, pathname])
 
 
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
@@ -279,7 +295,16 @@ export function HeaderGuestBase({
               {loading ? (
                 <div className="w-full h-10 rounded-lg bg-ag-search-bg border border-ag-search-border animate-pulse" />
               ) : (
-                <form action={`/${activeLang}/search`} method="GET" className="relative w-full">
+                <form 
+                  action={`/${activeLang}/search`} 
+                  method="GET" 
+                  className="relative w-full"
+                  onSubmit={(e) => {
+                    if (searchQuery.trim().length > 0 && searchQuery.trim().length < 3) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <i className="fa-solid fa-magnifying-glass text-ag-search-placeholder text-[14px]"></i>
                   </div>
@@ -287,8 +312,22 @@ export function HeaderGuestBase({
                     type="search"
                     name="q"
                     placeholder={dict.header.search_placeholder}
-                    className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-10 pr-12 text-sm text-ag-search-text placeholder-ag-search-placeholder focus:border-brand-blue focus:bg-background focus:ring-0 outline-none transition-all"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-10 pr-20 text-sm text-ag-search-text placeholder-ag-search-placeholder focus:border-brand-blue focus:bg-background focus:ring-0 outline-none transition-all"
                   />
+                  
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute inset-y-0 right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10"
+                      aria-label="Clear search"
+                    >
+                      <i className="fa-solid fa-circle-xmark text-[15px]"></i>
+                    </button>
+                  )}
+
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5.5 select-none rounded border border-ag-search-border bg-ag-search-bg px-1.5 font-mono text-[9px] font-bold text-ag-search-placeholder">
                       <span>{isMac ? '⌘' : 'Ctrl'}</span>K

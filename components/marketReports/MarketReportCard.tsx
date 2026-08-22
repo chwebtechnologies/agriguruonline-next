@@ -53,12 +53,32 @@ export default function MarketReportCard({ report, lang }: MarketReportCardProps
     report.id ? (report.id.length > 8 ? `${report.id.substring(report.id.length - 6).toUpperCase()}` : `ID: ${report.id}`) : ''
   )
 
+  const rawFileUrl = report.file_url || report.file || ''
+  const fileUrl = rawFileUrl.startsWith('http') 
+    ? rawFileUrl 
+    : rawFileUrl 
+      ? `${assetsUrl}/${rawFileUrl.startsWith('/') ? rawFileUrl.slice(1) : rawFileUrl}`
+      : ''
+      
+  const isPdf = fileUrl.toLowerCase().endsWith('.pdf')
+
   const handleOpenReport = (e: React.MouseEvent) => {
     e.preventDefault()
-    if (report.file_url || report.file) {
+    if (!fileUrl) {
+      alert("This report file is currently unavailable.")
+      return
+    }
+    
+    if (isPdf) {
       setIsModalOpen(true)
     } else {
-      alert("This report file is currently unavailable.")
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.target = '_blank'
+      a.download = title || 'download'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     }
   }
 
@@ -110,18 +130,20 @@ export default function MarketReportCard({ report, lang }: MarketReportCardProps
           )}
           
           <div className="flex items-center justify-between mt-auto border-t border-ag-header-border pt-3">
-            <span className="text-xs font-semibold text-primary">Read Report</span>
+            <span className="text-xs font-semibold text-primary">
+              {isPdf ? 'Read Report' : 'Download Report'}
+            </span>
             <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-              <i className="fa-solid fa-book-open text-[10px]"></i>
+              <i className={`fa-solid ${isPdf ? 'fa-book-open' : 'fa-download'} text-[10px]`}></i>
             </div>
           </div>
         </div>
       </button>
 
       {/* 3D Flipbook Modal */}
-      {(report.file_url || report.file) && (
+      {isPdf && fileUrl && (
         <ReportReaderModal 
-          fileUrl={report.file_url || report.file || ''} 
+          fileUrl={fileUrl} 
           title={title} 
           isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
