@@ -22,6 +22,7 @@ const getMarketReports = cache(async (lang: string, page: number, limit: number,
   if (search) url += `&search=${encodeURIComponent(search)}`
   if (categoryId) url += `&category_id=${encodeURIComponent(categoryId)}`
 
+  let shouldLogout = false;
   try {
     const res = await fetch(url, {
       headers: {
@@ -31,15 +32,24 @@ const getMarketReports = cache(async (lang: string, page: number, limit: number,
     })
     
     if (!res.ok) {
-      return null
+      if (res.status === 401 || res.status === 403) {
+        shouldLogout = true;
+      } else {
+        return null;
+      }
+    } else {
+      const json = await res.json()
+      return json
     }
-
-    const json = await res.json()
-    return json
   } catch (error) {
     console.error('Failed to fetch market reports:', error)
     return null
   }
+
+  if (shouldLogout) {
+    redirect(`/api/auth/logout?lang=${lang}`);
+  }
+  return null;
 })
 
 /* ---------- Skeleton shown during Suspense ---------- */
@@ -72,15 +82,16 @@ function MarketReportsGridSkeleton() {
 }
 
 /* ---------- Async component that fetches and renders market reports grid ---------- */
-async function MarketReportsGrid({ lang, page, limit, search, token, categoryId }: {
+async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, token, categoryId }: {
   lang: string
   page: number
-  limit: number
+  apiLimit: number
+  displayLimit: number
   search?: string
   token: string
   categoryId?: string
 }) {
-  const reportsData = await getMarketReports(lang, page, limit, search, token, categoryId)
+  const reportsData = await getMarketReports(lang, page, apiLimit, search, token, categoryId)
   
   // Try to safely extract array of reports and total
   let reports = reportsData?.data?.market_reports || reportsData?.data || []
@@ -89,7 +100,10 @@ async function MarketReportsGrid({ lang, page, limit, search, token, categoryId 
   }
   
   const totalItems = reportsData?.data?.total || reports.length || 0
-  const totalPages = Math.ceil(totalItems / limit)
+  const totalPages = Math.ceil(totalItems / displayLimit)
+
+  // Slice the array to display exactly 20 (displayLimit) records
+  reports = reports.slice(0, displayLimit)
 
   if (reports.length === 0) {
     return (
@@ -137,7 +151,8 @@ export default async function MarketReportsPage(props: {
   
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
-  const limit = 25 // Limit as per API requirement
+  const apiLimit = 25 // Limit as per API requirement
+  const displayLimit = 20
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categoryQuery = typeof searchParams.category === 'string' ? searchParams.category : undefined
   
@@ -179,7 +194,7 @@ export default async function MarketReportsPage(props: {
           <ListingFilters categories={filterCategories} />
           
           <Suspense key={suspenseKey} fallback={<MarketReportsGridSkeleton />}>
-            <MarketReportsGrid lang={lang} page={currentPage} limit={limit} search={searchQuery} token={token} categoryId={categoryId} />
+            <MarketReportsGrid lang={lang} page={currentPage} apiLimit={apiLimit} displayLimit={displayLimit} search={searchQuery} token={token} categoryId={categoryId} />
           </Suspense>
         </div>
       </div>

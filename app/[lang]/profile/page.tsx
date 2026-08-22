@@ -35,6 +35,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   if (!userApiUrl) throw new Error("Missing USER_API_URL in environment");
   const profileApiUrl = `${userApiUrl.replace(/\/$/, '')}/user/my-profile?lang_code=${lang}&source=web`;
   let profileData = null;
+  let shouldLogout = false;
   try {
     const res = await fetch(profileApiUrl, {
       headers: {
@@ -46,13 +47,15 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     if (res.ok) {
       const json = await res.json();
       profileData = json.data;
-      console.log("DEBUG: profileData.country =", JSON.stringify(profileData?.country || null, null, 2));
-      console.log("DEBUG: profileData.country_id =", profileData?.country_id || null);
     } else if (res.status === 401 || res.status === 403) {
-      redirect(`/${lang}/login`);
+      shouldLogout = true;
     }
   } catch (error) {
     console.error('Failed to fetch profile', error);
+  }
+
+  if (shouldLogout) {
+    redirect(`/api/auth/logout?lang=${lang}`);
   }
 
   // Fetch categories using identical Next.js cached configuration as Header

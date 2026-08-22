@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { HeaderGuest } from './HeaderGuest'
 import { HeaderAuth } from './HeaderAuth'
@@ -85,6 +86,7 @@ export default async function Header() {
     })
 
   let userProfile = null
+  let shouldLogout = false;
   if (token) {
     try {
       const userApiUrl = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL;
@@ -98,10 +100,16 @@ export default async function Header() {
       if (profileRes.ok) {
         const profileJson = await profileRes.json()
         userProfile = profileJson?.data || null
+      } else if (profileRes.status === 401 || profileRes.status === 403) {
+        shouldLogout = true;
       }
     } catch (e) {
       console.error("Failed to fetch user profile in Header", e)
     }
+  }
+
+  if (shouldLogout) {
+    redirect(`/api/auth/logout?lang=${activeLang}`);
   }
 
   if (!token) {

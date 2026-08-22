@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Login to your account",
 };
 
+export const instant = false;
+
 interface LoginPageProps {
   params: {
     lang: string;

@@ -49,8 +49,8 @@ export default function MarketReportCard({ report, lang }: MarketReportCardProps
     : null
 
   // Format an ID for display using id_no if available, falling back to id
-  const displayId = report.id_no ? `#REP-${report.id_no}` : (
-    report.id ? (report.id.length > 8 ? `#REP-${report.id.substring(report.id.length - 6).toUpperCase()}` : `#${report.id}`) : ''
+  const displayId = report.id_no ? `${report.id_no}` : (
+    report.id ? (report.id.length > 8 ? `${report.id.substring(report.id.length - 6).toUpperCase()}` : `ID: ${report.id}`) : ''
   )
 
   const handleOpenReport = (e: React.MouseEvent) => {
@@ -69,8 +69,7 @@ export default function MarketReportCard({ report, lang }: MarketReportCardProps
         className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden h-full shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-200 relative text-left w-full focus:outline-none"
       >
         {/* Label Badge */}
-        <div className="absolute top-3 right-3 z-10 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1.5">
-          <i className="fa-solid fa-file-pdf"></i>
+        <div className="absolute top-3 right-3 z-10 bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-md shadow-sm flex items-center">
           <span>{categoryName}</span>
         </div>
 
@@ -87,9 +86,17 @@ export default function MarketReportCard({ report, lang }: MarketReportCardProps
         <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
           
           {/* Meta Info (ID & Date) */}
-          <div className="flex items-center justify-between text-[11px] text-foreground/60 mb-2 font-medium">
-            <span className="bg-foreground/5 px-1.5 py-0.5 rounded border border-ag-header-border font-mono">{displayId}</span>
-            {publishDate && <span><i className="fa-regular fa-calendar-days mr-1"></i>{publishDate}</span>}
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/60 mb-2 font-medium gap-2">
+            {displayId && (
+              <span className="bg-primary/5 text-primary px-1.5 sm:px-2 py-0.5 rounded border border-primary/20 font-mono whitespace-nowrap overflow-hidden text-ellipsis font-semibold">
+                {displayId}
+              </span>
+            )}
+            {publishDate && (
+              <span className="whitespace-nowrap flex-shrink-0">
+                <i className="fa-regular fa-calendar-days mr-1"></i>{publishDate}
+              </span>
+            )}
           </div>
 
           <h3 className="text-sm sm:text-base font-bold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors leading-tight">
