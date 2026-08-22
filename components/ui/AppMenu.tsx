@@ -82,11 +82,14 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     [
       { label: 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-zinc-500' },
       { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: '#', iconBg: 'bg-zinc-500' },
-    ],
-    [
-      { label: 'Logout', icon: 'fa-solid fa-power-off', href: '#', iconBg: 'bg-red-500', textColor: 'text-red-500 hover:text-red-600' },
     ]
   ];
+
+  if (profile) {
+    MENU_GROUPS.push([
+      { label: 'Logout', icon: 'fa-solid fa-power-off', href: '#', iconBg: 'bg-red-500', textColor: 'text-red-500 hover:text-red-600' },
+    ]);
+  }
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -160,17 +163,26 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
 
       {/* --- MOBILE/TABLET DROPDOWN VIEW (Below Header, Premium Grid Layout) --- */}
       {isOpen && (
-        <div className="md:hidden absolute top-[calc(100%+14px)] -left-4 w-screen max-h-[calc(100vh-70px)] overflow-y-auto bg-background z-[100] shadow-[0_20px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-top-2 duration-200 border-t border-ag-header-border">
+        <div className="md:hidden absolute top-[calc(100%+14px)] -left-4 w-screen max-h-[calc(100vh-70px)] overflow-y-auto bg-background z-[100] shadow-[0_20px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out border-t border-ag-header-border">
           <div className="px-4 py-5 space-y-4 pb-24">
             
-            {/* Quick Actions Row (Logout, Home, Mode) */}
+            {/* Quick Actions Row (Logout/Login, Home, Mode) */}
             <div className="grid grid-cols-3 gap-3">
-              <button onClick={handleLogout} className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
-                <div className="absolute left-2.5 flex items-center justify-center w-6 h-6 rounded shrink-0 bg-red-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
-                  <i className="fa-solid fa-power-off text-[11px] text-white"></i>
-                </div>
-                <span className="text-[14px] font-semibold text-foreground tracking-tight">Logout</span>
-              </button>
+              {profile ? (
+                <button onClick={handleLogout} className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
+                  <div className="absolute left-2.5 flex items-center justify-center w-6 h-6 rounded shrink-0 bg-red-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+                    <i className="fa-solid fa-power-off text-[11px] text-white"></i>
+                  </div>
+                  <span className="text-[14px] font-semibold text-foreground tracking-tight">Logout</span>
+                </button>
+              ) : (
+                <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/login`} className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
+                  <div className="absolute left-2.5 flex items-center justify-center w-6 h-6 rounded shrink-0 bg-emerald-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+                    <i className="fa-solid fa-user text-[11px] text-white"></i>
+                  </div>
+                  <span className="text-[14px] font-semibold text-foreground tracking-tight">Login</span>
+                </Link>
+              )}
               <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : 'en'}`} className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
                 <div className="absolute left-2.5 flex items-center justify-center w-6 h-6 rounded shrink-0 bg-blue-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className="fa-solid fa-house text-[11px] text-white"></i>
