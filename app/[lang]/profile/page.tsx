@@ -8,6 +8,7 @@ import ProfileForm from '@/components/profile/ProfileForm';
 import KycSection from '@/components/profile/KycSection';
 import MembershipCard from '@/components/profile/MembershipCard';
 import { getCategories } from '@/lib/category';
+import { ForceLogout } from '@/components/auth/ForceLogout';
 
 export const metadata: Metadata = {
   title: 'My Profile | AgriGuru Online',
@@ -56,14 +57,19 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
       // Any non-200 status for profile means we cannot securely render the page
       shouldLogout = true;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch profile', error);
+    if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+      // Don't immediately logout on abort error (which can happen during fast navigations)
+      // We will let the lack of profile data trigger ForceLogout, but maybe we should try one more time?
+      console.log('Abort error detected, not an auth failure necessarily.');
+    }
     shouldLogout = true;
   }
 
   // 100% Security: If there is no profile data or we marked for logout, redirect immediately
   if (shouldLogout || !profileData) {
-    redirect(`/api/auth/logout?lang=${lang}`);
+    return <ForceLogout lang={lang} />;
   }
 
   // Fetch categories using identical Next.js cached configuration as Header

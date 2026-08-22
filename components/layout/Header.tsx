@@ -6,7 +6,7 @@ import { HeaderAuth } from './HeaderAuth'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import { getCategories } from '@/lib/category'
-
+import { ForceLogout } from '@/components/auth/ForceLogout'
 export default async function Header() {
   const cookieStore = await cookies()
   const token = cookieStore.get('auth_token')?.value
@@ -109,7 +109,7 @@ export default async function Header() {
   }
 
   if (shouldLogout) {
-    redirect(`/api/auth/logout?lang=${activeLang}`);
+    return <ForceLogout lang={activeLang} />;
   }
 
   if (!token) {

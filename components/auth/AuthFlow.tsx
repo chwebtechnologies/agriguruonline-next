@@ -52,13 +52,13 @@ export default function AuthFlow({ lang }: AuthFlowProps) {
     if (nextStep === "REQUIRE_REGISTRATION") {
       setStep("REGISTER");
     } else {
-      window.location.replace(`/${lang}/profile`);
+      router.push(`/${lang}/profile`);
     }
   };
 
   const handleRegisterComplete = () => {
     // Simulate completing registration and logging in
-    window.location.replace(`/${lang}/profile`);
+    router.push(`/${lang}/profile`);
   };
 
   const getTitle = () => {

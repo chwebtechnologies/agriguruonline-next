@@ -96,12 +96,16 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
         let nextStep = null;
         try {
           const successData = await response.json();
+          console.log("OTP verify successData:", successData); // DEBUG
           nextStep = successData?.data?.next_step || null;
 
           if (nextStep === "LOGGED_IN" && successData.data?.access_token) {
+            console.log("Attempting to create session..."); // DEBUG
             await createSession(successData.data.access_token, successData.data.user);
+            console.log("Session created successfully."); // DEBUG
           }
         } catch (e) {
+          console.error("Failed to setup session or parse response:", e); // DEBUG
           toast.error("Failed to setup session. Please try again.");
           return;
         }
@@ -109,6 +113,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
         toast.success("OTP verified successfully!");
         onVerify(otpString, nextStep);
       } catch (err) {
+        console.error("Something went wrong verifying the OTP:", err); // DEBUG
         toast.error("Something went wrong verifying the OTP.");
       }
     });

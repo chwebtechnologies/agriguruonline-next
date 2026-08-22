@@ -8,6 +8,7 @@ import { cache, Suspense } from 'react'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCategories } from '@/lib/category'
+import { ForceLogout } from '@/components/auth/ForceLogout'
 
 export const metadata: Metadata = {
   title: 'Market Reports - AgriGuru Online',
@@ -56,7 +57,7 @@ const getMarketReports = cache(async (lang: string, page: number, limit: number,
   }
 
   if (shouldLogout) {
-    redirect(`/api/auth/logout?lang=${lang}`);
+    return <ForceLogout lang={lang} />;
   }
   return null;
 })

@@ -102,7 +102,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     ],
     [
       { label: 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-zinc-500' },
-      { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: '#', iconBg: 'bg-zinc-500' },
+      { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/profile`, iconBg: 'bg-zinc-500' },
     ]
   ];
 
