@@ -32,19 +32,9 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
   const router = useRouter()
   const langDropdownRef = useRef<HTMLDivElement>(null)
   
-  const [isScrolled, setIsScrolled] = useState(false)
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [currentIndex, setCurrentIndex] = useState(0)
-
-  // Scroll listener to collapse the announcement bar
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   // Sync theme state from localStorage
   useEffect(() => {
@@ -117,9 +107,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   return (
     <div
-      className={`w-full bg-primary-gradient text-white px-4 text-sm font-semibold shadow-sm transition-all duration-350 ease-in-out flex items-center relative z-40 ${
-        isScrolled ? 'h-0 py-0 border-b-0 overflow-hidden' : 'h-10 opacity-100 py-2 border-b border-emerald-950/20 overflow-visible'
-      }`}
+      className="w-full bg-primary-gradient text-white px-4 text-sm font-semibold shadow-sm flex items-center relative z-40 h-10 py-2 border-b border-emerald-950/20"
       dir={dir}
     >
       <div className="mx-auto w-full max-w-7xl flex justify-between items-center gap-6">

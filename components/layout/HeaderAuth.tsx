@@ -69,22 +69,23 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   useEffect(() => {
     let scrolled = false
     const handleScroll = () => {
-      // Prevent blinking when page content is too short
-      if (document.documentElement.scrollHeight <= window.innerHeight + 100) {
-        if (scrolled) {
+      const sy = window.scrollY
+
+      if (scrolled) {
+        if (sy < 20) {
           scrolled = false
           setIsScrolled(false)
         }
-        return
-      }
-
-      const sy = window.scrollY
-      if (!scrolled && sy > 20) {
-        scrolled = true
-        setIsScrolled(true)
-      } else if (scrolled && sy < 10) {
-        scrolled = false
-        setIsScrolled(false)
+      } else {
+        // Protect against Mac rubber-banding collapsing the bar on short pages
+        if (document.documentElement.scrollHeight > window.innerHeight + 150) {
+          // Use a threshold gap (120px vs 20px) that exceeds the header shrink amount (~80px).
+          // This prevents the browser's scroll anchoring from forcing an infinite loop.
+          if (sy > 120) {
+            scrolled = true
+            setIsScrolled(true)
+          }
+        }
       }
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -296,8 +297,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 shadow-inner transition-all duration-355 ease-in-out border-b border-ag-subheader-border ${
-          isScrolled ? 'h-0 py-0 border-b-0 overflow-hidden' : 'py-1 opacity-100 overflow-visible'
+        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 shadow-inner transition-all duration-300 ease-in-out border-b border-ag-subheader-border overflow-hidden ${
+          isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0' : 'max-h-[100px] py-1 opacity-100'
         }`}
       >
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
