@@ -48,8 +48,13 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   // Sync theme state from localStorage
   useEffect(() => {
-    const t = localStorage.getItem('theme') as 'light' | 'dark' | 'system' || 'system'
-    setTimeout(() => setTheme(t), 0)
+    const syncTheme = () => {
+      const t = localStorage.getItem('theme') as 'light' | 'dark' | 'system' || 'system'
+      setTheme(t)
+    }
+    setTimeout(syncTheme, 0)
+    window.addEventListener('theme-changed', syncTheme)
+    return () => window.removeEventListener('theme-changed', syncTheme)
   }, [])
 
   // Auto-scroll loop for announcements
@@ -72,16 +77,18 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const changeLanguage = (code: string) => {
+  const changeLanguage = (newLang: string) => {
     setLangDropdownOpen(false)
-    if (!pathname) return
-    const segments = pathname.split('/')
-    let newPath = ''
-    if (segments.length > 1 && ['en', 'ar', 'zh', 'fr'].includes(segments[1])) {
-      segments[1] = code
-      newPath = segments.join('/')
+    const pathname = window.location.pathname
+    const segments = pathname.split('/').filter(Boolean)
+    const isFirstSegmentLang = ['en', 'ar', 'zh', 'fr'].includes(segments[0])
+    
+    let newPath = '/'
+    if (isFirstSegmentLang) {
+      segments[0] = newLang
+      newPath = '/' + segments.join('/')
     } else {
-      newPath = `/${code}${pathname}`
+      newPath = `/${newLang}${pathname}`
     }
     router.push(newPath)
   }
@@ -95,6 +102,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
     } else {
       d.classList.remove('dark')
     }
+    window.dispatchEvent(new Event('theme-changed'))
   }
 
   const languages = [
@@ -189,7 +197,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
           </div>
 
           {/* Theme Switcher Bar */}
-          <div className="flex items-center gap-1.5 bg-black/35 p-0.5 rounded-full border border-white/10 shadow-inner select-none">
+          <div className="hidden md:flex items-center gap-1.5 bg-black/35 p-0.5 rounded-full border border-white/10 shadow-inner select-none">
             <button
               onClick={() => changeTheme('system')}
               className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${

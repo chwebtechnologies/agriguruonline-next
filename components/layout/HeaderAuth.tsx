@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import CategoryLink from '@/components/ui/CategoryLink'
 import { usePathname } from 'next/navigation'
-import MobileMenu from './MobileMenu'
+
 import { AgriGuruLogo } from './HeaderGuest'
+import { AppMenu } from '@/components/ui/AppMenu'
 
 interface HeaderAuthProps {
   token: string
@@ -170,11 +171,24 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               {/* On Mobile: Always show Hamburger Menu.
                   On Desktop (md+): Only show Hamburger Menu when scrolled (replacing Logo). */}
               <div className="md:hidden">
-                <MobileMenu dict={dict} activeLang={activeLang} categories={categoriesList} />
+                <AppMenu align="left" profile={profile}>
+                  <button className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                  </button>
+                </AppMenu>
               </div>
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
-                  <MobileMenu dict={dict} activeLang={activeLang} label={dict.header.menu} showLabel categories={categoriesList} />
+                  <AppMenu align="left" profile={profile}>
+                    <button className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                      </svg>
+                      <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
+                    </button>
+                  </AppMenu>
                 </div>
               )}
 
@@ -243,35 +257,36 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   {profile?.membership ? 'Upgrade Plan' : 'Free Trial'}
                 </Link>
 
-                <Link
-                  href={`/${activeLang}/profile`}
-                  className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-ag-login-bg text-ag-login-text hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-ag-login-border shadow-lg hover:scale-105 active:scale-95 duration-200"
-                >
-                  {profile?.profile_image ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      className="h-full w-full rounded-full border border-ag-login-border object-cover"
-                      src={profile.profile_image.startsWith('http') ? profile.profile_image : `${process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com'}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
-                      alt="Profile"
-                      onError={(e) => {
-                        // Fallback to icon on error
-                        e.currentTarget.style.display = 'none';
-                        if (e.currentTarget.nextElementSibling) {
-                          (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-                        }
-                      }}
-                    />
-                  ) : null}
-                  
-                  <div 
-                    className="flex flex-col items-center justify-center w-full h-full"
-                    style={{ display: profile?.profile_image ? 'none' : 'flex' }}
+                <Link href={`/${activeLang}/profile`}>
+                  <div
+                    className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-ag-login-bg text-ag-login-text hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-ag-login-border shadow-lg hover:scale-105 active:scale-95 duration-200"
                   >
-                    <i className="fa-solid fa-user text-[15px] mb-0.5"></i>
-                    <span className="text-[9px] font-extrabold leading-none mt-0.5">Profile</span>
+                    {profile?.profile_image ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        className="h-full w-full rounded-full border border-ag-login-border object-cover"
+                        src={profile.profile_image.startsWith('http') ? profile.profile_image : `${process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com'}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
+                        alt="Profile"
+                        onError={(e) => {
+                          // Fallback to icon on error
+                          e.currentTarget.style.display = 'none';
+                          if (e.currentTarget.nextElementSibling) {
+                            (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                          }
+                        }}
+                      />
+                    ) : null}
+                    
+                    <div 
+                      className="flex flex-col items-center justify-center w-full h-full"
+                      style={{ display: profile?.profile_image ? 'none' : 'flex' }}
+                    >
+                      <i className="fa-solid fa-user text-[15px] mb-0.5"></i>
+                      <span className="text-[9px] font-extrabold leading-none mt-0.5">Profile</span>
+                    </div>
+                    
+                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ag-header-bg ring-2 ring-emerald-500/20" />
                   </div>
-                  
-                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ag-header-bg ring-2 ring-emerald-500/20" />
                 </Link>
               </div>
             </div>
@@ -288,7 +303,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           {/* Left-aligned Menu Trigger */}
           <div className="shrink-0 border-e border-ag-subheader-border pe-5 flex items-center">
-            <MobileMenu dict={dict} activeLang={activeLang} label={dict.header.menu} showLabel categories={categoriesList} />
+            <AppMenu align="left" profile={profile}>
+              <button className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+                <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
+              </button>
+            </AppMenu>
           </div>
 
           {/* Right-aligned container containing all categories with Others at the very last */}
