@@ -30,8 +30,8 @@ export default function NewsCard({ article, lang }: NewsCardProps) {
   const excerpt = description.replace(/<[^>]+>/g, '').slice(0, 150) + '...'
 
   return (
-    <div className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm h-full">
-      <Link href={`/${lang}/latest-news/${article.slug}`} className="relative w-full aspect-[16/10] bg-background overflow-hidden border-b border-ag-header-border block">
+    <article className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm h-full">
+      <Link href={`/${lang}/news/${article.slug}`} className="relative w-full aspect-[3/2] bg-ag-header-border/10 overflow-hidden border-b border-ag-header-border block">
         <ImageWithSkeleton
           src={imageUrl}
           alt={title}
@@ -39,19 +39,16 @@ export default function NewsCard({ article, lang }: NewsCardProps) {
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
-        <div className="absolute top-2 left-2 bg-brand-blue/90 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">
-          {source || 'AgriGuru Online'}
-        </div>
       </Link>
       
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
         <div className="flex items-center text-xs text-foreground/60 mb-2">
           <i className="fa-regular fa-calendar mr-1.5"></i>
-          <span>{formattedDate}</span>
+          <time dateTime={article.posting_date}>{formattedDate}</time>
         </div>
         
         <h3 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-          <Link href={`/${lang}/latest-news/${article.slug}`} className="hover:text-brand-blue transition-colors">
+          <Link href={`/${lang}/news/${article.slug}`} className="hover:text-brand-blue transition-colors">
             {title}
           </Link>
         </h3>
@@ -62,7 +59,7 @@ export default function NewsCard({ article, lang }: NewsCardProps) {
         
         <div className="flex items-center justify-between mt-auto border-t border-ag-header-border pt-3">
           <Link 
-            href={`/${lang}/latest-news/${article.slug}`}
+            href={`/${lang}/news/${article.slug}`}
             className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-[#1080d0] transition-colors flex items-center gap-1.5 group/link"
           >
             Read More
@@ -71,10 +68,10 @@ export default function NewsCard({ article, lang }: NewsCardProps) {
           
           <ShareButton 
             title={title} 
-            url={`/${lang}/latest-news/${article.slug}`} 
+            url={`/${lang}/news/${article.slug}`} 
           />
         </div>
       </div>
-    </div>
+    </article>
   )
 }

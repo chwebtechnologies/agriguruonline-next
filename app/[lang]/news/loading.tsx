@@ -15,9 +15,7 @@ export default function Loading() {
                 className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden h-full shadow-sm animate-pulse"
               >
                 {/* Image Skeleton */}
-                <div className="relative w-full aspect-[16/10] bg-ag-header-border/50 border-b border-ag-header-border">
-                  <div className="absolute top-2 left-2 bg-ag-header-border/80 w-24 h-5 rounded"></div>
-                </div>
+                <div className="w-full aspect-[3/2] bg-ag-header-border/50 border-b border-ag-header-border"></div>
                 
                 {/* Content Skeleton */}
                 <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
