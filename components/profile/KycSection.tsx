@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { uploadKycDocument } from "@/app/actions/profile";
 
-type KycStatus = "Missing" | "Processing" | "Approved" | "Rejected" | "Expired";
+type KycStatus = "Missing" | "Under Review" | "Approved" | "Rejected" | "Expired";
 
 interface RequiredDocument {
   id: string;
@@ -40,7 +40,7 @@ const mapStatus = (status: string): KycStatus => {
       return "Expired";
     case "PENDING":
     default:
-      return "Processing";
+      return "Under Review";
   }
 };
 
@@ -95,6 +95,20 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedTypeIdRef = useRef<string>(selectedTypeId);
+
+  useEffect(() => {
+    const handleAccordion = (e: any) => {
+      if (e.detail !== 'kyc') setIsOpen(false);
+    };
+    window.addEventListener('profile-accordion', handleAccordion);
+    return () => window.removeEventListener('profile-accordion', handleAccordion);
+  }, []);
+
+  const toggleKyc = () => {
+    const newState = !isOpen;
+    setIsOpen(newState);
+    if (newState) window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'kyc' }));
+  };
 
   // Sync state if server revalidates initialKycDocs
   useEffect(() => {
@@ -174,7 +188,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
             document_type_id: uploadTypeId,
             document_type_title: docTitle,
             file_url: fullUrl,
-            status: "Processing"
+            status: "Under Review"
           };
 
           setUserDocs(prev => {
@@ -202,9 +216,10 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
     switch (status?.toLowerCase()) {
       case "approved":
         return <span className="px-2 py-0.5 bg-green-500/10 text-green-600 rounded text-xs font-semibold shrink-0">Approved</span>;
+      case "under review":
       case "processing":
       case "pending":
-        return <span className="px-2 py-0.5 bg-orange-500/10 text-orange-600 rounded text-xs font-semibold shrink-0">Processing</span>;
+        return <span className="px-2 py-0.5 bg-orange-500/10 text-orange-600 rounded text-xs font-semibold shrink-0">Under Review</span>;
       case "rejected":
         return <span className="px-2 py-0.5 bg-red-500/10 text-red-600 rounded text-xs font-semibold shrink-0">Rejected</span>;
       case "expired":
@@ -247,21 +262,26 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
   const currentUploadedDoc = userDocs.find(ud => ud.document_type_id === currentSelectedId);
 
   const statusLower = currentUploadedDoc?.status?.toLowerCase();
-  const isUnderReview = statusLower === 'processing' || statusLower === 'pending';
+  const isUnderReview = statusLower === 'under review' || statusLower === 'processing' || statusLower === 'pending';
   const isApproved = statusLower === 'approved';
   const isRejected = statusLower === 'rejected';
   const isExpired = statusLower === 'expired';
 
   return (
     <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
-      <div onClick={() => setIsOpen(!isOpen)} className="px-4 py-2 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-foreground/[0.02] cursor-pointer lg:pointer-events-none list-none rounded-xl lg:rounded-b-none lg:border-b lg:border-foreground/5 transition-colors select-none">
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center shrink-0">
-            <i className="fa-solid fa-shield-halved text-[11px] sm:text-sm"></i>
+      <div onClick={toggleKyc} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-foreground/[0.02] cursor-pointer lg:pointer-events-none list-none rounded-xl lg:rounded-b-none lg:border-b lg:border-foreground/5 transition-colors select-none">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center shrink-0">
+            <i className="fa-solid fa-shield-halved text-[14px] sm:text-base"></i>
           </div>
           <div>
-            <h2 className="text-[15px] sm:text-base font-bold text-foreground leading-tight">KYC Verification</h2>
-            <p className="text-sm text-foreground/60 hidden sm:block">Manage your identity documents.</p>
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-base sm:text-lg font-bold text-foreground leading-tight">KYC Verification</h2>
+              <div className="flex lg:hidden">
+                {getStatusBadge(currentUploadedDoc?.status || "Missing")}
+              </div>
+            </div>
+            <p className="text-sm text-foreground/60 hidden sm:block mt-0.5">Manage your identity documents.</p>
           </div>
         </div>
         <i className={`fa-solid fa-chevron-down lg:!hidden transition-transform duration-300 text-foreground/50 ${isOpen ? 'rotate-180' : ''}`}></i>

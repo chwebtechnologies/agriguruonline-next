@@ -120,8 +120,29 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
   const [website, setWebsite] = useState(profileData?.website || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isPersonalOpen, setIsPersonalOpen] = useState(false);
+  const [isPersonalOpen, setIsPersonalOpen] = useState(true);
   const [isBusinessOpen, setIsBusinessOpen] = useState(false);
+
+  useEffect(() => {
+    const handleAccordion = (e: any) => {
+      if (e.detail !== 'personal') setIsPersonalOpen(false);
+      if (e.detail !== 'business') setIsBusinessOpen(false);
+    };
+    window.addEventListener('profile-accordion', handleAccordion);
+    return () => window.removeEventListener('profile-accordion', handleAccordion);
+  }, []);
+
+  const togglePersonal = () => {
+    const newState = !isPersonalOpen;
+    setIsPersonalOpen(newState);
+    if (newState) window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'personal' }));
+  };
+
+  const toggleBusiness = () => {
+    const newState = !isBusinessOpen;
+    setIsBusinessOpen(newState);
+    if (newState) window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'business' }));
+  };
 
   // Derive initial values for dirty check
   const initialState = useRef({
@@ -275,12 +296,12 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
         
       {/* Basic Details Group */}
       <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
-        <div onClick={() => setIsPersonalOpen(!isPersonalOpen)} className="px-4 py-2 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
-                <i className="fa-regular fa-user text-[11px] sm:text-sm"></i>
+        <div onClick={togglePersonal} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
+                <i className="fa-regular fa-user text-[14px] sm:text-base"></i>
               </div>
-              <h3 className="text-[15px] sm:text-lg font-bold text-foreground">
+              <h3 className="text-base sm:text-lg font-bold text-foreground">
                 Basic Details
               </h3>
             </div>
@@ -385,12 +406,12 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
 
       {/* Business Details Group */}
       <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
-        <div onClick={() => setIsBusinessOpen(!isBusinessOpen)} className="px-4 py-2 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
-                <i className="fa-solid fa-briefcase text-[11px] sm:text-sm"></i>
+        <div onClick={toggleBusiness} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
+                <i className="fa-solid fa-briefcase text-[14px] sm:text-base"></i>
               </div>
-              <h3 className="text-[15px] sm:text-lg font-bold text-foreground">
+              <h3 className="text-base sm:text-lg font-bold text-foreground">
                 Business Details
               </h3>
             </div>
