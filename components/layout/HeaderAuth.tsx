@@ -297,8 +297,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 shadow-inner transition-all duration-300 ease-in-out border-b border-ag-subheader-border overflow-hidden ${
-          isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0' : 'max-h-[100px] py-1 opacity-100'
+        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 shadow-inner transition-all duration-300 ease-in-out border-b border-ag-subheader-border ${
+          isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
       >
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
