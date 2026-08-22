@@ -98,7 +98,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     [
       { label: 'Smart Docs', icon: 'fa-solid fa-file-pen', href: '#', iconBg: 'bg-cyan-500' },
       { label: 'Instructions', icon: 'fa-solid fa-person-chalkboard', href: '#', iconBg: 'bg-teal-500' },
-      { label: 'Market Reports', icon: 'fa-solid fa-file-contract', href: '#', iconBg: 'bg-sky-500' },
+      { label: 'Market Reports', icon: 'fa-solid fa-file-contract', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/market-reports`, iconBg: 'bg-sky-500' },
     ],
     [
       { label: 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-zinc-500' },

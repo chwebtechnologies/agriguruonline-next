@@ -51,7 +51,9 @@ interface HeaderAuthProps {
 export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile }: HeaderAuthProps) {
   const [profile, setProfile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
+  const notificationsRef = useRef<HTMLDivElement>(null)
 
   const pathname = usePathname()
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
@@ -117,6 +119,16 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
 
   const categoriesList = apiCategories || []
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Hydration-safe responsive logic to prevent category item overflow
   const [mounted, setMounted] = useState(false)
@@ -257,6 +269,27 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 >
                   {profile?.membership ? 'Upgrade Plan' : 'Free Trial'}
                 </Link>
+
+                <div className="relative" ref={notificationsRef}>
+                  <button 
+                    onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                    className="relative flex items-center justify-center p-2 text-ag-nav-link hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200"
+                  >
+                    <i className="fa-solid fa-bell text-[30px]"></i>
+                  </button>
+                  
+                  {isNotificationsOpen && (
+                    <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-64 md:w-80 rounded-lg bg-ag-dropdown-bg border border-ag-dropdown-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                      <div className="flex items-center justify-between border-b border-ag-dropdown-border pb-2 mb-2">
+                        <h3 className="font-bold text-[16px] text-ag-dropdown-text">Notifications</h3>
+                      </div>
+                      <div className="flex flex-col items-center justify-center py-6 text-center">
+                        <i className="fa-regular fa-bell-slash text-3xl text-zinc-400 mb-3"></i>
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400">No notifications</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <Link href={`/${activeLang}/profile`}>
                   <div
