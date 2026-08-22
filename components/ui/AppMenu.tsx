@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { logoutUser } from '@/app/actions/auth'
 
@@ -15,6 +15,8 @@ interface MenuItem {
 export function AppMenu({ children, align = 'right', profile }: { children?: React.ReactNode, align?: 'left' | 'right', profile?: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const syncTheme = () => {
@@ -40,12 +42,31 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     window.dispatchEvent(new Event('theme-changed'));
   };
 
-  const handleLogout = async (e?: React.MouseEvent) => {
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const confirmLogout = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogout = async () => {
+    setShowLogoutConfirm(false);
     setIsOpen(false);
     await logoutUser();
     const lang = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en';
-    window.location.href = `/${lang}/login`;
+    window.location.href = `/${lang}/`;
   };
 
   // Helper to safely extract user type string
@@ -106,7 +127,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   const alignClass = align === 'left' ? 'left-0 origin-top-left' : 'right-0 origin-top-right';
 
   return (
-    <div className="relative">
+    <div className="relative" ref={menuRef}>
       {/* Trigger */}
       <div onClick={() => setIsOpen(!isOpen)} className="cursor-pointer">
         {children || (
@@ -125,7 +146,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                 {group.map((item, index) => (
                   <li key={index} className="relative group">
                     {item.label === 'Logout' ? (
-                      <button onClick={handleLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
+                      <button onClick={confirmLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
                         <div className="flex items-center gap-3">
                           <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
                             <i className={`${item.icon} text-[12px] text-white`}></i>
@@ -169,7 +190,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
             {/* Quick Actions Row (Logout/Login, Home, Mode) */}
             <div className="grid grid-cols-3 gap-3">
               {profile ? (
-                <button onClick={handleLogout} className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
+                <button onClick={confirmLogout} className="relative flex items-center justify-center h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all">
                   <div className="absolute left-2.5 flex items-center justify-center w-6 h-6 rounded shrink-0 bg-red-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                     <i className="fa-solid fa-power-off text-[11px] text-white"></i>
                   </div>
@@ -236,6 +257,38 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
               </div>
             </div>
             
+          </div>
+        </div>
+      )}
+
+      {/* Logout Confirmation Popup */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-background rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-ag-header-border animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex gap-4 items-center mb-6">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0 text-red-600">
+                <i className="fa-solid fa-triangle-exclamation text-xl"></i>
+              </div>
+              <div className="flex flex-col justify-center w-full items-center">
+                <h3 className="text-[17px] font-bold text-red-600 dark:text-red-500 mb-1 leading-none text-center">Logout</h3>
+                <p className="text-foreground/80 text-[14px] leading-snug whitespace-nowrap text-center">Are you sure you want to log out of your account?</p>
+              </div>
+            </div>
+            
+            <div className="flex w-full gap-3">
+              <button 
+                onClick={handleLogout}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-[15px] shadow-sm hover:bg-red-700 active:scale-[0.98] transition-all"
+              >
+                Logout
+              </button>
+              <button 
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-ag-header-border bg-background hover:bg-ag-dropdown-hover-bg text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
