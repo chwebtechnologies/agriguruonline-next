@@ -12,6 +12,7 @@ import {
   getProductDetailsAction
 } from '@/app/actions/charts';
 import { toast } from 'sonner';
+import AngelOneCommodityView from './AngelOneCommodityView';
 
 interface Category {
   id: string;
@@ -355,21 +356,29 @@ const generateDummyData = () => {
 
 const dummyChartData = generateDummyData();
 
-const PriceChart = ({ onChartClick }: { onChartClick?: () => void }) => {
+const PriceChart = ({ 
+  onChartClick, 
+  dragProgress = 1,
+  isFullScreen = false 
+}: { 
+  onChartClick?: () => void; 
+  dragProgress?: number;
+  isFullScreen?: boolean;
+}) => {
   const [timeRange, setTimeRange] = useState('1Y');
   const ranges = ['12H', '1D', '1W', '1M', '1Y', '2Y', '5Y', '10Y'];
 
   return (
-    <div className="w-full flex flex-col items-center bg-white dark:bg-zinc-900 pt-3 pb-2" onClick={onChartClick}>
+    <div className={`w-full flex flex-col items-center bg-white dark:bg-zinc-900 ${isFullScreen ? 'pt-4 pb-2' : 'pt-2 pb-1'}`} onClick={onChartClick}>
       {/* Timeline Selector */}
-      <div className="flex justify-center items-center gap-1 sm:gap-2 mb-4 overflow-x-auto px-2 w-[95%] max-w-[350px] mx-auto scrollbar-hide text-[#71717a]" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex justify-center items-center gap-1.5 sm:gap-2 pt-2 pb-3 overflow-x-auto px-4 w-[95%] max-w-[380px] mx-auto scrollbar-hide text-[#71717a]" style={{ scrollbarWidth: 'none' }}>
         {ranges.map(range => (
           <button
             key={range}
             onClick={(e) => { e.stopPropagation(); setTimeRange(range); }}
-            className={`px-3 py-1 text-[12px] font-bold rounded-full whitespace-nowrap transition-all duration-200 ${
+            className={`px-3.5 py-1 text-[12px] font-bold rounded-full whitespace-nowrap transition-all duration-200 ${
               timeRange === range
-                ? 'bg-[#1877F2] text-white'
+                ? 'bg-[#1877F2] text-white shadow-sm'
                 : 'bg-transparent hover:text-zinc-800 dark:hover:text-zinc-200'
             }`}
           >
@@ -379,7 +388,10 @@ const PriceChart = ({ onChartClick }: { onChartClick?: () => void }) => {
       </div>
       
       {/* Chart Area */}
-      <div className="w-[95%] max-w-[350px] mx-auto h-[200px] cursor-pointer">
+      <div 
+        className={`mx-auto cursor-pointer transition-all duration-300 ${isFullScreen ? 'w-full px-2 sm:px-6' : 'w-[95%] max-w-[380px]'}`}
+        style={{ height: isFullScreen ? '260px' : '200px' }}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={dummyChartData} margin={{ top: 10, right: 0, left: 10, bottom: 0 }}>
             {/* Faint horizontal grid lines */}
@@ -417,7 +429,7 @@ const PriceChart = ({ onChartClick }: { onChartClick?: () => void }) => {
             />
             <Brush 
               dataKey="date" 
-              height={26} 
+              height={28} 
               stroke="#1877F2" 
               fill="#E8F4FF"
               travellerWidth={8} 
@@ -431,8 +443,16 @@ const PriceChart = ({ onChartClick }: { onChartClick?: () => void }) => {
         </ResponsiveContainer>
       </div>
 
-      {/* Footer Text like the screenshot */}
-      <div className="flex flex-col items-center justify-center text-[11px] text-[#71717a] mt-3 mb-1">
+      {/* Footer Text */}
+      <div 
+        className="flex flex-col items-center justify-center text-[11px] sm:text-[12px] text-[#71717a] overflow-hidden transition-all text-center px-4"
+        style={{ 
+          height: `${dragProgress * 44}px`,
+          opacity: dragProgress,
+          marginTop: `${dragProgress * 14}px`,
+          marginBottom: `${dragProgress * 6}px`
+        }}
+      >
         <p>Aug 25, 2025, 00:00 UTC - Aug 24, 2026, 12:15 UTC</p>
         <p className="mt-0.5">
           USD/EUR <span className="text-zinc-800 dark:text-zinc-200 font-semibold">close:</span> 0.857209{' '}
@@ -1074,7 +1094,7 @@ export default function ProductChartsClient({
                     {/* Mobile/Tablet Card Layout */}
                     <SwipeableCard 
                       onDelete={() => confirmDelete(item.id)}
-                      onChart={() => { /* Chart functionality pending */ }}
+                      onChart={() => setActiveBottomSheetId(item.id)}
                     >
                       <div className="flex flex-col p-2">
                         {/* Row 1: Origins and POD */}
@@ -1469,11 +1489,26 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ro
   const [isFullScreen, setIsFullScreen] = useState(false);
   const startYRef = useRef<number | null>(null);
   const currentYRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const handleRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
-  // Handle pointer down (works for touch, pen, mouse)
+  // Lock document body scroll while bottom sheet is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, []);
+
   const handleDragStart = (clientY: number) => {
     startYRef.current = clientY;
     currentYRef.current = clientY;
+    startTimeRef.current = Date.now();
     setIsDragging(true);
   };
 
@@ -1481,9 +1516,6 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ro
     if (startYRef.current === null) return;
     currentYRef.current = clientY;
     const diff = clientY - startYRef.current;
-    
-    // When dragging up: allow moving up (negative diff)
-    // When dragging down: allow moving down (positive diff)
     setDragOffset(diff);
   };
 
@@ -1496,178 +1528,166 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ro
     }
 
     const diff = currentYRef.current - startYRef.current;
+    const timeTaken = Date.now() - startTimeRef.current;
+    const velocity = Math.abs(diff) / (timeTaken || 1);
+
     setIsDragging(false);
     startYRef.current = null;
     currentYRef.current = null;
 
-    if (diff < -50) {
-      // Pulled UP towards title part -> Expand to Full Screen & Navigate seamlessly
-      setIsFullScreen(true);
-      setDragOffset(0);
+    // Swiping UP towards header -> Directly navigate to the dedicated product chart page!
+    if (diff < -25 || (diff < -10 && velocity > 0.25)) {
       const lang = window.location.pathname.split('/')[1] || 'en';
-      // Clear bottom sheet state so when user goes back, it is not open
       setActiveBottomSheetId(null);
       router.push(`/${lang}/product-charts/${activeItem.id}`);
-    } else if (diff > 70) {
-      // Pulled DOWN significantly -> Dismiss bottom sheet
+    } else if (diff > 50 || (diff > 20 && velocity > 0.3)) {
+      // Pulled down -> Dismiss bottom sheet
       setActiveBottomSheetId(null);
       setDragOffset(0);
     } else {
-      // Reset position
       setDragOffset(0);
     }
   };
 
-  // Touch event listeners
-  const onTouchStart = (e: React.TouchEvent) => {
-    handleDragStart(e.touches[0].clientY);
-  };
+  // Non-passive touch listener to prevent default browser page scrolling
+  useEffect(() => {
+    const el = handleRef.current;
+    if (!el) return;
 
-  const onTouchMove = (e: React.TouchEvent) => {
-    handleDragMove(e.touches[0].clientY);
-  };
-
-  const onTouchEnd = () => {
-    handleDragEnd();
-  };
-
-  // Mouse event listeners for desktop testing
-  const onMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    handleDragStart(e.clientY);
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      handleDragMove(moveEvent.clientY);
+    const onTouchStartNative = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+      handleDragStart(e.touches[0].clientY);
     };
 
-    const onMouseUp = () => {
+    const onTouchMoveNative = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      handleDragMove(e.touches[0].clientY);
+    };
+
+    const onTouchEndNative = () => {
       handleDragEnd();
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
     };
 
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  };
+    el.addEventListener('touchstart', onTouchStartNative, { passive: false });
+    el.addEventListener('touchmove', onTouchMoveNative, { passive: false });
+    el.addEventListener('touchend', onTouchEndNative, { passive: true });
+    el.addEventListener('touchcancel', onTouchEndNative, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStartNative);
+      el.removeEventListener('touchmove', onTouchMoveNative);
+      el.removeEventListener('touchend', onTouchEndNative);
+      el.removeEventListener('touchcancel', onTouchEndNative);
+    };
+  }, [isFullScreen]);
+
+  const maxDrag = 250;
+  const dragProgress = isFullScreen ? 1 : Math.min(Math.max(-dragOffset / maxDrag, 0), 1);
+  const initialHeight = '52vh';
+  const headerOffset = 64;
+  const maxExpandedHeight = `calc(100dvh - ${headerOffset}px)`;
+
+  const currentHeight = isFullScreen 
+    ? maxExpandedHeight 
+    : isDragging && dragOffset < 0 
+      ? `calc(${initialHeight} + ${Math.min(-dragOffset, window.innerHeight * 0.45)}px)`
+      : initialHeight;
+
+  const effectiveTranslateY = dragOffset > 0 ? dragOffset : 0;
 
   return (
-    <div 
-      className="fixed inset-0 z-[250] flex items-end justify-center sm:items-center bg-black/40 sm:px-4 animate-in fade-in duration-200" 
-      onClick={() => setActiveBottomSheetId(null)}
-    >
+    <div className="fixed inset-0 z-40 select-none pointer-events-none">
+      {/* Click-away dismiss area below header (Transparent, no dark backdrop over header) */}
       <div 
-        className={`w-full sm:w-[440px] bg-white dark:bg-zinc-900 shadow-2xl border-t border-zinc-200 dark:border-zinc-800 sm:border relative overflow-hidden transition-all select-none ${
+        className="absolute inset-x-0 bottom-0 top-[64px] pointer-events-auto"
+        onClick={() => {
+          if (isFullScreen) {
+            setIsFullScreen(false);
+          } else {
+            setActiveBottomSheetId(null);
+          }
+        }}
+      />
+
+      {/* Floating Angel One "Swipe up for Commodity Details" with Chevron */}
+      {!isFullScreen && dragOffset >= 0 && (
+        <div 
+          ref={handleRef}
+          className={`absolute inset-x-0 bottom-[calc(${initialHeight}+10px)] flex flex-col items-center justify-center text-zinc-700 dark:text-zinc-300 pb-1 cursor-grab active:cursor-grabbing touch-none select-none z-50 animate-bounce pointer-events-auto`}
+        >
+          <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md shadow-md border border-zinc-200/80 dark:border-zinc-700/80 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 text-[11px] font-semibold">
+            <i className="fa-solid fa-chevron-up text-[10px] text-zinc-500"></i>
+            <span>Swipe up for Commodity Details</span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Sheet Modal Container - Anchored Flush to Bottom, Maximum Top at Header */}
+      <div 
+        ref={sheetRef}
+        className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-white dark:bg-[#121214] shadow-2xl overflow-hidden flex flex-col will-change-transform z-50 pointer-events-auto border-t border-zinc-200/80 dark:border-zinc-800/80 ${
           isFullScreen 
-            ? 'h-[100dvh] rounded-none sm:rounded-2xl top-0' 
-            : 'rounded-t-3xl sm:rounded-2xl pb-safe'
+            ? 'rounded-none' 
+            : 'rounded-t-[28px]'
         }`}
         onClick={(e) => e.stopPropagation()}
         style={{ 
-          transform: isFullScreen ? 'none' : `translateY(${dragOffset}px)`, 
-          transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.3s cubic-bezier(0.2, 0.9, 0.3, 1)' 
+          height: currentHeight,
+          maxHeight: maxExpandedHeight,
+          transform: `translateY(${effectiveTranslateY}px)`, 
+          transition: isDragging ? 'none' : 'height 0.28s cubic-bezier(0.25, 1, 0.5, 1), transform 0.28s cubic-bezier(0.25, 1, 0.5, 1)' 
         }}
       >
-        {/* Extended background underneath during drag-up */}
-        <div className="absolute inset-x-0 top-full h-[120vh] bg-white dark:bg-zinc-900 pointer-events-none"></div>
-
-        {/* Drag Handle Bar Header - Highly touch-responsive area */}
-        <div 
-          className="pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          onMouseDown={onMouseDown}
-        >
-          <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
-          <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 mt-1 flex items-center gap-1">
-            <i className="fa-solid fa-chevron-up text-[8px] animate-bounce"></i>
-            <span>Swipe up for full chart</span>
+        {/* Drag Handle Top Bar (visible when not fullscreen) */}
+        {!isFullScreen && (
+          <div 
+            className="pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none bg-white dark:bg-[#121214] shrink-0"
+            onTouchStart={(e) => {
+              if (e.cancelable) e.preventDefault();
+              handleDragStart(e.touches[0].clientY);
+            }}
+            onTouchMove={(e) => {
+              if (e.cancelable) e.preventDefault();
+              handleDragMove(e.touches[0].clientY);
+            }}
+            onTouchEnd={handleDragEnd}
+            onTouchCancel={handleDragEnd}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleDragStart(e.clientY);
+              const onMouseMove = (m: MouseEvent) => handleDragMove(m.clientY);
+              const onMouseUp = () => {
+                handleDragEnd();
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+              };
+              window.addEventListener('mousemove', onMouseMove);
+              window.addEventListener('mouseup', onMouseUp);
+            }}
+          >
+            <div className="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
           </div>
-        </div>
+        )}
 
-        {activeItem && (() => {
-          const changeVal = Number(activeItem.change) || 0;
-          const isPositive = changeVal >= 0;
-          return (
-            <div 
-              className="px-5 pb-2 pt-1 border-b border-zinc-100 dark:border-zinc-800/50 cursor-grab active:cursor-grabbing touch-none"
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
-              onMouseDown={onMouseDown}
-            >
-              {/* Row 1: Origins and POD */}
-              <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa]">
-                <div className="flex items-center gap-1.5 font-medium">
-                  {activeItem.countryFlag && <img src={getFlagUrl(activeItem.countryFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
-                  <span>{activeItem.country}</span>
-                </div>
-                <div className="flex items-center gap-1.5 font-medium">
-                  <span>{activeItem.pod && activeItem.pod !== 'N/A' ? 'POD' : 'POL'}: {activeItem.pod && activeItem.pod !== 'N/A' ? activeItem.pod : activeItem.pol}</span>
-                  {(activeItem.pod && activeItem.pod !== 'N/A' ? activeItem.podFlag : activeItem.polFlag) && <img src={getFlagUrl(activeItem.pod && activeItem.pod !== 'N/A' ? activeItem.podFlag : activeItem.polFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
-                </div>
-              </div>
-              
-              {/* Row 2: Product Name & Price */}
-              <div className="flex justify-between items-center gap-3 mt-1">
-                <div className="font-bold text-[14px] leading-tight text-zinc-900 dark:text-[#f4f4f5]">
-                  {activeItem.product}
-                </div>
-                <div className="font-bold text-[14px] text-zinc-900 dark:text-[#f4f4f5] whitespace-nowrap">
-                  {activeItem.term}: ${activeItem.price}
-                </div>
-              </div>
-
-              {/* Row 3: POL, ShipBy, Change */}
-              <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa] mt-0.5">
-                <div>POL: {activeItem.pol}</div>
-                <div className="flex items-center gap-1">
-                  <span>({activeItem.shipBy} - PMT)</span>
-                  <span className={`font-semibold flex items-center ${isPositive ? 'text-[#2DBC84]' : 'text-red-500'}`}>
-                    <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} mr-0.5`}></i>
-                    {isPositive ? `+${changeVal}$` : `${changeVal}$`}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-        
-        {/* Compact Centered Chart */}
-        <PriceChart />
-        
-        {/* Bottom Actions */}
-        <div className="px-1 pb-4 pt-1">
-          <div className="flex flex-col">
-            <button 
-              className="flex items-center gap-4 w-full px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 active:bg-zinc-100 dark:active:bg-zinc-800 transition-colors text-left border-b border-zinc-100 dark:border-zinc-800/50"
-              onClick={() => setActiveBottomSheetId(null)}
-              onTouchStart={(e) => e.stopPropagation()}
-            >
-              <i className="fa-solid fa-bell text-[16px] text-zinc-500 dark:text-zinc-400 w-6 text-center"></i>
-              <span className="font-medium text-zinc-800 dark:text-zinc-200 text-[15px]">Create Alert</span>
-            </button>
-            
-            <button 
-              className="flex items-center gap-4 w-full px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 active:bg-zinc-100 dark:active:bg-zinc-800 transition-colors text-left border-b border-zinc-100 dark:border-zinc-800/50"
-              onClick={() => setActiveBottomSheetId(null)}
-              onTouchStart={(e) => e.stopPropagation()}
-            >
-              <i className="fa-solid fa-robot text-[16px] text-zinc-500 dark:text-zinc-400 w-6 text-center"></i>
-              <span className="font-medium text-zinc-800 dark:text-zinc-200 text-[15px]">AI Predict</span>
-            </button>
-            
-            <button 
-              className="flex items-center gap-4 w-full px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 active:bg-zinc-100 dark:active:bg-zinc-800 transition-colors text-left"
-              onClick={() => setActiveBottomSheetId(null)}
-              onTouchStart={(e) => e.stopPropagation()}
-            >
-              <i className="fa-solid fa-circle-question text-[16px] text-zinc-500 dark:text-zinc-400 w-6 text-center"></i>
-              <span className="font-medium text-zinc-800 dark:text-zinc-200 text-[15px]">
-                {userType === 'buyer' ? 'Buy Inquirey' : userType === 'seller' ? 'Sell Offer' : 'Inquiry / Offer'}
-              </span>
-            </button>
-          </div>
+        {/* Scrollable Commodity View inside Flex */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <AngelOneCommodityView 
+            item={activeItem} 
+            isFullScreen={isFullScreen} 
+            onClose={() => {
+              if (isFullScreen) {
+                setIsFullScreen(false);
+              } else {
+                setActiveBottomSheetId(null);
+              }
+            }} 
+            userType={userType} 
+            dragProgress={dragProgress} 
+            onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
+            onDragEnd={handleDragEnd}
+          />
         </div>
       </div>
     </div>
