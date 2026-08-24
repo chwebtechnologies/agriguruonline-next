@@ -202,6 +202,8 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
               }}
               type="text"
               inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete={index === 0 ? "one-time-code" : "off"}
               maxLength={1}
               value={digit}
               disabled={isPending}

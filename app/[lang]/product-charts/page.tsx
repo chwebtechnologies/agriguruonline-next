@@ -104,7 +104,7 @@ async function getChartsInitialData(lang: string = 'en') {
     console.error('Failed to fetch shipping terms for charts:', err)
   }
 
-  // 3. If user is authenticated, fetch profile and favorites safely
+  // 3. Fetch profile if authenticated
   if (token) {
     const authHeaders = {
       'Content-Type': 'application/json',
@@ -125,35 +125,41 @@ async function getChartsInitialData(lang: string = 'en') {
     } catch (err) {
       console.error('Failed to fetch user profile:', err)
     }
+  }
 
-    try {
-      const fUrl = `${TRADING_API_URL.replace(/\/$/, '')}/favorite-product?lang_code=${safeLang}&source=web`
-      const fRes = await fetch(fUrl, { headers: authHeaders, cache: 'no-store' })
-      if (fRes.ok) {
-        const fJson = await fRes.json()
-        const rawFavs = fJson.data?.favorite_products || fJson.data?.favorite_product || (Array.isArray(fJson.data) ? fJson.data : [])
-        if (Array.isArray(rawFavs)) {
-          favoriteProducts = rawFavs.map((item: any) => ({
-            id: item.id || Date.now(),
-            category: item.category?.name || 'N/A',
-            country: item.country?.name || 'N/A',
-            countryFlag: item.country?.flag || '',
-            product: item.product?.name || 'N/A',
-            shipBy: item.shiping_container?.title || item.shipping_container?.title || 'N/A',
-            term: item.shipping_term?.title || 'N/A',
-            pol: item.loading_port?.name || 'N/A',
-            polFlag: item.loading_port?.country?.flag || item.loading_port?.flag || '',
-            pod: item.destination_port?.name || 'N/A',
-            podFlag: item.destination_port?.country?.flag || item.destination_port?.flag || '',
-            price: (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString(),
-            change: (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString(),
-            chartStatus: item.chart_status === true || item.chart_status === 'on' || item.product?.chart_status === true || item.product?.chart_status === 'on',
-          }))
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch favorites:', err)
+  // Fetch favorite products unconditionally (with token if logged in, without token if guest)
+  try {
+    const fHeaders: any = { 'Content-Type': 'application/json' }
+    if (token) {
+      fHeaders['Authorization'] = `Bearer ${token}`
     }
+    
+    const fUrl = `${TRADING_API_URL.replace(/\/$/, '')}/favorite-product?lang_code=${safeLang}&source=web`
+    const fRes = await fetch(fUrl, { headers: fHeaders, cache: 'no-store' })
+    if (fRes.ok) {
+      const fJson = await fRes.json()
+      const rawFavs = fJson.data?.favorite_products || fJson.data?.favorite_product || (Array.isArray(fJson.data) ? fJson.data : [])
+      if (Array.isArray(rawFavs)) {
+        favoriteProducts = rawFavs.map((item: any) => ({
+          id: item.id || Date.now(),
+          category: item.category?.name || 'N/A',
+          country: item.country?.name || 'N/A',
+          countryFlag: item.country?.flag || '',
+          product: item.product?.name || 'N/A',
+          shipBy: item.shipping_container?.title || 'N/A',
+          term: item.shipping_term?.title || 'N/A',
+          pol: item.loading_port?.name || 'N/A',
+          polFlag: item.loading_port?.flag || item.loading_port?.country?.flag || '',
+          pod: item.destination_port?.name || 'N/A',
+          podFlag: item.destination_port?.flag || item.destination_port?.country?.flag || '',
+          price: (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString(),
+          change: (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString(),
+          chartStatus: item.chart_status === true || item.chart_status === 'on' || item.product?.chart_status === true || item.product?.chart_status === 'on',
+        }))
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch favorite products:', err)
   }
 
   // Removed redundant marketed products API call for better performance

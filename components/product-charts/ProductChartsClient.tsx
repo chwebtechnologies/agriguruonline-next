@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Brush } from 'recharts';
 import {
   getShippingContainersAction,
   getLoadingPortsAction,
   getDestinationPortsAction,
   addFavoriteProductAction,
-  deleteFavoriteProductAction
+  deleteFavoriteProductAction,
+  getProductDetailsAction
 } from '@/app/actions/charts';
 
 interface Category {
@@ -44,6 +47,11 @@ interface Product {
   category: Category;
   country: Country;
   chart_status?: boolean | string;
+  packing_types?: {
+    id: string | number;
+    title: string;
+    is_default: boolean | number;
+  }[];
 }
 
 interface ShippingTerm {
@@ -79,7 +87,9 @@ function SearchableSelect({
   options = [], 
   placeholder, 
   disabled,
-  loading: selectLoading
+  loading: selectLoading,
+  menuPosition = 'bottom',
+  id
 }: { 
   value: string; 
   onChange: (val: string) => void; 
@@ -87,6 +97,8 @@ function SearchableSelect({
   placeholder: string; 
   disabled?: boolean; 
   loading?: boolean;
+  menuPosition?: 'top' | 'bottom';
+  id?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -119,8 +131,9 @@ function SearchableSelect({
   const isInteractive = !disabled && !selectLoading;
 
   return (
-    <div className="relative w-full" ref={wrapperRef} title={displayValue}>
+    <div className={`relative w-full ${isOpen && isInteractive ? 'z-[9999]' : ''}`} ref={wrapperRef} title={displayValue}>
       <div 
+        id={id}
         className={`w-full h-10 rounded-md px-3 text-sm flex items-center justify-between transition-all ${
           !isInteractive
             ? 'opacity-60 cursor-not-allowed bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-400 select-none' 
@@ -160,7 +173,7 @@ function SearchableSelect({
         )}
       </div>
       {isOpen && isInteractive && (
-        <div className="absolute z-50 w-full min-w-[200px] mt-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-2xl max-h-[300px] flex flex-col left-0">
+        <div className={`absolute z-50 w-full min-w-[200px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-2xl max-h-[300px] flex flex-col left-0 ${menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
           <div className="p-1.5 shrink-0 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 rounded-t-md">
             <div className="relative">
               <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
@@ -204,28 +217,257 @@ function SearchableSelect({
   );
 }
 
+const SwipeableCard = ({ 
+  children, 
+  onDelete,
+  onChart
+}: { 
+  children: React.ReactNode, 
+  onDelete: () => void,
+  onChart: () => void
+}) => {
+  const [translateX, setTranslateX] = useState(0);
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
+  const currentXRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const swipeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = swipeRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startXRef.current = e.touches[0].clientX;
+      startYRef.current = e.touches[0].clientY;
+      currentXRef.current = 0;
+      isDraggingRef.current = false;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const diffX = e.touches[0].clientX - startXRef.current;
+      const diffY = e.touches[0].clientY - startYRef.current;
+
+      // Only activate horizontal swipe if X movement exceeds Y movement by 10px
+      if (!isDraggingRef.current) {
+        if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY)) {
+          isDraggingRef.current = true;
+        } else if (Math.abs(diffY) > 10) {
+          // Vertical scroll — don't intercept
+          return;
+        } else {
+          return;
+        }
+      }
+
+      if (isDraggingRef.current) {
+        // Prevent vertical scrolling/shaking while swiping horizontally
+        if (e.cancelable) e.preventDefault();
+
+        const maxSwipe = 120; // Ensure full visibility of action buttons
+        let newTranslate = diffX;
+        if (newTranslate > maxSwipe) newTranslate = maxSwipe;
+        if (newTranslate < -maxSwipe) newTranslate = -maxSwipe;
+        currentXRef.current = newTranslate;
+        setTranslateX(newTranslate);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!isDraggingRef.current) {
+        // Was a tap, not a swipe — reset and do nothing
+        setTranslateX(0);
+        currentXRef.current = 0;
+        isDraggingRef.current = false;
+        return;
+      }
+
+      isDraggingRef.current = false;
+
+      const maxSwipe = 120;
+      const threshold = maxSwipe * 0.5;
+
+      if (currentXRef.current < -threshold) {
+        onDelete();
+      } else if (currentXRef.current > threshold) {
+        onChart();
+      }
+      setTranslateX(0);
+      currentXRef.current = 0;
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [onChart, onDelete]);
+
+  return (
+    <div className="relative overflow-hidden rounded-xl lg:hidden bg-zinc-100 dark:bg-zinc-800 touch-pan-y" ref={containerRef}>
+      <div className="absolute inset-0 flex justify-between items-center z-0">
+        <div className="bg-sky-400 w-1/2 h-full flex items-center pl-6 text-white font-bold rounded-l-xl">
+          <i className="fa-solid fa-chart-line text-xl"></i>
+          <span className="ml-3 text-[15px] tracking-wide">Chart</span>
+        </div>
+        <div className="bg-red-500 w-1/2 h-full flex items-center justify-end pr-6 text-white font-bold rounded-r-xl">
+          <span className="mr-3 text-[15px] tracking-wide">Delete</span>
+          <i className="fa-solid fa-trash text-xl"></i>
+        </div>
+      </div>
+      <div 
+        ref={swipeRef}
+        className="relative z-10 w-full h-full bg-zinc-50 dark:bg-[#1c1c1e] rounded-xl shadow-sm border border-zinc-200 dark:border-[#2a2a2c]"
+        style={{ 
+          transform: `translateX(${translateX}px)`,
+          transition: isDraggingRef.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const generateDummyData = () => {
+  let basePrice = 0.850;
+  const data = [];
+  const startDate = new Date('2025-10-01');
+  for (let i = 0; i < 80; i++) {
+    basePrice += (Math.random() - 0.48) * 0.015; // sharper movements
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i * 2);
+    data.push({
+      date: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      price: Number(basePrice.toFixed(6)),
+    });
+  }
+  return data;
+};
+
+const dummyChartData = generateDummyData();
+
+const PriceChart = ({ onChartClick }: { onChartClick?: () => void }) => {
+  const [timeRange, setTimeRange] = useState('1Y');
+  const ranges = ['12H', '1D', '1W', '1M', '1Y', '2Y', '5Y', '10Y'];
+
+  return (
+    <div className="w-full flex flex-col items-center bg-white dark:bg-zinc-900 pt-3 pb-2" onClick={onChartClick}>
+      {/* Timeline Selector */}
+      <div className="flex justify-center items-center gap-1 sm:gap-2 mb-4 overflow-x-auto px-2 w-[95%] max-w-[350px] mx-auto scrollbar-hide text-[#71717a]" style={{ scrollbarWidth: 'none' }}>
+        {ranges.map(range => (
+          <button
+            key={range}
+            onClick={(e) => { e.stopPropagation(); setTimeRange(range); }}
+            className={`px-3 py-1 text-[12px] font-bold rounded-full whitespace-nowrap transition-all duration-200 ${
+              timeRange === range
+                ? 'bg-[#1877F2] text-white'
+                : 'bg-transparent hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            {range}
+          </button>
+        ))}
+      </div>
+      
+      {/* Chart Area */}
+      <div className="w-[95%] max-w-[350px] mx-auto h-[200px] cursor-pointer">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={dummyChartData} margin={{ top: 10, right: 0, left: 10, bottom: 0 }}>
+            {/* Faint horizontal grid lines */}
+            <CartesianGrid strokeDasharray="0" vertical={false} stroke="#f0f0f0" strokeOpacity={1} />
+            <XAxis 
+              dataKey="date" 
+              axisLine={{ stroke: '#52525b', strokeWidth: 1 }}
+              tickLine={{ stroke: '#52525b', strokeWidth: 1 }} 
+              tick={{ fontSize: 11, fill: '#71717a' }} 
+              dy={10}
+              minTickGap={30}
+            />
+            <YAxis 
+              orientation="right" 
+              axisLine={false} 
+              tickLine={false} 
+              tick={{ fontSize: 11, fill: '#52525b' }}
+              domain={['dataMin', 'dataMax']}
+              dx={0}
+              tickFormatter={(val) => val.toFixed(5)}
+              width={55}
+            />
+            <Tooltip 
+              contentStyle={{ borderRadius: '8px', border: '1px solid #e4e4e7', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              labelStyle={{ color: '#71717a', fontSize: '12px', marginBottom: '4px' }}
+              itemStyle={{ color: '#1877F2', fontWeight: 'bold', fontSize: '15px' }}
+            />
+            <Line 
+              type="linear" 
+              dataKey="price" 
+              stroke="#1877F2" 
+              strokeWidth={2} 
+              dot={false} 
+              activeDot={{ r: 4, fill: '#1877F2', stroke: '#fff', strokeWidth: 2 }}
+            />
+            <Brush 
+              dataKey="date" 
+              height={26} 
+              stroke="#1877F2" 
+              fill="#E8F4FF"
+              travellerWidth={8} 
+              tickFormatter={() => ''}
+            >
+              <AreaChart data={dummyChartData}>
+                <Area type="linear" dataKey="price" stroke="none" fill="#1877F2" fillOpacity={0.5} />
+              </AreaChart>
+            </Brush>
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Footer Text like the screenshot */}
+      <div className="flex flex-col items-center justify-center text-[11px] text-[#71717a] mt-3 mb-1">
+        <p>Aug 25, 2025, 00:00 UTC - Aug 24, 2026, 12:15 UTC</p>
+        <p className="mt-0.5">
+          USD/EUR <span className="text-zinc-800 dark:text-zinc-200 font-semibold">close:</span> 0.857209{' '}
+          <span className="text-zinc-800 dark:text-zinc-200 font-semibold">low:</span> 0.83196{' '}
+          <span className="text-zinc-800 dark:text-zinc-200 font-semibold">high:</span> 0.880736
+        </p>
+      </div>
+    </div>
+  );
+};
+
 interface ChartsClientProps {
   initialProducts?: Product[];
   initialShippingTerms?: ShippingTerm[];
   initialFavorites?: FavoriteItem[];
   initialUserType?: string | null;
   lang?: string;
+  initialDestinationPorts?: DestinationPortInfo[];
   initialMarketedProducts?: any[];
 }
 
-export default function ProductChartsClient({
-  initialProducts = [],
+export default function ProductChartsClient({ 
+  initialProducts = [], 
   initialShippingTerms = [],
   initialFavorites = [],
   initialUserType,
+  initialDestinationPorts = [],
   initialMarketedProducts = [],
   lang = 'en'
 }: ChartsClientProps) {
+  const router = useRouter();
   const [productsData] = useState<Product[]>(initialProducts);
   const [shippingTerms] = useState<ShippingTerm[]>(initialShippingTerms);
   const [shippingContainers, setShippingContainers] = useState<ShippingContainer[]>([]);
   const [loadingPorts, setLoadingPorts] = useState<LoadingPortInfo[]>([]);
-  const [destinationPorts, setDestinationPorts] = useState<DestinationPortInfo[]>([]);
+  const [destinationPorts, setDestinationPorts] = useState<DestinationPortInfo[]>(initialDestinationPorts);
   const userType = initialUserType;
 
   // Loading indicators for dynamic dropdowns
@@ -233,6 +475,11 @@ export default function ProductChartsClient({
   const [polLoading, setPolLoading] = useState(false);
   const [podLoading, setPodLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | string | null>(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [activeBottomSheetId, setActiveBottomSheetId] = useState<number | string | null>(null);
+  const [showMobileAddForm, setShowMobileAddForm] = useState(false);
 
   // Dropdown states
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -288,6 +535,8 @@ export default function ProductChartsClient({
     return ['CNF', 'CIF'].includes(title);
   }, [selectedTermObj]);
 
+  const [fetchedPackingTitle, setFetchedPackingTitle] = useState<string>('');
+
   // 1. Handle Category Select / Clear: clears Country, Product, Ship by, Term, POL, POD
   const handleCategorySelect = (val: string) => {
     setSelectedCategory(val);
@@ -300,6 +549,8 @@ export default function ProductChartsClient({
     setShippingContainers([]);
     setLoadingPorts([]);
     setDestinationPorts([]);
+    setFetchedPackingTitle('');
+    if (val) setTimeout(() => document.getElementById('select-country')?.click(), 100);
   };
 
   // 2. Handle Country Select / Clear: clears Product, Ship by, Term, POL, POD
@@ -313,6 +564,8 @@ export default function ProductChartsClient({
     setShippingContainers([]);
     setLoadingPorts([]);
     setDestinationPorts([]);
+    setFetchedPackingTitle('');
+    if (val) setTimeout(() => document.getElementById('select-product')?.click(), 100);
   };
 
   // 3. Handle Product Select / Clear: fetches all containers from API
@@ -325,6 +578,7 @@ export default function ProductChartsClient({
     setShippingContainers([]);
     setLoadingPorts([]);
     setDestinationPorts([]);
+    setFetchedPackingTitle('');
 
     if (!prodId) return;
 
@@ -335,12 +589,17 @@ export default function ProductChartsClient({
     }
 
     setContainersLoading(true);
+    
+    // Priority 1: Fetch Shipping Containers
     try {
       const res = await getShippingContainersAction(prodId, lang);
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         setShippingContainers(res.data);
         if (res.data.length === 1) {
           setSelectedShipBy(res.data[0].id);
+          setTimeout(() => document.getElementById('select-term')?.click(), 100);
+        } else {
+          setTimeout(() => document.getElementById('select-shipby')?.click(), 100);
         }
       } else {
         setShippingContainers([]);
@@ -350,6 +609,21 @@ export default function ProductChartsClient({
       setShippingContainers([]);
     } finally {
       setContainersLoading(false);
+    }
+    
+    // Priority 2: Fetch Product Details (to get packing types)
+    try {
+      const detailRes = await getProductDetailsAction(prodId, lang);
+      if (detailRes.success && detailRes.data && Array.isArray(detailRes.data.packing_types)) {
+        const pt = detailRes.data.packing_types.find((p: any) => 
+          p.is_default === true || p.is_default === 1 || p.is_default === "1" || p.is_default === "true"
+        );
+        if (pt && pt.title) {
+          setFetchedPackingTitle(pt.title);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load product details:', err);
     }
   }, [productsData, selectedCategory, selectedCountry, lang]);
 
@@ -361,6 +635,7 @@ export default function ProductChartsClient({
     setSelectedPOD('');
     setLoadingPorts([]);
     setDestinationPorts([]);
+    if (shipById) setTimeout(() => document.getElementById('select-term')?.click(), 100);
   }, []);
 
   // 5. Handle Term (Incoterm) Select / Clear: fetches all loading ports from API
@@ -391,10 +666,13 @@ export default function ProductChartsClient({
               .then(dRes => {
                 if (dRes.success && Array.isArray(dRes.data)) {
                   setDestinationPorts(dRes.data);
+                  setTimeout(() => document.getElementById('select-pod')?.click(), 100);
                 }
               })
               .finally(() => setPodLoading(false));
           }
+        } else {
+          setTimeout(() => document.getElementById('select-port')?.click(), 100);
         }
       } else {
         setLoadingPorts([]);
@@ -420,6 +698,11 @@ export default function ProductChartsClient({
       const res = await getDestinationPortsAction(selectedProduct, selectedShipBy, polId, lang);
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         setDestinationPorts(res.data);
+        if (res.data.length === 1) {
+          setSelectedPOD(res.data[0].id);
+        } else {
+          setTimeout(() => document.getElementById('select-pod')?.click(), 100);
+        }
       } else {
         setDestinationPorts([]);
       }
@@ -444,6 +727,20 @@ export default function ProductChartsClient({
     selectedPOL &&
     (!isPodRequired || selectedPOD)
   );
+
+  // Auto-scroll to the note element of the mobile form when all required fields are selected
+  // so the user can see the packing details and product price note smoothly.
+  useEffect(() => {
+    if (isAddProductEnabled && showMobileAddForm) {
+      const scrollTimer = setTimeout(() => {
+        const noteEl = document.getElementById('mobile-add-product-note');
+        if (noteEl) {
+          noteEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 200); // Slight delay allows DOM changes and dropdown closing animations to finish
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [isAddProductEnabled, showMobileAddForm]);
 
   const handleAddProduct = async () => {
     if (!isAddProductEnabled || isAdding) return;
@@ -528,7 +825,12 @@ export default function ProductChartsClient({
     }
   };
 
+  const confirmDelete = (id: number | string) => {
+    setDeleteConfirmId(id);
+  };
+
   const handleDelete = async (id: number | string) => {
+    setDeleteConfirmId(null);
     setAddedProducts(prev => prev.filter((p) => p.id !== id));
     try {
       await deleteFavoriteProductAction(id, lang);
@@ -587,7 +889,12 @@ export default function ProductChartsClient({
                   </span>
                   {p.id && (
                     <button 
-                      onClick={() => handleProductSelect(p.id)}
+                      onClick={() => {
+                        handleProductSelect(p.id);
+                        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                          setShowMobileAddForm(true);
+                        }
+                      }}
                       className="ml-4 px-2.5 py-1 bg-[#1D92EB] hover:bg-[#157dc9] text-white text-[11px] font-semibold rounded cursor-pointer transition-colors shadow-sm"
                     >
                       Add
@@ -601,8 +908,8 @@ export default function ProductChartsClient({
       )}
 
       <div className="w-full">
-        {/* Header / Input Row (Hidden temporarily as requested) */}
-        <div className="hidden">
+        {/* Header / Input Row */}
+        <div className={`hidden lg:grid ${gridCols} gap-2 mb-3 items-end`}>
           {/* 1. Category */}
           <div className="w-full">
             <SearchableSelect 
@@ -726,11 +1033,11 @@ export default function ProductChartsClient({
         </div>
 
         {/* Data Rows */}
-        <div className="mt-2 min-h-[240px]">
+        <div className={`mt-2 ${addedProducts.length === 0 ? 'min-h-[240px]' : ''}`}>
           {addedProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[240px] text-foreground/50 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
               <i className="fa-solid fa-folder-open text-4xl mb-3 text-zinc-400"></i>
-              <p className="text-sm font-medium">No products available. Add a product to view charts.</p>
+              <p className="text-sm font-medium">No products added yet. Use the dropdowns above to add a product.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-1.5 lg:gap-2.5">
@@ -742,46 +1049,65 @@ export default function ProductChartsClient({
                 return (
                   <div key={item.id || index}>
                     {/* Mobile/Tablet Card Layout */}
-                    <div className="flex flex-col lg:hidden p-2 bg-zinc-50 dark:bg-[#1c1c1e] rounded-xl shadow-sm border border-zinc-200 dark:border-[#2a2a2c] relative">
-                      {/* Row 1: Origins and POD */}
-                      <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa]">
-                        <div className="flex items-center gap-1.5 font-medium">
-                          {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
-                          <span>{item.country}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 font-medium">
-                          <span>{item.pod && item.pod !== 'N/A' ? 'POD' : 'POL'}: {item.pod && item.pod !== 'N/A' ? item.pod : item.pol}</span>
-                          {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <img src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
-                        </div>
-                      </div>
-                      
-                      {/* Row 2: Product Name & Price */}
-                      <div className="flex justify-between items-center gap-3 mt-1">
-                        <div className="font-bold text-[14px] leading-tight text-zinc-900 dark:text-[#f4f4f5]">
-                          {item.product}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="font-bold text-[14px] text-zinc-900 dark:text-[#f4f4f5] whitespace-nowrap">
-                            {item.term}: ${item.price}
+                    {/* Mobile/Tablet Card Layout */}
+                    <SwipeableCard 
+                      onDelete={() => confirmDelete(item.id)}
+                      onChart={() => { /* Chart functionality pending */ }}
+                    >
+                      <div className="flex flex-col p-2">
+                        {/* Row 1: Origins and POD */}
+                        <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa]">
+                          <div className="flex items-center gap-1.5 font-medium">
+                            {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                            <span>{item.country}</span>
                           </div>
-                          <button onClick={() => handleDelete(item.id)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-[#f4f4f5] transition-colors pl-1">
-                            <i className="fa-solid fa-ellipsis-vertical text-[16px] px-1"></i>
-                          </button>
+                          <div className="flex items-center gap-1.5 font-medium">
+                            <span>{item.pod && item.pod !== 'N/A' ? 'POD' : 'POL'}: {item.pod && item.pod !== 'N/A' ? item.pod : item.pol}</span>
+                            {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <img src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                          </div>
                         </div>
-                      </div>
+                        
+                        {/* Row 2: Product Name & Price */}
+                        <div className="flex justify-between items-center gap-3 mt-1">
+                          <div className="font-bold text-[14px] leading-tight text-zinc-900 dark:text-[#f4f4f5]">
+                            {item.product}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="font-bold text-[14px] text-zinc-900 dark:text-[#f4f4f5] whitespace-nowrap">
+                              {item.term}: ${item.price}
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveBottomSheetId(item.id);
+                              }}
+                              onTouchStart={(e) => e.stopPropagation()}
+                              onTouchEnd={(e) => {
+                                e.stopPropagation();
+                                setActiveBottomSheetId(item.id);
+                              }}
+                              className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-[#f4f4f5] active:bg-zinc-200 dark:active:bg-zinc-700 rounded-full transition-colors"
+                              aria-label="Open product options"
+                            >
+                              <i className="fa-solid fa-ellipsis-vertical text-[17px]"></i>
+                            </button>
+                          </div>
+                        </div>
 
-                      {/* Row 3: POL, ShipBy, Change */}
-                      <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa] mt-0.5">
-                        <div>POL: {item.pol}</div>
-                        <div className="flex items-center gap-1">
-                          <span>({item.shipBy} - PMT)</span>
-                          <span className={`font-semibold flex items-center ${isPositive ? 'text-[#2DBC84]' : 'text-red-500'}`}>
-                            <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} mr-0.5`}></i>
-                            {isPositive ? `+${changeVal}$` : `${changeVal}$`}
-                          </span>
+                        {/* Row 3: POL, ShipBy, Change */}
+                        <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa] mt-0.5">
+                          <div>POL: {item.pol}</div>
+                          <div className="flex items-center gap-1">
+                            <span>({item.shipBy} - PMT)</span>
+                            <span className={`font-semibold flex items-center ${isPositive ? 'text-[#2DBC84]' : 'text-red-500'}`}>
+                              <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} mr-0.5`}></i>
+                              {isPositive ? `+${changeVal}$` : `${changeVal}$`}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </SwipeableCard>
 
                     {/* Desktop Row Layout */}
                     <div className={`hidden lg:grid grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr] gap-2 items-center px-4 py-3.5 rounded-lg ${desktopRowBg} shadow-sm border border-zinc-200/80 dark:border-zinc-800 hover:shadow-md transition-all text-sm font-medium`}>
@@ -824,7 +1150,7 @@ export default function ProductChartsClient({
                           </button>
                         )}
                         <button 
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => confirmDelete(item.id)}
                           className="text-red-500 hover:text-red-600 transition-colors flex items-center justify-center text-lg p-1"
                           title="Delete product"
                         >
@@ -835,23 +1161,493 @@ export default function ProductChartsClient({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
 
-              {/* Global Actions Bar for Mobile/Tablet - Outside Cards */}
-              <div className="flex lg:hidden justify-between items-center pt-4 pb-2">
-                <button className="px-5 py-[9px] bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-md text-[14px] hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-sm transition-colors">
-                   Inquiry / Offer
-                </button>
-                <button className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100 transition-colors flex items-center justify-center">
-                  <i className="fa-regular fa-triangle-exclamation text-[22px]"></i>
-                </button>
-                <button className="px-6 py-[10px] bg-[#2DBC84] hover:bg-[#25A06F] text-white font-medium rounded-md text-[14px] shadow-sm transition-colors">
-                  Add Product
+        {/* Global Actions Bar for Mobile/Tablet - Sticky when products overflow */}
+        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-0 z-40 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)] mt-3 pb-safe">
+          <button className="px-5 py-[9px] bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-md text-[14px] hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-sm transition-colors">
+             Inquiry / Offer
+          </button>
+          <div className="relative flex items-center justify-center">
+            <button onClick={() => setShowDisclaimer(true)} className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100 transition-colors flex items-center justify-center">
+              <i className="fa-solid fa-triangle-exclamation text-[22px]"></i>
+            </button>
+
+            {showDisclaimer && (
+              <>
+                <div className="absolute top-full mt-4 z-50 w-[300px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-white dark:bg-[#222222] border border-[#1D92EB] rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                  {/* Triangle pointer at top center */}
+                  <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-white dark:bg-[#222222] border-t border-l border-[#1D92EB] transform rotate-45"></div>
+                  
+                  <h3 className="text-zinc-900 dark:text-white text-center font-semibold text-[16px] mb-3">Standard Market Rate</h3>
+                  <p className="text-zinc-600 dark:text-[#d1d5db] text-[13px] leading-relaxed text-justify mb-4">
+                    The displayed prices/rates reflect standard market rates between buyers and sellers which may or may not buy or sell at. They are subject to reconfirmation as per AgriGuru’s Terms, conditions.
+                  </p>
+                  <div className="border-t border-zinc-200 dark:border-[#3f3f46] pt-3 text-center">
+                    <button 
+                      onClick={() => setShowDisclaimer(false)}
+                      className="text-[#1D92EB] font-bold text-[15px] hover:text-blue-500 transition-colors"
+                    >
+                      Got it
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <button 
+            onClick={() => setShowMobileAddForm(true)}
+            className="px-6 py-[10px] bg-[#2DBC84] hover:bg-[#25A06F] text-white font-medium rounded-md text-[14px] shadow-sm transition-colors"
+          >
+            Add Product
+          </button>
+        </div>
+      </div>
+      {/* Delete Confirmation Popup */}
+      {deleteConfirmId !== null && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex gap-4 items-center mb-6">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0 text-red-600">
+                <i className="fa-solid fa-triangle-exclamation text-xl"></i>
+              </div>
+              <div className="flex flex-col justify-center w-full items-center">
+                <h3 className="text-[17px] font-bold text-red-600 dark:text-red-500 mb-1 leading-none text-center">Delete Product</h3>
+                <p className="text-zinc-600 dark:text-zinc-400 text-[14px] leading-snug whitespace-nowrap text-center">Are you sure you want to delete this product?</p>
+              </div>
+            </div>
+            
+            <div className="flex w-full gap-3">
+              <button 
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-[15px] shadow-sm hover:bg-red-700 active:scale-[0.98] transition-all"
+              >
+                Delete
+              </button>
+              <button 
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Sheet for Mobile Actions */}
+      {activeBottomSheetId !== null && (() => {
+        const activeItem = addedProducts.find(p => p.id === activeBottomSheetId);
+        return (
+          <BottomSheetContainer 
+            activeItem={activeItem} 
+            setActiveBottomSheetId={setActiveBottomSheetId} 
+            userType={userType} 
+            router={router} 
+            getFlagUrl={getFlagUrl} 
+          />
+        );
+      })()}
+
+      {/* Full Screen Mobile Add Product Form */}
+      {showMobileAddForm && (
+        <div className="fixed inset-0 z-[300] bg-white dark:bg-[#121212] flex flex-col animate-in slide-in-from-bottom-2 duration-300">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+            <button 
+              onClick={() => setShowMobileAddForm(false)}
+              className="w-7 h-7 rounded-full bg-zinc-400 dark:bg-zinc-700 text-white flex items-center justify-center transition-transform active:scale-95"
+            >
+              <i className="fa-solid fa-chevron-left text-xs pr-0.5"></i>
+            </button>
+            <h2 className="text-[19px] font-bold">
+              {'Add Product'.split(' ').map((word, index, arr) => (
+                <span key={index}>
+                  <span className="bg-[image:var(--ag-gradient-heading)] bg-clip-text text-transparent">
+                    {word}
+                  </span>
+                  {index < arr.length - 1 && ' '}
+                </span>
+              ))}
+            </h2>
+            <button className="w-7 h-7 rounded-full border border-zinc-300 dark:border-zinc-600 flex items-center justify-center">
+              <i className="fa-solid fa-magnifying-glass text-zinc-600 dark:text-zinc-300 text-[13px]"></i>
+            </button>
+          </div>
+
+          {/* Form Fields */}
+          <div id="mobile-add-form-scroll-container" className="flex-1 overflow-y-auto relative bg-white dark:bg-[#121212] scroll-smooth scroll-pb-32">
+            <div className="px-5 pt-3 pb-8 space-y-4 min-h-full flex flex-col">
+              <div className="flex-1 space-y-4">
+                {/* Category */}
+                <div>
+                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Category</label>
+                  <div className="mobile-add-select">
+                    <SearchableSelect 
+                      id="select-category"
+                      value={selectedCategory} onChange={handleCategorySelect} options={categories}
+                      placeholder="Select Category" disabled={false} loading={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Country */}
+                <div>
+                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Country</label>
+                  <div className="mobile-add-select">
+                    <SearchableSelect 
+                      id="select-country"
+                      value={selectedCountry} onChange={handleCountrySelect} options={countries}
+                      placeholder="Enter Country" disabled={countries.length === 0} loading={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Product Name */}
+                <div>
+                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Product Name</label>
+                  <div className="mobile-add-select">
+                    <SearchableSelect 
+                      id="select-product"
+                      value={selectedProduct} onChange={handleProductSelect} options={filteredProducts}
+                      placeholder="Select Product" disabled={filteredProducts.length === 0} loading={false}
+                    />
+                  </div>
+                </div>
+
+                {/* Ship by */}
+                <div>
+                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Ship by</label>
+                  <div className="mobile-add-select">
+                    <SearchableSelect 
+                      id="select-shipby"
+                      value={selectedShipBy} onChange={handleShipBySelect} options={shippingContainers}
+                      placeholder={!selectedProduct ? "Select Ship By" : containersLoading ? "Loading..." : shippingContainers.length === 0 ? "No containers" : "Select Ship By"}
+                      disabled={!selectedProduct || containersLoading || shippingContainers.length === 0} loading={containersLoading}
+                    />
+                  </div>
+                </div>
+
+                {/* Term */}
+                <div>
+                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Term</label>
+                  <div className="mobile-add-select">
+                    <SearchableSelect 
+                      id="select-term"
+                      value={selectedTerm} onChange={handleTermSelect} options={shippingTerms}
+                      placeholder="Select Incoterm" disabled={!selectedProduct || !selectedShipBy || shippingTerms.length === 0} loading={false}
+                      menuPosition="top"
+                    />
+                  </div>
+                </div>
+
+                {/* Port */}
+                <div>
+                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Port</label>
+                  <div className="mobile-add-select">
+                    <SearchableSelect 
+                      id="select-port"
+                      value={selectedPOL} onChange={handlePOLSelect} options={loadingPorts}
+                      placeholder={!selectedTerm ? "Select Port" : polLoading ? "Loading..." : loadingPorts.length === 0 ? "No Port" : "Select Port"}
+                      disabled={!selectedTerm || polLoading || loadingPorts.length === 0} loading={polLoading}
+                      menuPosition="top"
+                    />
+                  </div>
+                </div>
+
+                {/* Destination Port */}
+                <div>
+                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Destination Port</label>
+                  <div className="mobile-add-select">
+                    <SearchableSelect 
+                      id="select-pod"
+                      value={isPodRequired ? selectedPOD : ''} onChange={handlePODSelect} options={destinationPorts}
+                      placeholder={!isPodRequired ? "Select Destination Port (N/A)" : !selectedPOL ? "Select Destination Port" : podLoading ? "Loading..." : destinationPorts.length === 0 ? "No Destination Port" : "Select Destination Port"}
+                      disabled={!isPodRequired || !selectedPOL || podLoading || destinationPorts.length === 0} loading={podLoading}
+                      menuPosition="top"
+                    />
+                  </div>
+                </div>
+
+                {/* Additional Product Info Notes */}
+                {selectedProduct && (
+                  <div id="mobile-add-product-note" className="mt-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30">
+                    <div className="flex items-start gap-3">
+                      <i className="fa-solid fa-circle-info text-blue-500 mt-1"></i>
+                      <div className="space-y-1.5 flex-1">
+                        {fetchedPackingTitle && (
+                          <div className="text-sm">
+                            <span className="font-semibold text-zinc-700 dark:text-zinc-300">Packing Type: </span>
+                            <span className="text-zinc-600 dark:text-zinc-400">{fetchedPackingTitle}</span>
+                          </div>
+                        )}
+                        <div className="text-sm">
+                          <span className="font-semibold text-zinc-700 dark:text-zinc-300">Product Price: </span>
+                          <span className="text-zinc-600 dark:text-zinc-400">USD/PMT</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Sticky Add Button */}
+            <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212] z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
+              <div className="flex justify-center">
+                <button 
+                  onClick={async () => {
+                    await handleAddProduct();
+                    if (isAddProductEnabled) {
+                      setShowMobileAddForm(false);
+                    }
+                  }}
+                  disabled={!isAddProductEnabled || isAdding}
+                  className={`w-[200px] h-12 rounded-lg text-white font-semibold text-[16px] shadow-sm transition-all flex items-center justify-center
+                    ${!isAddProductEnabled || isAdding 
+                      ? 'opacity-40 cursor-not-allowed shadow-none bg-zinc-300 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400' 
+                      : 'bg-primary-gradient hover:opacity-95 active:scale-95 cursor-pointer shadow-md hover:shadow-lg'
+                    }`}
+                >
+                  {isAdding ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i> Adding...</> : 'Add Product'}
                 </button>
               </div>
             </div>
-          )}
+          </div>
+          
+          <style dangerouslySetInnerHTML={{__html: `
+            .mobile-add-select .h-10 {
+              height: 48px !important;
+              border-radius: 10px !important;
+              font-weight: 500 !important;
+              border: none !important;
+            }
+            .mobile-add-select .h-10:not(.bg-\\[\\#1D92EB\\]) {
+              background-color: #EAEAEA !important;
+              color: #4b5563 !important;
+              opacity: 1 !important;
+            }
+            .dark .mobile-add-select .h-10:not(.bg-\\[\\#1D92EB\\]) {
+              background-color: #1f1f22 !important;
+              color: #d1d5db !important;
+            }
+          `}} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Sub-component to manage Bottom Sheet swipe-up logic (Angel One style)
+const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, router, getFlagUrl }: any) => {
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const startYRef = useRef<number | null>(null);
+  const currentYRef = useRef<number | null>(null);
+
+  // Handle pointer down (works for touch, pen, mouse)
+  const handleDragStart = (clientY: number) => {
+    startYRef.current = clientY;
+    currentYRef.current = clientY;
+    setIsDragging(true);
+  };
+
+  const handleDragMove = (clientY: number) => {
+    if (startYRef.current === null) return;
+    currentYRef.current = clientY;
+    const diff = clientY - startYRef.current;
+    
+    // When dragging up: allow moving up (negative diff)
+    // When dragging down: allow moving down (positive diff)
+    setDragOffset(diff);
+  };
+
+  const handleDragEnd = () => {
+    if (startYRef.current === null || currentYRef.current === null) {
+      setIsDragging(false);
+      startYRef.current = null;
+      currentYRef.current = null;
+      return;
+    }
+
+    const diff = currentYRef.current - startYRef.current;
+    setIsDragging(false);
+    startYRef.current = null;
+    currentYRef.current = null;
+
+    if (diff < -50) {
+      // Pulled UP towards title part -> Expand to Full Screen & Navigate seamlessly
+      setIsFullScreen(true);
+      setDragOffset(0);
+      const lang = window.location.pathname.split('/')[1] || 'en';
+      // Clear bottom sheet state so when user goes back, it is not open
+      setActiveBottomSheetId(null);
+      router.push(`/${lang}/product-charts/${activeItem.id}`);
+    } else if (diff > 70) {
+      // Pulled DOWN significantly -> Dismiss bottom sheet
+      setActiveBottomSheetId(null);
+      setDragOffset(0);
+    } else {
+      // Reset position
+      setDragOffset(0);
+    }
+  };
+
+  // Touch event listeners
+  const onTouchStart = (e: React.TouchEvent) => {
+    handleDragStart(e.touches[0].clientY);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    handleDragMove(e.touches[0].clientY);
+  };
+
+  const onTouchEnd = () => {
+    handleDragEnd();
+  };
+
+  // Mouse event listeners for desktop testing
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    handleDragStart(e.clientY);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      handleDragMove(moveEvent.clientY);
+    };
+
+    const onMouseUp = () => {
+      handleDragEnd();
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-[250] flex items-end justify-center sm:items-center bg-black/40 sm:px-4 animate-in fade-in duration-200" 
+      onClick={() => setActiveBottomSheetId(null)}
+    >
+      <div 
+        className={`w-full sm:w-[440px] bg-white dark:bg-zinc-900 shadow-2xl border-t border-zinc-200 dark:border-zinc-800 sm:border relative overflow-hidden transition-all select-none ${
+          isFullScreen 
+            ? 'h-[100dvh] rounded-none sm:rounded-2xl top-0' 
+            : 'rounded-t-3xl sm:rounded-2xl pb-safe'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+        style={{ 
+          transform: isFullScreen ? 'none' : `translateY(${dragOffset}px)`, 
+          transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.3s cubic-bezier(0.2, 0.9, 0.3, 1)' 
+        }}
+      >
+        {/* Extended background underneath during drag-up */}
+        <div className="absolute inset-x-0 top-full h-[120vh] bg-white dark:bg-zinc-900 pointer-events-none"></div>
+
+        {/* Drag Handle Bar Header - Highly touch-responsive area */}
+        <div 
+          className="pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onMouseDown={onMouseDown}
+        >
+          <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
+          <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 mt-1 flex items-center gap-1">
+            <i className="fa-solid fa-chevron-up text-[8px] animate-bounce"></i>
+            <span>Swipe up for full chart</span>
+          </div>
+        </div>
+
+        {activeItem && (() => {
+          const changeVal = Number(activeItem.change) || 0;
+          const isPositive = changeVal >= 0;
+          return (
+            <div 
+              className="px-5 pb-2 pt-1 border-b border-zinc-100 dark:border-zinc-800/50 cursor-grab active:cursor-grabbing touch-none"
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+              onMouseDown={onMouseDown}
+            >
+              {/* Row 1: Origins and POD */}
+              <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa]">
+                <div className="flex items-center gap-1.5 font-medium">
+                  {activeItem.countryFlag && <img src={getFlagUrl(activeItem.countryFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                  <span>{activeItem.country}</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  <span>{activeItem.pod && activeItem.pod !== 'N/A' ? 'POD' : 'POL'}: {activeItem.pod && activeItem.pod !== 'N/A' ? activeItem.pod : activeItem.pol}</span>
+                  {(activeItem.pod && activeItem.pod !== 'N/A' ? activeItem.podFlag : activeItem.polFlag) && <img src={getFlagUrl(activeItem.pod && activeItem.pod !== 'N/A' ? activeItem.podFlag : activeItem.polFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                </div>
+              </div>
+              
+              {/* Row 2: Product Name & Price */}
+              <div className="flex justify-between items-center gap-3 mt-1">
+                <div className="font-bold text-[14px] leading-tight text-zinc-900 dark:text-[#f4f4f5]">
+                  {activeItem.product}
+                </div>
+                <div className="font-bold text-[14px] text-zinc-900 dark:text-[#f4f4f5] whitespace-nowrap">
+                  {activeItem.term}: ${activeItem.price}
+                </div>
+              </div>
+
+              {/* Row 3: POL, ShipBy, Change */}
+              <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa] mt-0.5">
+                <div>POL: {activeItem.pol}</div>
+                <div className="flex items-center gap-1">
+                  <span>({activeItem.shipBy} - PMT)</span>
+                  <span className={`font-semibold flex items-center ${isPositive ? 'text-[#2DBC84]' : 'text-red-500'}`}>
+                    <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} mr-0.5`}></i>
+                    {isPositive ? `+${changeVal}$` : `${changeVal}$`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        
+        {/* Compact Centered Chart */}
+        <PriceChart />
+        
+        {/* Bottom Actions */}
+        <div className="px-1 pb-4 pt-1">
+          <div className="flex flex-col">
+            <button 
+              className="flex items-center gap-4 w-full px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 active:bg-zinc-100 dark:active:bg-zinc-800 transition-colors text-left border-b border-zinc-100 dark:border-zinc-800/50"
+              onClick={() => setActiveBottomSheetId(null)}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
+              <i className="fa-solid fa-bell text-[16px] text-zinc-500 dark:text-zinc-400 w-6 text-center"></i>
+              <span className="font-medium text-zinc-800 dark:text-zinc-200 text-[15px]">Create Alert</span>
+            </button>
+            
+            <button 
+              className="flex items-center gap-4 w-full px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 active:bg-zinc-100 dark:active:bg-zinc-800 transition-colors text-left border-b border-zinc-100 dark:border-zinc-800/50"
+              onClick={() => setActiveBottomSheetId(null)}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
+              <i className="fa-solid fa-robot text-[16px] text-zinc-500 dark:text-zinc-400 w-6 text-center"></i>
+              <span className="font-medium text-zinc-800 dark:text-zinc-200 text-[15px]">AI Predict</span>
+            </button>
+            
+            <button 
+              className="flex items-center gap-4 w-full px-5 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 active:bg-zinc-100 dark:active:bg-zinc-800 transition-colors text-left"
+              onClick={() => setActiveBottomSheetId(null)}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
+              <i className="fa-solid fa-circle-question text-[16px] text-zinc-500 dark:text-zinc-400 w-6 text-center"></i>
+              <span className="font-medium text-zinc-800 dark:text-zinc-200 text-[15px]">
+                {userType === 'buyer' ? 'Buy Inquirey' : userType === 'seller' ? 'Sell Offer' : 'Inquiry / Offer'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
-}
+};

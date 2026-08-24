@@ -201,22 +201,22 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   On Desktop (md+): Only show Hamburger Menu when scrolled (replacing Logo). */}
               <div className="md:hidden">
                 <AppMenu align="left" profile={profile}>
-                  <button className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
+                  <div className="flex items-center gap-3 text-ag-header-text hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
-                  </button>
+                  </div>
                 </AppMenu>
               </div>
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
                   <AppMenu align="left" profile={profile}>
-                    <button className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
+                    <div className="flex items-center gap-3 text-ag-header-text hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                       </svg>
                       <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
-                    </button>
+                    </div>
                   </AppMenu>
                 </div>
               )}
@@ -377,12 +377,12 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           {/* Left-aligned Menu Trigger */}
           <div className="shrink-0 border-e border-ag-subheader-border pe-5 flex items-center">
             <AppMenu align="left" profile={profile}>
-              <button className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
+              <div className="flex items-center gap-3 text-ag-header-text hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                 </svg>
                 <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
-              </button>
+              </div>
             </AppMenu>
           </div>
 

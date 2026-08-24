@@ -129,11 +129,24 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   return (
     <div className="relative" ref={menuRef}>
       {/* Trigger */}
-      <div onClick={() => setIsOpen(!isOpen)} className="cursor-pointer">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          }
+        }}
+        className="cursor-pointer bg-transparent border-0 p-0 m-0 appearance-none outline-none"
+        aria-label="Toggle menu"
+        aria-expanded={isOpen}
+      >
         {children || (
-          <button className="flex h-11 w-11 items-center justify-center rounded-xl bg-background border border-ag-header-border shadow-sm hover:shadow text-foreground transition-all">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background border border-ag-header-border shadow-sm hover:shadow text-foreground transition-all">
             <i className="fa-solid fa-bars text-xl"></i>
-          </button>
+          </div>
         )}
       </div>
 

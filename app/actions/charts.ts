@@ -50,6 +50,33 @@ export async function getShippingContainersAction(
 }
 
 /**
+ * Fetch detailed product info on server side
+ */
+export async function getProductDetailsAction(
+  productId: string,
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    if (!productId) return { success: false, data: null };
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    const safeProdId = encodeURIComponent(productId);
+
+    const url = `${TRADING_API_URL.replace(/\/$/, "")}/product/${safeProdId}?lang_code=${safeLang}&source=web`;
+    const res = await fetch(url, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+
+    const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
+    if (isSuccess && json.data) {
+      return { success: true, data: json.data };
+    }
+    return { success: false, data: null };
+  } catch (err: any) {
+    console.error("getProductDetailsAction error:", err);
+    return { success: false, error: err.message, data: null };
+  }
+}
+
+/**
  * Fetch loading ports on server side
  */
 export async function getLoadingPortsAction(

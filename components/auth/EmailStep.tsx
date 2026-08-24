@@ -18,17 +18,12 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
   const [isPending, startTransition] = useTransition();
 
   const isFormatValid = EMAIL_REGEX.test(email.trim());
-  const isButtonDisabled = !isFormatValid || isPending;
+  const isButtonDisabled = email.trim().length === 0 || isPending;
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setEmail(val);
-
-    if (val.trim() === "") {
-      setError("");
-    } else if (!EMAIL_REGEX.test(val.trim())) {
-      setError("Please enter a valid email address.");
-    } else {
+    if (error) {
       setError("");
     }
   };
@@ -40,21 +35,25 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail) {
-      setError("Email address is required.");
+      setError("Please enter your email address.");
+      toast.error("Please enter your email address.");
       return;
     }
 
     if (!EMAIL_REGEX.test(trimmedEmail)) {
       setError("Please enter a valid email address.");
+      toast.error("Please enter a valid email address.");
       return;
     }
+
+    if (isPending) return;
 
     startTransition(async () => {
       try {
         const { isValid, error: serverError } = await validateEmailDomain(trimmedEmail);
         
         if (!isValid) {
-          const errMsg = serverError || "Invalid email.";
+          const errMsg = serverError || "Invalid email domain.";
           setError(errMsg);
           toast.error(errMsg);
           return;
@@ -64,14 +63,13 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
         if (lastSentStr) {
           const lastSent = parseInt(lastSentStr, 10);
           if (Date.now() - lastSent < 120 * 1000) {
-            // Still within 2 minutes, skip API call
             toast.success("OTP was already sent recently!");
             onNext(trimmedEmail);
             return;
           }
         }
         
-        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
+        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
         const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
           method: "POST",
           headers: {
@@ -85,9 +83,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
           try {
             const errorData = await response.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
-          } catch (e) {
-            // keep default error
-          }
+          } catch (e) {}
           setError(errorMessage);
           toast.error(errorMessage);
           return;
@@ -97,7 +93,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
         toast.success("OTP sent successfully!");
         onNext(trimmedEmail);
       } catch (err) {
-        const errMsg = "Something went wrong verifying the email.";
+        const errMsg = "Something went wrong sending OTP.";
         setError(errMsg);
         toast.error(errMsg);
       }
@@ -112,15 +108,21 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
             Email Address
           </label>
           <input
-            type="text"
+            type="email"
             id="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            autoComplete="email"
             value={email}
             disabled={isPending}
             onChange={handleEmailChange}
-            className={`w-full px-4 py-3 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 transition-colors disabled:opacity-70 ${
+            onInput={(e: React.FormEvent<HTMLInputElement>) => setEmail((e.target as HTMLInputElement).value)}
+            className={`w-full px-4 py-3 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 transition-colors ${
               error
                 ? "border-red-500 focus:ring-red-500/50"
-                : "border-foreground/20 focus:ring-foreground/50"
+                : "border-foreground/20 focus:ring-[#1D92EB]/50"
             }`}
             placeholder="your@email.com"
           />
@@ -132,8 +134,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
         </div>
         <button
           type="submit"
-          disabled={isButtonDisabled}
-          className="w-full flex items-center justify-center py-3 px-4 bg-foreground text-background rounded-lg font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+          className="w-full flex items-center justify-center py-3.5 px-4 bg-[#1D92EB] hover:bg-[#1877F2] active:bg-[#1466D2] text-white rounded-lg font-semibold text-[15px] transition-all active:scale-[0.98] shadow-md cursor-pointer"
         >
           {isPending ? (
             <i className="fa-solid fa-spinner fa-spin mr-2"></i>

@@ -7,12 +7,13 @@ export function PageHeader({ title, backText = "Back", hideBack = false }: { tit
   return (
     <div className="sticky top-[69px] z-40 py-2 flex items-center justify-center w-full mb-2 min-h-[40px]">
       {/* Full-width background bleed */}
-      <div className="absolute inset-y-0 w-[100vw] left-1/2 -translate-x-1/2 bg-background -z-10" />
+      <div className="absolute inset-y-0 w-[100vw] left-1/2 -translate-x-1/2 bg-background -z-10 pointer-events-none" />
       {!hideBack && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2">
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 z-20">
           <button 
+            type="button"
             onClick={() => router.back()}
-            className="group flex items-center gap-2.5 text-foreground hover:text-[#1D92EB] dark:hover:text-[#1D92EB] transition-colors"
+            className="group flex items-center gap-2.5 text-foreground hover:text-[#1D92EB] dark:hover:text-[#1D92EB] transition-colors p-2 cursor-pointer"
             aria-label="Go back"
           >
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-ag-header-border shadow-sm group-hover:border-ag-primary transition-colors">
