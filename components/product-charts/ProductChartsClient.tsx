@@ -545,8 +545,9 @@ export default function ProductChartsClient({
 
   const gridCols = "grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr]";
 
+  const marqueeCopies = 5;
   const marqueeItems = initialMarketedProducts && initialMarketedProducts.length > 0 
-    ? Array(20).fill(initialMarketedProducts).flat() 
+    ? Array(marqueeCopies).fill(initialMarketedProducts).flat() 
     : [];
 
   // Calculate dynamic duration to maintain constant speed (e.g. 5 seconds per item)
@@ -557,8 +558,8 @@ export default function ProductChartsClient({
     <div className="w-full overflow-visible">
       <style>{`
         @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-5%); }
+          0% { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-20%, 0, 0); }
         }
       `}</style>
       
@@ -600,8 +601,8 @@ export default function ProductChartsClient({
       )}
 
       <div className="w-full">
-        {/* Header / Input Row */}
-        <div className={`grid ${gridCols} gap-2 mb-3 items-center px-0 relative z-[60]`}>
+        {/* Header / Input Row (Hidden temporarily as requested) */}
+        <div className="hidden">
           {/* 1. Category */}
           <div className="w-full">
             <SearchableSelect 
@@ -686,14 +687,14 @@ export default function ProductChartsClient({
             />
           </div>
           
-          {/* Static Column Headers */}
-          <div className="w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          {/* Static Column Headers - Hidden on Mobile */}
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
             Price (PMT)
           </div>
-          <div className="w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
             Change
           </div>
-          <div className="w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
             Chart
           </div>
           
@@ -732,62 +733,121 @@ export default function ProductChartsClient({
               <p className="text-sm font-medium">No products available. Add a product to view charts.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-1.5 lg:gap-2.5">
               {addedProducts.map((item, index) => {
                 const changeVal = Number(item.change) || 0;
                 const isPositive = changeVal >= 0;
+                const desktopRowBg = index % 2 === 0 ? 'bg-white dark:bg-[#1a1a1c]' : 'bg-zinc-50 dark:bg-[#222225]';
                 
                 return (
-                  <div key={item.id || index} className={`grid ${gridCols} gap-2 items-center px-4 py-3.5 rounded-lg bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200/80 dark:border-zinc-800 hover:shadow-md transition-all text-sm font-medium`}>
-                    <div className="font-medium truncate text-zinc-800 dark:text-zinc-200" title={item.category}>{item.category}</div>
-                    <div className="flex items-center gap-2 truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.country}>
-                      {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
-                      <span className="truncate">{item.country}</span>
+                  <div key={item.id || index}>
+                    {/* Mobile/Tablet Card Layout */}
+                    <div className="flex flex-col lg:hidden p-2 bg-zinc-50 dark:bg-[#1c1c1e] rounded-xl shadow-sm border border-zinc-200 dark:border-[#2a2a2c] relative">
+                      {/* Row 1: Origins and POD */}
+                      <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa]">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                          <span>{item.country}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <span>{item.pod && item.pod !== 'N/A' ? 'POD' : 'POL'}: {item.pod && item.pod !== 'N/A' ? item.pod : item.pol}</span>
+                          {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <img src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                        </div>
+                      </div>
+                      
+                      {/* Row 2: Product Name & Price */}
+                      <div className="flex justify-between items-center gap-3 mt-1">
+                        <div className="font-bold text-[14px] leading-tight text-zinc-900 dark:text-[#f4f4f5]">
+                          {item.product}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="font-bold text-[14px] text-zinc-900 dark:text-[#f4f4f5] whitespace-nowrap">
+                            {item.term}: ${item.price}
+                          </div>
+                          <button onClick={() => handleDelete(item.id)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-[#f4f4f5] transition-colors pl-1">
+                            <i className="fa-solid fa-ellipsis-vertical text-[16px] px-1"></i>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Row 3: POL, ShipBy, Change */}
+                      <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa] mt-0.5">
+                        <div>POL: {item.pol}</div>
+                        <div className="flex items-center gap-1">
+                          <span>({item.shipBy} - PMT)</span>
+                          <span className={`font-semibold flex items-center ${isPositive ? 'text-[#2DBC84]' : 'text-red-500'}`}>
+                            <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} mr-0.5`}></i>
+                            {isPositive ? `+${changeVal}$` : `${changeVal}$`}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="font-semibold truncate text-zinc-900 dark:text-zinc-100" title={item.product}>{item.product}</div>
-                    <div className="truncate font-medium text-zinc-700 dark:text-zinc-300" title={item.shipBy}>{item.shipBy}</div>
-                    <div className="text-center truncate font-medium text-zinc-700 dark:text-zinc-300" title={item.term}>{item.term}</div>
-                    <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.pol}>
-                      {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
-                      <span className="truncate">{item.pol}</span>
-                    </div>
-                    <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.pod}>
-                      {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
-                      <span className="truncate">{item.pod || '-'}</span>
-                    </div>
-                    <div className="w-full flex items-center justify-center text-center font-bold text-zinc-900 dark:text-zinc-100" title={`$${item.price}`}>${item.price}</div>
-                    <div className={`w-full text-center font-semibold flex items-center justify-center gap-1 ${isPositive ? 'text-emerald-500' : 'text-red-500'}`} title={`${changeVal}$`}>
-                      <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'}`}></i>
-                      <span>{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
-                    </div>
-                    <div className="w-full flex items-center justify-center text-center">
-                      <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-[#1D92EB]' : 'text-zinc-400'}`}></i>
-                    </div>
-                    <div className="flex items-center justify-end gap-3">
-                      {userType === 'seller' ? (
-                        <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
-                          Sell
+
+                    {/* Desktop Row Layout */}
+                    <div className={`hidden lg:grid grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr] gap-2 items-center px-4 py-3.5 rounded-lg ${desktopRowBg} shadow-sm border border-zinc-200/80 dark:border-zinc-800 hover:shadow-md transition-all text-sm font-medium`}>
+                      <div className="font-medium truncate text-zinc-800 dark:text-zinc-200" title={item.category}>{item.category}</div>
+                      <div className="flex items-center gap-2 truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.country}>
+                        {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
+                        <span className="truncate">{item.country}</span>
+                      </div>
+                      <div className="font-semibold truncate text-zinc-900 dark:text-zinc-100" title={item.product}>{item.product}</div>
+                      <div className="truncate font-medium text-zinc-700 dark:text-zinc-300" title={item.shipBy}>{item.shipBy}</div>
+                      <div className="text-center truncate font-medium text-zinc-700 dark:text-zinc-300" title={item.term}>{item.term}</div>
+                      <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.pol}>
+                        {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
+                        <span className="truncate">{item.pol}</span>
+                      </div>
+                      <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.pod}>
+                        {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
+                        <span className="truncate">{item.pod || '-'}</span>
+                      </div>
+                      <div className="w-full flex items-center justify-center text-center font-bold text-zinc-900 dark:text-zinc-100" title={`$${item.price}`}>${item.price}</div>
+                      <div className={`w-full text-center font-semibold flex items-center justify-center gap-1 ${isPositive ? 'text-emerald-500' : 'text-red-500'}`} title={`${changeVal}$`}>
+                        <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'}`}></i>
+                        <span>{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
+                      </div>
+                      <div className="w-full flex items-center justify-center text-center">
+                        <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-[#1D92EB]' : 'text-zinc-400'}`}></i>
+                      </div>
+                      <div className="flex items-center justify-end gap-3">
+                        {userType === 'seller' ? (
+                          <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                            Sell
+                          </button>
+                        ) : userType === 'buyer' ? (
+                          <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                            Buy
+                          </button>
+                        ) : (
+                          <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                            Sell
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleDelete(item.id)}
+                          className="text-red-500 hover:text-red-600 transition-colors flex items-center justify-center text-lg p-1"
+                          title="Delete product"
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
                         </button>
-                      ) : userType === 'buyer' ? (
-                        <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
-                          Buy
-                        </button>
-                      ) : (
-                        <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
-                          Sell
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-500 hover:text-red-600 transition-colors flex items-center justify-center text-lg p-1"
-                        title="Delete product"
-                      >
-                        <i className="fa-solid fa-trash-can"></i>
-                      </button>
+                      </div>
                     </div>
                   </div>
                 );
               })}
+
+              {/* Global Actions Bar for Mobile/Tablet - Outside Cards */}
+              <div className="flex lg:hidden justify-between items-center pt-4 pb-2">
+                <button className="px-5 py-[9px] bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-md text-[14px] hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-sm transition-colors">
+                   Inquiry / Offer
+                </button>
+                <button className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100 transition-colors flex items-center justify-center">
+                  <i className="fa-regular fa-triangle-exclamation text-[22px]"></i>
+                </button>
+                <button className="px-6 py-[10px] bg-[#2DBC84] hover:bg-[#25A06F] text-white font-medium rounded-md text-[14px] shadow-sm transition-colors">
+                  Add Product
+                </button>
+              </div>
             </div>
           )}
         </div>
