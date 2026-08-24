@@ -16,6 +16,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [isPending, startTransition] = useTransition();
   const [countdown, setCountdown] = useState(120);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const lastSentStr = localStorage.getItem(`otp_sent_${email}`);
@@ -41,6 +42,11 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
   }, [countdown]);
 
   const handleResend = () => {
+    setError("");
+    setOtp(["", "", "", "", "", ""]);
+    if (inputRefs.current[0]) {
+      inputRefs.current[0].focus();
+    }
     startTransition(async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
@@ -58,6 +64,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
             const errorData = await response.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
           } catch (e) {}
+          setError(errorMessage);
           toast.error(errorMessage);
           return;
         }
@@ -66,12 +73,17 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
         setCountdown(120);
         toast.success("OTP resent successfully!");
       } catch (err) {
-        toast.error("Something went wrong resending the OTP.");
+        const errMsg = "Something went wrong resending the OTP.";
+        setError(errMsg);
+        toast.error(errMsg);
       }
     });
   };
 
+  const isExpired = error.toLowerCase().includes("expired");
+
   const handleVerify = (otpString: string) => {
+    setError("");
     startTransition(async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
@@ -89,6 +101,11 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
             const errorData = await response.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
           } catch (e) {}
+          setError(errorMessage);
+          if (errorMessage.toLowerCase().includes("expired")) {
+            setCountdown(0);
+            localStorage.removeItem(`otp_sent_${email}`);
+          }
           toast.error(errorMessage);
           return;
         }
@@ -106,7 +123,9 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
           }
         } catch (e) {
           console.error("Failed to setup session or parse response:", e); // DEBUG
-          toast.error("Failed to setup session. Please try again.");
+          const errMsg = "Failed to setup session. Please try again.";
+          setError(errMsg);
+          toast.error(errMsg);
           return;
         }
 
@@ -114,7 +133,9 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
         onVerify(otpString, nextStep);
       } catch (err) {
         console.error("Something went wrong verifying the OTP:", err); // DEBUG
-        toast.error("Something went wrong verifying the OTP.");
+        const errMsg = "Something went wrong verifying the OTP.";
+        setError(errMsg);
+        toast.error(errMsg);
       }
     });
   };
@@ -127,6 +148,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
   }, []);
 
   const handleChange = (index: number, value: string) => {
+    if (error) setError("");
     // Only allow numbers
     if (!/^\d*$/.test(value)) return;
 
@@ -147,6 +169,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (error) setError("");
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       // Move to previous input on backspace if empty
       inputRefs.current[index - 1]?.focus();
@@ -155,7 +178,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.every((digit) => digit !== "")) {
+    if (otp.every((digit) => digit !== "") && !isExpired) {
       handleVerify(otp.join(""));
     }
   };
@@ -170,7 +193,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
       </p>
 
       <form onSubmit={handleSubmit} className="w-full">
-        <div className="flex justify-between gap-2 mb-8">
+        <div className={`flex justify-between gap-2 ${error ? "mb-2" : "mb-8"}`}>
           {otp.map((digit, index) => (
             <input
               key={index}
@@ -184,34 +207,46 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
               disabled={isPending}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
-              className="w-12 h-14 text-center text-xl font-bold rounded-lg border border-foreground/20 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/50 transition-all disabled:opacity-50"
+              className={`w-12 h-14 text-center text-xl font-bold rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 transition-all disabled:opacity-50 ${
+                error
+                  ? "border-red-500 focus:ring-red-500/50 text-red-500"
+                  : "border-foreground/20 focus:ring-foreground/50"
+              }`}
             />
           ))}
         </div>
-        
-        <button
-          type="submit"
-          disabled={!otp.every((digit) => digit !== "") || isPending}
-          className="w-full flex items-center justify-center py-3 px-4 bg-foreground text-background rounded-lg font-medium transition-transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed mb-4"
-        >
-          {isPending ? (
-            <i className="fa-solid fa-spinner fa-spin mr-2"></i>
-          ) : null}
-          Verify
-        </button>
 
-        <button
-          type="button"
-          onClick={onBack}
-          className="w-full py-3 px-4 bg-transparent border border-foreground/20 text-foreground rounded-lg font-medium hover:bg-foreground/5 transition-colors"
-        >
-          Back
-        </button>
+        {error && (
+          <p className="text-red-500 text-sm mb-6 text-center font-medium animate-in fade-in slide-in-from-top-1">
+            {error}
+          </p>
+        )}
+        
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex-1 py-3 px-4 bg-transparent border border-foreground/20 text-foreground rounded-lg font-medium hover:bg-foreground/5 transition-colors"
+          >
+            Back
+          </button>
+
+          <button
+            type="submit"
+            disabled={!otp.every((digit) => digit !== "") || isPending || isExpired}
+            className="flex-1 flex items-center justify-center py-3 px-4 bg-foreground text-background rounded-lg font-medium transition-transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed"
+          >
+            {isPending ? (
+              <i className="fa-solid fa-spinner fa-spin mr-2"></i>
+            ) : null}
+            Verify
+          </button>
+        </div>
       </form>
       
-      <p className="mt-8 text-sm text-foreground/70">
-        Didn't receive the code?{" "}
-        {countdown > 0 ? (
+      <p className="mt-8 text-sm text-foreground/70 text-center flex items-center justify-center flex-wrap gap-1.5">
+        Didn&apos;t receive the code?{" "}
+        {countdown > 0 && !isExpired ? (
           <span className="text-foreground/50 font-medium">
             Resend in {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}
           </span>
@@ -219,12 +254,20 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
           <button 
             onClick={handleResend}
             disabled={isPending}
-            className="text-foreground font-medium hover:underline disabled:opacity-50"
+            className={
+              isExpired
+                ? "text-[#1D92EB] font-bold hover:underline transition-colors animate-pulse"
+                : "text-foreground font-medium hover:underline disabled:opacity-50"
+            }
             type="button"
           >
             {isPending ? "Sending..." : "Resend"}
           </button>
         )}
+      </p>
+
+      <p className="mt-2 text-xs text-foreground/50 text-center">
+        If you didn&apos;t receive the email, please check your spam or junk folder.
       </p>
     </div>
   );
