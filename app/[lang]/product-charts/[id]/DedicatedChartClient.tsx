@@ -39,6 +39,7 @@ export default function DedicatedChartClient({
         item={item} 
         isFullScreen={true} 
         userType={initialUserType} 
+        lang={lang}
       />
     </div>
   );

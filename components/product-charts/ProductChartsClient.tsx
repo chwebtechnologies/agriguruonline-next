@@ -1235,7 +1235,11 @@ export default function ProductChartsClient({
                         <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'}`}></i>
                         <span>{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
                       </div>
-                      <div className="w-full flex items-center justify-center text-center">
+                      <div 
+                        className="w-full flex items-center justify-center text-center cursor-pointer hover:scale-110 transition-transform"
+                        onClick={() => openBottomSheet(item.id)}
+                        title="View Product Chart"
+                      >
                         <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-[#1D92EB]' : 'text-zinc-400'}`}></i>
                       </div>
                       <div className="flex items-center justify-end gap-3">
@@ -1352,6 +1356,7 @@ export default function ProductChartsClient({
             router={router} 
             getFlagUrl={getFlagUrl} 
             defaultFullScreen={isInitialFullScreen}
+            lang={lang}
           />
         );
       })()}
@@ -1546,7 +1551,7 @@ export default function ProductChartsClient({
 }
 
 // Sub-component to manage Bottom Sheet swipe-up logic (Angel One style - In-place smooth expansion)
-const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, getFlagUrl, defaultFullScreen = false }: any) => {
+const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, getFlagUrl, defaultFullScreen = false, lang = 'en' }: any) => {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(defaultFullScreen);
@@ -1801,6 +1806,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
             onDragStart={handleDragStart}
             onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
+            lang={lang}
           />
         </div>
       </div>
