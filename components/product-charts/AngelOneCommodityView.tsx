@@ -105,10 +105,10 @@ export default function AngelOneCommodityView({
           {(isFullScreen || onClose) && (
             <button
               onClick={() => (onClose ? onClose() : router.back())}
-              className="mt-1 w-7 h-7 rounded-full flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-95 transition-all shrink-0"
+              className="group flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm text-foreground hover:text-[#1D92EB] dark:hover:text-[#1D92EB] hover:border-[#1D92EB] transition-all active:scale-95 shrink-0"
               aria-label="Back"
             >
-              <i className="fa-solid fa-arrow-left text-[15px]"></i>
+              <i className="fa-solid fa-arrow-left text-[13px] text-zinc-700 dark:text-zinc-300 group-hover:text-[#1D92EB] group-hover:-translate-x-0.5 transition-transform"></i>
             </button>
           )}
           <div>

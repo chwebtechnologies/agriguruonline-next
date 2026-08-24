@@ -1482,8 +1482,8 @@ export default function ProductChartsClient({
   );
 }
 
-// Sub-component to manage Bottom Sheet swipe-up logic (Angel One style)
-const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, router, getFlagUrl }: any) => {
+// Sub-component to manage Bottom Sheet swipe-up logic (Angel One style - In-place smooth expansion)
+const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, getFlagUrl }: any) => {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -1516,6 +1516,8 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ro
     if (startYRef.current === null) return;
     currentYRef.current = clientY;
     const diff = clientY - startYRef.current;
+    // In full-screen, only allow dragging downwards
+    if (isFullScreen && diff < 0) return;
     setDragOffset(diff);
   };
 
@@ -1535,17 +1537,28 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ro
     startYRef.current = null;
     currentYRef.current = null;
 
-    // Swiping UP towards header -> Directly navigate to the dedicated product chart page!
-    if (diff < -25 || (diff < -10 && velocity > 0.25)) {
-      const lang = window.location.pathname.split('/')[1] || 'en';
-      setActiveBottomSheetId(null);
-      router.push(`/${lang}/product-charts/${activeItem.id}`);
-    } else if (diff > 50 || (diff > 20 && velocity > 0.3)) {
-      // Pulled down -> Dismiss bottom sheet
-      setActiveBottomSheetId(null);
-      setDragOffset(0);
+    if (!isFullScreen) {
+      // In bottom sheet mode:
+      // Swiping UP -> Expand smoothly to full-screen in-place (No page reload, no blink!)
+      if (diff < -20 || (diff < -10 && velocity > 0.2)) {
+        setIsFullScreen(true);
+        setDragOffset(0);
+      } else if (diff > 50 || (diff > 20 && velocity > 0.3)) {
+        // Pulled down -> Dismiss bottom sheet
+        setActiveBottomSheetId(null);
+        setDragOffset(0);
+      } else {
+        setDragOffset(0);
+      }
     } else {
-      setDragOffset(0);
+      // In full-screen mode:
+      // Swiping DOWN -> Dismiss sheet directly to screen
+      if (diff > 60 || (diff > 25 && velocity > 0.3)) {
+        setActiveBottomSheetId(null);
+        setDragOffset(0);
+      } else {
+        setDragOffset(0);
+      }
     }
   };
 
@@ -1582,25 +1595,25 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ro
     };
   }, [isFullScreen]);
 
+  if (!activeItem) return null;
+
   const maxDrag = 250;
   const dragProgress = isFullScreen ? 1 : Math.min(Math.max(-dragOffset / maxDrag, 0), 1);
-  const initialHeight = '52vh';
-  const headerOffset = 64;
-  const maxExpandedHeight = `calc(100dvh - ${headerOffset}px)`;
+  const initialHeight = '54vh';
 
   const currentHeight = isFullScreen 
-    ? maxExpandedHeight 
+    ? '100dvh' 
     : isDragging && dragOffset < 0 
-      ? `calc(${initialHeight} + ${Math.min(-dragOffset, window.innerHeight * 0.45)}px)`
+      ? `calc(${initialHeight} + ${Math.min(-dragOffset, window.innerHeight * 0.44)}px)`
       : initialHeight;
 
   const effectiveTranslateY = dragOffset > 0 ? dragOffset : 0;
 
   return (
-    <div className="fixed inset-0 z-40 select-none pointer-events-none">
-      {/* Click-away dismiss area below header (Transparent, no dark backdrop over header) */}
+    <div className="fixed inset-0 z-[100] flex flex-col justify-end pointer-events-none select-none">
+      {/* Click-away Backdrop (Dark overlay with smooth opacity) */}
       <div 
-        className="absolute inset-x-0 bottom-0 top-[64px] pointer-events-auto"
+        className="fixed inset-0 bg-black/50 backdrop-blur-[2px] pointer-events-auto transition-opacity duration-300"
         onClick={() => {
           if (isFullScreen) {
             setIsFullScreen(false);
@@ -1610,33 +1623,33 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ro
         }}
       />
 
-      {/* Floating Angel One "Swipe up for Commodity Details" with Chevron */}
+      {/* Floating Angel One "Swipe up for Commodity Details" with Chevron (Only visible when half-sheet) */}
       {!isFullScreen && dragOffset >= 0 && (
         <div 
           ref={handleRef}
-          className={`absolute inset-x-0 bottom-[calc(${initialHeight}+10px)] flex flex-col items-center justify-center text-zinc-700 dark:text-zinc-300 pb-1 cursor-grab active:cursor-grabbing touch-none select-none z-50 animate-bounce pointer-events-auto`}
+          onClick={() => setIsFullScreen(true)}
+          className={`absolute inset-x-0 bottom-[calc(${initialHeight}+12px)] flex flex-col items-center justify-center text-zinc-700 dark:text-zinc-300 pb-1 cursor-pointer touch-none select-none z-[105] animate-bounce pointer-events-auto`}
         >
-          <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md shadow-md border border-zinc-200/80 dark:border-zinc-700/80 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 text-[11px] font-semibold">
+          <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md shadow-lg border border-zinc-200/80 dark:border-zinc-700/80 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 text-[11px] font-semibold">
             <i className="fa-solid fa-chevron-up text-[10px] text-zinc-500"></i>
             <span>Swipe up for Commodity Details</span>
           </div>
         </div>
       )}
 
-      {/* Bottom Sheet Modal Container - Anchored Flush to Bottom, Maximum Top at Header */}
+      {/* Bottom Sheet Modal Container - Anchored Flush to Bottom */}
       <div 
         ref={sheetRef}
-        className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-white dark:bg-[#121214] shadow-2xl overflow-hidden flex flex-col will-change-transform z-50 pointer-events-auto border-t border-zinc-200/80 dark:border-zinc-800/80 ${
+        className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-white dark:bg-[#121214] shadow-2xl overflow-hidden flex flex-col will-change-transform z-[102] pointer-events-auto ${
           isFullScreen 
-            ? 'rounded-none' 
-            : 'rounded-t-[28px]'
+            ? 'h-[100dvh] top-0 rounded-none border-t-0' 
+            : 'rounded-t-[28px] border-t border-zinc-200/80 dark:border-zinc-800/80'
         }`}
         onClick={(e) => e.stopPropagation()}
         style={{ 
           height: currentHeight,
-          maxHeight: maxExpandedHeight,
           transform: `translateY(${effectiveTranslateY}px)`, 
-          transition: isDragging ? 'none' : 'height 0.28s cubic-bezier(0.25, 1, 0.5, 1), transform 0.28s cubic-bezier(0.25, 1, 0.5, 1)' 
+          transition: isDragging ? 'none' : 'height 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.2s ease' 
         }}
       >
         {/* Drag Handle Top Bar (visible when not fullscreen) */}
@@ -1675,13 +1688,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ro
           <AngelOneCommodityView 
             item={activeItem} 
             isFullScreen={isFullScreen} 
-            onClose={() => {
-              if (isFullScreen) {
-                setIsFullScreen(false);
-              } else {
-                setActiveBottomSheetId(null);
-              }
-            }} 
+            onClose={() => setActiveBottomSheetId(null)} 
             userType={userType} 
             dragProgress={dragProgress} 
             onDragStart={handleDragStart}
