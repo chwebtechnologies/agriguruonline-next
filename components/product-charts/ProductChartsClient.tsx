@@ -11,6 +11,7 @@ import {
   deleteFavoriteProductAction,
   getProductDetailsAction
 } from '@/app/actions/charts';
+import { toast } from 'sonner';
 
 interface Category {
   id: string;
@@ -785,7 +786,6 @@ export default function ProductChartsClient({
         };
 
         setAddedProducts(prev => [
-          ...prev,
           {
             id: result.data?.id || Date.now(),
             category: prod.category?.name || 'N/A',
@@ -801,7 +801,8 @@ export default function ProductChartsClient({
             price: (result.data?.price != null ? Math.round(Number(result.data.price)) : (result.data?.current_price != null ? Math.round(Number(result.data.current_price)) : 0)).toString(),
             change: (result.data?.change != null ? Math.round(Number(result.data.change)) : (result.data?.price_change != null ? Math.round(Number(result.data.price_change)) : (result.data?.change_percentage != null ? Math.round(Number(result.data.change_percentage)) : 0))).toString(),
             chartStatus: result.data?.chart_status === true || result.data?.chart_status === 'on' || prod.chart_status === true || prod.chart_status === 'on',
-          }
+          },
+          ...prev
         ]);
         
         // Reset selections cleanly
@@ -815,11 +816,25 @@ export default function ProductChartsClient({
         setShippingContainers([]);
         setLoadingPorts([]);
         setDestinationPorts([]);
+        
+        toast.success("Product added successfully!", {
+          style: { background: '#10b981', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
+          duration: 3000
+        });
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
       } else {
         console.error('Failed to add product:', result.error);
+        toast.error(result.error || "Failed to add product", {
+          style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+        });
       }
     } catch (error) {
       console.error('Error adding product:', error);
+      toast.error("An error occurred while adding the product", {
+        style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+      });
     } finally {
       setIsAdding(false);
     }
@@ -834,8 +849,15 @@ export default function ProductChartsClient({
     setAddedProducts(prev => prev.filter((p) => p.id !== id));
     try {
       await deleteFavoriteProductAction(id, lang);
+      toast.success("Product deleted successfully!", {
+        style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
+        duration: 3000
+      });
     } catch (error) {
       console.error('Failed to delete favorite product:', error);
+      toast.error("Failed to delete product", {
+        style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+      });
     }
   };
 
@@ -907,9 +929,9 @@ export default function ProductChartsClient({
         </div>
       )}
 
-      <div className="w-full">
+      <div className="w-full relative">
         {/* Header / Input Row */}
-        <div className={`hidden lg:grid ${gridCols} gap-2 mb-3 items-end`}>
+        <div className={`hidden lg:grid ${gridCols} gap-2 mb-3 items-end sticky top-0 z-40 bg-zinc-50/90 dark:bg-[#121212]/90 backdrop-blur-md py-3 px-2 -mx-2 border-b border-zinc-200/50 dark:border-zinc-800/50 rounded-b-lg shadow-sm`}>
           {/* 1. Category */}
           <div className="w-full">
             <SearchableSelect 
@@ -1166,7 +1188,7 @@ export default function ProductChartsClient({
         </div>
 
         {/* Global Actions Bar for Mobile/Tablet - Sticky when products overflow */}
-        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-0 z-40 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)] mt-3 pb-safe">
+        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)] mt-3">
           <button className="px-5 py-[9px] bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-md text-[14px] hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-sm transition-colors">
              Inquiry / Offer
           </button>

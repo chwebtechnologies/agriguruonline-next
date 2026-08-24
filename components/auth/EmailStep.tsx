@@ -18,7 +18,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
   const [isPending, startTransition] = useTransition();
 
   const isFormatValid = EMAIL_REGEX.test(email.trim());
-  const isButtonDisabled = email.trim().length === 0 || isPending;
+  const isButtonDisabled = !isFormatValid || isPending;
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -134,7 +134,12 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
         </div>
         <button
           type="submit"
-          className="w-full flex items-center justify-center py-3.5 px-4 bg-[#1D92EB] hover:bg-[#1877F2] active:bg-[#1466D2] text-white rounded-lg font-semibold text-[15px] transition-all active:scale-[0.98] shadow-md cursor-pointer"
+          disabled={isButtonDisabled}
+          className={`w-full flex items-center justify-center py-3.5 px-4 rounded-lg font-semibold text-[15px] transition-all shadow-md ${
+            isButtonDisabled 
+              ? "bg-foreground/10 text-foreground/40 cursor-not-allowed shadow-none" 
+              : "bg-[#1D92EB] hover:bg-[#1877F2] active:bg-[#1466D2] text-white active:scale-[0.98] cursor-pointer"
+          }`}
         >
           {isPending ? (
             <i className="fa-solid fa-spinner fa-spin mr-2"></i>
