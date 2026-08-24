@@ -30,6 +30,9 @@ interface PriceHistoryItem {
   remarks?: string | null;
   formattedDate?: string;
   shortDate?: string;
+  weekday?: string;
+  changeVal?: number;
+  changePct?: number;
 }
 
 interface PriceHistoryApiResponse {
@@ -132,6 +135,8 @@ export default function AngelOneCommodityView({
   const [hoveredPoint, setHoveredPoint] = useState<PriceHistoryItem | null>(null);
   const [selectedCommentPoint, setSelectedCommentPoint] = useState<PriceHistoryItem | null>(null);
   const [showSpecsModal, setShowSpecsModal] = useState<boolean>(false);
+  const [historicalFilter, setHistoricalFilter] = useState<'all' | 'notes_only' | 'product_only' | 'freight_only'>('all');
+  const [historicalSearch, setHistoricalSearch] = useState<string>('');
 
   const [priceHistory, setPriceHistory] = useState<PriceHistoryItem[]>([]);
   const [alertRange, setAlertRange] = useState<{ min: number; max: number } | null>(null);
@@ -177,7 +182,16 @@ export default function AngelOneCommodityView({
           const json: PriceHistoryApiResponse = await res.json();
           if (isMounted && json.data) {
             const rawHistory = Array.isArray(json.data.price_history) ? json.data.price_history : [];
-            const sortedHistory = [...rawHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const mappedHistory = rawHistory.map((item: any) => ({
+              ...item,
+              date: item.date,
+              price: Number(item.price),
+              product_comment: item.product_comment || item.product_remarks || item.productComment || (item.comment && !item.freight_comment ? item.comment : null),
+              freight_comment: item.freight_comment || item.freight_remarks || item.freightComment || null,
+              comment: item.comment || item.remarks || item.note || null,
+              remarks: item.remarks || null,
+            }));
+            const sortedHistory = [...mappedHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
             // Check if any comments exist; if null across all items, add milestone market insights on key turning points
             const hasAnyComments = sortedHistory.some(d => Boolean(d.product_comment || d.freight_comment || d.comment));
@@ -261,14 +275,21 @@ export default function AngelOneCommodityView({
   }, [apiProduct?.product?.id, item.id, lang]);
 
   // Filter price history according to active time range
-  const filteredData = useMemo(() => {
+  const filteredData = useMemo<PriceHistoryItem[]>(() => {
     if (!priceHistory || priceHistory.length === 0) {
       const base = Number(item.price) || 450;
       return [{
         date: new Date().toISOString(),
         formattedDate: 'Today',
         shortDate: 'Today',
+        weekday: 'Today',
         price: base,
+        changeVal: 0,
+        changePct: 0,
+        product_comment: null,
+        freight_comment: null,
+        comment: null,
+        remarks: null,
       }];
     }
 
@@ -308,16 +329,23 @@ export default function AngelOneCommodityView({
       subset = priceHistory.slice(-Math.min(priceHistory.length, 7));
     }
 
-    return subset.map(item => {
+    return subset.map((item, index, arr) => {
       const d = new Date(item.date);
       const isCurrentYear = d.getFullYear() === new Date().getFullYear();
+      const prevItem = index > 0 ? arr[index - 1] : null;
+      const changeVal = prevItem ? Number((item.price - prevItem.price).toFixed(2)) : 0;
+      const changePct = prevItem && prevItem.price > 0 ? Number(((changeVal / prevItem.price) * 100).toFixed(2)) : 0;
+
       return {
         ...item,
         price: Number(item.price.toFixed(2)),
+        changeVal,
+        changePct,
         formattedDate: d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
         shortDate: isCurrentYear 
           ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-          : d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+          : d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        weekday: d.toLocaleDateString('en-US', { weekday: 'short' })
       };
     });
   }, [priceHistory, timeRange, item.price]);
@@ -1138,35 +1166,298 @@ export default function AngelOneCommodityView({
             </div>
           </div>
         ) : activeTab === 'Historical' ? (
-          /* TAB 4: HISTORICAL DATA VIEW */
+          /* TAB 4: DATE-WISE MARKET COMMENTARY VIEW (ONLY DATES WITH COMMENTS) */
           <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <div className="bg-[#f8fafc] dark:bg-[#18181b] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-4 shadow-sm">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-200/60 dark:border-zinc-700/60">
+            {/* Header & Commentary Stats */}
+            <div className="bg-[#f8fafc] dark:bg-[#18181b] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-3.5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200/60 dark:border-zinc-700/60">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center text-sm font-bold">
-                    <i className="fa-solid fa-clock-rotate-left"></i>
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm font-bold shadow-xs">
+                    <i className="fa-solid fa-comments"></i>
                   </div>
-                  <h2 className="font-extrabold text-[15px] text-zinc-900 dark:text-white">Historical Price Log</h2>
+                  <div>
+                    <h2 className="font-extrabold text-[14px] sm:text-[15px] text-zinc-900 dark:text-white leading-snug">
+                      Date-wise Market Commentary & Notes
+                    </h2>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Product and Freight remarks logged date-wise ({timeRange})
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[11px] text-zinc-500 font-medium">Last {Math.min(filteredData.length, 30)} Entries</span>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  {filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length} Dates with Notes
+                </span>
               </div>
 
-              <div className="divide-y divide-zinc-200/60 dark:divide-zinc-800 max-h-[360px] overflow-y-auto">
-                {filteredData.slice(-30).reverse().map((d, i) => (
-                  <div key={i} className="py-2.5 flex items-center justify-between text-[12px]">
-                    <div>
-                      <div className="font-bold text-zinc-900 dark:text-zinc-100">{d.formattedDate}</div>
-                      {d.product_comment && (
-                        <div className="text-[10px] text-blue-500 truncate max-w-[200px]">{d.product_comment}</div>
-                      )}
-                    </div>
-                    <div className="text-right font-extrabold text-zinc-900 dark:text-white">
-                      ${d.price} <span className="text-[10px] font-normal text-zinc-500">PMT</span>
-                    </div>
+              {/* Mini Summary Stats for Comments */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-white dark:bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400 uppercase">
+                    <span>All Notes</span>
+                    <i className="fa-solid fa-comment-dots text-emerald-500"></i>
                   </div>
-                ))}
+                  <div className="text-[15px] font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length}
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400 uppercase">
+                    <span>Product Notes</span>
+                    <i className="fa-solid fa-wheat-awn text-blue-500"></i>
+                  </div>
+                  <div className="text-[15px] font-black text-blue-600 dark:text-blue-400 mt-0.5">
+                    {filteredData.filter(d => Boolean(d.product_comment)).length}
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400 uppercase">
+                    <span>Freight Notes</span>
+                    <i className="fa-solid fa-ship text-indigo-500"></i>
+                  </div>
+                  <div className="text-[15px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
+                    {filteredData.filter(d => Boolean(d.freight_comment)).length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter Tabs & Search Bar */}
+              <div className="pt-1 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                  <button
+                    onClick={() => setHistoricalFilter('all')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
+                      historicalFilter === 'all'
+                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-xs'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800 hover:bg-zinc-100'
+                    }`}
+                  >
+                    All Notes ({filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length})
+                  </button>
+                  <button
+                    onClick={() => setHistoricalFilter('product_only')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                      historicalFilter === 'product_only'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800 hover:bg-zinc-100'
+                    }`}
+                  >
+                    <i className="fa-solid fa-wheat-awn text-[10px]"></i>
+                    Product Remarks ({filteredData.filter(d => Boolean(d.product_comment)).length})
+                  </button>
+                  <button
+                    onClick={() => setHistoricalFilter('freight_only')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                      historicalFilter === 'freight_only'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-800 hover:bg-zinc-100'
+                    }`}
+                  >
+                    <i className="fa-solid fa-ship text-[10px]"></i>
+                    Freight Remarks ({filteredData.filter(d => Boolean(d.freight_comment)).length})
+                  </button>
+                </div>
+
+                {/* Quick Search */}
+                <div className="relative shrink-0 sm:w-56">
+                  <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-[11px]"></i>
+                  <input
+                    type="text"
+                    value={historicalSearch}
+                    onChange={(e) => setHistoricalSearch(e.target.value)}
+                    placeholder="Search remark or date..."
+                    className="w-full bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white pl-7 pr-7 py-1 text-[11px] rounded-lg border border-zinc-200/80 dark:border-zinc-800 focus:outline-hidden focus:border-blue-500"
+                  />
+                  {historicalSearch && (
+                    <button
+                      onClick={() => setHistoricalSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-[11px] cursor-pointer"
+                    >
+                      <i className="fa-solid fa-xmark"></i>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Date-wise Comments List (Strictly dates with comments) */}
+            {(() => {
+              // Get only dates with comments, sorted reverse chronologically (newest first)
+              const commentedDates = [...filteredData]
+                .filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks))
+                .reverse();
+
+              const displayList = commentedDates.filter(d => {
+                // Category Filter
+                if (historicalFilter === 'product_only' && !d.product_comment) {
+                  return false;
+                }
+                if (historicalFilter === 'freight_only' && !d.freight_comment) {
+                  return false;
+                }
+
+                // Search Filter
+                if (historicalSearch.trim()) {
+                  const query = historicalSearch.toLowerCase().trim();
+                  const dateStr = (d.formattedDate || '').toLowerCase();
+                  const weekdayStr = (d.weekday || '').toLowerCase();
+                  const prodComment = (d.product_comment || '').toLowerCase();
+                  const freightComment = (d.freight_comment || '').toLowerCase();
+                  const genComment = (d.comment || d.remarks || '').toLowerCase();
+                  const priceStr = String(d.price);
+
+                  return (
+                    dateStr.includes(query) ||
+                    weekdayStr.includes(query) ||
+                    prodComment.includes(query) ||
+                    freightComment.includes(query) ||
+                    genComment.includes(query) ||
+                    priceStr.includes(query)
+                  );
+                }
+
+                return true;
+              });
+
+              if (displayList.length === 0) {
+                return (
+                  <div className="bg-[#f8fafc] dark:bg-[#18181b] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-8 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-zinc-200/60 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 mx-auto mb-3 text-lg">
+                      <i className="fa-solid fa-comment-slash"></i>
+                    </div>
+                    <h3 className="font-extrabold text-[14px] text-zinc-800 dark:text-zinc-200">
+                      No Commentary Found
+                    </h3>
+                    <p className="text-[12px] text-zinc-500 mt-1 max-w-xs mx-auto">
+                      No remarks recorded for the selected filter or search query.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setHistoricalFilter('all');
+                        setHistoricalSearch('');
+                      }}
+                      className="mt-3.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-[11px] hover:bg-blue-700 transition-colors cursor-pointer"
+                    >
+                      Show All Notes
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+                  {displayList.map((d, index) => {
+                    const hasProductNote = Boolean(d.product_comment);
+                    const hasFreightNote = Boolean(d.freight_comment);
+                    const hasGeneralNote = Boolean((d.comment || d.remarks) && !d.product_comment);
+
+                    return (
+                      <div
+                        key={d.date || index}
+                        className="bg-white dark:bg-[#18181b] rounded-2xl border border-blue-200/70 dark:border-blue-900/50 hover:border-blue-400/80 dark:hover:border-blue-600/80 transition-all duration-200 p-3.5 shadow-xs"
+                      >
+                        {/* Card Top Row: Date, Weekday, Badges, Price, and Daily Delta */}
+                        <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100 dark:border-zinc-800">
+                          {/* Left: Date info */}
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                              <i className="fa-solid fa-calendar-day"></i>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-black text-[13px] text-zinc-900 dark:text-zinc-100">
+                                  {d.formattedDate}
+                                </span>
+                                {d.weekday && (
+                                  <span className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500">
+                                    • {d.weekday}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {hasProductNote && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                    <i className="fa-solid fa-wheat-awn text-[8px]"></i> Product Note
+                                  </span>
+                                )}
+                                {hasFreightNote && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                                    <i className="fa-solid fa-ship text-[8px]"></i> Freight Note
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right: Price and Day-over-Day delta */}
+                          <div className="text-right shrink-0">
+                            <div className="text-[14px] sm:text-[15px] font-black text-zinc-900 dark:text-white">
+                              ${d.price.toFixed(2)} <span className="text-[10px] font-medium text-zinc-400">PMT</span>
+                            </div>
+                            {d.changeVal != null && d.changeVal !== 0 ? (
+                              <div className={`text-[10px] font-bold flex items-center justify-end gap-1 ${
+                                d.changeVal > 0 
+                                  ? 'text-emerald-600 dark:text-emerald-400' 
+                                  : 'text-red-500 dark:text-red-400'
+                              }`}>
+                                <i className={`fa-solid ${d.changeVal > 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[9px]`}></i>
+                                <span>{d.changeVal > 0 ? `+$${d.changeVal}` : `-$${Math.abs(d.changeVal)}`} ({d.changePct && d.changePct > 0 ? `+${d.changePct}%` : `${d.changePct}%`})</span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-zinc-400 font-medium">Unchanged</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Content: Structured Product & Freight Comments */}
+                        <div className="mt-2.5 space-y-2">
+                          {/* Product Comment Box */}
+                          {hasProductNote && (
+                            <div className="bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/60 rounded-xl p-2.5">
+                              <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold uppercase text-[10px] tracking-wide mb-1">
+                                <i className="fa-solid fa-wheat-awn text-[10px]"></i>
+                                <span>Product & Commodity Remark</span>
+                              </div>
+                              <p className="text-[12px] font-medium text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                                {d.product_comment}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Freight Comment Box */}
+                          {hasFreightNote && (
+                            <div className="bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 rounded-xl p-2.5">
+                              <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold uppercase text-[10px] tracking-wide mb-1">
+                                <i className="fa-solid fa-ship text-[10px]"></i>
+                                <span>Freight & Shipping Logistics Remark</span>
+                              </div>
+                              <p className="text-[12px] font-medium text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                                {d.freight_comment}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* General Comment / Remarks */}
+                          {hasGeneralNote && (
+                            <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 rounded-xl p-2.5">
+                              <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold uppercase text-[10px] tracking-wide mb-1">
+                                <i className="fa-solid fa-comment-dots text-[10px]"></i>
+                                <span>General Market Intelligence</span>
+                              </div>
+                              <p className="text-[12px] font-medium text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                                {d.comment || d.remarks}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         ) : (
           /* TAB 1: OVERVIEW VIEW (Default Market Intelligence & Detailed Statistics) */
