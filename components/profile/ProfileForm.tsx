@@ -113,6 +113,8 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const categoryRef = useRef<HTMLDivElement>(null);
+  const personalRef = useRef<HTMLDivElement>(null);
+  const businessRef = useRef<HTMLDivElement>(null);
 
   const [businessAddress, setBusinessAddress] = useState(profileData?.business_address || profileData?.address || "");
   const [altNumber, setAltNumber] = useState(profileData?.alternate_mobile_no || profileData?.alternate_phone || "");
@@ -120,7 +122,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
   const [website, setWebsite] = useState(profileData?.website || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isPersonalOpen, setIsPersonalOpen] = useState(true);
+  const [isPersonalOpen, setIsPersonalOpen] = useState(false);
   const [isBusinessOpen, setIsBusinessOpen] = useState(false);
 
   useEffect(() => {
@@ -135,13 +137,31 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
   const togglePersonal = () => {
     const newState = !isPersonalOpen;
     setIsPersonalOpen(newState);
-    if (newState) window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'personal' }));
+    if (newState) {
+      window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'personal' }));
+      setTimeout(() => {
+        if (personalRef.current) {
+          const yOffset = -140; 
+          const y = personalRef.current.getBoundingClientRect().top + window.scrollY + yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }, 350); // wait slightly longer for the accordion transition to finish
+    }
   };
 
   const toggleBusiness = () => {
     const newState = !isBusinessOpen;
     setIsBusinessOpen(newState);
-    if (newState) window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'business' }));
+    if (newState) {
+      window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'business' }));
+      setTimeout(() => {
+        if (businessRef.current) {
+          const yOffset = -140;
+          const y = businessRef.current.getBoundingClientRect().top + window.scrollY + yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }, 350);
+    }
   };
 
   // Derive initial values for dirty check
@@ -295,7 +315,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-2 lg:gap-6">
         
       {/* Basic Details Group */}
-      <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
+      <div ref={personalRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
         <div onClick={togglePersonal} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
@@ -405,7 +425,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       </div>
 
       {/* Business Details Group */}
-      <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
+      <div ref={businessRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
         <div onClick={toggleBusiness} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">

@@ -95,6 +95,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedTypeIdRef = useRef<string>(selectedTypeId);
+  const kycRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleAccordion = (e: any) => {
@@ -107,7 +108,16 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
   const toggleKyc = () => {
     const newState = !isOpen;
     setIsOpen(newState);
-    if (newState) window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'kyc' }));
+    if (newState) {
+      window.dispatchEvent(new CustomEvent('profile-accordion', { detail: 'kyc' }));
+      setTimeout(() => {
+        if (kycRef.current) {
+          const yOffset = -140;
+          const y = kycRef.current.getBoundingClientRect().top + window.scrollY + yOffset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }, 350);
+    }
   };
 
   // Sync state if server revalidates initialKycDocs
@@ -268,7 +278,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
   const isExpired = statusLower === 'expired';
 
   return (
-    <div className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
+    <div ref={kycRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
       <div onClick={toggleKyc} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-foreground/[0.02] cursor-pointer lg:pointer-events-none list-none rounded-xl lg:rounded-b-none lg:border-b lg:border-foreground/5 transition-colors select-none">
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center shrink-0">
