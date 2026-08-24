@@ -90,7 +90,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
       { label: 'Messages', icon: 'fa-solid fa-comment-dots', href: '#', iconBg: 'bg-green-500' },
     ],
     [
-      { label: 'Product Charts', icon: 'fa-solid fa-chart-line', href: '#', iconBg: 'bg-orange-500' },
+      { label: 'Product Charts', icon: 'fa-solid fa-chart-line', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/product-charts`, iconBg: 'bg-orange-500' },
       { label: 'Freight Charts', icon: 'fa-solid fa-chart-area', href: '#', iconBg: 'bg-amber-500' },
       { label: 'Alerts Setups', icon: 'fa-solid fa-bell', href: '#', iconBg: 'bg-rose-500' },
       { label: 'AI Predicts', icon: 'fa-solid fa-microchip', href: '#', iconBg: 'bg-purple-500' },

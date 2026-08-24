@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
-import ChartsClient from '@/components/charts/ChartsClient'
+import ProductChartsClient from '@/components/product-charts/ProductChartsClient'
 import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
@@ -36,6 +36,7 @@ async function getChartsInitialData(lang: string = 'en') {
   let shippingTerms: any[] = []
   let userType: string | null = null
   let favoriteProducts: any[] = []
+  let marketedProducts: any[] = []
 
   // 1. Fetch products safely
   try {
@@ -65,6 +66,20 @@ async function getChartsInitialData(lang: string = 'en') {
               }))
             : []
         }))
+
+        // Extract marketed products directly without extra API call
+        marketedProducts = rawProducts.filter(p => p.is_marketed).map((p: any) => {
+          const priceStr = p.loading_ports?.[0]?.price || 0;
+          const changeStr = p.change != null ? p.change : (p.price_change != null ? p.price_change : (p.change_percentage != null ? p.change_percentage : 0));
+          return {
+            id: p.id,
+            name: p.name || 'Unknown',
+            price: Number(priceStr),
+            change: Number(changeStr),
+            port: p.loading_ports?.[0]?.port?.name || '',
+            countryFlag: p.country?.flag || ''
+          };
+        }).filter((p: any) => p.price > 0)
       }
     }
   } catch (err) {
@@ -141,11 +156,14 @@ async function getChartsInitialData(lang: string = 'en') {
     }
   }
 
+  // Removed redundant marketed products API call for better performance
+
   return {
     products,
     shippingTerms,
     userType,
     favoriteProducts,
+    marketedProducts,
   }
 }
 
@@ -162,11 +180,12 @@ export default async function ChartsPage(props: { params: Promise<{ lang: string
           <PageHeader title="Product Charts" backText="Back" />
 
           <div className="mt-4 px-2 sm:px-0">
-            <ChartsClient
+            <ProductChartsClient
               initialProducts={initialData.products}
               initialShippingTerms={initialData.shippingTerms}
               initialFavorites={initialData.favoriteProducts}
               initialUserType={initialData.userType}
+              initialMarketedProducts={initialData.marketedProducts}
               lang={lang}
             />
           </div>

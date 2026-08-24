@@ -210,13 +210,15 @@ interface ChartsClientProps {
   initialFavorites?: FavoriteItem[];
   initialUserType?: string | null;
   lang?: string;
+  initialMarketedProducts?: any[];
 }
 
-export default function ChartsClient({
+export default function ProductChartsClient({
   initialProducts = [],
   initialShippingTerms = [],
   initialFavorites = [],
-  initialUserType = null,
+  initialUserType,
+  initialMarketedProducts = [],
   lang = 'en'
 }: ChartsClientProps) {
   const [productsData] = useState<Product[]>(initialProducts);
@@ -328,8 +330,8 @@ export default function ChartsClient({
 
     const prod = (productsData || []).find(p => p.id === prodId);
     if (prod) {
-      if (prod.category?.id && !selectedCategory) setSelectedCategory(prod.category.id);
-      if (prod.country?.id && !selectedCountry) setSelectedCountry(prod.country.id);
+      if (prod.category?.id) setSelectedCategory(prod.category.id);
+      if (prod.country?.id) setSelectedCountry(prod.country.id);
     }
 
     setContainersLoading(true);
@@ -543,11 +545,63 @@ export default function ChartsClient({
 
   const gridCols = "grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr]";
 
+  const marqueeItems = initialMarketedProducts && initialMarketedProducts.length > 0 
+    ? Array(20).fill(initialMarketedProducts).flat() 
+    : [];
+
+  // Calculate dynamic duration to maintain constant speed (e.g. 5 seconds per item)
+  const itemSpeedSeconds = 5;
+  const marqueeDuration = `${(initialMarketedProducts?.length || 1) * itemSpeedSeconds}s`;
+
   return (
     <div className="w-full overflow-visible">
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-5%); }
+        }
+      `}</style>
+      
+      {initialMarketedProducts && initialMarketedProducts.length > 0 && (
+        <div className="overflow-hidden whitespace-nowrap w-full bg-white dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800 mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
+          <div className="inline-block animate-[marquee_60s_linear_infinite]" style={{ WebkitAnimationName: 'marquee', animationName: 'marquee', willChange: 'transform', animationDuration: marqueeDuration }}>
+            {marqueeItems.map((p, i) => {
+              // Generate a consistent dummy change if it's 0, just to make it look realistic as requested
+              let changeVal = Number(p.change) || 0;
+              if (changeVal === 0) {
+                changeVal = Number(((p.name.length % 7) - 2.5 + (p.price % 3)).toFixed(2));
+                if (changeVal === 0) changeVal = 2.20; // Fallback
+              }
+              const isPositive = changeVal >= 0;
+              const sign = isPositive ? '+' : '-';
+              return (
+                <div key={i} className="inline-flex items-center px-4 border-r border-zinc-200 dark:border-zinc-800 last:border-0 h-10 group/item">
+                  {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700 mr-2" />}
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-300 text-[13px]">{p.name}</span>
+                  {p.port && <span className="text-zinc-500 dark:text-zinc-400 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
+                  <span className="text-blue-600 dark:text-blue-500 font-bold text-[13px] mx-3">${p.price}</span>
+                  <span className={`font-semibold text-[13px] flex items-center ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`}>
+                    <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-[11px] mr-1`}></i>
+                    {sign}{Math.abs(changeVal).toFixed(2)}%
+                  </span>
+                  {p.id && (
+                    <button 
+                      onClick={() => handleProductSelect(p.id)}
+                      className="ml-4 px-2.5 py-1 bg-[#1D92EB] hover:bg-[#157dc9] text-white text-[11px] font-semibold rounded cursor-pointer transition-colors shadow-sm"
+                    >
+                      Add
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="w-full">
         {/* Header / Input Row */}
-        <div className={`grid ${gridCols} gap-2 mb-3 items-center px-0 relative z-30`}>
+        <div className={`grid ${gridCols} gap-2 mb-3 items-center px-0 relative z-[60]`}>
           {/* 1. Category */}
           <div className="w-full">
             <SearchableSelect 
@@ -644,7 +698,7 @@ export default function ChartsClient({
           </div>
           
           {/* Add Product Button */}
-          <div className="w-full">
+          <div className="w-full relative group">
             <button 
               onClick={handleAddProduct}
               disabled={!isAddProductEnabled || isAdding}
@@ -662,6 +716,11 @@ export default function ChartsClient({
                 'Add Product'
               )}
             </button>
+            {!isAddProductEnabled && (
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-zinc-800 text-white text-xs rounded py-1.5 px-2.5 whitespace-nowrap z-50 shadow-lg after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-zinc-800">
+                Please select the options to add the product
+              </div>
+            )}
           </div>
         </div>
 

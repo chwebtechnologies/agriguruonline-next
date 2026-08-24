@@ -60,10 +60,10 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       isActive: pathname.startsWith(`/${activeLang}/prices`),
     },
     {
-      label: dict.navigation?.chart || 'Chart',
-      href: `/${activeLang}/charts`,
+      label: dict.navigation?.chart || 'Product Charts',
+      href: `/${activeLang}/product-charts`,
       iconClass: 'fa-solid fa-chart-line',
-      isActive: pathname.startsWith(`/${activeLang}/charts`),
+      isActive: pathname.startsWith(`/${activeLang}/product-charts`),
     },
     {
       label: dict.navigation?.home || 'Home',
