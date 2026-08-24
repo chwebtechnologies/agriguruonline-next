@@ -500,7 +500,68 @@ export default function ProductChartsClient({
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | string | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [activeBottomSheetId, setActiveBottomSheetId] = useState<number | string | null>(null);
+  const [isInitialFullScreen, setIsInitialFullScreen] = useState(false);
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
+
+  // Open / Close bottom sheet
+  const openBottomSheet = (id: number | string) => {
+    setActiveBottomSheetId(id);
+    setIsInitialFullScreen(false);
+  };
+
+  const closeBottomSheet = () => {
+    setActiveBottomSheetId(null);
+    setIsInitialFullScreen(false);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('chart') || url.searchParams.has('full')) {
+        url.searchParams.delete('chart');
+        url.searchParams.delete('full');
+        window.history.pushState({}, '', url.toString());
+      }
+    }
+  };
+
+  // Restore bottom sheet state on refresh ONLY IF it was in full-screen mode (?chart=id&full=1)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const chartParam = params.get('chart');
+      const fullParam = params.get('full');
+      if (chartParam && (fullParam === '1' || fullParam === 'true')) {
+        setActiveBottomSheetId(chartParam);
+        setIsInitialFullScreen(true);
+      } else {
+        // If it was half-sheet or no full flag, clean query and stay closed on fresh reload
+        if (chartParam) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('chart');
+          url.searchParams.delete('full');
+          window.history.replaceState({}, '', url.toString());
+        }
+      }
+    }
+  }, []);
+
+  // Handle browser / hardware back button with popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const chartParam = params.get('chart');
+        const fullParam = params.get('full');
+        if (chartParam && (fullParam === '1' || fullParam === 'true')) {
+          setActiveBottomSheetId(chartParam);
+          setIsInitialFullScreen(true);
+        } else {
+          setActiveBottomSheetId(null);
+          setIsInitialFullScreen(false);
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Dropdown states
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -1094,7 +1155,7 @@ export default function ProductChartsClient({
                     {/* Mobile/Tablet Card Layout */}
                     <SwipeableCard 
                       onDelete={() => confirmDelete(item.id)}
-                      onChart={() => setActiveBottomSheetId(item.id)}
+                      onChart={() => openBottomSheet(item.id)}
                     >
                       <div className="flex flex-col p-2">
                         {/* Row 1: Origins and POD */}
@@ -1122,12 +1183,12 @@ export default function ProductChartsClient({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setActiveBottomSheetId(item.id);
+                                openBottomSheet(item.id);
                               }}
                               onTouchStart={(e) => e.stopPropagation()}
                               onTouchEnd={(e) => {
                                 e.stopPropagation();
-                                setActiveBottomSheetId(item.id);
+                                openBottomSheet(item.id);
                               }}
                               className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-[#f4f4f5] active:bg-zinc-200 dark:active:bg-zinc-700 rounded-full transition-colors"
                               aria-label="Open product options"
@@ -1281,14 +1342,16 @@ export default function ProductChartsClient({
 
       {/* Bottom Sheet for Mobile Actions */}
       {activeBottomSheetId !== null && (() => {
-        const activeItem = addedProducts.find(p => p.id === activeBottomSheetId);
+        const activeItem = addedProducts.find(p => String(p.id) === String(activeBottomSheetId));
+        if (!activeItem) return null;
         return (
           <BottomSheetContainer 
             activeItem={activeItem} 
-            setActiveBottomSheetId={setActiveBottomSheetId} 
+            setActiveBottomSheetId={closeBottomSheet} 
             userType={userType} 
             router={router} 
             getFlagUrl={getFlagUrl} 
+            defaultFullScreen={isInitialFullScreen}
           />
         );
       })()}
@@ -1483,10 +1546,10 @@ export default function ProductChartsClient({
 }
 
 // Sub-component to manage Bottom Sheet swipe-up logic (Angel One style - In-place smooth expansion)
-const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, getFlagUrl }: any) => {
+const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, getFlagUrl, defaultFullScreen = false }: any) => {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(defaultFullScreen);
   const startYRef = useRef<number | null>(null);
   const currentYRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -1504,6 +1567,17 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
       document.body.style.touchAction = originalTouchAction;
     };
   }, []);
+
+  const expandToFullScreen = () => {
+    setIsFullScreen(true);
+    setDragOffset(0);
+    if (typeof window !== 'undefined' && activeItem?.id) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('chart', String(activeItem.id));
+      url.searchParams.set('full', '1');
+      window.history.pushState({ chart: activeItem.id, full: '1' }, '', url.toString());
+    }
+  };
 
   const handleDragStart = (clientY: number) => {
     startYRef.current = clientY;
@@ -1539,10 +1613,9 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
 
     if (!isFullScreen) {
       // In bottom sheet mode:
-      // Swiping UP -> Expand smoothly to full-screen in-place (No page reload, no blink!)
+      // Swiping UP -> Expand smoothly to full-screen in-place and sync full-screen state to URL
       if (diff < -20 || (diff < -10 && velocity > 0.2)) {
-        setIsFullScreen(true);
-        setDragOffset(0);
+        expandToFullScreen();
       } else if (diff > 50 || (diff > 20 && velocity > 0.3)) {
         // Pulled down -> Dismiss bottom sheet
         setActiveBottomSheetId(null);
@@ -1595,14 +1668,33 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
     };
   }, [isFullScreen]);
 
+  const [headerHeight, setHeaderHeight] = useState(105);
+
+  // Dynamically measure the exact bottom position of the website header
+  useEffect(() => {
+    const measureHeader = () => {
+      const headerEl = document.querySelector('header');
+      if (headerEl) {
+        const rect = headerEl.getBoundingClientRect();
+        setHeaderHeight(Math.max(Math.round(rect.bottom), 64));
+      }
+    };
+    measureHeader();
+    window.addEventListener('resize', measureHeader);
+    return () => {
+      window.removeEventListener('resize', measureHeader);
+    };
+  }, []);
+
   if (!activeItem) return null;
 
   const maxDrag = 250;
   const dragProgress = isFullScreen ? 1 : Math.min(Math.max(-dragOffset / maxDrag, 0), 1);
   const initialHeight = '54vh';
+  const maxExpandedHeight = `calc(100dvh - ${headerHeight}px)`;
 
   const currentHeight = isFullScreen 
-    ? '100dvh' 
+    ? maxExpandedHeight 
     : isDragging && dragOffset < 0 
       ? `calc(${initialHeight} + ${Math.min(-dragOffset, window.innerHeight * 0.44)}px)`
       : initialHeight;
@@ -1610,44 +1702,59 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
   const effectiveTranslateY = dragOffset > 0 ? dragOffset : 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end pointer-events-none select-none">
-      {/* Click-away Backdrop (Dark overlay with smooth opacity) */}
+    <div 
+      className="fixed inset-0 z-[60] flex flex-col justify-end pointer-events-none select-none"
+      style={{ top: `${headerHeight}px` }}
+    >
+      {/* Click-away Backdrop below Header */}
       <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-[2px] pointer-events-auto transition-opacity duration-300"
-        onClick={() => {
-          if (isFullScreen) {
-            setIsFullScreen(false);
-          } else {
-            setActiveBottomSheetId(null);
-          }
-        }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[1px] pointer-events-auto transition-opacity duration-300"
+        onClick={() => setActiveBottomSheetId(null)}
       />
 
-      {/* Floating Angel One "Swipe up for Commodity Details" with Chevron (Only visible when half-sheet) */}
+      {/* Exact Angel One Style "Swipe up for Commodity Details" Indicator */}
       {!isFullScreen && dragOffset >= 0 && (
         <div 
           ref={handleRef}
-          onClick={() => setIsFullScreen(true)}
-          className={`absolute inset-x-0 bottom-[calc(${initialHeight}+12px)] flex flex-col items-center justify-center text-zinc-700 dark:text-zinc-300 pb-1 cursor-pointer touch-none select-none z-[105] animate-bounce pointer-events-auto`}
+          onClick={expandToFullScreen}
+          className="absolute inset-x-0 flex flex-col items-center justify-center gap-1 cursor-pointer touch-none select-none z-[75] pointer-events-auto pb-1"
+          style={{ bottom: 'calc(54vh + 12px)' }}
         >
-          <div className="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md shadow-lg border border-zinc-200/80 dark:border-zinc-700/80 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 text-[11px] font-semibold">
-            <i className="fa-solid fa-chevron-up text-[10px] text-zinc-500"></i>
-            <span>Swipe up for Commodity Details</span>
-          </div>
+          {/* Angel One Signature Wide Curved Chevron */}
+          <svg 
+            className="w-14 h-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse" 
+            viewBox="0 0 56 16" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path 
+              d="M3 13L28 3L53 13" 
+              stroke="currentColor" 
+              strokeWidth="3.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
+          </svg>
+          
+          {/* Centered Clean Text Directly Underneath */}
+          <span className="text-[13px] font-semibold tracking-normal text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+            Swipe up for Commodity Details
+          </span>
         </div>
       )}
 
-      {/* Bottom Sheet Modal Container - Anchored Flush to Bottom */}
+      {/* Bottom Sheet Modal Container - Anchored Flush to Bottom, Above Mobile Footer */}
       <div 
         ref={sheetRef}
-        className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-white dark:bg-[#121214] shadow-2xl overflow-hidden flex flex-col will-change-transform z-[102] pointer-events-auto ${
+        className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-white dark:bg-[#121214] shadow-2xl overflow-hidden flex flex-col will-change-transform z-[65] pointer-events-auto ${
           isFullScreen 
-            ? 'h-[100dvh] top-0 rounded-none border-t-0' 
+            ? 'rounded-none border-t border-zinc-200/80 dark:border-zinc-800/80' 
             : 'rounded-t-[28px] border-t border-zinc-200/80 dark:border-zinc-800/80'
         }`}
         onClick={(e) => e.stopPropagation()}
         style={{ 
           height: currentHeight,
+          maxHeight: maxExpandedHeight,
           transform: `translateY(${effectiveTranslateY}px)`, 
           transition: isDragging ? 'none' : 'height 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.2s ease' 
         }}

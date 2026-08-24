@@ -84,7 +84,7 @@ export default function AngelOneCommodityView({
     <div className="w-full h-full flex flex-col bg-white dark:bg-[#121214] text-zinc-900 dark:text-zinc-100 select-none min-h-0">
       {/* 1. Header (Sticky Top / Shrink-0) - Fully Draggable */}
       <div 
-        className="shrink-0 px-4 pt-2.5 pb-2 flex items-start justify-between border-b border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-[#121214] z-20 cursor-grab active:cursor-grabbing touch-none select-none"
+        className="shrink-0 px-4 py-2.5 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-[#121214] z-20 cursor-grab active:cursor-grabbing touch-none select-none"
         onTouchStart={(e) => {
           if (!isFullScreen && onDragStart) onDragStart(e.touches[0].clientY);
         }}
@@ -365,30 +365,38 @@ export default function AngelOneCommodityView({
         </div>
       </div>
 
-      {/* 3. Sticky Bottom Action Bar (Shrink-0 / Non-cutting) */}
-      <div className="shrink-0 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md border-t border-zinc-200/80 dark:border-zinc-800/80 px-3.5 pt-2.5 pb-4 sm:pb-3 pb-safe z-30 flex items-center gap-2">
+      {/* 3. Sticky Bottom Action Bar (Shrink-0 / Always pinned in Half-Sheet & Full-Screen) */}
+      <div className="shrink-0 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md border-t border-zinc-200/80 dark:border-zinc-800/80 px-3.5 pt-2.5 pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
+        {/* 1. Create Alert (Left) */}
         <button 
-          className="px-3.5 sm:px-4 py-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 text-zinc-800 dark:text-zinc-200 font-bold text-[13px] sm:text-[14px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-sm"
+          type="button"
+          className="px-3 sm:px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 text-zinc-800 dark:text-zinc-200 font-bold text-[12px] sm:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-sm border border-zinc-200/60 dark:border-zinc-700/60"
         >
-          <i className="fa-solid fa-robot text-blue-500 text-[14px]"></i>
-          <span>AI Predict</span>
+          <i className="fa-solid fa-bell text-amber-500 text-[13px]"></i>
+          <span className="whitespace-nowrap">Create Alert</span>
         </button>
 
+        {/* 2. Buy / Sell Action Button (Center) */}
         <button 
-          className="px-3.5 sm:px-4 py-3 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 text-zinc-800 dark:text-zinc-200 font-bold text-[13px] sm:text-[14px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-sm"
-        >
-          <i className="fa-solid fa-bell text-purple-500 text-[14px]"></i>
-          <span>Create Alert</span>
-        </button>
-
-        <button 
-          className={`flex-1 py-3 font-extrabold text-[14px] sm:text-[15px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${
+          type="button"
+          className={`flex-1 py-2.5 font-extrabold text-[13px] sm:text-[14px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${
             userType === 'seller' 
-              ? 'bg-[#E24A4A] hover:bg-[#D9383A] text-white' 
-              : 'bg-[#009E74] hover:bg-[#008A62] text-white'
+              ? 'bg-[#E24A4A] hover:bg-[#D9383A] text-white shadow-red-500/20' 
+              : userType === 'buyer' 
+                ? 'bg-[#009E74] hover:bg-[#008A62] text-white shadow-emerald-500/20'
+                : 'bg-gradient-to-r from-[#009E74] to-[#1D92EB] hover:opacity-95 text-white shadow-blue-500/20'
           }`}
         >
-          <span>{userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / INQUIRY'}</span>
+          <span>{userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'}</span>
+        </button>
+
+        {/* 3. AI Predict (Right) */}
+        <button 
+          type="button"
+          className="px-3 sm:px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 text-zinc-800 dark:text-zinc-200 font-bold text-[12px] sm:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-sm border border-zinc-200/60 dark:border-zinc-700/60"
+        >
+          <i className="fa-solid fa-wand-magic-sparkles text-blue-500 text-[13px]"></i>
+          <span className="whitespace-nowrap">AI Predict</span>
         </button>
       </div>
     </div>
