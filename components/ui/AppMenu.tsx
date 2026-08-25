@@ -85,13 +85,13 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   // Grouped like Apple Settings
   const MENU_GROUPS: MenuItem[][] = [
     [
-      { label: 'Dashboard', icon: 'fa-solid fa-table-cells-large', href: '#', iconBg: 'bg-blue-500' },
-      { label: inquiriesLabel, icon: 'fa-solid fa-comments', href: '#', iconBg: 'bg-indigo-500' },
-      { label: 'Messages', icon: 'fa-solid fa-comment-dots', href: '#', iconBg: 'bg-green-500' },
+      { label: 'Dashboard', icon: 'fa-solid fa-table-cells-large', href: '#', iconBg: 'bg-blue-500' },      
     ],
     [
+      { label: inquiriesLabel, icon: 'fa-solid fa-comments', href: '#', iconBg: 'bg-indigo-500' },
       { label: 'Product Charts', icon: 'fa-solid fa-chart-line', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/product-charts`, iconBg: 'bg-orange-500' },
       { label: 'Freight Charts', icon: 'fa-solid fa-chart-area', href: '#', iconBg: 'bg-amber-500' },
+    ],[
       { label: 'Alerts Setups', icon: 'fa-solid fa-bell', href: '#', iconBg: 'bg-rose-500' },
       { label: 'AI Predicts', icon: 'fa-solid fa-microchip', href: '#', iconBg: 'bg-purple-500' },
     ],
@@ -101,6 +101,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
       { label: 'Market Reports', icon: 'fa-solid fa-file-contract', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/market-reports`, iconBg: 'bg-sky-500' },
     ],
     [
+      { label: 'Messages', icon: 'fa-solid fa-comment-dots', href: 'https://wa.me/918980131000?text=Hey%2C%20I%20want%20to%20connect%21', iconBg: 'bg-green-500' },
       { label: 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-zinc-500' },
       { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/profile`, iconBg: 'bg-zinc-500' },
     ]
