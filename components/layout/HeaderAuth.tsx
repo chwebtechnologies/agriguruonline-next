@@ -258,14 +258,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   placeholder={dict.header.search_placeholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-10 pr-20 text-sm text-ag-search-text placeholder-ag-search-placeholder focus:border-brand-blue focus:bg-background focus:ring-0 outline-none transition-all"
+                  className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-8 sm:pr-20 text-xs sm:text-sm text-ag-search-text placeholder-ag-search-placeholder focus:border-brand-blue focus:bg-background focus:ring-0 outline-none transition-all"
                 />
                 
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10"
+                    className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10"
                     aria-label="Clear search"
                   >
                     <i className="fa-solid fa-circle-xmark text-[15px]"></i>

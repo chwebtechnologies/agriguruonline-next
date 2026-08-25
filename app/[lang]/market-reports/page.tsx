@@ -56,9 +56,6 @@ const getMarketReports = cache(async (lang: string, page: number, limit: number,
     return null
   }
 
-  if (shouldLogout) {
-    return <ForceLogout lang={lang} />;
-  }
   return null;
 })
 
@@ -187,7 +184,7 @@ export default async function MarketReportsPage(props: {
   if (categoryQuery && apiCategories) {
     const selectedCat = apiCategories.find((c: any) => c.slug === categoryQuery);
     if (selectedCat) {
-      categoryId = selectedCat.id || selectedCat._id;
+      categoryId = (selectedCat as any).id || (selectedCat as any)._id;
     }
   }
 

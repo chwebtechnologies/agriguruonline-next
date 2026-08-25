@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Allow mobile devices on local network to access dev server
   allowedDevOrigins: [
+    '192.168.29.*',
     '192.168.1.2',
     '192.168.1.*',
     '192.168.0.*',

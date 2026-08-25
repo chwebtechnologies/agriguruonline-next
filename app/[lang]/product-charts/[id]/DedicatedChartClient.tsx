@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import AngelOneCommodityView, { CommodityItemData } from '@/components/product-charts/AngelOneCommodityView';
+import MobileCommodityChart, { CommodityItemData } from '@/components/product-charts/MobileCommodityChart';
 
 interface DedicatedChartClientProps {
   productId: string;
@@ -35,7 +35,7 @@ export default function DedicatedChartClient({
 
   return (
     <div className="w-full min-h-[100dvh] flex flex-col bg-white dark:bg-[#121214]">
-      <AngelOneCommodityView 
+      <MobileCommodityChart 
         item={item} 
         isFullScreen={true} 
         userType={initialUserType} 

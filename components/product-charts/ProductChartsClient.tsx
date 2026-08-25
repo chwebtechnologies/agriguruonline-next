@@ -12,7 +12,7 @@ import {
   getProductDetailsAction
 } from '@/app/actions/charts';
 import { toast } from 'sonner';
-import AngelOneCommodityView from './AngelOneCommodityView';
+import MobileCommodityChart from './MobileCommodityChart';
 
 interface Category {
   id: string;
@@ -91,7 +91,8 @@ function SearchableSelect({
   disabled,
   loading: selectLoading,
   menuPosition = 'bottom',
-  id
+  id,
+  variant = 'desktop'
 }: { 
   value: string; 
   onChange: (val: string) => void; 
@@ -101,6 +102,7 @@ function SearchableSelect({
   loading?: boolean;
   menuPosition?: 'top' | 'bottom';
   id?: string;
+  variant?: 'desktop' | 'mobile';
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -131,17 +133,28 @@ function SearchableSelect({
   });
 
   const isInteractive = !disabled && !selectLoading;
+  const isMobile = variant === 'mobile';
 
   return (
     <div className={`relative w-full ${isOpen && isInteractive ? 'z-[9999]' : ''}`} ref={wrapperRef} title={displayValue}>
       <div 
         id={id}
-        className={`w-full h-10 rounded-md px-3 text-sm flex items-center justify-between transition-all ${
-          !isInteractive
-            ? 'opacity-60 cursor-not-allowed bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-400 select-none' 
-            : isSelected
-              ? 'bg-[#1D92EB] text-white border border-[#1D92EB] shadow-sm font-medium cursor-pointer'
-              : 'bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-600 shadow-sm font-medium cursor-pointer'
+        className={`w-full transition-all flex items-center justify-between ${
+          isMobile
+            ? `h-[46px] rounded-xl px-3.5 text-sm ${
+                !isInteractive
+                  ? 'opacity-60 cursor-not-allowed bg-zinc-100 dark:bg-[#141416] border border-zinc-200 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-500 select-none'
+                  : isSelected
+                    ? 'bg-[#1D92EB] text-white border border-[#1D92EB] shadow-sm font-medium cursor-pointer'
+                    : 'bg-white dark:bg-[#1c1c1e] border-2 border-zinc-300 dark:border-zinc-700 hover:border-[#1D92EB] dark:hover:border-[#1D92EB] text-zinc-800 dark:text-zinc-200 shadow-sm font-medium cursor-pointer active:scale-[0.99]'
+              }`
+            : `h-10 rounded-md px-3 text-sm ${
+                !isInteractive
+                  ? 'opacity-50 cursor-not-allowed bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600 select-none'
+                  : isSelected
+                    ? 'bg-[#1D92EB] text-white border border-[#1D92EB] shadow-sm font-medium cursor-pointer'
+                    : 'bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-[#1D92EB] dark:hover:border-[#1D92EB] shadow-sm font-medium cursor-pointer'
+              }`
         }`}
         onClick={() => {
           if (isInteractive) {
@@ -150,14 +163,18 @@ function SearchableSelect({
           }
         }}
       >
-        <span className="truncate pr-1 flex items-center gap-1.5">
+        <span className="truncate pr-1 flex items-center gap-2">
           {selectLoading && (
-            <i className="fa-solid fa-circle-notch fa-spin text-xs text-zinc-400 shrink-0"></i>
+            <i className="fa-solid fa-circle-notch fa-spin text-xs text-white shrink-0"></i>
           )}
-          <span className="truncate">{displayValue}</span>
+          <span className={`truncate ${!isSelected && !isInteractive ? 'text-zinc-400 dark:text-zinc-500' : !isSelected ? (isMobile ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-600 dark:text-zinc-300') : 'text-white font-medium'}`}>
+            {displayValue}
+          </span>
         </span>
 
-        {selectLoading ? null : isSelected && isInteractive ? (
+        {selectLoading ? null : !isInteractive ? (
+          <i className="fa-solid fa-lock text-[11px] text-zinc-300 dark:text-zinc-600 shrink-0 ml-1"></i>
+        ) : isSelected && isInteractive ? (
           <button
             type="button"
             className="shrink-0 ml-1 text-white hover:text-white/80 transition-colors flex items-center justify-center p-0.5"
@@ -171,17 +188,17 @@ function SearchableSelect({
             <i className="fa-solid fa-xmark text-xs"></i>
           </button>
         ) : (
-          <i className={`fa-solid fa-chevron-right text-[10px] text-zinc-400 shrink-0 ml-1 transition-transform ${isOpen ? 'rotate-90' : ''}`}></i>
+          <i className={`fa-solid fa-chevron-down text-[11px] shrink-0 ml-1 transition-transform ${isOpen ? 'rotate-180 text-[#1D92EB]' : 'text-zinc-400 dark:text-zinc-500'}`}></i>
         )}
       </div>
       {isOpen && isInteractive && (
-        <div className={`absolute z-50 w-full min-w-[200px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-2xl max-h-[300px] flex flex-col left-0 ${menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
-          <div className="p-1.5 shrink-0 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900 rounded-t-md">
+        <div className={`absolute z-50 w-full min-w-[200px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl max-h-[300px] flex flex-col left-0 ${menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
+          <div className="p-2 shrink-0 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 rounded-t-xl">
             <div className="relative">
               <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
               <input 
                 type="text" 
-                className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded px-8 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#1D92EB] text-zinc-800 dark:text-zinc-200 transition-all" 
+                className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D92EB] text-zinc-800 dark:text-zinc-200 transition-all placeholder:text-zinc-400" 
                 placeholder="Search..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -190,9 +207,9 @@ function SearchableSelect({
               />
             </div>
           </div>
-          <div className="p-1 overflow-y-auto">
+          <div className="p-1.5 overflow-y-auto">
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-zinc-500 text-center">No results</div>
+              <div className="px-3 py-4 text-sm text-zinc-500 text-center font-medium">No results found</div>
             ) : (
               filteredOptions.map(opt => {
                 const label = opt.name || opt.title || '';
@@ -200,14 +217,19 @@ function SearchableSelect({
                 return (
                   <div 
                     key={opt.id} 
-                    className={`px-3 py-2 text-sm rounded cursor-pointer transition-colors truncate ${active ? 'bg-[#1D92EB] text-white font-medium' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'}`}
+                    className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors truncate flex items-center justify-between ${
+                      active 
+                        ? 'bg-[#1D92EB] text-white font-semibold' 
+                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                    }`}
                     onClick={() => {
                       onChange(opt.id);
                       setIsOpen(false);
                       setSearch('');
                     }}
                   >
-                    {label}
+                    <span className="truncate">{label}</span>
+                    {active && <i className="fa-solid fa-check text-xs ml-2"></i>}
                   </div>
                 );
               })
@@ -228,11 +250,11 @@ const SwipeableCard = ({
   onDelete: () => void,
   onChart: () => void
 }) => {
-  const [translateX, setTranslateX] = useState(0);
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const currentXRef = useRef(0);
   const isDraggingRef = useRef(false);
+  const isHorizontalSwipeRef = useRef<boolean | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const swipeRef = useRef<HTMLDivElement>(null);
 
@@ -245,58 +267,58 @@ const SwipeableCard = ({
       startYRef.current = e.touches[0].clientY;
       currentXRef.current = 0;
       isDraggingRef.current = false;
+      isHorizontalSwipeRef.current = null;
+      if (el) el.style.transition = 'none';
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       const diffX = e.touches[0].clientX - startXRef.current;
       const diffY = e.touches[0].clientY - startYRef.current;
 
-      // Only activate horizontal swipe if X movement exceeds Y movement by 10px
-      if (!isDraggingRef.current) {
-        if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY)) {
+      // Detect gesture direction early without blocking vertical scroll
+      if (isHorizontalSwipeRef.current === null) {
+        if (Math.abs(diffY) > 6 && Math.abs(diffY) > Math.abs(diffX)) {
+          // Pure vertical scroll -> never intercept, allow 100% native smooth scrolling
+          isHorizontalSwipeRef.current = false;
+          return;
+        }
+        if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+          // Pure horizontal swipe
+          isHorizontalSwipeRef.current = true;
           isDraggingRef.current = true;
-        } else if (Math.abs(diffY) > 10) {
-          // Vertical scroll — don't intercept
-          return;
-        } else {
-          return;
         }
       }
 
-      if (isDraggingRef.current) {
-        // Prevent vertical scrolling/shaking while swiping horizontally
+      if (isHorizontalSwipeRef.current === true) {
         if (e.cancelable) e.preventDefault();
-
-        const maxSwipe = 120; // Ensure full visibility of action buttons
+        const maxSwipe = 120;
         let newTranslate = diffX;
         if (newTranslate > maxSwipe) newTranslate = maxSwipe;
         if (newTranslate < -maxSwipe) newTranslate = -maxSwipe;
         currentXRef.current = newTranslate;
-        setTranslateX(newTranslate);
+        el.style.transform = `translateX(${newTranslate}px)`;
       }
     };
 
     const handleTouchEnd = () => {
-      if (!isDraggingRef.current) {
-        // Was a tap, not a swipe — reset and do nothing
-        setTranslateX(0);
-        currentXRef.current = 0;
-        isDraggingRef.current = false;
-        return;
+      if (isHorizontalSwipeRef.current === true && isDraggingRef.current) {
+        const maxSwipe = 120;
+        const threshold = maxSwipe * 0.45;
+
+        if (currentXRef.current < -threshold) {
+          onDelete();
+        } else if (currentXRef.current > threshold) {
+          onChart();
+        }
       }
 
-      isDraggingRef.current = false;
-
-      const maxSwipe = 120;
-      const threshold = maxSwipe * 0.5;
-
-      if (currentXRef.current < -threshold) {
-        onDelete();
-      } else if (currentXRef.current > threshold) {
-        onChart();
+      if (el) {
+        el.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        el.style.transform = 'translateX(0px)';
       }
-      setTranslateX(0);
       currentXRef.current = 0;
+      isDraggingRef.current = false;
+      isHorizontalSwipeRef.current = null;
     };
 
     el.addEventListener('touchstart', handleTouchStart, { passive: true });
@@ -314,7 +336,7 @@ const SwipeableCard = ({
 
   return (
     <div className="relative overflow-hidden rounded-xl lg:hidden bg-zinc-100 dark:bg-zinc-800 touch-pan-y" ref={containerRef}>
-      <div className="absolute inset-0 flex justify-between items-center z-0">
+      <div className="absolute inset-0 flex justify-between items-center z-0 pointer-events-none">
         <div className="bg-sky-400 w-1/2 h-full flex items-center pl-6 text-white font-bold rounded-l-xl">
           <i className="fa-solid fa-chart-line text-xl"></i>
           <span className="ml-3 text-[15px] tracking-wide">Chart</span>
@@ -326,11 +348,7 @@ const SwipeableCard = ({
       </div>
       <div 
         ref={swipeRef}
-        className="relative z-10 w-full h-full bg-zinc-50 dark:bg-[#1c1c1e] rounded-xl shadow-sm border border-zinc-200 dark:border-[#2a2a2c]"
-        style={{ 
-          transform: `translateX(${translateX}px)`,
-          transition: isDraggingRef.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
-        }}
+        className="relative z-10 w-full h-full bg-zinc-50 dark:bg-[#1c1c1e] rounded-xl shadow-sm border border-zinc-200 dark:border-[#2a2a2c] will-change-transform"
       >
         {children}
       </div>
@@ -369,7 +387,7 @@ const PriceChart = ({
   const ranges = ['12H', '1D', '1W', '1M', '1Y', '2Y', '5Y', '10Y'];
 
   return (
-    <div className={`w-full flex flex-col items-center bg-white dark:bg-zinc-900 ${isFullScreen ? 'pt-4 pb-2' : 'pt-2 pb-1'}`} onClick={onChartClick}>
+    <div className={`w-full flex flex-col items-center bg-white dark:bg-[#18181b] ${isFullScreen ? 'pt-4 pb-2' : 'pt-2 pb-1'}`} onClick={onChartClick}>
       {/* Timeline Selector */}
       <div className="flex justify-center items-center gap-1.5 sm:gap-2 pt-2 pb-3 overflow-x-auto px-4 w-[95%] max-w-[380px] mx-auto scrollbar-hide text-[#71717a]" style={{ scrollbarWidth: 'none' }}>
         {ranges.map(range => (
@@ -969,7 +987,7 @@ export default function ProductChartsClient({
       `}</style>
       
       {initialMarketedProducts && initialMarketedProducts.length > 0 && (
-        <div className="overflow-hidden whitespace-nowrap w-full bg-white dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800 mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
+        <div className="overflow-hidden whitespace-nowrap w-full bg-white dark:bg-[#18181b] rounded-md border border-zinc-200 dark:border-zinc-800 mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
           <div className="inline-block animate-[marquee_60s_linear_infinite]" style={{ WebkitAnimationName: 'marquee', animationName: 'marquee', willChange: 'transform', animationDuration: marqueeDuration }}>
             {marqueeItems.map((p, i) => {
               // Generate a consistent dummy change if it's 0, just to make it look realistic as requested
@@ -1016,6 +1034,7 @@ export default function ProductChartsClient({
           {/* 1. Category */}
           <div className="w-full">
             <SearchableSelect 
+              id="desktop-category-select"
               value={selectedCategory}
               onChange={handleCategorySelect}
               options={categories}
@@ -1028,6 +1047,7 @@ export default function ProductChartsClient({
           {/* 2. Country */}
           <div className="w-full">
             <SearchableSelect 
+              id="desktop-country-select"
               value={selectedCountry}
               onChange={handleCountrySelect}
               options={countries}
@@ -1040,6 +1060,7 @@ export default function ProductChartsClient({
           {/* 3. Product Name */}
           <div className="w-full">
             <SearchableSelect 
+              id="desktop-product-select"
               value={selectedProduct}
               onChange={handleProductSelect}
               options={filteredProducts}
@@ -1052,6 +1073,7 @@ export default function ProductChartsClient({
           {/* 4. Ship By (Container) */}
           <div className="w-full">
             <SearchableSelect 
+              id="desktop-shipby-select"
               value={selectedShipBy}
               onChange={handleShipBySelect}
               options={shippingContainers}
@@ -1064,6 +1086,7 @@ export default function ProductChartsClient({
           {/* 5. Incoterm (FOB, CNF, CIF) */}
           <div className="w-full">
             <SearchableSelect 
+              id="desktop-term-select"
               value={selectedTerm}
               onChange={handleTermSelect}
               options={shippingTerms}
@@ -1076,6 +1099,7 @@ export default function ProductChartsClient({
           {/* 6. POL (Port of Loading) */}
           <div className="w-full">
             <SearchableSelect 
+              id="desktop-pol-select"
               value={selectedPOL}
               onChange={handlePOLSelect}
               options={loadingPorts}
@@ -1088,6 +1112,7 @@ export default function ProductChartsClient({
           {/* 7. POD (Port of Destination) */}
           <div className="w-full">
             <SearchableSelect 
+              id="desktop-pod-select"
               value={isPodRequired ? selectedPOD : ''}
               onChange={handlePODSelect}
               options={destinationPorts}
@@ -1098,19 +1123,20 @@ export default function ProductChartsClient({
           </div>
           
           {/* Static Column Headers - Hidden on Mobile */}
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#18181b] items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
             Price (PMT)
           </div>
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#18181b] items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
             Change
           </div>
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#18181b] items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
             Chart
           </div>
           
           {/* Add Product Button */}
           <div className="w-full relative group">
             <button 
+              id="desktop-add-product-btn"
               onClick={handleAddProduct}
               disabled={!isAddProductEnabled || isAdding}
               className={`w-full h-10 rounded-md bg-primary-gradient text-white text-sm font-semibold flex items-center justify-center gap-1.5 shadow-md transition-all whitespace-nowrap px-2 ${
@@ -1136,12 +1162,390 @@ export default function ProductChartsClient({
         </div>
 
         {/* Data Rows */}
-        <div className={`mt-2 ${addedProducts.length === 0 ? 'min-h-[240px]' : ''}`}>
+        <div className={`mt-2 ${addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
           {addedProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[240px] text-foreground/50 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
-              <i className="fa-solid fa-folder-open text-4xl mb-3 text-zinc-400"></i>
-              <p className="text-sm font-medium">No products added yet. Use the dropdowns above to add a product.</p>
-            </div>
+            <>
+              {/* Mobile/Tablet Compact Card Empty State - Exact 3-row card layout matching commodity cards */}
+              <div 
+                onClick={() => setShowMobileAddForm(true)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowMobileAddForm(true); }}
+                className="lg:hidden relative overflow-hidden bg-zinc-50 dark:bg-[#1c1c1e] rounded-xl shadow-sm border border-dashed border-zinc-300 dark:border-[#2a2a2c] hover:border-[#2DBC84] dark:hover:border-[#2DBC84] active:scale-[0.99] transition-all cursor-pointer group"
+              >
+                <div className="flex flex-col p-2">
+                  {/* Row 1: Watchlist Header & Count */}
+                  <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa]">
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <i className="fa-solid fa-chart-line text-[#2DBC84] text-[11px]"></i>
+                      <span>Watchlist</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <span>0 Products</span>
+                    </div>
+                  </div>
+                  
+                  {/* Row 2: Title & Add Action */}
+                  <div className="flex justify-between items-center gap-2 mt-1">
+                    <div className="font-bold text-[14px] leading-tight text-zinc-900 dark:text-[#f4f4f5]">
+                      No Products Added
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="font-bold text-[13px] text-[#2DBC84] group-hover:text-[#25A06F] flex items-center gap-1">
+                        <i className="fa-solid fa-plus text-[11px]"></i>
+                        <span>Add Product</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Description & Chevron */}
+                  <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa] mt-0.5">
+                    <div className="truncate">Tap to search & add commodity to chart</div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <i className="fa-solid fa-chevron-right text-[10px] text-zinc-400"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop Empty State with Interactive Step Pointers & Tutorial */}
+              <div className="hidden lg:flex flex-col gap-3">
+                {/* Step-by-Step Pointers Grid matching input columns with 100% exact alignment */}
+                <div className={`grid ${gridCols} gap-2 px-2 -mx-2`}>
+                  {/* Col 1: Category (Optional Filter) */}
+                  <div 
+                    onClick={() => document.getElementById('desktop-category-select')?.click()}
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden cursor-pointer ${
+                      selectedCategory
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-[#1D92EB]/60 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className={`fa-solid ${selectedCategory ? 'fa-check text-emerald-500' : 'fa-filter text-blue-500/80'} text-[11px]`}></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Filter</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
+                      {selectedCategory ? (categories.find(c => String(c.id) === String(selectedCategory))?.name || 'Category') : 'Category'}
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      {selectedCategory ? '✓ Selected' : 'Optional filter'}
+                    </div>
+                  </div>
+
+                  {/* Col 2: Country (Optional Filter) */}
+                  <div 
+                    onClick={() => document.getElementById('desktop-country-select')?.click()}
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden cursor-pointer ${
+                      selectedCountry
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-[#1D92EB]/60 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className={`fa-solid ${selectedCountry ? 'fa-check text-emerald-500' : 'fa-filter text-blue-500/80'} text-[11px]`}></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Filter</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
+                      {selectedCountry ? (countries.find(c => String(c.id) === String(selectedCountry))?.name || 'Country') : 'Country'}
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      {selectedCountry ? '✓ Selected' : 'Optional filter'}
+                    </div>
+                  </div>
+
+                  {/* Col 3: Product Name (Required / Main Step) */}
+                  <div 
+                    onClick={() => document.getElementById('desktop-product-select')?.click()}
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden cursor-pointer ${
+                      !selectedProduct
+                        ? 'bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
+                        : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className={`fa-solid ${selectedProduct ? 'fa-check text-emerald-500' : 'fa-arrow-up animate-bounce text-[#1D92EB]'} text-[11px]`}></i>
+                      <span className={`text-[9.5px] font-bold uppercase tracking-wider ${!selectedProduct ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+                        {selectedProduct ? 'Product' : '★ Step 1: Pick Product'}
+                      </span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
+                      {selectedProduct ? (filteredProducts.find(p => String(p.id) === String(selectedProduct))?.name || 'Product') : 'Select Product'}
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      {selectedProduct ? '✓ Selected' : 'Auto-fills Origin'}
+                    </div>
+                  </div>
+
+                  {/* Col 4: Ship By (Step 2) */}
+                  <div 
+                    onClick={() => {
+                      if (selectedProduct) document.getElementById('desktop-shipby-select')?.click();
+                      else document.getElementById('desktop-product-select')?.click();
+                    }}
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                      !selectedProduct 
+                        ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                        : !selectedShipBy
+                          ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
+                          : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className={`fa-solid ${selectedShipBy ? 'fa-check text-emerald-500' : selectedProduct ? 'fa-arrow-up animate-bounce text-[#1D92EB]' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider">Step 2</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
+                      {selectedShipBy ? (shippingContainers.find(c => String(c.id) === String(selectedShipBy))?.title || 'Ship By') : 'Ship By'}
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      {selectedShipBy ? '✓ Selected' : 'Container'}
+                    </div>
+                  </div>
+
+                  {/* Col 5: Term (Step 3) */}
+                  <div 
+                    onClick={() => {
+                      if (selectedShipBy) document.getElementById('desktop-term-select')?.click();
+                    }}
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                      !selectedShipBy 
+                        ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                        : !selectedTerm
+                          ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
+                          : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className={`fa-solid ${selectedTerm ? 'fa-check text-emerald-500' : selectedShipBy ? 'fa-arrow-up animate-bounce text-[#1D92EB]' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider">Step 3</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
+                      {selectedTerm ? (shippingTerms.find(t => String(t.id) === String(selectedTerm))?.title || 'Term') : 'Term'}
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      {selectedTerm ? '✓ Selected' : 'FOB / CIF'}
+                    </div>
+                  </div>
+
+                  {/* Col 6: POL (Step 4) */}
+                  <div 
+                    onClick={() => {
+                      if (selectedTerm) document.getElementById('desktop-pol-select')?.click();
+                    }}
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                      !selectedTerm 
+                        ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                        : !selectedPOL
+                          ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
+                          : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className={`fa-solid ${selectedPOL ? 'fa-check text-emerald-500' : selectedTerm ? 'fa-arrow-up animate-bounce text-[#1D92EB]' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider">Step 4</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
+                      {selectedPOL ? (loadingPorts.find(p => String(p.id) === String(selectedPOL))?.name || 'POL') : 'POL'}
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      {selectedPOL ? '✓ Selected' : 'Loading port'}
+                    </div>
+                  </div>
+
+                  {/* Col 7: POD (Step 5) */}
+                  <div 
+                    onClick={() => {
+                      if (isPodRequired && selectedPOL) document.getElementById('desktop-pod-select')?.click();
+                    }}
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                      !isPodRequired
+                        ? 'bg-zinc-50/60 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-600'
+                        : !selectedPOL 
+                          ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                          : !selectedPOD
+                            ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
+                            : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className={`fa-solid ${!isPodRequired ? 'fa-minus text-zinc-300 dark:text-zinc-700' : selectedPOD ? 'fa-check text-emerald-500' : selectedPOL ? 'fa-arrow-up animate-bounce text-[#1D92EB]' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider">{!isPodRequired ? 'N/A' : 'Step 5'}</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
+                      {!isPodRequired ? 'POD (N/A)' : selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'POD') : 'POD'}
+                    </div>
+                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      {!isPodRequired ? 'Not required' : selectedPOD ? '✓ Selected' : 'Destination'}
+                    </div>
+                  </div>
+
+                  {/* Col 8: Price (PMT) Preview */}
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-zinc-500 dark:text-zinc-400 select-none w-full overflow-hidden">
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Live</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-700 dark:text-zinc-300">
+                      Price (PMT)
+                    </div>
+                    <div className="text-[9.5px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      Auto rates
+                    </div>
+                  </div>
+
+                  {/* Col 9: Change Preview */}
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-zinc-500 dark:text-zinc-400 select-none w-full overflow-hidden">
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Trend</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-700 dark:text-zinc-300">
+                      Change
+                    </div>
+                    <div className="text-[9.5px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      Daily shift
+                    </div>
+                  </div>
+
+                  {/* Col 10: Chart Preview */}
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-zinc-500 dark:text-zinc-400 select-none w-full overflow-hidden">
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className="fa-solid fa-chart-line text-purple-500/80 text-[11px]"></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Chart</span>
+                    </div>
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-700 dark:text-zinc-300">
+                      Price Curve
+                    </div>
+                    <div className="text-[9.5px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      Interactive
+                    </div>
+                  </div>
+
+                  {/* Col 11: Final Step - Add Product Button Pointer */}
+                  <div 
+                    onClick={() => {
+                      if (isAddProductEnabled) handleAddProduct();
+                    }}
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                      !isAddProductEnabled
+                        ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                        : 'cursor-pointer bg-primary-gradient text-white border-transparent shadow-md hover:shadow-lg ring-2 ring-emerald-500/40 active:scale-[0.98]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                      <i className={`fa-solid fa-arrow-up ${isAddProductEnabled ? 'animate-bounce text-white' : 'text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <span className={`text-[9.5px] font-bold uppercase tracking-wider ${isAddProductEnabled ? 'text-white' : ''}`}>Final</span>
+                    </div>
+                    <div className={`font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                      Add Product
+                    </div>
+                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white/90 font-medium' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                      {isAddProductEnabled ? 'Ready! Click here' : 'Complete steps'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visual Tutorial Showcase Card */}
+                <div className="bg-white dark:bg-[#18181b] rounded-2xl p-5 shadow-sm border border-zinc-200 dark:border-zinc-800 transition-all">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-100 dark:border-zinc-800/80">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#1D92EB] flex items-center justify-center text-lg shadow-sm border border-blue-100 dark:border-blue-900/40">
+                        <i className="fa-solid fa-graduation-cap"></i>
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                          <span>How to Build Your Watchlist</span>
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">Quick Guide</span>
+                        </h3>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                          Select a commodity directly or use category & country filters to configure real-time market data.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Progress pill */}
+                    <div className="flex items-center gap-2 self-start md:self-auto bg-zinc-50 dark:bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                      <i className="fa-solid fa-layer-group text-xs text-[#1D92EB]"></i>
+                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                        {isAddProductEnabled ? 'All options selected! Ready to add 🚀' : !selectedProduct ? 'Step 1: Pick a Product (or filter by Category/Origin)' : !selectedShipBy ? 'Step 2: Select Container' : !selectedTerm ? 'Step 3: Select Incoterm' : 'Step 4: Select Ports'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 3 Tutorial Feature Columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Step 1 */}
+                    <div 
+                      onClick={() => document.getElementById('desktop-product-select')?.click()}
+                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-[#1D92EB] flex items-center justify-center font-bold text-xs">
+                          1
+                        </div>
+                        <span className="text-[11px] text-[#1D92EB] font-semibold group-hover:underline flex items-center gap-1">
+                          <span>Pick Product</span> <i className="fa-solid fa-arrow-right text-[9px]"></i>
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
+                        1. Direct Product Selection or Filters
+                      </h4>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        Select a <strong>Product</strong> directly to auto-fill Category & Country, or use them as optional filters to narrow your choices.
+                      </p>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div 
+                      onClick={() => {
+                        if (selectedProduct) document.getElementById('desktop-shipby-select')?.click();
+                        else document.getElementById('desktop-product-select')?.click();
+                      }}
+                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-[#1D92EB] flex items-center justify-center font-bold text-xs">
+                          2
+                        </div>
+                        <span className="text-[11px] text-[#1D92EB] font-semibold group-hover:underline flex items-center gap-1">
+                          <span>Configure</span> <i className="fa-solid fa-arrow-right text-[9px]"></i>
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
+                        2. Container, Incoterms & Ports
+                      </h4>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        Pick shipping container, Incoterm (FOB/CNF/CIF), and origin/destination ports.
+                      </p>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div 
+                      onClick={() => {
+                        if (isAddProductEnabled) handleAddProduct();
+                      }}
+                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-emerald-400/50 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
+                          3
+                        </div>
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold group-hover:underline flex items-center gap-1">
+                          <span>Add Now</span> <i className="fa-solid fa-arrow-right text-[9px]"></i>
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
+                        3. Live Tracking & Price Curves
+                      </h4>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        Click <strong>Add Product</strong> to monitor real-time PMT price trends, change percentages, and interactive charts.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
           ) : (
             <div className="flex flex-col gap-1.5 lg:gap-2.5">
               {addedProducts.map((item, index) => {
@@ -1185,12 +1589,7 @@ export default function ProductChartsClient({
                                 e.stopPropagation();
                                 openBottomSheet(item.id);
                               }}
-                              onTouchStart={(e) => e.stopPropagation()}
-                              onTouchEnd={(e) => {
-                                e.stopPropagation();
-                                openBottomSheet(item.id);
-                              }}
-                              className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-[#f4f4f5] active:bg-zinc-200 dark:active:bg-zinc-700 rounded-full transition-colors"
+                              className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-[#f4f4f5] active:bg-zinc-200 dark:active:bg-zinc-700 rounded-full transition-colors cursor-pointer"
                               aria-label="Open product options"
                             >
                               <i className="fa-solid fa-ellipsis-vertical text-[17px]"></i>
@@ -1219,7 +1618,7 @@ export default function ProductChartsClient({
                         {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
                         <span className="truncate">{item.country}</span>
                       </div>
-                      <div className="font-semibold truncate text-zinc-900 dark:text-zinc-100" title={item.product}>{item.product}</div>
+                      <div className="font-semibold truncate text-foreground" title={item.product}>{item.product}</div>
                       <div className="truncate font-medium text-zinc-700 dark:text-zinc-300" title={item.shipBy}>{item.shipBy}</div>
                       <div className="text-center truncate font-medium text-zinc-700 dark:text-zinc-300" title={item.term}>{item.term}</div>
                       <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.pol}>
@@ -1230,7 +1629,7 @@ export default function ProductChartsClient({
                         {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
                         <span className="truncate">{item.pod || '-'}</span>
                       </div>
-                      <div className="w-full flex items-center justify-center text-center font-bold text-zinc-900 dark:text-zinc-100" title={`$${item.price}`}>${item.price}</div>
+                      <div className="w-full flex items-center justify-center text-center font-bold text-foreground" title={`$${item.price}`}>${item.price}</div>
                       <div className={`w-full text-center font-semibold flex items-center justify-center gap-1 ${isPositive ? 'text-emerald-500' : 'text-red-500'}`} title={`${changeVal}$`}>
                         <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'}`}></i>
                         <span>{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
@@ -1244,15 +1643,15 @@ export default function ProductChartsClient({
                       </div>
                       <div className="flex items-center justify-end gap-3">
                         {userType === 'seller' ? (
-                          <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
                             Sell
                           </button>
                         ) : userType === 'buyer' ? (
-                          <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
                             Buy
                           </button>
                         ) : (
-                          <button className="px-5 py-1 bg-white dark:bg-zinc-900 border border-zinc-400 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
                             Sell
                           </button>
                         )}
@@ -1315,7 +1714,7 @@ export default function ProductChartsClient({
       {/* Delete Confirmation Popup */}
       {deleteConfirmId !== null && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-[#18181b] rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex gap-4 items-center mb-6">
               <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0 text-red-600">
                 <i className="fa-solid fa-triangle-exclamation text-xl"></i>
@@ -1335,7 +1734,7 @@ export default function ProductChartsClient({
               </button>
               <button 
                 onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
+                className="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] hover:bg-zinc-50 dark:hover:bg-zinc-800 text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
               >
                 Cancel
               </button>
@@ -1363,7 +1762,7 @@ export default function ProductChartsClient({
 
       {/* Full Screen Mobile Add Product Form */}
       {showMobileAddForm && (
-        <div className="fixed inset-0 z-[300] bg-white dark:bg-[#121212] flex flex-col animate-in slide-in-from-bottom-2 duration-300">
+        <div className="fixed inset-0 z-[300] bg-background flex flex-col animate-in slide-in-from-bottom-2 duration-300">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <button 
@@ -1388,74 +1787,79 @@ export default function ProductChartsClient({
           </div>
 
           {/* Form Fields */}
-          <div id="mobile-add-form-scroll-container" className="flex-1 overflow-y-auto relative bg-white dark:bg-[#121212] scroll-smooth scroll-pb-32">
+          <div id="mobile-add-form-scroll-container" className="flex-1 overflow-y-auto relative bg-background scroll-smooth scroll-pb-32">
             <div className="px-5 pt-3 pb-8 space-y-4 min-h-full flex flex-col">
               <div className="flex-1 space-y-4">
                 {/* Category */}
                 <div>
-                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Category</label>
+                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Category</label>
                   <div className="mobile-add-select">
                     <SearchableSelect 
                       id="select-category"
                       value={selectedCategory} onChange={handleCategorySelect} options={categories}
                       placeholder="Select Category" disabled={false} loading={false}
+                      variant="mobile"
                     />
                   </div>
                 </div>
 
                 {/* Country */}
                 <div>
-                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Country</label>
+                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Country</label>
                   <div className="mobile-add-select">
                     <SearchableSelect 
                       id="select-country"
                       value={selectedCountry} onChange={handleCountrySelect} options={countries}
-                      placeholder="Enter Country" disabled={countries.length === 0} loading={false}
+                      placeholder="Select Country" disabled={countries.length === 0} loading={false}
+                      variant="mobile"
                     />
                   </div>
                 </div>
 
                 {/* Product Name */}
                 <div>
-                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Product Name</label>
+                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Product Name</label>
                   <div className="mobile-add-select">
                     <SearchableSelect 
                       id="select-product"
                       value={selectedProduct} onChange={handleProductSelect} options={filteredProducts}
                       placeholder="Select Product" disabled={filteredProducts.length === 0} loading={false}
+                      variant="mobile"
                     />
                   </div>
                 </div>
 
                 {/* Ship by */}
                 <div>
-                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Ship by</label>
+                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Ship by</label>
                   <div className="mobile-add-select">
                     <SearchableSelect 
                       id="select-shipby"
                       value={selectedShipBy} onChange={handleShipBySelect} options={shippingContainers}
                       placeholder={!selectedProduct ? "Select Ship By" : containersLoading ? "Loading..." : shippingContainers.length === 0 ? "No containers" : "Select Ship By"}
                       disabled={!selectedProduct || containersLoading || shippingContainers.length === 0} loading={containersLoading}
+                      variant="mobile"
                     />
                   </div>
                 </div>
 
                 {/* Term */}
                 <div>
-                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Term</label>
+                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Term</label>
                   <div className="mobile-add-select">
                     <SearchableSelect 
                       id="select-term"
                       value={selectedTerm} onChange={handleTermSelect} options={shippingTerms}
                       placeholder="Select Incoterm" disabled={!selectedProduct || !selectedShipBy || shippingTerms.length === 0} loading={false}
                       menuPosition="top"
+                      variant="mobile"
                     />
                   </div>
                 </div>
 
                 {/* Port */}
                 <div>
-                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Port</label>
+                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Port</label>
                   <div className="mobile-add-select">
                     <SearchableSelect 
                       id="select-port"
@@ -1463,13 +1867,14 @@ export default function ProductChartsClient({
                       placeholder={!selectedTerm ? "Select Port" : polLoading ? "Loading..." : loadingPorts.length === 0 ? "No Port" : "Select Port"}
                       disabled={!selectedTerm || polLoading || loadingPorts.length === 0} loading={polLoading}
                       menuPosition="top"
+                      variant="mobile"
                     />
                   </div>
                 </div>
 
                 {/* Destination Port */}
                 <div>
-                  <label className="block text-zinc-900 dark:text-zinc-100 font-semibold mb-1.5 text-[14px]">Destination Port</label>
+                  <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Destination Port</label>
                   <div className="mobile-add-select">
                     <SearchableSelect 
                       id="select-pod"
@@ -1477,6 +1882,7 @@ export default function ProductChartsClient({
                       placeholder={!isPodRequired ? "Select Destination Port (N/A)" : !selectedPOL ? "Select Destination Port" : podLoading ? "Loading..." : destinationPorts.length === 0 ? "No Destination Port" : "Select Destination Port"}
                       disabled={!isPodRequired || !selectedPOL || podLoading || destinationPorts.length === 0} loading={podLoading}
                       menuPosition="top"
+                      variant="mobile"
                     />
                   </div>
                 </div>
@@ -1505,7 +1911,7 @@ export default function ProductChartsClient({
             </div>
             
             {/* Sticky Add Button */}
-            <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-[#121212] z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
+            <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-background z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
               <div className="flex justify-center">
                 <button 
                   onClick={async () => {
@@ -1550,32 +1956,52 @@ export default function ProductChartsClient({
   );
 }
 
-// Sub-component to manage Bottom Sheet swipe-up logic (Angel One style - In-place smooth expansion)
+// Sub-component to manage Bottom Sheet swipe-up logic (Angel One style - Butter-smooth Hardware-Accelerated Expansion)
+// Sub-component to manage Bottom Sheet swipe-up logic (Angel One style - Butter-smooth Hardware-Accelerated Expansion)
 const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, getFlagUrl, defaultFullScreen = false, lang = 'en' }: any) => {
-  const [dragOffset, setDragOffset] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(defaultFullScreen);
   const startYRef = useRef<number | null>(null);
   const currentYRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-  const handleRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef<boolean>(false);
+  const isFullScreenRef = useRef<boolean>(defaultFullScreen);
+  const mountTimeRef = useRef<number>(Date.now());
   const sheetRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(105);
+
+  useEffect(() => {
+    isFullScreenRef.current = isFullScreen;
+    if (sheetRef.current && !isDraggingRef.current) {
+      sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease';
+      sheetRef.current.style.transform = isFullScreen ? 'translateY(0px)' : 'translateY(calc(100% - 52vh))';
+    }
+  }, [isFullScreen]);
 
   // Lock document body scroll while bottom sheet is open
   useEffect(() => {
+    mountTimeRef.current = Date.now();
     const originalOverflow = document.body.style.overflow;
-    const originalTouchAction = document.body.style.touchAction;
     document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveBottomSheetId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       document.body.style.overflow = originalOverflow;
-      document.body.style.touchAction = originalTouchAction;
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [setActiveBottomSheetId]);
 
   const expandToFullScreen = () => {
     setIsFullScreen(true);
-    setDragOffset(0);
+    if (sheetRef.current) {
+      sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease';
+      sheetRef.current.style.transform = 'translateY(0px)';
+    }
     if (typeof window !== 'undefined' && activeItem?.id) {
       const url = new URL(window.location.href);
       url.searchParams.set('chart', String(activeItem.id));
@@ -1585,24 +2011,33 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
   };
 
   const handleDragStart = (clientY: number) => {
+    if (Date.now() - mountTimeRef.current < 200) return;
     startYRef.current = clientY;
     currentYRef.current = clientY;
     startTimeRef.current = Date.now();
-    setIsDragging(true);
+    isDraggingRef.current = true;
+    if (sheetRef.current) {
+      sheetRef.current.style.transition = 'none';
+    }
   };
 
   const handleDragMove = (clientY: number) => {
-    if (startYRef.current === null) return;
+    if (!isDraggingRef.current || startYRef.current === null || !sheetRef.current) return;
     currentYRef.current = clientY;
     const diff = clientY - startYRef.current;
-    // In full-screen, only allow dragging downwards
-    if (isFullScreen && diff < 0) return;
-    setDragOffset(diff);
+    
+    if (isFullScreenRef.current) {
+      if (diff > 0) {
+        sheetRef.current.style.transform = `translateY(${diff}px)`;
+      }
+    } else {
+      sheetRef.current.style.transform = `translateY(calc(100% - 52vh + ${diff}px))`;
+    }
   };
 
   const handleDragEnd = () => {
-    if (startYRef.current === null || currentYRef.current === null) {
-      setIsDragging(false);
+    if (startYRef.current === null || currentYRef.current === null || !sheetRef.current) {
+      isDraggingRef.current = false;
       startYRef.current = null;
       currentYRef.current = null;
       return;
@@ -1612,70 +2047,36 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
     const timeTaken = Date.now() - startTimeRef.current;
     const velocity = Math.abs(diff) / (timeTaken || 1);
 
-    setIsDragging(false);
+    isDraggingRef.current = false;
     startYRef.current = null;
     currentYRef.current = null;
 
-    if (!isFullScreen) {
-      // In bottom sheet mode:
-      // Swiping UP -> Expand smoothly to full-screen in-place and sync full-screen state to URL
-      if (diff < -20 || (diff < -10 && velocity > 0.2)) {
+    if (!isFullScreenRef.current) {
+      // Swiping UP -> Must drag at least 30px or quick flick with velocity > 0.3
+      if (diff < -30 || (diff < -15 && velocity > 0.3)) {
         expandToFullScreen();
-      } else if (diff > 50 || (diff > 20 && velocity > 0.3)) {
-        // Pulled down -> Dismiss bottom sheet
-        setActiveBottomSheetId(null);
-        setDragOffset(0);
+      } else if (diff > 60 || (diff > 25 && velocity > 0.35)) {
+        sheetRef.current.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 1, 1)';
+        sheetRef.current.style.transform = 'translateY(100%)';
+        setTimeout(() => setActiveBottomSheetId(null), 250);
       } else {
-        setDragOffset(0);
+        sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+        sheetRef.current.style.transform = 'translateY(calc(100% - 52vh))';
       }
     } else {
-      // In full-screen mode:
-      // Swiping DOWN -> Dismiss sheet directly to screen
-      if (diff > 60 || (diff > 25 && velocity > 0.3)) {
-        setActiveBottomSheetId(null);
-        setDragOffset(0);
+      // Swiping DOWN from fullscreen
+      if (diff > 70 || (diff > 35 && velocity > 0.4)) {
+        sheetRef.current.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 1, 1)';
+        sheetRef.current.style.transform = 'translateY(100%)';
+        setTimeout(() => setActiveBottomSheetId(null), 250);
       } else {
-        setDragOffset(0);
+        sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+        sheetRef.current.style.transform = 'translateY(0px)';
       }
     }
   };
 
-  // Non-passive touch listener to prevent default browser page scrolling
-  useEffect(() => {
-    const el = handleRef.current;
-    if (!el) return;
-
-    const onTouchStartNative = (e: TouchEvent) => {
-      if (e.cancelable) e.preventDefault();
-      handleDragStart(e.touches[0].clientY);
-    };
-
-    const onTouchMoveNative = (e: TouchEvent) => {
-      if (e.cancelable) e.preventDefault();
-      e.stopPropagation();
-      handleDragMove(e.touches[0].clientY);
-    };
-
-    const onTouchEndNative = () => {
-      handleDragEnd();
-    };
-
-    el.addEventListener('touchstart', onTouchStartNative, { passive: false });
-    el.addEventListener('touchmove', onTouchMoveNative, { passive: false });
-    el.addEventListener('touchend', onTouchEndNative, { passive: true });
-    el.addEventListener('touchcancel', onTouchEndNative, { passive: true });
-
-    return () => {
-      el.removeEventListener('touchstart', onTouchStartNative);
-      el.removeEventListener('touchmove', onTouchMoveNative);
-      el.removeEventListener('touchend', onTouchEndNative);
-      el.removeEventListener('touchcancel', onTouchEndNative);
-    };
-  }, [isFullScreen]);
-
-  const [headerHeight, setHeaderHeight] = useState(105);
-
-  // Dynamically measure the exact bottom position of the website header
+  // Dynamically measure header
   useEffect(() => {
     const measureHeader = () => {
       const headerEl = document.querySelector('header');
@@ -1693,123 +2094,145 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
 
   if (!activeItem) return null;
 
-  const maxDrag = 250;
-  const dragProgress = isFullScreen ? 1 : Math.min(Math.max(-dragOffset / maxDrag, 0), 1);
-  const initialHeight = '54vh';
   const maxExpandedHeight = `calc(100dvh - ${headerHeight}px)`;
 
-  const currentHeight = isFullScreen 
-    ? maxExpandedHeight 
-    : isDragging && dragOffset < 0 
-      ? `calc(${initialHeight} + ${Math.min(-dragOffset, window.innerHeight * 0.44)}px)`
-      : initialHeight;
-
-  const effectiveTranslateY = dragOffset > 0 ? dragOffset : 0;
-
   return (
-    <div 
-      className="fixed inset-0 z-[60] flex flex-col justify-end pointer-events-none select-none"
-      style={{ top: `${headerHeight}px` }}
-    >
-      {/* Click-away Backdrop below Header */}
-      <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-[1px] pointer-events-auto transition-opacity duration-300"
-        onClick={() => setActiveBottomSheetId(null)}
-      />
-
-      {/* Exact Angel One Style "Swipe up for Commodity Details" Indicator */}
-      {!isFullScreen && dragOffset >= 0 && (
+    <>
+      {/* 1. Desktop Modal Popup (>= lg screens: Full Screen Pop-up Dialog) */}
+      <div className="hidden lg:flex fixed inset-0 z-[100] items-center justify-center p-4 xl:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto select-none">
+        {/* Click-away backdrop */}
         <div 
-          ref={handleRef}
-          onClick={expandToFullScreen}
-          className="absolute inset-x-0 flex flex-col items-center justify-center gap-1 cursor-pointer touch-none select-none z-[75] pointer-events-auto pb-1"
-          style={{ bottom: 'calc(54vh + 12px)' }}
+          className="absolute inset-0" 
+          onClick={() => setActiveBottomSheetId(null)} 
+        />
+        
+        {/* Desktop Popup Card Container */}
+        <div 
+          className="relative z-10 w-full max-w-6xl xl:max-w-7xl h-[92vh] max-h-[880px] bg-white dark:bg-[#121214] rounded-2xl xl:rounded-3xl shadow-2xl border border-zinc-200/80 dark:border-zinc-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
         >
-          {/* Angel One Signature Wide Curved Chevron */}
-          <svg 
-            className="w-14 h-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse" 
-            viewBox="0 0 56 16" 
-            fill="none" 
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path 
-              d="M3 13L28 3L53 13" 
-              stroke="currentColor" 
-              strokeWidth="3.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-            />
-          </svg>
-          
-          {/* Centered Clean Text Directly Underneath */}
-          <span className="text-[13px] font-semibold tracking-normal text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-            Swipe up for Commodity Details
-          </span>
-        </div>
-      )}
-
-      {/* Bottom Sheet Modal Container - Anchored Flush to Bottom, Above Mobile Footer */}
-      <div 
-        ref={sheetRef}
-        className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-white dark:bg-[#121214] shadow-2xl overflow-hidden flex flex-col will-change-transform z-[65] pointer-events-auto ${
-          isFullScreen 
-            ? 'rounded-none border-t border-zinc-200/80 dark:border-zinc-800/80' 
-            : 'rounded-t-[28px] border-t border-zinc-200/80 dark:border-zinc-800/80'
-        }`}
-        onClick={(e) => e.stopPropagation()}
-        style={{ 
-          height: currentHeight,
-          maxHeight: maxExpandedHeight,
-          transform: `translateY(${effectiveTranslateY}px)`, 
-          transition: isDragging ? 'none' : 'height 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.2s ease' 
-        }}
-      >
-        {/* Drag Handle Top Bar (visible when not fullscreen) */}
-        {!isFullScreen && (
-          <div 
-            className="pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none bg-white dark:bg-[#121214] shrink-0"
-            onTouchStart={(e) => {
-              if (e.cancelable) e.preventDefault();
-              handleDragStart(e.touches[0].clientY);
-            }}
-            onTouchMove={(e) => {
-              if (e.cancelable) e.preventDefault();
-              handleDragMove(e.touches[0].clientY);
-            }}
-            onTouchEnd={handleDragEnd}
-            onTouchCancel={handleDragEnd}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              handleDragStart(e.clientY);
-              const onMouseMove = (m: MouseEvent) => handleDragMove(m.clientY);
-              const onMouseUp = () => {
-                handleDragEnd();
-                window.removeEventListener('mousemove', onMouseMove);
-                window.removeEventListener('mouseup', onMouseUp);
-              };
-              window.addEventListener('mousemove', onMouseMove);
-              window.addEventListener('mouseup', onMouseUp);
-            }}
-          >
-            <div className="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
-          </div>
-        )}
-
-        {/* Scrollable Commodity View inside Flex */}
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <AngelOneCommodityView 
+          <MobileCommodityChart 
             item={activeItem} 
-            isFullScreen={isFullScreen} 
+            isFullScreen={true} 
             onClose={() => setActiveBottomSheetId(null)} 
             userType={userType} 
-            dragProgress={dragProgress} 
-            onDragStart={handleDragStart}
-            onDragMove={handleDragMove}
-            onDragEnd={handleDragEnd}
             lang={lang}
           />
         </div>
       </div>
-    </div>
+
+      {/* 2. Mobile/Tablet Bottom Sheet (< lg screens: Smooth GPU-Accelerated Drag Sheet) */}
+      <div 
+        className="lg:hidden fixed inset-0 z-[60] flex flex-col justify-end pointer-events-none select-none"
+        style={{ top: `${headerHeight}px` }}
+      >
+        {/* Click-away Backdrop below Header */}
+        <div 
+          className="absolute inset-0 bg-black/40 backdrop-blur-[1px] pointer-events-auto transition-opacity duration-300"
+          onClick={() => setActiveBottomSheetId(null)}
+        />
+
+        {/* Bottom Sheet Modal Container - Anchored Flush to Bottom, Fixed Full Height with GPU translateY */}
+        <div 
+          ref={sheetRef}
+          className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-white dark:bg-[#121214] shadow-2xl flex flex-col will-change-transform z-[65] pointer-events-auto ${
+            isFullScreen 
+              ? 'rounded-none border-t border-zinc-200/80 dark:border-zinc-800/80' 
+              : 'rounded-t-[28px] border-t border-zinc-200/80 dark:border-zinc-800/80'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+          style={{ 
+            height: maxExpandedHeight,
+            maxHeight: maxExpandedHeight,
+            transform: isFullScreen ? 'translateY(0px)' : 'translateY(calc(100% - 52vh))', 
+            transition: 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease',
+          }}
+        >
+          {/* Exact Angel One Style "Swipe up for Commodity Details" Indicator (Attached directly on top edge) */}
+          {!isFullScreen && (
+            <div 
+              onClick={expandToFullScreen}
+              onTouchStart={(e) => {
+                if (e.cancelable) e.preventDefault();
+                handleDragStart(e.touches[0].clientY);
+              }}
+              onTouchMove={(e) => {
+                if (e.cancelable) e.preventDefault();
+                handleDragMove(e.touches[0].clientY);
+              }}
+              onTouchEnd={handleDragEnd}
+              onTouchCancel={handleDragEnd}
+              className="absolute bottom-[100%] inset-x-0 flex flex-col items-center justify-center gap-1 cursor-pointer touch-none select-none z-[75] pointer-events-auto pb-2.5 transition-opacity duration-200"
+            >
+              {/* Angel One Signature Wide Curved Chevron */}
+              <svg 
+                className="w-14 h-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse" 
+                viewBox="0 0 56 16" 
+                fill="none" 
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path 
+                  d="M3 13L28 3L53 13" 
+                  stroke="currentColor" 
+                  strokeWidth="3.5" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                />
+              </svg>
+              
+              {/* Centered Clean Text Directly Underneath */}
+              <span className="text-[13px] font-semibold tracking-normal text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                Swipe up for Commodity Details
+              </span>
+            </div>
+          )}
+
+          {/* Drag Handle Top Bar (visible when not fullscreen) */}
+          {!isFullScreen && (
+            <div 
+              className="pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none bg-white dark:bg-[#121214] shrink-0"
+              onTouchStart={(e) => {
+                if (e.cancelable) e.preventDefault();
+                handleDragStart(e.touches[0].clientY);
+              }}
+              onTouchMove={(e) => {
+                if (e.cancelable) e.preventDefault();
+                handleDragMove(e.touches[0].clientY);
+              }}
+              onTouchEnd={handleDragEnd}
+              onTouchCancel={handleDragEnd}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleDragStart(e.clientY);
+                const onMouseMove = (m: MouseEvent) => handleDragMove(m.clientY);
+                const onMouseUp = () => {
+                  handleDragEnd();
+                  window.removeEventListener('mousemove', onMouseMove);
+                  window.removeEventListener('mouseup', onMouseUp);
+                };
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+              }}
+            >
+              <div className="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
+            </div>
+          )}
+
+          {/* Scrollable Commodity View inside Flex */}
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <MobileCommodityChart 
+              item={activeItem} 
+              isFullScreen={isFullScreen} 
+              onClose={() => setActiveBottomSheetId(null)} 
+              userType={userType} 
+              onDragStart={handleDragStart}
+              onDragMove={handleDragMove}
+              onDragEnd={handleDragEnd}
+              lang={lang}
+            />
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
