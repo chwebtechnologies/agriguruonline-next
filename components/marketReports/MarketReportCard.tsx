@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import type { MarketReportItem } from '@/types/marketReports'
 import dynamic from 'next/dynamic'
+import { getAssetsUrl } from '@/lib/api-utils';
 
 const ReportReaderModal = dynamic(() => import('./ReportReaderModal'), {
   ssr: false,
@@ -12,13 +13,13 @@ const ReportReaderModal = dynamic(() => import('./ReportReaderModal'), {
 interface MarketReportCardProps {
   report: MarketReportItem
   lang: string
+  priority?: boolean;
 }
 
-export default function MarketReportCard({ report, lang }: MarketReportCardProps) {
+export default function MarketReportCard({ report, lang, priority = false }: MarketReportCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud'
-  const imageUrl = report.thumbnail?.startsWith('http') 
+  const assetsUrl = getAssetsUrl();const imageUrl = report.thumbnail?.startsWith('http') 
     ? report.thumbnail 
     : report.thumbnail 
       ? `${assetsUrl}/${report.thumbnail}`

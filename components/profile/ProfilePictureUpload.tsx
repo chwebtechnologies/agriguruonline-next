@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from 'react';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/lib/cropImage';
 import { toast } from 'sonner';
+import { getAssetsUrl } from '@/lib/api-utils';
 
 export default function ProfilePictureUpload({ currentImage }: { currentImage?: string }) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export default function ProfilePictureUpload({ currentImage }: { currentImage?: 
       >
         {croppedImage ? (
           <img 
-            src={croppedImage.startsWith('http') || croppedImage.startsWith('blob:') ? croppedImage : `${process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com'}${croppedImage.startsWith('/') ? '' : '/'}${croppedImage}`} 
+            src={croppedImage.startsWith('http') || croppedImage.startsWith('blob:') ? croppedImage : `${getAssetsUrl()}${croppedImage.startsWith('/') ? '' : '/'}${croppedImage}`} 
             alt="Profile" 
             className="w-full h-full object-cover" 
             onError={(e) => {

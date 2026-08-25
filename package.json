@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.3.1",
     "disposable-email-domains": "^1.0.62",
     "libphonenumber-js": "^1.13.10",
     "next": "16.3.0",

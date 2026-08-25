@@ -3,7 +3,14 @@ import { useEffect } from 'react'
 
 export function ForceLogout({ lang }: { lang: string }) {
   useEffect(() => {
-    window.location.href = `/api/auth/logout?lang=${lang}`
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en'
+    fetch(`/api/auth/logout?lang=${safeLang}`, { method: 'POST' })
+      .then(() => {
+        window.location.href = `/${safeLang}/login`
+      })
+      .catch(() => {
+        window.location.href = `/${safeLang}/login`
+      })
   }, [lang])
   
   return (

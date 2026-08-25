@@ -4,6 +4,7 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { Metadata } from 'next'
+import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils';
 
 interface Product {
   id: string
@@ -29,8 +30,7 @@ interface ProductData {
 }
 
 const getProducts = cache(async (slug: string, subSlug: string, lang: string): Promise<ProductData | null> => {
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
-  const url = `${tradingApiUrl}/product/for-subcategory/web/${slug}/${subSlug}?lang_code=${lang}&is_active=true&source=web`
+  const tradingApiUrl = getTradingApiUrl();const url = `${tradingApiUrl}/product/for-subcategory/web/${slug}/${subSlug}?lang_code=${lang}&is_active=true&source=web`
 
   try {
     const res = await fetch(url, {
@@ -94,8 +94,7 @@ export default async function SubCategoryProductsPage(
     productList: commonDict.product_list || "Product List",
   }
 
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud'
-  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
   if (!data || data.products.length === 0) {
     return (
@@ -141,22 +140,22 @@ export default async function SubCategoryProductsPage(
                 </div>
                 
                 <div className="p-2 flex flex-col flex-1">
-                  <h3 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                  <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
                     {product.name}
-                  </h3>
+                  </h2>
                   
                   <div className="mt-auto space-y-1.5">
-                    <button className="w-full bg-brand-blue hover:bg-[#157dc9] text-white py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1.5">
+                    <button className="w-full bg-brand-blue hover:bg-[#157dc9] text-zinc-900 py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1.5">
                       <i className="fa-solid fa-plus text-xs"></i>
                       {common.addProduct}
                     </button>
                     
                     <div className="grid grid-cols-2 gap-1.5">
-                      <button className="bg-brand-green hover:bg-[#229670] text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
+                      <button className="bg-brand-green hover:bg-[#229670] text-zinc-900 py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
                         <i className="fa-solid fa-cart-shopping text-[10px]"></i>
                         {common.buy}
                       </button>
-                      <button className="bg-brand-red hover:bg-[#c4535a] text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
+                      <button className="bg-brand-red hover:bg-[#c4535a] text-zinc-900 py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
                         <i className="fa-solid fa-tag text-[10px]"></i>
                         {common.sell}
                       </button>

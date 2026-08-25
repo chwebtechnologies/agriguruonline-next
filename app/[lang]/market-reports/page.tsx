@@ -9,16 +9,17 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCategories } from '@/lib/category'
 import { ForceLogout } from '@/components/auth/ForceLogout'
+import { getCmsApiUrl, getTradingApiUrl } from '@/lib/api-utils'
 
 export const metadata: Metadata = {
   title: 'Market Reports - AgriGuru Online',
   description: 'Access exclusive market reports and insights for registered users.',
 }
 
-export const instant = false
+
 
 const getMarketReports = cache(async (lang: string, page: number, limit: number, search?: string, token?: string, categoryId?: string): Promise<MarketReportsResponse | null> => {
-  const cmsApiUrl = process.env.NEXT_PUBLIC_CMS_API_URL || 'https://cms-api.agriguruonline.cloud'
+  const cmsApiUrl = getCmsApiUrl();
   let url = `${cmsApiUrl}/market-report/?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}`
   if (search) url += `&search=${encodeURIComponent(search)}`
   if (categoryId) url += `&category_id=${encodeURIComponent(categoryId)}`
@@ -29,7 +30,7 @@ const getMarketReports = cache(async (lang: string, page: number, limit: number,
       headers: {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
-      next: { revalidate: 3600 }
+      cache: 'no-store'
     })
     
     if (!res.ok) {
@@ -129,8 +130,8 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 px-2 sm:px-0 mt-2">
-        {reports.map((report: any) => (
-          <MarketReportCard key={report.id || report._id || Math.random()} report={report} lang={lang} />
+        {reports.map((report: any, index: number) => (
+          <MarketReportCard priority={index < 4} key={report.id || report._id || Math.random()} report={report} lang={lang} />
         ))}
       </div>
       <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/market-reports`} />
@@ -145,7 +146,7 @@ export default async function MarketReportsPage(props: {
 }) {
   // Authorization check
   const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = cookieStore.get('auth_token')?.value;
   
   const params = await props.params;
   const lang = params.lang || 'en'
@@ -167,8 +168,8 @@ export default async function MarketReportsPage(props: {
   const suspenseKey = `market-reports-${currentPage}-${searchQuery || ''}-${categoryQuery || ''}`
 
   // Fetch categories using identical Next.js cached configuration as Header
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
-  const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
+  const tradingApiUrl = getTradingApiUrl();
+  const categoriesApiUrl = `${tradingApiUrl}/category`;
   const cacheStale = Number(process.env.CATEGORIES_CACHE_STALE) || 300
   const cacheRevalidate = Number(process.env.CATEGORIES_CACHE_REVALIDATE) || 3600
   const cacheExpire = Number(process.env.CATEGORIES_CACHE_EXPIRE) || 86400

@@ -5,6 +5,7 @@ import ListingFilters from '@/components/ui/ListingFilters'
 import type { Metadata } from 'next'
 import type { MarketUpdatesResponse } from '@/types/marketUpdates'
 import { cache, Suspense } from 'react'
+import { getCmsApiUrl, getAssetsUrl } from '@/lib/api-utils';
 
 export const metadata: Metadata = {
   title: 'Market Updates - AgriGuru Online',
@@ -23,11 +24,10 @@ export const metadata: Metadata = {
   }
 }
 
-export const instant = false
+
 
 const getMarketUpdates = cache(async (lang: string, page: number, limit: number, search?: string): Promise<MarketUpdatesResponse | null> => {
-  const cmsApiUrl = process.env.NEXT_PUBLIC_CMS_API_URL || 'https://cms-api.agriguruonline.cloud'
-  const url = `${cmsApiUrl}/flyer?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`
+  const cmsApiUrl = getCmsApiUrl();const url = `${cmsApiUrl}/flyer?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`
 
   try {
     const res = await fetch(url, {
@@ -101,13 +101,11 @@ async function MarketUpdatesGrid({ lang, page, limit, search }: {
     )
   }
 
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud'
-  
-  return (
+  const assetsUrl = getAssetsUrl();return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-2 sm:px-0 mt-2">
-        {flyers.map((flyer) => (
-          <MarketUpdateCard key={flyer.id} update={flyer} lang={lang} />
+        {flyers.map((flyer, index) => (
+          <MarketUpdateCard priority={index < 4} key={flyer.id} update={flyer} lang={lang} />
         ))}
       </div>
       <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/market-updates`} />

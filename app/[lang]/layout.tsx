@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
 import { lang } from 'next/root-params'
 import ThemeInitializer from '@/components/ui/ThemeInitializer'
 import Header from '@/components/layout/Header'
@@ -10,20 +9,12 @@ import { Suspense } from 'react'
 import { Toaster } from 'sonner'
 import '../globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://agriguru.online'),
   title: 'AgriGuru Online',
-  description: 'The future-oriented SaaS platform built on Next.js 16',
+  description: 'The global agricultural trading platform',
 }
 
 export const viewport: Viewport = {
@@ -33,8 +24,6 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 }
 
 export default async function LocalizedRootLayout({
@@ -47,22 +36,18 @@ export default async function LocalizedRootLayout({
     <html
       lang={activeLang}
       dir={dir}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
       suppressHydrationWarning
     >
       <head>
+        <link rel="alternate" hrefLang="x-default" href="https://agriguru.online/" />
         <ThemeInitializer />
         <link rel="preconnect" href="https://assets.agriguruonline.com" />
         <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
-        <link rel="preconnect" href="https://trading-api.agriguruonline.com" />
-        <link rel="dns-prefetch" href="https://trading-api.agriguruonline.com" />
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
-          integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA=="
-          crossOrigin="anonymous"
-          referrerPolicy="no-referrer"
-        />
+        <link rel="preconnect" href="https://trading-api.agriguruonline.cloud" />
+        <link rel="dns-prefetch" href="https://trading-api.agriguruonline.cloud" />
+        <link rel="dns-prefetch" href="https://user-api.agriguruonline.cloud" />
+        <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
       </head>
       <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900 transition-colors duration-200 dark:bg-zinc-950 dark:text-zinc-50">
         <Suspense fallback={<div className="h-10 w-full bg-[#1D92EB] shrink-0" />}>

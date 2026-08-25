@@ -29,6 +29,7 @@ export default function ImageWithSkeleton({
       )}
       <Image
         {...props}
+        fetchPriority={props.priority ? 'high' : 'auto'}
         ref={imgRef}
         className={`transition-opacity duration-500 ease-in-out z-10 ${isLoaded ? "opacity-100" : "opacity-0"} ${className}`}
         onLoad={(e) => {

@@ -23,12 +23,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'daily',
       priority: 0.9,
     })
-    routes.push({
-      url: `${baseUrl}/${lang}/about`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    })
   })
 
   return routes

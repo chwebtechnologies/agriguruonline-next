@@ -3,6 +3,8 @@
 import disposableDomains from "disposable-email-domains";
 import { cookies } from "next/headers";
 
+import { getUserApiUrl } from "@/lib/api-utils";
+
 export async function validateEmailDomain(email: string): Promise<{ isValid: boolean; error?: string }> {
   const domain = email.split("@")[1]?.toLowerCase();
   
@@ -30,8 +32,17 @@ export async function createSession(accessToken: string, user: any) {
     maxAge: 7 * 24 * 60 * 60, // 7 days
   });
 
+  // Sanitize user object for client-side storage (remove tokens, passwords, full IDs)
+  const safeUser = {
+    first_name: user?.first_name || "",
+    last_name: user?.last_name || "",
+    email: user?.email || "",
+    country_code: user?.country_code || "",
+    role: user?.role?.name || user?.user_type?.name || "Business User",
+  };
+
   // Non-HttpOnly cookie for non-sensitive user info (optional, if client needs it)
-  cookieStore.set("user_info", JSON.stringify(user), {
+  cookieStore.set("user_info", JSON.stringify(safeUser), {
     httpOnly: false, 
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -44,7 +55,6 @@ export async function destroySession() {
   const cookieStore = await cookies();
   cookieStore.delete("auth_token");
   cookieStore.delete("user_info");
-  cookieStore.delete("__Secure-uid");
 }
 
 export async function logoutUser() {
@@ -53,7 +63,7 @@ export async function logoutUser() {
   
   if (token) {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_USER_API_URL}/auth/logout?lang_code=en&source=web`, {
+      await fetch(`${getUserApiUrl()}/auth/logout?lang_code=en&source=web`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -90,7 +100,7 @@ export async function uploadProfileImage(formData: FormData) {
       const apiFormData = new FormData();
       apiFormData.append(fieldName, file);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_USER_API_URL}/user/upload-profile?lang_code=en&source=web`, {
+      const res = await fetch(`${getUserApiUrl()}/user/upload-profile?lang_code=en&source=web`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`

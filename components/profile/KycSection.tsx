@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { uploadKycDocument } from "@/app/actions/profile";
+import { getAssetsUrl } from '@/lib/api-utils';
 
 type KycStatus = "Missing" | "Under Review" | "Approved" | "Rejected" | "Expired";
 
@@ -53,7 +54,7 @@ function parseKycData(apiDocs: any[]) {
     const docTitle = item.document_name || "Document";
     
     if (item.is_uploaded) {
-      const assetsBaseUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com';
+      const assetsBaseUrl = getAssetsUrl();
       const fullUrl = item.url ? (item.url.startsWith('http') ? item.url : `${assetsBaseUrl}${item.url.startsWith('/') ? '' : '/'}${item.url}`) : null;
       
       mappedUploaded.push({
@@ -190,7 +191,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
           const docTitle = reqDoc?.title || usrDoc?.document_type_title || "Uploaded Document";
           
           const rawUrl = result.data?.file_url || result.data?.url || "";
-          const assetsBaseUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com';
+          const assetsBaseUrl = getAssetsUrl();
           const fullUrl = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `${assetsBaseUrl}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`) : file.name;
 
           const newDoc: UserDocument = {

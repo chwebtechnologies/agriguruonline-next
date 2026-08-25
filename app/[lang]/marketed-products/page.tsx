@@ -38,9 +38,10 @@ interface ProductData {
   total: number
 }
 
+import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
+
 const getMarketedProducts = cache(async (lang: string, page: number, limit: number): Promise<ProductData | null> => {
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
-  const url = `${tradingApiUrl}/product?is_active=true&is_marketed=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}`
+  const url = `${getTradingApiUrl()}/product?is_active=true&is_marketed=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}`
 
   try {
     const res = await fetch(url, {
@@ -101,8 +102,7 @@ export default async function MarketedProductsPage(
     marketedProducts: "Marketed Products",
   }
 
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud'
-  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
   if (!data || data.products.length === 0) {
     return (

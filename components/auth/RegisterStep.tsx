@@ -6,6 +6,7 @@ import "react-phone-number-input/style.css";
 import { toast } from "sonner";
 import { createSession } from "@/app/actions/auth";
 import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput";
+import { getUserApiUrl } from "@/lib/api-utils";
 
 interface RegisterStepProps {
   email: string;
@@ -17,20 +18,15 @@ export default function RegisterStep({ email, onComplete, lang }: RegisterStepPr
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
-  const [country, setCountry] = useState<Country | undefined>();
+  const [country, setCountry] = useState<Country | undefined>("AE" as Country);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    fetch("https://ipapi.co/json/")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.country_code) {
-          setCountry(data.country_code as Country);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to fetch IP details", err);
-      });
+    // Optionally fetch timezone based country code if needed using Intl API
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      // Default to AE, could map timezone to country if really needed without external API
+    } catch (e) {}
   }, []);
 
   const phoneError = phone.length > 0 && !isValidPhoneNumber(phone);
@@ -63,7 +59,7 @@ export default function RegisterStep({ email, onComplete, lang }: RegisterStepPr
           source: "WEB"
         };
 
-        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
+        const apiUrl = getUserApiUrl();
         const res = await fetch(`${apiUrl}/auth/register?lang_code=${lang}&source=web`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -260,7 +260,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       </div>
 
       {/* Copyright Bar */}
-      <div className="w-full py-3.5 text-center text-[13px] border-t border-ag-footer-border bg-ag-footer-bottom-bg text-zinc-500 font-bold transition-theme">
+      <div className="w-full py-3.5 text-center text-[13px] border-t border-ag-footer-border bg-ag-footer-bottom-bg text-zinc-600 font-bold transition-theme">
         <div className="mx-auto max-w-7xl px-4 flex items-center justify-center">
           <span>{dict.footer.copyright}</span>
         </div>

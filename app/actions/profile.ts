@@ -1,8 +1,9 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { getUserApiUrl } from '@/lib/api-utils';
 
-const USER_API_URL = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL ;
+const USER_API_URL = getUserApiUrl();
 
 export interface ServerActionResponse {
   success: boolean;
@@ -20,7 +21,7 @@ export async function updateProfile(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = cookieStore.get("auth_token")?.value;
 
   if (!token) {
     return { success: false, error: "Authentication token missing. Please log in again." };
@@ -79,7 +80,7 @@ export async function uploadKycDocument(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = cookieStore.get("auth_token")?.value;
 
   if (!token) {
     return { success: false, error: "Authentication token missing. Please log in again." };

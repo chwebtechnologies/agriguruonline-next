@@ -28,7 +28,6 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       return { id: cat.id, name: translation ? translation.name : cat.name };
     });
 
-  console.log("PROFILE_DATA_CATEGORY:", JSON.stringify(profileData?.category, null, 2));
 
   const categoryOptions = availableCategories.length > 0
     ? availableCategories

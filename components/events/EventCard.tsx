@@ -2,15 +2,16 @@ import Link from 'next/link'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
 import type { EventItem } from '@/types/events'
+import { getAssetsUrl } from '@/lib/api-utils';
 
 interface EventCardProps {
   event: EventItem
   lang: string
+  priority?: boolean;
 }
 
-export default function EventCard({ event, lang }: EventCardProps) {
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud'
-  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+export default function EventCard({ event, lang, priority = false }: EventCardProps) {
+  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   const imageUrl = event.thumbnail.startsWith('http') ? event.thumbnail : `${imageBaseUrl}${event.thumbnail}`
 
   const startDate = new Intl.DateTimeFormat(lang, {
@@ -30,13 +31,11 @@ export default function EventCard({ event, lang }: EventCardProps) {
   return (
     <article className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm h-full">
       <Link href={`/${lang}/events/${event.slug}`} className="relative w-full aspect-[3/2] bg-ag-header-border/10 overflow-hidden border-b border-ag-header-border block">
-        <ImageWithSkeleton
-          src={imageUrl}
+        <ImageWithSkeleton src={imageUrl}
           alt={event.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+          className="object-cover group-hover:scale-105 transition-transform duration-300" priority={priority} />
       </Link>
       
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">

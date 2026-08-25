@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import { toast } from "sonner";
 import { createSession } from "@/app/actions/auth";
+import { getUserApiUrl } from '@/lib/api-utils';
 
 interface OtpStepProps {
   email: string;
@@ -49,7 +50,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
     }
     startTransition(async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
+        const apiUrl = getUserApiUrl();
         const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
           method: "POST",
           headers: {
@@ -86,7 +87,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
     setError("");
     startTransition(async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL ;
+        const apiUrl = getUserApiUrl();
         const response = await fetch(`${apiUrl}/auth/verify-otp?lang_code=${lang}&source=web`, {
           method: "POST",
           headers: {
@@ -113,16 +114,12 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
         let nextStep = null;
         try {
           const successData = await response.json();
-          console.log("OTP verify successData:", successData); // DEBUG
           nextStep = successData?.data?.next_step || null;
 
           if (nextStep === "LOGGED_IN" && successData.data?.access_token) {
-            console.log("Attempting to create session..."); // DEBUG
             await createSession(successData.data.access_token, successData.data.user);
-            console.log("Session created successfully."); // DEBUG
           }
         } catch (e) {
-          console.error("Failed to setup session or parse response:", e); // DEBUG
           const errMsg = "Failed to setup session. Please try again.";
           setError(errMsg);
           toast.error(errMsg);
@@ -132,7 +129,6 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
         toast.success("OTP verified successfully!");
         onVerify(otpString, nextStep);
       } catch (err) {
-        console.error("Something went wrong verifying the OTP:", err); // DEBUG
         const errMsg = "Something went wrong verifying the OTP.";
         setError(errMsg);
         toast.error(errMsg);

@@ -2,13 +2,15 @@ import Link from 'next/link'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
 import type { NewsArticle, NewsTranslation } from '@/types/news'
+import { getAssetsUrl } from '@/lib/api-utils';
 
 interface NewsCardProps {
   article: NewsArticle
   lang: string
+  priority?: boolean;
 }
 
-export default function NewsCard({ article, lang }: NewsCardProps) {
+export default function NewsCard({ article, lang, priority = false }: NewsCardProps) {
   const getTranslatedData = (translations: NewsTranslation[]) => {
     const translation = translations.find(t => t.lang_code === lang) || translations[0]
     return translation || { title: '', description: '', source: '' }
@@ -16,8 +18,7 @@ export default function NewsCard({ article, lang }: NewsCardProps) {
 
   const { title, description, source } = getTranslatedData(article.translations)
   
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud'
-  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   const imageUrl = article.thumbnail.startsWith('http') ? article.thumbnail : `${imageBaseUrl}${article.thumbnail}`
 
   const formattedDate = new Intl.DateTimeFormat(lang, {
@@ -32,13 +33,11 @@ export default function NewsCard({ article, lang }: NewsCardProps) {
   return (
     <article className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm h-full">
       <Link href={`/${lang}/news/${article.slug}`} className="relative w-full aspect-[3/2] bg-ag-header-border/10 overflow-hidden border-b border-ag-header-border block">
-        <ImageWithSkeleton
-          src={imageUrl}
+        <ImageWithSkeleton src={imageUrl}
           alt={title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+          className="object-cover group-hover:scale-105 transition-transform duration-300" priority={priority} />
       </Link>
       
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">

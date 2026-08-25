@@ -8,6 +8,7 @@ import { ShareButton } from '@/components/ui/ShareButton'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
 import { cache } from 'react'
+import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils';
 
 interface SubCategory {
   id: string
@@ -34,8 +35,7 @@ interface CategoryData {
 }
 
 const getSubCategories = cache(async (slug: string, lang: string): Promise<CategoryData | null> => {
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
-  const url = `${tradingApiUrl}/sub-category/for-category/web/${slug}?lang_code=${lang}&source=web`
+  const tradingApiUrl = getTradingApiUrl();const url = `${tradingApiUrl}/sub-category/for-category/web/${slug}?lang_code=${lang}&source=web`
 
   try {
     const res = await fetch(url, {
@@ -107,7 +107,7 @@ export async function generateMetadata(
   }
 }
 
-export const instant = false
+
 
 export default async function CategoryPage(props: { params: Promise<{ lang: string; slug: string }> }) {
   const params = await props.params;
@@ -148,8 +148,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   const categoryName = getTranslatedName(data.category?.translations, data.category?.name || 'Category')
 
   // Use the assets URL from ENV, fallback to the default domain, and ensure it ends with a slash
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud'
-  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   
   return (
     <div className="bg-background text-foreground">

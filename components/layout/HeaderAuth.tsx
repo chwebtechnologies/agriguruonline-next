@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/ui/AppMenu'
+import { getAssetsUrl } from '@/lib/api-utils';
 
 interface HeaderAuthProps {
   token: string
@@ -338,7 +339,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         className="h-full w-full rounded-full border border-ag-login-border object-cover"
-                        src={profile.profile_image.startsWith('http') ? profile.profile_image : `${process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com'}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
+                        src={profile.profile_image.startsWith('http') ? profile.profile_image : `${getAssetsUrl()}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
                         alt="Profile"
                         onError={(e) => {
                           // Fallback to icon on error

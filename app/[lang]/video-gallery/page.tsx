@@ -3,6 +3,7 @@ import VideoGalleryCard from '@/components/video-gallery/VideoGalleryCard'
 import type { Metadata } from 'next'
 import type { VideoGalleryResponse } from '@/types/videoGallery'
 import { cache, Suspense } from 'react'
+import { getCmsApiUrl } from '@/lib/api-utils';
 
 export const metadata: Metadata = {
   title: 'Video Gallery - AgriGuru Online',
@@ -14,11 +15,10 @@ export const metadata: Metadata = {
   },
 }
 
-export const instant = false
+
 
 const getVideoCategories = cache(async (): Promise<VideoGalleryResponse | null> => {
-  const cmsApiUrl = process.env.NEXT_PUBLIC_CMS_API_URL || 'https://cms-api.agriguruonline.cloud'
-  const url = `${cmsApiUrl}/dashboard/categories/video?source=web`
+  const cmsApiUrl = getCmsApiUrl();const url = `${cmsApiUrl}/dashboard/categories/video?source=web`
 
   try {
     const res = await fetch(url, {
@@ -58,8 +58,8 @@ async function VideoGalleryGrid({ lang }: { lang: string }) {
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-2 sm:px-0 mt-2">
-        {categories.map((category) => (
-          <VideoGalleryCard key={category.category_id} category={category} lang={lang} />
+        {categories.map((category, index) => (
+          <VideoGalleryCard priority={index < 4} key={category.category_id} category={category} lang={lang} />
         ))}
       </div>
     </>

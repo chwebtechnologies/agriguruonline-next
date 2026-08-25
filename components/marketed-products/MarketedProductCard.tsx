@@ -137,13 +137,13 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
         
         <div className="p-2 flex flex-col flex-1">
           <div className="flex justify-center mb-1">
-             <span className="text-[10px] sm:text-[11px] font-semibold text-brand-blue uppercase tracking-wider line-clamp-1 text-center">
+             <span className="text-[10px] sm:text-[11px] font-semibold text-[#156cb3] uppercase tracking-wider line-clamp-1 text-center">
                 {product.category?.name || 'Product'} {product.country?.name ? `• ${product.country.name}` : ''}
               </span>
           </div>
-          <h3 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+          <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
             {product.name}
-          </h3>
+          </h2>
           
           <div className="mt-auto">
             {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
@@ -151,7 +151,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 <span className="text-[16px] sm:text-[18px] font-extrabold text-foreground/70 mr-0.5 leading-none tracking-tight">
                   FOB
                 </span>
-                <span className="text-[16px] sm:text-[18px] font-extrabold text-brand-green leading-none tracking-tight">
+                <span className="text-[16px] sm:text-[18px] font-extrabold text-[#1e8262] leading-none tracking-tight">
                   ${product.loading_ports[0].price}
                 </span>
                 <span className="text-[10px] sm:text-[11px] text-foreground/60 font-semibold uppercase">
@@ -190,10 +190,10 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
           >
             {/* Modal Header */}
             <div className="px-5 py-4 border-b border-ag-header-border flex items-center justify-between bg-ag-subheader-bg">
-              <h3 className="font-bold text-lg text-brand-blue flex items-center gap-2">
+              <h2 className="font-bold text-lg text-brand-blue flex items-center gap-2">
                 <i className="fa-solid fa-file-lines"></i>
                 Specifications
-              </h3>
+              </h2>
               <button 
                 onClick={() => setShowSpecs(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-foreground focus:outline-none"
@@ -217,9 +217,9 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 <div className="flex flex-col flex-1 text-left justify-center min-w-0 py-0.5">
                   {/* Top Row: Title + FOB word */}
                   <div className="flex items-end justify-between gap-3 mb-1.5">
-                    <h4 className="font-bold text-lg sm:text-xl leading-tight text-foreground/90 truncate">
+                    <h3 className="font-bold text-lg sm:text-xl leading-tight text-foreground/90 truncate">
                       {product.name}
-                    </h4>
+                    </h3>
                     {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
                       <span className="font-bold text-lg sm:text-xl text-foreground/50 uppercase whitespace-nowrap leading-tight">
                         FOB
@@ -287,9 +287,9 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                     {otherData.length > 0 && (
                       <div className="bg-ag-subheader-bg/30 rounded-xl p-4 border border-ag-header-border">
                         {tableData.length > 0 && (
-                          <h5 className="text-xs font-bold uppercase tracking-wider text-foreground/50 mb-3 border-b border-ag-header-border pb-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-foreground/50 mb-3 border-b border-ag-header-border pb-2">
                             Additional Details
-                          </h5>
+                          </h4>
                         )}
                         <div className="space-y-2 text-[14px] text-foreground/80">
                           {otherData.map((text, i) => (

@@ -1,6 +1,7 @@
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import AnnouncementBarClient from './AnnouncementBarClient'
+import { getCmsApiUrl } from '@/lib/api-utils';
 
 export default async function AnnouncementBar() {
   const activeLang = (await lang()) || 'en'
@@ -21,7 +22,7 @@ export default async function AnnouncementBar() {
   // Fetch announcements from dynamic CMS endpoint
   let announcements = []
   try {
-    const cmsApiUrl = process.env.NEXT_PUBLIC_CMS_API_URL || "https://cms-api.agriguruonline.cloud";
+    const cmsApiUrl = getCmsApiUrl();
     const res = await fetch(`${cmsApiUrl}/marketingheaders/?page=1&limit=25&is_active=1&source=web&lang_code=${activeLang}`, {
       next: { revalidate: 300 } // cache on edge server for 5 minutes
     })

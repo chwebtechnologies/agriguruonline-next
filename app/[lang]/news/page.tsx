@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import type { NewsResponse } from '@/types/news'
 import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
+import { getTradingApiUrl, getCmsApiUrl } from '@/lib/api-utils';
 
 export const metadata: Metadata = {
   title: 'Latest News - AgriGuru Online',
@@ -24,11 +25,10 @@ export const metadata: Metadata = {
   }
 }
 
-export const instant = false
+
 
 const getLatestNews = cache(async (lang: string, page: number, limit: number, search?: string, categoryId?: string): Promise<NewsResponse | null> => {
-  const cmsApiUrl = process.env.NEXT_PUBLIC_CMS_API_URL || 'https://cms-api.agriguruonline.cloud'
-  const url = `${cmsApiUrl}/latestnews?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}${categoryId ? `&category_id=${categoryId}` : ''}`
+  const cmsApiUrl = getCmsApiUrl();const url = `${cmsApiUrl}/latestnews?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}${categoryId ? `&category_id=${categoryId}` : ''}`
 
   try {
     const res = await fetch(url, {
@@ -108,8 +108,8 @@ async function NewsGrid({ lang, page, limit, search, categoryId }: {
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-2 sm:px-0 mt-2">
-        {articles.map((article) => (
-          <NewsCard key={article.id} article={article} lang={lang} />
+        {articles.map((article, index) => (
+          <NewsCard priority={index < 4} key={article.id} article={article} lang={lang} />
         ))}
       </div>
       <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/news`} />
@@ -158,8 +158,7 @@ export default async function LatestNewsPage(props: {
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
   
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
-  const apiCategories = await getCategories(lang, {
+  const tradingApiUrl = getTradingApiUrl();const apiCategories = await getCategories(lang, {
     apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`,
     stale: 300,
     revalidate: 3600,

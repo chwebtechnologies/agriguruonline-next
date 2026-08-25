@@ -2,35 +2,18 @@ import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ProductChartsClient from '@/components/product-charts/ProductChartsClient'
 import { cookies } from 'next/headers'
+import { getTradingApiUrl, getUserApiUrl, getSafeLang } from '@/lib/api-utils'
 
 export const metadata: Metadata = {
   title: 'Product Charts - AgriGuru Online',
   description: 'View and manage product charts on AgriGuru Online.',
 }
 
-const TRADING_API_URL =
-  process.env.TRADING_API_URL ||
-  process.env.NEXT_PUBLIC_TRADING_API_URL ||
-  'https://trading-api.agriguruonline.cloud'
-
-const USER_API_URL =
-  process.env.USER_API_URL ||
-  process.env.NEXT_PUBLIC_USER_API_URL ||
-  'https://user-api.agriguruonline.cloud'
-
 async function getChartsInitialData(lang: string = 'en') {
-  let token = ''
-  try {
-    const cookieStore = await cookies()
-    token =
-      cookieStore.get('auth_token')?.value ||
-      cookieStore.get('__Secure-uid')?.value ||
-      ''
-  } catch (e) {
-    console.error('Error reading cookies:', e)
-  }
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth_token')?.value || ''
 
-  const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en'
+  const safeLang = getSafeLang(lang)
 
   let products: any[] = []
   let shippingTerms: any[] = []
@@ -40,8 +23,8 @@ async function getChartsInitialData(lang: string = 'en') {
 
   // 1. Fetch products safely
   try {
-    const pUrl = `${TRADING_API_URL.replace(/\/$/, '')}/product?is_active=true&lang_code=${safeLang}&source=web`
-    const res = await fetch(pUrl, { cache: 'no-store' })
+    const pUrl = `${getTradingApiUrl()}/product?is_active=true&lang_code=${safeLang}&source=web`
+    const res = await fetch(pUrl, { next: { revalidate: 300 } })
     if (res.ok) {
       const json = await res.json()
       const rawProducts = json.data?.products || (Array.isArray(json.data) ? json.data : [])
@@ -88,8 +71,8 @@ async function getChartsInitialData(lang: string = 'en') {
 
   // 2. Fetch shipping terms safely
   try {
-    const tUrl = `${TRADING_API_URL.replace(/\/$/, '')}/shipping-term?is_active=true&lang_code=${safeLang}&source=web`
-    const res = await fetch(tUrl, { cache: 'no-store' })
+    const tUrl = `${getTradingApiUrl()}/shipping-term?is_active=true&lang_code=${safeLang}&source=web`
+    const res = await fetch(tUrl, { next: { revalidate: 300 } })
     if (res.ok) {
       const json = await res.json()
       const rawTerms = json.data?.shipping_term || json.data?.shipping_terms || (Array.isArray(json.data) ? json.data : [])
@@ -112,7 +95,7 @@ async function getChartsInitialData(lang: string = 'en') {
     }
 
     try {
-      const uUrl = `${USER_API_URL.replace(/\/$/, '')}/user/my-profile?lang_code=${safeLang}&source=web`
+      const uUrl = `${getUserApiUrl()}/user/my-profile?lang_code=${safeLang}&source=web`
       const uRes = await fetch(uUrl, { headers: authHeaders, cache: 'no-store' })
       if (uRes.ok) {
         const uJson = await uRes.json()
@@ -122,19 +105,22 @@ async function getChartsInitialData(lang: string = 'en') {
             : String(uJson.data.user_type.name || '').toLowerCase()
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message?.includes('prerender') || err?.digest?.includes('DYNAMIC')) {
+        throw err;
+      }
       console.error('Failed to fetch user profile:', err)
     }
   }
 
   // Fetch favorite products unconditionally (with token if logged in, without token if guest)
+  const fHeaders: any = { 'Content-Type': 'application/json' }
+  if (token) {
+    fHeaders['Authorization'] = `Bearer ${token}`
+  }
+  
+  const fUrl = `${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`
   try {
-    const fHeaders: any = { 'Content-Type': 'application/json' }
-    if (token) {
-      fHeaders['Authorization'] = `Bearer ${token}`
-    }
-    
-    const fUrl = `${TRADING_API_URL.replace(/\/$/, '')}/favorite-product?lang_code=${safeLang}&source=web`
     const fRes = await fetch(fUrl, { headers: fHeaders, cache: 'no-store' })
     if (fRes.ok) {
       const fJson = await fRes.json()
@@ -154,11 +140,15 @@ async function getChartsInitialData(lang: string = 'en') {
           podFlag: item.destination_port?.flag || item.destination_port?.country?.flag || '',
           price: (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString(),
           change: (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString(),
-          chartStatus: item.chart_status === true || item.chart_status === 'on' || item.product?.chart_status === true || item.product?.chart_status === 'on',
+          chartStatus: item.chartStatus === true || item.chart_status === 'on' || item.product?.chart_status === true || item.product?.chart_status === 'on',
         }))
       }
     }
-  } catch (err) {
+  } catch (err: any) {
+    // Only swallow standard errors, rethrow if it's a dynamic rendering error
+    if (err?.message?.includes('prerender') || err?.digest?.includes('DYNAMIC')) {
+      throw err;
+    }
     console.error('Failed to fetch favorite products:', err)
   }
 

@@ -2,37 +2,25 @@ import React from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import DedicatedChartClient from './DedicatedChartClient';
 import { cookies } from 'next/headers';
-
-const TRADING_API_URL =
-  process.env.TRADING_API_URL ||
-  process.env.NEXT_PUBLIC_TRADING_API_URL ||
-  'https://trading-api.agriguruonline.cloud';
-
-const USER_API_URL =
-  process.env.USER_API_URL ||
-  process.env.NEXT_PUBLIC_USER_API_URL ||
-  'https://user-api.agriguruonline.cloud';
+import { getTradingApiUrl, getUserApiUrl, getSafeLang } from '@/lib/api-utils';
 
 async function getChartProductData(id: string, lang: string = 'en') {
   let token = '';
   try {
     const cookieStore = await cookies();
-    token =
-      cookieStore.get('auth_token')?.value ||
-      cookieStore.get('__Secure-uid')?.value ||
-      '';
+    token = cookieStore.get('auth_token')?.value || '';
   } catch (e) {
     console.error('Error reading cookies:', e);
   }
 
-  const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+  const safeLang = getSafeLang(lang);
   let userType: string | null = null;
   let itemData: any = null;
 
   // 1. Fetch user profile for userType
   if (token) {
     try {
-      const uRes = await fetch(`${USER_API_URL.replace(/\/$/, '')}/user/my-profile?lang_code=${safeLang}&source=web`, {
+      const uRes = await fetch(`${getUserApiUrl()}/user/my-profile?lang_code=${safeLang}&source=web`, {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         cache: 'no-store'
       });
@@ -54,7 +42,7 @@ async function getChartProductData(id: string, lang: string = 'en') {
     const fHeaders: any = { 'Content-Type': 'application/json' };
     if (token) fHeaders['Authorization'] = `Bearer ${token}`;
 
-    const fRes = await fetch(`${TRADING_API_URL.replace(/\/$/, '')}/favorite-product?lang_code=${safeLang}&source=web`, {
+    const fRes = await fetch(`${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`, {
       headers: fHeaders,
       cache: 'no-store'
     });
@@ -90,8 +78,8 @@ async function getChartProductData(id: string, lang: string = 'en') {
   // 3. Fallback to product details if not in favorites
   if (!itemData) {
     try {
-      const pRes = await fetch(`${TRADING_API_URL.replace(/\/$/, '')}/product/${encodeURIComponent(id)}?lang_code=${safeLang}&source=web`, {
-        cache: 'no-store'
+      const pRes = await fetch(`${getTradingApiUrl()}/product/${encodeURIComponent(id)}?lang_code=${safeLang}&source=web`, {
+        next: { revalidate: 300 }
       });
       if (pRes.ok) {
         const pJson = await pRes.json();

@@ -668,7 +668,7 @@ export default function MobileCommodityChart({
             <button
               onClick={() => router.back()}
               className="lg:hidden group flex items-center justify-center w-7 h-7 min-[390px]:w-8 min-[390px]:h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xs text-zinc-700 dark:text-zinc-300 hover:text-[#1D92EB] dark:hover:text-[#1D92EB] hover:border-[#1D92EB] transition-all active:scale-95 shrink-0 cursor-pointer"
-              aria-label="Back"
+              aria-label="Go Back"
             >
               <i className="fa-solid fa-arrow-left text-[12px] min-[390px]:text-[13px] text-zinc-700 dark:text-zinc-300 group-hover:text-[#1D92EB] group-hover:-translate-x-0.5 transition-transform"></i>
             </button>
@@ -1667,7 +1667,7 @@ export default function MobileCommodityChart({
                   <div className={`bg-white dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800 border-l-4 ${
                     aiSentiment.isBullish ? 'border-l-emerald-500' : 'border-l-red-500'
                   }`}>
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase">AI FORECAST & SIGNAL</div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase">AI FORECAST & SIGNAL</div>
                     <div className={`text-[12px] min-[390px]:text-[13px] font-bold mt-0.5 leading-snug ${
                       aiSentiment.isBullish ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
                     }`}>
@@ -1676,7 +1676,7 @@ export default function MobileCommodityChart({
                   </div>
 
                   <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800 border-l-4 border-l-blue-500">
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase">SUPPORT / RESISTANCE</div>
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase">SUPPORT / RESISTANCE</div>
                     <div className="text-[13px] font-bold text-foreground mt-0.5">
                       ${supportResistance.support} — ${supportResistance.resistance}
                     </div>
@@ -1684,7 +1684,7 @@ export default function MobileCommodityChart({
                 </div>
 
                 <div className="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200/60 dark:border-zinc-800 space-y-2">
-                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                  <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                     Available Packaging & Load Capacity
                   </div>
                   

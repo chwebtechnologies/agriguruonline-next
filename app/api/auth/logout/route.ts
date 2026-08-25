@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   // Get language from query param, default to en, validate strictly for 2 chars
   const url = new URL(request.url);
   const rawLang = url.searchParams.get("lang") || "en";
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   // to ensure they are sent in the Set-Cookie headers.
   response.cookies.delete("auth_token");
   response.cookies.delete("user_info");
-  response.cookies.delete("__Secure-uid");
+  // __Secure-uid code removed
 
   return response;
 }

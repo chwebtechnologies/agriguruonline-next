@@ -7,6 +7,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import { getCategories } from '@/lib/category'
 import { ForceLogout } from '@/components/auth/ForceLogout'
+import { getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
 export default async function Header() {
   const cookieStore = await cookies()
   const token = cookieStore.get('auth_token')?.value
@@ -61,8 +62,7 @@ export default async function Header() {
   }
 
   // Read configurations outside the cached scope and pass them as serializable config parameter
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
-  const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
+  const tradingApiUrl = getTradingApiUrl();const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
   const cacheStale = Number(process.env.CATEGORIES_CACHE_STALE) || 300
   const cacheRevalidate = Number(process.env.CATEGORIES_CACHE_REVALIDATE) || 3600
   const cacheExpire = Number(process.env.CATEGORIES_CACHE_EXPIRE) || 86400
@@ -89,13 +89,13 @@ export default async function Header() {
   let shouldLogout = false;
   if (token) {
     try {
-      const userApiUrl = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL;
+      const userApiUrl = getUserApiUrl();
       if (!userApiUrl) throw new Error("Missing USER_API_URL in environment");
-      const profileRes = await fetch(`${userApiUrl.replace(/\/$/, '')}/user/my-profile?lang_code=${activeLang}&source=web`, {
+      const profileRes = await fetch(`${userApiUrl}/user/my-profile?lang_code=${activeLang}&source=web`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        next: { revalidate: 300 }
+        cache: 'no-store'
       })
       if (profileRes.ok) {
         const profileJson = await profileRes.json()

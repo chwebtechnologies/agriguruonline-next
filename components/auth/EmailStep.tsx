@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { validateEmailDomain } from "@/app/actions/auth";
 import { toast } from "sonner";
+import { getUserApiUrl } from '@/lib/api-utils';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -69,7 +70,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
           }
         }
         
-        const apiUrl = process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
+        const apiUrl = getUserApiUrl();
         const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
           method: "POST",
           headers: {

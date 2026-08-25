@@ -2,18 +2,20 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import Link from 'next/link'
 import { ShareButton } from '@/components/ui/ShareButton'
 import type { VideoCategory } from '@/types/videoGallery'
+import { getAssetsUrl } from '@/lib/api-utils';
 
 interface VideoGalleryCardProps {
   category: VideoCategory;
   lang: string;
+  priority?: boolean;
 }
 
-export default function VideoGalleryCard({ category, lang }: VideoGalleryCardProps) {
+export default function VideoGalleryCard({ category, lang, priority = false }: VideoGalleryCardProps) {
   // Determine full image URL
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return '/placeholder-image.jpg'; // Fallback
     if (imagePath.startsWith('http')) return imagePath;
-    const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud';
+    const assetsUrl = getAssetsUrl();
     const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
     return `${imageBaseUrl}${imagePath}`;
   };
@@ -26,13 +28,11 @@ export default function VideoGalleryCard({ category, lang }: VideoGalleryCardPro
         href={`/${lang}/video-gallery/${category.slug}`}
         className="w-full aspect-video relative overflow-hidden bg-zinc-100 dark:bg-zinc-800 block"
       >
-        <ImageWithSkeleton
-          src={imageUrl}
+        <ImageWithSkeleton src={imageUrl}
           alt={category.category_name}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-        />
+          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" priority={priority} />
         
         {/* Play Icon Overlay */}
         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">

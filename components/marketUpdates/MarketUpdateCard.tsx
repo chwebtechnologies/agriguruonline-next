@@ -1,15 +1,16 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import type { MarketUpdateItem } from '@/types/marketUpdates'
+import { getAssetsUrl } from '@/lib/api-utils';
 
 interface MarketUpdateCardProps {
   update: MarketUpdateItem
   lang: string
+  priority?: boolean;
 }
 
-export default function MarketUpdateCard({ update, lang }: MarketUpdateCardProps) {
-  const assetsUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.cloud'
-  const imageUrl = update.thumbnail?.startsWith('http') 
+export default function MarketUpdateCard({ update, lang, priority = false }: MarketUpdateCardProps) {
+  const assetsUrl = getAssetsUrl();const imageUrl = update.thumbnail?.startsWith('http') 
     ? update.thumbnail 
     : update.thumbnail 
       ? `${assetsUrl}/${update.thumbnail}`

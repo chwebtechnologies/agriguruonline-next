@@ -1,11 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-
-const TRADING_API_URL =
-  process.env.TRADING_API_URL ||
-  process.env.NEXT_PUBLIC_TRADING_API_URL ||
-  "https://trading-api.agriguruonline.cloud";
+import { getSafeLang, getTradingApiUrl } from "@/lib/api-utils";
 
 export interface ServerActionResponse<T = any> {
   success: boolean;
@@ -23,10 +19,10 @@ export async function getShippingContainersAction(
 ): Promise<ServerActionResponse> {
   try {
     if (!productId) return { success: false, data: [] };
-    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    const safeLang = getSafeLang(lang);
     const safeProdId = encodeURIComponent(productId);
 
-    const url = `${TRADING_API_URL.replace(/\/$/, "")}/favorite-product/shipping-container/${safeProdId}?lang_code=${safeLang}&source=web`;
+    const url = `${getTradingApiUrl()}/favorite-product/shipping-container/${safeProdId}?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
 
@@ -58,10 +54,10 @@ export async function getProductDetailsAction(
 ): Promise<ServerActionResponse> {
   try {
     if (!productId) return { success: false, data: null };
-    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    const safeLang = getSafeLang(lang);
     const safeProdId = encodeURIComponent(productId);
 
-    const url = `${TRADING_API_URL.replace(/\/$/, "")}/product/${safeProdId}?lang_code=${safeLang}&source=web`;
+    const url = `${getTradingApiUrl()}/product/${safeProdId}?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
 
@@ -87,12 +83,12 @@ export async function getLoadingPortsAction(
 ): Promise<ServerActionResponse> {
   try {
     if (!productId || !shipBy || !term) return { success: false, data: [] };
-    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    const safeLang = getSafeLang(lang);
     const safeProdId = encodeURIComponent(productId);
     const safeShipBy = encodeURIComponent(shipBy);
     const safeTerm = encodeURIComponent(term);
 
-    const url = `${TRADING_API_URL.replace(/\/$/, "")}/favorite-product/loading-port/${safeProdId}/${safeShipBy}/${safeTerm}?lang_code=${safeLang}&source=web`;
+    const url = `${getTradingApiUrl()}/favorite-product/loading-port/${safeProdId}/${safeShipBy}/${safeTerm}?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
 
@@ -126,12 +122,12 @@ export async function getDestinationPortsAction(
 ): Promise<ServerActionResponse> {
   try {
     if (!productId || !shipBy || !pol) return { success: false, data: [] };
-    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    const safeLang = getSafeLang(lang);
     const safeProdId = encodeURIComponent(productId);
     const safeShipBy = encodeURIComponent(shipBy);
     const safePol = encodeURIComponent(pol);
 
-    const url = `${TRADING_API_URL.replace(/\/$/, "")}/favorite-product/destination-port/${safeProdId}/${safeShipBy}/${safePol}?lang_code=${safeLang}&source=web`;
+    const url = `${getTradingApiUrl()}/favorite-product/destination-port/${safeProdId}/${safeShipBy}/${safePol}?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
 
@@ -163,11 +159,9 @@ export async function addFavoriteProductAction(
 ): Promise<ServerActionResponse> {
   try {
     const cookieStore = await cookies();
-    const token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    const token = cookieStore.get("auth_token")?.value;
 
-    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    const safeLang = getSafeLang(lang);
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -175,7 +169,7 @@ export async function addFavoriteProductAction(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const url = `${TRADING_API_URL.replace(/\/$/, "")}/favorite-product?lang_code=${safeLang}&source=web`;
+    const url = `${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, {
       method: "POST",
       headers,
@@ -207,11 +201,9 @@ export async function deleteFavoriteProductAction(
 ): Promise<ServerActionResponse> {
   try {
     const cookieStore = await cookies();
-    const token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    const token = cookieStore.get("auth_token")?.value;
 
-    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    const safeLang = getSafeLang(lang);
     const safeId = encodeURIComponent(String(id));
 
     const headers: Record<string, string> = {
@@ -221,7 +213,7 @@ export async function deleteFavoriteProductAction(
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const url = `${TRADING_API_URL.replace(/\/$/, "")}/favorite-product/${safeId}?lang_code=${safeLang}&source=web`;
+    const url = `${getTradingApiUrl()}/favorite-product/${safeId}?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, {
       method: "DELETE",
       headers,

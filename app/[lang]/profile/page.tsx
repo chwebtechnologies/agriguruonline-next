@@ -9,17 +9,18 @@ import KycSection from '@/components/profile/KycSection';
 import MembershipCard from '@/components/profile/MembershipCard';
 import { getCategories } from '@/lib/category';
 import { ForceLogout } from '@/components/auth/ForceLogout';
+import { getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
 
 export const metadata: Metadata = {
   title: 'My Profile | AgriGuru Online',
   description: 'Manage your profile and business details on AgriGuru Online',
 };
 
-export const instant = false;
+
 
 export default async function ProfilePage(props: { params: Promise<{ lang: string }> }) {
   const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = cookieStore.get('auth_token')?.value;
   
   const params = await props.params;
   const lang = params.lang || 'en';
@@ -32,9 +33,8 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
 
   // Fetch profile data
-  const userApiUrl = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL;
-  if (!userApiUrl) throw new Error("Missing USER_API_URL in environment");
-  const profileApiUrl = `${userApiUrl.replace(/\/$/, '')}/user/my-profile?lang_code=${lang}&source=web`;
+  const userApiUrl = getUserApiUrl();
+  const profileApiUrl = `${userApiUrl}/user/my-profile?lang_code=${lang}&source=web`;
   let profileData = null;
   let shouldLogout = false;
   try {
@@ -72,84 +72,74 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     return <ForceLogout lang={lang} />;
   }
 
-  // Fetch categories using identical Next.js cached configuration as Header
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'
-  const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
+  // Parallel Fetching for Categories, Countries, and KYC
+  const tradingApiUrl = getTradingApiUrl();
+  const categoriesApiUrl = `${tradingApiUrl}/category`;
   const cacheStale = Number(process.env.CATEGORIES_CACHE_STALE) || 300
   const cacheRevalidate = Number(process.env.CATEGORIES_CACHE_REVALIDATE) || 3600
   const cacheExpire = Number(process.env.CATEGORIES_CACHE_EXPIRE) || 86400
 
-  const apiCategories = await getCategories(lang, {
-    apiUrl: categoriesApiUrl,
-    stale: cacheStale,
-    revalidate: cacheRevalidate,
-    expire: cacheExpire
-  })
+  const userId = profileData.id || profileData._id || profileData.customer_id;
 
-  // Fetch countries list on server
-  let apiCountries: any[] = [];
-  try {
-    const countriesRes = await fetch(`${tradingApiUrl.replace(/\/$/, '')}/country?lang_code=${lang}&source=web`, {
+  const [categoriesResult, countriesResult, kycResult] = await Promise.allSettled([
+    getCategories(lang, { apiUrl: categoriesApiUrl, stale: cacheStale, revalidate: cacheRevalidate, expire: cacheExpire }),
+    fetch(`${tradingApiUrl}/country?lang_code=${lang}&source=web`, { cache: 'no-store' }).then(r => r.json()),
+    fetch(`${userApiUrl}/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
+      headers: { 'Authorization': `Bearer ${token}` },
       cache: 'no-store'
-    });
-    const countriesData = await countriesRes.json();
+    }).then(r => r.json())
+  ]);
+
+  const apiCategories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
+  
+  let apiCountries: any[] = [];
+  if (countriesResult.status === 'fulfilled') {
+    const countriesData = countriesResult.value;
     if (countriesData.data?.countries && Array.isArray(countriesData.data.countries)) {
       apiCountries = countriesData.data.countries;
     } else if (Array.isArray(countriesData.data)) {
       apiCountries = countriesData.data;
     }
-  } catch (e: any) {
-    console.error("Failed to fetch countries on server", e);
+  } else {
+    console.error("Failed to fetch countries on server", countriesResult.reason);
   }
 
-  // Set KYC state from API (fallback to false if not found)
   const isKycVerified = profileData?.is_kyc_verified || false;
-
-  // Fetch KYC documents to calculate status dynamically on server
   let kycStatus = "MISSING";
   let rawKycDocs: any[] = [];
-  if (profileData) {
-    const userId = profileData.id || profileData._id || profileData.customer_id;
-    try {
-      if (!userApiUrl) throw new Error("Missing USER_API_URL in environment");
-      const kycRes = await fetch(`${userApiUrl.replace(/\/$/, '')}/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        cache: 'no-store'
+  
+  if (kycResult.status === 'fulfilled') {
+    const kycData = kycResult.value;
+    if (kycData.success && Array.isArray(kycData.data)) {
+      rawKycDocs = kycData.data;
+      const hasActive = kycData.data.some((item: any) => {
+        if (!item.is_uploaded) return false;
+        const status = item.status?.toUpperCase();
+        return status !== "REJECTED" && status !== "EXPIRED";
       });
-      const kycData = await kycRes.json();
-      if (kycData.success && Array.isArray(kycData.data)) {
-        rawKycDocs = kycData.data;
-        const hasActive = kycData.data.some((item: any) => {
-          if (!item.is_uploaded) return false;
-          const status = item.status?.toUpperCase();
-          return status !== "REJECTED" && status !== "EXPIRED";
-        });
-        
-        const hasRejected = kycData.data.some((item: any) => {
-          if (!item.is_uploaded) return false;
-          return item.status?.toUpperCase() === "REJECTED";
-        });
+      
+      const hasRejected = kycData.data.some((item: any) => {
+        if (!item.is_uploaded) return false;
+        return item.status?.toUpperCase() === "REJECTED";
+      });
 
-        const hasApproved = kycData.data.some((item: any) => {
-          if (!item.is_uploaded) return false;
-          return item.status?.toUpperCase() === "APPROVED";
-        });
+      const hasApproved = kycData.data.some((item: any) => {
+        if (!item.is_uploaded) return false;
+        return item.status?.toUpperCase() === "APPROVED";
+      });
 
-        if (hasApproved) {
-          kycStatus = "APPROVED";
-        } else if (hasActive) {
-          kycStatus = "PROCESSING";
-        } else if (hasRejected) {
-          kycStatus = "REJECTED";
-        } else {
-          kycStatus = "MISSING";
-        }
+      if (hasApproved) {
+        kycStatus = "APPROVED";
+      } else if (hasActive) {
+        kycStatus = "PROCESSING";
+      } else if (hasRejected) {
+        kycStatus = "REJECTED";
+      } else {
+        kycStatus = "MISSING";
       }
-    } catch (e) {
-      console.error("Failed to fetch KYC status on server", e);
     }
+  } else {
+    console.error("Failed to fetch KYC status on server", kycResult.reason);
   }
 
   return (
