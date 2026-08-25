@@ -40,7 +40,7 @@ export default function SearchFilter() {
   }, [searchTerm, pathname, router, createQueryString, searchParams])
 
   return (
-    <div className="w-full max-w-md mb-6 px-2 sm:px-0">
+    <div className="w-full max-w-md mb-6">
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <i className="fa-solid fa-magnifying-glass text-foreground/40 text-sm"></i>

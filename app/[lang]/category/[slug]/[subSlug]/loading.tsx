@@ -2,10 +2,10 @@ export default function Loading() {
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5 px-2 sm:px-0">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
           {/* Header Skeleton */}
           <div className="relative flex items-center justify-center mb-6 w-full min-h-[40px]">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2.5 px-2 sm:px-0">
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-ag-subheader-border animate-pulse"></div>
               <div className="hidden sm:block h-6 w-16 bg-ag-subheader-border rounded animate-pulse"></div>
             </div>

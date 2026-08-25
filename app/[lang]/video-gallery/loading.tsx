@@ -11,7 +11,7 @@ export default function Loading() {
             <div className="w-full max-w-3xl h-5 rounded bg-ag-header-border/50 animate-pulse"></div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-2 sm:px-0 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
             {[...Array(8)].map((_, i) => (
               <div 
                 key={i} 

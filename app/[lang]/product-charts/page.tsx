@@ -175,7 +175,7 @@ export default async function ChartsPage(props: { params: Promise<{ lang: string
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Product Charts" backText="Back" />
 
-          <div className="mt-4 px-2 sm:px-0">
+          <div className="mt-4">
             <ProductChartsClient
               initialProducts={initialData.products}
               initialShippingTerms={initialData.shippingTerms}

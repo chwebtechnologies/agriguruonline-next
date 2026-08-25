@@ -50,7 +50,7 @@ const getLatestNews = cache(async (lang: string, page: number, limit: number, se
 /* ---------- Skeleton shown during Suspense ---------- */
 function NewsGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-2 sm:px-0 mt-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
       {[...Array(12)].map((_, i) => (
         <div 
           key={i} 
@@ -107,7 +107,7 @@ async function NewsGrid({ lang, page, limit, search, categoryId }: {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-2 sm:px-0 mt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {articles.map((article, index) => (
           <NewsCard priority={index < 4} key={article.id} article={article} lang={lang} />
         ))}

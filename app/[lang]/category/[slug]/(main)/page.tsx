@@ -158,7 +158,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
         <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} />
 
         {data.sub_categories && data.sub_categories.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 px-2 sm:px-0">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
             {data.sub_categories.map((subCat, index) => {
               const name = getTranslatedName(subCat.translations, subCat.name)
               const imageUrl = subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`

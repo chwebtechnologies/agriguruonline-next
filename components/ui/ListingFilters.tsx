@@ -55,7 +55,7 @@ export default function ListingFilters({ categories = [] }: ListingFiltersProps)
   }
 
   return (
-    <div className={`flex flex-col sm:flex-row gap-3 w-full px-2 sm:px-0 mt-4 mb-2 ${categories.length === 0 ? 'sm:justify-end' : ''}`}>
+    <div className={`flex flex-col sm:flex-row gap-3 w-full mt-4 mb-2 ${categories.length === 0 ? 'sm:justify-end' : ''}`}>
       {/* Category Filter - LEFT */}
       {categories.length > 0 && (
         <div className="relative w-full sm:w-1/2">

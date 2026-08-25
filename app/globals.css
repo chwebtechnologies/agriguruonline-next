@@ -443,20 +443,6 @@ a, button, input, select, textarea, label, [role="button"] {
   padding-right: 1rem;
 }
 
-@media (min-width: 1024px) {
-  .pad-for-badges {
-    padding-left: max(1rem, 40px - max(0px, calc((100vw - 1280px) / 2)));
-    padding-right: max(1rem, 40px - max(0px, calc((100vw - 1280px) / 2)));
-  }
-}
-
-@media (min-width: 1280px) {
-  .pad-for-badges {
-    padding-left: max(1rem, 48px - max(0px, calc((100vw - 1280px) / 2)));
-    padding-right: max(1rem, 48px - max(0px, calc((100vw - 1280px) / 2)));
-  }
-}
-
 /* Premium Membership Plan Gradients */
 .bg-plan-silver {
   background: linear-gradient(269.31deg, rgb(93, 93, 93) 0.52%, rgb(0, 0, 0) 48.98%, rgb(97, 97, 97) 99.34%);

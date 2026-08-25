@@ -50,7 +50,7 @@ const getLatestEvents = cache(async (lang: string, page: number, limit: number, 
 /* ---------- Skeleton shown during Suspense ---------- */
 function EventsGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-2 sm:px-0 mt-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
       {[...Array(12)].map((_, i) => (
         <div 
           key={i} 
@@ -108,7 +108,7 @@ async function EventsGrid({ lang, page, limit, search, categoryId }: {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 px-2 sm:px-0 mt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {eventsList.map((eventItem, index) => (
           <EventCard priority={index < 4} key={eventItem.id} event={eventItem} lang={lang} />
         ))}

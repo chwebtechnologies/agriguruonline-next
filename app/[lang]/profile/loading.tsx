@@ -4,7 +4,7 @@ export default function ProfileLoading() {
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
           <div className="mb-6 animate-pulse">
             <div className="h-8 bg-zinc-200 dark:bg-zinc-800 rounded w-1/4 mb-2"></div>
             <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-1/2"></div>

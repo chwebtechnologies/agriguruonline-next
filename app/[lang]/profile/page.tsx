@@ -145,7 +145,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   return (
     <div className="bg-background text-foreground transition-theme">
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5 px-2 sm:px-0">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title={(common as any).profile || 'My Profile'} backText={common.back || 'Back'} />
 
           <div className="mt-4">

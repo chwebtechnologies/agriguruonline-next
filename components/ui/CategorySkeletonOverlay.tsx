@@ -15,7 +15,7 @@ export default function CategorySkeletonOverlay() {
             <div className="h-8 sm:h-10 bg-ag-subheader-border rounded-md w-48 sm:w-64 animate-pulse"></div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 px-2 sm:px-0">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
             {Array.from({ length: 8 }).map((_, index) => (
               <div 
                 key={index} 

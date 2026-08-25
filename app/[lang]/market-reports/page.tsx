@@ -63,7 +63,7 @@ const getMarketReports = cache(async (lang: string, page: number, limit: number,
 /* ---------- Skeleton shown during Suspense ---------- */
 function MarketReportsGridSkeleton() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 px-2 sm:px-0 mt-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
       {[...Array(10)].map((_, i) => (
         <div 
           key={i} 
@@ -129,7 +129,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 px-2 sm:px-0 mt-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
         {reports.map((report: any, index: number) => (
           <MarketReportCard priority={index < 4} key={report.id || report._id || Math.random()} report={report} lang={lang} />
         ))}
