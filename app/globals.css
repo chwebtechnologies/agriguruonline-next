@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @import "@fortawesome/fontawesome-free/css/all.min.css";
 
 @font-face {
@@ -34,194 +35,242 @@ body {
 }
 
 :root {
-  /* Primitive color definitions (proper color codes registry) */
-  --raw-white: #ffffff;
-  --raw-black: #000000;
-  
-  --raw-slate-50: #f8fafc;
-  --raw-slate-100: #f1f5f9;
-  --raw-slate-200: #e2e8f0;
-  --raw-slate-300: #cbd5e1;
-  --raw-slate-500: #64748b;
-  --raw-slate-600: #475569;
-  --raw-slate-700: #334155;
-  --raw-slate-900: #0f172a;
-  
-  --raw-zinc-800: #27272a;
-  --raw-zinc-900: #18181b;
-  --raw-zinc-950: #0a0a0a;
-  
-  --raw-teal-50: #e8f4fc;
-  --raw-teal-800: #1D92EB;
-  
+  /* ==========================================================================
+     Apple Human Interface Guidelines (HIG) Standard System Colors
+     Reference: https://developer.apple.com/design/human-interface-guidelines/color
+     ========================================================================== */
+
+  /* Standard Apple System Grays (Light Mode) */
+  --apple-gray-1: #8E8E93;
+  --apple-gray-2: #AEAEB2;
+  --apple-gray-3: #C7C7CC;
+  --apple-gray-4: #D1D1D6;
+  --apple-gray-5: #E5E5EA;
+  --apple-gray-6: #F2F2F7;
+
+  /* Standard Apple System Labels / Text Hierarchy (Light Mode) */
+  --apple-label: #1D1D1F;
+  --apple-secondary-label: #6E6E73;
+  --apple-tertiary-label: #86868B;
+  --apple-quaternary-label: #C7C7CC;
+
+  /* Standard Apple System Backgrounds (Light Mode) */
+  --apple-system-bg: #FFFFFF;
+  --apple-system-secondary-bg: #F2F2F7;
+  --apple-system-tertiary-bg: #FFFFFF;
+  --apple-system-grouped-bg: #F2F2F7;
+  --apple-system-secondary-grouped-bg: #FFFFFF;
+  --apple-system-tertiary-grouped-bg: #F2F2F7;
+
+  /* Standard Apple System Separators (Light Mode) */
+  --apple-separator: #E5E5EA;
+  --apple-opaque-separator: #D1D1D6;
+
+  /* ==========================================================================
+     AgriGuru Brand Colors & Gradients (100% EXACT / 0% CHANGE)
+     ========================================================================== */
   --brand-blue: #1D92EB;
   --brand-green: #2AAF85;
   --brand-red: #DB5F67;
-  
-  --raw-emerald-500: var(--brand-green);
-  --raw-emerald-600: #239470;
-  
-  --raw-sky-600: var(--brand-blue);
-  --raw-sky-400: #6cbfff;
 
-  /* Default semantic fallback mapping (Defaulting to light theme mapping) */
-  --ag-announcement-bg: var(--raw-teal-50);
-  --ag-announcement-text: var(--raw-teal-800);
-  
-  --ag-header-bg: var(--raw-white);
-  --ag-header-text: var(--raw-slate-900);
-  --ag-header-border: var(--raw-slate-300);
-  
-  --ag-subheader-bg: var(--raw-slate-50);
-  --ag-subheader-text: var(--raw-slate-600);
-  --ag-subheader-border: var(--raw-slate-200);
-  
-  --ag-search-bg: var(--raw-slate-100);
-  --ag-search-border: var(--raw-slate-300);
-  --ag-search-text: var(--raw-slate-900);
-  --ag-search-placeholder: var(--raw-slate-500);
-  
-  --ag-dropdown-bg: var(--raw-white);
-  --ag-dropdown-border: var(--raw-slate-200);
-  --ag-dropdown-text: var(--raw-slate-700);
-  --ag-dropdown-hover-bg: var(--raw-slate-100);
-  --ag-dropdown-hover-text: var(--raw-slate-900);
-
-  --ag-nav-link: var(--raw-slate-600);
-  --ag-nav-link-hover: var(--raw-slate-900);
-  
-  --ag-login-bg: var(--raw-slate-100);
-  --ag-login-border: var(--raw-slate-300);
-  --ag-login-text: var(--raw-slate-700);
-  
-  --ag-footer-bg: var(--raw-slate-100);
-  --ag-footer-border: var(--raw-slate-300);
-  --ag-footer-bottom-bg: var(--raw-slate-200);
-  --ag-footer-card-bg: var(--raw-white);
-  --ag-footer-heading-text: var(--raw-slate-900);
-  --ag-footer-text: var(--raw-slate-700);
-  
   --ag-primary: var(--brand-blue);
   --ag-primary-hover: #1080d0;
-  --ag-accent-cyan: var(--raw-sky-600);
+  --ag-accent-cyan: var(--brand-blue);
+
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
-  
-  /* Custom Backgrounds as requested */
-  --ag-bg-main: #ffffff;
-  --ag-bg-alt: #eaeaea;
-  
-  --background: var(--raw-white);
-  --foreground: var(--raw-slate-900);
+
+  /* ==========================================================================
+     Semantic Fallbacks (Defaulting to Apple Light Theme)
+     ========================================================================== */
+  --background: #F5F5F7;
+  --foreground: var(--apple-label);
+
+  --ag-card-bg: #FFFFFF;
+  --ag-bg-main: #F5F5F7;
+  --ag-bg-alt: #FFFFFF;
+
+  --ag-announcement-bg: #e8f4fc;
+  --ag-announcement-text: var(--brand-blue);
+
+  --ag-header-bg: #FFFFFF;
+  --ag-header-text: var(--apple-label);
+  --ag-header-border: var(--apple-separator);
+
+  --ag-subheader-bg: #FFFFFF;
+  --ag-subheader-text: var(--apple-secondary-label);
+  --ag-subheader-border: var(--apple-separator);
+
+  --ag-search-bg: #F2F2F7;
+  --ag-search-border: #E5E5EA;
+  --ag-search-text: #1D1D1F;
+  --ag-search-placeholder: #6E6E73;
+  --ag-search-kbd-bg: #FFFFFF;
+  --ag-search-kbd-border: #D1D1D6;
+  --ag-search-kbd-text: #6E6E73;
+
+  --ag-dropdown-bg: #FFFFFF;
+  --ag-dropdown-border: var(--apple-separator);
+  --ag-dropdown-text: var(--apple-label);
+  --ag-dropdown-hover-bg: #F2F2F7;
+  --ag-dropdown-hover-text: #000000;
+
+  --ag-nav-link: var(--apple-secondary-label);
+  --ag-nav-link-hover: var(--apple-label);
+
+  --ag-login-bg: #F2F2F7;
+  --ag-login-border: var(--apple-separator);
+  --ag-login-text: var(--apple-label);
+
+  --ag-footer-bg: #FFFFFF;
+  --ag-footer-border: var(--apple-separator);
+  --ag-footer-bottom-bg: #F2F2F7;
+  --ag-footer-card-bg: #FFFFFF;
+  --ag-footer-heading-text: var(--apple-label);
+  --ag-footer-text: var(--apple-secondary-label);
 }
 
-/* Explicit Light Theme configuration override */
+/* Explicit Light Theme Configuration */
 .light {
-  --ag-announcement-bg: var(--raw-teal-50);
-  --ag-announcement-text: var(--raw-teal-800);
-  
-  --ag-header-bg: var(--raw-white);
-  --ag-header-text: var(--raw-slate-900);
-  --ag-header-border: var(--raw-slate-300);
-  
-  --ag-subheader-bg: var(--raw-slate-50);
-  --ag-subheader-text: var(--raw-slate-600);
-  --ag-subheader-border: var(--raw-slate-200);
-  
-  --ag-search-bg: var(--raw-slate-100);
-  --ag-search-border: var(--raw-slate-300);
-  --ag-search-text: var(--raw-slate-900);
-  --ag-search-placeholder: var(--raw-slate-500);
-  
-  --ag-dropdown-bg: var(--raw-white);
-  --ag-dropdown-border: var(--raw-slate-200);
-  --ag-dropdown-text: var(--raw-slate-700);
-  --ag-dropdown-hover-bg: var(--raw-slate-100);
-  --ag-dropdown-hover-text: var(--raw-slate-900);
+  --background: #F5F5F7;
+  --foreground: #1D1D1F;
 
-  --ag-nav-link: var(--raw-slate-600);
-  --ag-nav-link-hover: var(--raw-slate-900);
-  
-  --ag-login-bg: var(--raw-slate-100);
-  --ag-login-border: var(--raw-slate-300);
-  --ag-login-text: var(--raw-slate-700);
-  
-  --ag-footer-bg: var(--raw-slate-100);
-  --ag-footer-border: var(--raw-slate-300);
-  --ag-footer-bottom-bg: var(--raw-slate-200);
-  --ag-footer-card-bg: var(--raw-white);
-  --ag-footer-heading-text: var(--raw-slate-900);
-  --ag-footer-text: var(--raw-slate-700);
-  
+  --ag-card-bg: #FFFFFF;
+  --ag-bg-main: #F5F5F7;
+  --ag-bg-alt: #FFFFFF;
+
+  --ag-announcement-bg: #e8f4fc;
+  --ag-announcement-text: var(--brand-blue);
+
+  --ag-header-bg: #FFFFFF;
+  --ag-header-text: #1D1D1F;
+  --ag-header-border: #E5E5EA;
+
+  --ag-subheader-bg: #FFFFFF;
+  --ag-subheader-text: #6E6E73;
+  --ag-subheader-border: #E5E5EA;
+
+  --ag-search-bg: #F2F2F7;
+  --ag-search-border: #E5E5EA;
+  --ag-search-text: #1D1D1F;
+  --ag-search-placeholder: #6E6E73;
+  --ag-search-kbd-bg: #FFFFFF;
+  --ag-search-kbd-border: #D1D1D6;
+  --ag-search-kbd-text: #6E6E73;
+
+  --ag-dropdown-bg: #FFFFFF;
+  --ag-dropdown-border: #E5E5EA;
+  --ag-dropdown-text: #1D1D1F;
+  --ag-dropdown-hover-bg: #F2F2F7;
+  --ag-dropdown-hover-text: #000000;
+
+  --ag-nav-link: #6E6E73;
+  --ag-nav-link-hover: #1D1D1F;
+
+  --ag-login-bg: #F2F2F7;
+  --ag-login-border: #E5E5EA;
+  --ag-login-text: #1D1D1F;
+
+  --ag-footer-bg: #FFFFFF;
+  --ag-footer-border: #E5E5EA;
+  --ag-footer-bottom-bg: #F2F2F7;
+  --ag-footer-card-bg: #FFFFFF;
+  --ag-footer-heading-text: #1D1D1F;
+  --ag-footer-text: #6E6E73;
+
   --ag-primary: var(--brand-blue);
   --ag-primary-hover: #1080d0;
-  --ag-accent-cyan: var(--raw-sky-600);
+  --ag-accent-cyan: var(--brand-blue);
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
-  
-  /* Custom Backgrounds as requested */
-  --ag-bg-main: #ffffff;
-  --ag-bg-alt: #eaeaea;
-  
-  --background: var(--raw-white);
-  --foreground: var(--raw-slate-900);
 }
 
-/* Explicit Dark Theme configuration override */
+/* Explicit Apple HIG Dark Theme Configuration */
 .dark {
-  --ag-announcement-bg: var(--raw-teal-800);
-  --ag-announcement-text: var(--raw-white);
-  
-  --ag-header-bg: var(--raw-zinc-950);
-  --ag-header-text: var(--raw-white);
-  --ag-header-border: var(--raw-zinc-800);
-  
-  --ag-subheader-bg: var(--raw-zinc-900);
-  --ag-subheader-text: var(--raw-slate-200);
-  --ag-subheader-border: var(--raw-zinc-800);
-  
-  --ag-search-bg: var(--raw-zinc-900);
-  --ag-search-border: var(--raw-zinc-800);
-  --ag-search-text: var(--raw-white);
-  --ag-search-placeholder: var(--raw-slate-500);
-  
-  --ag-dropdown-bg: var(--raw-zinc-900);
-  --ag-dropdown-border: var(--raw-zinc-800);
-  --ag-dropdown-text: var(--raw-slate-200);
-  --ag-dropdown-hover-bg: var(--raw-zinc-800);
-  --ag-dropdown-hover-text: var(--raw-white);
+  /* Standard Apple System Grays (Dark Mode) */
+  --apple-gray-1: #8E8E93;
+  --apple-gray-2: #636366;
+  --apple-gray-3: #48484A;
+  --apple-gray-4: #3A3A3C;
+  --apple-gray-5: #2C2C2E;
+  --apple-gray-6: #1C1C1E;
 
-  --ag-nav-link: var(--raw-slate-200);
-  --ag-nav-link-hover: var(--raw-white);
-  
-  --ag-login-bg: var(--raw-zinc-900);
-  --ag-login-border: var(--raw-zinc-800);
-  --ag-login-text: var(--raw-slate-200);
-  
-  --ag-footer-bg: #111111;
-  --ag-footer-border: var(--raw-zinc-800);
-  --ag-footer-bottom-bg: #090909;
-  --ag-footer-card-bg: var(--raw-zinc-950);
-  --ag-footer-heading-text: var(--raw-white);
-  --ag-footer-text: var(--raw-slate-200);
-  
+  /* Standard Apple System Labels / Text Hierarchy (Dark Mode) */
+  --apple-label: #FFFFFF;
+  --apple-secondary-label: #8E8E93;
+  --apple-tertiary-label: #8E8E93;
+  --apple-quaternary-label: #48484A;
+
+  /* Standard Apple System Backgrounds (Dark Mode) */
+  --apple-system-bg: #000000;
+  --apple-system-secondary-bg: #1C1C1E;
+  --apple-system-tertiary-bg: #2C2C2E;
+  --apple-system-grouped-bg: #000000;
+  --apple-system-secondary-grouped-bg: #1C1C1E;
+  --apple-system-tertiary-grouped-bg: #2C2C2E;
+
+  /* Standard Apple System Separators (Dark Mode) */
+  --apple-separator: #2C2C2E;
+  --apple-opaque-separator: #38383A;
+
+  --background: #000000;
+  --foreground: #F5F5F7;
+
+  --ag-card-bg: #1C1C1E;
+  --ag-bg-main: #000000;
+  --ag-bg-alt: #1C1C1E;
+
+  --ag-announcement-bg: var(--brand-blue);
+  --ag-announcement-text: #FFFFFF;
+
+  --ag-header-bg: #161618;
+  --ag-header-text: #FFFFFF;
+  --ag-header-border: #2C2C2E;
+
+  --ag-subheader-bg: #161618;
+  --ag-subheader-text: #A1A1A6;
+  --ag-subheader-border: #2C2C2E;
+
+  --ag-search-bg: #242426;
+  --ag-search-border: #38383A;
+  --ag-search-text: #FFFFFF;
+  --ag-search-placeholder: #8E8E93;
+  --ag-search-kbd-bg: #2C2C2E;
+  --ag-search-kbd-border: #38383A;
+  --ag-search-kbd-text: #8E8E93;
+
+  --ag-dropdown-bg: #1C1C1E;
+  --ag-dropdown-border: #2C2C2E;
+  --ag-dropdown-text: #F5F5F7;
+  --ag-dropdown-hover-bg: #2C2C2E;
+  --ag-dropdown-hover-text: #FFFFFF;
+
+  --ag-nav-link: #8E8E93;
+  --ag-nav-link-hover: #FFFFFF;
+
+  --ag-login-bg: #2C2C2E;
+  --ag-login-border: #38383A;
+  --ag-login-text: #FFFFFF;
+
+  --ag-footer-bg: #161618;
+  --ag-footer-border: #2C2C2E;
+  --ag-footer-bottom-bg: #242426;
+  --ag-footer-card-bg: #1C1C1E;
+  --ag-footer-heading-text: #FFFFFF;
+  --ag-footer-text: #8E8E93;
+
   --ag-primary: var(--brand-blue);
   --ag-primary-hover: #1080d0;
-  --ag-accent-cyan: var(--raw-sky-400);
+  --ag-accent-cyan: #6cbfff;
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
-  
-  /* Custom Backgrounds as requested */
-  --ag-bg-main: #211f1f;
-  --ag-bg-alt: #000000;
-  
-  --background: var(--raw-zinc-950);
-  --foreground: var(--raw-slate-200);
 }
 
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--ag-card-bg);
+  --color-ag-card-bg: var(--ag-card-bg);
   --color-primary: var(--ag-primary);
   --color-primary-hover: var(--ag-primary-hover);
   
@@ -248,6 +297,9 @@ body {
   --color-ag-search-border: var(--ag-search-border);
   --color-ag-search-text: var(--ag-search-text);
   --color-ag-search-placeholder: var(--ag-search-placeholder);
+  --color-ag-search-kbd-bg: var(--ag-search-kbd-bg);
+  --color-ag-search-kbd-border: var(--ag-search-kbd-border);
+  --color-ag-search-kbd-text: var(--ag-search-kbd-text);
   
   --color-ag-dropdown-bg: var(--ag-dropdown-bg);
   --color-ag-dropdown-border: var(--ag-dropdown-border);

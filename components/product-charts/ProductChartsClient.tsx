@@ -1029,8 +1029,8 @@ export default function ProductChartsClient({
       )}
 
       <div className="w-full relative">
-        {/* Header / Input Row */}
-        <div className={`hidden lg:grid ${gridCols} gap-2 mb-3 items-end sticky top-0 z-40 bg-zinc-50/90 dark:bg-[#121212]/90 backdrop-blur-md py-3 px-2 -mx-2 border-b border-zinc-200/50 dark:border-zinc-800/50 rounded-b-lg shadow-sm`}>
+        {/* Header / Input Row (Seamless without card background) */}
+        <div className={`hidden lg:grid ${gridCols} gap-2 mb-3 items-end sticky top-0 z-40 bg-background/95 backdrop-blur-md py-2 px-0`}>
           {/* 1. Category */}
           <div className="w-full">
             <SearchableSelect 
@@ -1547,7 +1547,7 @@ export default function ProductChartsClient({
               </div>
             </>
           ) : (
-            <div className="flex flex-col gap-1.5 lg:gap-2.5">
+            <div className="flex flex-col gap-[7px] lg:gap-3">
               {addedProducts.map((item, index) => {
                 const changeVal = Number(item.change) || 0;
                 const isPositive = changeVal >= 0;
@@ -1672,8 +1672,8 @@ export default function ProductChartsClient({
         </div>
 
         {/* Global Actions Bar for Mobile/Tablet - Sticky when products overflow */}
-        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-white/95 dark:bg-[#121212]/95 backdrop-blur-sm border-t border-zinc-200 dark:border-zinc-800 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)] mt-3">
-          <button className="px-5 py-[9px] bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-md text-[14px] hover:bg-zinc-50 dark:hover:bg-zinc-700 shadow-sm transition-colors">
+        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 backdrop-blur-sm border-t border-ag-header-border shadow-xs mt-3 pointer-events-auto">
+          <button className="px-5 py-[9px] bg-card hover:bg-ag-search-bg border border-ag-header-border text-foreground font-semibold rounded-md text-[14px] shadow-sm transition-colors">
              Inquiry / Offer
           </button>
           <div className="relative flex items-center justify-center">
@@ -1767,9 +1767,9 @@ export default function ProductChartsClient({
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <button 
               onClick={() => setShowMobileAddForm(false)}
-              className="w-7 h-7 rounded-full bg-zinc-400 dark:bg-zinc-700 text-white flex items-center justify-center transition-transform active:scale-95"
+              className="w-8 h-8 rounded-full bg-card border border-ag-header-border text-foreground flex items-center justify-center transition-transform hover:bg-ag-search-bg active:scale-95 shadow-xs"
             >
-              <i className="fa-solid fa-chevron-left text-xs pr-0.5"></i>
+              <i className="fa-solid fa-chevron-left text-[13px] pr-0.5"></i>
             </button>
             <h2 className="text-[19px] font-bold">
               {'Add Product'.split(' ').map((word, index, arr) => (

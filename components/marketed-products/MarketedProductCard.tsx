@@ -95,8 +95,8 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
   return (
     <>
-      <div className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm">
-        <div className="relative w-full aspect-square bg-background overflow-hidden border-b border-ag-header-border">
+      <div className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs">
+        <div className="relative w-full aspect-square bg-ag-subheader-bg/20 overflow-hidden border-b border-ag-header-border">
           <ImageWithSkeleton
             src={imageUrl}
             alt={product.name}

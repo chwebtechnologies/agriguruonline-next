@@ -87,10 +87,10 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
     <>
       <button 
         onClick={handleOpenReport}
-        className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden h-full shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-200 relative text-left w-full focus:outline-none"
+        className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden h-full shadow-xs hover:shadow-lg hover:border-primary/40 transition-all duration-300 relative text-left w-full focus:outline-none cursor-pointer"
       >
         {/* Label Badge */}
-        <div className="absolute top-3 right-3 z-10 bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-md shadow-sm flex items-center">
+        <div className="absolute top-3 right-3 z-10 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center">
           <span>{categoryName}</span>
         </div>
 

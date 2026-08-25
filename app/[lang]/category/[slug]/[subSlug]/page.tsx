@@ -126,9 +126,9 @@ export default async function SubCategoryProductsPage(
             return (
               <div 
                 key={product.id}
-                className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm"
+                className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
               >
-                <div className="relative w-full aspect-square bg-background overflow-hidden border-b border-ag-header-border">
+                <div className="relative w-full aspect-square bg-ag-subheader-bg/30 overflow-hidden border-b border-ag-header-border">
                   <ImageWithSkeleton
                     src={imageUrl}
                     alt={product.name}
@@ -139,23 +139,23 @@ export default async function SubCategoryProductsPage(
                   />
                 </div>
                 
-                <div className="p-2 flex flex-col flex-1">
-                  <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                <div className="p-2 sm:p-3 flex flex-col flex-1">
+                  <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
                     {product.name}
                   </h2>
                   
                   <div className="mt-auto space-y-1.5">
-                    <button className="w-full bg-brand-blue hover:bg-[#157dc9] text-zinc-900 py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1.5">
+                    <button className="w-full bg-brand-blue hover:opacity-90 text-white font-bold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer">
                       <i className="fa-solid fa-plus text-xs"></i>
                       {common.addProduct}
                     </button>
                     
                     <div className="grid grid-cols-2 gap-1.5">
-                      <button className="bg-brand-green hover:bg-[#229670] text-zinc-900 py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
+                      <button className="bg-brand-green hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer">
                         <i className="fa-solid fa-cart-shopping text-[10px]"></i>
                         {common.buy}
                       </button>
-                      <button className="bg-brand-red hover:bg-[#c4535a] text-zinc-900 py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
+                      <button className="bg-brand-red hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer">
                         <i className="fa-solid fa-tag text-[10px]"></i>
                         {common.sell}
                       </button>
@@ -163,7 +163,7 @@ export default async function SubCategoryProductsPage(
                     
                     <Link 
                       href={`/${lang}/product/${product.slug}`} 
-                      className="w-full block text-center border border-ag-header-border hover:bg-ag-subheader-bg text-foreground py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors mt-0.5"
+                      className="w-full block text-center border border-ag-header-border bg-background hover:bg-ag-dropdown-hover-bg text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
                     >
                       {common.viewDetails}
                     </Link>

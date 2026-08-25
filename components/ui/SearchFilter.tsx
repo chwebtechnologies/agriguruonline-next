@@ -47,7 +47,7 @@ export default function SearchFilter() {
         </div>
         <input
           type="text"
-          className="block w-full pl-9 pr-10 py-2.5 bg-background border border-ag-header-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all"
+          className="block w-full pl-9 pr-10 py-2.5 bg-card border border-ag-header-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all shadow-2xs"
           placeholder="Search..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}

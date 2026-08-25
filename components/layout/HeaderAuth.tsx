@@ -188,10 +188,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const dropdownCategories = categoriesList.slice(finalFitCount)
 
   return (
-    <div className="w-full flex flex-col z-50 bg-[#121212] transition-theme sticky top-0" dir={dir}>
+    <div className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
 
       {/* 2. Main Header Bar (Always sticky) */}
-      <header className="w-full bg-ag-header-bg text-ag-header-text py-2.5 px-4 border-b border-ag-header-border shadow-md transition-all duration-300">
+      <header className="w-full bg-ag-header-bg text-ag-header-text py-2.5 px-4 border-b border-ag-header-border shadow-sm transition-all duration-300">
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
 
           {/* Left side group containing Logo/Menu and Search bar with short spacing */}
@@ -243,15 +243,15 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               <form 
                 action={`/${activeLang}/search`} 
                 method="GET" 
-                className="relative w-full"
+                className="group relative w-full"
                 onSubmit={(e) => {
                   if (searchQuery.trim().length > 0 && searchQuery.trim().length < 3) {
                     e.preventDefault();
                   }
                 }}
               >
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <i className="fa-solid fa-magnifying-glass text-ag-search-placeholder text-[14px]"></i>
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                  <i className="fa-solid fa-magnifying-glass text-ag-search-placeholder group-focus-within:text-brand-blue transition-colors text-[13px]"></i>
                 </div>
                 <input
                   type="search"
@@ -259,22 +259,22 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   placeholder={dict.header.search_placeholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-8 sm:pr-20 text-xs sm:text-sm text-ag-search-text placeholder-ag-search-placeholder focus:border-brand-blue focus:bg-background focus:ring-0 outline-none transition-all"
+                  className="w-full h-10 rounded-full border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-8 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-ag-search-text placeholder:text-ag-search-placeholder focus:bg-ag-card-bg focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
                 />
                 
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10"
+                    className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10 cursor-pointer"
                     aria-label="Clear search"
                   >
-                    <i className="fa-solid fa-circle-xmark text-[15px]"></i>
+                    <i className="fa-solid fa-circle-xmark text-[14px]"></i>
                   </button>
                 )}
 
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                  <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5.5 select-none rounded border border-ag-search-border bg-ag-search-bg px-1.5 font-mono text-[9px] font-bold text-ag-search-placeholder">
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none">
+                  <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5 select-none rounded-full border border-ag-search-kbd-border bg-ag-search-kbd-bg px-2 font-mono text-[10px] font-bold text-ag-search-kbd-text shadow-2xs">
                     <span>{isMac ? '⌘' : 'Ctrl'}</span>K
                   </kbd>
                 </div>
@@ -370,7 +370,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 shadow-inner transition-all duration-300 ease-in-out border-b border-ag-subheader-border ${
+        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 transition-all duration-300 ease-in-out border-b border-ag-subheader-border ${
           isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
       >

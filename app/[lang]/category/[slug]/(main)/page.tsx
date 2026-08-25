@@ -166,9 +166,9 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
               return (
                 <div 
                   key={subCat.id} 
-                  className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-sm"
+                  className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                 >
-                  <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-background overflow-hidden border-b border-ag-header-border block">
+                  <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-ag-subheader-bg/20 overflow-hidden border-b border-ag-header-border block">
                     <ImageWithSkeleton
                       src={imageUrl}
                       alt={name}
@@ -179,17 +179,17 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                     />
                   </ProductLink>
                   
-                  <div className="px-2 sm:px-3 py-2 sm:py-2.5 flex flex-col">
-                    <h3 className="text-[16px] sm:text-[19px] font-semibold text-foreground mb-0 sm:mb-1 line-clamp-1" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                  <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
+                    <h3 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
                       <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="hover:text-brand-blue transition-colors">
                         {name}
                       </ProductLink>
                     </h3>
                     
-                    <div className="flex items-center justify-between mt-0 sm:mt-0">
+                    <div className="flex items-center justify-between mt-1">
                       <ProductLink 
                         href={`/${lang}/category/${slug}/${subCat.slug}`}
-                        className="text-[11px] sm:text-[13px] uppercase tracking-wide font-bold text-brand-blue hover:text-[#1080d0] transition-colors flex items-center gap-1 sm:gap-1.5 group/link"
+                        className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-brand-blue hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
                       >
                         {common.explore}
                         <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>

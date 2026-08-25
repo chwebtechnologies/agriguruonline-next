@@ -23,10 +23,10 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
   const imageUrl = getImageUrl(category.image);
 
   return (
-    <article className="group flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden h-full shadow-sm hover:shadow-md transition-all duration-300 hover:border-primary/50 relative">
+    <article className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden h-full shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">
       <Link 
         href={`/${lang}/video-gallery/${category.slug}`}
-        className="w-full aspect-video relative overflow-hidden bg-zinc-100 dark:bg-zinc-800 block"
+        className="w-full aspect-video relative overflow-hidden bg-ag-subheader-bg/30 block"
       >
         <ImageWithSkeleton src={imageUrl}
           alt={category.category_name}

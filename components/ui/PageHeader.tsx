@@ -16,8 +16,8 @@ export function PageHeader({ title, backText = "Back", hideBack = false }: { tit
             className="group flex items-center gap-2.5 text-foreground hover:text-[#1D92EB] dark:hover:text-[#1D92EB] transition-colors p-2 cursor-pointer"
             aria-label="Go back"
           >
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background border border-ag-header-border shadow-sm group-hover:border-ag-primary transition-colors">
-              <i className="fa-solid fa-arrow-left text-[14px] group-hover:-translate-x-0.5 transition-transform"></i>
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-card border border-ag-header-border shadow-sm group-hover:border-ag-primary transition-colors">
+              <i className="fa-solid fa-arrow-left text-[14px] text-foreground group-hover:-translate-x-0.5 transition-transform"></i>
             </div>
             <span className="text-[21px] font-bold hidden sm:block leading-none pb-[2px]">{backText}</span>
           </button>

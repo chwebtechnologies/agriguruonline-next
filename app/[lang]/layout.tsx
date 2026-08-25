@@ -19,8 +19,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#fafafa' },
-    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -49,8 +49,8 @@ export default async function LocalizedRootLayout({
         <link rel="dns-prefetch" href="https://user-api.agriguruonline.cloud" />
         <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
       </head>
-      <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900 transition-colors duration-200 dark:bg-zinc-950 dark:text-zinc-50">
-        <Suspense fallback={<div className="h-10 w-full bg-[#1D92EB] shrink-0" />}>
+      <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200">
+        <Suspense fallback={<div className="h-10 w-full bg-primary-gradient shrink-0" />}>
           <AnnouncementBar />
         </Suspense>
 

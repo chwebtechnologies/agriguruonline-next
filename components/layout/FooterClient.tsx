@@ -260,7 +260,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       </div>
 
       {/* Copyright Bar */}
-      <div className="w-full py-3.5 text-center text-[13px] border-t border-ag-footer-border bg-ag-footer-bottom-bg text-zinc-600 font-bold transition-theme">
+      <div className="w-full py-3.5 text-center text-[13px] border-t border-ag-footer-border bg-ag-footer-bottom-bg text-ag-footer-text font-semibold transition-theme">
         <div className="mx-auto max-w-7xl px-4 flex items-center justify-center">
           <span>{dict.footer.copyright}</span>
         </div>
@@ -305,7 +305,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
         {showScrollTop && (
           <button
             onClick={scrollToTop}
-            className="flex h-9.5 w-9.5 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white shadow-xl hover:scale-115 active:scale-95 duration-200 transition-all"
+            className="flex h-9.5 w-9.5 items-center justify-center rounded-full bg-ag-login-bg border border-ag-login-border text-ag-login-text hover:text-brand-blue shadow-lg hover:scale-115 active:scale-95 duration-200 transition-all cursor-pointer"
             aria-label="Scroll to top"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="h-4 w-4">
@@ -333,20 +333,20 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
             className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 min-[390px]:gap-1 transition-all duration-200 py-1 px-0.5 rounded-lg select-none group text-center ${
               tab.isActive 
                 ? 'text-brand-blue scale-105' 
-                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                : 'text-ag-nav-link hover:text-ag-nav-link-hover'
             }`}
           >
             <div className="flex h-6 min-[390px]:h-6.5 w-6 min-[390px]:w-6.5 items-center justify-center shrink-0 transition-transform duration-200 group-active:scale-90">
               <i className={`${tab.iconClass} text-[19px] min-[390px]:text-[21px] transition-all duration-200 ${
                 tab.isActive 
                   ? 'text-brand-blue drop-shadow-[0_0_8px_rgba(29,146,235,0.35)]' 
-                  : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-700 dark:group-hover:text-zinc-200'
+                  : 'text-ag-nav-link group-hover:text-ag-nav-link-hover'
               }`} />
             </div>
             <span className={`text-[10px] min-[360px]:text-[11px] min-[390px]:text-[12px] font-bold tracking-tight transition-colors duration-200 truncate max-w-full px-0.5 whitespace-nowrap leading-tight text-center block ${
               tab.isActive 
                 ? 'text-brand-blue font-extrabold' 
-                : 'text-zinc-500 group-hover:text-zinc-700 dark:text-zinc-400 dark:group-hover:text-zinc-200'
+                : 'text-ag-nav-link group-hover:text-ag-nav-link-hover'
               }`}>
               {tab.label}
             </span>

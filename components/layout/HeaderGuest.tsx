@@ -247,10 +247,10 @@ export function HeaderGuestBase({
   const dropdownCategories = categoriesList.slice(finalFitCount)
 
   return (
-    <div className="w-full flex flex-col z-50 bg-[#121212] transition-theme sticky top-0" dir={dir}>
+    <div className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
 
       {/* 2. Main Header Bar */}
-      <header className="w-full bg-ag-header-bg text-ag-header-text py-2.5 px-4 border-b border-ag-header-border shadow-md transition-all duration-300">
+      <header className="w-full bg-ag-header-bg text-ag-header-text py-2.5 px-4 border-b border-ag-header-border shadow-sm transition-all duration-300">
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
           
           <div className="flex items-center flex-1 gap-3 md:gap-4">
@@ -293,20 +293,20 @@ export function HeaderGuestBase({
             {/* Search bar next to logo */}
             <div className="flex-1 max-w-sm md:max-w-md lg:max-w-lg">
               {loading ? (
-                <div className="w-full h-10 rounded-lg bg-ag-search-bg border border-ag-search-border animate-pulse" />
+                <div className="w-full h-10 rounded-full bg-ag-search-bg border border-ag-search-border animate-pulse" />
               ) : (
                 <form 
                   action={`/${activeLang}/search`} 
                   method="GET" 
-                  className="relative w-full"
+                  className="group relative w-full"
                   onSubmit={(e) => {
                     if (searchQuery.trim().length > 0 && searchQuery.trim().length < 3) {
                       e.preventDefault();
                     }
                   }}
                 >
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <i className="fa-solid fa-magnifying-glass text-ag-search-placeholder text-[14px]"></i>
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                    <i className="fa-solid fa-magnifying-glass text-ag-search-placeholder group-focus-within:text-brand-blue transition-colors text-[13px]"></i>
                   </div>
                   <input
                     type="search"
@@ -314,22 +314,22 @@ export function HeaderGuestBase({
                     placeholder={dict.header.search_placeholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-8 sm:pr-20 text-xs sm:text-sm text-ag-search-text placeholder-ag-search-placeholder focus:border-brand-blue focus:bg-background focus:ring-0 outline-none transition-all"
+                    className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-8 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-ag-search-text placeholder:text-ag-search-placeholder focus:bg-ag-card-bg focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
                   />
                   
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10"
+                      className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10 cursor-pointer"
                       aria-label="Clear search"
                     >
-                      <i className="fa-solid fa-circle-xmark text-[15px]"></i>
+                      <i className="fa-solid fa-circle-xmark text-[14px]"></i>
                     </button>
                   )}
 
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5.5 select-none rounded border border-ag-search-border bg-ag-search-bg px-1.5 font-mono text-[9px] font-bold text-ag-search-placeholder">
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none">
+                    <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5 select-none rounded-full border border-ag-search-kbd-border bg-ag-search-kbd-bg px-2 font-mono text-[10px] font-bold text-ag-search-kbd-text shadow-2xs">
                       <span>{isMac ? '⌘' : 'Ctrl'}</span>K
                     </kbd>
                   </div>
@@ -381,7 +381,7 @@ export function HeaderGuestBase({
                   </Link>
                   <Link
                     href={`/${activeLang}/login`}
-                    className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-ag-login-bg text-ag-login-text hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-ag-login-border shadow-lg hover:scale-105 active:scale-95 duration-200"
+                    className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-ag-login-bg text-ag-login-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text transition-all border border-ag-login-border shadow-sm hover:scale-105 active:scale-95 duration-200"
                   >
                     <i className="fa-solid fa-user text-[15px] mb-0.5"></i>
                     <span className="text-[9px] font-extrabold leading-none mt-0.5">{dict.navigation.login}</span>
@@ -396,7 +396,7 @@ export function HeaderGuestBase({
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 shadow-inner transition-all duration-300 ease-in-out border-b border-ag-subheader-border ${
+        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 transition-all duration-300 ease-in-out border-b border-ag-subheader-border ${
           isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
       >
