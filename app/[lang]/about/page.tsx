@@ -79,7 +79,7 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
             </div>
 
             {/* Problem 2 - Text Left, Image Right */}
-            <div className="grid md:grid-cols-2 items-center w-full bg-ag-subheader-bg/20">
+            <div className="grid md:grid-cols-2 items-center w-full bg-card/20">
               <div className="flex flex-col gap-6 order-2 md:order-1 pr-0 md:pr-8 py-4">
                 <h2 className="text-2xl font-bold text-foreground">Real-Time Ocean Freight Integration</h2>
                 

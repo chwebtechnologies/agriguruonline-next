@@ -25,13 +25,13 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
       {currentPage > 1 ? (
         <Link
           href={`${baseUrl}?page=${currentPage - 1}`}
-          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-ag-header-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs"
+          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs"
           aria-label="Previous page"
         >
           <i className="fa-solid fa-chevron-left text-xs sm:text-sm"></i>
         </Link>
       ) : (
-        <span className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-ag-header-border bg-card/50 text-foreground/30 cursor-not-allowed">
+        <span className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card/50 text-foreground/30 cursor-not-allowed">
           <i className="fa-solid fa-chevron-left text-xs sm:text-sm"></i>
         </span>
       )}
@@ -41,7 +41,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
         <>
           <Link
             href={`${baseUrl}?page=1`}
-            className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-ag-header-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs"
+            className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs"
           >
             1
           </Link>
@@ -56,7 +56,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
           className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border transition-colors duration-200 font-bold text-sm shadow-2xs ${
             currentPage === page
               ? 'bg-brand-blue text-white border-brand-blue shadow-sm'
-              : 'border-ag-header-border bg-card text-foreground hover:bg-brand-blue/10 hover:border-brand-blue/50'
+              : 'border-border bg-card text-foreground hover:bg-brand-blue/10 hover:border-brand-blue/50'
           }`}
           aria-current={currentPage === page ? 'page' : undefined}
         >
@@ -69,7 +69,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
           {endPage < totalPages - 1 && <span className="hidden sm:flex items-center justify-center w-10 h-10 text-foreground/50 font-bold">...</span>}
           <Link
             href={`${baseUrl}?page=${totalPages}`}
-            className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-ag-header-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs"
+            className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs"
           >
             {totalPages}
           </Link>
@@ -80,13 +80,13 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
       {currentPage < totalPages ? (
         <Link
           href={`${baseUrl}?page=${currentPage + 1}`}
-          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-ag-header-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs"
+          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs"
           aria-label="Next page"
         >
           <i className="fa-solid fa-chevron-right text-xs sm:text-sm"></i>
         </Link>
       ) : (
-        <span className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-ag-header-border bg-card/50 text-foreground/30 cursor-not-allowed">
+        <span className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card/50 text-foreground/30 cursor-not-allowed">
           <i className="fa-solid fa-chevron-right text-xs sm:text-sm"></i>
         </span>
       )}

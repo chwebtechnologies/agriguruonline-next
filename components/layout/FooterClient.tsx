@@ -102,7 +102,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
   return (
-    <footer id="footer" className="w-full font-sans bg-ag-footer-bg text-ag-footer-text pt-8 pb-18 md:pb-6 relative transition-theme border-t border-ag-footer-border" dir={dir}>
+    <footer id="footer" className="w-full font-sans bg-card text-muted-foreground pt-8 pb-18 md:pb-6 relative transition-theme border-t border-border" dir={dir}>
 
       {/* ======================================================== */}
       {/* 1. App Download Section (Compact alignment)               */}
@@ -123,8 +123,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
         <div className="hidden md:grid grid-cols-5 gap-6 text-sm font-bold tracking-wide">
           {/* Column 1: Company Details */}
           <div>
-            <h3 className="font-black text-ag-footer-heading-text uppercase tracking-wider mb-2.5 border-b border-ag-footer-border pb-1.5">{dict.footer.company_details}</h3>
-            <ul className="space-y-1.5 text-ag-footer-text">
+            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.company_details}</h3>
+            <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/about`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.about_us}</Link></li>
               <li><Link href={`/${activeLang}/founder`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.founder_profile}</Link></li>
             </ul>
@@ -132,8 +132,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
 
           {/* Column 2: Trade Services */}
           <div>
-            <h3 className="font-black text-ag-footer-heading-text uppercase tracking-wider mb-2.5 border-b border-ag-footer-border pb-1.5">{dict.footer.trade_services}</h3>
-            <ul className="space-y-1.5 text-ag-footer-text">
+            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.trade_services}</h3>
+            <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/manual`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.user_manual}</Link></li>
               <li><Link href={`/${activeLang}/guide`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.user_guide}</Link></li>
             </ul>
@@ -141,16 +141,16 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
 
           {/* Column 3: Membership Plans */}
           <div>
-            <h3 className="font-black text-ag-footer-heading-text uppercase tracking-wider mb-2.5 border-b border-ag-footer-border pb-1.5">{dict.footer.membership_plans}</h3>
-            <ul className="space-y-1.5 text-ag-footer-text">
+            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.membership_plans}</h3>
+            <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/membership`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.membership_plans}</Link></li>
             </ul>
           </div>
 
           {/* Column 4: Regulatory Norms */}
           <div>
-            <h3 className="font-black text-ag-footer-heading-text uppercase tracking-wider mb-2.5 border-b border-ag-footer-border pb-1.5">{dict.footer.regulatory_norms}</h3>
-            <ul className="space-y-1.5 text-ag-footer-text">
+            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.regulatory_norms}</h3>
+            <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/disclaimer`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.disclaimer}</Link></li>
               <li><Link href={`/${activeLang}/terms`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.terms_conditions}</Link></li>
               <li><Link href={`/${activeLang}/refund`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.refund_cancellation}</Link></li>
@@ -160,8 +160,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
 
           {/* Column 5: Contact Us */}
           <div>
-            <h3 className="font-black text-ag-footer-heading-text uppercase tracking-wider mb-2.5 border-b border-ag-footer-border pb-1.5">{dict.footer.contact_us}</h3>
-            <ul className="space-y-1.5 text-ag-footer-text">
+            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.contact_us}</h3>
+            <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/contact`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
             </ul>
           </div>
@@ -171,16 +171,16 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
         <div className="block md:hidden space-y-2.5">
 
           {/* Accordion 1: Company Details */}
-          <div className="border-b border-ag-footer-border pb-1">
+          <div className="border-b border-border pb-1">
             <button
               onClick={() => toggleSection('company')}
-              className="w-full flex justify-between items-center py-1.5 text-ag-footer-heading-text font-bold text-sm"
+              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
             >
               <span>{dict.footer.company_details}</span>
               <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.company ? 'rotate-180' : 'rotate-0'}`}>▼</span>
             </button>
             {expandedSections.company && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-ag-footer-text">
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
                 <li><Link href={`/${activeLang}/about`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.about_us}</Link></li>
                 <li><Link href={`/${activeLang}/founder`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.founder_profile}</Link></li>
               </ul>
@@ -188,16 +188,16 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           </div>
 
           {/* Accordion 2: Trade Services */}
-          <div className="border-b border-ag-footer-border pb-1">
+          <div className="border-b border-border pb-1">
             <button
               onClick={() => toggleSection('services')}
-              className="w-full flex justify-between items-center py-1.5 text-ag-footer-heading-text font-bold text-sm"
+              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
             >
               <span>{dict.footer.trade_services}</span>
               <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.services ? 'rotate-180' : 'rotate-0'}`}>▼</span>
             </button>
             {expandedSections.services && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-ag-footer-text">
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
                 <li><Link href={`/${activeLang}/manual`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.user_manual}</Link></li>
                 <li><Link href={`/${activeLang}/guide`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.user_guide}</Link></li>
               </ul>
@@ -205,32 +205,32 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           </div>
 
           {/* Accordion 3: Membership Plans */}
-          <div className="border-b border-ag-footer-border pb-1">
+          <div className="border-b border-border pb-1">
             <button
               onClick={() => toggleSection('plans')}
-              className="w-full flex justify-between items-center py-1.5 text-ag-footer-heading-text font-bold text-sm"
+              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
             >
               <span>{dict.footer.membership_plans}</span>
               <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.plans ? 'rotate-180' : 'rotate-0'}`}>▼</span>
             </button>
             {expandedSections.plans && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-ag-footer-text">
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
                 <li><Link href={`/${activeLang}/membership`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.membership_plans}</Link></li>
               </ul>
             )}
           </div>
 
           {/* Accordion 4: Regulatory Norms */}
-          <div className="border-b border-ag-footer-border pb-1">
+          <div className="border-b border-border pb-1">
             <button
               onClick={() => toggleSection('norms')}
-              className="w-full flex justify-between items-center py-1.5 text-ag-footer-heading-text font-bold text-sm"
+              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
             >
               <span>{dict.footer.regulatory_norms}</span>
               <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.norms ? 'rotate-180' : 'rotate-0'}`}>▼</span>
             </button>
             {expandedSections.norms && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-ag-footer-text">
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
                 <li><Link href={`/${activeLang}/disclaimer`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.disclaimer}</Link></li>
                 <li><Link href={`/${activeLang}/terms`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.terms_conditions}</Link></li>
                 <li><Link href={`/${activeLang}/refund`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.refund_cancellation}</Link></li>
@@ -240,16 +240,16 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           </div>
 
           {/* Accordion 5: Contact Us */}
-          <div className="border-b border-ag-footer-border pb-1">
+          <div className="border-b border-border pb-1">
             <button
               onClick={() => toggleSection('contact')}
-              className="w-full flex justify-between items-center py-1.5 text-ag-footer-heading-text font-bold text-sm"
+              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
             >
               <span>{dict.footer.contact_us}</span>
               <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.contact ? 'rotate-180' : 'rotate-0'}`}>▼</span>
             </button>
             {expandedSections.contact && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-ag-footer-text">
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
                 <li><Link href={`/${activeLang}/contact`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.contact_us}</Link></li>
               </ul>
             )}
@@ -260,7 +260,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       </div>
 
       {/* Copyright Bar */}
-      <div className="w-full py-3.5 text-center text-[13px] border-t border-ag-footer-border bg-ag-footer-bottom-bg text-ag-footer-text font-semibold transition-theme">
+      <div className="w-full py-3.5 text-center text-[13px] border-t border-border bg-muted text-muted-foreground font-semibold transition-theme">
         <div className="mx-auto max-w-7xl px-4 flex items-center justify-center">
           <span>{dict.footer.copyright}</span>
         </div>
@@ -305,7 +305,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
         {showScrollTop && (
           <button
             onClick={scrollToTop}
-            className="flex h-9.5 w-9.5 items-center justify-center rounded-full bg-ag-login-bg border border-ag-login-border text-ag-login-text hover:text-brand-blue shadow-lg hover:scale-115 active:scale-95 duration-200 transition-all cursor-pointer"
+            className="flex h-9.5 w-9.5 items-center justify-center rounded-full bg-muted border border-border text-foreground hover:text-brand-blue shadow-lg hover:scale-115 active:scale-95 duration-200 transition-all cursor-pointer"
             aria-label="Scroll to top"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="h-4 w-4">
@@ -325,7 +325,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
       {/* 6. Mobile Bottom Navigation Bar (Pixel Perfect)            */}
       {/* ======================================================== */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-45 bg-ag-header-bg border-t border-ag-header-border shadow-2xl backdrop-blur-md px-1 py-1 transition-all duration-200 flex justify-between items-center h-[64px] min-[390px]:h-[68px]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl backdrop-blur-md px-1 py-1 transition-all duration-200 flex justify-between items-center h-[64px] min-[390px]:h-[68px]">
         {tabs.map((tab, idx) => (
           <Link
             key={idx}
@@ -333,20 +333,20 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
             className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 min-[390px]:gap-1 transition-all duration-200 py-1 px-0.5 rounded-lg select-none group text-center ${
               tab.isActive 
                 ? 'text-brand-blue scale-105' 
-                : 'text-ag-nav-link hover:text-ag-nav-link-hover'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <div className="flex h-6 min-[390px]:h-6.5 w-6 min-[390px]:w-6.5 items-center justify-center shrink-0 transition-transform duration-200 group-active:scale-90">
               <i className={`${tab.iconClass} text-[19px] min-[390px]:text-[21px] transition-all duration-200 ${
                 tab.isActive 
                   ? 'text-brand-blue drop-shadow-[0_0_8px_rgba(29,146,235,0.35)]' 
-                  : 'text-ag-nav-link group-hover:text-ag-nav-link-hover'
+                  : 'text-muted-foreground group-hover:text-foreground'
               }`} />
             </div>
             <span className={`text-[10px] min-[360px]:text-[11px] min-[390px]:text-[12px] font-bold tracking-tight transition-colors duration-200 truncate max-w-full px-0.5 whitespace-nowrap leading-tight text-center block ${
               tab.isActive 
                 ? 'text-brand-blue font-extrabold' 
-                : 'text-ag-nav-link group-hover:text-ag-nav-link-hover'
+                : 'text-muted-foreground group-hover:text-foreground'
               }`}>
               {tab.label}
             </span>

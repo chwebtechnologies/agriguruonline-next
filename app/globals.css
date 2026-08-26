@@ -87,105 +87,15 @@ body {
      Semantic Fallbacks (Defaulting to Agriguru Online Light Theme)
      ========================================================================== */
   --background: #F5F5F7;
+  --border: #E5E5EA;
+  --muted: #F2F2F7;
+  --muted-foreground: #6E6E73;
   --foreground: var(--agriguru-online-label);
 
   --ag-card-bg: #FFFFFF;
-  --ag-bg-main: #F5F5F7;
-  --ag-bg-alt: #FFFFFF;
 
   --ag-announcement-bg: #e8f4fc;
   --ag-announcement-text: var(--brand-blue);
-
-  --ag-header-bg: #FFFFFF;
-  --ag-header-text: var(--agriguru-online-label);
-  --ag-header-border: var(--agriguru-online-separator);
-
-  --ag-subheader-bg: #FFFFFF;
-  --ag-subheader-text: var(--agriguru-online-secondary-label);
-  --ag-subheader-border: var(--agriguru-online-separator);
-
-  --ag-search-bg: #F2F2F7;
-  --ag-search-border: #E5E5EA;
-  --ag-search-text: #1D1D1F;
-  --ag-search-placeholder: #6E6E73;
-  --ag-search-kbd-bg: #FFFFFF;
-  --ag-search-kbd-border: #D1D1D6;
-  --ag-search-kbd-text: #6E6E73;
-
-  --ag-dropdown-bg: #FFFFFF;
-  --ag-dropdown-border: var(--agriguru-online-separator);
-  --ag-dropdown-text: var(--agriguru-online-label);
-  --ag-dropdown-hover-bg: #F2F2F7;
-  --ag-dropdown-hover-text: #000000;
-
-  --ag-nav-link: var(--agriguru-online-secondary-label);
-  --ag-nav-link-hover: var(--agriguru-online-label);
-
-  --ag-login-bg: #F2F2F7;
-  --ag-login-border: var(--agriguru-online-separator);
-  --ag-login-text: var(--agriguru-online-label);
-
-  --ag-footer-bg: #FFFFFF;
-  --ag-footer-border: var(--agriguru-online-separator);
-  --ag-footer-bottom-bg: #F2F2F7;
-  --ag-footer-card-bg: #FFFFFF;
-  --ag-footer-heading-text: var(--agriguru-online-label);
-  --ag-footer-text: var(--agriguru-online-secondary-label);
-}
-
-/* Explicit Light Theme Configuration */
-.light {
-  --background: #F5F5F7;
-  --foreground: #1D1D1F;
-
-  --ag-card-bg: #FFFFFF;
-  --ag-bg-main: #F5F5F7;
-  --ag-bg-alt: #FFFFFF;
-
-  --ag-announcement-bg: #e8f4fc;
-  --ag-announcement-text: var(--brand-blue);
-
-  --ag-header-bg: #FFFFFF;
-  --ag-header-text: #1D1D1F;
-  --ag-header-border: #E5E5EA;
-
-  --ag-subheader-bg: #FFFFFF;
-  --ag-subheader-text: #6E6E73;
-  --ag-subheader-border: #E5E5EA;
-
-  --ag-search-bg: #F2F2F7;
-  --ag-search-border: #E5E5EA;
-  --ag-search-text: #1D1D1F;
-  --ag-search-placeholder: #6E6E73;
-  --ag-search-kbd-bg: #FFFFFF;
-  --ag-search-kbd-border: #D1D1D6;
-  --ag-search-kbd-text: #6E6E73;
-
-  --ag-dropdown-bg: #FFFFFF;
-  --ag-dropdown-border: #E5E5EA;
-  --ag-dropdown-text: #1D1D1F;
-  --ag-dropdown-hover-bg: #F2F2F7;
-  --ag-dropdown-hover-text: #000000;
-
-  --ag-nav-link: #6E6E73;
-  --ag-nav-link-hover: #1D1D1F;
-
-  --ag-login-bg: #F2F2F7;
-  --ag-login-border: #E5E5EA;
-  --ag-login-text: #1D1D1F;
-
-  --ag-footer-bg: #FFFFFF;
-  --ag-footer-border: #E5E5EA;
-  --ag-footer-bottom-bg: #F2F2F7;
-  --ag-footer-card-bg: #FFFFFF;
-  --ag-footer-heading-text: #1D1D1F;
-  --ag-footer-text: #6E6E73;
-
-  --ag-primary: var(--brand-blue);
-  --ag-primary-hover: #1080d0;
-  --ag-accent-cyan: var(--brand-blue);
-  --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
-  --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
 }
 
 /* Explicit Agriguru Online Dark Theme Configuration */
@@ -217,50 +127,15 @@ body {
   --agriguru-online-opaque-separator: #38383A;
 
   --background: #000000;
+  --border: #2C2C2E;
+  --muted: #2C2C2E;
+  --muted-foreground: #8E8E93;
   --foreground: #F5F5F7;
 
   --ag-card-bg: #1C1C1E;
-  --ag-bg-main: #000000;
-  --ag-bg-alt: #1C1C1E;
 
   --ag-announcement-bg: var(--brand-blue);
   --ag-announcement-text: #FFFFFF;
-
-  --ag-header-bg: #161618;
-  --ag-header-text: #FFFFFF;
-  --ag-header-border: #2C2C2E;
-
-  --ag-subheader-bg: #161618;
-  --ag-subheader-text: #A1A1A6;
-  --ag-subheader-border: #2C2C2E;
-
-  --ag-search-bg: #242426;
-  --ag-search-border: #38383A;
-  --ag-search-text: #FFFFFF;
-  --ag-search-placeholder: #8E8E93;
-  --ag-search-kbd-bg: #2C2C2E;
-  --ag-search-kbd-border: #38383A;
-  --ag-search-kbd-text: #8E8E93;
-
-  --ag-dropdown-bg: #1C1C1E;
-  --ag-dropdown-border: #2C2C2E;
-  --ag-dropdown-text: #F5F5F7;
-  --ag-dropdown-hover-bg: #2C2C2E;
-  --ag-dropdown-hover-text: #FFFFFF;
-
-  --ag-nav-link: #8E8E93;
-  --ag-nav-link-hover: #FFFFFF;
-
-  --ag-login-bg: #2C2C2E;
-  --ag-login-border: #38383A;
-  --ag-login-text: #FFFFFF;
-
-  --ag-footer-bg: #161618;
-  --ag-footer-border: #2C2C2E;
-  --ag-footer-bottom-bg: #242426;
-  --ag-footer-card-bg: #1C1C1E;
-  --ag-footer-heading-text: #FFFFFF;
-  --ag-footer-text: #8E8E93;
 
   --ag-primary: var(--brand-blue);
   --ag-primary-hover: #1080d0;
@@ -273,6 +148,9 @@ body {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--ag-card-bg);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
   --color-ag-card-bg: var(--ag-card-bg);
   --color-primary: var(--ag-primary);
   --color-primary-hover: var(--ag-primary-hover);
@@ -291,46 +169,7 @@ body {
   --color-ag-announcement-bg: var(--ag-announcement-bg);
   --color-ag-announcement-text: var(--ag-announcement-text);
   
-  --color-ag-header-bg: var(--ag-header-bg);
-  --color-ag-header-text: var(--ag-header-text);
-  --color-ag-header-border: var(--ag-header-border);
-  
-  --color-ag-subheader-bg: var(--ag-subheader-bg);
-  --color-ag-subheader-text: var(--ag-subheader-text);
-  --color-ag-subheader-border: var(--ag-subheader-border);
-  
-  --color-ag-search-bg: var(--ag-search-bg);
-  --color-ag-search-border: var(--ag-search-border);
-  --color-ag-search-text: var(--ag-search-text);
-  --color-ag-search-placeholder: var(--ag-search-placeholder);
-  --color-ag-search-kbd-bg: var(--ag-search-kbd-bg);
-  --color-ag-search-kbd-border: var(--ag-search-kbd-border);
-  --color-ag-search-kbd-text: var(--ag-search-kbd-text);
-  
-  --color-ag-dropdown-bg: var(--ag-dropdown-bg);
-  --color-ag-dropdown-border: var(--ag-dropdown-border);
-  --color-ag-dropdown-text: var(--ag-dropdown-text);
-  --color-ag-dropdown-hover-bg: var(--ag-dropdown-hover-bg);
-  --color-ag-dropdown-hover-text: var(--ag-dropdown-hover-text);
-
-  --color-ag-nav-link: var(--ag-nav-link);
-  --color-ag-nav-link-hover: var(--ag-nav-link-hover);
-  
-  --color-ag-login-bg: var(--ag-login-bg);
-  --color-ag-login-border: var(--ag-login-border);
-  --color-ag-login-text: var(--ag-login-text);
-
-  --color-ag-footer-bg: var(--ag-footer-bg);
-  --color-ag-footer-bottom-bg: var(--ag-footer-bottom-bg);
-  --color-ag-footer-border: var(--ag-footer-border);
-  --color-ag-footer-card-bg: var(--ag-footer-card-bg);
-  --color-ag-footer-heading-text: var(--ag-footer-heading-text);
-  --color-ag-footer-text: var(--ag-footer-text);
-  
   --color-ag-accent-cyan: var(--ag-accent-cyan);
-  
-  --color-ag-bg-main: var(--ag-bg-main);
-  --color-ag-bg-alt: var(--ag-bg-alt);
   
   --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;

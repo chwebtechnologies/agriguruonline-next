@@ -143,17 +143,17 @@ function SearchableSelect({
           isMobile
             ? `h-[46px] rounded-xl px-3.5 text-sm ${
                 !isInteractive
-                  ? 'opacity-60 cursor-not-allowed bg-ag-dropdown-hover-bg border border-ag-header-border text-foreground/40 select-none'
+                  ? 'opacity-60 cursor-not-allowed bg-muted border border-border text-foreground/40 select-none'
                   : isSelected
                     ? 'bg-brand-blue text-white border border-brand-blue shadow-sm font-medium cursor-pointer'
-                    : 'bg-card border-2 border-ag-header-border hover:border-brand-blue dark:hover:border-brand-blue text-foreground shadow-sm font-medium cursor-pointer active:scale-[0.99]'
+                    : 'bg-card border-2 border-border hover:border-brand-blue dark:hover:border-brand-blue text-foreground shadow-sm font-medium cursor-pointer active:scale-[0.99]'
               }`
             : `h-10 rounded-md px-3 text-sm ${
                 !isInteractive
-                  ? 'opacity-50 cursor-not-allowed bg-ag-dropdown-hover-bg border border-ag-header-border text-foreground/40 select-none'
+                  ? 'opacity-50 cursor-not-allowed bg-muted border border-border text-foreground/40 select-none'
                   : isSelected
                     ? 'bg-brand-blue text-white border border-brand-blue shadow-sm font-medium cursor-pointer'
-                    : 'bg-card border border-ag-header-border text-foreground/80 hover:border-brand-blue dark:hover:border-brand-blue shadow-sm font-medium cursor-pointer'
+                    : 'bg-card border border-border text-foreground/80 hover:border-brand-blue dark:hover:border-brand-blue shadow-sm font-medium cursor-pointer'
               }`
         }`}
         onClick={() => {
@@ -192,13 +192,13 @@ function SearchableSelect({
         )}
       </div>
       {isOpen && isInteractive && (
-        <div className={`absolute z-50 w-full min-w-[200px] bg-card border border-ag-header-border rounded-xl shadow-2xl max-h-[300px] flex flex-col left-0 ${menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
-          <div className="p-2 shrink-0 border-b border-ag-header-border bg-ag-dropdown-hover-bg/50 rounded-t-xl">
+        <div className={`absolute z-50 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-2xl max-h-[300px] flex flex-col left-0 ${menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
+          <div className="p-2 shrink-0 border-b border-border bg-muted/50 rounded-t-xl">
             <div className="relative">
               <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
               <input 
                 type="text" 
-                className="w-full bg-card border border-ag-header-border rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue text-foreground transition-all placeholder:text-foreground/40" 
+                className="w-full bg-card border border-border rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue text-foreground transition-all placeholder:text-foreground/40" 
                 placeholder="Search..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -220,7 +220,7 @@ function SearchableSelect({
                     className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors truncate flex items-center justify-between ${
                       active 
                         ? 'bg-brand-blue text-white font-semibold' 
-                        : 'hover:bg-ag-dropdown-hover-bg text-foreground'
+                        : 'hover:bg-muted text-foreground'
                     }`}
                     onClick={() => {
                       onChange(opt.id);
@@ -335,7 +335,7 @@ const SwipeableCard = ({
   }, [onChart, onDelete]);
 
   return (
-    <div className="relative overflow-hidden rounded-xl lg:hidden bg-ag-dropdown-hover-bg touch-pan-y" ref={containerRef}>
+    <div className="relative overflow-hidden rounded-xl lg:hidden bg-muted touch-pan-y" ref={containerRef}>
       <div className="absolute inset-0 flex justify-between items-center z-0 pointer-events-none">
         <div className="bg-sky-400 w-1/2 h-full flex items-center pl-6 text-white font-bold rounded-l-xl">
           <i className="fa-solid fa-chart-line text-xl"></i>
@@ -348,7 +348,7 @@ const SwipeableCard = ({
       </div>
       <div 
         ref={swipeRef}
-        className="relative z-10 w-full h-full bg-card rounded-xl shadow-sm border border-ag-header-border will-change-transform"
+        className="relative z-10 w-full h-full bg-card rounded-xl shadow-sm border border-border will-change-transform"
       >
         {children}
       </div>
@@ -988,7 +988,7 @@ export default function ProductChartsClient({
       `}</style>
       
       {initialMarketedProducts && initialMarketedProducts.length > 0 && (
-        <div className="overflow-hidden whitespace-nowrap w-full bg-card rounded-md border border-ag-header-border mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
+        <div className="overflow-hidden whitespace-nowrap w-full bg-card rounded-md border border-border mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
           <div className="inline-block animate-[marquee_60s_linear_infinite]" style={{ WebkitAnimationName: 'marquee', animationName: 'marquee', willChange: 'transform', animationDuration: marqueeDuration }}>
             {marqueeItems.map((p, i) => {
               // Generate a consistent dummy change if it's 0, just to make it look realistic as requested
@@ -1000,8 +1000,8 @@ export default function ProductChartsClient({
               const isPositive = changeVal >= 0;
               const sign = isPositive ? '+' : '-';
               return (
-                <div key={i} className="inline-flex items-center px-4 border-r border-ag-header-border last:border-0 h-10 group/item">
-                  {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-ag-header-border mr-2" />}
+                <div key={i} className="inline-flex items-center px-4 border-r border-border last:border-0 h-10 group/item">
+                  {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border mr-2" />}
                   <span className="font-semibold text-foreground/80 text-[13px]">{p.name}</span>
                   {p.port && <span className="text-foreground/60 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
                   <span className="text-blue-600 dark:text-blue-500 font-bold text-[13px] mx-3">${p.price}</span>
@@ -1124,13 +1124,13 @@ export default function ProductChartsClient({
           </div>
           
           {/* Static Column Headers - Hidden on Mobile */}
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-ag-header-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
             Price (PMT)
           </div>
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-ag-header-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
             Change
           </div>
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-ag-header-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
             Chart
           </div>
           
@@ -1172,7 +1172,7 @@ export default function ProductChartsClient({
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowMobileAddForm(true); }}
-                className="lg:hidden relative overflow-hidden bg-card rounded-xl shadow-sm border border-dashed border-ag-header-border hover:border-brand-green dark:hover:border-brand-green active:scale-[0.99] transition-all cursor-pointer group"
+                className="lg:hidden relative overflow-hidden bg-card rounded-xl shadow-sm border border-dashed border-border hover:border-brand-green dark:hover:border-brand-green active:scale-[0.99] transition-all cursor-pointer group"
               >
                 <div className="flex flex-col p-2">
                   {/* Row 1: Watchlist Header & Count */}
@@ -1448,7 +1448,7 @@ export default function ProductChartsClient({
                 </div>
 
                 {/* Visual Tutorial Showcase Card */}
-                <div className="bg-card rounded-2xl p-5 shadow-sm border border-ag-header-border transition-all">
+                <div className="bg-card rounded-2xl p-5 shadow-sm border border-border transition-all">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-100 dark:border-zinc-800/80">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-brand-blue flex items-center justify-center text-lg shadow-sm border border-blue-100 dark:border-blue-900/40">
@@ -1552,7 +1552,7 @@ export default function ProductChartsClient({
               {addedProducts.map((item, index) => {
                 const changeVal = Number(item.change) || 0;
                 const isPositive = changeVal >= 0;
-                const desktopRowBg = index % 2 === 0 ? 'bg-card' : 'bg-ag-dropdown-hover-bg';
+                const desktopRowBg = index % 2 === 0 ? 'bg-card' : 'bg-muted';
                 
                 return (
                   <div key={item.id || index}>
@@ -1613,21 +1613,21 @@ export default function ProductChartsClient({
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
-                    <div className={`hidden lg:grid grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr] gap-2 items-center px-4 py-3.5 rounded-lg ${desktopRowBg} shadow-sm border border-ag-header-border hover:shadow-md transition-all text-sm font-medium`}>
+                    <div className={`hidden lg:grid grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr] gap-2 items-center px-4 py-3.5 rounded-lg ${desktopRowBg} shadow-sm border border-border hover:shadow-md transition-all text-sm font-medium`}>
                       <div className="font-medium truncate text-foreground" title={item.category}>{item.category}</div>
                       <div className="flex items-center gap-2 truncate font-medium text-foreground" title={item.country}>
-                        {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-ag-header-border" />}
+                        {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
                         <span className="truncate">{item.country}</span>
                       </div>
                       <div className="font-semibold truncate text-foreground" title={item.product}>{item.product}</div>
                       <div className="truncate font-medium text-foreground/80" title={item.shipBy}>{item.shipBy}</div>
                       <div className="text-center truncate font-medium text-foreground/80" title={item.term}>{item.term}</div>
                       <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-foreground" title={item.pol}>
-                        {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-ag-header-border" />}
+                        {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
                         <span className="truncate">{item.pol}</span>
                       </div>
                       <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-foreground" title={item.pod}>
-                        {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-ag-header-border" />}
+                        {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
                         <span className="truncate">{item.pod || '-'}</span>
                       </div>
                       <div className="w-full flex items-center justify-center text-center font-bold text-foreground" title={`$${item.price}`}>${item.price}</div>
@@ -1644,15 +1644,15 @@ export default function ProductChartsClient({
                       </div>
                       <div className="flex items-center justify-end gap-3">
                         {userType === 'seller' ? (
-                          <button className="px-5 py-1 bg-card border border-ag-header-border text-foreground text-sm font-semibold rounded-full hover:bg-ag-dropdown-hover-bg transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-card border border-border text-foreground text-sm font-semibold rounded-full hover:bg-muted transition-colors shadow-sm whitespace-nowrap">
                             Sell
                           </button>
                         ) : userType === 'buyer' ? (
-                          <button className="px-5 py-1 bg-card border border-ag-header-border text-foreground text-sm font-semibold rounded-full hover:bg-ag-dropdown-hover-bg transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-card border border-border text-foreground text-sm font-semibold rounded-full hover:bg-muted transition-colors shadow-sm whitespace-nowrap">
                             Buy
                           </button>
                         ) : (
-                          <button className="px-5 py-1 bg-card border border-ag-header-border text-foreground text-sm font-semibold rounded-full hover:bg-ag-dropdown-hover-bg transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-card border border-border text-foreground text-sm font-semibold rounded-full hover:bg-muted transition-colors shadow-sm whitespace-nowrap">
                             Sell
                           </button>
                         )}
@@ -1673,8 +1673,8 @@ export default function ProductChartsClient({
         </div>
 
         {/* Global Actions Bar for Mobile/Tablet - Sticky when products overflow */}
-        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 backdrop-blur-sm border-t border-ag-header-border shadow-xs mt-3 pointer-events-auto">
-          <button className="px-5 py-[9px] bg-card hover:bg-ag-search-bg border border-ag-header-border text-foreground font-semibold rounded-md text-[14px] shadow-sm transition-colors">
+        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 backdrop-blur-sm border-t border-border shadow-xs mt-3 pointer-events-auto">
+          <button className="px-5 py-[9px] bg-card hover:bg-muted border border-border text-foreground font-semibold rounded-md text-[14px] shadow-sm transition-colors">
              Inquiry / Offer
           </button>
           <div className="relative flex items-center justify-center">
@@ -1692,7 +1692,7 @@ export default function ProductChartsClient({
                   <p className="text-zinc-600 text-foreground/80 text-[13px] leading-relaxed text-justify mb-4">
                     The displayed prices/rates reflect standard market rates between buyers and sellers which may or may not buy or sell at. They are subject to reconfirmation as per AgriGuru’s Terms, conditions.
                   </p>
-                  <div className="border-t border-ag-header-border pt-3 text-center">
+                  <div className="border-t border-border pt-3 text-center">
                     <button 
                       onClick={() => setShowDisclaimer(false)}
                       className="text-brand-blue font-bold text-[15px] hover:text-blue-500 transition-colors"
@@ -1715,7 +1715,7 @@ export default function ProductChartsClient({
       {/* Delete Confirmation Popup */}
       {deleteConfirmId !== null && (
         <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-card rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-ag-header-border animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-card rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
             <div className="flex gap-4 items-center mb-6">
               <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0 text-red-600">
                 <i className="fa-solid fa-triangle-exclamation text-xl"></i>
@@ -1735,7 +1735,7 @@ export default function ProductChartsClient({
               </button>
               <button 
                 onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 py-2.5 rounded-xl border border-ag-header-border bg-card hover:bg-ag-dropdown-hover-bg text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
+                className="flex-1 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
               >
                 Cancel
               </button>
@@ -1768,7 +1768,7 @@ export default function ProductChartsClient({
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <button 
               onClick={() => setShowMobileAddForm(false)}
-              className="w-8 h-8 rounded-full bg-card border border-ag-header-border text-foreground flex items-center justify-center transition-transform hover:bg-ag-search-bg active:scale-95 shadow-xs"
+              className="w-8 h-8 rounded-full bg-card border border-border text-foreground flex items-center justify-center transition-transform hover:bg-muted active:scale-95 shadow-xs"
             >
               <i className="fa-solid fa-chevron-left text-[13px] pr-0.5"></i>
             </button>
@@ -2109,7 +2109,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
         
         {/* Desktop Popup Card Container */}
         <div 
-          className="relative z-10 w-full max-w-6xl xl:max-w-7xl h-[92vh] max-h-[880px] bg-background rounded-2xl xl:rounded-3xl shadow-2xl border border-ag-header-border flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+          className="relative z-10 w-full max-w-6xl xl:max-w-7xl h-[92vh] max-h-[880px] bg-background rounded-2xl xl:rounded-3xl shadow-2xl border border-border flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           <MobileCommodityChart 
@@ -2138,8 +2138,8 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
           ref={sheetRef}
           className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-background shadow-2xl flex flex-col will-change-transform z-[510] pointer-events-auto ${
             isFullScreen 
-              ? 'rounded-none border-t border-ag-header-border' 
-              : 'rounded-t-[28px] border-t border-ag-header-border'
+              ? 'rounded-none border-t border-border' 
+              : 'rounded-t-[28px] border-t border-border'
           }`}
           onClick={(e) => e.stopPropagation()}
           style={{ 

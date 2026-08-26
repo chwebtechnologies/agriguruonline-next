@@ -259,14 +259,14 @@ export function HeaderGuestBase({
     <div className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
 
       {/* 2. Main Header Bar */}
-      <header className="w-full bg-ag-header-bg text-ag-header-text py-2.5 px-4 border-b border-ag-header-border shadow-sm transition-all duration-300">
+      <header className="w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
           
           <div className="flex items-center flex-1 gap-3 md:gap-4">
             <div className="flex items-center shrink-0 md:w-[110px] rtl:md:w-[130px] w-auto">
               <div className="md:hidden">
                 <AppMenu align="left">
-                  <div className="flex items-center gap-3 text-ag-header-text hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
@@ -276,7 +276,7 @@ export function HeaderGuestBase({
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
                   <AppMenu align="left">
-                    <div className="flex items-center gap-3 text-ag-header-text hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                       </svg>
@@ -302,7 +302,7 @@ export function HeaderGuestBase({
             {/* Search bar next to logo */}
             <div className="flex-1 max-w-sm md:max-w-md lg:max-w-lg">
               {loading ? (
-                <div className="w-full h-10 rounded-full bg-ag-search-bg border border-ag-search-border animate-pulse" />
+                <div className="w-full h-10 rounded-full bg-muted border border-border animate-pulse" />
               ) : (
                 <form 
                   action={`/${activeLang}/search`} 
@@ -315,7 +315,7 @@ export function HeaderGuestBase({
                   }}
                 >
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                    <i className="fa-solid fa-magnifying-glass text-ag-search-placeholder group-focus-within:text-brand-blue transition-colors text-[13px]"></i>
+                    <i className="fa-solid fa-magnifying-glass text-muted-foreground group-focus-within:text-brand-blue transition-colors text-[13px]"></i>
                   </div>
                   <input
                     type="search"
@@ -323,14 +323,14 @@ export function HeaderGuestBase({
                     placeholder={dict.header.search_placeholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-3 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-ag-search-text placeholder:text-ag-search-placeholder focus:bg-ag-card-bg focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
+                    className="w-full h-10 rounded-lg border border-border bg-muted pl-9 sm:pl-10 pr-3 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-foreground placeholder:text-muted-foreground focus:bg-card focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
                   />
                   
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery('')}
-                      className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10 cursor-pointer"
+                      className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-muted-foreground hover:text-foreground focus:outline-none z-10 cursor-pointer"
                       aria-label="Clear search"
                     >
                       <i className="fa-solid fa-circle-xmark text-[14px]"></i>
@@ -338,7 +338,7 @@ export function HeaderGuestBase({
                   )}
 
                   <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none">
-                    <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5 select-none rounded-full border border-ag-search-kbd-border bg-ag-search-kbd-bg px-2 font-mono text-[10px] font-bold text-ag-search-kbd-text shadow-2xs">
+                    <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5 select-none rounded-full border border-border bg-muted px-2 font-mono text-[10px] font-bold text-muted-foreground shadow-2xs">
                       <span>{isMac ? '⌘' : 'Ctrl'}</span>K
                     </kbd>
                   </div>
@@ -359,27 +359,27 @@ export function HeaderGuestBase({
                 <>
                   <Link
                     href={`/${activeLang}`}
-                    className={`transition-colors duration-150 font-extrabold ${isHomeActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'}`}
+                    className={`transition-colors duration-150 font-extrabold ${isHomeActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {dict.header.home}
                   </Link>
                   <Link
                     href={`/${activeLang}/about`}
-                    className={`transition-colors duration-150 font-extrabold ${isAboutActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'}`}
+                    className={`transition-colors duration-150 font-extrabold ${isAboutActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {dict.header.about_us}
                   </Link>
                   <div className="relative group" onMouseLeave={() => setHideInsights(false)}>
-                    <button className={`flex items-center gap-1.5 transition-colors duration-150 font-extrabold focus:outline-none ${isInsightsActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'}`}>
+                    <button className={`flex items-center gap-1.5 transition-colors duration-150 font-extrabold focus:outline-none ${isInsightsActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
                       <span>Insights</span>
-                      <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-ag-nav-link group-hover:text-ag-nav-link-hover'}`}></i>
+                      <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}></i>
                     </button>
-                    <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-ag-dropdown-bg border border-ag-dropdown-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
-                      <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>News</Link>
-                      <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Events</Link>
-                      <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Market Updates</Link>
-                      <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Video Gallery</Link>
-                      <Link href={`/${activeLang}/photo-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isPhotoGalleryActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Photo Gallery</Link>
+                    <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
+                      <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>News</Link>
+                      <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Events</Link>
+                      <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Market Updates</Link>
+                      <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Video Gallery</Link>
+                      <Link href={`/${activeLang}/photo-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isPhotoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Photo Gallery</Link>
                     </div>
                   </div>
                 </>
@@ -387,10 +387,10 @@ export function HeaderGuestBase({
             </nav>
 
             {/* Simple profile links area (Guest/Auth) */}
-            <div className="flex items-center gap-4 select-none border-l border-ag-subheader-border pl-4 dir-none">
+            <div className="flex items-center gap-4 select-none border-l border-border pl-4 dir-none">
               {loading ? (
                 <div className="flex items-center gap-3 animate-pulse">
-                  <div className="h-10 w-28 bg-ag-login-bg rounded-lg border border-ag-login-border/40" />
+                  <div className="h-10 w-28 bg-muted rounded-lg border border-border/40" />
                   <div className="w-12 h-12 rounded-full bg-zinc-850" />
                 </div>
               ) : (
@@ -403,7 +403,7 @@ export function HeaderGuestBase({
                   </Link>
                   <Link
                     href={`/${activeLang}/login`}
-                    className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-ag-login-bg text-ag-login-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text transition-all border border-ag-login-border shadow-sm hover:scale-105 active:scale-95 duration-200"
+                    className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-muted text-foreground hover:bg-muted hover:text-foreground transition-all border border-border shadow-sm hover:scale-105 active:scale-95 duration-200"
                   >
                     <i className="fa-solid fa-user text-[15px] mb-0.5"></i>
                     <span className="text-[9px] font-extrabold leading-none mt-0.5">{dict.navigation.login}</span>
@@ -418,17 +418,17 @@ export function HeaderGuestBase({
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 transition-all duration-300 ease-in-out border-b border-ag-subheader-border ${
+        className={`hidden md:block w-full bg-card text-muted-foreground px-4 transition-all duration-300 ease-in-out border-b border-border ${
           isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
       >
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
-          <div className="shrink-0 border-e border-ag-subheader-border pe-5 flex items-center">
+          <div className="shrink-0 border-e border-border pe-5 flex items-center">
             {loading ? (
               <div className="h-5 w-16 bg-ag-subheader-text/25 animate-pulse rounded" />
             ) : (
               <AppMenu align="left">
-                <button className="flex items-center gap-3 text-ag-header-text hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
+                <button className="flex items-center gap-3 text-foreground hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                   </svg>
@@ -456,7 +456,7 @@ export function HeaderGuestBase({
                       isActive={isActive}
                       baseClassName="transition-colors border-y-2 border-t-transparent pt-1 pb-1"
                       activeClassName="text-primary border-b-primary font-extrabold"
-                      inactiveClassName="text-ag-nav-link border-b-transparent hover:text-ag-nav-link-hover hover:border-b-primary font-bold"
+                      inactiveClassName="text-muted-foreground border-b-transparent hover:text-foreground hover:border-b-primary font-bold"
                     >
                       {category.name}
                     </CategoryLink>
@@ -466,16 +466,16 @@ export function HeaderGuestBase({
 
               {dropdownCategories.length > 0 && !loading && (
                 <div className="relative group">
-                  <button className="flex items-center gap-1.5 text-ag-nav-link hover:text-ag-nav-link-hover font-bold text-[16px] focus:outline-none border-y-2 border-t-transparent border-b-transparent hover:border-b-primary pt-1 pb-1">
+                  <button className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground font-bold text-[16px] focus:outline-none border-y-2 border-t-transparent border-b-transparent hover:border-b-primary pt-1 pb-1">
                     <span>{dict.header.categories.others}</span>
-                    <i className="fa-solid fa-chevron-down text-[11px] ml-1 text-ag-nav-link group-hover:text-ag-nav-link-hover"></i>
+                    <i className="fa-solid fa-chevron-down text-[11px] ml-1 text-muted-foreground group-hover:text-foreground"></i>
                   </button>
-                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3.5 w-48 rounded-md bg-ag-dropdown-bg border border-ag-dropdown-border p-1.5 shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-155 z-50`}>
+                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3.5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-155 z-50`}>
                     {dropdownCategories.map((category, index) => (
                       <Link
                         key={index}
                         href={category.href}
-                        className="block px-3.5 py-2.5 text-sm text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text rounded transition-colors"
+                        className="block px-3.5 py-2.5 text-sm text-foreground hover:bg-muted hover:text-foreground rounded transition-colors"
                       >
                         {category.name}
                       </Link>

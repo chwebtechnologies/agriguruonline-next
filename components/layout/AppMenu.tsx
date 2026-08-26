@@ -145,22 +145,22 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
         aria-expanded={isOpen}
       >
         {children || (
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background border border-ag-header-border shadow-sm hover:shadow text-foreground transition-all">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background border border-border shadow-sm hover:shadow text-foreground transition-all">
             <i className="fa-solid fa-bars text-xl"></i>
           </div>
         )}
       </div>
 
       {/* --- DESKTOP DROPDOWN VIEW (Ultra Compact Single Column Agriguru Online Settings) --- */}
-      <div className={`hidden md:block absolute top-[calc(100%+0.5rem)] ${alignClass} w-[260px] bg-background border border-ag-header-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl overflow-hidden transition-all duration-200 z-[100] ${isOpen ? 'scale-100 opacity-100 visible translate-y-0' : 'scale-95 opacity-0 invisible -translate-y-2'}`}>
+      <div className={`hidden md:block absolute top-[calc(100%+0.5rem)] ${alignClass} w-[260px] bg-background border border-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl overflow-hidden transition-all duration-200 z-[100] ${isOpen ? 'scale-100 opacity-100 visible translate-y-0' : 'scale-95 opacity-0 invisible -translate-y-2'}`}>
         <div className="max-h-[calc(100vh-100px)] overflow-y-auto px-2 py-2 space-y-1.5">
           {MENU_GROUPS.map((group, groupIndex) => (
-            <div key={groupIndex} className="bg-background rounded-[10px] overflow-hidden border border-ag-header-border/50 shadow-sm">
+            <div key={groupIndex} className="bg-background rounded-[10px] overflow-hidden border border-border/50 shadow-sm">
               <ul className="flex flex-col">
                 {group.map((item, index) => (
                   <li key={index} className="relative group">
                     {item.label === 'Logout' ? (
-                      <button onClick={confirmLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
+                      <button onClick={confirmLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
                         <div className="flex items-center gap-3">
                           <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
                             <i className={`${item.icon} text-[12px] text-white`}></i>
@@ -169,10 +169,10 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                             {item.label}
                           </span>
                         </div>
-                        <i className="fa-solid fa-chevron-right text-[9px] text-ag-nav-link font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                        <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
                       </button>
                     ) : (
-                      <Link href={item.href} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-1.5 hover:bg-ag-dropdown-hover-bg transition-colors">
+                      <Link href={item.href} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
                         <div className="flex items-center gap-3">
                           <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
                             <i className={`${item.icon} text-[12px] text-white`}></i>
@@ -181,12 +181,12 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                             {item.label}
                           </span>
                         </div>
-                        <i className="fa-solid fa-chevron-right text-[9px] text-ag-nav-link font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                        <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
                       </Link>
                     )}
                     {/* Inline separator, except for last item */}
                     {index !== group.length - 1 && (
-                      <div className="absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-ag-header-border/50"></div>
+                      <div className="absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
                     )}
                   </li>
                 ))}
@@ -198,33 +198,33 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
 
       {/* --- MOBILE/TABLET DROPDOWN VIEW (Below Header, Premium Grid Layout) --- */}
       {isOpen && (
-        <div className="md:hidden absolute top-[calc(100%+14px)] -left-4 w-screen max-h-[calc(100vh-70px)] overflow-y-auto bg-background z-[100] shadow-[0_20px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out border-t border-ag-header-border">
+        <div className="md:hidden absolute top-[calc(100%+14px)] -left-4 w-screen max-h-[calc(100vh-70px)] overflow-y-auto bg-background z-[100] shadow-[0_20px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out border-t border-border">
           <div className="px-3 min-[390px]:px-4 py-4 space-y-3.5 pb-24">
             
             {/* Quick Actions Row (Logout/Login, Home, Mode) */}
             <div className="grid grid-cols-3 gap-2 min-[390px]:gap-2.5">
               {profile ? (
-                <button onClick={confirmLogout} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all overflow-hidden">
+                <button onClick={confirmLogout} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                   <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-red-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                     <i className="fa-solid fa-power-off text-[10px] min-[390px]:text-[11px] text-white"></i>
                   </div>
                   <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Logout</span>
                 </button>
               ) : (
-                <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/login`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all overflow-hidden">
+                <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/login`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                   <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-emerald-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                     <i className="fa-solid fa-user text-[10px] min-[390px]:text-[11px] text-white"></i>
                   </div>
                   <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Login</span>
                 </Link>
               )}
-              <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : 'en'}`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all overflow-hidden">
+              <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : 'en'}`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                 <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-blue-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className="fa-solid fa-house text-[10px] min-[390px]:text-[11px] text-white"></i>
                 </div>
                 <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Home</span>
               </Link>
-              <button onClick={toggleTheme} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all overflow-hidden w-full">
+              <button onClick={toggleTheme} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden w-full">
                 <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-purple-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} text-[10px] min-[390px]:text-[11px] text-white`}></i>
                 </div>
@@ -251,7 +251,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                   onClick={() => setIsOpen(false)}
                   key={index} 
                   href={item.href}
-                  className="flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-ag-header-border active:bg-ag-dropdown-hover-bg active:scale-95 transition-all min-w-0 overflow-hidden"
+                  className="flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden"
                 >
                   <div className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 rounded-md shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
                     <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] text-white`}></i>
@@ -278,7 +278,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
       {/* Logout Confirmation Popup */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-background rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-ag-header-border animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-background rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
             <div className="flex gap-4 items-center mb-6">
               <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0 text-red-600">
                 <i className="fa-solid fa-triangle-exclamation text-xl"></i>
@@ -298,7 +298,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
               </button>
               <button 
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl border border-ag-header-border bg-background hover:bg-ag-dropdown-hover-bg text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
+                className="flex-1 py-2.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
               >
                 Cancel
               </button>

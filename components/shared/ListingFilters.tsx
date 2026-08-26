@@ -63,7 +63,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
             <i className="fa-solid fa-filter text-foreground/40 text-sm"></i>
           </div>
           <select
-            className="block w-full pl-9 pr-8 py-2.5 bg-card border border-ag-header-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all appearance-none cursor-pointer shadow-2xs"
+            className="block w-full pl-9 pr-8 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all appearance-none cursor-pointer shadow-2xs"
             value={initialCategory}
             onChange={(e) => handleCategoryChange(e.target.value)}
           >
@@ -87,7 +87,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
         </div>
         <input
           type="text"
-          className="block w-full pl-9 pr-10 py-2.5 bg-card border border-ag-header-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all shadow-2xs"
+          className="block w-full pl-9 pr-10 py-2.5 bg-card border border-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all shadow-2xs"
           placeholder="Search..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -109,7 +109,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
 
 export default function ListingFilters(props: ListingFiltersProps) {
   return (
-    <Suspense fallback={<div className="h-10 w-full animate-pulse bg-ag-header-border/50 rounded-xl mt-4 mb-2"></div>}>
+    <Suspense fallback={<div className="h-10 w-full animate-pulse bg-muted rounded-xl mt-4 mb-2"></div>}>
       <ListingFiltersInner {...props} />
     </Suspense>
   )

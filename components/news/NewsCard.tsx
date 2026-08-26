@@ -31,8 +31,8 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
   const excerpt = description.replace(/<[^>]+>/g, '').slice(0, 150) + '...'
 
   return (
-    <article className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
-      <Link href={`/${lang}/news/${article.slug}`} className="relative w-full aspect-[3/2] bg-ag-subheader-bg/30 overflow-hidden border-b border-ag-header-border block">
+    <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
+      <Link href={`/${lang}/news/${article.slug}`} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
         <ImageWithSkeleton src={imageUrl}
           alt={title}
           fill
@@ -56,7 +56,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
           {excerpt}
         </p>
         
-        <div className="flex items-center justify-between mt-auto border-t border-ag-header-border pt-3">
+        <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
           <Link 
             href={`/${lang}/news/${article.slug}`}
             className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-brand-blue-hover transition-colors flex items-center gap-1.5 group/link"

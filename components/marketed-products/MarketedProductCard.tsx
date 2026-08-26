@@ -95,8 +95,8 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
   return (
     <>
-      <div className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs">
-        <div className="relative w-full aspect-square bg-ag-subheader-bg/20 overflow-hidden border-b border-ag-header-border">
+      <div className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs">
+        <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border">
           <ImageWithSkeleton
             src={imageUrl}
             alt={product.name}
@@ -185,11 +185,11 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
       {showSpecs && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div
-            className="bg-background text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-ag-header-border flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+            className="bg-background text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-ag-header-border flex items-center justify-between bg-ag-subheader-bg">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-card">
               <h2 className="font-bold text-lg text-brand-blue flex items-center gap-2">
                 <i className="fa-solid fa-file-lines"></i>
                 Specifications
@@ -232,7 +232,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                     <div className="flex gap-2">
                       <div className="flex items-center gap-1.5 text-[11px] font-bold text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded border border-brand-blue/20 whitespace-nowrap">
                         {flagUrl && (
-                          <div className="w-5 h-3.5 rounded-[2px] overflow-hidden flex-shrink-0 border border-black/10 flex items-center justify-center bg-ag-subheader-bg">
+                          <div className="w-5 h-3.5 rounded-[2px] overflow-hidden flex-shrink-0 border border-black/10 flex items-center justify-center bg-card">
                             <img src={flagUrl} alt={product.country?.name || 'Country'} className="w-full h-full object-cover" />
                           </div>
                         )}
@@ -259,19 +259,19 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
               <div className="w-full">
                 {tableData.length === 0 && otherData.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-foreground/50 gap-3 bg-ag-subheader-bg/30 rounded-xl border border-dashed border-ag-header-border">
+                  <div className="flex flex-col items-center justify-center py-10 text-foreground/50 gap-3 bg-card/30 rounded-xl border border-dashed border-border">
                     <i className="fa-solid fa-box-open text-4xl mb-2 text-foreground/30"></i>
                     <p className="font-medium">No specifications available.</p>
                   </div>
                 ) : (
                   <>
                     {tableData.length > 0 && (
-                      <div className="overflow-hidden rounded-xl border border-ag-header-border bg-background shadow-sm mb-5">
+                      <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm mb-5">
                         <table className="w-full text-sm text-left">
                           <tbody className="divide-y divide-ag-header-border">
                             {tableData.map((row, i) => (
-                              <tr key={i} className="hover:bg-ag-subheader-bg/40 transition-colors">
-                                <td className="px-4 py-3 font-bold text-foreground/90 bg-ag-subheader-bg/40 w-1/2 border-r border-ag-header-border align-top">
+                              <tr key={i} className="hover:bg-card/40 transition-colors">
+                                <td className="px-4 py-3 font-bold text-foreground/90 bg-card/40 w-1/2 border-r border-border align-top">
                                   {row.key}
                                 </td>
                                 <td className="px-4 py-3 text-foreground font-normal align-top">
@@ -285,9 +285,9 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                     )}
 
                     {otherData.length > 0 && (
-                      <div className="bg-ag-subheader-bg/30 rounded-xl p-4 border border-ag-header-border">
+                      <div className="bg-card/30 rounded-xl p-4 border border-border">
                         {tableData.length > 0 && (
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-foreground/50 mb-3 border-b border-ag-header-border pb-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-foreground/50 mb-3 border-b border-border pb-2">
                             Additional Details
                           </h4>
                         )}
@@ -307,7 +307,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
             </div>
 
             {/* Modal Footer */}
-            <div className="px-4 py-4 border-t border-ag-header-border bg-ag-subheader-bg/50 grid grid-cols-3 gap-2.5">
+            <div className="px-4 py-4 border-t border-border bg-card/50 grid grid-cols-3 gap-2.5">
               <button className="bg-brand-green hover:bg-brand-green-hover text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
                 <i className="fa-solid fa-cart-shopping text-xs"></i>
                 {common.buy}

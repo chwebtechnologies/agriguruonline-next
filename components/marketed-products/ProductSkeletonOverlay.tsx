@@ -16,7 +16,7 @@ export default function ProductSkeletonOverlay() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-              <div key={i} className="rounded-xl overflow-hidden bg-background border border-ag-header-border shadow-sm flex flex-col">
+              <div key={i} className="rounded-xl overflow-hidden bg-background border border-border shadow-sm flex flex-col">
                 <div className="w-full aspect-square bg-ag-subheader-border animate-pulse" />
                 <div className="p-2 flex flex-col flex-1 gap-1.5">
                   <div className="h-4 sm:h-5 bg-ag-subheader-border rounded w-3/4 mx-auto animate-pulse mb-0.5" />

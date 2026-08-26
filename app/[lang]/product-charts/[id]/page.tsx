@@ -118,7 +118,7 @@ export default async function DedicatedChartPage(props: { params: Promise<{ lang
   
   return (
     <main className="bg-background text-foreground min-h-[100dvh] w-full flex flex-col items-center">
-      <div className="w-full max-w-lg min-h-[100dvh] flex flex-col bg-background border-x border-ag-header-border shadow-sm">
+      <div className="w-full max-w-lg min-h-[100dvh] flex flex-col bg-background border-x border-border shadow-sm">
         <DedicatedChartClient 
           productId={params.id} 
           lang={lang} 

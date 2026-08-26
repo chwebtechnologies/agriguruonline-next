@@ -23,10 +23,10 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
   const imageUrl = getImageUrl(category.image);
 
   return (
-    <article className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden h-full shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">
+    <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">
       <Link 
         href={`/${lang}/video-gallery/${category.slug}`}
-        className="w-full aspect-video relative overflow-hidden bg-ag-subheader-bg/30 block"
+        className="w-full aspect-video relative overflow-hidden bg-card/30 block"
       >
         <ImageWithSkeleton src={imageUrl}
           alt={category.category_name}
@@ -59,7 +59,7 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
         
         <div className="flex-grow"></div>
         
-        <div className="mt-4 flex items-center justify-between border-t border-ag-header-border pt-3">
+        <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
           <Link 
             href={`/${lang}/video-gallery/${category.slug}`}
             className="flex items-center text-sm font-medium text-primary hover:text-brand-blue transition-colors group/link"

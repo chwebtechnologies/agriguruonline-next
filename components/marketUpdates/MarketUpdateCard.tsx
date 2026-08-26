@@ -27,9 +27,9 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
   return (
     <Link 
       href={`/${lang}/market-updates/${update.slug}`}
-      className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden h-full shadow-xs hover:shadow-lg hover:border-primary/40 transition-all duration-300"
+      className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg hover:border-primary/40 transition-all duration-300"
     >
-      <div className="relative w-full aspect-[794/1120] bg-ag-header-border/30 overflow-hidden border-b border-ag-header-border">
+      <div className="relative w-full aspect-[794/1120] bg-muted/60 overflow-hidden border-b border-border">
         <Image
           src={imageUrl}
           alt={title}
@@ -48,7 +48,7 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
           {description}
         </p>
         
-        <div className="flex items-center justify-between mt-auto border-t border-ag-header-border pt-3">
+        <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
           <span className="text-xs font-medium text-primary">Read More</span>
           <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
             <i className="fa-solid fa-arrow-right text-[10px]"></i>

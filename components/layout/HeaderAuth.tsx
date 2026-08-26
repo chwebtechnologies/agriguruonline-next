@@ -200,7 +200,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     <div className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
 
       {/* 2. Main Header Bar (Always sticky) */}
-      <header className="w-full bg-ag-header-bg text-ag-header-text py-2.5 px-4 border-b border-ag-header-border shadow-sm transition-all duration-300">
+      <header className="w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
 
           {/* Left side group containing Logo/Menu and Search bar with short spacing */}
@@ -211,7 +211,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   On Desktop (md+): Only show Hamburger Menu when scrolled (replacing Logo). */}
               <div className="md:hidden">
                 <AppMenu align="left" profile={profile}>
-                  <div className="flex items-center gap-3 text-ag-header-text hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
@@ -221,7 +221,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
                   <AppMenu align="left" profile={profile}>
-                    <div className="flex items-center gap-3 text-ag-header-text hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                       </svg>
@@ -260,7 +260,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 }}
               >
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                  <i className="fa-solid fa-magnifying-glass text-ag-search-placeholder group-focus-within:text-brand-blue transition-colors text-[13px]"></i>
+                  <i className="fa-solid fa-magnifying-glass text-muted-foreground group-focus-within:text-brand-blue transition-colors text-[13px]"></i>
                 </div>
                 <input
                   type="search"
@@ -268,14 +268,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   placeholder={dict.header.search_placeholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 rounded-full border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-8 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-ag-search-text placeholder:text-ag-search-placeholder focus:bg-ag-card-bg focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
+                  className="w-full h-10 rounded-full border border-border bg-muted pl-9 sm:pl-10 pr-8 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-foreground placeholder:text-muted-foreground focus:bg-card focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
                 />
                 
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-ag-search-placeholder hover:text-ag-search-text focus:outline-none z-10 cursor-pointer"
+                    className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-muted-foreground hover:text-foreground focus:outline-none z-10 cursor-pointer"
                     aria-label="Clear search"
                   >
                     <i className="fa-solid fa-circle-xmark text-[14px]"></i>
@@ -283,7 +283,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 )}
 
                 <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none">
-                  <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5 select-none rounded-full border border-ag-search-kbd-border bg-ag-search-kbd-bg px-2 font-mono text-[10px] font-bold text-ag-search-kbd-text shadow-2xs">
+                  <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5 select-none rounded-full border border-border bg-muted px-2 font-mono text-[10px] font-bold text-muted-foreground shadow-2xs">
                     <span>{isMac ? '⌘' : 'Ctrl'}</span>K
                   </kbd>
                 </div>
@@ -297,33 +297,33 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
             <nav className="hidden lg:flex items-center gap-8 text-[18px] whitespace-nowrap">
               <Link
                 href={`/${activeLang}`}
-                className={`transition-colors duration-150 font-extrabold ${isHomeActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'
+                className={`transition-colors duration-150 font-extrabold ${isHomeActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 {dict.header.home}
               </Link>
               <Link
                 href="#"
-                className="transition-colors duration-150 font-extrabold text-ag-nav-link hover:text-ag-nav-link-hover"
+                className="transition-colors duration-150 font-extrabold text-muted-foreground hover:text-foreground"
               >
                 Products
               </Link>
               <div className="relative group" onMouseLeave={() => setHideInsights(false)}>
-                <button className={`flex items-center gap-1.5 transition-colors duration-150 font-extrabold focus:outline-none ${isInsightsActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'}`}>
+                <button className={`flex items-center gap-1.5 transition-colors duration-150 font-extrabold focus:outline-none ${isInsightsActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
                   <span>Insights</span>
-                  <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-ag-nav-link group-hover:text-ag-nav-link-hover'}`}></i>
+                  <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}></i>
                 </button>
-                <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-ag-dropdown-bg border border-ag-dropdown-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
-                  <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>News</Link>
-                  <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Events</Link>
-                  <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Market Updates</Link>
-                  <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Video Gallery</Link>
-                  <Link href={`/${activeLang}/photo-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isPhotoGalleryActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Photo Gallery</Link>
+                <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
+                  <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>News</Link>
+                  <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Events</Link>
+                  <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Market Updates</Link>
+                  <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Video Gallery</Link>
+                  <Link href={`/${activeLang}/photo-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isPhotoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Photo Gallery</Link>
                 </div>
               </div>
             </nav>
 
-            <div className="flex items-center gap-4 select-none border-l border-ag-subheader-border pl-4 dir-none">
+            <div className="flex items-center gap-4 select-none border-l border-border pl-4 dir-none">
               <div className="flex items-center gap-3">
                 <Link
                   href="#"
@@ -335,15 +335,15 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 <div className="relative" ref={notificationsRef}>
                   <button 
                     onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                    className="relative flex items-center justify-center p-2 text-ag-nav-link hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200"
+                    className="relative flex items-center justify-center p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200"
                   >
                     <i className="fa-solid fa-bell text-[30px]"></i>
                   </button>
                   
                   {isNotificationsOpen && (
-                    <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-64 md:w-80 rounded-lg bg-ag-dropdown-bg border border-ag-dropdown-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
-                      <div className="flex items-center justify-between border-b border-ag-dropdown-border pb-2 mb-2">
-                        <h3 className="font-bold text-[16px] text-ag-dropdown-text">Notifications</h3>
+                    <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-64 md:w-80 rounded-lg bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                      <div className="flex items-center justify-between border-b border-border pb-2 mb-2">
+                        <h3 className="font-bold text-[16px] text-foreground">Notifications</h3>
                       </div>
                       <div className="flex flex-col items-center justify-center py-6 text-center">
                         <i className="fa-regular fa-bell-slash text-3xl text-zinc-400 mb-3"></i>
@@ -355,12 +355,12 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
                 <Link href={`/${activeLang}/profile`}>
                   <div
-                    className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-ag-login-bg text-ag-login-text hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-ag-login-border shadow-lg hover:scale-105 active:scale-95 duration-200"
+                    className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-muted text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-border shadow-lg hover:scale-105 active:scale-95 duration-200"
                   >
                     {profile?.profile_image ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        className="h-full w-full rounded-full border border-ag-login-border object-cover"
+                        className="h-full w-full rounded-full border border-border object-cover"
                         src={profile.profile_image.startsWith('http') ? profile.profile_image : `${getAssetsUrl()}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
                         alt="Profile"
                         onError={(e) => {
@@ -392,15 +392,15 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-ag-subheader-bg text-ag-subheader-text px-4 transition-all duration-300 ease-in-out border-b border-ag-subheader-border ${
+        className={`hidden md:block w-full bg-card text-muted-foreground px-4 transition-all duration-300 ease-in-out border-b border-border ${
           isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
       >
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           {/* Left-aligned Menu Trigger */}
-          <div className="shrink-0 border-e border-ag-subheader-border pe-5 flex items-center">
+          <div className="shrink-0 border-e border-border pe-5 flex items-center">
             <AppMenu align="left" profile={profile}>
-              <div className="flex items-center gap-3 text-ag-header-text hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+              <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                 </svg>
@@ -421,7 +421,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                     isActive={isActive}
                     baseClassName="transition-colors border-y-2 border-t-transparent pt-1 pb-1"
                     activeClassName="text-primary border-b-primary font-extrabold"
-                    inactiveClassName="text-ag-nav-link border-b-transparent hover:text-ag-nav-link-hover hover:border-b-primary font-bold"
+                    inactiveClassName="text-muted-foreground border-b-transparent hover:text-foreground hover:border-b-primary font-bold"
                   >
                     {category.name}
                   </CategoryLink>
@@ -431,16 +431,16 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               {/* "Others" Dropdown inside the same row, at the very last (on the right) */}
               {dropdownCategories.length > 0 && (
                 <div className="relative group">
-                  <button className="flex items-center gap-1.5 text-ag-nav-link hover:text-ag-nav-link-hover font-bold text-[16px] focus:outline-none border-y-2 border-t-transparent border-b-transparent hover:border-b-primary pt-1 pb-1">
+                  <button className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground font-bold text-[16px] focus:outline-none border-y-2 border-t-transparent border-b-transparent hover:border-b-primary pt-1 pb-1">
                     <span>{dict.header.categories.others}</span>
-                    <i className="fa-solid fa-chevron-down text-[11px] ml-1 text-ag-nav-link group-hover:text-ag-nav-link-hover"></i>
+                    <i className="fa-solid fa-chevron-down text-[11px] ml-1 text-muted-foreground group-hover:text-foreground"></i>
                   </button>
-                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3.5 w-48 rounded-md bg-ag-dropdown-bg border border-ag-dropdown-border p-1.5 shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-150 z-50`}>
+                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3.5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-150 z-50`}>
                     {dropdownCategories.map((category, index) => (
                       <Link
                         key={index}
                         href={category.href}
-                        className="block px-3.5 py-2.5 text-sm text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text rounded transition-colors"
+                        className="block px-3.5 py-2.5 text-sm text-foreground hover:bg-muted hover:text-foreground rounded transition-colors"
                       >
                         {category.name}
                       </Link>

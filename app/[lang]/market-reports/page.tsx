@@ -67,20 +67,20 @@ function MarketReportsGridSkeleton() {
       {[...Array(10)].map((_, i) => (
         <div 
           key={i} 
-          className="flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden h-full shadow-sm animate-pulse"
+          className="flex flex-col rounded-xl bg-background border border-border overflow-hidden h-full shadow-sm animate-pulse"
         >
           {/* Reverted aspect ratio for Market Reports */}
-          <div className="w-full aspect-[794/1120] bg-ag-header-border/50 border-b border-ag-header-border"></div>
+          <div className="w-full aspect-[794/1120] bg-muted border-b border-border"></div>
           <div className="px-2 py-2 sm:px-3 sm:py-3 flex flex-col flex-grow">
-            <div className="w-full h-5 rounded bg-ag-header-border/50 mb-2"></div>
-            <div className="w-3/4 h-5 rounded bg-ag-header-border/50 mb-4"></div>
-            <div className="w-full h-3 rounded bg-ag-header-border/50 mb-1.5"></div>
-            <div className="w-full h-3 rounded bg-ag-header-border/50 mb-1.5"></div>
-            <div className="w-4/5 h-3 rounded bg-ag-header-border/50 mb-4"></div>
+            <div className="w-full h-5 rounded bg-muted mb-2"></div>
+            <div className="w-3/4 h-5 rounded bg-muted mb-4"></div>
+            <div className="w-full h-3 rounded bg-muted mb-1.5"></div>
+            <div className="w-full h-3 rounded bg-muted mb-1.5"></div>
+            <div className="w-4/5 h-3 rounded bg-muted mb-4"></div>
             <div className="flex-grow"></div>
-            <div className="flex items-center justify-between mt-auto border-t border-ag-header-border pt-3">
-              <div className="w-20 h-4 rounded bg-ag-header-border/50"></div>
-              <div className="w-6 h-6 rounded-full bg-ag-header-border/50"></div>
+            <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
+              <div className="w-20 h-4 rounded bg-muted"></div>
+              <div className="w-6 h-6 rounded-full bg-muted"></div>
             </div>
           </div>
         </div>
@@ -115,8 +115,8 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
 
   if (reports.length === 0) {
     return (
-      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-ag-header-border mt-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-ag-header-border mb-4 text-foreground/60">
+      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
           <i className="fa-solid fa-file-pdf text-2xl"></i>
         </div>
         <h3 className="text-xl font-semibold text-foreground mb-2">No Market Reports Found</h3>
