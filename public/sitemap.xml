@@ -100,4 +100,12 @@
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
+
+  <!-- Participation Gallery -->
+  <url>
+    <loc>https://agriguruonline.com/en/participation-gallery</loc>
+    <lastmod>2026-08-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
 </urlset>

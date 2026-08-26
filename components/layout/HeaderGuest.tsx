@@ -99,8 +99,8 @@ export function HeaderGuestBase({
   const isEventsActive = pathname === `/${activeLang}/events` || pathname === `/events`
   const isMarketUpdatesActive = pathname === `/${activeLang}/market-updates` || pathname === `/market-updates`
   const isVideoGalleryActive = pathname === `/${activeLang}/video-gallery` || pathname === `/video-gallery`
-  const isPhotoGalleryActive = pathname === `/${activeLang}/photo-gallery` || pathname === `/photo-gallery`
-  const isInsightsActive = isNewsActive || isEventsActive || isMarketUpdatesActive || isVideoGalleryActive || isPhotoGalleryActive
+  const isParticipationGalleryActive = pathname === `/${activeLang}/participation-gallery` || pathname === `/participation-gallery` || pathname?.startsWith(`/${activeLang}/participation-gallery/`) || pathname?.startsWith('/participation-gallery/') || pathname === `/${activeLang}/photo-gallery` || pathname === `/photo-gallery`
+  const isInsightsActive = isNewsActive || isEventsActive || isMarketUpdatesActive || isVideoGalleryActive || isParticipationGalleryActive
   
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
@@ -380,7 +380,7 @@ export function HeaderGuestBase({
                       <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Events</Link>
                       <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Market Updates</Link>
                       <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Video Gallery</Link>
-                      <Link href={`/${activeLang}/photo-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isPhotoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Photo Gallery</Link>
+                      <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Participation Gallery</Link>
                     </div>
                   </div>
                 </>
