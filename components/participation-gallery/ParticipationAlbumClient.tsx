@@ -13,7 +13,7 @@ interface ParticipationAlbumClientProps {
   lang: string
 }
 
-const PHOTOS_PER_PAGE = 24
+const PHOTOS_PER_PAGE = 50
 
 export default function ParticipationAlbumClient({
   photos,
@@ -101,6 +101,34 @@ export default function ParticipationAlbumClient({
     }
   }, [selectedIndex])
 
+  // Auto open lightbox if ?photo= is present in URL
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const photoParam = params.get('photo')
+    if (photoParam) {
+      const idx = photos.findIndex(
+        (p, i) => p.id === photoParam || p.slug === photoParam || String(i + 1) === photoParam
+      )
+      if (idx !== -1) {
+        setSelectedIndex(idx)
+      }
+    }
+  }, [photos])
+
+  // Sync selected photo to browser URL query param
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (selectedIndex !== null && photos[selectedIndex]) {
+      const p = photos[selectedIndex]
+      url.searchParams.set('photo', p.slug || p.id || String(selectedIndex + 1))
+    } else {
+      url.searchParams.delete('photo')
+    }
+    window.history.replaceState(null, '', url.pathname + url.search)
+  }, [selectedIndex, photos])
+
   useEffect(() => {
     if (selectedIndex !== null) {
       document.body.style.overflow = 'hidden'
@@ -117,30 +145,19 @@ export default function ParticipationAlbumClient({
 
   const currentPhoto = selectedIndex !== null ? photos[selectedIndex] : null
   const currentPhotoTitle = currentPhoto && selectedIndex !== null ? getPhotoTitle(currentPhoto, selectedIndex) : albumTitle
+  const currentPhotoKey = currentPhoto ? (currentPhoto.slug || currentPhoto.id || String((selectedIndex ?? 0) + 1)) : ''
+  const currentShareUrl = `/${lang}/participation-gallery/${albumSlug}?photo=${currentPhotoKey}`
 
   return (
     <div>
-      {/* Subheader photo count */}
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-border text-sm text-muted-foreground">
-        <span className="font-semibold text-foreground text-xs sm:text-sm flex items-center gap-2">
-          <i className="fa-solid fa-camera text-primary"></i>
-          <span>{photos.length} Total {photos.length === 1 ? 'Photo' : 'Photos'}</span>
-        </span>
-
-        {totalPages > 1 && (
-          <span className="text-xs">
-            Page {currentPage} of {totalPages}
-          </span>
-        )}
-      </div>
-
       {/* Grid of Square Photos (1:1) with Thumbnails & Share button on every card */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 mt-2">
         {currentPhotos.map((photo, index) => {
           const globalIndex = startIndex + index
           const photoThumbUrl = getThumbnailUrl(photo)
           const title = getPhotoTitle(photo, globalIndex)
-          const shareUrl = `/${lang}/participation-gallery/${albumSlug}`
+          const photoKey = photo.slug || photo.id || String(globalIndex + 1)
+          const shareUrl = `/${lang}/participation-gallery/${albumSlug}?photo=${photoKey}`
 
           return (
             <div
@@ -157,8 +174,9 @@ export default function ParticipationAlbumClient({
                   alt={title}
                   title={title}
                   fill
-                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                  priority={index < 8}
+                  unoptimized={true}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  priority={index < 4}
                   className="object-cover group-hover:scale-105 transition-transform duration-300"
                 />
 
@@ -175,7 +193,7 @@ export default function ParticipationAlbumClient({
                 <button
                   type="button"
                   onClick={() => setSelectedIndex(globalIndex)}
-                  className="text-left font-bold text-xs sm:text-[13px] text-foreground truncate hover:text-primary transition-colors flex-1 mr-2 leading-tight"
+                  className="text-left font-bold text-xs sm:text-[13px] text-foreground truncate hover:text-primary transition-colors flex-1 mr-2 leading-tight cursor-pointer"
                   style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
                 >
                   {title}
@@ -183,7 +201,7 @@ export default function ParticipationAlbumClient({
 
                 <div onClick={(e) => e.stopPropagation()} className="shrink-0">
                   <ShareButton
-                    title={`${title} - ${albumTitle}`}
+                    title={`${albumTitle} Memories with AgriGuru Online`}
                     url={shareUrl}
                   />
                 </div>
@@ -200,7 +218,7 @@ export default function ParticipationAlbumClient({
             type="button"
             disabled={currentPage === 1}
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-primary hover:text-white hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold"
+            className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-primary hover:text-white hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold cursor-pointer"
             aria-label="Previous page"
           >
             <i className="fa-solid fa-chevron-left text-xs rtl:rotate-180"></i>
@@ -211,7 +229,7 @@ export default function ParticipationAlbumClient({
               key={pg}
               type="button"
               onClick={() => setCurrentPage(pg)}
-              className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border font-bold text-sm transition-colors ${
+              className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border font-bold text-sm transition-colors cursor-pointer ${
                 currentPage === pg
                   ? 'bg-primary text-white border-primary shadow-xs'
                   : 'border-border bg-card text-foreground hover:bg-primary/10 hover:border-primary/50'
@@ -225,7 +243,7 @@ export default function ParticipationAlbumClient({
             type="button"
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-primary hover:text-white hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold"
+            className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-primary hover:text-white hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold cursor-pointer"
             aria-label="Next page"
           >
             <i className="fa-solid fa-chevron-right text-xs rtl:rotate-180"></i>
@@ -236,7 +254,7 @@ export default function ParticipationAlbumClient({
       {/* Full Screen Lightbox Modal - z-[9999] so it overlays the announcement bar and header completely */}
       {selectedIndex !== null && currentPhoto && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-5"
+          className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex flex-col justify-between p-3 sm:p-5 animate-in fade-in duration-200"
           onClick={() => setSelectedIndex(null)}
         >
           {/* Lightbox Top Header */}
@@ -255,8 +273,8 @@ export default function ParticipationAlbumClient({
 
             <div className="flex items-center gap-2">
               <ShareButton
-                title={`${currentPhotoTitle} - ${albumTitle}`}
-                url={`/${lang}/participation-gallery/${albumSlug}`}
+                title={`${albumTitle} Memories with AgriGuru Online`}
+                url={currentShareUrl}
               />
 
               <button
@@ -270,7 +288,7 @@ export default function ParticipationAlbumClient({
             </div>
           </div>
 
-          {/* Center Stage: Actual High-Res Image with Instant Switch (No lag) */}
+          {/* Center Stage: Progressive Instant Preview with Dual-Layer High-Res Load */}
           <div
             className="relative flex-grow flex items-center justify-center my-2 select-none"
             onClick={(e) => e.stopPropagation()}
@@ -300,13 +318,22 @@ export default function ParticipationAlbumClient({
             </button>
 
             <div className="relative w-full h-[65vh] max-w-4xl aspect-square flex items-center justify-center">
+              {/* Instant low-res backdrop so there is 0ms blank screen */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={getThumbnailUrl(currentPhoto)}
+                alt=""
+                className="absolute max-w-full max-h-full object-contain filter blur-xs opacity-60 pointer-events-none rounded-lg"
+              />
+              {/* High-res full quality photo */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 key={currentPhoto.id || selectedIndex}
                 src={getActualImageUrl(currentPhoto)}
                 alt={currentPhotoTitle}
-                className="max-w-full max-h-full object-contain select-none shadow-2xl rounded-lg animate-in fade-in duration-150"
+                className="relative z-10 max-w-full max-h-full object-contain select-none shadow-2xl rounded-lg animate-in fade-in duration-200"
                 loading="eager"
+                decoding="async"
               />
             </div>
           </div>

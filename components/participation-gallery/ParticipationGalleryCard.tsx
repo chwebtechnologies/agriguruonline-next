@@ -34,6 +34,7 @@ export default function ParticipationGalleryCard({
       {/* 1:1 Square Image Container with Theme bg-muted Skeleton */}
       <Link
         href={albumUrl}
+        prefetch={true}
         title={category.category_name}
         className="relative w-full aspect-square bg-muted overflow-hidden border-b border-border block"
       >
@@ -42,7 +43,8 @@ export default function ParticipationGalleryCard({
           alt={category.category_name}
           title={category.category_name}
           fill
-          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+          unoptimized={true}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           priority={priority}
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
@@ -62,7 +64,7 @@ export default function ParticipationGalleryCard({
             className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight"
             style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
           >
-            <Link href={albumUrl} title={category.category_name} className="hover:text-brand-blue transition-colors">
+            <Link href={albumUrl} prefetch={true} title={category.category_name} className="hover:text-brand-blue transition-colors">
               {category.category_name}
             </Link>
           </h3>
@@ -71,6 +73,7 @@ export default function ParticipationGalleryCard({
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
           <Link
             href={albumUrl}
+            prefetch={true}
             className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-brand-blue hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
           >
             <span>View Album</span>
