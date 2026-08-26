@@ -61,23 +61,23 @@ function EventsGridSkeleton() {
       {[...Array(12)].map((_, i) => (
         <div
           key={i}
-          className="flex flex-col rounded-xl bg-background border border-foreground/10 overflow-hidden h-full shadow-sm animate-pulse"
+          className="flex flex-col rounded-xl bg-background border border-border overflow-hidden h-full shadow-sm animate-pulse"
         >
-          <div className="w-full aspect-[3/2] bg-foreground/10 border-b border-foreground/10"></div>
+          <div className="w-full aspect-[3/2] bg-muted border-b border-border"></div>
           <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
-                <div className="w-4 h-4 rounded bg-foreground/10 mr-2"></div>
-                <div className="w-32 h-3 rounded bg-foreground/10"></div>
+                <div className="w-4 h-4 rounded bg-muted mr-2"></div>
+                <div className="w-32 h-3 rounded bg-muted"></div>
               </div>
-              <div className="w-16 h-4 rounded-full bg-foreground/10"></div>
+              <div className="w-16 h-4 rounded-full bg-muted"></div>
             </div>
-            <div className="w-full h-5 rounded bg-foreground/10 mb-2"></div>
-            <div className="w-3/4 h-5 rounded bg-foreground/10 mb-4"></div>
+            <div className="w-full h-5 rounded bg-muted mb-2"></div>
+            <div className="w-3/4 h-5 rounded bg-muted mb-4"></div>
             <div className="flex-grow"></div>
-            <div className="flex items-center justify-between mt-auto border-t border-foreground/10 pt-3">
-              <div className="w-20 h-4 rounded bg-foreground/10"></div>
-              <div className="w-6 h-6 rounded-full bg-foreground/10"></div>
+            <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
+              <div className="w-20 h-4 rounded bg-muted"></div>
+              <div className="w-6 h-6 rounded-full bg-muted"></div>
             </div>
           </div>
         </div>
@@ -101,8 +101,8 @@ async function EventsGrid({ lang, page, limit, search, categoryId }: {
 
   if (eventsList.length === 0) {
     return (
-      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-foreground/10 mt-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-foreground/10 mb-4 text-foreground/60">
+      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
           <i className="fa-regular fa-calendar-days text-2xl"></i>
         </div>
         <h3 className="text-xl font-semibold text-foreground mb-2">No Events Found</h3>

@@ -180,9 +180,9 @@ export default async function SubCategoryProductsPage(
               return (
                 <div
                   key={product.id}
-                  className="group flex flex-col rounded-2xl bg-card border border-foreground/10 overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
+                  className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                 >
-                  <div className="relative w-full aspect-square bg-card/30 overflow-hidden border-b border-foreground/10">
+                  <div className="relative w-full aspect-square bg-card/30 overflow-hidden border-b border-border">
                     <ImageWithSkeleton
                       src={imageUrl}
                       alt={product.name}
@@ -217,7 +217,7 @@ export default async function SubCategoryProductsPage(
 
                       <Link
                         href={`/${lang}/product/${product.slug}`}
-                        className="w-full block text-center border border-foreground/10 bg-background hover:bg-foreground/10 text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
+                        className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
                       >
                         {common.viewDetails}
                       </Link>

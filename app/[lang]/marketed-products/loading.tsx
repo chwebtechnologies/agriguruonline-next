@@ -14,7 +14,7 @@ export default function Loading() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
           {[...Array(10)].map((_, i) => (
-            <div key={i} className="rounded-xl overflow-hidden bg-background border border-foreground/10 shadow-sm flex flex-col">
+            <div key={i} className="rounded-xl overflow-hidden bg-background border border-border shadow-sm flex flex-col">
               <div className="w-full aspect-square bg-ag-subheader-border animate-pulse relative">
                 {/* Flag skeleton (top-left) */}
                 <div className="absolute top-2 left-2 w-8 h-6 bg-background/80 rounded animate-pulse"></div>

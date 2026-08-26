@@ -181,9 +181,9 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                 return (
                   <div
                     key={subCat.id}
-                    className="group flex flex-col rounded-2xl bg-card border border-foreground/10 overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
+                    className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                   >
-                    <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-foreground/10 block">
+                    <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
                       <ImageWithSkeleton
                         src={imageUrl}
                         alt={name}
@@ -221,8 +221,8 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
               })}
             </div>
           ) : (
-            <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-foreground/10">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-foreground/10 mb-4 text-foreground/60">
+            <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
                 <i className="fa-solid fa-box-open text-2xl"></i>
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">No Sub Categories Found</h3>

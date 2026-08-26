@@ -9,9 +9,9 @@ export default function MarketUpdatesLoading() {
           
           {/* ListingFilters Skeleton */}
           <div className="mb-4 flex flex-wrap gap-2 animate-pulse mt-4">
-            <div className="h-10 w-24 bg-foreground/10 rounded-full"></div>
-            <div className="h-10 w-32 bg-foreground/10 rounded-full"></div>
-            <div className="h-10 ml-auto w-48 bg-foreground/10 rounded-lg"></div>
+            <div className="h-10 w-24 bg-muted rounded-full"></div>
+            <div className="h-10 w-32 bg-muted rounded-full"></div>
+            <div className="h-10 ml-auto w-48 bg-muted rounded-lg"></div>
           </div>
 
           {/* MarketUpdatesGrid Skeleton */}
@@ -19,20 +19,20 @@ export default function MarketUpdatesLoading() {
             {[...Array(12)].map((_, i) => (
               <div
                 key={i}
-                className="flex flex-col rounded-xl bg-background border border-foreground/10 overflow-hidden h-full shadow-sm animate-pulse"
+                className="flex flex-col rounded-xl bg-background border border-border overflow-hidden h-full shadow-sm animate-pulse"
               >
-                <div className="w-full aspect-[3/2] bg-foreground/10 border-b border-foreground/10"></div>
+                <div className="w-full aspect-[3/2] bg-muted border-b border-border"></div>
                 <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="w-24 h-4 rounded bg-foreground/10"></div>
+                    <div className="w-24 h-4 rounded bg-muted"></div>
                   </div>
-                  <div className="w-full h-5 rounded bg-foreground/10 mb-2"></div>
-                  <div className="w-3/4 h-5 rounded bg-foreground/10 mb-4"></div>
-                  <div className="w-full h-3 rounded bg-foreground/10 mb-1.5"></div>
-                  <div className="w-full h-3 rounded bg-foreground/10 mb-1.5"></div>
-                  <div className="w-4/5 h-3 rounded bg-foreground/10 mb-4"></div>
-                  <div className="flex items-center justify-between mt-auto border-t border-foreground/10 pt-3">
-                    <div className="w-20 h-4 rounded bg-foreground/10"></div>
+                  <div className="w-full h-5 rounded bg-muted mb-2"></div>
+                  <div className="w-3/4 h-5 rounded bg-muted mb-4"></div>
+                  <div className="w-full h-3 rounded bg-muted mb-1.5"></div>
+                  <div className="w-full h-3 rounded bg-muted mb-1.5"></div>
+                  <div className="w-4/5 h-3 rounded bg-muted mb-4"></div>
+                  <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
+                    <div className="w-20 h-4 rounded bg-muted"></div>
                   </div>
                 </div>
               </div>
