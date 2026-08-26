@@ -60,11 +60,16 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
           </span>
         </div>
         
-        <h3 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-4 line-clamp-2 flex-grow" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+        <h3 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2 flex-grow" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
           <Link href={`/${lang}/events/${event.slug}`} className="hover:text-brand-blue transition-colors">
             {event.title}
           </Link>
         </h3>
+
+        <div className="flex items-center text-xs text-foreground/70 mb-2 truncate">
+          <i className="fa-solid fa-location-dot mr-1.5 text-brand-blue shrink-0 text-[11px]"></i>
+          <span className="truncate">{event.location || 'A-1107, Mondeal Heights'}</span>
+        </div>
         
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
           <Link 

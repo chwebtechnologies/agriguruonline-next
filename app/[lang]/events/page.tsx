@@ -113,7 +113,8 @@ function EventsGridSkeleton() {
               <div className="w-16 h-4 rounded-full bg-muted"></div>
             </div>
             <div className="w-full h-5 rounded bg-muted mb-2"></div>
-            <div className="w-3/4 h-5 rounded bg-muted mb-4"></div>
+            <div className="w-3/4 h-5 rounded bg-muted mb-2"></div>
+            <div className="w-1/2 h-3.5 rounded bg-muted mb-4"></div>
             <div className="flex-grow"></div>
             <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
               <div className="w-24 h-4 rounded bg-muted"></div>
