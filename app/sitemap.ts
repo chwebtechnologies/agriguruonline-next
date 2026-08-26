@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguru.online'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
 
   // In a real production app, you might want to fetch all your active languages 
   // and dynamically generate the URLs here. For now we use the ones defined.

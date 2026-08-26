@@ -13,8 +13,42 @@ import '../globals.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'),
-  title: 'AgriGuru Online',
-  description: 'The global agricultural trading platform',
+  title: {
+    default: 'AgriGuru Online - Global Agricultural Trading',
+    template: '%s | AgriGuru Online',
+  },
+  description: 'The premium B2B SaaS platform for global agricultural trade.',
+  keywords: ['Agriculture', 'Trading', 'B2B', 'Commodities', 'AgriGuru', 'Agricultural Trade', 'Export', 'Import'],
+  authors: [{ name: 'AgriGuru Online' }],
+  creator: 'AgriGuru Online',
+  openGraph: {
+    type: 'website',
+    siteName: 'AgriGuru Online',
+    title: 'AgriGuru Online - Global Agricultural Trading',
+    description: 'The premium B2B SaaS platform for global agricultural trade.',
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com',
+    images: [
+      {
+        url: '/logo.png',
+        width: 1200,
+        height: 630,
+        alt: 'AgriGuru Online Logo',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AgriGuru Online - Global Agricultural Trading',
+    description: 'The premium B2B SaaS platform for global agricultural trade.',
+    images: ['/logo.png'],
+    site: '@AgriGuruOnline',
+    creator: '@AgriGuruOnline',
+  },
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-icon.png', // Assuming you might add this later or standard Next.js behavior
+  },
+  manifest: '/manifest.json', // Useful for PWA and advanced mobile SEO
 }
 
 export const viewport: Viewport = {

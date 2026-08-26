@@ -3,7 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 
 export const metadata: Metadata = {
-  title: 'About Us - AgriGuru Online',
+  title: 'About Us',
   description: 'Welcome to AgriGuru Online: The Future of Global Agri-Commodity Trading.',
 }
 
