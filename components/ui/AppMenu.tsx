@@ -82,7 +82,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   const isMember = !!profile?.membership;
   const inquiriesLabel = (isMember && isSeller) ? 'My Offers' : 'My Inquiries';
 
-  // Grouped like Apple Settings
+  // Grouped like Agriguru Online Settings
   const MENU_GROUPS: MenuItem[][] = [
     [
       { label: 'Dashboard', icon: 'fa-solid fa-table-cells-large', href: '#', iconBg: 'bg-blue-500' },      
@@ -151,7 +151,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
         )}
       </div>
 
-      {/* --- DESKTOP DROPDOWN VIEW (Ultra Compact Single Column Apple Settings) --- */}
+      {/* --- DESKTOP DROPDOWN VIEW (Ultra Compact Single Column Agriguru Online Settings) --- */}
       <div className={`hidden md:block absolute top-[calc(100%+0.5rem)] ${alignClass} w-[260px] bg-background border border-ag-header-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl overflow-hidden transition-all duration-200 z-[100] ${isOpen ? 'scale-100 opacity-100 visible translate-y-0' : 'scale-95 opacity-0 invisible -translate-y-2'}`}>
         <div className="max-h-[calc(100vh-100px)] overflow-y-auto px-2 py-2 space-y-1.5">
           {MENU_GROUPS.map((group, groupIndex) => (

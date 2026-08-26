@@ -36,35 +36,35 @@ body {
 
 :root {
   /* ==========================================================================
-     Apple Human Interface Guidelines (HIG) Standard System Colors
-     Reference: https://developer.apple.com/design/human-interface-guidelines/color
+     Agriguru Online Standard System Colors
+     Reference: Agriguru Online Design System
      ========================================================================== */
 
-  /* Standard Apple System Grays (Light Mode) */
-  --apple-gray-1: #8E8E93;
-  --apple-gray-2: #AEAEB2;
-  --apple-gray-3: #C7C7CC;
-  --apple-gray-4: #D1D1D6;
-  --apple-gray-5: #E5E5EA;
-  --apple-gray-6: #F2F2F7;
+  /* Standard Agriguru Online System Grays (Light Mode) */
+  --agriguru-online-gray-1: #8E8E93;
+  --agriguru-online-gray-2: #AEAEB2;
+  --agriguru-online-gray-3: #C7C7CC;
+  --agriguru-online-gray-4: #D1D1D6;
+  --agriguru-online-gray-5: #E5E5EA;
+  --agriguru-online-gray-6: #F2F2F7;
 
-  /* Standard Apple System Labels / Text Hierarchy (Light Mode) */
-  --apple-label: #1D1D1F;
-  --apple-secondary-label: #6E6E73;
-  --apple-tertiary-label: #86868B;
-  --apple-quaternary-label: #C7C7CC;
+  /* Standard Agriguru Online System Labels / Text Hierarchy (Light Mode) */
+  --agriguru-online-label: #1D1D1F;
+  --agriguru-online-secondary-label: #6E6E73;
+  --agriguru-online-tertiary-label: #86868B;
+  --agriguru-online-quaternary-label: #C7C7CC;
 
-  /* Standard Apple System Backgrounds (Light Mode) */
-  --apple-system-bg: #FFFFFF;
-  --apple-system-secondary-bg: #F2F2F7;
-  --apple-system-tertiary-bg: #FFFFFF;
-  --apple-system-grouped-bg: #F2F2F7;
-  --apple-system-secondary-grouped-bg: #FFFFFF;
-  --apple-system-tertiary-grouped-bg: #F2F2F7;
+  /* Standard Agriguru Online System Backgrounds (Light Mode) */
+  --agriguru-online-system-bg: #FFFFFF;
+  --agriguru-online-system-secondary-bg: #F2F2F7;
+  --agriguru-online-system-tertiary-bg: #FFFFFF;
+  --agriguru-online-system-grouped-bg: #F2F2F7;
+  --agriguru-online-system-secondary-grouped-bg: #FFFFFF;
+  --agriguru-online-system-tertiary-grouped-bg: #F2F2F7;
 
-  /* Standard Apple System Separators (Light Mode) */
-  --apple-separator: #E5E5EA;
-  --apple-opaque-separator: #D1D1D6;
+  /* Standard Agriguru Online System Separators (Light Mode) */
+  --agriguru-online-separator: #E5E5EA;
+  --agriguru-online-opaque-separator: #D1D1D6;
 
   /* ==========================================================================
      AgriGuru Brand Colors & Gradients (100% EXACT / 0% CHANGE)
@@ -81,10 +81,10 @@ body {
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
 
   /* ==========================================================================
-     Semantic Fallbacks (Defaulting to Apple Light Theme)
+     Semantic Fallbacks (Defaulting to Agriguru Online Light Theme)
      ========================================================================== */
   --background: #F5F5F7;
-  --foreground: var(--apple-label);
+  --foreground: var(--agriguru-online-label);
 
   --ag-card-bg: #FFFFFF;
   --ag-bg-main: #F5F5F7;
@@ -94,12 +94,12 @@ body {
   --ag-announcement-text: var(--brand-blue);
 
   --ag-header-bg: #FFFFFF;
-  --ag-header-text: var(--apple-label);
-  --ag-header-border: var(--apple-separator);
+  --ag-header-text: var(--agriguru-online-label);
+  --ag-header-border: var(--agriguru-online-separator);
 
   --ag-subheader-bg: #FFFFFF;
-  --ag-subheader-text: var(--apple-secondary-label);
-  --ag-subheader-border: var(--apple-separator);
+  --ag-subheader-text: var(--agriguru-online-secondary-label);
+  --ag-subheader-border: var(--agriguru-online-separator);
 
   --ag-search-bg: #F2F2F7;
   --ag-search-border: #E5E5EA;
@@ -110,24 +110,24 @@ body {
   --ag-search-kbd-text: #6E6E73;
 
   --ag-dropdown-bg: #FFFFFF;
-  --ag-dropdown-border: var(--apple-separator);
-  --ag-dropdown-text: var(--apple-label);
+  --ag-dropdown-border: var(--agriguru-online-separator);
+  --ag-dropdown-text: var(--agriguru-online-label);
   --ag-dropdown-hover-bg: #F2F2F7;
   --ag-dropdown-hover-text: #000000;
 
-  --ag-nav-link: var(--apple-secondary-label);
-  --ag-nav-link-hover: var(--apple-label);
+  --ag-nav-link: var(--agriguru-online-secondary-label);
+  --ag-nav-link-hover: var(--agriguru-online-label);
 
   --ag-login-bg: #F2F2F7;
-  --ag-login-border: var(--apple-separator);
-  --ag-login-text: var(--apple-label);
+  --ag-login-border: var(--agriguru-online-separator);
+  --ag-login-text: var(--agriguru-online-label);
 
   --ag-footer-bg: #FFFFFF;
-  --ag-footer-border: var(--apple-separator);
+  --ag-footer-border: var(--agriguru-online-separator);
   --ag-footer-bottom-bg: #F2F2F7;
   --ag-footer-card-bg: #FFFFFF;
-  --ag-footer-heading-text: var(--apple-label);
-  --ag-footer-text: var(--apple-secondary-label);
+  --ag-footer-heading-text: var(--agriguru-online-label);
+  --ag-footer-text: var(--agriguru-online-secondary-label);
 }
 
 /* Explicit Light Theme Configuration */
@@ -185,33 +185,33 @@ body {
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
 }
 
-/* Explicit Apple HIG Dark Theme Configuration */
+/* Explicit Agriguru Online Dark Theme Configuration */
 .dark {
-  /* Standard Apple System Grays (Dark Mode) */
-  --apple-gray-1: #8E8E93;
-  --apple-gray-2: #636366;
-  --apple-gray-3: #48484A;
-  --apple-gray-4: #3A3A3C;
-  --apple-gray-5: #2C2C2E;
-  --apple-gray-6: #1C1C1E;
+  /* Standard Agriguru Online System Grays (Dark Mode) */
+  --agriguru-online-gray-1: #8E8E93;
+  --agriguru-online-gray-2: #636366;
+  --agriguru-online-gray-3: #48484A;
+  --agriguru-online-gray-4: #3A3A3C;
+  --agriguru-online-gray-5: #2C2C2E;
+  --agriguru-online-gray-6: #1C1C1E;
 
-  /* Standard Apple System Labels / Text Hierarchy (Dark Mode) */
-  --apple-label: #FFFFFF;
-  --apple-secondary-label: #8E8E93;
-  --apple-tertiary-label: #8E8E93;
-  --apple-quaternary-label: #48484A;
+  /* Standard Agriguru Online System Labels / Text Hierarchy (Dark Mode) */
+  --agriguru-online-label: #FFFFFF;
+  --agriguru-online-secondary-label: #8E8E93;
+  --agriguru-online-tertiary-label: #8E8E93;
+  --agriguru-online-quaternary-label: #48484A;
 
-  /* Standard Apple System Backgrounds (Dark Mode) */
-  --apple-system-bg: #000000;
-  --apple-system-secondary-bg: #1C1C1E;
-  --apple-system-tertiary-bg: #2C2C2E;
-  --apple-system-grouped-bg: #000000;
-  --apple-system-secondary-grouped-bg: #1C1C1E;
-  --apple-system-tertiary-grouped-bg: #2C2C2E;
+  /* Standard Agriguru Online System Backgrounds (Dark Mode) */
+  --agriguru-online-system-bg: #000000;
+  --agriguru-online-system-secondary-bg: #1C1C1E;
+  --agriguru-online-system-tertiary-bg: #2C2C2E;
+  --agriguru-online-system-grouped-bg: #000000;
+  --agriguru-online-system-secondary-grouped-bg: #1C1C1E;
+  --agriguru-online-system-tertiary-grouped-bg: #2C2C2E;
 
-  /* Standard Apple System Separators (Dark Mode) */
-  --apple-separator: #2C2C2E;
-  --apple-opaque-separator: #38383A;
+  /* Standard Agriguru Online System Separators (Dark Mode) */
+  --agriguru-online-separator: #2C2C2E;
+  --agriguru-online-opaque-separator: #38383A;
 
   --background: #000000;
   --foreground: #F5F5F7;

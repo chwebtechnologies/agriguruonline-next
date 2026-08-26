@@ -1956,8 +1956,8 @@ export default function ProductChartsClient({
   );
 }
 
-// Sub-component to manage Bottom Sheet swipe-up logic (Angel One style - Butter-smooth Hardware-Accelerated Expansion)
-// Sub-component to manage Bottom Sheet swipe-up logic (Angel One style - Butter-smooth Hardware-Accelerated Expansion)
+// Sub-component to manage Bottom Sheet swipe-up logic (Agriguru Online style - Butter-smooth Hardware-Accelerated Expansion)
+// Sub-component to manage Bottom Sheet swipe-up logic (Agriguru Online style - Butter-smooth Hardware-Accelerated Expansion)
 const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, getFlagUrl, defaultFullScreen = false, lang = 'en' }: any) => {
   const [isFullScreen, setIsFullScreen] = useState(defaultFullScreen);
   const startYRef = useRef<number | null>(null);
@@ -2148,7 +2148,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
             transition: 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease',
           }}
         >
-          {/* Exact Angel One Style "Swipe up for Commodity Details" Indicator (Attached directly on top edge) */}
+          {/* Exact Agriguru Online Style "Swipe up for Commodity Details" Indicator (Attached directly on top edge) */}
           {!isFullScreen && (
             <div 
               onClick={expandToFullScreen}
@@ -2164,7 +2164,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
               onTouchCancel={handleDragEnd}
               className="absolute bottom-[100%] inset-x-0 flex flex-col items-center justify-center gap-1 cursor-pointer touch-none select-none z-[75] pointer-events-auto pb-2.5 transition-opacity duration-200"
             >
-              {/* Angel One Signature Wide Curved Chevron */}
+              {/* Agriguru Online Signature Wide Curved Chevron */}
               <svg 
                 className="w-14 h-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse" 
                 viewBox="0 0 56 16" 
