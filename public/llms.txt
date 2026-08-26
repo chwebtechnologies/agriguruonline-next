@@ -3,5 +3,5 @@
 AgriGuru Online is a B2B SaaS platform for agricultural commodity trading, offering real-time pricing, market reports, and direct buyer-seller networking.
 
 ## Resources
-- [Sitemap](https://agriguru.online/sitemap.xml)
-- [Home](https://agriguru.online)
+- [Sitemap](https://agriguruonline.com/sitemap.xml)
+- [Home](https://agriguruonline.com)

@@ -47,7 +47,7 @@ const getMarketedProducts = cache(async (lang: string, page: number, limit: numb
     const res = await fetch(url, {
       next: { revalidate: 3600 }
     })
-    
+
     if (!res.ok) {
       return null
     }
@@ -69,10 +69,34 @@ export async function generateMetadata(
   const params = await props.params;
   const lang = params.lang || 'en'
   const title = "Marketed Products"
-  
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
+
   return {
     title: `${title} | AgriGuru Online`,
     description: `Browse ${title} on AgriGuru Online`,
+    openGraph: {
+      title: `${title} | AgriGuru Online`,
+      description: `Browse ${title} on AgriGuru Online`,
+      url: `${siteUrl}/${lang}/marketed-products`,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: `${siteUrl}/logo.png`,
+          width: 1200,
+          height: 630,
+          alt: 'AgriGuru Online Logo',
+        },
+      ],
+      locale: lang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${title} | AgriGuru Online`,
+      description: `Browse ${title} on AgriGuru Online`,
+      images: [`${siteUrl}/logo.png`],
+    },
   }
 }
 
@@ -82,7 +106,7 @@ export default async function MarketedProductsPage(
   const params = await props.params;
   const lang = params.lang || 'en'
   const searchParams = await props.searchParams;
-  
+
   const pageStr = searchParams?.page
   const page = typeof pageStr === 'string' ? parseInt(pageStr, 10) : 1
   const limit = 20
@@ -91,7 +115,7 @@ export default async function MarketedProductsPage(
     getMarketedProducts(lang, page, limit),
     getDictionary(lang)
   ])
-  
+
   const commonDict = (dict as Record<string, any>).common || {}
   const common = {
     back: commonDict.back || "Back",
@@ -102,7 +126,7 @@ export default async function MarketedProductsPage(
     marketedProducts: "Marketed Products",
   }
 
-  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+  const assetsUrl = getAssetsUrl(); const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
   if (!data || data.products.length === 0) {
     return (
@@ -126,21 +150,21 @@ export default async function MarketedProductsPage(
           <PageHeader title={common.marketedProducts} backText={common.back} />
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
-          {data.products.map((product, index) => (
-            <MarketedProductCard 
-              key={product.id}
-              product={product}
-              lang={lang}
-              common={common}
-              imageBaseUrl={imageBaseUrl}
-              priority={index < 10}
-            />
-          ))}
+            {data.products.map((product, index) => (
+              <MarketedProductCard
+                key={product.id}
+                product={product}
+                lang={lang}
+                common={common}
+                imageBaseUrl={imageBaseUrl}
+                priority={index < 10}
+              />
+            ))}
           </div>
-          
-          <Pagination 
-            currentPage={page} 
-            totalPages={totalPages} 
+
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
             baseUrl={`/${lang}/marketed-products`}
           />
         </div>

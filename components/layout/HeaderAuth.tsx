@@ -76,6 +76,15 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
   const isAboutActive = pathname === `/${activeLang}/about` || pathname === `/about`
   const isDashboardActive = pathname === `/${activeLang}/dashboard` || pathname === `/dashboard`
+  
+  const [hideInsights, setHideInsights] = useState(false)
+  const isNewsActive = pathname === `/${activeLang}/news` || pathname === `/news`
+  const isEventsActive = pathname === `/${activeLang}/events` || pathname === `/events`
+  const isMarketUpdatesActive = pathname === `/${activeLang}/market-updates` || pathname === `/market-updates`
+  const isVideoGalleryActive = pathname === `/${activeLang}/video-gallery` || pathname === `/video-gallery`
+  const isPhotoGalleryActive = pathname === `/${activeLang}/photo-gallery` || pathname === `/photo-gallery`
+  const isInsightsActive = isNewsActive || isEventsActive || isMarketUpdatesActive || isVideoGalleryActive || isPhotoGalleryActive
+  
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
   useEffect(() => {
@@ -299,6 +308,19 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               >
                 Products
               </Link>
+              <div className="relative group" onMouseLeave={() => setHideInsights(false)}>
+                <button className={`flex items-center gap-1.5 transition-colors duration-150 font-extrabold focus:outline-none ${isInsightsActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'}`}>
+                  <span>Insights</span>
+                  <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-ag-nav-link group-hover:text-ag-nav-link-hover'}`}></i>
+                </button>
+                <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-ag-dropdown-bg border border-ag-dropdown-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
+                  <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>News</Link>
+                  <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Events</Link>
+                  <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Market Updates</Link>
+                  <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Video Gallery</Link>
+                  <Link href={`/${activeLang}/photo-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isPhotoGalleryActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Photo Gallery</Link>
+                </div>
+              </div>
             </nav>
 
             <div className="flex items-center gap-4 select-none border-l border-ag-subheader-border pl-4 dir-none">

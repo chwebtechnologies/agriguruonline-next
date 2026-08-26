@@ -41,16 +41,16 @@ interface MarketedProductCardProps {
 export function MarketedProductCard({ product, lang, common, imageBaseUrl, priority = false }: MarketedProductCardProps) {
   const [showSpecs, setShowSpecs] = useState(false)
 
-  const imageUrl = product.thumbnail || product.image 
+  const imageUrl = product.thumbnail || product.image
     ? ((product.thumbnail || product.image).startsWith('http') ? (product.thumbnail || product.image) : `${imageBaseUrl}${product.thumbnail || product.image}`)
-    : 'https://agriguru.online/logo.png'
-    
+    : 'https://agriguruonline.com/logo.png'
+
   const flagUrl = product.country?.flag ? (product.country.flag.startsWith('http') ? product.country.flag : `${imageBaseUrl}${product.country.flag}`) : null
 
   // --- Helper to parse specifications ---
   const parseSpecifications = (html?: string) => {
     if (!html) return { tableData: [], otherData: [] };
-    
+
     let decoded = html
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
@@ -58,26 +58,26 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
       .replace(/&nbsp;/g, ' ');
-      
+
     const textWithNewlines = decoded
       .replace(/<\/(p|div|li)>/gi, '\n')
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<[^>]*>/g, '');
-      
+
     const items = textWithNewlines.split('\n').map(s => s.trim()).filter(Boolean);
-    
-    const tableData: {key: string, value: string}[] = [];
+
+    const tableData: { key: string, value: string }[] = [];
     const otherData: string[] = [];
-    
+
     items.forEach(item => {
       const cleanItem = item.replace(/,$/, '').trim();
       const colonIndex = cleanItem.indexOf(':');
-      
+
       if (colonIndex > 0) {
         const key = cleanItem.substring(0, colonIndex).trim();
         const value = cleanItem.substring(colonIndex + 1).trim();
-        
-        if (key.length < 50 && value) { 
+
+        if (key.length < 50 && value) {
           tableData.push({ key, value });
         } else {
           otherData.push(cleanItem);
@@ -86,7 +86,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
         otherData.push(cleanItem);
       }
     });
-    
+
     return { tableData, otherData };
   }
 
@@ -105,25 +105,25 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             priority={priority}
           />
-          
+
           {/* Flag on top-left with solid background */}
           {flagUrl && (
             <div className="absolute top-2 left-2 flex items-center justify-center p-0.5 sm:p-1 bg-white/90 shadow-sm rounded border border-black/10 z-10">
               <div className="relative w-5 h-3.5 sm:w-6 sm:h-4 overflow-hidden rounded-[1px]">
-                 <ImageWithSkeleton
-                    src={flagUrl}
-                    alt={product.country?.name || 'Country Flag'}
-                    fill
-                    sizes="32px"
-                    className="object-cover"
-                  />
+                <ImageWithSkeleton
+                  src={flagUrl}
+                  alt={product.country?.name || 'Country Flag'}
+                  fill
+                  sizes="32px"
+                  className="object-cover"
+                />
               </div>
             </div>
           )}
-          
+
 
           {/* Info Icon on top-right to trigger specs modal */}
-          <button 
+          <button
             onClick={(e) => {
               e.preventDefault();
               setShowSpecs(true);
@@ -134,17 +134,17 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
             <i className="fa-solid fa-info text-[10px] sm:text-xs"></i>
           </button>
         </div>
-        
+
         <div className="p-2 flex flex-col flex-1">
           <div className="flex justify-center mb-1">
-             <span className="text-[10px] sm:text-[11px] font-semibold text-[#156cb3] uppercase tracking-wider line-clamp-1 text-center">
-                {product.category?.name || 'Product'} {product.country?.name ? `• ${product.country.name}` : ''}
-              </span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-[#156cb3] uppercase tracking-wider line-clamp-1 text-center">
+              {product.category?.name || 'Product'} {product.country?.name ? `• ${product.country.name}` : ''}
+            </span>
           </div>
           <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
             {product.name}
           </h2>
-          
+
           <div className="mt-auto">
             {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
               <div className="flex items-baseline justify-center gap-1 mt-0.5 mb-2.5">
@@ -159,32 +159,32 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 </span>
               </div>
             )}
-            
+
             <div className="space-y-1.5">
-            <button className="w-full bg-brand-blue hover:bg-[#157dc9] text-white py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1.5">
-              <i className="fa-solid fa-plus text-xs"></i>
-              {common.addProduct}
-            </button>
-            
-            <div className="grid grid-cols-2 gap-1.5">
-              <button className="bg-brand-green hover:bg-[#229670] text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
-                <i className="fa-solid fa-cart-shopping text-[10px]"></i>
-                {common.buy}
+              <button className="w-full bg-brand-blue hover:bg-[#157dc9] text-white py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1.5">
+                <i className="fa-solid fa-plus text-xs"></i>
+                {common.addProduct}
               </button>
-              <button className="bg-brand-red hover:bg-[#c4535a] text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
-                <i className="fa-solid fa-tag text-[10px]"></i>
-                {common.sell}
-              </button>
+
+              <div className="grid grid-cols-2 gap-1.5">
+                <button className="bg-brand-green hover:bg-[#229670] text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
+                  <i className="fa-solid fa-cart-shopping text-[10px]"></i>
+                  {common.buy}
+                </button>
+                <button className="bg-brand-red hover:bg-[#c4535a] text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
+                  <i className="fa-solid fa-tag text-[10px]"></i>
+                  {common.sell}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
       {/* Specifications Modal */}
       {showSpecs && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div 
+          <div
             className="bg-background text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-ag-header-border flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -194,14 +194,14 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 <i className="fa-solid fa-file-lines"></i>
                 Specifications
               </h2>
-              <button 
+              <button
                 onClick={() => setShowSpecs(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-foreground focus:outline-none"
               >
                 <i className="fa-solid fa-xmark text-lg"></i>
               </button>
             </div>
-            
+
             {/* Modal Body */}
             <div className="px-5 py-5 overflow-y-auto bg-[#fdfdfd] dark:bg-background">
               <div className="mb-6 flex flex-row items-center gap-4">
@@ -226,7 +226,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                       </span>
                     )}
                   </div>
-                  
+
                   {/* Bottom Row: Tags + Price */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex gap-2">
@@ -244,7 +244,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                         </span>
                       )}
                     </div>
-                    
+
                     {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
                       <div className="flex items-baseline gap-1 whitespace-nowrap pl-2 flex-shrink-0">
                         <span className="text-[16px] sm:text-[18px] font-black text-brand-green leading-none">
@@ -256,7 +256,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                   </div>
                 </div>
               </div>
-              
+
               <div className="w-full">
                 {tableData.length === 0 && otherData.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-foreground/50 gap-3 bg-ag-subheader-bg/30 rounded-xl border border-dashed border-ag-header-border">
@@ -305,19 +305,19 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 )}
               </div>
             </div>
-            
+
             {/* Modal Footer */}
             <div className="px-4 py-4 border-t border-ag-header-border bg-ag-subheader-bg/50 grid grid-cols-3 gap-2.5">
               <button className="bg-brand-green hover:bg-[#229670] text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
                 <i className="fa-solid fa-cart-shopping text-xs"></i>
                 {common.buy}
               </button>
-              
+
               <button className="bg-brand-blue hover:bg-[#157dc9] text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
                 <i className="fa-solid fa-plus text-xs"></i>
                 {common.addProduct}
               </button>
-              
+
               <button className="bg-brand-red hover:bg-[#c4535a] text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
                 <i className="fa-solid fa-tag text-xs"></i>
                 {common.sell}

@@ -55,10 +55,10 @@ export default function ListingFilters({ categories = [] }: ListingFiltersProps)
   }
 
   return (
-    <div className={`flex flex-col sm:flex-row gap-3 w-full mt-4 mb-2 ${categories.length === 0 ? 'sm:justify-end' : ''}`}>
+    <div className={`flex flex-row gap-2 sm:gap-3 w-full mt-4 mb-2 ${categories.length === 0 ? 'justify-end' : ''}`}>
       {/* Category Filter - LEFT */}
       {categories.length > 0 && (
-        <div className="relative w-full sm:w-1/2">
+        <div className="relative w-1/2">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <i className="fa-solid fa-filter text-foreground/40 text-sm"></i>
           </div>
@@ -81,7 +81,7 @@ export default function ListingFilters({ categories = [] }: ListingFiltersProps)
       )}
 
       {/* Search - RIGHT */}
-      <div className="relative w-full sm:w-1/2">
+      <div className={`relative ${categories.length > 0 ? 'w-1/2' : 'w-full sm:w-1/2'}`}>
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <i className="fa-solid fa-magnifying-glass text-foreground/40 text-sm"></i>
         </div>

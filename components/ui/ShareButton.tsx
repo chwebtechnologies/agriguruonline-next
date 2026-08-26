@@ -1,23 +1,40 @@
 'use client'
 
 export function ShareButton({ title, url }: { title: string, url: string }) {
-  const handleShare = async () => {
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     // Convert relative URL to absolute URL if needed
     const absoluteUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title,
+          title: title,
+          text: title, // Adding text is crucial for apps like WhatsApp to pick up the share properly on iOS
           url: absoluteUrl
         })
-      } catch (err) {
+      } catch (err: any) {
+        // User cancelled share
+        if (err.name === 'AbortError') return;
+        
         console.error('Error sharing:', err)
+        fallbackShare(absoluteUrl)
       }
     } else {
-      // Fallback for browsers that don't support Web Share API
-      navigator.clipboard.writeText(absoluteUrl)
-      alert('Link copied to clipboard!')
+      fallbackShare(absoluteUrl)
+    }
+  }
+
+  const fallbackShare = (absoluteUrl: string) => {
+    // Fallback for browsers/OS that don't support Web Share API
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(absoluteUrl).then(() => {
+        alert('Link copied to clipboard!')
+      }).catch(err => {
+        console.error('Failed to copy: ', err)
+      })
     }
   }
 

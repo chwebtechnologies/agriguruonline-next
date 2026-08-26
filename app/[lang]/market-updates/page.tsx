@@ -14,26 +14,26 @@ export const metadata: Metadata = {
     title: 'Market Updates - AgriGuru Online',
     description: 'Stay updated with the latest market flyers and updates in the agricultural industry.',
     type: 'website',
-    images: ['https://agriguru.online/logo.png'],
+    images: ['https://agriguruonline.com/logo.png'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Market Updates - AgriGuru Online',
     description: 'Stay updated with the latest market flyers and updates in the agricultural industry.',
-    images: ['https://agriguru.online/logo.png'],
+    images: ['https://agriguruonline.com/logo.png'],
   }
 }
 
 
 
 const getMarketUpdates = cache(async (lang: string, page: number, limit: number, search?: string): Promise<MarketUpdatesResponse | null> => {
-  const cmsApiUrl = getCmsApiUrl();const url = `${cmsApiUrl}/flyer?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`
+  const cmsApiUrl = getCmsApiUrl(); const url = `${cmsApiUrl}/flyer?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`
 
   try {
     const res = await fetch(url, {
       next: { revalidate: 3600 }
     })
-    
+
     if (!res.ok) {
       return null
     }
@@ -51,8 +51,8 @@ function MarketUpdatesGridSkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
       {[...Array(12)].map((_, i) => (
-        <div 
-          key={i} 
+        <div
+          key={i}
           className="flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden h-full shadow-sm animate-pulse"
         >
           {/* Changed aspect ratio to 794/1120 for Market Updates */}
@@ -101,7 +101,7 @@ async function MarketUpdatesGrid({ lang, page, limit, search }: {
     )
   }
 
-  const assetsUrl = getAssetsUrl();return (
+  const assetsUrl = getAssetsUrl(); return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {flyers.map((flyer, index) => (
@@ -124,11 +124,11 @@ async function MarketUpdatesGrid({ lang, page, limit, search }: {
                 "@type": "Article",
                 "headline": flyer.translations?.[0]?.title || flyer.title || flyer.slug,
                 "image": [
-                  flyer.thumbnail.startsWith('http') 
-                    ? flyer.thumbnail 
+                  flyer.thumbnail.startsWith('http')
+                    ? flyer.thumbnail
                     : `${assetsUrl}/${flyer.thumbnail}`
                 ],
-                "url": `https://agriguru.online/${lang}/market-updates/${flyer.slug}`
+                "url": `https://agriguruonline.com/${lang}/market-updates/${flyer.slug}`
               }
             }))
           }).replace(/</g, '\\u003c')
@@ -139,19 +139,19 @@ async function MarketUpdatesGrid({ lang, page, limit, search }: {
 }
 
 /* ---------- Main page component ---------- */
-export default async function MarketUpdatesPage(props: { 
+export default async function MarketUpdatesPage(props: {
   params: Promise<{ lang: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
-  
+
   const lang = params.lang || 'en'
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
   const limit = 18 // Used 18 as per API limit in requirement
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
-  
+
   // Unique key forces Suspense to re-mount and show skeleton when filters change
   const suspenseKey = `market-updates-${currentPage}-${searchQuery || ''}`
 
@@ -161,7 +161,7 @@ export default async function MarketUpdatesPage(props: {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Market Updates" backText="Back" />
           <ListingFilters categories={[]} />
-          
+
           <Suspense key={suspenseKey} fallback={<MarketUpdatesGridSkeleton />}>
             <MarketUpdatesGrid lang={lang} page={currentPage} limit={limit} search={searchQuery} />
           </Suspense>

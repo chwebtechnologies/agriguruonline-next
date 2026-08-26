@@ -15,26 +15,33 @@ export const metadata: Metadata = {
     title: 'Latest Events - AgriGuru Online',
     description: 'Discover the latest agricultural events, exhibitions, and conferences.',
     type: 'website',
-    images: ['https://agriguru.online/logo.png'],
+    images: [
+      {
+        url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/logo.png`,
+        width: 1200,
+        height: 630,
+        alt: 'AgriGuru Online Logo',
+      }
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Latest Events - AgriGuru Online',
     description: 'Discover the latest agricultural events, exhibitions, and conferences.',
-    images: ['https://agriguru.online/logo.png'],
+    images: [`${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/logo.png`],
   }
 }
 
 
 
 const getLatestEvents = cache(async (lang: string, page: number, limit: number, search?: string, categoryId?: string): Promise<EventsResponse | null> => {
-  const cmsApiUrl = getCmsApiUrl();const url = `${cmsApiUrl}/latestevents?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}${categoryId ? `&category_id=${categoryId}` : ''}`
+  const cmsApiUrl = getCmsApiUrl(); const url = `${cmsApiUrl}/latestevents?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}${categoryId ? `&category_id=${categoryId}` : ''}`
 
   try {
     const res = await fetch(url, {
       next: { revalidate: 3600 }
     })
-    
+
     if (!res.ok) {
       return null
     }
@@ -52,8 +59,8 @@ function EventsGridSkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
       {[...Array(12)].map((_, i) => (
-        <div 
-          key={i} 
+        <div
+          key={i}
           className="flex flex-col rounded-xl bg-background border border-ag-header-border overflow-hidden h-full shadow-sm animate-pulse"
         >
           <div className="w-full aspect-[3/2] bg-ag-header-border/50 border-b border-ag-header-border"></div>
@@ -132,11 +139,11 @@ async function EventsGrid({ lang, page, limit, search, categoryId }: {
                 "endDate": eventItem.end_date,
                 "eventStatus": `https://schema.org/Event${eventItem.status === 'UPCOMING' ? 'Scheduled' : eventItem.status === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
                 "image": [
-                  eventItem.thumbnail.startsWith('http') 
-                    ? eventItem.thumbnail 
+                  eventItem.thumbnail.startsWith('http')
+                    ? eventItem.thumbnail
                     : `https://assets.agriguruonline.cloud/${eventItem.thumbnail}`
                 ],
-                "url": `https://agriguru.online/${lang}/events/${eventItem.slug}`
+                "url": `https://agriguruonline.com/${lang}/events/${eventItem.slug}`
               }
             }))
           }).replace(/</g, '\\u003c')
@@ -147,21 +154,21 @@ async function EventsGrid({ lang, page, limit, search, categoryId }: {
 }
 
 /* ---------- Main page component ---------- */
-export default async function LatestEventsPage(props: { 
+export default async function LatestEventsPage(props: {
   params: Promise<{ lang: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
-  
+
   const lang = params.lang || 'en'
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
   const limit = 12
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
-  
-  const tradingApiUrl = getTradingApiUrl();const apiCategories = await getCategories(lang, {
+
+  const tradingApiUrl = getTradingApiUrl(); const apiCategories = await getCategories(lang, {
     apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`,
     stale: 300,
     revalidate: 3600,
@@ -190,7 +197,7 @@ export default async function LatestEventsPage(props: {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Latest Events" backText="Back" />
           <ListingFilters categories={categoryOptions} />
-          
+
           <Suspense key={suspenseKey} fallback={<EventsGridSkeleton />}>
             <EventsGrid lang={lang} page={currentPage} limit={limit} search={searchQuery} categoryId={categoryId} />
           </Suspense>

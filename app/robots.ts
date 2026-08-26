@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/dashboard/', '/api/', '/private/', '/*/profile/', '/*/market-reports/'],
     },
-    sitemap: 'https://agriguru.online/sitemap.xml',
+    sitemap: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/sitemap.xml`,
   }
 }

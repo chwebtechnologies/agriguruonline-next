@@ -35,13 +35,13 @@ interface CategoryData {
 }
 
 const getSubCategories = cache(async (slug: string, lang: string): Promise<CategoryData | null> => {
-  const tradingApiUrl = getTradingApiUrl();const url = `${tradingApiUrl}/sub-category/for-category/web/${slug}?lang_code=${lang}&source=web`
+  const tradingApiUrl = getTradingApiUrl(); const url = `${tradingApiUrl}/sub-category/for-category/web/${slug}?lang_code=${lang}&source=web`
 
   try {
     const res = await fetch(url, {
       next: { revalidate: 3600 }
     })
-    
+
     if (!res.ok) {
       return null
     }
@@ -64,17 +64,32 @@ export async function generateMetadata(
   const lang = params.lang || 'en'
   const slug = params.slug
 
-  // Instantly format slug instead of awaiting the slow API call
-  // Example: 'rice' -> 'Rice'
-  const categoryName = slug
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-    
+  // Fetch categories to get the category image
+  const apiCategories = await getCategories(lang, {
+    apiUrl: `${getTradingApiUrl().replace(/\/$/, '')}/category`,
+    stale: 300,
+    revalidate: 3600,
+    expire: 86400
+  })
+
+  const matchedCategory = apiCategories.find(c => c.slug === slug)
+
+  // Use translation if available, otherwise format slug
+  const categoryName = matchedCategory
+    ? (matchedCategory.translations?.find(t => t.lang_code === lang)?.name || matchedCategory.name)
+    : slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
   const title = `${categoryName} - AgriGuru Online`
   const description = `Explore ${categoryName} and related sub-categories on AgriGuru Online.`
 
-  let imageUrl = 'https://agriguru.online/logo.png'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguru.online'
+  let imageUrl = `${siteUrl}/logo.png`
+
+  if (matchedCategory && matchedCategory.image) {
+    const assetsUrl = getAssetsUrl()
+    const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+    imageUrl = matchedCategory.image.startsWith('http') ? matchedCategory.image : `${imageBaseUrl}${matchedCategory.image}`
+  }
 
   return {
     title,
@@ -82,7 +97,7 @@ export async function generateMetadata(
     openGraph: {
       title,
       description,
-      url: `https://agriguru.online/${lang}/category/${slug}`,
+      url: `${siteUrl}/${lang}/category/${slug}`,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -102,7 +117,7 @@ export async function generateMetadata(
       images: [imageUrl],
     },
     alternates: {
-      canonical: `https://agriguru.online/${lang}/category/${slug}`,
+      canonical: `${siteUrl}/${lang}/category/${slug}`,
     }
   }
 }
@@ -148,74 +163,74 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   const categoryName = getTranslatedName(data.category?.translations, data.category?.name || 'Category')
 
   // Use the assets URL from ENV, fallback to the default domain, and ensure it ends with a slash
-  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  
+  const assetsUrl = getAssetsUrl(); const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+
   return (
     <div className="bg-background text-foreground">
       {/* Main Content */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-        <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} />
+          <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} />
 
-        {data.sub_categories && data.sub_categories.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-            {data.sub_categories.map((subCat, index) => {
-              const name = getTranslatedName(subCat.translations, subCat.name)
-              const imageUrl = subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`
-              
-              return (
-                <div 
-                  key={subCat.id} 
-                  className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
-                >
-                  <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-ag-subheader-bg/20 overflow-hidden border-b border-ag-header-border block">
-                    <ImageWithSkeleton
-                      src={imageUrl}
-                      alt={name}
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                      priority={index < 10}
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </ProductLink>
-                  
-                  <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
-                    <h3 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-                      <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="hover:text-brand-blue transition-colors">
-                        {name}
-                      </ProductLink>
-                    </h3>
-                    
-                    <div className="flex items-center justify-between mt-1">
-                      <ProductLink 
-                        href={`/${lang}/category/${slug}/${subCat.slug}`}
-                        className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-brand-blue hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
-                      >
-                        {common.explore}
-                        <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
-                      </ProductLink>
-                      
-                      <ShareButton 
-                        title={name} 
-                        url={`/${lang}/category/${slug}/${subCat.slug}`} 
+          {data.sub_categories && data.sub_categories.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+              {data.sub_categories.map((subCat, index) => {
+                const name = getTranslatedName(subCat.translations, subCat.name)
+                const imageUrl = subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`
+
+                return (
+                  <div
+                    key={subCat.id}
+                    className="group flex flex-col rounded-2xl bg-card border border-ag-header-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
+                  >
+                    <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-ag-subheader-bg/20 overflow-hidden border-b border-ag-header-border block">
+                      <ImageWithSkeleton
+                        src={imageUrl}
+                        alt={name}
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                        priority={index < 10}
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
                       />
+                    </ProductLink>
+
+                    <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
+                      <h3 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                        <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="hover:text-brand-blue transition-colors">
+                          {name}
+                        </ProductLink>
+                      </h3>
+
+                      <div className="flex items-center justify-between mt-1">
+                        <ProductLink
+                          href={`/${lang}/category/${slug}/${subCat.slug}`}
+                          className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-brand-blue hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
+                        >
+                          {common.explore}
+                          <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
+                        </ProductLink>
+
+                        <ShareButton
+                          title={name}
+                          url={`/${lang}/category/${slug}/${subCat.slug}`}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-ag-header-border">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-ag-header-border mb-4 text-foreground/60">
-              <i className="fa-solid fa-box-open text-2xl"></i>
+                )
+              })}
             </div>
-            <h3 className="text-xl font-semibold text-foreground mb-2">No Sub Categories Found</h3>
-            <p className="text-foreground/70 max-w-md mx-auto">
-              We couldn&apos;t find any sub categories for this category at the moment. Please check back later.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-ag-header-border">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-ag-header-border mb-4 text-foreground/60">
+                <i className="fa-solid fa-box-open text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">No Sub Categories Found</h3>
+              <p className="text-foreground/70 max-w-md mx-auto">
+                We couldn&apos;t find any sub categories for this category at the moment. Please check back later.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -21,3 +21,9 @@ export function getAssetsUrl(): string {
   const url = process.env.ASSETS_URL || process.env.NEXT_PUBLIC_ASSETS_URL || "https://assets.agriguruonline.com";
   return url.replace(/\/$/, "");
 }
+
+export function getSiteUrl(): string {
+  const url = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://agriguruonline.com";
+  return url.replace(/\/$/, "");
+}
+

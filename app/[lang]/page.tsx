@@ -9,8 +9,8 @@ function OrganizationSchema() {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     'name': 'AgriGuru Online',
-    'url': 'https://agriguru.online',
-    'logo': 'https://agriguru.online/logo.png',
+    'url': 'https://agriguruonline.com',
+    'logo': 'https://agriguruonline.com/logo.png',
     'description': 'The premium B2B SaaS platform for global agricultural trade.',
   }
 
@@ -29,19 +29,21 @@ export async function generateMetadata(): Promise<Metadata> {
   const title = rawDict?.home?.title || "Welcome to AgriGuru Online"
   const description = "The premium B2B SaaS platform for global agricultural trade."
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
+
   return {
     title,
     description,
     openGraph: {
       title,
       description,
-      url: `https://agriguru.online/${activeLang}`,
+      url: `${siteUrl}/${activeLang}`,
       siteName: 'AgriGuru Online',
       images: [
         {
-          url: 'https://agriguru.online/logo.png',
-          width: 800,
-          height: 600,
+          url: `${siteUrl}/logo.png`,
+          width: 1200,
+          height: 630,
           alt: 'AgriGuru Online Logo',
         },
       ],
@@ -52,15 +54,15 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title,
       description,
-      images: ['https://agriguru.online/logo.png'],
+      images: [`${siteUrl}/logo.png`],
     },
     alternates: {
-      canonical: `https://agriguru.online/${activeLang}`,
+      canonical: `${siteUrl}/${activeLang}`,
       languages: {
-        'en': 'https://agriguru.online/en',
-        'ar': 'https://agriguru.online/ar',
-        'fr': 'https://agriguru.online/fr',
-        'zh': 'https://agriguru.online/zh',
+        'en': `${siteUrl}/en`,
+        'ar': `${siteUrl}/ar`,
+        'fr': `${siteUrl}/fr`,
+        'zh': `${siteUrl}/zh`,
       },
     },
   }
@@ -86,7 +88,7 @@ export default async function LocalizedHomePage() {
   return (
     <>
       <OrganizationSchema />
-      
+
       <div className="flex flex-col items-center justify-center py-32 sm:py-48 bg-background text-foreground transition-theme" dir={dir}>
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-center">
           {dict.home.title}

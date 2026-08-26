@@ -12,7 +12,7 @@ import '../globals.css'
 
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://agriguru.online'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'),
   title: 'AgriGuru Online',
   description: 'The global agricultural trading platform',
 }
@@ -40,7 +40,7 @@ export default async function LocalizedRootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link rel="alternate" hrefLang="x-default" href="https://agriguru.online/" />
+        <link rel="alternate" hrefLang="x-default" href={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/`} />
         <ThemeInitializer />
         <link rel="preconnect" href="https://assets.agriguruonline.com" />
         <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
@@ -57,12 +57,12 @@ export default async function LocalizedRootLayout({
         <Suspense fallback={<HeaderGuestSkeleton />}>
           <Header />
         </Suspense>
-        
+
         <main className="flex-grow w-full relative">
           <div id="skeleton-portal" className="absolute inset-0 z-50 pointer-events-none empty:hidden"></div>
           {children}
         </main>
-        
+
         <Footer />
         <Toaster position="top-right" richColors closeButton />
       </body>

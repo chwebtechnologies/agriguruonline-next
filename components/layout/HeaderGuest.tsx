@@ -92,6 +92,15 @@ export function HeaderGuestBase({
 
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
   const isAboutActive = pathname === `/${activeLang}/about` || pathname === `/about`
+  
+  const [hideInsights, setHideInsights] = useState(false)
+  const isNewsActive = pathname === `/${activeLang}/news` || pathname === `/news`
+  const isEventsActive = pathname === `/${activeLang}/events` || pathname === `/events`
+  const isMarketUpdatesActive = pathname === `/${activeLang}/market-updates` || pathname === `/market-updates`
+  const isVideoGalleryActive = pathname === `/${activeLang}/video-gallery` || pathname === `/video-gallery`
+  const isPhotoGalleryActive = pathname === `/${activeLang}/photo-gallery` || pathname === `/photo-gallery`
+  const isInsightsActive = isNewsActive || isEventsActive || isMarketUpdatesActive || isVideoGalleryActive || isPhotoGalleryActive
+  
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
   // Default values to prevent undefined errors when rendering skeleton fallback
@@ -314,7 +323,7 @@ export function HeaderGuestBase({
                     placeholder={dict.header.search_placeholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-8 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-ag-search-text placeholder:text-ag-search-placeholder focus:bg-ag-card-bg focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
+                    className="w-full h-10 rounded-lg border border-ag-search-border bg-ag-search-bg pl-9 sm:pl-10 pr-3 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-ag-search-text placeholder:text-ag-search-placeholder focus:bg-ag-card-bg focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
                   />
                   
                   {searchQuery && (
@@ -360,6 +369,19 @@ export function HeaderGuestBase({
                   >
                     {dict.header.about_us}
                   </Link>
+                  <div className="relative group" onMouseLeave={() => setHideInsights(false)}>
+                    <button className={`flex items-center gap-1.5 transition-colors duration-150 font-extrabold focus:outline-none ${isInsightsActive ? 'text-primary' : 'text-ag-nav-link hover:text-ag-nav-link-hover'}`}>
+                      <span>Insights</span>
+                      <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-ag-nav-link group-hover:text-ag-nav-link-hover'}`}></i>
+                    </button>
+                    <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-ag-dropdown-bg border border-ag-dropdown-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
+                      <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>News</Link>
+                      <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Events</Link>
+                      <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Market Updates</Link>
+                      <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Video Gallery</Link>
+                      <Link href={`/${activeLang}/photo-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isPhotoGalleryActive ? 'bg-primary text-white' : 'text-ag-dropdown-text hover:bg-ag-dropdown-hover-bg hover:text-ag-dropdown-hover-text'}`}>Photo Gallery</Link>
+                    </div>
+                  </div>
                 </>
               )}
             </nav>
