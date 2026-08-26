@@ -151,7 +151,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 <span className="text-[16px] sm:text-[18px] font-extrabold text-foreground/70 mr-0.5 leading-none tracking-tight">
                   FOB
                 </span>
-                <span className="text-[16px] sm:text-[18px] font-extrabold text-[#1e8262] leading-none tracking-tight">
+                <span className="text-[16px] sm:text-[18px] font-extrabold text-brand-green leading-none tracking-tight">
                   ${product.loading_ports[0].price}
                 </span>
                 <span className="text-[10px] sm:text-[11px] text-foreground/60 font-semibold uppercase">
@@ -161,17 +161,17 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
             )}
 
             <div className="space-y-1.5">
-              <button className="w-full bg-brand-blue hover:bg-[#157dc9] text-white py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1.5">
+              <button className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1.5">
                 <i className="fa-solid fa-plus text-xs"></i>
                 {common.addProduct}
               </button>
 
               <div className="grid grid-cols-2 gap-1.5">
-                <button className="bg-brand-green hover:bg-[#229670] text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
+                <button className="bg-brand-green hover:bg-brand-green-hover text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
                   <i className="fa-solid fa-cart-shopping text-[10px]"></i>
                   {common.buy}
                 </button>
-                <button className="bg-brand-red hover:bg-[#c4535a] text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
+                <button className="bg-brand-red hover:bg-brand-red-hover text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
                   <i className="fa-solid fa-tag text-[10px]"></i>
                   {common.sell}
                 </button>
@@ -308,17 +308,17 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
             {/* Modal Footer */}
             <div className="px-4 py-4 border-t border-ag-header-border bg-ag-subheader-bg/50 grid grid-cols-3 gap-2.5">
-              <button className="bg-brand-green hover:bg-[#229670] text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
+              <button className="bg-brand-green hover:bg-brand-green-hover text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
                 <i className="fa-solid fa-cart-shopping text-xs"></i>
                 {common.buy}
               </button>
 
-              <button className="bg-brand-blue hover:bg-[#157dc9] text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
+              <button className="bg-brand-blue hover:bg-brand-blue-hover text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
                 <i className="fa-solid fa-plus text-xs"></i>
                 {common.addProduct}
               </button>
 
-              <button className="bg-brand-red hover:bg-[#c4535a] text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
+              <button className="bg-brand-red hover:bg-brand-red-hover text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
                 <i className="fa-solid fa-tag text-xs"></i>
                 {common.sell}
               </button>

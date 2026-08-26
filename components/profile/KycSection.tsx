@@ -282,7 +282,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
     <div ref={kycRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
       <div onClick={toggleKyc} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-foreground/[0.02] cursor-pointer lg:pointer-events-none list-none rounded-xl lg:rounded-b-none lg:border-b lg:border-foreground/5 transition-colors select-none">
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
             <i className="fa-solid fa-shield-halved text-[14px] sm:text-base"></i>
           </div>
           <div>
@@ -303,7 +303,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
         {/* Loading State */}
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-8 gap-3">
-            <i className="fa-solid fa-circle-notch fa-spin text-[#1D92EB] text-2xl"></i>
+            <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-2xl"></i>
             <p className="text-sm text-foreground/50 font-medium">Loading documents...</p>
           </div>
         )}
@@ -321,7 +321,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                     setSelectedTypeId(e.target.value);
                     selectedTypeIdRef.current = e.target.value;
                   }}
-                  className="w-full px-3.5 py-2.5 bg-background border border-foreground/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1D92EB] transition-all appearance-none text-sm font-medium text-foreground disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-foreground/[0.02]"
+                  className="w-full px-3.5 py-2.5 bg-background border border-foreground/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue transition-all appearance-none text-sm font-medium text-foreground disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-foreground/[0.02]"
                 >
                   <option value="" disabled>-- Select a document --</option>
                   {dropdownOptions.map(opt => (
@@ -335,8 +335,8 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
             {/* Dropzone Area */}
             {isUploading ? (
               /* Uploading Loader State inside Dropzone */
-              <div className="w-full py-6 px-4 bg-foreground/[0.02] border-2 border-[#1D92EB]/20 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 mt-2 select-none pointer-events-none">
-                <div className="w-12 h-12 rounded-full bg-[#1D92EB]/10 flex items-center justify-center text-[#1D92EB]">
+              <div className="w-full py-6 px-4 bg-foreground/[0.02] border-2 border-brand-blue/20 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 mt-2 select-none pointer-events-none">
+                <div className="w-12 h-12 rounded-full bg-brand-blue/10 flex items-center justify-center text-brand-blue">
                   <i className="fa-solid fa-circle-notch fa-spin text-xl"></i>
                 </div>
                 <div className="text-center">
@@ -345,7 +345,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                 </div>
                 {/* Horizontal loader animation */}
                 <div className="w-full max-w-[240px] h-1.5 bg-foreground/5 rounded-full overflow-hidden mt-1.5">
-                  <div className="h-full bg-[#1D92EB] rounded-full w-full animate-pulse"></div>
+                  <div className="h-full bg-brand-blue rounded-full w-full animate-pulse"></div>
                 </div>
               </div>
             ) : currentUploadedDoc ? (
@@ -410,7 +410,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                         </span>
                       ) : null}
                       
-                      <span className="text-[10px] text-[#1D92EB] hover:underline font-bold flex items-center gap-1">
+                      <span className="text-[10px] text-brand-blue hover:underline font-bold flex items-center gap-1">
                         <i className="fa-solid fa-eye text-[9px]"></i> View File
                       </span>
                     </div>
@@ -456,10 +456,10 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                     <button 
                       type="button"
                       onClick={handleUploadClick}
-                      className="w-full py-5 px-4 bg-foreground/[0.02] hover:bg-foreground/[0.05] border-2 border-foreground/15 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 transition-colors mt-2 focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 group/upload"
+                      className="w-full py-5 px-4 bg-foreground/[0.02] hover:bg-foreground/[0.05] border-2 border-foreground/15 border-dashed rounded-xl flex flex-col items-center justify-center gap-2 transition-colors mt-2 focus:outline-none focus:ring-2 focus:ring-brand-blue/50 group/upload"
                     >
-                      <div className="w-10 h-10 rounded-full bg-foreground/5 group-hover/upload:bg-[#1D92EB]/10 flex items-center justify-center transition-colors mb-1">
-                        <i className="fa-solid fa-arrow-up-from-bracket text-foreground/40 group-hover/upload:text-[#1D92EB] text-lg transition-colors"></i>
+                      <div className="w-10 h-10 rounded-full bg-foreground/5 group-hover/upload:bg-brand-blue/10 flex items-center justify-center transition-colors mb-1">
+                        <i className="fa-solid fa-arrow-up-from-bracket text-foreground/40 group-hover/upload:text-brand-blue text-lg transition-colors"></i>
                       </div>
                       <span className="text-sm font-bold text-foreground/80 group-hover/upload:text-foreground transition-colors">Click to upload document</span>
                       <span className="text-xs text-foreground/40 font-medium">PDF, JPG or PNG (Max 5MB)</span>

@@ -293,7 +293,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
 
       {/* Bottom Left: Email Mail Floater */}
-      <a href="mailto:support@agriguru.online" className="fixed bottom-18 md:bottom-6 left-6 z-45 flex h-11 w-11 items-center justify-center rounded-full bg-[#0084ff] text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-blue-400/20" aria-label="Mail Support">
+      <a href="mailto:support@agriguru.online" className="fixed bottom-18 md:bottom-6 left-6 z-45 flex h-11 w-11 items-center justify-center rounded-full bg-brand-blue text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-blue-400/20" aria-label="Mail Support">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" className="h-5 w-5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
         </svg>
@@ -315,7 +315,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
         )}
 
         {/* WhatsApp Chat Floater */}
-        <a href="https://wa.me/123456789" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#25d366] text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-emerald-400/20" aria-label="WhatsApp support">
+        <a href="https://wa.me/123456789" className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-green text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-emerald-400/20" aria-label="WhatsApp support">
           <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
             <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 001.335 4.963L2 22l5.233-1.371a9.96 9.96 0 004.773 1.212h.005c5.506 0 9.989-4.479 9.99-9.985A9.994 9.994 0 0012.012 2zm5.836 14.199c-.24.675-1.18 1.233-1.63 1.282-.45.05-1.02.08-2.93-.67-2.44-.96-4.01-3.43-4.13-3.6-.12-.17-1.02-1.36-1.02-2.59 0-1.23.64-1.83.87-2.08a.86.86 0 01.63-.29c.15 0 .3.01.43.01.14 0 .33-.05.51.38.19.45.64 1.57.7 1.69.06.12.1.26.02.42-.08.16-.12.26-.24.4-.12.14-.25.31-.36.42-.12.12-.25.25-.11.49.14.24.63 1.03 1.35 1.67.93.82 1.71 1.08 1.95 1.2.24.12.38.1.52-.06.14-.16.6-.7.76-.94.16-.24.32-.2.53-.12s1.35.63 1.58.75c.23.12.38.18.44.28.06.11.06.61-.18 1.29z" />
           </svg>

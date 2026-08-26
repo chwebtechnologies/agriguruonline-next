@@ -117,8 +117,8 @@ export default async function DedicatedChartPage(props: { params: Promise<{ lang
   const { itemData, userType } = await getChartProductData(params.id, lang);
   
   return (
-    <main className="bg-white dark:bg-[#121214] text-foreground min-h-[100dvh] w-full flex flex-col items-center">
-      <div className="w-full max-w-lg min-h-[100dvh] flex flex-col bg-white dark:bg-[#121214] border-x border-zinc-100 dark:border-zinc-800 shadow-sm">
+    <main className="bg-background text-foreground min-h-[100dvh] w-full flex flex-col items-center">
+      <div className="w-full max-w-lg min-h-[100dvh] flex flex-col bg-background border-x border-ag-header-border shadow-sm">
         <DedicatedChartClient 
           productId={params.id} 
           lang={lang} 

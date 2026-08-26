@@ -12,10 +12,10 @@ export default async function NotFound() {
 
         {/* Code */}
         <div>
-          <h1 className="text-[120px] sm:text-[160px] font-black leading-none tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-[#1D92EB] via-sky-500 to-[#157dc9] dark:from-sky-400 dark:via-sky-300 dark:to-sky-500">
+          <h1 className="text-[120px] sm:text-[160px] font-black leading-none tracking-tighter bg-clip-text text-transparent bg-gradient-to-br from-brand-blue via-sky-500 to-brand-blue-hover dark:from-sky-400 dark:via-sky-300 dark:to-sky-500">
             404
           </h1>
-          <div className="mx-auto mt-2 mb-6 h-1 w-16 rounded-full bg-gradient-to-r from-[#1D92EB] to-sky-500" />
+          <div className="mx-auto mt-2 mb-6 h-1 w-16 rounded-full bg-gradient-to-r from-brand-blue to-sky-500" />
         </div>
 
         {/* Message */}

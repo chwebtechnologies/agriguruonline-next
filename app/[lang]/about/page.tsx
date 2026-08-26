@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
+import Image from 'next/image'
 
 export const metadata: Metadata = {
   title: 'About Us',
   description: 'Welcome to AgriGuru Online: The Future of Global Agri-Commodity Trading.',
 }
 
+// Enable Incremental Static Regeneration (ISR) for this page (1 hour)
 export default async function AboutPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en';
@@ -47,11 +49,14 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
 
             {/* Problem 1 - Image Left, Text Right */}
             <div className="grid md:grid-cols-2 items-center w-full">
-              <div className="w-full h-[350px]">
-                <img
+              <div className="w-full h-[350px] relative">
+                <Image
                   src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80"
                   alt="Product Prices"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover rounded-lg"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority
                 />
               </div>
               <div className="flex flex-col gap-6 pl-0 md:pl-8 py-4">
@@ -92,22 +97,26 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
                   </p>
                 </div>
               </div>
-              <div className="w-full h-[350px] order-1 md:order-2">
-                <img
+              <div className="w-full h-[350px] order-1 md:order-2 relative">
+                <Image
                   src="/cargo-ship.jpg"
                   alt="Ocean Freight"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover rounded-lg"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                 />
               </div>
             </div>
 
             {/* Problem 3 - Image Left, Text Right */}
             <div className="grid md:grid-cols-2 items-center w-full">
-              <div className="w-full h-[350px]">
-                <img
+              <div className="w-full h-[350px] relative">
+                <Image
                   src="https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=1200&q=80"
                   alt="Smart Docs"
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover rounded-lg"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                 />
               </div>
               <div className="flex flex-col gap-6 pl-0 md:pl-8 py-4">

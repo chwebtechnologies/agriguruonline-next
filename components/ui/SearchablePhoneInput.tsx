@@ -152,7 +152,7 @@ export default function SearchablePhoneInput({
 
   return (
     <div
-      className={`flex items-center w-full px-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus-within:bg-background focus-within:ring-2 focus-within:ring-[#1D92EB]/50 focus-within:border-[#1D92EB] transition-all font-medium ${
+      className={`flex items-center w-full px-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus-within:bg-background focus-within:ring-2 focus-within:ring-brand-blue/50 focus-within:border-brand-blue transition-all font-medium ${
         className || ""
       }`}
     >

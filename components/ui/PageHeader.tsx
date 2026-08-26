@@ -15,7 +15,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false }: { tit
           <button 
             type="button"
             onClick={() => router.back()}
-            className="group flex items-center gap-2 text-foreground hover:text-[#1D92EB] dark:hover:text-[#1D92EB] transition-colors cursor-pointer"
+            className="group flex items-center gap-2 text-foreground hover:text-brand-blue dark:hover:text-brand-blue transition-colors cursor-pointer"
             aria-label="Go back"
           >
             <div className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-card border border-ag-header-border shadow-sm group-hover:border-ag-primary transition-colors">

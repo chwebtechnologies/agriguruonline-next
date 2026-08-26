@@ -72,6 +72,9 @@ body {
   --brand-blue: #1D92EB;
   --brand-green: #2AAF85;
   --brand-red: #DB5F67;
+  --brand-blue-hover: #157dc9;
+  --brand-green-hover: #25A06F;
+  --brand-red-hover: #D9383A;
 
   --ag-primary: var(--brand-blue);
   --ag-primary-hover: #1080d0;
@@ -277,6 +280,9 @@ body {
   --color-brand-blue: var(--brand-blue);
   --color-brand-green: var(--brand-green);
   --color-brand-red: var(--brand-red);
+  --color-brand-blue-hover: var(--brand-blue-hover);
+  --color-brand-green-hover: var(--brand-green-hover);
+  --color-brand-red-hover: var(--brand-red-hover);
   
   --color-emerald-500: var(--brand-green);
   --color-emerald-600: #239470;

@@ -34,7 +34,7 @@ export default function DedicatedChartClient({
   };
 
   return (
-    <div className="w-full min-h-[100dvh] flex flex-col bg-white dark:bg-[#121214]">
+    <div className="w-full min-h-[100dvh] flex flex-col bg-background">
       <MobileCommodityChart 
         item={item} 
         isFullScreen={true} 

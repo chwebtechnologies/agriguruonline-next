@@ -262,7 +262,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
             </div>
 
             {/* Advertisement Placeholder */}
-            <div className="w-full mt-2 rounded-xl overflow-hidden shadow-md relative bg-[#1a365d] border border-blue-900 h-[120px] min-[390px]:h-[140px] flex flex-col justify-center px-5 min-[390px]:px-6">
+            <div className="w-full mt-2 rounded-xl overflow-hidden shadow-md relative bg-brand-blue-hover border border-blue-900 h-[120px] min-[390px]:h-[140px] flex flex-col justify-center px-5 min-[390px]:px-6">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 rounded-full blur-3xl opacity-30 -mr-10 -mt-10"></div>
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-500 rounded-full blur-3xl opacity-20 -ml-10 -mb-10"></div>
               <div className="relative z-10 flex flex-col gap-1">

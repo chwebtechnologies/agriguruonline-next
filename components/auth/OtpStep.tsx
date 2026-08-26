@@ -254,7 +254,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
             disabled={isPending}
             className={
               isExpired
-                ? "text-[#1D92EB] font-bold hover:underline transition-colors animate-pulse"
+                ? "text-brand-blue font-bold hover:underline transition-colors animate-pulse"
                 : "text-foreground font-medium hover:underline disabled:opacity-50"
             }
             type="button"

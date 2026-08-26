@@ -887,6 +887,7 @@ export default function MobileCommodityChart({
                     />
                     <YAxis domain={['dataMin - 2', 'dataMax + 2']} hide />
                     <Tooltip
+                      isAnimationActive={false}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const pt = payload[0].payload;
@@ -895,7 +896,7 @@ export default function MobileCommodityChart({
                           const hasGeneralNote = Boolean(pt.comment && !pt.product_comment);
 
                           return (
-                            <div className="bg-card text-foreground text-[11px] font-bold px-3 py-2 rounded-xl shadow-2xl border border-ag-header-border max-w-[270px] z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md">
+                            <div className="bg-card text-foreground text-[11px] font-bold px-3 py-2 rounded-xl shadow-2xl border border-ag-header-border max-w-[270px] z-50">
                               <div className="flex items-center justify-between gap-3 text-foreground/60 text-[10px] font-normal">
                                 <span>{pt.formattedDate}</span>
                                 <span className="text-[13px] text-foreground font-black">${pt.price}</span>
@@ -1803,8 +1804,8 @@ export default function MobileCommodityChart({
           </div>
 
           {/* 52-Week Range & Market Metrics Card */}
-          <div className="bg-white dark:bg-[#18181b] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60 dark:border-zinc-700/60">
+          <div className="bg-card rounded-2xl border border-ag-header-border p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-ag-header-border">
               <span className="text-[12px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                 52-Week & Market Key Stats
               </span>
@@ -1827,19 +1828,19 @@ export default function MobileCommodityChart({
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-2 pt-1">
-              <div className="bg-zinc-50 dark:bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+              <div className="bg-ag-dropdown-hover-bg p-2.5 rounded-xl border border-ag-header-border">
                 <div className="text-[10px] font-bold text-zinc-400 uppercase">Avg. Price</div>
                 <div className="text-[13px] font-extrabold text-zinc-900 dark:text-white mt-0.5">${avgPrice.toFixed(2)}</div>
               </div>
-              <div className="bg-zinc-50 dark:bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+              <div className="bg-ag-dropdown-hover-bg p-2.5 rounded-xl border border-ag-header-border">
                 <div className="text-[10px] font-bold text-zinc-400 uppercase">Volatility</div>
                 <div className="text-[13px] font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{volatilityInfo.value}</div>
               </div>
-              <div className="bg-zinc-50 dark:bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+              <div className="bg-ag-dropdown-hover-bg p-2.5 rounded-xl border border-ag-header-border">
                 <div className="text-[10px] font-bold text-zinc-400 uppercase">Support</div>
                 <div className="text-[13px] font-extrabold text-emerald-600 mt-0.5">${supportResistance.support}</div>
               </div>
-              <div className="bg-zinc-50 dark:bg-zinc-900/90 p-2.5 rounded-xl border border-zinc-200/60 dark:border-zinc-800">
+              <div className="bg-ag-dropdown-hover-bg p-2.5 rounded-xl border border-ag-header-border">
                 <div className="text-[10px] font-bold text-zinc-400 uppercase">Resistance</div>
                 <div className="text-[13px] font-extrabold text-red-500 mt-0.5">${supportResistance.resistance}</div>
               </div>
@@ -1861,14 +1862,14 @@ export default function MobileCommodityChart({
           </div>
 
           {/* Quick Specifications Preview */}
-          <div className="bg-white dark:bg-[#18181b] rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60 dark:border-zinc-700/60">
+          <div className="bg-card rounded-2xl border border-ag-header-border p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-ag-header-border">
               <span className="text-[12px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                 Commodity Specifications
               </span>
               <button
                 onClick={() => setShowSpecsModal(true)}
-                className="text-[11px] font-bold text-[#1D92EB] hover:underline cursor-pointer flex items-center gap-1"
+                className="text-[11px] font-bold text-brand-blue hover:underline cursor-pointer flex items-center gap-1"
               >
                 <span>Full View</span>
                 <i className="fa-solid fa-arrow-right text-[10px]"></i>
@@ -1886,7 +1887,7 @@ export default function MobileCommodityChart({
 
             <button
               onClick={() => setShowSpecsModal(true)}
-              className="w-full py-2 bg-blue-50 dark:bg-blue-900/20 text-[#1D92EB] dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-bold text-xs rounded-xl border border-blue-200/80 dark:border-blue-800/60 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full py-2 bg-blue-50 dark:bg-blue-900/20 text-brand-blue dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-bold text-xs rounded-xl border border-blue-200/80 dark:border-blue-800/60 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
             >
               <i className="fa-solid fa-file-lines text-xs"></i>
               <span>View All Quality Specs</span>
@@ -1896,11 +1897,11 @@ export default function MobileCommodityChart({
       </div>
 
       {/* 3. Sticky Bottom Action Bar (Shrink-0 / Always pinned in Half-Sheet & Full-Screen on Mobile) */}
-      <div className="lg:hidden shrink-0 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md border-t border-zinc-200/80 dark:border-zinc-800/80 px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
+      <div className="lg:hidden shrink-0 bg-card/95 backdrop-blur-md border-t border-ag-header-border px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
         {/* 1. Create Alert (Left) */}
         <button 
           type="button"
-          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 text-zinc-800 dark:text-zinc-200 font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-xs border border-zinc-200/60 dark:border-zinc-700/60 cursor-pointer"
+          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-ag-dropdown-hover-bg hover:bg-ag-dropdown-hover-bg/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-xs border border-ag-header-border cursor-pointer"
         >
           <i className="fa-solid fa-bell text-amber-500 text-[12px] min-[390px]:text-[13px]"></i>
           <span className="whitespace-nowrap">Create Alert</span>
@@ -1911,10 +1912,10 @@ export default function MobileCommodityChart({
           type="button"
           className={`flex-1 py-2 min-[390px]:py-2.5 font-extrabold text-[12px] min-[390px]:text-[14px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer ${
             userType === 'seller' 
-              ? 'bg-[#E24A4A] hover:bg-[#D9383A] text-white shadow-red-500/20' 
+              ? 'bg-brand-red hover:bg-brand-red-hover text-white shadow-red-500/20' 
               : userType === 'buyer' 
-                ? 'bg-[#009E74] hover:bg-[#008A62] text-white shadow-emerald-500/20'
-                : 'bg-gradient-to-r from-[#009E74] to-[#1D92EB] hover:opacity-95 text-white shadow-blue-500/20'
+                ? 'bg-brand-green hover:bg-brand-green-hover text-white shadow-emerald-500/20'
+                : 'bg-gradient-to-r from-brand-green to-brand-blue hover:opacity-95 text-white shadow-blue-500/20'
           }`}
         >
           <span>{userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'}</span>
@@ -1923,7 +1924,7 @@ export default function MobileCommodityChart({
         {/* 3. AI Predict (Right) */}
         <button 
           type="button"
-          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 text-zinc-800 dark:text-zinc-200 font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-xs border border-zinc-200/60 dark:border-zinc-700/60 cursor-pointer"
+          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-ag-dropdown-hover-bg hover:bg-ag-dropdown-hover-bg/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-xs border border-ag-header-border cursor-pointer"
         >
           <i className="fa-solid fa-wand-magic-sparkles text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
           <span className="whitespace-nowrap">AI Predict</span>
@@ -1933,7 +1934,7 @@ export default function MobileCommodityChart({
       {/* 4. Specifications & Description Information Icon Popup Modal */}
       {showSpecsModal && (
         <div 
-          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[550] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShowSpecsModal(false)}
         >
           <div 

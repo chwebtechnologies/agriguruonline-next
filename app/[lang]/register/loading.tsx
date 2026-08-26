@@ -1,19 +1,38 @@
 import React from "react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function RegisterLoading() {
   return (
-    <div className="bg-background text-foreground min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-800 p-8 animate-pulse">
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
-        </div>
-        <div className="h-6 w-1/2 bg-zinc-200 dark:bg-zinc-800 rounded mx-auto mb-2" />
-        <div className="h-4 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded mx-auto mb-8" />
-        
-        <div className="space-y-4">
-          <div className="h-10 w-full bg-zinc-200 dark:bg-zinc-800 rounded-md" />
-          <div className="h-10 w-full bg-zinc-200 dark:bg-zinc-800 rounded-md" />
-          <div className="h-12 w-full bg-zinc-200 dark:bg-zinc-800 rounded-md mt-6" />
+    <div className="bg-background text-foreground">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <PageHeader title="Sign In / Register" backText="Back" />
+          
+          <div className="w-full flex justify-center px-4 sm:px-0">
+            <div className="w-full max-w-md mx-auto mt-4 p-5 sm:p-6 flex flex-col items-center bg-card border border-ag-header-border rounded-2xl shadow-xs animate-pulse">
+              
+              <div className="w-full mb-6">
+                <div className="mb-4">
+                  <div className="h-4 w-24 bg-ag-header-border/50 rounded mb-2"></div>
+                  <div className="w-full h-12 rounded-lg bg-ag-header-border/50"></div>
+                </div>
+                <div className="w-full h-[52px] rounded-lg bg-ag-header-border/50 mt-4"></div>
+              </div>
+
+              <div className="flex items-center w-full mb-6">
+                <div className="flex-1 h-px bg-foreground/10"></div>
+                <div className="px-3 h-4 w-24 bg-ag-header-border/50 rounded"></div>
+                <div className="flex-1 h-px bg-foreground/10"></div>
+              </div>
+
+              <div className="w-full space-y-3">
+                <div className="w-full h-[50px] rounded-lg bg-ag-header-border/50"></div>
+                <div className="w-full h-[50px] rounded-lg bg-ag-header-border/50"></div>
+              </div>
+
+              <div className="mt-8 h-8 w-3/4 bg-ag-header-border/50 rounded"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

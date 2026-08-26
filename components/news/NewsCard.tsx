@@ -59,7 +59,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
         <div className="flex items-center justify-between mt-auto border-t border-ag-header-border pt-3">
           <Link 
             href={`/${lang}/news/${article.slug}`}
-            className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-[#1080d0] transition-colors flex items-center gap-1.5 group/link"
+            className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-brand-blue-hover transition-colors flex items-center gap-1.5 group/link"
           >
             Read More
             <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform"></i>

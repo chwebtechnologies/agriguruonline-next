@@ -143,17 +143,17 @@ function SearchableSelect({
           isMobile
             ? `h-[46px] rounded-xl px-3.5 text-sm ${
                 !isInteractive
-                  ? 'opacity-60 cursor-not-allowed bg-zinc-100 dark:bg-[#141416] border border-zinc-200 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-500 select-none'
+                  ? 'opacity-60 cursor-not-allowed bg-ag-dropdown-hover-bg border border-ag-header-border text-foreground/40 select-none'
                   : isSelected
-                    ? 'bg-[#1D92EB] text-white border border-[#1D92EB] shadow-sm font-medium cursor-pointer'
-                    : 'bg-white dark:bg-[#1c1c1e] border-2 border-zinc-300 dark:border-zinc-700 hover:border-[#1D92EB] dark:hover:border-[#1D92EB] text-zinc-800 dark:text-zinc-200 shadow-sm font-medium cursor-pointer active:scale-[0.99]'
+                    ? 'bg-brand-blue text-white border border-brand-blue shadow-sm font-medium cursor-pointer'
+                    : 'bg-card border-2 border-ag-header-border hover:border-brand-blue dark:hover:border-brand-blue text-foreground shadow-sm font-medium cursor-pointer active:scale-[0.99]'
               }`
             : `h-10 rounded-md px-3 text-sm ${
                 !isInteractive
-                  ? 'opacity-50 cursor-not-allowed bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600 select-none'
+                  ? 'opacity-50 cursor-not-allowed bg-ag-dropdown-hover-bg border border-ag-header-border text-foreground/40 select-none'
                   : isSelected
-                    ? 'bg-[#1D92EB] text-white border border-[#1D92EB] shadow-sm font-medium cursor-pointer'
-                    : 'bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-[#1D92EB] dark:hover:border-[#1D92EB] shadow-sm font-medium cursor-pointer'
+                    ? 'bg-brand-blue text-white border border-brand-blue shadow-sm font-medium cursor-pointer'
+                    : 'bg-card border border-ag-header-border text-foreground/80 hover:border-brand-blue dark:hover:border-brand-blue shadow-sm font-medium cursor-pointer'
               }`
         }`}
         onClick={() => {
@@ -167,7 +167,7 @@ function SearchableSelect({
           {selectLoading && (
             <i className="fa-solid fa-circle-notch fa-spin text-xs text-white shrink-0"></i>
           )}
-          <span className={`truncate ${!isSelected && !isInteractive ? 'text-zinc-400 dark:text-zinc-500' : !isSelected ? (isMobile ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-600 dark:text-zinc-300') : 'text-white font-medium'}`}>
+          <span className={`truncate ${!isSelected && !isInteractive ? 'text-foreground/40' : !isSelected ? (isMobile ? 'text-foreground/60' : 'text-zinc-600 dark:text-zinc-300') : 'text-white font-medium'}`}>
             {displayValue}
           </span>
         </span>
@@ -188,17 +188,17 @@ function SearchableSelect({
             <i className="fa-solid fa-xmark text-xs"></i>
           </button>
         ) : (
-          <i className={`fa-solid fa-chevron-down text-[11px] shrink-0 ml-1 transition-transform ${isOpen ? 'rotate-180 text-[#1D92EB]' : 'text-zinc-400 dark:text-zinc-500'}`}></i>
+          <i className={`fa-solid fa-chevron-down text-[11px] shrink-0 ml-1 transition-transform ${isOpen ? 'rotate-180 text-brand-blue' : 'text-foreground/40'}`}></i>
         )}
       </div>
       {isOpen && isInteractive && (
-        <div className={`absolute z-50 w-full min-w-[200px] bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl max-h-[300px] flex flex-col left-0 ${menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
-          <div className="p-2 shrink-0 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 rounded-t-xl">
+        <div className={`absolute z-50 w-full min-w-[200px] bg-card border border-ag-header-border rounded-xl shadow-2xl max-h-[300px] flex flex-col left-0 ${menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
+          <div className="p-2 shrink-0 border-b border-ag-header-border bg-ag-dropdown-hover-bg/50 rounded-t-xl">
             <div className="relative">
               <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
               <input 
                 type="text" 
-                className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D92EB] text-zinc-800 dark:text-zinc-200 transition-all placeholder:text-zinc-400" 
+                className="w-full bg-card border border-ag-header-border rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue text-foreground transition-all placeholder:text-foreground/40" 
                 placeholder="Search..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -219,8 +219,8 @@ function SearchableSelect({
                     key={opt.id} 
                     className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors truncate flex items-center justify-between ${
                       active 
-                        ? 'bg-[#1D92EB] text-white font-semibold' 
-                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                        ? 'bg-brand-blue text-white font-semibold' 
+                        : 'hover:bg-ag-dropdown-hover-bg text-foreground'
                     }`}
                     onClick={() => {
                       onChange(opt.id);
@@ -335,7 +335,7 @@ const SwipeableCard = ({
   }, [onChart, onDelete]);
 
   return (
-    <div className="relative overflow-hidden rounded-xl lg:hidden bg-zinc-100 dark:bg-zinc-800 touch-pan-y" ref={containerRef}>
+    <div className="relative overflow-hidden rounded-xl lg:hidden bg-ag-dropdown-hover-bg touch-pan-y" ref={containerRef}>
       <div className="absolute inset-0 flex justify-between items-center z-0 pointer-events-none">
         <div className="bg-sky-400 w-1/2 h-full flex items-center pl-6 text-white font-bold rounded-l-xl">
           <i className="fa-solid fa-chart-line text-xl"></i>
@@ -348,7 +348,7 @@ const SwipeableCard = ({
       </div>
       <div 
         ref={swipeRef}
-        className="relative z-10 w-full h-full bg-zinc-50 dark:bg-[#1c1c1e] rounded-xl shadow-sm border border-zinc-200 dark:border-[#2a2a2c] will-change-transform"
+        className="relative z-10 w-full h-full bg-card rounded-xl shadow-sm border border-ag-header-border will-change-transform"
       >
         {children}
       </div>
@@ -387,7 +387,7 @@ const PriceChart = ({
   const ranges = ['12H', '1D', '1W', '1M', '1Y', '2Y', '5Y', '10Y'];
 
   return (
-    <div className={`w-full flex flex-col items-center bg-white dark:bg-[#18181b] ${isFullScreen ? 'pt-4 pb-2' : 'pt-2 pb-1'}`} onClick={onChartClick}>
+    <div className={`w-full flex flex-col items-center bg-card ${isFullScreen ? 'pt-4 pb-2' : 'pt-2 pb-1'}`} onClick={onChartClick}>
       {/* Timeline Selector */}
       <div className="flex justify-center items-center gap-1.5 sm:gap-2 pt-2 pb-3 overflow-x-auto px-4 w-[95%] max-w-[380px] mx-auto scrollbar-hide text-[#71717a]" style={{ scrollbarWidth: 'none' }}>
         {ranges.map(range => (
@@ -396,7 +396,7 @@ const PriceChart = ({
             onClick={(e) => { e.stopPropagation(); setTimeRange(range); }}
             className={`px-3.5 py-1 text-[12px] font-bold rounded-full whitespace-nowrap transition-all duration-200 ${
               timeRange === range
-                ? 'bg-[#1877F2] text-white shadow-sm'
+                ? 'bg-brand-blue text-white shadow-sm'
                 : 'bg-transparent hover:text-zinc-800 dark:hover:text-zinc-200'
             }`}
           >
@@ -433,6 +433,7 @@ const PriceChart = ({
               width={55}
             />
             <Tooltip 
+              isAnimationActive={false}
               contentStyle={{ borderRadius: '8px', border: '1px solid #e4e4e7', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
               labelStyle={{ color: '#71717a', fontSize: '12px', marginBottom: '4px' }}
               itemStyle={{ color: '#1877F2', fontWeight: 'bold', fontSize: '15px' }}
@@ -473,9 +474,9 @@ const PriceChart = ({
       >
         <p>Aug 25, 2025, 00:00 UTC - Aug 24, 2026, 12:15 UTC</p>
         <p className="mt-0.5">
-          USD/EUR <span className="text-zinc-800 dark:text-zinc-200 font-semibold">close:</span> 0.857209{' '}
-          <span className="text-zinc-800 dark:text-zinc-200 font-semibold">low:</span> 0.83196{' '}
-          <span className="text-zinc-800 dark:text-zinc-200 font-semibold">high:</span> 0.880736
+          USD/EUR <span className="text-foreground font-semibold">close:</span> 0.857209{' '}
+          <span className="text-foreground font-semibold">low:</span> 0.83196{' '}
+          <span className="text-foreground font-semibold">high:</span> 0.880736
         </p>
       </div>
     </div>
@@ -987,7 +988,7 @@ export default function ProductChartsClient({
       `}</style>
       
       {initialMarketedProducts && initialMarketedProducts.length > 0 && (
-        <div className="overflow-hidden whitespace-nowrap w-full bg-white dark:bg-[#18181b] rounded-md border border-zinc-200 dark:border-zinc-800 mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
+        <div className="overflow-hidden whitespace-nowrap w-full bg-card rounded-md border border-ag-header-border mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
           <div className="inline-block animate-[marquee_60s_linear_infinite]" style={{ WebkitAnimationName: 'marquee', animationName: 'marquee', willChange: 'transform', animationDuration: marqueeDuration }}>
             {marqueeItems.map((p, i) => {
               // Generate a consistent dummy change if it's 0, just to make it look realistic as requested
@@ -999,10 +1000,10 @@ export default function ProductChartsClient({
               const isPositive = changeVal >= 0;
               const sign = isPositive ? '+' : '-';
               return (
-                <div key={i} className="inline-flex items-center px-4 border-r border-zinc-200 dark:border-zinc-800 last:border-0 h-10 group/item">
-                  {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700 mr-2" />}
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-300 text-[13px]">{p.name}</span>
-                  {p.port && <span className="text-zinc-500 dark:text-zinc-400 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
+                <div key={i} className="inline-flex items-center px-4 border-r border-ag-header-border last:border-0 h-10 group/item">
+                  {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-ag-header-border mr-2" />}
+                  <span className="font-semibold text-foreground/80 text-[13px]">{p.name}</span>
+                  {p.port && <span className="text-foreground/60 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
                   <span className="text-blue-600 dark:text-blue-500 font-bold text-[13px] mx-3">${p.price}</span>
                   <span className={`font-semibold text-[13px] flex items-center ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`}>
                     <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-[11px] mr-1`}></i>
@@ -1016,7 +1017,7 @@ export default function ProductChartsClient({
                           setShowMobileAddForm(true);
                         }
                       }}
-                      className="ml-4 px-2.5 py-1 bg-[#1D92EB] hover:bg-[#157dc9] text-white text-[11px] font-semibold rounded cursor-pointer transition-colors shadow-sm"
+                      className="ml-4 px-2.5 py-1 bg-brand-blue hover:bg-brand-blue-hover text-white text-[11px] font-semibold rounded cursor-pointer transition-colors shadow-sm"
                     >
                       Add
                     </button>
@@ -1123,13 +1124,13 @@ export default function ProductChartsClient({
           </div>
           
           {/* Static Column Headers - Hidden on Mobile */}
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#18181b] items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-ag-header-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
             Price (PMT)
           </div>
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#18181b] items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-ag-header-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
             Change
           </div>
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#18181b] items-center justify-center text-zinc-600 dark:text-zinc-400 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-10 rounded-md border border-ag-header-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
             Chart
           </div>
           
@@ -1171,13 +1172,13 @@ export default function ProductChartsClient({
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowMobileAddForm(true); }}
-                className="lg:hidden relative overflow-hidden bg-zinc-50 dark:bg-[#1c1c1e] rounded-xl shadow-sm border border-dashed border-zinc-300 dark:border-[#2a2a2c] hover:border-[#2DBC84] dark:hover:border-[#2DBC84] active:scale-[0.99] transition-all cursor-pointer group"
+                className="lg:hidden relative overflow-hidden bg-card rounded-xl shadow-sm border border-dashed border-ag-header-border hover:border-brand-green dark:hover:border-brand-green active:scale-[0.99] transition-all cursor-pointer group"
               >
                 <div className="flex flex-col p-2">
                   {/* Row 1: Watchlist Header & Count */}
-                  <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa]">
+                  <div className="flex justify-between items-center text-[12px] text-foreground/60">
                     <div className="flex items-center gap-1.5 font-medium">
-                      <i className="fa-solid fa-chart-line text-[#2DBC84] text-[11px]"></i>
+                      <i className="fa-solid fa-chart-line text-brand-green text-[11px]"></i>
                       <span>Watchlist</span>
                     </div>
                     <div className="flex items-center gap-1.5 font-medium">
@@ -1187,11 +1188,11 @@ export default function ProductChartsClient({
                   
                   {/* Row 2: Title & Add Action */}
                   <div className="flex justify-between items-center gap-2 mt-1">
-                    <div className="font-bold text-[14px] leading-tight text-zinc-900 dark:text-[#f4f4f5]">
+                    <div className="font-bold text-[14px] leading-tight text-foreground">
                       No Products Added
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="font-bold text-[13px] text-[#2DBC84] group-hover:text-[#25A06F] flex items-center gap-1">
+                      <span className="font-bold text-[13px] text-brand-green group-hover:text-brand-green-hover flex items-center gap-1">
                         <i className="fa-solid fa-plus text-[11px]"></i>
                         <span>Add Product</span>
                       </span>
@@ -1199,7 +1200,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Row 3: Description & Chevron */}
-                  <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa] mt-0.5">
+                  <div className="flex justify-between items-center text-[12px] text-foreground/60 mt-0.5">
                     <div className="truncate">Tap to search & add commodity to chart</div>
                     <div className="flex items-center gap-1 shrink-0">
                       <i className="fa-solid fa-chevron-right text-[10px] text-zinc-400"></i>
@@ -1218,17 +1219,17 @@ export default function ProductChartsClient({
                     className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden cursor-pointer ${
                       selectedCategory
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-[#1D92EB]/60 text-zinc-600 dark:text-zinc-400'
+                        : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/60 text-foreground/70'
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className={`fa-solid ${selectedCategory ? 'fa-check text-emerald-500' : 'fa-filter text-blue-500/80'} text-[11px]`}></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Filter</span>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/60">Filter</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedCategory ? (categories.find(c => String(c.id) === String(selectedCategory))?.name || 'Category') : 'Category'}
                     </div>
-                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedCategory ? '✓ Selected' : 'Optional filter'}
                     </div>
                   </div>
@@ -1239,17 +1240,17 @@ export default function ProductChartsClient({
                     className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden cursor-pointer ${
                       selectedCountry
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-[#1D92EB]/60 text-zinc-600 dark:text-zinc-400'
+                        : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/60 text-foreground/70'
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className={`fa-solid ${selectedCountry ? 'fa-check text-emerald-500' : 'fa-filter text-blue-500/80'} text-[11px]`}></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Filter</span>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/60">Filter</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedCountry ? (countries.find(c => String(c.id) === String(selectedCountry))?.name || 'Country') : 'Country'}
                     </div>
-                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedCountry ? '✓ Selected' : 'Optional filter'}
                     </div>
                   </div>
@@ -1264,7 +1265,7 @@ export default function ProductChartsClient({
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                      <i className={`fa-solid ${selectedProduct ? 'fa-check text-emerald-500' : 'fa-arrow-up animate-bounce text-[#1D92EB]'} text-[11px]`}></i>
+                      <i className={`fa-solid ${selectedProduct ? 'fa-check text-emerald-500' : 'fa-arrow-up animate-bounce text-brand-blue'} text-[11px]`}></i>
                       <span className={`text-[9.5px] font-bold uppercase tracking-wider ${!selectedProduct ? 'text-blue-600 dark:text-blue-400' : ''}`}>
                         {selectedProduct ? 'Product' : '★ Step 1: Pick Product'}
                       </span>
@@ -1272,7 +1273,7 @@ export default function ProductChartsClient({
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedProduct ? (filteredProducts.find(p => String(p.id) === String(selectedProduct))?.name || 'Product') : 'Select Product'}
                     </div>
-                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedProduct ? '✓ Selected' : 'Auto-fills Origin'}
                     </div>
                   </div>
@@ -1292,13 +1293,13 @@ export default function ProductChartsClient({
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                      <i className={`fa-solid ${selectedShipBy ? 'fa-check text-emerald-500' : selectedProduct ? 'fa-arrow-up animate-bounce text-[#1D92EB]' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <i className={`fa-solid ${selectedShipBy ? 'fa-check text-emerald-500' : selectedProduct ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider">Step 2</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedShipBy ? (shippingContainers.find(c => String(c.id) === String(selectedShipBy))?.title || 'Ship By') : 'Ship By'}
                     </div>
-                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedShipBy ? '✓ Selected' : 'Container'}
                     </div>
                   </div>
@@ -1317,13 +1318,13 @@ export default function ProductChartsClient({
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                      <i className={`fa-solid ${selectedTerm ? 'fa-check text-emerald-500' : selectedShipBy ? 'fa-arrow-up animate-bounce text-[#1D92EB]' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <i className={`fa-solid ${selectedTerm ? 'fa-check text-emerald-500' : selectedShipBy ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider">Step 3</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedTerm ? (shippingTerms.find(t => String(t.id) === String(selectedTerm))?.title || 'Term') : 'Term'}
                     </div>
-                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedTerm ? '✓ Selected' : 'FOB / CIF'}
                     </div>
                   </div>
@@ -1342,13 +1343,13 @@ export default function ProductChartsClient({
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                      <i className={`fa-solid ${selectedPOL ? 'fa-check text-emerald-500' : selectedTerm ? 'fa-arrow-up animate-bounce text-[#1D92EB]' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <i className={`fa-solid ${selectedPOL ? 'fa-check text-emerald-500' : selectedTerm ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider">Step 4</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedPOL ? (loadingPorts.find(p => String(p.id) === String(selectedPOL))?.name || 'POL') : 'POL'}
                     </div>
-                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedPOL ? '✓ Selected' : 'Loading port'}
                     </div>
                   </div>
@@ -1369,55 +1370,55 @@ export default function ProductChartsClient({
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                      <i className={`fa-solid ${!isPodRequired ? 'fa-minus text-zinc-300 dark:text-zinc-700' : selectedPOD ? 'fa-check text-emerald-500' : selectedPOL ? 'fa-arrow-up animate-bounce text-[#1D92EB]' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
+                      <i className={`fa-solid ${!isPodRequired ? 'fa-minus text-zinc-300 dark:text-zinc-700' : selectedPOD ? 'fa-check text-emerald-500' : selectedPOL ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider">{!isPodRequired ? 'N/A' : 'Step 5'}</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {!isPodRequired ? 'POD (N/A)' : selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'POD') : 'POD'}
                     </div>
-                    <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {!isPodRequired ? 'Not required' : selectedPOD ? '✓ Selected' : 'Destination'}
                     </div>
                   </div>
 
                   {/* Col 8: Price (PMT) Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-zinc-500 dark:text-zinc-400 select-none w-full overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Live</span>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Live</span>
                     </div>
-                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-700 dark:text-zinc-300">
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
                       Price (PMT)
                     </div>
-                    <div className="text-[9.5px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       Auto rates
                     </div>
                   </div>
 
                   {/* Col 9: Change Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-zinc-500 dark:text-zinc-400 select-none w-full overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Trend</span>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Trend</span>
                     </div>
-                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-700 dark:text-zinc-300">
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
                       Change
                     </div>
-                    <div className="text-[9.5px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       Daily shift
                     </div>
                   </div>
 
                   {/* Col 10: Chart Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-zinc-500 dark:text-zinc-400 select-none w-full overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-chart-line text-purple-500/80 text-[11px]"></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Chart</span>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
                     </div>
-                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-700 dark:text-zinc-300">
+                    <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
                       Price Curve
                     </div>
-                    <div className="text-[9.5px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       Interactive
                     </div>
                   </div>
@@ -1437,20 +1438,20 @@ export default function ProductChartsClient({
                       <i className={`fa-solid fa-arrow-up ${isAddProductEnabled ? 'animate-bounce text-white' : 'text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
                       <span className={`text-[9.5px] font-bold uppercase tracking-wider ${isAddProductEnabled ? 'text-white' : ''}`}>Final</span>
                     </div>
-                    <div className={`font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                    <div className={`font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white' : 'text-foreground/80'}`}>
                       Add Product
                     </div>
-                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white/90 font-medium' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white/90 font-medium' : 'text-foreground/60'}`}>
                       {isAddProductEnabled ? 'Ready! Click here' : 'Complete steps'}
                     </div>
                   </div>
                 </div>
 
                 {/* Visual Tutorial Showcase Card */}
-                <div className="bg-white dark:bg-[#18181b] rounded-2xl p-5 shadow-sm border border-zinc-200 dark:border-zinc-800 transition-all">
+                <div className="bg-card rounded-2xl p-5 shadow-sm border border-ag-header-border transition-all">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-100 dark:border-zinc-800/80">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#1D92EB] flex items-center justify-center text-lg shadow-sm border border-blue-100 dark:border-blue-900/40">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-brand-blue flex items-center justify-center text-lg shadow-sm border border-blue-100 dark:border-blue-900/40">
                         <i className="fa-solid fa-graduation-cap"></i>
                       </div>
                       <div>
@@ -1458,7 +1459,7 @@ export default function ProductChartsClient({
                           <span>How to Build Your Watchlist</span>
                           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">Quick Guide</span>
                         </h3>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        <p className="text-xs text-foreground/60 mt-0.5">
                           Select a commodity directly or use category & country filters to configure real-time market data.
                         </p>
                       </div>
@@ -1466,8 +1467,8 @@ export default function ProductChartsClient({
                     
                     {/* Progress pill */}
                     <div className="flex items-center gap-2 self-start md:self-auto bg-zinc-50 dark:bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                      <i className="fa-solid fa-layer-group text-xs text-[#1D92EB]"></i>
-                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                      <i className="fa-solid fa-layer-group text-xs text-brand-blue"></i>
+                      <span className="text-xs font-semibold text-foreground/80">
                         {isAddProductEnabled ? 'All options selected! Ready to add 🚀' : !selectedProduct ? 'Step 1: Pick a Product (or filter by Category/Origin)' : !selectedShipBy ? 'Step 2: Select Container' : !selectedTerm ? 'Step 3: Select Incoterm' : 'Step 4: Select Ports'}
                       </span>
                     </div>
@@ -1481,17 +1482,17 @@ export default function ProductChartsClient({
                       className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50 transition-all cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-[#1D92EB] flex items-center justify-center font-bold text-xs">
+                        <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
                           1
                         </div>
-                        <span className="text-[11px] text-[#1D92EB] font-semibold group-hover:underline flex items-center gap-1">
+                        <span className="text-[11px] text-brand-blue font-semibold group-hover:underline flex items-center gap-1">
                           <span>Pick Product</span> <i className="fa-solid fa-arrow-right text-[9px]"></i>
                         </span>
                       </div>
                       <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                         1. Direct Product Selection or Filters
                       </h4>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      <p className="text-[11px] text-foreground/60 leading-relaxed">
                         Select a <strong>Product</strong> directly to auto-fill Category & Country, or use them as optional filters to narrow your choices.
                       </p>
                     </div>
@@ -1505,17 +1506,17 @@ export default function ProductChartsClient({
                       className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50 transition-all cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-[#1D92EB] flex items-center justify-center font-bold text-xs">
+                        <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
                           2
                         </div>
-                        <span className="text-[11px] text-[#1D92EB] font-semibold group-hover:underline flex items-center gap-1">
+                        <span className="text-[11px] text-brand-blue font-semibold group-hover:underline flex items-center gap-1">
                           <span>Configure</span> <i className="fa-solid fa-arrow-right text-[9px]"></i>
                         </span>
                       </div>
                       <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                         2. Container, Incoterms & Ports
                       </h4>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      <p className="text-[11px] text-foreground/60 leading-relaxed">
                         Pick shipping container, Incoterm (FOB/CNF/CIF), and origin/destination ports.
                       </p>
                     </div>
@@ -1538,7 +1539,7 @@ export default function ProductChartsClient({
                       <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                         3. Live Tracking & Price Curves
                       </h4>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      <p className="text-[11px] text-foreground/60 leading-relaxed">
                         Click <strong>Add Product</strong> to monitor real-time PMT price trends, change percentages, and interactive charts.
                       </p>
                     </div>
@@ -1551,7 +1552,7 @@ export default function ProductChartsClient({
               {addedProducts.map((item, index) => {
                 const changeVal = Number(item.change) || 0;
                 const isPositive = changeVal >= 0;
-                const desktopRowBg = index % 2 === 0 ? 'bg-white dark:bg-[#1a1a1c]' : 'bg-zinc-50 dark:bg-[#222225]';
+                const desktopRowBg = index % 2 === 0 ? 'bg-card' : 'bg-ag-dropdown-hover-bg';
                 
                 return (
                   <div key={item.id || index}>
@@ -1563,7 +1564,7 @@ export default function ProductChartsClient({
                     >
                       <div className="flex flex-col p-2">
                         {/* Row 1: Origins and POD */}
-                        <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa]">
+                        <div className="flex justify-between items-center text-[12px] text-foreground/60">
                           <div className="flex items-center gap-1.5 font-medium">
                             {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
                             <span>{item.country}</span>
@@ -1576,11 +1577,11 @@ export default function ProductChartsClient({
                         
                         {/* Row 2: Product Name & Price */}
                         <div className="flex justify-between items-center gap-3 mt-1">
-                          <div className="font-bold text-[14px] leading-tight text-zinc-900 dark:text-[#f4f4f5]">
+                          <div className="font-bold text-[14px] leading-tight text-foreground">
                             {item.product}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <div className="font-bold text-[14px] text-zinc-900 dark:text-[#f4f4f5] whitespace-nowrap">
+                            <div className="font-bold text-[14px] text-foreground whitespace-nowrap">
                               {item.term}: ${item.price}
                             </div>
                             <button 
@@ -1598,11 +1599,11 @@ export default function ProductChartsClient({
                         </div>
 
                         {/* Row 3: POL, ShipBy, Change */}
-                        <div className="flex justify-between items-center text-[12px] text-zinc-500 dark:text-[#a1a1aa] mt-0.5">
+                        <div className="flex justify-between items-center text-[12px] text-foreground/60 mt-0.5">
                           <div>POL: {item.pol}</div>
                           <div className="flex items-center gap-1">
                             <span>({item.shipBy} - PMT)</span>
-                            <span className={`font-semibold flex items-center ${isPositive ? 'text-[#2DBC84]' : 'text-red-500'}`}>
+                            <span className={`font-semibold flex items-center ${isPositive ? 'text-brand-green' : 'text-red-500'}`}>
                               <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} mr-0.5`}></i>
                               {isPositive ? `+${changeVal}$` : `${changeVal}$`}
                             </span>
@@ -1612,21 +1613,21 @@ export default function ProductChartsClient({
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
-                    <div className={`hidden lg:grid grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr] gap-2 items-center px-4 py-3.5 rounded-lg ${desktopRowBg} shadow-sm border border-zinc-200/80 dark:border-zinc-800 hover:shadow-md transition-all text-sm font-medium`}>
-                      <div className="font-medium truncate text-zinc-800 dark:text-zinc-200" title={item.category}>{item.category}</div>
-                      <div className="flex items-center gap-2 truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.country}>
-                        {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
+                    <div className={`hidden lg:grid grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr] gap-2 items-center px-4 py-3.5 rounded-lg ${desktopRowBg} shadow-sm border border-ag-header-border hover:shadow-md transition-all text-sm font-medium`}>
+                      <div className="font-medium truncate text-foreground" title={item.category}>{item.category}</div>
+                      <div className="flex items-center gap-2 truncate font-medium text-foreground" title={item.country}>
+                        {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-ag-header-border" />}
                         <span className="truncate">{item.country}</span>
                       </div>
                       <div className="font-semibold truncate text-foreground" title={item.product}>{item.product}</div>
-                      <div className="truncate font-medium text-zinc-700 dark:text-zinc-300" title={item.shipBy}>{item.shipBy}</div>
-                      <div className="text-center truncate font-medium text-zinc-700 dark:text-zinc-300" title={item.term}>{item.term}</div>
-                      <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.pol}>
-                        {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
+                      <div className="truncate font-medium text-foreground/80" title={item.shipBy}>{item.shipBy}</div>
+                      <div className="text-center truncate font-medium text-foreground/80" title={item.term}>{item.term}</div>
+                      <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-foreground" title={item.pol}>
+                        {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-ag-header-border" />}
                         <span className="truncate">{item.pol}</span>
                       </div>
-                      <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-zinc-800 dark:text-zinc-200" title={item.pod}>
-                        {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-zinc-200 dark:border-zinc-700" />}
+                      <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-foreground" title={item.pod}>
+                        {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-ag-header-border" />}
                         <span className="truncate">{item.pod || '-'}</span>
                       </div>
                       <div className="w-full flex items-center justify-center text-center font-bold text-foreground" title={`$${item.price}`}>${item.price}</div>
@@ -1639,19 +1640,19 @@ export default function ProductChartsClient({
                         onClick={() => openBottomSheet(item.id)}
                         title="View Product Chart"
                       >
-                        <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-[#1D92EB]' : 'text-zinc-400'}`}></i>
+                        <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-brand-blue' : 'text-zinc-400'}`}></i>
                       </div>
                       <div className="flex items-center justify-end gap-3">
                         {userType === 'seller' ? (
-                          <button className="px-5 py-1 bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-card border border-ag-header-border text-foreground text-sm font-semibold rounded-full hover:bg-ag-dropdown-hover-bg transition-colors shadow-sm whitespace-nowrap">
                             Sell
                           </button>
                         ) : userType === 'buyer' ? (
-                          <button className="px-5 py-1 bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-card border border-ag-header-border text-foreground text-sm font-semibold rounded-full hover:bg-ag-dropdown-hover-bg transition-colors shadow-sm whitespace-nowrap">
                             Buy
                           </button>
                         ) : (
-                          <button className="px-5 py-1 bg-white dark:bg-[#18181b] border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm font-semibold rounded-full hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm whitespace-nowrap">
+                          <button className="px-5 py-1 bg-card border border-ag-header-border text-foreground text-sm font-semibold rounded-full hover:bg-ag-dropdown-hover-bg transition-colors shadow-sm whitespace-nowrap">
                             Sell
                           </button>
                         )}
@@ -1683,18 +1684,18 @@ export default function ProductChartsClient({
 
             {showDisclaimer && (
               <>
-                <div className="absolute top-full mt-4 z-50 w-[300px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-white dark:bg-[#222222] border border-[#1D92EB] rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute top-full mt-4 z-50 w-[300px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                   {/* Triangle pointer at top center */}
-                  <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-white dark:bg-[#222222] border-t border-l border-[#1D92EB] transform rotate-45"></div>
+                  <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card border-t border-l border-brand-blue transform rotate-45"></div>
                   
-                  <h3 className="text-zinc-900 dark:text-white text-center font-semibold text-[16px] mb-3">Standard Market Rate</h3>
-                  <p className="text-zinc-600 dark:text-[#d1d5db] text-[13px] leading-relaxed text-justify mb-4">
+                  <h3 className="text-foreground text-center font-semibold text-[16px] mb-3">Standard Market Rate</h3>
+                  <p className="text-zinc-600 text-foreground/80 text-[13px] leading-relaxed text-justify mb-4">
                     The displayed prices/rates reflect standard market rates between buyers and sellers which may or may not buy or sell at. They are subject to reconfirmation as per AgriGuru’s Terms, conditions.
                   </p>
-                  <div className="border-t border-zinc-200 dark:border-[#3f3f46] pt-3 text-center">
+                  <div className="border-t border-ag-header-border pt-3 text-center">
                     <button 
                       onClick={() => setShowDisclaimer(false)}
-                      className="text-[#1D92EB] font-bold text-[15px] hover:text-blue-500 transition-colors"
+                      className="text-brand-blue font-bold text-[15px] hover:text-blue-500 transition-colors"
                     >
                       Got it
                     </button>
@@ -1705,7 +1706,7 @@ export default function ProductChartsClient({
           </div>
           <button 
             onClick={() => setShowMobileAddForm(true)}
-            className="px-6 py-[10px] bg-[#2DBC84] hover:bg-[#25A06F] text-white font-medium rounded-md text-[14px] shadow-sm transition-colors"
+            className="px-6 py-[10px] bg-brand-green hover:bg-brand-green-hover text-white font-medium rounded-md text-[14px] shadow-sm transition-colors"
           >
             Add Product
           </button>
@@ -1713,15 +1714,15 @@ export default function ProductChartsClient({
       </div>
       {/* Delete Confirmation Popup */}
       {deleteConfirmId !== null && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-white dark:bg-[#18181b] rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-card rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-ag-header-border animate-in fade-in zoom-in-95 duration-200">
             <div className="flex gap-4 items-center mb-6">
               <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0 text-red-600">
                 <i className="fa-solid fa-triangle-exclamation text-xl"></i>
               </div>
               <div className="flex flex-col justify-center w-full items-center">
                 <h3 className="text-[17px] font-bold text-red-600 dark:text-red-500 mb-1 leading-none text-center">Delete Product</h3>
-                <p className="text-zinc-600 dark:text-zinc-400 text-[14px] leading-snug whitespace-nowrap text-center">Are you sure you want to delete this product?</p>
+                <p className="text-foreground/70 text-[14px] leading-snug whitespace-nowrap text-center">Are you sure you want to delete this product?</p>
               </div>
             </div>
             
@@ -1734,7 +1735,7 @@ export default function ProductChartsClient({
               </button>
               <button 
                 onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] hover:bg-zinc-50 dark:hover:bg-zinc-800 text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
+                className="flex-1 py-2.5 rounded-xl border border-ag-header-border bg-card hover:bg-ag-dropdown-hover-bg text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
               >
                 Cancel
               </button>
@@ -1762,7 +1763,7 @@ export default function ProductChartsClient({
 
       {/* Full Screen Mobile Add Product Form */}
       {showMobileAddForm && (
-        <div className="fixed inset-0 z-[300] bg-background flex flex-col animate-in slide-in-from-bottom-2 duration-300">
+        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 duration-300">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <button 
@@ -1895,13 +1896,13 @@ export default function ProductChartsClient({
                       <div className="space-y-1.5 flex-1">
                         {fetchedPackingTitle && (
                           <div className="text-sm">
-                            <span className="font-semibold text-zinc-700 dark:text-zinc-300">Packing Type: </span>
-                            <span className="text-zinc-600 dark:text-zinc-400">{fetchedPackingTitle}</span>
+                            <span className="font-semibold text-foreground/80">Packing Type: </span>
+                            <span className="text-foreground/70">{fetchedPackingTitle}</span>
                           </div>
                         )}
                         <div className="text-sm">
-                          <span className="font-semibold text-zinc-700 dark:text-zinc-300">Product Price: </span>
-                          <span className="text-zinc-600 dark:text-zinc-400">USD/PMT</span>
+                          <span className="font-semibold text-foreground/80">Product Price: </span>
+                          <span className="text-foreground/70">USD/PMT</span>
                         </div>
                       </div>
                     </div>
@@ -1923,7 +1924,7 @@ export default function ProductChartsClient({
                   disabled={!isAddProductEnabled || isAdding}
                   className={`w-[200px] h-12 rounded-lg text-white font-semibold text-[16px] shadow-sm transition-all flex items-center justify-center
                     ${!isAddProductEnabled || isAdding 
-                      ? 'opacity-40 cursor-not-allowed shadow-none bg-zinc-300 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400' 
+                      ? 'opacity-40 cursor-not-allowed shadow-none bg-zinc-300 dark:bg-zinc-700 text-foreground/60' 
                       : 'bg-primary-gradient hover:opacity-95 active:scale-95 cursor-pointer shadow-md hover:shadow-lg'
                     }`}
                 >
@@ -2099,7 +2100,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
   return (
     <>
       {/* 1. Desktop Modal Popup (>= lg screens: Full Screen Pop-up Dialog) */}
-      <div className="hidden lg:flex fixed inset-0 z-[100] items-center justify-center p-4 xl:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto select-none">
+      <div className="hidden lg:flex fixed inset-0 z-[500] items-center justify-center p-4 xl:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto select-none">
         {/* Click-away backdrop */}
         <div 
           className="absolute inset-0" 
@@ -2108,7 +2109,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
         
         {/* Desktop Popup Card Container */}
         <div 
-          className="relative z-10 w-full max-w-6xl xl:max-w-7xl h-[92vh] max-h-[880px] bg-white dark:bg-[#121214] rounded-2xl xl:rounded-3xl shadow-2xl border border-zinc-200/80 dark:border-zinc-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+          className="relative z-10 w-full max-w-6xl xl:max-w-7xl h-[92vh] max-h-[880px] bg-background rounded-2xl xl:rounded-3xl shadow-2xl border border-ag-header-border flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           <MobileCommodityChart 
@@ -2123,7 +2124,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
 
       {/* 2. Mobile/Tablet Bottom Sheet (< lg screens: Smooth GPU-Accelerated Drag Sheet) */}
       <div 
-        className="lg:hidden fixed inset-0 z-[60] flex flex-col justify-end pointer-events-none select-none"
+        className="lg:hidden fixed inset-0 z-[500] flex flex-col justify-end pointer-events-none select-none"
         style={{ top: `${headerHeight}px` }}
       >
         {/* Click-away Backdrop below Header */}
@@ -2135,10 +2136,10 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
         {/* Bottom Sheet Modal Container - Anchored Flush to Bottom, Fixed Full Height with GPU translateY */}
         <div 
           ref={sheetRef}
-          className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-white dark:bg-[#121214] shadow-2xl flex flex-col will-change-transform z-[65] pointer-events-auto ${
+          className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-background shadow-2xl flex flex-col will-change-transform z-[510] pointer-events-auto ${
             isFullScreen 
-              ? 'rounded-none border-t border-zinc-200/80 dark:border-zinc-800/80' 
-              : 'rounded-t-[28px] border-t border-zinc-200/80 dark:border-zinc-800/80'
+              ? 'rounded-none border-t border-ag-header-border' 
+              : 'rounded-t-[28px] border-t border-ag-header-border'
           }`}
           onClick={(e) => e.stopPropagation()}
           style={{ 
@@ -2190,7 +2191,7 @@ const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, ge
           {/* Drag Handle Top Bar (visible when not fullscreen) */}
           {!isFullScreen && (
             <div 
-              className="pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none bg-white dark:bg-[#121214] shrink-0"
+              className="pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none bg-background shrink-0"
               onTouchStart={(e) => {
                 if (e.cancelable) e.preventDefault();
                 handleDragStart(e.touches[0].clientY);

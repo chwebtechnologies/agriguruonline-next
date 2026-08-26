@@ -123,7 +123,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
             className={`w-full px-4 py-3 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 transition-colors ${
               error
                 ? "border-red-500 focus:ring-red-500/50"
-                : "border-foreground/20 focus:ring-[#1D92EB]/50"
+                : "border-foreground/20 focus:ring-brand-blue/50"
             }`}
             placeholder="your@email.com"
           />
@@ -139,7 +139,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
           className={`w-full flex items-center justify-center py-3.5 px-4 rounded-lg font-semibold text-[15px] transition-all shadow-md ${
             isButtonDisabled 
               ? "bg-foreground/10 text-foreground/40 cursor-not-allowed shadow-none" 
-              : "bg-[#1D92EB] hover:bg-[#1877F2] active:bg-[#1466D2] text-white active:scale-[0.98] cursor-pointer"
+              : "bg-brand-blue hover:bg-brand-blue active:bg-[#1466D2] text-white active:scale-[0.98] cursor-pointer"
           }`}
         >
           {isPending ? (

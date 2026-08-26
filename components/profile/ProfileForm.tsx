@@ -317,7 +317,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       <div ref={personalRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
         <div onClick={togglePersonal} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center">
                 <i className="fa-regular fa-user text-[14px] sm:text-base"></i>
               </div>
               <h3 className="text-base sm:text-lg font-bold text-foreground">
@@ -343,7 +343,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       setFullName(e.target.value);
                       if (errors.fullName) setErrors(prev => ({ ...prev, fullName: "" }));
                     }}
-                    className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.fullName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.fullName ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
+                    className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.fullName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.fullName ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
                   />
                 </div>
                 {errors.fullName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.fullName}</p>}
@@ -405,7 +405,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       setAltEmail(e.target.value);
                       if (errors.altEmail) setErrors(prev => ({ ...prev, altEmail: "" }));
                     }}
-                    className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.altEmail ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.altEmail ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
+                    className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.altEmail ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.altEmail ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
                     placeholder="alternate@example.com"
                   />
                 </div>
@@ -416,7 +416,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
             
             {/* Mobile Save Button (Inside Collapse) */}
             <div className="mt-6 flex lg:!hidden justify-end border-t border-foreground/5 pt-4 pb-1 pr-2">
-              <button type="submit" disabled={isSubmitting || !isDirty} className={`px-6 py-2 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold shadow-md flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <button type="submit" disabled={isSubmitting || !isDirty} className={`px-6 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-lg text-[13px] font-bold shadow-md flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {isSubmitting ? <><i className="fa-solid fa-circle-notch fa-spin"></i> Saving...</> : <><i className="fa-solid fa-check"></i> Save</>}
               </button>
             </div>
@@ -427,7 +427,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       <div ref={businessRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
         <div onClick={toggleBusiness} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between cursor-pointer lg:pointer-events-none list-none lg:border-b lg:border-foreground/5 select-none bg-foreground/[0.02] rounded-xl lg:rounded-b-none transition-colors">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#1D92EB]/10 text-[#1D92EB] flex items-center justify-center">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center">
                 <i className="fa-solid fa-briefcase text-[14px] sm:text-base"></i>
               </div>
               <h3 className="text-base sm:text-lg font-bold text-foreground">
@@ -451,7 +451,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                     setCompanyName(e.target.value);
                     if (errors.companyName) setErrors(prev => ({ ...prev, companyName: "" }));
                   }}
-                  className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.companyName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.companyName ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
+                  className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.companyName ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.companyName ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
                 />
               </div>
               {errors.companyName && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.companyName}</p>}
@@ -470,7 +470,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
               <label className={`text-sm font-semibold pl-0.5 ${errors.categories ? 'text-red-500' : 'text-foreground/90'}`}>Categories <span className="text-red-500">*</span></label>
               <div 
                 onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                className={`w-full px-3.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.categories ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm`}
+                className={`w-full px-3.5 min-h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.categories ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl flex items-center justify-between cursor-pointer focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm`}
                 tabIndex={0}
               >
                 <div className="flex flex-wrap gap-1.5 py-1.5">
@@ -478,12 +478,12 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                     selectedCategories.map(catId => {
                       const catName = categoryOptions.find(c => c.id === catId)?.name || catId;
                       return (
-                        <span key={catId} className="px-2.5 py-1 bg-[#1D92EB]/10 text-[#1D92EB] border border-[#1D92EB]/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
+                        <span key={catId} className="px-2.5 py-1 bg-brand-blue/10 text-brand-blue border border-brand-blue/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
                           {catName}
                           <button 
                             type="button"
                             onClick={(e) => { e.stopPropagation(); toggleCategory(catId); }}
-                            className="text-[#1D92EB]/50 hover:text-[#1D92EB] transition-colors"
+                            className="text-brand-blue/50 hover:text-brand-blue transition-colors"
                           >
                             <i className="fa-solid fa-xmark text-xs"></i>
                           </button>
@@ -507,7 +507,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       placeholder="Search categories..." 
                       value={categorySearch}
                       onChange={(e) => setCategorySearch(e.target.value)}
-                      className="w-full px-3 py-2 bg-foreground/5 border border-transparent rounded-lg text-sm focus:outline-none focus:border-[#1D92EB]/30 focus:bg-background transition-colors"
+                      className="w-full px-3 py-2 bg-foreground/5 border border-transparent rounded-lg text-sm focus:outline-none focus:border-brand-blue/30 focus:bg-background transition-colors"
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
@@ -519,7 +519,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                         className="px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-foreground/5 transition-colors flex items-center justify-between"
                       >
                         <span className={selectedCategories.includes(cat.id) ? "font-semibold text-foreground" : "text-foreground/80"}>{cat.name}</span>
-                        {selectedCategories.includes(cat.id) && <i className="fa-solid fa-check text-[#1D92EB]"></i>}
+                        {selectedCategories.includes(cat.id) && <i className="fa-solid fa-check text-brand-blue"></i>}
                       </div>
                     ))}
                   </div>
@@ -536,7 +536,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                   type="text"
                   value={businessAddress}
                   onChange={(e) => setBusinessAddress(e.target.value)}
-                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#1D92EB]/50 focus:border-[#1D92EB] transition-all font-medium text-sm text-foreground"
+                  className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue transition-all font-medium text-sm text-foreground"
                   placeholder="Building, Street, City"
                 />
               </div>
@@ -568,7 +568,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                     setWebsite(e.target.value);
                     if (errors.website) setErrors(prev => ({ ...prev, website: "" }));
                   }}
-                  className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.website ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-[#1D92EB] focus:ring-[#1D92EB]/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.website ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
+                  className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.website ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.website ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
                   placeholder="https://www.example.com"
                 />
               </div>
@@ -578,7 +578,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
           
           {/* Mobile Save Button (Inside Collapse) */}
           <div className="mt-6 flex lg:!hidden justify-end border-t border-foreground/5 pt-4 pb-1 pr-2">
-            <button type="submit" disabled={isSubmitting || !isDirty} className={`px-6 py-2 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold shadow-md flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <button type="submit" disabled={isSubmitting || !isDirty} className={`px-6 py-2 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-lg text-[13px] font-bold shadow-md flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-50 cursor-not-allowed' : ''}`}>
               {isSubmitting ? <><i className="fa-solid fa-circle-notch fa-spin"></i> Saving...</> : <><i className="fa-solid fa-check"></i> Save</>}
             </button>
           </div>
@@ -591,7 +591,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
         <button 
           type="submit" 
           disabled={isSubmitting || !isDirty}
-          className={`px-6 py-2.5 bg-[#1D92EB] hover:bg-[#157dc9] text-white rounded-lg text-[13px] font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-70 cursor-not-allowed transform-none hover:shadow-md hover:translate-y-0' : ''}`}
+          className={`px-6 py-2.5 bg-brand-blue hover:bg-brand-blue-hover text-white rounded-lg text-[13px] font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-2 ${(!isDirty || isSubmitting) ? 'opacity-70 cursor-not-allowed transform-none hover:shadow-md hover:translate-y-0' : ''}`}
         >
           {isSubmitting ? (
             <><i className="fa-solid fa-circle-notch fa-spin"></i> Saving changes...</>
