@@ -9,26 +9,26 @@ export default function AboutLoading() {
 
           {/* Hero Section Skeleton */}
           <div className="mt-8 mb-16 text-center w-full flex flex-col items-center">
-            <div className="h-12 w-3/4 max-w-2xl bg-muted rounded-lg animate-pulse mb-4"></div>
-            <div className="h-10 w-1/2 max-w-lg bg-muted rounded-lg animate-pulse mb-8"></div>
+            <div className="h-12 w-3/4 max-w-2xl bg-foreground/10 rounded-lg animate-pulse mb-4"></div>
+            <div className="h-10 w-1/2 max-w-lg bg-foreground/10 rounded-lg animate-pulse mb-8"></div>
             
             <div className="w-full max-w-4xl space-y-4">
-              <div className="h-4 w-full bg-muted rounded animate-pulse"></div>
-              <div className="h-4 w-full bg-muted rounded animate-pulse"></div>
-              <div className="h-4 w-5/6 bg-muted rounded animate-pulse"></div>
+              <div className="h-4 w-full bg-foreground/10 rounded animate-pulse"></div>
+              <div className="h-4 w-full bg-foreground/10 rounded animate-pulse"></div>
+              <div className="h-4 w-5/6 bg-foreground/10 rounded animate-pulse"></div>
             </div>
           </div>
 
           {/* Content Section Skeleton */}
           <div className="space-y-16 w-full mt-12">
             <div className="grid md:grid-cols-2 items-center gap-8 w-full">
-              <div className="w-full h-[350px] bg-muted rounded-lg animate-pulse"></div>
+              <div className="w-full h-[350px] bg-foreground/10 rounded-lg animate-pulse"></div>
               <div className="flex flex-col gap-6">
-                <div className="h-8 w-3/4 bg-muted rounded animate-pulse"></div>
+                <div className="h-8 w-3/4 bg-foreground/10 rounded animate-pulse"></div>
                 <div className="space-y-3">
-                  <div className="h-5 w-1/4 bg-muted rounded animate-pulse"></div>
-                  <div className="h-4 w-full bg-muted rounded animate-pulse"></div>
-                  <div className="h-4 w-full bg-muted rounded animate-pulse"></div>
+                  <div className="h-5 w-1/4 bg-foreground/10 rounded animate-pulse"></div>
+                  <div className="h-4 w-full bg-foreground/10 rounded animate-pulse"></div>
+                  <div className="h-4 w-full bg-foreground/10 rounded animate-pulse"></div>
                 </div>
               </div>
             </div>

@@ -19,10 +19,10 @@ export default function CategorySkeletonOverlay() {
             {Array.from({ length: 8 }).map((_, index) => (
               <div 
                 key={index} 
-                className="flex flex-col rounded-xl bg-background border border-border overflow-hidden shadow-sm"
+                className="flex flex-col rounded-xl bg-background border border-foreground/10 overflow-hidden shadow-sm"
               >
                 {/* Image Skeleton */}
-                <div className="relative w-full aspect-[16/10] bg-ag-subheader-border animate-pulse border-b border-border block">
+                <div className="relative w-full aspect-[16/10] bg-ag-subheader-border animate-pulse border-b border-foreground/10 block">
                 </div>
                 
                 <div className="px-2 sm:px-3 py-2 sm:py-2.5 flex flex-col gap-2">

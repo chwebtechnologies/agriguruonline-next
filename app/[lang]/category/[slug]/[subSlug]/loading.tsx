@@ -7,7 +7,7 @@ export default function SubCategoryLoading() {
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <div className="animate-pulse mb-6">
-            <div className="h-10 w-48 bg-muted rounded-lg"></div>
+            <div className="h-10 w-48 bg-foreground/10 rounded-lg"></div>
           </div>
           
           <ListingFilters categories={[]} />
@@ -17,16 +17,16 @@ export default function SubCategoryLoading() {
             {[...Array(10)].map((_, i) => (
               <div
                 key={i}
-                className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs animate-pulse"
+                className="group flex flex-col rounded-2xl bg-card border border-foreground/10 overflow-hidden shadow-xs animate-pulse"
               >
-                <div className="relative w-full aspect-square bg-muted border-b border-border"></div>
+                <div className="relative w-full aspect-square bg-foreground/10 border-b border-foreground/10"></div>
 
                 <div className="p-2 sm:p-3 flex flex-col flex-1 items-center justify-between">
-                  <div className="h-4 w-3/4 bg-muted rounded mb-4"></div>
+                  <div className="h-4 w-3/4 bg-foreground/10 rounded mb-4"></div>
                   
                   <div className="w-full flex items-center justify-center gap-2">
-                    <div className="h-8 w-1/2 bg-muted rounded-lg"></div>
-                    <div className="h-8 w-1/2 bg-muted rounded-lg"></div>
+                    <div className="h-8 w-1/2 bg-foreground/10 rounded-lg"></div>
+                    <div className="h-8 w-1/2 bg-foreground/10 rounded-lg"></div>
                   </div>
                 </div>
               </div>

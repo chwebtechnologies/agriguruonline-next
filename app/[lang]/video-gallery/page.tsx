@@ -43,8 +43,8 @@ async function VideoGalleryGrid({ lang }: { lang: string }) {
 
   if (categories.length === 0) {
     return (
-      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
+      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-foreground/10 mt-2">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-foreground/10 mb-4 text-foreground/60">
           <i className="fa-solid fa-video-slash text-2xl"></i>
         </div>
         <h3 className="text-xl font-semibold text-foreground mb-2">No Videos Found</h3>
@@ -96,14 +96,14 @@ function VideoGalleryGridSkeleton() {
       {[...Array(8)].map((_, i) => (
         <div 
           key={i} 
-          className="flex flex-col rounded-xl bg-background border border-border overflow-hidden h-full shadow-sm animate-pulse"
+          className="flex flex-col rounded-xl bg-background border border-foreground/10 overflow-hidden h-full shadow-sm animate-pulse"
         >
-          <div className="w-full aspect-video bg-muted border-b border-border"></div>
+          <div className="w-full aspect-video bg-foreground/10 border-b border-foreground/10"></div>
           <div className="px-4 py-4 flex flex-col flex-grow">
-            <div className="w-full h-5 rounded bg-muted mb-2"></div>
-            <div className="w-3/4 h-5 rounded bg-muted mb-4"></div>
+            <div className="w-full h-5 rounded bg-foreground/10 mb-2"></div>
+            <div className="w-3/4 h-5 rounded bg-foreground/10 mb-4"></div>
             <div className="flex-grow"></div>
-            <div className="w-24 h-4 rounded bg-muted mt-4"></div>
+            <div className="w-24 h-4 rounded bg-foreground/10 mt-4"></div>
           </div>
         </div>
       ))}
