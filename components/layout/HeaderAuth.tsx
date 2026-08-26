@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import CategoryLink from '@/components/ui/CategoryLink'
+import CategoryLink from '@/components/category/CategoryLink'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { AgriGuruLogo } from './HeaderGuest'
-import { AppMenu } from '@/components/ui/AppMenu'
+import { AppMenu } from '@/components/layout/AppMenu'
 import { getAssetsUrl } from '@/lib/api-utils';
 
 interface HeaderAuthProps {

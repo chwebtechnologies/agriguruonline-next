@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import CategoryLink from '@/components/ui/CategoryLink'
+import CategoryLink from '@/components/category/CategoryLink'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { AppMenu } from '@/components/ui/AppMenu'
+import { AppMenu } from '@/components/layout/AppMenu'
 
 interface HeaderGuestProps {
   dict?: {

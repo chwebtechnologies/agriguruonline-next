@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/ui/PageHeader'
 import EventCard from '@/components/events/EventCard'
 import { Pagination } from '@/components/ui/Pagination'
-import ListingFilters from '@/components/ui/ListingFilters'
+import ListingFilters from '@/components/shared/ListingFilters'
 import type { Metadata } from 'next'
 import type { EventsResponse } from '@/types/events'
 import { getCategories } from '@/lib/category'

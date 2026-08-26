@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
-import ProductLink from '@/components/ui/ProductLink'
+import ProductLink from '@/components/marketed-products/ProductLink'
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'

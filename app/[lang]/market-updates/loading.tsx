@@ -1,5 +1,5 @@
 import { PageHeader } from '@/components/ui/PageHeader'
-import ListingFilters from '@/components/ui/ListingFilters'
+import ListingFilters from '@/components/shared/ListingFilters'
 
 export default function Loading() {
   return (

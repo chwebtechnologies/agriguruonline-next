@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/ui/PageHeader'
 import MarketReportCard from '@/components/marketReports/MarketReportCard'
 import { Pagination } from '@/components/ui/Pagination'
-import ListingFilters from '@/components/ui/ListingFilters'
+import ListingFilters from '@/components/shared/ListingFilters'
 import type { Metadata } from 'next'
 import type { MarketReportsResponse } from '@/types/marketReports'
 import { cache, Suspense } from 'react'

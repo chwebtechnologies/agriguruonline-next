@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 
 interface CategoryOption {
   slug: string
@@ -12,7 +12,7 @@ interface ListingFiltersProps {
   categories?: CategoryOption[]
 }
 
-export default function ListingFilters({ categories = [] }: ListingFiltersProps) {
+function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -104,5 +104,13 @@ export default function ListingFilters({ categories = [] }: ListingFiltersProps)
         )}
       </div>
     </div>
+  )
+}
+
+export default function ListingFilters(props: ListingFiltersProps) {
+  return (
+    <Suspense fallback={<div className="h-10 w-full animate-pulse bg-ag-header-border/50 rounded-xl mt-4 mb-2"></div>}>
+      <ListingFiltersInner {...props} />
+    </Suspense>
   )
 }

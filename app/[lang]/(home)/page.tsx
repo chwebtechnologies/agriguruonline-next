@@ -1,4 +1,4 @@
-import { getDictionary } from './dictionaries'
+import { getDictionary } from '../dictionaries'
 import { lang } from 'next/root-params'
 import Script from 'next/script'
 import type { Metadata } from 'next'

@@ -1,7 +1,7 @@
 import { PageHeader } from '@/components/ui/PageHeader'
 import NewsCard from '@/components/news/NewsCard'
 import { Pagination } from '@/components/ui/Pagination'
-import ListingFilters from '@/components/ui/ListingFilters'
+import ListingFilters from '@/components/shared/ListingFilters'
 import type { Metadata } from 'next'
 import type { NewsResponse } from '@/types/news'
 import { getCategories } from '@/lib/category'
