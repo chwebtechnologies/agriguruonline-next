@@ -1,31 +1,38 @@
-import React from 'react'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 export default function MarketReportsLoading() {
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <div className="mb-6 animate-pulse">
-            <div className="h-8 bg-zinc-200 dark:bg-zinc-800 rounded w-1/4 mb-2"></div>
-            <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-1/2"></div>
-          </div>
+          <PageHeader title="Market Reports" backText="Back" />
           
-          <div className="flex flex-col md:flex-row gap-4 mb-6 animate-pulse">
-            <div className="h-10 bg-zinc-200 dark:bg-zinc-800 rounded flex-grow"></div>
-            <div className="h-10 bg-zinc-200 dark:bg-zinc-800 rounded w-full md:w-64"></div>
+          {/* ListingFilters Skeleton */}
+          <div className="mb-4 flex flex-wrap gap-2 animate-pulse mt-4">
+            <div className="h-10 w-24 bg-muted rounded-full"></div>
+            <div className="h-10 w-32 bg-muted rounded-full"></div>
+            <div className="h-10 w-28 bg-muted rounded-full"></div>
+            <div className="h-10 ml-auto w-48 bg-muted rounded-lg"></div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-pulse">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex flex-col bg-white dark:bg-zinc-900 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                <div className="w-full aspect-[3/2] bg-zinc-200 dark:bg-zinc-800" />
-                <div className="p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-1/3" />
-                    <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-1/4" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
+            {[...Array(10)].map((_, i) => (
+              <div
+                key={i}
+                className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse"
+              >
+                <div className="w-full aspect-[794/1120] bg-muted border-b border-border"></div>
+                <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-14 h-4 rounded bg-muted"></div>
+                    <div className="w-16 h-3 rounded bg-muted"></div>
                   </div>
-                  <div className="h-6 bg-zinc-200 dark:bg-zinc-800 rounded w-full" />
-                  <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-2/3" />
+                  <div className="w-full h-4 rounded bg-muted mb-1.5"></div>
+                  <div className="w-3/4 h-4 rounded bg-muted mb-3"></div>
+                  <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
+                    <div className="w-20 h-4 rounded bg-muted"></div>
+                    <div className="w-6 h-6 rounded-full bg-muted"></div>
+                  </div>
                 </div>
               </div>
             ))}

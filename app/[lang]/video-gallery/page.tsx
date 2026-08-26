@@ -96,7 +96,7 @@ function VideoGalleryGridSkeleton() {
       {[...Array(8)].map((_, i) => (
         <div 
           key={i} 
-          className="flex flex-col rounded-xl bg-background border border-border overflow-hidden h-full shadow-sm animate-pulse"
+          className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse"
         >
           <div className="w-full aspect-video bg-muted border-b border-border"></div>
           <div className="px-4 py-4 flex flex-col flex-grow">

@@ -25,7 +25,7 @@ export default function ImageWithSkeleton({
   return (
     <div className={`relative overflow-hidden w-full h-full ${skeletonClassName}`}>
       {!isLoaded && (
-        <div className="absolute inset-0 bg-ag-subheader-border animate-pulse z-0" />
+        <div className="absolute inset-0 bg-muted animate-pulse z-0" />
       )}
       <Image
         {...props}

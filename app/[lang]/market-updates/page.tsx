@@ -53,7 +53,7 @@ function MarketUpdatesGridSkeleton() {
       {[...Array(12)].map((_, i) => (
         <div
           key={i}
-          className="flex flex-col rounded-xl bg-background border border-border overflow-hidden h-full shadow-sm animate-pulse"
+          className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse"
         >
           {/* Changed aspect ratio to 794/1120 for Market Updates */}
           <div className="w-full aspect-[794/1120] bg-muted border-b border-border"></div>

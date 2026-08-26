@@ -7,15 +7,11 @@ export default function Loading() {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Video Gallery" backText="Back" />
           
-          <div className="px-2 sm:px-0 mb-6">
-            <div className="w-full max-w-3xl h-5 rounded bg-muted animate-pulse"></div>
-          </div>
-          
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
             {[...Array(8)].map((_, i) => (
               <div 
                 key={i} 
-                className="flex flex-col rounded-xl bg-background border border-border overflow-hidden h-full shadow-sm animate-pulse"
+                className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse"
               >
                 <div className="w-full aspect-video bg-muted border-b border-border"></div>
                 <div className="px-4 py-4 flex flex-col flex-grow">

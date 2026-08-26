@@ -6,12 +6,10 @@ export default function CategoryLoading() {
       {/* Main Content */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <div className="animate-pulse">
-            <div className="h-10 w-48 bg-muted rounded-lg mb-6"></div>
-          </div>
+          <PageHeader title="Category" backText="Back" />
 
           {/* Sub Categories Grid Skeleton */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 mt-4">
             {[...Array(8)].map((_, i) => (
               <div
                 key={i}

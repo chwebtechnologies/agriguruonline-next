@@ -268,7 +268,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                     {tableData.length > 0 && (
                       <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm mb-5">
                         <table className="w-full text-sm text-left">
-                          <tbody className="divide-y divide-ag-header-border">
+                          <tbody className="divide-y divide-border">
                             {tableData.map((row, i) => (
                               <tr key={i} className="hover:bg-card/40 transition-colors">
                                 <td className="px-4 py-3 font-bold text-foreground/90 bg-card/40 w-1/2 border-r border-border align-top">

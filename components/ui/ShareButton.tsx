@@ -41,7 +41,7 @@ export function ShareButton({ title, url }: { title: string, url: string }) {
   return (
     <button 
       onClick={handleShare}
-      className="flex items-center justify-center w-7 h-7 rounded-full bg-card text-foreground hover:text-ag-primary transition-colors"
+      className="flex items-center justify-center w-7 h-7 rounded-full bg-card text-foreground hover:text-brand-blue transition-colors"
       title="Share"
     >
       <i className="fa-solid fa-share-nodes text-sm"></i>

@@ -1,33 +1,33 @@
-"use client"
+import { PageHeader } from '@/components/ui/PageHeader'
 
 export default function ProductSkeletonOverlay() {
   return (
-    <div className="w-full h-full min-h-screen bg-background text-foreground overflow-y-auto pointer-events-auto">
+    <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          {/* Header Skeleton */}
-          <div className="relative flex items-center justify-center mb-6 w-full min-h-[40px]">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-ag-subheader-border animate-pulse"></div>
-              <div className="hidden sm:block h-6 w-16 bg-ag-subheader-border rounded animate-pulse"></div>
-            </div>
-            <div className="h-8 sm:h-10 bg-ag-subheader-border rounded-md w-48 sm:w-64 animate-pulse"></div>
-          </div>
+          <PageHeader title="Marketed Products" backText="Back" />
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-              <div key={i} className="rounded-xl overflow-hidden bg-background border border-border shadow-sm flex flex-col">
-                <div className="w-full aspect-square bg-ag-subheader-border animate-pulse" />
-                <div className="p-2 flex flex-col flex-1 gap-1.5">
-                  <div className="h-4 sm:h-5 bg-ag-subheader-border rounded w-3/4 mx-auto animate-pulse mb-0.5" />
-                  
+            {[...Array(10)].map((_, i) => (
+              <div
+                key={i}
+                className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs animate-pulse"
+              >
+                <div className="relative w-full aspect-square bg-muted border-b border-border">
+                  <div className="absolute top-2 left-2 w-7 h-5 bg-card/90 rounded border border-border"></div>
+                  <div className="absolute top-2 right-2 w-6 h-6 sm:w-7 sm:h-7 bg-card/90 rounded-full border border-border"></div>
+                </div>
+
+                <div className="p-2 flex flex-col flex-1">
+                  <div className="h-3 bg-muted rounded w-1/2 mx-auto mb-1.5" />
+                  <div className="h-4 sm:h-5 bg-muted rounded w-3/4 mx-auto mb-3" />
+
                   <div className="mt-auto space-y-1.5">
-                    <div className="h-6 sm:h-8 bg-ag-subheader-border rounded animate-pulse w-full" />
+                    <div className="h-6 sm:h-7 bg-muted rounded w-full" />
                     <div className="grid grid-cols-2 gap-1.5">
-                      <div className="h-6 sm:h-8 bg-ag-subheader-border rounded animate-pulse" />
-                      <div className="h-6 sm:h-8 bg-ag-subheader-border rounded animate-pulse" />
+                      <div className="h-6 sm:h-7 bg-muted rounded" />
+                      <div className="h-6 sm:h-7 bg-muted rounded" />
                     </div>
-                    <div className="h-6 sm:h-8 bg-ag-subheader-border rounded animate-pulse w-full mt-0.5" />
                   </div>
                 </div>
               </div>

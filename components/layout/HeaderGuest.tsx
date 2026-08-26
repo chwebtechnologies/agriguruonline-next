@@ -352,8 +352,8 @@ export function HeaderGuestBase({
             <nav className="hidden lg:flex items-center gap-8 text-[18px] whitespace-nowrap">
               {loading ? (
                 <>
-                  <div className="h-5 w-16 bg-ag-nav-link/25 animate-pulse rounded" />
-                  <div className="h-5 w-16 bg-ag-nav-link/25 animate-pulse rounded" />
+                  <div className="h-5 w-16 bg-muted animate-pulse rounded" />
+                  <div className="h-5 w-16 bg-muted animate-pulse rounded" />
                 </>
               ) : (
                 <>
@@ -425,7 +425,7 @@ export function HeaderGuestBase({
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           <div className="shrink-0 border-e border-border pe-5 flex items-center">
             {loading ? (
-              <div className="h-5 w-16 bg-ag-subheader-text/25 animate-pulse rounded" />
+              <div className="h-5 w-16 bg-muted animate-pulse rounded" />
             ) : (
               <AppMenu align="left">
                 <button className="flex items-center gap-3 text-foreground hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
@@ -442,9 +442,9 @@ export function HeaderGuestBase({
             <nav className="flex items-center gap-5 text-[16px] font-bold tracking-wide whitespace-nowrap">
               {loading ? (
                 <>
-                  <div className="h-4 w-12 bg-ag-subheader-text/25 animate-pulse rounded" />
-                  <div className="h-4 w-14 bg-ag-subheader-text/25 animate-pulse rounded" />
-                  <div className="h-4 w-10 bg-ag-subheader-text/25 animate-pulse rounded" />
+                  <div className="h-4 w-12 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-14 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-10 bg-muted animate-pulse rounded" />
                 </>
               ) : (
                 displayCategories.map((category, index) => {

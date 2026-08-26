@@ -1776,7 +1776,7 @@ export default function MobileCommodityChart({
                     ? 'bg-brand-red text-white shadow-red-500/20' 
                     : userType === 'buyer' 
                       ? 'bg-brand-green text-white shadow-emerald-500/20'
-                      : 'bg-ag-gradient-primary text-white shadow-blue-500/20'
+                      : 'bg-primary-gradient text-white shadow-blue-500/20'
                 }`}
               >
                 <i className={`fa-solid ${userType === 'seller' ? 'fa-tag' : 'fa-cart-shopping'}`}></i>
