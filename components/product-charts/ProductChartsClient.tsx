@@ -1001,7 +1001,7 @@ export default function ProductChartsClient({
               const sign = isPositive ? '+' : '-';
               return (
                 <div key={i} className="inline-flex items-center px-4 border-r border-border last:border-0 h-10 group/item">
-                  {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border mr-2" />}
+                  {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt={`${p.country || 'Country'} Flag`} title={`${p.country || 'Country'} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border mr-2" />}
                   <span className="font-semibold text-foreground/80 text-[13px]">{p.name}</span>
                   {p.port && <span className="text-foreground/60 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
                   <span className="text-blue-600 dark:text-blue-500 font-bold text-[13px] mx-3">${p.price}</span>
@@ -1566,12 +1566,12 @@ export default function ProductChartsClient({
                         {/* Row 1: Origins and POD */}
                         <div className="flex justify-between items-center text-[12px] text-foreground/60">
                           <div className="flex items-center gap-1.5 font-medium">
-                            {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                            {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
                             <span>{item.country}</span>
                           </div>
                           <div className="flex items-center gap-1.5 font-medium">
                             <span>{item.pod && item.pod !== 'N/A' ? 'POD' : 'POL'}: {item.pod && item.pod !== 'N/A' ? item.pod : item.pol}</span>
-                            {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <img src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)!} alt="flag" className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                            {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <img src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)!} alt={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} title={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
                           </div>
                         </div>
                         
@@ -1616,18 +1616,18 @@ export default function ProductChartsClient({
                     <div className={`hidden lg:grid grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr] gap-2 items-center px-4 py-3.5 rounded-lg ${desktopRowBg} shadow-sm border border-border hover:shadow-md transition-all text-sm font-medium`}>
                       <div className="font-medium truncate text-foreground" title={item.category}>{item.category}</div>
                       <div className="flex items-center gap-2 truncate font-medium text-foreground" title={item.country}>
-                        {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
+                        {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
                         <span className="truncate">{item.country}</span>
                       </div>
                       <div className="font-semibold truncate text-foreground" title={item.product}>{item.product}</div>
                       <div className="truncate font-medium text-foreground/80" title={item.shipBy}>{item.shipBy}</div>
                       <div className="text-center truncate font-medium text-foreground/80" title={item.term}>{item.term}</div>
                       <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-foreground" title={item.pol}>
-                        {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
+                        {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt={`${item.pol} Flag`} title={`${item.pol} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
                         <span className="truncate">{item.pol}</span>
                       </div>
                       <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-foreground" title={item.pod}>
-                        {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="flag" className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
+                        {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt={`${item.pod || 'POD'} Flag`} title={`${item.pod || 'POD'} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
                         <span className="truncate">{item.pod || '-'}</span>
                       </div>
                       <div className="w-full flex items-center justify-center text-center font-bold text-foreground" title={`$${item.price}`}>${item.price}</div>

@@ -11,10 +11,67 @@ import { getCategories } from '@/lib/category';
 import { ForceLogout } from '@/components/auth/ForceLogout';
 import { getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
 
-export const metadata: Metadata = {
-  title: 'My Profile | AgriGuru Online',
-  description: 'Manage your profile and business details on AgriGuru Online',
-};
+export async function generateMetadata(
+  props: { params: Promise<{ lang: string }> }
+): Promise<Metadata> {
+  const params = await props.params;
+  const lang = params.lang || 'en';
+  const title = 'My Profile';
+  const fullTitle = 'My Profile | AgriGuru Online';
+  const description = 'Manage your profile and business details on AgriGuru Online.';
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const pageUrl = `${siteUrl}/${lang}/profile`;
+
+  return {
+    title,
+    description,
+    robots: {
+      index: false,
+      follow: false,
+      nocache: true,
+      googleBot: {
+        index: false,
+        follow: false,
+        noimageindex: true,
+      },
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: pageUrl,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: `${siteUrl}/logo.png`,
+          width: 1200,
+          height: 630,
+          alt: 'AgriGuru Online Profile',
+        },
+      ],
+      locale: lang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: fullTitle,
+      description,
+      images: [`${siteUrl}/logo.png`],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates: {
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/profile`,
+        ar: `${siteUrl}/ar/profile`,
+        fr: `${siteUrl}/fr/profile`,
+        zh: `${siteUrl}/zh/profile`,
+        'x-default': `${siteUrl}/en/profile`,
+      }
+    }
+  };
+}
 
 
 

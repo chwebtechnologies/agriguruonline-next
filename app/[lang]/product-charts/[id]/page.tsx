@@ -1,8 +1,84 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { PageHeader } from '@/components/ui/PageHeader';
 import DedicatedChartClient from './DedicatedChartClient';
 import { cookies } from 'next/headers';
-import { getTradingApiUrl, getUserApiUrl, getSafeLang } from '@/lib/api-utils';
+import { getTradingApiUrl, getUserApiUrl, getSafeLang, getAssetsUrl } from '@/lib/api-utils';
+
+export async function generateMetadata(
+  props: { params: Promise<{ lang: string; id: string }> }
+): Promise<Metadata> {
+  const params = await props.params;
+  const lang = params.lang || 'en';
+  const id = decodeURIComponent(params.id);
+  const { itemData } = await getChartProductData(id, lang);
+
+  const productName = itemData?.product || 'Commodity Price Chart';
+  const title = `${productName} Price Chart & Historical Trends`;
+  const fullTitle = `${productName} Price Chart & Historical Trends | AgriGuru Online`;
+  const description = `Live historical and current price charts, trends, and FOB price data for ${productName}. Track market intelligence on AgriGuru Online.`;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const pageUrl = `${siteUrl}/${lang}/product-charts/${id}`;
+
+  const assetsUrl = getAssetsUrl();
+  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
+  const productImg = itemData?.image || itemData?.thumbnail;
+  const imagePath = productImg?.startsWith('/') ? productImg.slice(1) : productImg;
+  const imageUrl = productImg?.startsWith('http')
+    ? productImg
+    : (productImg ? `${imageBaseUrl}${imagePath}` : `${siteUrl}/logo.png`);
+
+  return {
+    title,
+    description,
+    keywords: [
+      `${productName} Price Chart`,
+      `${productName} Historical Price`,
+      `${productName} Market Trends`,
+      'Commodity Price Tracking',
+      'AgriGuru Online'
+    ],
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: pageUrl,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${productName} Price Chart`,
+        },
+      ],
+      locale: lang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: fullTitle,
+      description,
+      images: [imageUrl],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates: {
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/product-charts/${id}`,
+        ar: `${siteUrl}/ar/product-charts/${id}`,
+        fr: `${siteUrl}/fr/product-charts/${id}`,
+        zh: `${siteUrl}/zh/product-charts/${id}`,
+        'x-default': `${siteUrl}/en/product-charts/${id}`,
+      }
+    }
+  };
+}
 
 async function getChartProductData(id: string, lang: string = 'en') {
   let token = '';

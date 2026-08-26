@@ -100,7 +100,7 @@ export default function MembershipCard({ profileData = null }: MembershipCardPro
 
       {/* Prominent Logo Watermark at Center */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 opacity-15 pointer-events-none z-0 flex items-center justify-center">
-         <img src="/logo.svg" alt="Logo Watermark" className="w-full h-full object-contain grayscale drop-shadow-lg" />
+         <img src="/logo.svg" alt="AgriGuru Online Logo Watermark" title="AgriGuru Online Logo Watermark" className="w-full h-full object-contain grayscale drop-shadow-lg" />
       </div>
 
       <div className="relative z-10 flex flex-col">

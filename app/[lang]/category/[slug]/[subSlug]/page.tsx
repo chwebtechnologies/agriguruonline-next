@@ -56,57 +56,49 @@ export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string; subSlug: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const { lang, slug, subSlug } = params;
+  const lang = params?.lang || 'en';
+  const slug = params?.slug ? decodeURIComponent(params.slug) : '';
+  const subSlug = params?.subSlug ? decodeURIComponent(params.subSlug) : '';
 
-  // Fetch subcategories to find the specific sub-category image
-  const tradingApiUrl = getTradingApiUrl();
-  const url = `${tradingApiUrl}/sub-category/for-category/web/${slug}?lang_code=${lang}&source=web`
+  const data = await getProducts(slug, subSlug, lang);
 
-  let subCatImage: string | null = null;
-  let formattedName = subSlug
+  let formattedName = data?.sub_category?.name || subSlug
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-  try {
-    const res = await fetch(url, { next: { revalidate: 3600 } })
-    if (res.ok) {
-      const json = await res.json()
-      if (json.success && json.data && json.data.sub_categories) {
-        const matched = json.data.sub_categories.find((sc: any) => sc.slug === subSlug)
-        if (matched) {
-          subCatImage = matched.image
-          const translation = matched.translations?.find((t: any) => t.lang_code === lang)
-          if (translation) {
-            formattedName = translation.name
-          } else {
-            formattedName = matched.name || formattedName
-          }
-        }
-      }
-    }
-  } catch (err) {
-    // silently fail and fallback to default formatting
-  }
+  const categoryName = slug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 
-  const title = `${formattedName} - Products`;
+  const title = `${formattedName} Prices & Trade Listings`;
+  const fullTitle = `${formattedName} Prices & Trade Listings | AgriGuru Online`;
+  const description = `Looking to trade ${formattedName}? View active ${categoryName} listings and check live market prices. Explore global B2B trade opportunities on AgriGuru Online.`
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  let imageUrl = `${siteUrl}/logo.png`
-
-  if (subCatImage) {
-    const assetsUrl = getAssetsUrl()
-    const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-    imageUrl = subCatImage.startsWith('http') ? subCatImage : `${imageBaseUrl}${subCatImage}`
-  }
+  const imageUrl = `${siteUrl}/logo.png`
+  const pageUrl = `${siteUrl}/${lang}/category/${slug}/${subSlug}`
 
   return {
     title,
-    description: `Browse ${title} on AgriGuru Online`,
+    description,
+    keywords: [
+      `${formattedName} Trading`,
+      `${formattedName} Prices`,
+      `${formattedName} ${categoryName}`,
+      'Agricultural Commodities',
+      'AgriGuru Online',
+      'B2B Agriculture'
+    ],
+    robots: {
+      index: true,
+      follow: true,
+    },
     openGraph: {
-      title,
-      description: `Browse ${title} on AgriGuru Online`,
-      url: `${siteUrl}/${lang}/category/${slug}/${subSlug}`,
+      title: fullTitle,
+      description,
+      url: pageUrl,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -116,14 +108,27 @@ export async function generateMetadata(
           alt: formattedName,
         },
       ],
+      locale: lang,
       type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
-      title,
-      description: `Browse ${title} on AgriGuru Online`,
+      title: fullTitle,
+      description,
       images: [imageUrl],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
     },
+    alternates: {
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/category/${slug}/${subSlug}`,
+        ar: `${siteUrl}/ar/category/${slug}/${subSlug}`,
+        fr: `${siteUrl}/fr/category/${slug}/${subSlug}`,
+        zh: `${siteUrl}/zh/category/${slug}/${subSlug}`,
+        'x-default': `${siteUrl}/en/category/${slug}/${subSlug}`,
+      }
+    }
   }
 }
 
@@ -131,14 +136,15 @@ export default async function SubCategoryProductsPage(
   props: { params: Promise<{ lang: string; slug: string; subSlug: string }> }
 ) {
   const params = await props.params;
-  const lang = params.lang || 'en'
-  const { slug, subSlug } = params;
+  const lang = params?.lang || 'en'
+  const slug = params?.slug || ''
+  const subSlug = params?.subSlug || ''
 
   const [data, dict] = await Promise.all([
     getProducts(slug, subSlug, lang),
     getDictionary(lang)
   ])
-  const commonDict = (dict as Record<string, any>).common || {}
+  const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
     back: commonDict.back || "Back",
     addProduct: commonDict.add_product || "Add Product",
@@ -150,7 +156,7 @@ export default async function SubCategoryProductsPage(
 
   const assetsUrl = getAssetsUrl(); const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
-  if (!data || data.products.length === 0) {
+  if (!data || !data.products || data.products.length === 0) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
         <div className="text-center">
@@ -163,7 +169,7 @@ export default async function SubCategoryProductsPage(
     )
   }
 
-  const pageTitle = data.sub_category.name ? `${data.sub_category.name} ${common.productList}` : common.productList;
+  const pageTitle = data.sub_category?.name ? `${data.sub_category.name} ${common.productList}` : common.productList;
 
   return (
     <div className="bg-background text-foreground">
@@ -173,6 +179,7 @@ export default async function SubCategoryProductsPage(
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
             {data.products.map((product, index) => {
+              const productName = product.name || product.slug || 'Agricultural Commodity';
               const imageUrl = product.image
                 ? (product.image.startsWith('http') ? product.image : `${imageBaseUrl}${product.image}`)
                 : 'https://agriguruonline.com/logo.png'
@@ -180,12 +187,14 @@ export default async function SubCategoryProductsPage(
               return (
                 <div
                   key={product.id}
+                  title={productName}
                   className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                 >
-                  <div className="relative w-full aspect-square bg-card/30 overflow-hidden border-b border-border">
+                  <div className="relative w-full aspect-square bg-card/30 overflow-hidden border-b border-border" title={productName}>
                     <ImageWithSkeleton
                       src={imageUrl}
-                      alt={product.name}
+                      alt={productName}
+                      title={productName}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -199,17 +208,17 @@ export default async function SubCategoryProductsPage(
                     </h2>
 
                     <div className="mt-auto space-y-1.5">
-                      <button className="w-full bg-brand-blue hover:opacity-90 text-white font-bold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer">
+                      <button className="w-full bg-brand-blue hover:opacity-90 text-white font-bold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.addProduct} - ${product.name}`}>
                         <i className="fa-solid fa-plus text-xs"></i>
                         {common.addProduct}
                       </button>
 
                       <div className="grid grid-cols-2 gap-1.5">
-                        <button className="bg-brand-green hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer">
+                        <button className="bg-brand-green hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.buy} - ${product.name}`}>
                           <i className="fa-solid fa-cart-shopping text-[10px]"></i>
                           {common.buy}
                         </button>
-                        <button className="bg-brand-red hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer">
+                        <button className="bg-brand-red hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.sell} - ${product.name}`}>
                           <i className="fa-solid fa-tag text-[10px]"></i>
                           {common.sell}
                         </button>
@@ -217,6 +226,7 @@ export default async function SubCategoryProductsPage(
 
                       <Link
                         href={`/${lang}/product/${product.slug}`}
+                        title={`${common.viewDetails} - ${product.name}`}
                         className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
                       >
                         {common.viewDetails}

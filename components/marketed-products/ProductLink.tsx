@@ -8,6 +8,7 @@ import ProductSkeletonOverlay from './ProductSkeletonOverlay'
 interface ProductLinkProps {
   href: string
   className?: string
+  title?: string
   children: React.ReactNode
   onClick?: () => void
 }
@@ -15,6 +16,7 @@ interface ProductLinkProps {
 export default function ProductLink({ 
   href, 
   className = "", 
+  title,
   children, 
   onClick 
 }: ProductLinkProps) {
@@ -67,7 +69,7 @@ export default function ProductLink({
 
   return (
     <>
-      <a href={href} onClick={handleClick} className={className}>
+      <a href={href} onClick={handleClick} className={className} title={title}>
         {children}
       </a>
       

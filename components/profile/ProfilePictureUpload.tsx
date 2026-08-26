@@ -84,6 +84,7 @@ export default function ProfilePictureUpload({ currentImage }: { currentImage?: 
           <img 
             src={croppedImage.startsWith('http') || croppedImage.startsWith('blob:') ? croppedImage : `${getAssetsUrl()}${croppedImage.startsWith('/') ? '' : '/'}${croppedImage}`} 
             alt="Profile" 
+            title="User Profile Picture"
             className="w-full h-full object-cover" 
             onError={(e) => {
               // Fallback to icon on error

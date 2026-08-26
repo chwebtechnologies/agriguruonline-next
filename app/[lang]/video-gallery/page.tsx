@@ -5,14 +5,68 @@ import type { VideoGalleryResponse } from '@/types/videoGallery'
 import { cache, Suspense } from 'react'
 import { getCmsApiUrl } from '@/lib/api-utils';
 
-export const metadata: Metadata = {
-  title: 'Video Gallery - AgriGuru Online',
-  description: 'Explore our collection of agricultural videos, market updates, and tutorials.',
-  openGraph: {
-    title: 'Video Gallery - AgriGuru Online',
-    description: 'Explore our collection of agricultural videos, market updates, and tutorials.',
-    type: 'website',
-  },
+export async function generateMetadata(
+  props: { params: Promise<{ lang: string }> }
+): Promise<Metadata> {
+  const params = await props.params;
+  const lang = params.lang || 'en';
+  const title = 'Agri Video Gallery & Market Analysis';
+  const fullTitle = 'Agri Video Gallery & Market Analysis | AgriGuru Online';
+  const description = 'Watch expert agricultural commodity analysis, market video updates, tutorial guides, and industry insights on AgriGuru Online.';
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const pageUrl = `${siteUrl}/${lang}/video-gallery`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      'Agricultural Video Analysis',
+      'Agri Commodity Videos',
+      'Crop Market Video Updates',
+      'Farming Trade Tutorials',
+      'AgriGuru Online',
+      'B2B Agriculture Insights'
+    ],
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: pageUrl,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: `${siteUrl}/logo.png`,
+          width: 1200,
+          height: 630,
+          alt: 'Agri Video Gallery',
+        },
+      ],
+      locale: lang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: fullTitle,
+      description,
+      images: [`${siteUrl}/logo.png`],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates: {
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/video-gallery`,
+        ar: `${siteUrl}/ar/video-gallery`,
+        fr: `${siteUrl}/fr/video-gallery`,
+        zh: `${siteUrl}/zh/video-gallery`,
+        'x-default': `${siteUrl}/en/video-gallery`,
+      }
+    }
+  };
 }
 
 

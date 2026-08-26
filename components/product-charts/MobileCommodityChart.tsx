@@ -694,7 +694,8 @@ export default function MobileCommodityChart({
               {(item.countryFlag || apiProduct?.country?.flag) && (
                 <img
                   src={getFlagUrl(item.countryFlag || apiProduct?.country?.flag)!}
-                  alt="flag"
+                  alt={`${item.country || 'Country'} Flag`}
+                  title={`${item.country || 'Country'} Flag`}
                   className="w-4 h-3 lg:w-5 lg:h-3.5 object-cover rounded-[2px] border border-border shrink-0"
                 />
               )}
@@ -1965,13 +1966,15 @@ export default function MobileCommodityChart({
                     {productDetails?.thumbnail || productDetails?.image ? (
                       <img 
                         src={getProductImgUrl(productDetails.thumbnail || productDetails.image)!} 
-                        alt={item.product}
+                        alt={item.product || 'Product'}
+                        title={item.product || 'Product'}
                         className="w-full h-full object-cover"
                       />
                     ) : item.countryFlag ? (
                       <img 
                         src={getFlagUrl(item.countryFlag)!} 
-                        alt="flag"
+                        alt={`${item.country || 'Country'} Flag`}
+                        title={`${item.country || 'Country'} Flag`}
                         className="w-8 h-6 object-cover rounded"
                       />
                     ) : (
@@ -1995,7 +1998,7 @@ export default function MobileCommodityChart({
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded border border-brand-blue/20 whitespace-nowrap">
                       {item.countryFlag && (
-                        <img src={getFlagUrl(item.countryFlag)!} alt="flag" className="w-3.5 h-2.5 object-cover rounded-[1px]" />
+                        <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country || 'Country'} Flag`} title={`${item.country || 'Country'} Flag`} className="w-3.5 h-2.5 object-cover rounded-[1px]" />
                       )}
                       <span>{item.category || 'Commodity'} • {item.country || 'Global'}</span>
                     </div>

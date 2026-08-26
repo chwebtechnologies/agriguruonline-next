@@ -3,17 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
-  // Allow mobile devices on local network to access dev server only in development
-  ...(process.env.NODE_ENV === 'development' && {
-    allowedDevOrigins: [
-      '192.168.29.*',
-      '192.168.1.2',
-      '192.168.1.*',
-      '192.168.0.*',
-      '10.0.0.*',
-      '10.0.1.*',
-    ],
-  }),
+  // Allow mobile devices on local network & cloudflare tunnels to access dev server HMR in development
+  allowedDevOrigins: [
+    '*.trycloudflare.com',
+    '*.ngrok-free.app',
+    '*.ngrok.io',
+    '*.loca.lt',
+    'localhost:*',
+    '127.0.0.1:*',
+    '192.168.*.*',
+    '10.*.*.*',
+  ],
   async headers() {
     return [
       {
@@ -43,6 +43,24 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
           }
+        ],
+      },
+      {
+        source: '/api/(.*)',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/profile',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
         ],
       },
     ];

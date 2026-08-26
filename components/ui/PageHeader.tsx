@@ -32,7 +32,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false }: { tit
           className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-center truncate"
           style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
         >
-          {title.split(' ').map((word, index, arr) => (
+          {(title || '').split(' ').map((word, index, arr) => (
             <span key={index}>
               <span className="bg-[image:var(--ag-gradient-heading)] bg-clip-text text-transparent">
                 {word}

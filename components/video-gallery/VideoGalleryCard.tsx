@@ -28,11 +28,15 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
         href={`/${lang}/video-gallery/${category.slug}`}
         className="w-full aspect-video relative overflow-hidden bg-card/30 block"
       >
-        <ImageWithSkeleton src={imageUrl}
+        <ImageWithSkeleton
+          src={imageUrl}
           alt={category.category_name}
+          title={category.category_name}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" priority={priority} />
+          sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          priority={priority}
+        />
         
         {/* Play Icon Overlay */}
         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">

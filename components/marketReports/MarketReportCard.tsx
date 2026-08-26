@@ -98,6 +98,7 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
           <Image
             src={imageUrl}
             alt={title}
+            title={title}
             fill
             className="object-contain transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 20vw"

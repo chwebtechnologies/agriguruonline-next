@@ -3,10 +3,67 @@ import { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Login | Agriguru Online",
-  description: "Login to your account",
-};
+export async function generateMetadata(
+  props: { params: Promise<{ lang: string }> }
+): Promise<Metadata> {
+  const params = await props.params;
+  const lang = params.lang || 'en';
+  const title = 'Login to Your Account';
+  const fullTitle = 'Login to Your Account | AgriGuru Online';
+  const description = 'Log in to AgriGuru Online to access your agricultural commodity trading dashboard, price charts, and market reports.';
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const pageUrl = `${siteUrl}/${lang}/login`;
+
+  return {
+    title,
+    description,
+    robots: {
+      index: false,
+      follow: false,
+      nocache: true,
+      googleBot: {
+        index: false,
+        follow: false,
+        noimageindex: true,
+      },
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: pageUrl,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: `${siteUrl}/logo.png`,
+          width: 1200,
+          height: 630,
+          alt: 'AgriGuru Online Login',
+        },
+      ],
+      locale: lang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: fullTitle,
+      description,
+      images: [`${siteUrl}/logo.png`],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates: {
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/login`,
+        ar: `${siteUrl}/ar/login`,
+        fr: `${siteUrl}/fr/login`,
+        zh: `${siteUrl}/zh/login`,
+        'x-default': `${siteUrl}/en/login`,
+      }
+    }
+  };
+}
 
 
 

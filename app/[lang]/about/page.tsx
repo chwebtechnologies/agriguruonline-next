@@ -3,9 +3,71 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import Image from 'next/image'
 
-export const metadata: Metadata = {
-  title: 'About Us',
-  description: 'Welcome to AgriGuru Online: The Future of Global Agri-Commodity Trading.',
+export async function generateMetadata(
+  props: { params: Promise<{ lang: string }> }
+): Promise<Metadata> {
+  const params = await props.params;
+  const lang = params.lang || 'en';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const pageUrl = `${siteUrl}/${lang}/about`;
+
+  const title = 'About Us - B2B Agri Trading Platform';
+  const fullTitle = 'About Us - B2B Agri Trading Platform | AgriGuru Online';
+  const description = 'Learn about AgriGuru Online: The AI-powered B2B platform transforming global agricultural commodity trading for buyers, sellers, and traders worldwide.';
+
+  return {
+    title,
+    description,
+    keywords: [
+      'About AgriGuru Online',
+      'Agri Commodity Trading Platform',
+      'Global Agriculture Trade',
+      'B2B Agriculture Marketplace',
+      'Agricultural Export Import',
+      'Commodity Price Intelligence'
+    ],
+    authors: [{ name: 'AgriGuru Online', url: siteUrl }],
+    creator: 'AgriGuru Online',
+    publisher: 'AgriGuru Online',
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: pageUrl,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: `${siteUrl}/logo.png`,
+          width: 1200,
+          height: 630,
+          alt: 'About AgriGuru Online',
+        },
+      ],
+      locale: lang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: fullTitle,
+      description,
+      images: [`${siteUrl}/logo.png`],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates: {
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/about`,
+        ar: `${siteUrl}/ar/about`,
+        fr: `${siteUrl}/fr/about`,
+        zh: `${siteUrl}/zh/about`,
+        'x-default': `${siteUrl}/en/about`,
+      }
+    }
+  };
 }
 
 // Enable Incremental Static Regeneration (ISR) for this page (1 hour)
@@ -53,6 +115,7 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
                 <Image
                   src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80"
                   alt="Product Prices"
+                  title="Live Origin-Specific Commodity Prices"
                   fill
                   className="object-cover rounded-lg"
                   sizes="(max-width: 768px) 100vw, 50vw"
@@ -101,6 +164,7 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
                 <Image
                   src="/cargo-ship.jpg"
                   alt="Ocean Freight"
+                  title="Real-Time Ocean Freight Integration"
                   fill
                   className="object-cover rounded-lg"
                   sizes="(max-width: 768px) 100vw, 50vw"
@@ -114,6 +178,7 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
                 <Image
                   src="https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=1200&q=80"
                   alt="Smart Docs"
+                  title="Smart Agricultural Trade Documentation"
                   fill
                   className="object-cover rounded-lg"
                   sizes="(max-width: 768px) 100vw, 50vw"
@@ -193,6 +258,31 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
           </div>
         </div>
       </div>
+
+      {/* JSON-LD Structured Data Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "AboutPage",
+            "name": "About AgriGuru Online",
+            "description": "The AI-powered B2B platform simplifying global agricultural commodity trade for buyers, sellers, and traders worldwide.",
+            "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/about`,
+            "mainEntity": {
+              "@type": "Organization",
+              "name": "AgriGuru Online",
+              "url": process.env.NEXT_PUBLIC_SITE_URL || "https://agriguruonline.com",
+              "logo": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/logo.png`,
+              "description": "The premium B2B SaaS platform for global agricultural trade.",
+              "sameAs": [
+                "https://twitter.com/AgriGuruOnline",
+                "https://www.linkedin.com/company/agriguruonline"
+              ]
+            }
+          }).replace(/</g, '\\u003c')
+        }}
+      />
     </div>
   )
 }

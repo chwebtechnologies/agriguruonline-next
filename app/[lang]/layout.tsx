@@ -18,9 +18,32 @@ export const metadata: Metadata = {
     template: '%s | AgriGuru Online',
   },
   description: 'The premium B2B SaaS platform for global agricultural trade.',
-  keywords: ['Agriculture', 'Trading', 'B2B', 'Commodities', 'AgriGuru', 'Agricultural Trade', 'Export', 'Import'],
-  authors: [{ name: 'AgriGuru Online' }],
+  keywords: [
+    'Agriculture',
+    'Commodity Trading',
+    'B2B Marketplace',
+    'Agricultural Commodities',
+    'AgriGuru Online',
+    'Agricultural Trade',
+    'Commodity Prices',
+    'Crop Intelligence',
+    'Export',
+    'Import'
+  ],
+  authors: [{ name: 'AgriGuru Online', url: 'https://agriguruonline.com' }],
   creator: 'AgriGuru Online',
+  publisher: 'AgriGuru Online',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   openGraph: {
     type: 'website',
     siteName: 'AgriGuru Online',
@@ -46,9 +69,9 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/favicon.ico',
-    apple: '/apple-icon.png', // Assuming you might add this later or standard Next.js behavior
+    apple: '/apple-icon.png',
   },
-  manifest: '/manifest.json', // Useful for PWA and advanced mobile SEO
+  manifest: '/manifest.json',
 }
 
 export const viewport: Viewport = {

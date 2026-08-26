@@ -11,9 +11,68 @@ import { getCategories } from '@/lib/category'
 import { ForceLogout } from '@/components/auth/ForceLogout'
 import { getCmsApiUrl, getTradingApiUrl } from '@/lib/api-utils'
 
-export const metadata: Metadata = {
-  title: 'Market Reports - AgriGuru Online',
-  description: 'Access exclusive market reports and insights for registered users.',
+export async function generateMetadata(
+  props: { params: Promise<{ lang: string }> }
+): Promise<Metadata> {
+  const params = await props.params;
+  const lang = params.lang || 'en';
+  const title = 'Agri Market Reports & Trade Intelligence';
+  const fullTitle = 'Agri Market Reports & Trade Intelligence | AgriGuru Online';
+  const description = 'Access exclusive agricultural commodity market reports, in-depth crop analysis, supply-demand forecasts, and trade intelligence on AgriGuru Online.';
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const pageUrl = `${siteUrl}/${lang}/market-reports`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      'Agri Market Reports',
+      'Commodity Trade Intelligence',
+      'Crop Forecast Reports',
+      'Agriculture Market Analysis',
+      'AgriGuru Online',
+      'B2B Grain Intelligence'
+    ],
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: pageUrl,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: `${siteUrl}/logo.png`,
+          width: 1200,
+          height: 630,
+          alt: 'Agricultural Market Reports',
+        },
+      ],
+      locale: lang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: fullTitle,
+      description,
+      images: [`${siteUrl}/logo.png`],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates: {
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/market-reports`,
+        ar: `${siteUrl}/ar/market-reports`,
+        fr: `${siteUrl}/fr/market-reports`,
+        zh: `${siteUrl}/zh/market-reports`,
+        'x-default': `${siteUrl}/en/market-reports`,
+      }
+    }
+  };
 }
 
 

@@ -51,6 +51,7 @@ export function AgriGuruLogo({ size = 42 }: { size?: number }) {
     <Image
       src="/logo.svg"
       alt="AgriGuru Logo"
+      title="AgriGuru Online Logo"
       width={size}
       height={size}
       className="h-auto object-contain shrink-0"

@@ -31,11 +31,15 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
       <Link href={`/${lang}/events/${event.slug}`} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
-        <ImageWithSkeleton src={imageUrl}
+        <ImageWithSkeleton
+          src={imageUrl}
           alt={event.title}
+          title={event.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-300" priority={priority} />
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          priority={priority}
+        />
       </Link>
       
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">

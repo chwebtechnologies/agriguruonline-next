@@ -8,28 +8,68 @@ import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
 import { getTradingApiUrl, getCmsApiUrl } from '@/lib/api-utils';
 
-export const metadata: Metadata = {
-  title: 'Latest Events - AgriGuru Online',
-  description: 'Discover the latest agricultural events, exhibitions, and conferences.',
-  openGraph: {
-    title: 'Latest Events - AgriGuru Online',
-    description: 'Discover the latest agricultural events, exhibitions, and conferences.',
-    type: 'website',
-    images: [
-      {
-        url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/logo.png`,
-        width: 1200,
-        height: 630,
-        alt: 'AgriGuru Online Logo',
-      }
+export async function generateMetadata(
+  props: { params: Promise<{ lang: string }> }
+): Promise<Metadata> {
+  const params = await props.params;
+  const lang = params.lang || 'en';
+  const title = 'Global Agriculture Events, Expos & Conferences';
+  const fullTitle = 'Global Agriculture Events, Expos & Conferences | AgriGuru Online';
+  const description = 'Discover upcoming international agricultural exhibitions, commodity trade fairs, expos, and networking conferences worldwide on AgriGuru Online.';
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const pageUrl = `${siteUrl}/${lang}/events`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      'Agriculture Events',
+      'Commodity Trade Expos',
+      'Agri Trade Shows',
+      'Global Farming Conferences',
+      'AgriGuru Online',
+      'International Agri Expos'
     ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Latest Events - AgriGuru Online',
-    description: 'Discover the latest agricultural events, exhibitions, and conferences.',
-    images: [`${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/logo.png`],
-  }
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: pageUrl,
+      siteName: 'AgriGuru Online',
+      images: [
+        {
+          url: `${siteUrl}/logo.png`,
+          width: 1200,
+          height: 630,
+          alt: 'Global Agriculture Events',
+        },
+      ],
+      locale: lang,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: fullTitle,
+      description,
+      images: [`${siteUrl}/logo.png`],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates: {
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/events`,
+        ar: `${siteUrl}/ar/events`,
+        fr: `${siteUrl}/fr/events`,
+        zh: `${siteUrl}/zh/events`,
+        'x-default': `${siteUrl}/en/events`,
+      }
+    }
+  };
 }
 
 

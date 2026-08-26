@@ -363,6 +363,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         className="h-full w-full rounded-full border border-border object-cover"
                         src={profile.profile_image.startsWith('http') ? profile.profile_image : `${getAssetsUrl()}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
                         alt="Profile"
+                        title="User Profile"
                         onError={(e) => {
                           // Fallback to icon on error
                           e.currentTarget.style.display = 'none';

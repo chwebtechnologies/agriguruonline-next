@@ -61,43 +61,44 @@ export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params.lang || 'en'
-  const slug = params.slug
+  const lang = params?.lang || 'en'
+  const slug = decodeURIComponent(params?.slug || '')
 
-  // Fetch categories to get the category image
-  const apiCategories = await getCategories(lang, {
-    apiUrl: `${getTradingApiUrl().replace(/\/$/, '')}/category`,
-    stale: 300,
-    revalidate: 3600,
-    expire: 86400
-  })
-
-  const matchedCategory = apiCategories.find(c => c.slug === slug)
+  const data = await getSubCategories(slug, lang)
+  const matchedCategory = data?.category
 
   // Use translation if available, otherwise format slug
   const categoryName = matchedCategory
     ? (matchedCategory.translations?.find(t => t.lang_code === lang)?.name || matchedCategory.name)
     : slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
-  const title = `${categoryName} - AgriGuru Online`
-  const description = `Explore ${categoryName} and related sub-categories on AgriGuru Online.`
+  const title = `${categoryName} Prices & Global Trade Data`
+  const fullTitle = `${categoryName} Prices & Global Trade Data | AgriGuru Online`
+  const description = `Ready to trade ${categoryName}? Check live market prices and explore all available products. Discover global B2B trade opportunities on AgriGuru Online.`
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguru.online'
-  let imageUrl = `${siteUrl}/logo.png`
-
-  if (matchedCategory && matchedCategory.image) {
-    const assetsUrl = getAssetsUrl()
-    const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-    imageUrl = matchedCategory.image.startsWith('http') ? matchedCategory.image : `${imageBaseUrl}${matchedCategory.image}`
-  }
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
+  const imageUrl = `${siteUrl}/logo.png`
+  const pageUrl = `${siteUrl}/${lang}/category/${slug}`
 
   return {
     title,
     description,
+    keywords: [
+      `${categoryName} Trading`,
+      `${categoryName} Prices`,
+      `${categoryName} Export Import`,
+      'Agricultural Commodities',
+      'AgriGuru Online',
+      'B2B Agriculture'
+    ],
+    robots: {
+      index: true,
+      follow: true,
+    },
     openGraph: {
-      title,
+      title: fullTitle,
       description,
-      url: `${siteUrl}/${lang}/category/${slug}`,
+      url: pageUrl,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -112,12 +113,21 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: fullTitle,
       description,
       images: [imageUrl],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
     },
     alternates: {
-      canonical: `${siteUrl}/${lang}/category/${slug}`,
+      canonical: pageUrl,
+      languages: {
+        en: `${siteUrl}/en/category/${slug}`,
+        ar: `${siteUrl}/ar/category/${slug}`,
+        fr: `${siteUrl}/fr/category/${slug}`,
+        zh: `${siteUrl}/zh/category/${slug}`,
+        'x-default': `${siteUrl}/en/category/${slug}`,
+      }
     }
   }
 }
@@ -175,18 +185,20 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
           {data.sub_categories && data.sub_categories.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
               {data.sub_categories.map((subCat, index) => {
-                const name = getTranslatedName(subCat.translations, subCat.name)
+                const subCatName = getTranslatedName(subCat.translations, subCat.name) || subCat.slug || 'Category'
                 const imageUrl = subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`
 
                 return (
                   <div
                     key={subCat.id}
+                    title={subCatName}
                     className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                   >
-                    <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
+                    <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
                       <ImageWithSkeleton
                         src={imageUrl}
-                        alt={name}
+                        alt={subCatName}
+                        title={subCatName}
                         fill
                         sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                         priority={index < 10}
@@ -196,8 +208,8 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
 
                     <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
                       <h3 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-                        <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} className="hover:text-brand-blue transition-colors">
-                          {name}
+                        <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors">
+                          {subCatName}
                         </ProductLink>
                       </h3>
 
@@ -211,7 +223,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                         </ProductLink>
 
                         <ShareButton
-                          title={name}
+                          title={subCatName}
                           url={`/${lang}/category/${slug}/${subCat.slug}`}
                         />
                       </div>

@@ -100,6 +100,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
           <ImageWithSkeleton
             src={imageUrl}
             alt={product.name}
+            title={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -113,6 +114,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 <ImageWithSkeleton
                   src={flagUrl}
                   alt={product.country?.name || 'Country Flag'}
+                  title={product.country?.name || 'Country Flag'}
                   fill
                   sizes="32px"
                   className="object-cover"
@@ -209,6 +211,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                   <ImageWithSkeleton
                     src={imageUrl}
                     alt={product.name}
+                    title={product.name}
                     fill
                     sizes="64px"
                     className="object-cover"
@@ -233,7 +236,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                       <div className="flex items-center gap-1.5 text-[11px] font-bold text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded border border-brand-blue/20 whitespace-nowrap">
                         {flagUrl && (
                           <div className="w-5 h-3.5 rounded-[2px] overflow-hidden flex-shrink-0 border border-black/10 flex items-center justify-center bg-card">
-                            <img src={flagUrl} alt={product.country?.name || 'Country'} className="w-full h-full object-cover" />
+                            <img src={flagUrl} alt={product.country?.name || 'Country'} title={product.country?.name || 'Country'} className="w-full h-full object-cover" />
                           </div>
                         )}
                         <span>{product.category?.name} {product.country?.name ? `• ${product.country.name}` : ''}</span>
