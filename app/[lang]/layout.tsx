@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header'
 import { HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
 import Footer from '@/components/layout/Footer'
 import AnnouncementBar from '@/components/layout/AnnouncementBar'
+import NavigationProgress from '@/components/ui/NavigationProgress'
 import { Suspense } from 'react'
 import { Toaster } from 'sonner'
 import '../globals.css'
@@ -99,7 +100,7 @@ export default async function LocalizedRootLayout({
       <head>
         <link rel="alternate" hrefLang="x-default" href={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/`} />
         <ThemeInitializer />
-        <link rel="preconnect" href="https://assets.agriguruonline.com" />
+        <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
         <link rel="preconnect" href="https://trading-api.agriguruonline.cloud" />
         <link rel="dns-prefetch" href="https://trading-api.agriguruonline.cloud" />
@@ -107,6 +108,9 @@ export default async function LocalizedRootLayout({
         <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200">
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <Suspense fallback={<div className="h-10 w-full bg-primary-gradient shrink-0" />}>
           <AnnouncementBar />
         </Suspense>
@@ -116,7 +120,6 @@ export default async function LocalizedRootLayout({
         </Suspense>
 
         <main className="flex-grow w-full relative">
-          <div id="skeleton-portal" className="absolute inset-0 z-50 pointer-events-none empty:hidden"></div>
           {children}
         </main>
 

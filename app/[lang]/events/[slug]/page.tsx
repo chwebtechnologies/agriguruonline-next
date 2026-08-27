@@ -52,6 +52,33 @@ const getOtherEvents = cache(async (lang: string, limit = 6): Promise<EventItem[
   }
 })
 
+export async function generateStaticParams() {
+  const languages = ['en', 'ar', 'zh', 'fr']
+  const params: Array<{ lang: string; slug: string }> = []
+
+  try {
+    const cmsApiUrl = getCmsApiUrl()
+    const res = await fetch(`${cmsApiUrl}/latestevents?is_active=true&source=web&page=1&limit=50`, {
+      next: { revalidate: 3600 }
+    })
+    if (res.ok) {
+      const json: EventsResponse = await res.json()
+      const eventsList = json?.data?.events || []
+      for (const lang of languages) {
+        for (const event of eventsList) {
+          if (event.slug) {
+            params.push({ lang, slug: event.slug })
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to generate static params for events detail:', error)
+  }
+
+  return params
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {

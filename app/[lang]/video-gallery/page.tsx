@@ -5,6 +5,10 @@ import type { VideoGalleryResponse } from '@/types/videoGallery'
 import { cache, Suspense } from 'react'
 import { getCmsApiUrl } from '@/lib/api-utils';
 
+export async function generateStaticParams() {
+  return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {

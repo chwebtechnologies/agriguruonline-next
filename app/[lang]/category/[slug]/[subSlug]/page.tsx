@@ -52,6 +52,45 @@ const getProducts = cache(async (slug: string, subSlug: string, lang: string): P
   }
 })
 
+export async function generateStaticParams() {
+  const languages = ['en', 'ar', 'zh', 'fr']
+  const params: Array<{ lang: string; slug: string; subSlug: string }> = []
+  const tradingApiUrl = getTradingApiUrl()
+
+  try {
+    const res = await fetch(`${tradingApiUrl}/category?page=1&limit=15&lang_code=en&source=web`, {
+      next: { revalidate: 3600 }
+    })
+    if (res.ok) {
+      const json = await res.json()
+      const categories = json.data?.categories || json.data || []
+      for (const cat of categories.slice(0, 10)) {
+        if (!cat.slug) continue
+        try {
+          const subRes = await fetch(`${tradingApiUrl}/sub-category/for-category/web/${cat.slug}?lang_code=en&source=web`, {
+            next: { revalidate: 3600 }
+          })
+          if (subRes.ok) {
+            const subJson = await subRes.json()
+            const subCats = subJson.data?.sub_categories || []
+            for (const sub of subCats) {
+              if (sub.slug) {
+                for (const lang of languages) {
+                  params.push({ lang, slug: cat.slug, subSlug: sub.slug })
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+  } catch (error) {
+    console.error('Failed to generate static params for subcategories:', error)
+  }
+
+  return params
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string; subSlug: string }> }
 ): Promise<Metadata> {
@@ -190,7 +229,7 @@ export default async function SubCategoryProductsPage(
                   title={productName}
                   className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                 >
-                  <div className="relative w-full aspect-square bg-card/30 overflow-hidden border-b border-border" title={productName}>
+                  <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="relative w-full aspect-square bg-card/30 overflow-hidden border-b border-border block" title={productName}>
                     <ImageWithSkeleton
                       src={imageUrl}
                       alt={productName}
@@ -200,11 +239,13 @@ export default async function SubCategoryProductsPage(
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
                       priority={index < 10}
                     />
-                  </div>
+                  </Link>
 
                   <div className="p-2 sm:p-3 flex flex-col flex-1">
                     <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-                      {product.name}
+                      <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
+                        {product.name}
+                      </Link>
                     </h2>
 
                     <div className="mt-auto space-y-1.5">
@@ -226,6 +267,7 @@ export default async function SubCategoryProductsPage(
 
                       <Link
                         href={`/${lang}/product/${product.slug}`}
+                        prefetch={true}
                         title={`${common.viewDetails} - ${product.name}`}
                         className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
                       >

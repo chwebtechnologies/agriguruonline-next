@@ -63,6 +63,10 @@ const getMarketedProducts = cache(async (lang: string, page: number, limit: numb
   }
 })
 
+export async function generateStaticParams() {
+  return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {

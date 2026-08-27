@@ -1,3 +1,5 @@
+import { cache } from 'react'
+
 export interface CategoryTranslation {
   name: string
   lang_code: string
@@ -23,7 +25,7 @@ export interface CacheConfig {
  * Fetches categories from the external API and caches them using Next.js fetch caching.
  * Cache configuration is passed from the server component to customize lifetimes.
  */
-export async function getCategories(lang: string, config: CacheConfig): Promise<Category[]> {
+export const getCategories = cache(async (lang: string, config: CacheConfig): Promise<Category[]> => {
   const url = `${config.apiUrl}?page=1&limit=25&lang_code=${lang}&source=web`
 
   // Use config.revalidate to enable cache
@@ -76,4 +78,4 @@ export async function getCategories(lang: string, config: CacheConfig): Promise<
     console.error(`[Categories API Exception] Failed fetching from ${url}:`, error)
     return []
   }
-}
+})

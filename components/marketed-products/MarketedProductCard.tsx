@@ -97,19 +97,21 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
     <>
       <div className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs">
         <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border">
-          <ImageWithSkeleton
-            src={imageUrl}
-            alt={product.name}
-            title={product.name}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-            priority={priority}
-          />
+          <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="block w-full h-full">
+            <ImageWithSkeleton
+              src={imageUrl}
+              alt={product.name}
+              title={product.name}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              priority={priority}
+            />
+          </Link>
 
           {/* Flag on top-left with solid background */}
           {flagUrl && (
-            <div className="absolute top-2 left-2 flex items-center justify-center p-0.5 sm:p-1 bg-white/90 shadow-sm rounded border border-black/10 z-10">
+            <div className="absolute top-2 left-2 flex items-center justify-center p-0.5 sm:p-1 bg-white/90 shadow-sm rounded border border-black/10 z-10 pointer-events-none">
               <div className="relative w-5 h-3.5 sm:w-6 sm:h-4 overflow-hidden rounded-[1px]">
                 <ImageWithSkeleton
                   src={flagUrl}
@@ -122,7 +124,6 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
               </div>
             </div>
           )}
-
 
           {/* Info Icon on top-right to trigger specs modal */}
           <button
@@ -144,7 +145,9 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
             </span>
           </div>
           <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-            {product.name}
+            <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
+              {product.name}
+            </Link>
           </h2>
 
           <div className="mt-auto">

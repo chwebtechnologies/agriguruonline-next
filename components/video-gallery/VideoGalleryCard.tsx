@@ -26,6 +26,7 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">
       <Link 
         href={`/${lang}/video-gallery/${category.slug}`}
+        prefetch={true}
         className="w-full aspect-video relative overflow-hidden bg-card/30 block"
       >
         <ImageWithSkeleton
@@ -56,7 +57,7 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
 
       <div className="px-4 py-4 flex flex-col flex-grow relative">
         <h3 className="text-base font-semibold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors duration-200 leading-snug">
-          <Link href={`/${lang}/video-gallery/${category.slug}`}>
+          <Link href={`/${lang}/video-gallery/${category.slug}`} prefetch={true}>
             {category.category_name}
           </Link>
         </h3>
@@ -66,6 +67,7 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
         <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
           <Link 
             href={`/${lang}/video-gallery/${category.slug}`}
+            prefetch={true}
             className="flex items-center text-sm font-medium text-primary hover:text-brand-blue transition-colors group/link"
           >
             View Collection

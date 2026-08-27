@@ -32,7 +32,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
-      <Link href={`/${lang}/news/${article.slug}`} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
+      <Link href={`/${lang}/news/${article.slug}`} prefetch={true} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
         <ImageWithSkeleton
           src={imageUrl}
           alt={title}
@@ -51,7 +51,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
         </div>
         
         <h3 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-          <Link href={`/${lang}/news/${article.slug}`} className="hover:text-brand-blue transition-colors">
+          <Link href={`/${lang}/news/${article.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
             {title}
           </Link>
         </h3>
@@ -63,6 +63,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
           <Link 
             href={`/${lang}/news/${article.slug}`}
+            prefetch={true}
             className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-brand-blue-hover transition-colors flex items-center gap-1.5 group/link"
           >
             Read More

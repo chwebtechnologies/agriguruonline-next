@@ -3,6 +3,19 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    staleTimes: {
+      dynamic: 300, // 5 minutes in-memory client router cache for dynamic routes
+      static: 1800, // 30 minutes in-memory client router cache for static routes
+    },
+    optimizePackageImports: [
+      '@fortawesome/fontawesome-free',
+      'recharts',
+      'libphonenumber-js',
+      'sonner',
+      'yet-another-react-lightbox',
+    ],
+  },
   // Allow mobile devices on local network & cloudflare tunnels to access dev server HMR in development
   allowedDevOrigins: [
     '*.trycloudflare.com',
@@ -66,6 +79,12 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    minimumCacheTTL: 31536000,
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    // We use native <img> tags pointing directly to the Cloudflare CDN (assets.agriguruonline.com)
+    // which already serves WebP and is cached at the edge. The Next.js image proxy is bypassed.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',

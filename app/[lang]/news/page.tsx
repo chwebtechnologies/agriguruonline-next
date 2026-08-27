@@ -8,6 +8,10 @@ import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
 import { getTradingApiUrl, getCmsApiUrl } from '@/lib/api-utils';
 
+export async function generateStaticParams() {
+  return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {
@@ -174,7 +178,7 @@ async function NewsGrid({ lang, page, limit, search, categoryId }: {
                 "image": [
                   article.thumbnail.startsWith('http')
                     ? article.thumbnail
-                    : `https://assets.agriguruonline.cloud/${article.thumbnail}`
+                    : `https://assets.agriguruonline.com/${article.thumbnail}`
                 ],
                 "datePublished": article.posting_date,
                 "url": `https://agriguruonline.com/${lang}/news/${article.slug}`

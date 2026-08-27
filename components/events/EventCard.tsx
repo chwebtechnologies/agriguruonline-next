@@ -30,7 +30,7 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
-      <Link href={`/${lang}/events/${event.slug}`} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
+      <Link href={`/${lang}/events/${event.slug}`} prefetch={true} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
         <ImageWithSkeleton
           src={imageUrl}
           alt={event.title}
@@ -61,7 +61,7 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
         </div>
         
         <h3 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2 flex-grow" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-          <Link href={`/${lang}/events/${event.slug}`} className="hover:text-brand-blue transition-colors">
+          <Link href={`/${lang}/events/${event.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
             {event.title}
           </Link>
         </h3>
@@ -74,6 +74,7 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
           <Link 
             href={`/${lang}/events/${event.slug}`}
+            prefetch={true}
             className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-brand-blue-hover transition-colors flex items-center gap-1.5 group/link"
           >
             View Details

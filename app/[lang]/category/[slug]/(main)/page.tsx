@@ -57,6 +57,30 @@ const getSubCategories = cache(async (slug: string, lang: string): Promise<Categ
   }
 })
 
+export async function generateStaticParams() {
+  const languages = ['en', 'ar', 'zh', 'fr']
+  const tradingApiUrl = getTradingApiUrl()
+  const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
+
+  try {
+    const categories = await getCategories('en', {
+      apiUrl: categoriesApiUrl,
+      stale: 300,
+      revalidate: 3600,
+      expire: 86400
+    })
+
+    return languages.flatMap(lang =>
+      categories.filter(cat => cat.slug).map(cat => ({
+        lang,
+        slug: cat.slug
+      }))
+    )
+  } catch {
+    return []
+  }
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {

@@ -18,7 +18,9 @@ export function getCmsApiUrl(): string {
 }
 
 export function getAssetsUrl(): string {
-  const url = process.env.ASSETS_URL || process.env.NEXT_PUBLIC_ASSETS_URL || "https://assets.agriguruonline.com";
+  let url = process.env.ASSETS_URL || process.env.NEXT_PUBLIC_ASSETS_URL || "https://assets.agriguruonline.com";
+  // The assets CDN domain is always assets.agriguruonline.com
+  url = url.replace('assets.agriguruonline.cloud', 'assets.agriguruonline.com');
   return url.replace(/\/$/, "");
 }
 

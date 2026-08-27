@@ -8,6 +8,10 @@ import { getCmsApiUrl } from '@/lib/api-utils'
 
 const PAGE_LIMIT = 12
 
+export async function generateStaticParams() {
+  return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {

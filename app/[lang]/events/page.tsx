@@ -8,6 +8,10 @@ import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
 import { getTradingApiUrl, getCmsApiUrl } from '@/lib/api-utils';
 
+export async function generateStaticParams() {
+  return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {
@@ -182,7 +186,7 @@ async function EventsGrid({ lang, page, limit, search, categoryId }: {
                 "image": [
                   eventItem.thumbnail.startsWith('http')
                     ? eventItem.thumbnail
-                    : `https://assets.agriguruonline.cloud/${eventItem.thumbnail}`
+                    : `https://assets.agriguruonline.com/${eventItem.thumbnail}`
                 ],
                 "url": `https://agriguruonline.com/${lang}/events/${eventItem.slug}`
               }

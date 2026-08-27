@@ -62,17 +62,39 @@ export default async function Header() {
   }
 
   // Read configurations outside the cached scope and pass them as serializable config parameter
-  const tradingApiUrl = getTradingApiUrl();const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
+  const tradingApiUrl = getTradingApiUrl()
+  const userApiUrl = getUserApiUrl()
+  const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
   const cacheStale = Number(process.env.CATEGORIES_CACHE_STALE) || 300
   const cacheRevalidate = Number(process.env.CATEGORIES_CACHE_REVALIDATE) || 3600
   const cacheExpire = Number(process.env.CATEGORIES_CACHE_EXPIRE) || 86400
 
-  const apiCategories = await getCategories(activeLang, {
-    apiUrl: categoriesApiUrl,
-    stale: cacheStale,
-    revalidate: cacheRevalidate,
-    expire: cacheExpire
-  })
+  // Parallelize categories and profile fetches
+  const [apiCategories, profileResult] = await Promise.all([
+    getCategories(activeLang, {
+      apiUrl: categoriesApiUrl,
+      stale: cacheStale,
+      revalidate: cacheRevalidate,
+      expire: cacheExpire
+    }),
+    token && userApiUrl
+      ? fetch(`${userApiUrl}/user/my-profile?lang_code=${activeLang}&source=web`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          next: { revalidate: 300, tags: ['user-profile'] }
+        }).then(async (res) => {
+          if (res.ok) {
+            const profileJson = await res.json()
+            return { profile: profileJson?.data || null, shouldLogout: false }
+          } else if (res.status === 401 || res.status === 403) {
+            return { profile: null, shouldLogout: true }
+          }
+          return { profile: null, shouldLogout: false }
+        }).catch((e) => {
+          console.error("Failed to fetch user profile in Header", e)
+          return { profile: null, shouldLogout: false }
+        })
+      : Promise.resolve({ profile: null, shouldLogout: false })
+  ])
 
   const categories = apiCategories
     .filter(cat => cat.is_active !== false)
@@ -85,28 +107,8 @@ export default async function Header() {
       }
     })
 
-  let userProfile = null
-  let shouldLogout = false;
-  if (token) {
-    try {
-      const userApiUrl = getUserApiUrl();
-      if (!userApiUrl) throw new Error("Missing USER_API_URL in environment");
-      const profileRes = await fetch(`${userApiUrl}/user/my-profile?lang_code=${activeLang}&source=web`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        cache: 'no-store'
-      })
-      if (profileRes.ok) {
-        const profileJson = await profileRes.json()
-        userProfile = profileJson?.data || null
-      } else if (profileRes.status === 401 || profileRes.status === 403) {
-        shouldLogout = true;
-      }
-    } catch (e) {
-      console.error("Failed to fetch user profile in Header", e)
-    }
-  }
+  const userProfile = profileResult.profile
+  const shouldLogout = profileResult.shouldLogout
 
   if (shouldLogout) {
     return <ForceLogout lang={activeLang} />;

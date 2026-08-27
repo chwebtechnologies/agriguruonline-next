@@ -11,6 +11,10 @@ import { getCategories } from '@/lib/category'
 import { ForceLogout } from '@/components/auth/ForceLogout'
 import { getCmsApiUrl, getTradingApiUrl } from '@/lib/api-utils'
 
+export async function generateStaticParams() {
+  return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {

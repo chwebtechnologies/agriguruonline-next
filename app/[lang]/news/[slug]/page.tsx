@@ -77,6 +77,33 @@ const getOtherNews = cache(async (lang: string, limit = 6): Promise<NewsArticle[
   }
 })
 
+export async function generateStaticParams() {
+  const languages = ['en', 'ar', 'zh', 'fr']
+  const params: Array<{ lang: string; slug: string }> = []
+
+  try {
+    const cmsApiUrl = getCmsApiUrl()
+    const res = await fetch(`${cmsApiUrl}/latestnews?is_active=true&source=web&page=1&limit=50`, {
+      next: { revalidate: 3600 }
+    })
+    if (res.ok) {
+      const json: NewsResponse = await res.json()
+      const newsList = json?.data?.news || []
+      for (const lang of languages) {
+        for (const article of newsList) {
+          if (article.slug) {
+            params.push({ lang, slug: article.slug })
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to generate static params for news detail:', error)
+  }
+
+  return params
+}
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense, useTransition } from 'react'
 
 interface CategoryOption {
   slug: string
@@ -16,6 +16,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [, startTransition] = useTransition()
 
   const initialSearch = searchParams.get('search') || ''
   const initialCategory = searchParams.get('category') || ''
@@ -37,21 +38,25 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
     [searchParams, pathname]
   )
 
-  // Debounced search
+  // Debounced search (snappy 300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm !== (searchParams.get('search') || '')) {
         const len = searchTerm?.length || 0
         if (len === 0 || len >= 3) {
-          router.push(pushParams({ search: searchTerm || '' }))
+          startTransition(() => {
+            router.push(pushParams({ search: searchTerm || '' }))
+          })
         }
       }
-    }, 600)
+    }, 300)
     return () => clearTimeout(timer)
-  }, [searchTerm, router, pushParams, searchParams])
+  }, [searchTerm, router, pushParams, searchParams, startTransition])
 
   const handleCategoryChange = (slug: string) => {
-    router.push(pushParams({ category: slug }))
+    startTransition(() => {
+      router.push(pushParams({ category: slug }))
+    })
   }
 
   return (

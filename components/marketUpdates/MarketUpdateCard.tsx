@@ -27,6 +27,7 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
   return (
     <Link 
       href={`/${lang}/market-updates/${update.slug}`}
+      prefetch={true}
       className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg hover:border-primary/40 transition-all duration-300"
     >
       <div className="relative w-full aspect-[794/1120] bg-muted/60 overflow-hidden border-b border-border">

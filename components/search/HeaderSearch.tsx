@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -21,6 +21,7 @@ export function HeaderSearch({
 }: HeaderSearchProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const [, startTransition] = useTransition()
   const containerRef = useRef<HTMLDivElement>(null)
   const desktopInputRef = useRef<HTMLInputElement>(null)
   const mobileInputRef = useRef<HTMLInputElement>(null)
@@ -222,7 +223,9 @@ export function HeaderSearch({
     setQuery('')
     desktopInputRef.current?.blur()
     const productSlug = product.slug || product.id
-    router.push(`/${lang}/product/${encodeURIComponent(productSlug)}`)
+    startTransition(() => {
+      router.push(`/${lang}/product/${encodeURIComponent(productSlug)}`)
+    })
   }
 
   // Handle Buy/Sell Action from Mobile Cards
@@ -231,11 +234,13 @@ export function HeaderSearch({
     setIsMobileSearchOpen(false)
     setQuery('')
     const productSlug = product.slug || product.id
-    if (action === 'buy' || action === 'sell') {
-      router.push(`/${lang}/product/${encodeURIComponent(productSlug)}?action=${action}`)
-    } else {
-      router.push(`/${lang}/product/${encodeURIComponent(productSlug)}`)
-    }
+    startTransition(() => {
+      if (action === 'buy' || action === 'sell') {
+        router.push(`/${lang}/product/${encodeURIComponent(productSlug)}?action=${action}`)
+      } else {
+        router.push(`/${lang}/product/${encodeURIComponent(productSlug)}`)
+      }
+    })
   }
 
   const getProductImageUrl = (product: SearchProduct) => {

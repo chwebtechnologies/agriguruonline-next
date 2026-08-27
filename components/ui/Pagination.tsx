@@ -25,6 +25,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
       {currentPage > 1 ? (
         <Link
           href={`${baseUrl}?page=${currentPage - 1}`}
+          prefetch={true}
           className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs"
           aria-label="Previous page"
         >
@@ -41,6 +42,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
         <>
           <Link
             href={`${baseUrl}?page=1`}
+            prefetch={true}
             className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs"
           >
             1
@@ -53,6 +55,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
         <Link
           key={page}
           href={`${baseUrl}?page=${page}`}
+          prefetch={true}
           className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border transition-colors duration-200 font-bold text-sm shadow-2xs ${
             currentPage === page
               ? 'bg-brand-blue text-white border-brand-blue shadow-sm'
@@ -69,6 +72,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
           {endPage < totalPages - 1 && <span className="hidden sm:flex items-center justify-center w-10 h-10 text-foreground/50 font-bold">...</span>}
           <Link
             href={`${baseUrl}?page=${totalPages}`}
+            prefetch={true}
             className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs"
           >
             {totalPages}
@@ -80,6 +84,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
       {currentPage < totalPages ? (
         <Link
           href={`${baseUrl}?page=${currentPage + 1}`}
+          prefetch={true}
           className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs"
           aria-label="Next page"
         >
