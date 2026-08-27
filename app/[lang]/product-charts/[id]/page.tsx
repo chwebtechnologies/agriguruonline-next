@@ -141,8 +141,11 @@ async function getChartProductData(id: string, lang: string = 'en') {
             pod: match.destination_port?.name || 'N/A',
             podFlag: match.destination_port?.flag || match.destination_port?.country?.flag || '',
             price: (match.price != null ? Math.round(Number(match.price)) : (match.current_price != null ? Math.round(Number(match.current_price)) : 0)).toString(),
-            change: (match.change != null ? Math.round(Number(match.change)) : (match.price_change != null ? Math.round(Number(match.price_change)) : (match.change_percentage != null ? Math.round(Number(match.change_percentage)) : 0))).toString(),
-            chartStatus: match.chart_status === true || match.chart_status === 'on' || match.product?.chart_status === true || match.product?.chart_status === 'on',
+            chartStatus: (
+              match.chartStatus === true || match.chartStatus === 1 || match.chartStatus === '1' || match.chartStatus === 'on' || match.chartStatus === 'true' ||
+              match.chart_status === true || match.chart_status === 1 || match.chart_status === '1' || match.chart_status === 'on' || match.chart_status === 'true' || match.chart_status === 'active' || match.chart_status === 'enable' || match.chart_status === 'enabled' ||
+              match.product?.chart_status === true || match.product?.chart_status === 1 || match.product?.chart_status === '1' || match.product?.chart_status === 'on' || match.product?.chart_status === 'true' || match.product?.chart_status === 'active'
+            ),
           };
         }
       }

@@ -2,17 +2,26 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Brush } from 'recharts';
+import dynamic from 'next/dynamic';
 import {
   getShippingContainersAction,
   getLoadingPortsAction,
   getDestinationPortsAction,
   addFavoriteProductAction,
   deleteFavoriteProductAction,
-  getProductDetailsAction
+  getProductDetailsAction,
+  getFavoriteProductsAction
 } from '@/app/actions/charts';
 import { toast } from 'sonner';
-import MobileCommodityChart from './MobileCommodityChart';
+
+const MobileCommodityChart = dynamic(() => import('./MobileCommodityChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center w-full h-full min-h-[300px]">
+      <i className="fa-solid fa-circle-notch fa-spin text-2xl text-brand-blue"></i>
+    </div>
+  )
+});
 
 interface Category {
   id: string;
@@ -136,24 +145,24 @@ function SearchableSelect({
   const isMobile = variant === 'mobile';
 
   return (
-    <div className={`relative w-full ${isOpen && isInteractive ? 'z-[9999]' : ''}`} ref={wrapperRef} title={displayValue}>
+    <div className={`relative w-full min-w-0 ${isOpen && isInteractive ? 'z-[9999]' : ''}`} ref={wrapperRef} title={displayValue}>
       <div 
         id={id}
-        className={`w-full transition-all flex items-center justify-between ${
+        className={`w-full min-w-0 transition-all flex items-center justify-between ${
           isMobile
             ? `h-[46px] rounded-xl px-3.5 text-sm ${
                 !isInteractive
-                  ? 'opacity-60 cursor-not-allowed bg-muted border border-border text-foreground/40 select-none'
+                  ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-medium select-none cursor-not-allowed shadow-xs'
                   : isSelected
                     ? 'bg-brand-blue text-white border border-brand-blue shadow-sm font-medium cursor-pointer'
                     : 'bg-card border-2 border-border hover:border-brand-blue dark:hover:border-brand-blue text-foreground shadow-sm font-medium cursor-pointer active:scale-[0.99]'
               }`
-            : `h-10 rounded-md px-3 text-sm ${
+            : `h-[45px] rounded-lg px-2 lg:px-2.5 text-xs lg:text-[13px] xl:text-sm ${
                 !isInteractive
-                  ? 'opacity-50 cursor-not-allowed bg-muted border border-border text-foreground/40 select-none'
+                  ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-medium select-none cursor-not-allowed shadow-xs'
                   : isSelected
-                    ? 'bg-brand-blue text-white border border-brand-blue shadow-sm font-medium cursor-pointer'
-                    : 'bg-card border border-border text-foreground/80 hover:border-brand-blue dark:hover:border-brand-blue shadow-sm font-medium cursor-pointer'
+                    ? 'bg-brand-blue text-white border border-brand-blue shadow-xs font-bold cursor-pointer'
+                    : 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold hover:border-brand-blue dark:hover:border-brand-blue shadow-xs cursor-pointer'
               }`
         }`}
         onClick={() => {
@@ -163,21 +172,19 @@ function SearchableSelect({
           }
         }}
       >
-        <span className="truncate pr-1 flex items-center gap-2">
+        <span className="truncate pr-0.5 flex items-center gap-1 min-w-0">
           {selectLoading && (
             <i className="fa-solid fa-circle-notch fa-spin text-xs text-white shrink-0"></i>
           )}
-          <span className={`truncate ${!isSelected && !isInteractive ? 'text-foreground/40' : !isSelected ? (isMobile ? 'text-foreground/60' : 'text-zinc-600 dark:text-zinc-300') : 'text-white font-medium'}`}>
+          <span className={`truncate min-w-0 ${!isSelected && !isInteractive ? 'text-zinc-400 dark:text-zinc-500 font-medium' : !isSelected ? (isMobile ? 'text-foreground' : 'text-zinc-900 dark:text-zinc-100 font-bold') : 'text-white font-bold'}`}>
             {displayValue}
           </span>
         </span>
 
-        {selectLoading ? null : !isInteractive ? (
-          <i className="fa-solid fa-lock text-[11px] text-zinc-300 dark:text-zinc-600 shrink-0 ml-1"></i>
-        ) : isSelected && isInteractive ? (
+        {selectLoading ? null : isSelected && isInteractive ? (
           <button
             type="button"
-            className="shrink-0 ml-1 text-white hover:text-white/80 transition-colors flex items-center justify-center p-0.5"
+            className="shrink-0 ml-0.5 text-white hover:text-white/80 transition-colors flex items-center justify-center p-0.5"
             onClick={(e) => {
               e.stopPropagation();
               onChange('');
@@ -188,7 +195,7 @@ function SearchableSelect({
             <i className="fa-solid fa-xmark text-xs"></i>
           </button>
         ) : (
-          <i className={`fa-solid fa-chevron-down text-[11px] shrink-0 ml-1 transition-transform ${isOpen ? 'rotate-180 text-brand-blue' : 'text-foreground/40'}`}></i>
+          <i className={`fa-solid ${isOpen ? 'fa-chevron-down text-brand-blue' : 'fa-chevron-right'} text-[10px] shrink-0 ml-0.5 transition-transform ${!isInteractive ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-600 dark:text-zinc-400'}`}></i>
         )}
       </div>
       {isOpen && isInteractive && (
@@ -356,133 +363,6 @@ const SwipeableCard = ({
   );
 };
 
-const generateDummyData = () => {
-  let basePrice = 0.850;
-  const data = [];
-  const startDate = new Date('2025-10-01');
-  for (let i = 0; i < 80; i++) {
-    basePrice += (Math.random() - 0.48) * 0.015; // sharper movements
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i * 2);
-    data.push({
-      date: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-      price: Number(basePrice.toFixed(6)),
-    });
-  }
-  return data;
-};
-
-const dummyChartData = generateDummyData();
-
-const PriceChart = ({ 
-  onChartClick, 
-  dragProgress = 1,
-  isFullScreen = false 
-}: { 
-  onChartClick?: () => void; 
-  dragProgress?: number;
-  isFullScreen?: boolean;
-}) => {
-  const [timeRange, setTimeRange] = useState('1Y');
-  const ranges = ['12H', '1D', '1W', '1M', '1Y', '2Y', '5Y', '10Y'];
-
-  return (
-    <div className={`w-full flex flex-col items-center bg-card ${isFullScreen ? 'pt-4 pb-2' : 'pt-2 pb-1'}`} onClick={onChartClick}>
-      {/* Timeline Selector */}
-      <div className="flex justify-center items-center gap-1.5 sm:gap-2 pt-2 pb-3 overflow-x-auto px-4 w-[95%] max-w-[380px] mx-auto scrollbar-hide text-[#71717a]" style={{ scrollbarWidth: 'none' }}>
-        {ranges.map(range => (
-          <button
-            key={range}
-            onClick={(e) => { e.stopPropagation(); setTimeRange(range); }}
-            className={`px-3.5 py-1 text-[12px] font-bold rounded-full whitespace-nowrap transition-all duration-200 ${
-              timeRange === range
-                ? 'bg-brand-blue text-white shadow-sm'
-                : 'bg-transparent hover:text-zinc-800 dark:hover:text-zinc-200'
-            }`}
-          >
-            {range}
-          </button>
-        ))}
-      </div>
-      
-      {/* Chart Area */}
-      <div 
-        className={`mx-auto cursor-pointer transition-all duration-300 ${isFullScreen ? 'w-full px-2 sm:px-6' : 'w-[95%] max-w-[380px]'}`}
-        style={{ height: isFullScreen ? '260px' : '200px' }}
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={dummyChartData} margin={{ top: 10, right: 0, left: 10, bottom: 0 }}>
-            {/* Faint horizontal grid lines */}
-            <CartesianGrid strokeDasharray="0" vertical={false} stroke="#f0f0f0" strokeOpacity={1} />
-            <XAxis 
-              dataKey="date" 
-              axisLine={{ stroke: '#52525b', strokeWidth: 1 }}
-              tickLine={{ stroke: '#52525b', strokeWidth: 1 }} 
-              tick={{ fontSize: 11, fill: '#71717a' }} 
-              dy={10}
-              minTickGap={30}
-            />
-            <YAxis 
-              orientation="right" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fontSize: 11, fill: '#52525b' }}
-              domain={['dataMin', 'dataMax']}
-              dx={0}
-              tickFormatter={(val) => val.toFixed(5)}
-              width={55}
-            />
-            <Tooltip 
-              isAnimationActive={false}
-              contentStyle={{ borderRadius: '8px', border: '1px solid #e4e4e7', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-              labelStyle={{ color: '#71717a', fontSize: '12px', marginBottom: '4px' }}
-              itemStyle={{ color: '#1877F2', fontWeight: 'bold', fontSize: '15px' }}
-            />
-            <Line 
-              type="linear" 
-              dataKey="price" 
-              stroke="#1877F2" 
-              strokeWidth={2} 
-              dot={false} 
-              activeDot={{ r: 4, fill: '#1877F2', stroke: '#fff', strokeWidth: 2 }}
-            />
-            <Brush 
-              dataKey="date" 
-              height={28} 
-              stroke="#1877F2" 
-              fill="#E8F4FF"
-              travellerWidth={8} 
-              tickFormatter={() => ''}
-            >
-              <AreaChart data={dummyChartData}>
-                <Area type="linear" dataKey="price" stroke="none" fill="#1877F2" fillOpacity={0.5} />
-              </AreaChart>
-            </Brush>
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Footer Text */}
-      <div 
-        className="flex flex-col items-center justify-center text-[11px] sm:text-[12px] text-[#71717a] overflow-hidden transition-all text-center px-4"
-        style={{ 
-          height: `${dragProgress * 44}px`,
-          opacity: dragProgress,
-          marginTop: `${dragProgress * 14}px`,
-          marginBottom: `${dragProgress * 6}px`
-        }}
-      >
-        <p>Aug 25, 2025, 00:00 UTC - Aug 24, 2026, 12:15 UTC</p>
-        <p className="mt-0.5">
-          USD/EUR <span className="text-foreground font-semibold">close:</span> 0.857209{' '}
-          <span className="text-foreground font-semibold">low:</span> 0.83196{' '}
-          <span className="text-foreground font-semibold">high:</span> 0.880736
-        </p>
-      </div>
-    </div>
-  );
-};
-
 interface ChartsClientProps {
   initialProducts?: Product[];
   initialShippingTerms?: ShippingTerm[];
@@ -591,6 +471,10 @@ export default function ProductChartsClient({
   const [selectedPOL, setSelectedPOL] = useState('');
   const [selectedPOD, setSelectedPOD] = useState('');
   const [addedProducts, setAddedProducts] = useState<FavoriteItem[]>(initialFavorites);
+
+  useEffect(() => {
+    setAddedProducts(initialFavorites);
+  }, [initialFavorites]);
 
   // Compute unique categories
   const categories = useMemo(() => {
@@ -868,42 +752,83 @@ export default function ProductChartsClient({
       const result = await addFavoriteProductAction(payload, lang);
 
       if (result.success) {
-        const shipByObj = (shippingContainers || []).find(s => s.id === selectedShipBy);
-        const termObj = (shippingTerms || []).find(t => t.id === selectedTerm);
-        const polObj = (loadingPorts || []).find(p => p.id === selectedPOL);
-        const podObj = (destinationPorts || []).find(p => p.id === selectedPOD);
+        // Fetch fresh favorite products list from server immediately so live add matches page refresh 100%
+        const favsRes = await getFavoriteProductsAction(lang);
 
-        const findFlag = (port: any) => {
-          if (!port) return '';
-          if (port.country?.flag) return port.country.flag;
-          if (port.flag) return port.flag;
-          if (port.keywords) {
-            const kw = (port.keywords || '').toLowerCase();
-            const matched = (countries || []).find(c => kw.includes((c.name || '').toLowerCase()));
-            if (matched) return matched.flag;
-          }
-          return '';
-        };
+        if (favsRes.success && Array.isArray(favsRes.data) && favsRes.data.length > 0) {
+          const isChart = (val: any) => {
+            if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
+            return val === true || val === 1 || val === '1' || val === 'on' || val === 'true' || val === 'active' || val === 'enable' || val === 'enabled';
+          };
 
-        setAddedProducts(prev => [
-          {
-            id: result.data?.id || Date.now(),
-            category: prod.category?.name || 'N/A',
-            country: prod.country?.name || 'N/A',
-            countryFlag: prod.country?.flag || '',
-            product: prod.name,
-            shipBy: shipByObj ? shipByObj.title : 'N/A',
-            term: termObj ? termObj.title : 'N/A',
-            pol: polObj ? polObj.name : 'N/A',
-            polFlag: findFlag(polObj),
-            pod: isPodRequired ? (podObj ? podObj.name : 'N/A') : 'N/A',
-            podFlag: isPodRequired ? findFlag(podObj) : '',
-            price: (result.data?.price != null ? Math.round(Number(result.data.price)) : (result.data?.current_price != null ? Math.round(Number(result.data.current_price)) : 0)).toString(),
-            change: (result.data?.change != null ? Math.round(Number(result.data.change)) : (result.data?.price_change != null ? Math.round(Number(result.data.price_change)) : (result.data?.change_percentage != null ? Math.round(Number(result.data.change_percentage)) : 0))).toString(),
-            chartStatus: result.data?.chart_status === true || result.data?.chart_status === 'on' || prod.chart_status === true || prod.chart_status === 'on',
-          },
-          ...prev
-        ]);
+          const mapped: FavoriteItem[] = favsRes.data.map((item: any) => ({
+            id: item.id || Date.now(),
+            category: item.category?.name || 'N/A',
+            country: item.country?.name || 'N/A',
+            countryFlag: item.country?.flag || '',
+            product: item.product?.name || 'N/A',
+            shipBy: item.shipping_container?.title || 'N/A',
+            term: item.shipping_term?.title || 'N/A',
+            pol: item.loading_port?.name || 'N/A',
+            polFlag: item.loading_port?.flag || item.loading_port?.country?.flag || '',
+            pod: item.destination_port?.name || 'N/A',
+            podFlag: item.destination_port?.flag || item.destination_port?.country?.flag || '',
+            price: (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString(),
+            change: (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString(),
+            chartStatus: isChart(item.chart_status) || isChart(item.chartStatus) || isChart(item.product?.chart_status),
+          }));
+
+          setAddedProducts(mapped);
+        } else {
+          const shipByObj = (shippingContainers || []).find(s => s.id === selectedShipBy);
+          const termObj = (shippingTerms || []).find(t => t.id === selectedTerm);
+          const polObj = (loadingPorts || []).find(p => p.id === selectedPOL);
+          const podObj = (destinationPorts || []).find(p => p.id === selectedPOD);
+
+          const findFlag = (port: any) => {
+            if (!port) return '';
+            if (port.country?.flag) return port.country.flag;
+            if (port.flag) return port.flag;
+            if (port.keywords) {
+              const kw = (port.keywords || '').toLowerCase();
+              const matched = (countries || []).find(c => kw.includes((c.name || '').toLowerCase()));
+              if (matched) return matched.flag;
+            }
+            return '';
+          };
+
+          const isChartStatusActive = (val: any) => {
+            if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false') return false;
+            return true;
+          };
+
+          const finalChartStatus = 
+            isChartStatusActive(result.data?.chart_status) ||
+            isChartStatusActive(result.data?.chartStatus) ||
+            isChartStatusActive(result.data?.product?.chart_status) ||
+            isChartStatusActive(result.data?.is_chart) ||
+            isChartStatusActive(prod.chart_status);
+
+          setAddedProducts(prev => [
+            {
+              id: result.data?.id || Date.now(),
+              category: prod.category?.name || 'N/A',
+              country: prod.country?.name || 'N/A',
+              countryFlag: prod.country?.flag || '',
+              product: prod.name,
+              shipBy: shipByObj ? shipByObj.title : 'N/A',
+              term: termObj ? termObj.title : 'N/A',
+              pol: polObj ? polObj.name : 'N/A',
+              polFlag: findFlag(polObj),
+              pod: isPodRequired ? (podObj ? podObj.name : 'N/A') : 'N/A',
+              podFlag: isPodRequired ? findFlag(podObj) : '',
+              price: (result.data?.price != null ? Math.round(Number(result.data.price)) : (result.data?.current_price != null ? Math.round(Number(result.data.current_price)) : 0)).toString(),
+              change: (result.data?.change != null ? Math.round(Number(result.data.change)) : (result.data?.price_change != null ? Math.round(Number(result.data.price_change)) : (result.data?.change_percentage != null ? Math.round(Number(result.data.change_percentage)) : 0))).toString(),
+              chartStatus: finalChartStatus,
+            },
+            ...prev
+          ]);
+        }
         
         // Reset selections cleanly
         setSelectedCategory('');
@@ -941,19 +866,97 @@ export default function ProductChartsClient({
   };
 
   const confirmDelete = (id: number | string) => {
+    if (!userType || userType === 'guest') {
+      router.push(`/${lang}/login`);
+      return;
+    }
     setDeleteConfirmId(id);
+  };
+
+  const handleActionClick = () => {
+    if (!userType || userType === 'guest') {
+      router.push(`/${lang}/login`);
+    }
   };
 
   const handleDelete = async (id: number | string) => {
     setDeleteConfirmId(null);
+    const previousProducts = [...addedProducts];
+    // Optimistic removal
     setAddedProducts(prev => prev.filter((p) => p.id !== id));
+
     try {
-      await deleteFavoriteProductAction(id, lang);
-      toast.success("Product deleted successfully!", {
-        style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
-        duration: 3000
-      });
+      const res = await deleteFavoriteProductAction(id, lang);
+      if (res.success) {
+        toast.success("Product deleted successfully!", {
+          style: { background: '#10b981', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
+          duration: 3000
+        });
+
+        // Sync fresh server state
+        const favsRes = await getFavoriteProductsAction(lang);
+        if (favsRes.success && Array.isArray(favsRes.data)) {
+          const isChart = (val: any) => {
+            if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
+            return true;
+          };
+
+          const getTitle = (obj: any, fallback = 'N/A') => {
+            if (!obj) return fallback;
+            if (typeof obj === 'string') return obj;
+            return obj.name || obj.title || obj.label || fallback;
+          };
+
+          const getFlag = (obj: any) => {
+            if (!obj) return '';
+            if (typeof obj === 'string') return obj;
+            return obj.flag || obj.country?.flag || '';
+          };
+
+          const mapped: FavoriteItem[] = favsRes.data.map((item: any) => {
+            const prodName = getTitle(item.product) !== 'N/A' ? getTitle(item.product) : (item.product_name || item.name || 'N/A');
+            const catName = getTitle(item.category) !== 'N/A' ? getTitle(item.category) : (item.category_name || 'N/A');
+            const countryName = getTitle(item.country) !== 'N/A' ? getTitle(item.country) : (item.country_name || 'N/A');
+            const countryFlag = getFlag(item.country) || item.country_flag || item.flag || '';
+            const shipBy = getTitle(item.shipping_container) !== 'N/A' ? getTitle(item.shipping_container) : (getTitle(item.shippingContainer) !== 'N/A' ? getTitle(item.shippingContainer) : (item.ship_by || item.shipBy || 'N/A'));
+            const term = getTitle(item.shipping_term) !== 'N/A' ? getTitle(item.shipping_term) : (getTitle(item.shippingTerm) !== 'N/A' ? getTitle(item.shippingTerm) : (item.term || 'N/A'));
+            const pol = getTitle(item.loading_port) !== 'N/A' ? getTitle(item.loading_port) : (getTitle(item.loadingPort) !== 'N/A' ? getTitle(item.loadingPort) : (item.pol || 'N/A'));
+            const polFlag = getFlag(item.loading_port) || getFlag(item.loadingPort) || item.pol_flag || '';
+            const pod = getTitle(item.destination_port) !== 'N/A' ? getTitle(item.destination_port) : (getTitle(item.destinationPort) !== 'N/A' ? getTitle(item.destinationPort) : (item.pod || 'N/A'));
+            const podFlag = getFlag(item.destination_port) || getFlag(item.destinationPort) || item.pod_flag || '';
+            const price = (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString();
+            const change = (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString();
+
+            return {
+              id: item.id || Date.now(),
+              category: catName,
+              country: countryName,
+              countryFlag,
+              product: prodName,
+              shipBy,
+              term,
+              pol,
+              polFlag,
+              pod,
+              podFlag,
+              price,
+              change,
+              chartStatus: isChart(item.chart_status) && isChart(item.chartStatus) && isChart(item.product?.chart_status),
+            };
+          });
+
+          setAddedProducts(mapped);
+        }
+      } else {
+        // Rollback state if server deletion was unsuccessful
+        setAddedProducts(previousProducts);
+        toast.error(res.error || "Failed to delete product from server", {
+          style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+        });
+      }
     } catch (error) {
+      // Rollback state
+      setAddedProducts(previousProducts);
       console.error('Failed to delete favorite product:', error);
       toast.error("Failed to delete product", {
         style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
@@ -967,7 +970,7 @@ export default function ProductChartsClient({
     return flagPath.startsWith('http') ? flagPath : `${baseUrl}/${flagPath.replace(/^\//, '')}`;
   };
 
-  const gridCols = "grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr]";
+  const gridCols = "grid-cols-[0.92fr_0.98fr_1.85fr_1.0fr_0.78fr_1.22fr_1.27fr_0.68fr_0.72fr_0.5fr_1.08fr]";
 
   const marqueeCopies = 5;
   const marqueeItems = initialMarketedProducts && initialMarketedProducts.length > 0 
@@ -979,7 +982,8 @@ export default function ProductChartsClient({
   const marqueeDuration = `${(initialMarketedProducts?.length || 1) * itemSpeedSeconds}s`;
 
   return (
-    <div className="w-full overflow-visible">
+    <>
+      <div className="w-full overflow-visible">
       <style>{`
         @keyframes marquee {
           0% { transform: translate3d(0, 0, 0); }
@@ -1031,9 +1035,9 @@ export default function ProductChartsClient({
 
       <div className="w-full relative">
         {/* Header / Input Row (Seamless without card background) */}
-        <div className={`hidden lg:grid ${gridCols} gap-2 mb-3 items-end sticky top-0 z-40 bg-background/95 backdrop-blur-md py-2 px-0`}>
+        <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end sticky top-0 z-40 bg-background/95 backdrop-blur-md pt-1 pb-1 px-0`}>
           {/* 1. Category */}
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <SearchableSelect 
               id="desktop-category-select"
               value={selectedCategory}
@@ -1046,7 +1050,7 @@ export default function ProductChartsClient({
           </div>
 
           {/* 2. Country */}
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <SearchableSelect 
               id="desktop-country-select"
               value={selectedCountry}
@@ -1059,7 +1063,7 @@ export default function ProductChartsClient({
           </div>
 
           {/* 3. Product Name */}
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <SearchableSelect 
               id="desktop-product-select"
               value={selectedProduct}
@@ -1072,7 +1076,7 @@ export default function ProductChartsClient({
           </div>
 
           {/* 4. Ship By (Container) */}
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <SearchableSelect 
               id="desktop-shipby-select"
               value={selectedShipBy}
@@ -1085,7 +1089,7 @@ export default function ProductChartsClient({
           </div>
 
           {/* 5. Incoterm (FOB, CNF, CIF) */}
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <SearchableSelect 
               id="desktop-term-select"
               value={selectedTerm}
@@ -1098,7 +1102,7 @@ export default function ProductChartsClient({
           </div>
 
           {/* 6. POL (Port of Loading) */}
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <SearchableSelect 
               id="desktop-pol-select"
               value={selectedPOL}
@@ -1111,39 +1115,40 @@ export default function ProductChartsClient({
           </div>
 
           {/* 7. POD (Port of Destination) */}
-          <div className="w-full">
+          <div className="w-full min-w-0">
             <SearchableSelect 
               id="desktop-pod-select"
               value={isPodRequired ? selectedPOD : ''}
               onChange={handlePODSelect}
               options={destinationPorts}
-              placeholder={!isPodRequired ? "POD (N/A)" : !selectedPOL ? "POD" : podLoading ? "Loading..." : destinationPorts.length === 0 ? "No POD" : "POD"}
+              placeholder={!isPodRequired ? "POD" : !selectedPOL ? "POD" : podLoading ? "Loading..." : destinationPorts.length === 0 ? "No POD" : "POD"}
               disabled={!isPodRequired || !selectedPOL || podLoading || destinationPorts.length === 0}
               loading={podLoading}
             />
           </div>
           
           {/* Static Column Headers - Hidden on Mobile */}
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
-            Price (PMT)
+          <div className="hidden lg:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
+            <span>Price</span>
+            <span className="text-[12px] text-zinc-400 dark:text-zinc-500 leading-none mt-0.5">(PMT)</span>
           </div>
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
             Change
           </div>
-          <div className="hidden lg:flex w-full h-10 rounded-md border border-border bg-card items-center justify-center text-foreground/70 font-medium text-sm px-1 text-center shadow-sm">
+          <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
             Chart
           </div>
           
           {/* Add Product Button */}
-          <div className="w-full relative group">
+          <div className="w-full min-w-0 relative group">
             <button 
               id="desktop-add-product-btn"
               onClick={handleAddProduct}
               disabled={!isAddProductEnabled || isAdding}
-              className={`w-full h-10 rounded-md bg-primary-gradient text-white text-sm font-semibold flex items-center justify-center gap-1.5 shadow-md transition-all whitespace-nowrap px-2 ${
+              className={`w-full h-[45px] rounded-lg bg-primary-gradient text-white text-sm font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap px-2 min-w-0 ${
                 !isAddProductEnabled || isAdding 
                   ? 'opacity-40 cursor-not-allowed shadow-none' 
-                  : 'opacity-100 hover:opacity-95 hover:shadow-lg cursor-pointer active:scale-[0.98]'
+                  : 'opacity-100 hover:opacity-95 hover:shadow-md cursor-pointer active:scale-[0.98]'
               }`}
             >
               {isAdding ? (
@@ -1216,7 +1221,7 @@ export default function ProductChartsClient({
                   {/* Col 1: Category (Optional Filter) */}
                   <div 
                     onClick={() => document.getElementById('desktop-category-select')?.click()}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden cursor-pointer ${
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
                       selectedCategory
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                         : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/60 text-foreground/70'
@@ -1237,7 +1242,7 @@ export default function ProductChartsClient({
                   {/* Col 2: Country (Optional Filter) */}
                   <div 
                     onClick={() => document.getElementById('desktop-country-select')?.click()}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden cursor-pointer ${
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
                       selectedCountry
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                         : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/60 text-foreground/70'
@@ -1258,7 +1263,7 @@ export default function ProductChartsClient({
                   {/* Col 3: Product Name (Required / Main Step) */}
                   <div 
                     onClick={() => document.getElementById('desktop-product-select')?.click()}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden cursor-pointer ${
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
                       !selectedProduct
                         ? 'bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
                         : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -1267,7 +1272,7 @@ export default function ProductChartsClient({
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className={`fa-solid ${selectedProduct ? 'fa-check text-emerald-500' : 'fa-arrow-up animate-bounce text-brand-blue'} text-[11px]`}></i>
                       <span className={`text-[9.5px] font-bold uppercase tracking-wider ${!selectedProduct ? 'text-blue-600 dark:text-blue-400' : ''}`}>
-                        {selectedProduct ? 'Product' : '★ Step 1: Pick Product'}
+                        {selectedProduct ? 'Product' : '★ Step 1: Product'}
                       </span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
@@ -1284,7 +1289,7 @@ export default function ProductChartsClient({
                       if (selectedProduct) document.getElementById('desktop-shipby-select')?.click();
                       else document.getElementById('desktop-product-select')?.click();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedProduct 
                         ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
                         : !selectedShipBy
@@ -1309,7 +1314,7 @@ export default function ProductChartsClient({
                     onClick={() => {
                       if (selectedShipBy) document.getElementById('desktop-term-select')?.click();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedShipBy 
                         ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
                         : !selectedTerm
@@ -1325,7 +1330,7 @@ export default function ProductChartsClient({
                       {selectedTerm ? (shippingTerms.find(t => String(t.id) === String(selectedTerm))?.title || 'Term') : 'Term'}
                     </div>
                     <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
-                      {selectedTerm ? '✓ Selected' : 'FOB / CIF'}
+                      {selectedTerm ? '✓ Selected' : 'FOB/CIF'}
                     </div>
                   </div>
 
@@ -1334,7 +1339,7 @@ export default function ProductChartsClient({
                     onClick={() => {
                       if (selectedTerm) document.getElementById('desktop-pol-select')?.click();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedTerm 
                         ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
                         : !selectedPOL
@@ -1359,7 +1364,7 @@ export default function ProductChartsClient({
                     onClick={() => {
                       if (isPodRequired && selectedPOL) document.getElementById('desktop-pod-select')?.click();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !isPodRequired
                         ? 'bg-zinc-50/60 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-600'
                         : !selectedPOL 
@@ -1374,7 +1379,7 @@ export default function ProductChartsClient({
                       <span className="text-[9.5px] font-bold uppercase tracking-wider">{!isPodRequired ? 'N/A' : 'Step 5'}</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
-                      {!isPodRequired ? 'POD (N/A)' : selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'POD') : 'POD'}
+                      {!isPodRequired ? 'POD' : selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'POD') : 'POD'}
                     </div>
                     <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {!isPodRequired ? 'Not required' : selectedPOD ? '✓ Selected' : 'Destination'}
@@ -1382,7 +1387,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 8: Price (PMT) Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Live</span>
@@ -1391,12 +1396,12 @@ export default function ProductChartsClient({
                       Price (PMT)
                     </div>
                     <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
-                      Auto rates
+                      Standard
                     </div>
                   </div>
 
                   {/* Col 9: Change Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Trend</span>
@@ -1410,16 +1415,16 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 10: Chart Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-chart-line text-purple-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
-                      Price Curve
+                      Chart
                     </div>
                     <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
-                      Interactive
+                      Price curve
                     </div>
                   </div>
 
@@ -1428,7 +1433,7 @@ export default function ProductChartsClient({
                     onClick={() => {
                       if (isAddProductEnabled) handleAddProduct();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !isAddProductEnabled
                         ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
                         : 'cursor-pointer bg-primary-gradient text-white border-transparent shadow-md hover:shadow-lg ring-2 ring-emerald-500/40 active:scale-[0.98]'
@@ -1548,15 +1553,16 @@ export default function ProductChartsClient({
               </div>
             </>
           ) : (
-            <div className="flex flex-col gap-[7px] lg:gap-3">
+            <div className="flex flex-col gap-[7px] lg:gap-2 mt-0.5 lg:mt-1">
               {addedProducts.map((item, index) => {
                 const changeVal = Number(item.change) || 0;
                 const isPositive = changeVal >= 0;
-                const desktopRowBg = index % 2 === 0 ? 'bg-card' : 'bg-muted';
+                const desktopRowBg = index % 2 === 0 
+                  ? 'bg-card dark:bg-[#18181b]' 
+                  : 'bg-[#eef3f8] dark:bg-[#202630]';
                 
                 return (
                   <div key={item.id || index}>
-                    {/* Mobile/Tablet Card Layout */}
                     {/* Mobile/Tablet Card Layout */}
                     <SwipeableCard 
                       onDelete={() => confirmDelete(item.id)}
@@ -1613,55 +1619,55 @@ export default function ProductChartsClient({
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
-                    <div className={`hidden lg:grid grid-cols-[1.1fr_1.2fr_2fr_1.1fr_0.9fr_1.2fr_1.1fr_1fr_1fr_0.8fr_1.4fr] gap-2 items-center px-4 py-3.5 rounded-lg ${desktopRowBg} shadow-sm border border-border hover:shadow-md transition-all text-sm font-medium`}>
-                      <div className="font-medium truncate text-foreground" title={item.category}>{item.category}</div>
-                      <div className="flex items-center gap-2 truncate font-medium text-foreground" title={item.country}>
+                    <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm transition-all text-sm font-semibold`}>
+                      <div className="truncate text-foreground/90 min-w-0" title={item.category}>{item.category}</div>
+                      <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.country}>
                         {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
-                        <span className="truncate">{item.country}</span>
+                        <span className="truncate min-w-0">{item.country}</span>
                       </div>
-                      <div className="font-semibold truncate text-foreground" title={item.product}>{item.product}</div>
-                      <div className="truncate font-medium text-foreground/80" title={item.shipBy}>{item.shipBy}</div>
-                      <div className="text-center truncate font-medium text-foreground/80" title={item.term}>{item.term}</div>
-                      <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-foreground" title={item.pol}>
+                      <div className="truncate text-foreground/90 min-w-0 font-bold" title={item.product}>{item.product}</div>
+                      <div className="text-center truncate text-foreground/80 min-w-0 font-medium w-full" title={item.shipBy}>{item.shipBy}</div>
+                      <div className="text-center truncate text-foreground/80 min-w-0 font-medium w-full" title={item.term}>{item.term}</div>
+                      <div className="flex items-center gap-2 pl-[2px] truncate text-foreground/90 min-w-0 font-medium" title={item.pol}>
                         {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt={`${item.pol} Flag`} title={`${item.pol} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
-                        <span className="truncate">{item.pol}</span>
+                        <span className="truncate min-w-0">{item.pol}</span>
                       </div>
-                      <div className="flex items-center gap-2 pl-[5px] truncate font-medium text-foreground" title={item.pod}>
+                      <div className="flex items-center gap-2 pl-[2px] truncate text-foreground/90 min-w-0 font-medium" title={item.pod}>
                         {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt={`${item.pod || 'POD'} Flag`} title={`${item.pod || 'POD'} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
-                        <span className="truncate">{item.pod || '-'}</span>
+                        <span className="truncate min-w-0">{item.pod || '-'}</span>
                       </div>
-                      <div className="w-full flex items-center justify-center text-center font-bold text-foreground" title={`$${item.price}`}>${item.price}</div>
-                      <div className={`w-full text-center font-semibold flex items-center justify-center gap-1 ${isPositive ? 'text-emerald-500' : 'text-red-500'}`} title={`${changeVal}$`}>
-                        <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'}`}></i>
-                        <span>{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
+                      <div className="w-full flex items-center justify-center text-center font-bold text-foreground text-sm min-w-0" title={`$${item.price}`}>${item.price}</div>
+                      <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-sm ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`} title={`${changeVal}$`}>
+                        <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-xs`}></i>
+                        <span className="truncate">{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
                       </div>
                       <div 
-                        className="w-full flex items-center justify-center text-center cursor-pointer hover:scale-110 transition-transform"
+                        className="w-full flex items-center justify-center text-center cursor-pointer hover:scale-110 transition-transform min-w-0"
                         onClick={() => openBottomSheet(item.id)}
                         title="View Product Chart"
                       >
-                        <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-brand-blue' : 'text-zinc-400'}`}></i>
+                        <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-emerald-600 dark:text-emerald-500' : 'text-zinc-400'}`}></i>
                       </div>
-                      <div className="flex items-center justify-end gap-3">
+                      <div className="flex items-center justify-end gap-2.5 min-w-0">
                         {userType === 'seller' ? (
-                          <button className="px-5 py-1 bg-card border border-border text-foreground text-sm font-semibold rounded-full hover:bg-muted transition-colors shadow-sm whitespace-nowrap">
+                          <button onClick={handleActionClick} className="px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap">
                             Sell
                           </button>
                         ) : userType === 'buyer' ? (
-                          <button className="px-5 py-1 bg-card border border-border text-foreground text-sm font-semibold rounded-full hover:bg-muted transition-colors shadow-sm whitespace-nowrap">
+                          <button onClick={handleActionClick} className="px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap">
                             Buy
                           </button>
                         ) : (
-                          <button className="px-5 py-1 bg-card border border-border text-foreground text-sm font-semibold rounded-full hover:bg-muted transition-colors shadow-sm whitespace-nowrap">
-                            Sell
+                          <button onClick={handleActionClick} className="px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap">
+                            Buy/Sell
                           </button>
                         )}
                         <button 
                           onClick={() => confirmDelete(item.id)}
-                          className="text-red-500 hover:text-red-600 transition-colors flex items-center justify-center text-lg p-1"
+                          className="text-red-500 hover:text-red-600 transition-colors flex items-center justify-center text-lg p-0.5"
                           title="Delete product"
                         >
-                          <i className="fa-solid fa-trash-can"></i>
+                          <i className="fa-regular fa-trash-can"></i>
                         </button>
                       </div>
                     </div>
@@ -1671,6 +1677,7 @@ export default function ProductChartsClient({
             </div>
           )}
         </div>
+      </div>
 
         {/* Global Actions Bar for Mobile/Tablet - Sticky when products overflow */}
         <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 backdrop-blur-sm border-t border-border shadow-xs mt-3 pointer-events-auto">
@@ -1953,7 +1960,7 @@ export default function ProductChartsClient({
           `}} />
         </div>
       )}
-    </div>
+    </>
   );
 }
 

@@ -214,23 +214,77 @@ export async function deleteFavoriteProductAction(
     }
 
     const url = `${getTradingApiUrl()}/favorite-product/${safeId}?lang_code=${safeLang}&source=web`;
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: "DELETE",
       headers,
       cache: "no-store",
     });
 
+    // Fallback if direct ID DELETE was not found
+    if (!res.ok && (res.status === 405 || res.status === 404)) {
+      res = await fetch(`${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`, {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({ id: Number(id) || id }),
+        cache: "no-store",
+      });
+    }
+
     const json = await res.json().catch(() => ({}));
-    const isSuccess = json.success === 1 || json.success === true;
+    const isSuccess = res.ok || json.success === 1 || json.success === true;
     if (isSuccess) {
-      return { success: true, message: json.message };
+      return { success: true, message: json.message || "Deleted successfully" };
     }
     return {
       success: false,
-      error: json.message || "Failed to delete favorite product",
+      error: json.message || `Failed to delete product (Status: ${res.status})`,
     };
   } catch (err: any) {
     console.error("deleteFavoriteProductAction error:", err);
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * Fetch favorite products on server side
+ */
+export async function getFavoriteProductsAction(
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+
+    const safeLang = getSafeLang(lang);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`;
+    const res = await fetch(url, {
+      headers,
+      cache: "no-store",
+    });
+
+    const json = await res.json().catch(() => ({}));
+    const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
+    if (isSuccess && json.data) {
+      const rawFavs =
+        json.data?.favorite_products ||
+        json.data?.favorite_product ||
+        json.data?.favorites ||
+        json.data?.products ||
+        json.data?.data ||
+        (Array.isArray(json.data) ? json.data : []);
+      return { success: true, data: rawFavs };
+    }
+    return { success: false, data: [] };
+  } catch (err: any) {
+    console.error("getFavoriteProductsAction error:", err);
+    return { success: false, error: err.message, data: [] };
+  }
+}
+
