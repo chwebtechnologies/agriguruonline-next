@@ -6,6 +6,7 @@ import CategoryLink from '@/components/category/CategoryLink'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { AppMenu } from '@/components/layout/AppMenu'
+import { HeaderSearch } from '@/components/search/HeaderSearch'
 
 interface HeaderGuestProps {
   dict?: {
@@ -73,22 +74,6 @@ export function HeaderGuestBase({
 }: HeaderGuestBaseProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
-  
-  const router = useRouter()
-  const [searchQuery, setSearchQuery] = useState('')
-
-  // Debounce global search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const q = searchQuery.trim()
-      if (q.length >= 3) {
-        router.push(`/${activeLang}/search?q=${encodeURIComponent(q)}`)
-      } else if (q.length === 0 && pathname === `/${activeLang}/search`) {
-        router.push(`/${activeLang}/search`)
-      }
-    }, 600)
-    return () => clearTimeout(timer)
-  }, [searchQuery, router, activeLang, pathname])
 
 
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
@@ -198,21 +183,8 @@ export function HeaderGuestBase({
 
   const [isMac, setIsMac] = useState(false)
 
-  // OS and Keyboard shortcut listener
   useEffect(() => {
     setTimeout(() => setIsMac(navigator.userAgent.toUpperCase().indexOf('MAC') >= 0), 0)
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement
-        if (searchInput) {
-          searchInput.focus()
-        }
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
 
@@ -305,45 +277,11 @@ export function HeaderGuestBase({
               {loading ? (
                 <div className="w-full h-10 rounded-full bg-muted border border-border animate-pulse" />
               ) : (
-                <form 
-                  action={`/${activeLang}/search`} 
-                  method="GET" 
-                  className="group relative w-full"
-                  onSubmit={(e) => {
-                    if (searchQuery.trim().length > 0 && searchQuery.trim().length < 3) {
-                      e.preventDefault();
-                    }
-                  }}
-                >
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                    <i className="fa-solid fa-magnifying-glass text-muted-foreground group-focus-within:text-brand-blue transition-colors text-[13px]"></i>
-                  </div>
-                  <input
-                    type="search"
-                    name="q"
-                    placeholder={dict.header.search_placeholder}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 rounded-lg border border-border bg-muted pl-9 sm:pl-10 pr-3 sm:pr-20 text-xs sm:text-[13.5px] font-medium text-foreground placeholder:text-muted-foreground focus:bg-card focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/20 outline-none transition-all duration-200 shadow-2xs"
-                  />
-                  
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute inset-y-0 right-2 sm:right-12 flex items-center px-2 text-muted-foreground hover:text-foreground focus:outline-none z-10 cursor-pointer"
-                      aria-label="Clear search"
-                    >
-                      <i className="fa-solid fa-circle-xmark text-[14px]"></i>
-                    </button>
-                  )}
-
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none">
-                    <kbd className="hidden sm:inline-flex items-center gap-0.5 h-5 select-none rounded-full border border-border bg-muted px-2 font-mono text-[10px] font-bold text-muted-foreground shadow-2xs">
-                      <span>{isMac ? '⌘' : 'Ctrl'}</span>K
-                    </kbd>
-                  </div>
-                </form>
+                <HeaderSearch
+                  placeholder={dict.header.search_placeholder}
+                  lang={activeLang}
+                  categories={categoriesList}
+                />
               )}
             </div>
           </div>
