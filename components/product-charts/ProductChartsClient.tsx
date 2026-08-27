@@ -732,7 +732,7 @@ export default function ProductChartsClient({
       `}</style>
       
       {initialMarketedProducts && initialMarketedProducts.length > 0 && (
-        <div className="overflow-hidden whitespace-nowrap w-full bg-card rounded-md border border-border mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
+        <div className="overflow-hidden whitespace-nowrap w-full bg-card rounded-md border border-border mb-1.5 sm:mb-4 flex items-center shadow-sm hover:[&>div]:[animation-play-state:paused]">
           <div className="inline-block animate-[marquee_60s_linear_infinite]" style={{ WebkitAnimationName: 'marquee', animationName: 'marquee', willChange: 'transform', animationDuration: marqueeDuration }}>
             {marqueeItems.map((p, i) => {
               // Generate a consistent dummy change if it's 0, just to make it look realistic as requested
@@ -774,8 +774,8 @@ export default function ProductChartsClient({
       )}
 
       <div className="w-full relative">
-        {/* Header / Input Row (Seamless without card background) */}
-        <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end sticky top-0 z-40 bg-background/95 backdrop-blur-md pt-1 pb-1 px-0`}>
+        {/* Header / Input Row */}
+        <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0`}>
           {/* 1. Category */}
           <div className="w-full min-w-0">
             <SearchableSelect 
@@ -892,7 +892,7 @@ export default function ProductChartsClient({
         </div>
 
         {/* Data Rows */}
-        <div className={`mt-2 ${addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
+        <div className={`mt-0 lg:mt-2 ${addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
           {addedProducts.length === 0 ? (
             <>
               {/* Mobile/Tablet Compact Card Empty State */}

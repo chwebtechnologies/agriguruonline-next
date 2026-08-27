@@ -6,10 +6,10 @@ export default function Loading() {
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
+        <div className="max-w-7xl mx-auto pt-0 sm:pt-1.5 pb-4">
           <PageHeader title="Freight Charts" backText="Back" />
 
-          <div className="mt-4">
+          <div className="mt-0 sm:mt-1.5">
             <div className="w-full overflow-visible">
               {/* Desktop Filter Row Skeleton */}
               <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0 animate-pulse`}>

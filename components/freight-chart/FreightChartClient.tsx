@@ -295,10 +295,10 @@ export default function FreightChartClient({
 
   return (
     <>
-      <div className="w-full flex flex-col gap-2">
+      <div className="w-full flex flex-col gap-0 lg:gap-2">
         <div className="w-full relative">
-          {/* Desktop Filter Row (Sticky matching Product Charts) */}
-          <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end sticky top-0 z-40 bg-background/95 backdrop-blur-md pt-1 pb-1 px-0`}>
+          {/* Desktop Filter Row */}
+          <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0`}>
             {/* 1. Ship by */}
             <div className="w-full min-w-0">
               <SearchableSelect
@@ -369,7 +369,7 @@ export default function FreightChartClient({
           </div>
 
           {/* Data Rows */}
-          <div className={`mt-2 ${addedFreights.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
+          <div className={`mt-0 lg:mt-2 ${addedFreights.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
             {addedFreights.length === 0 ? (
               <>
                 {/* Mobile/Tablet Compact Card Empty State */}

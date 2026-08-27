@@ -5,10 +5,10 @@ export default function ProductChartsLoading() {
     <div className="bg-background text-foreground">
       {/* Main Content */}
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
+        <div className="max-w-7xl mx-auto pt-0 sm:pt-1.5 pb-4">
           <PageHeader title="Product Charts" backText="Back" />
 
-          <div className="mt-4 w-full overflow-visible">
+          <div className="mt-0 sm:mt-1.5 w-full overflow-visible">
             {/* Top Marketed Products Ticker Skeleton */}
             <div className="w-full bg-card rounded-md border border-border mb-4 h-10 flex items-center shadow-sm px-4 animate-pulse">
               <div className="h-4 w-64 bg-muted rounded"></div>
