@@ -92,276 +92,16 @@ interface FavoriteItem {
   chartStatus: boolean;
 }
 
-function SearchableSelect({ 
-  value, 
-  onChange, 
-  options = [], 
-  placeholder, 
-  disabled,
-  loading: selectLoading,
-  menuPosition = 'bottom',
-  id,
-  variant = 'desktop'
-}: { 
-  value: string; 
-  onChange: (val: string) => void; 
-  options: { id: string; name?: string; title?: string }[]; 
-  placeholder: string; 
-  disabled?: boolean; 
-  loading?: boolean;
-  menuPosition?: 'top' | 'bottom';
-  id?: string;
-  variant?: 'desktop' | 'mobile';
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const wrapperRef = useRef<HTMLDivElement>(null);
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { ChartAddButton } from '@/components/ui/charts/ChartAddButton';
+import { ChartActionButton } from '@/components/ui/charts/ChartActionButton';
+import { ChartDeleteButton } from '@/components/ui/charts/ChartDeleteButton';
+import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
+import { SwipeableCard } from '@/components/ui/charts/SwipeableCard';
+import { ChartMobileEmptyCard } from '@/components/ui/charts/ChartMobileEmptyCard';
+import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard';
+import { ChartBottomSheetContainer } from '@/components/ui/charts/ChartBottomSheetContainer';
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const safeOptions = Array.isArray(options) ? options : [];
-  const selectedOption = safeOptions.find(o => String(o.id) === String(value));
-  const isSelected = Boolean(selectedOption && value);
-  const displayValue = selectLoading 
-    ? 'Loading...' 
-    : selectedOption 
-      ? (selectedOption.name || selectedOption.title) 
-      : placeholder;
-  
-  const filteredOptions = safeOptions.filter(o => {
-    const label = o.name || o.title || '';
-    return label.toLowerCase().includes((search || '').toLowerCase());
-  });
-
-  const isInteractive = !disabled && !selectLoading;
-  const isMobile = variant === 'mobile';
-
-  return (
-    <div className={`relative w-full min-w-0 ${isOpen && isInteractive ? 'z-[9999]' : ''}`} ref={wrapperRef} title={displayValue}>
-      <div 
-        id={id}
-        className={`w-full min-w-0 transition-all flex items-center justify-between ${
-          isMobile
-            ? `h-[46px] rounded-xl px-3.5 text-sm ${
-                !isInteractive
-                  ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-medium select-none cursor-not-allowed shadow-xs'
-                  : isSelected
-                    ? 'bg-brand-blue text-white border border-brand-blue shadow-sm font-medium cursor-pointer'
-                    : 'bg-card border-2 border-border hover:border-brand-blue dark:hover:border-brand-blue text-foreground shadow-sm font-medium cursor-pointer active:scale-[0.99]'
-              }`
-            : `h-[45px] rounded-lg px-2 lg:px-2.5 text-xs lg:text-[13px] xl:text-sm ${
-                !isInteractive
-                  ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-medium select-none cursor-not-allowed shadow-xs'
-                  : isSelected
-                    ? 'bg-brand-blue text-white border border-brand-blue shadow-xs font-bold cursor-pointer'
-                    : 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold hover:border-brand-blue dark:hover:border-brand-blue shadow-xs cursor-pointer'
-              }`
-        }`}
-        onClick={() => {
-          if (isInteractive) {
-            setIsOpen(!isOpen);
-            if (!isOpen) setSearch('');
-          }
-        }}
-      >
-        <span className="truncate pr-0.5 flex items-center gap-1 min-w-0">
-          {selectLoading && (
-            <i className="fa-solid fa-circle-notch fa-spin text-xs text-white shrink-0"></i>
-          )}
-          <span className={`truncate min-w-0 ${!isSelected && !isInteractive ? 'text-zinc-400 dark:text-zinc-500 font-medium' : !isSelected ? (isMobile ? 'text-foreground' : 'text-zinc-900 dark:text-zinc-100 font-bold') : 'text-white font-bold'}`}>
-            {displayValue}
-          </span>
-        </span>
-
-        {selectLoading ? null : isSelected && isInteractive ? (
-          <button
-            type="button"
-            className="shrink-0 ml-0.5 text-white hover:text-white/80 transition-colors flex items-center justify-center p-0.5"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange('');
-              setIsOpen(false);
-            }}
-            title="Clear selection"
-          >
-            <i className="fa-solid fa-xmark text-xs"></i>
-          </button>
-        ) : (
-          <i className={`fa-solid ${isOpen ? 'fa-chevron-down text-brand-blue' : 'fa-chevron-right'} text-[10px] shrink-0 ml-0.5 transition-transform ${!isInteractive ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-600 dark:text-zinc-400'}`}></i>
-        )}
-      </div>
-      {isOpen && isInteractive && (
-        <div className={`absolute z-50 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-2xl max-h-[300px] flex flex-col left-0 ${menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
-          <div className="p-2 shrink-0 border-b border-border bg-muted/50 rounded-t-xl">
-            <div className="relative">
-              <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
-              <input 
-                type="text" 
-                className="w-full bg-card border border-border rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue text-foreground transition-all placeholder:text-foreground/40" 
-                placeholder="Search..." 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                autoFocus
-              />
-            </div>
-          </div>
-          <div className="p-1.5 overflow-y-auto">
-            {filteredOptions.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-zinc-500 text-center font-medium">No results found</div>
-            ) : (
-              filteredOptions.map(opt => {
-                const label = opt.name || opt.title || '';
-                const active = String(value) === String(opt.id);
-                return (
-                  <div 
-                    key={opt.id} 
-                    className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors truncate flex items-center justify-between ${
-                      active 
-                        ? 'bg-brand-blue text-white font-semibold' 
-                        : 'hover:bg-muted text-foreground'
-                    }`}
-                    onClick={() => {
-                      onChange(opt.id);
-                      setIsOpen(false);
-                      setSearch('');
-                    }}
-                  >
-                    <span className="truncate">{label}</span>
-                    {active && <i className="fa-solid fa-check text-xs ml-2"></i>}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const SwipeableCard = ({ 
-  children, 
-  onDelete,
-  onChart
-}: { 
-  children: React.ReactNode, 
-  onDelete: () => void,
-  onChart: () => void
-}) => {
-  const startXRef = useRef(0);
-  const startYRef = useRef(0);
-  const currentXRef = useRef(0);
-  const isDraggingRef = useRef(false);
-  const isHorizontalSwipeRef = useRef<boolean | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const swipeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = swipeRef.current;
-    if (!el) return;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      startXRef.current = e.touches[0].clientX;
-      startYRef.current = e.touches[0].clientY;
-      currentXRef.current = 0;
-      isDraggingRef.current = false;
-      isHorizontalSwipeRef.current = null;
-      if (el) el.style.transition = 'none';
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      const diffX = e.touches[0].clientX - startXRef.current;
-      const diffY = e.touches[0].clientY - startYRef.current;
-
-      // Detect gesture direction early without blocking vertical scroll
-      if (isHorizontalSwipeRef.current === null) {
-        if (Math.abs(diffY) > 6 && Math.abs(diffY) > Math.abs(diffX)) {
-          // Pure vertical scroll -> never intercept, allow 100% native smooth scrolling
-          isHorizontalSwipeRef.current = false;
-          return;
-        }
-        if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
-          // Pure horizontal swipe
-          isHorizontalSwipeRef.current = true;
-          isDraggingRef.current = true;
-        }
-      }
-
-      if (isHorizontalSwipeRef.current === true) {
-        if (e.cancelable) e.preventDefault();
-        const maxSwipe = 120;
-        let newTranslate = diffX;
-        if (newTranslate > maxSwipe) newTranslate = maxSwipe;
-        if (newTranslate < -maxSwipe) newTranslate = -maxSwipe;
-        currentXRef.current = newTranslate;
-        el.style.transform = `translateX(${newTranslate}px)`;
-      }
-    };
-
-    const handleTouchEnd = () => {
-      if (isHorizontalSwipeRef.current === true && isDraggingRef.current) {
-        const maxSwipe = 120;
-        const threshold = maxSwipe * 0.45;
-
-        if (currentXRef.current < -threshold) {
-          onDelete();
-        } else if (currentXRef.current > threshold) {
-          onChart();
-        }
-      }
-
-      if (el) {
-        el.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
-        el.style.transform = 'translateX(0px)';
-      }
-      currentXRef.current = 0;
-      isDraggingRef.current = false;
-      isHorizontalSwipeRef.current = null;
-    };
-
-    el.addEventListener('touchstart', handleTouchStart, { passive: true });
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    el.addEventListener('touchend', handleTouchEnd, { passive: true });
-    el.addEventListener('touchcancel', handleTouchEnd, { passive: true });
-
-    return () => {
-      el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
-      el.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, [onChart, onDelete]);
-
-  return (
-    <div className="relative overflow-hidden rounded-xl lg:hidden bg-muted touch-pan-y" ref={containerRef}>
-      <div className="absolute inset-0 flex justify-between items-center z-0 pointer-events-none">
-        <div className="bg-sky-400 w-1/2 h-full flex items-center pl-6 text-white font-bold rounded-l-xl">
-          <i className="fa-solid fa-chart-line text-xl"></i>
-          <span className="ml-3 text-[15px] tracking-wide">Chart</span>
-        </div>
-        <div className="bg-red-500 w-1/2 h-full flex items-center justify-end pr-6 text-white font-bold rounded-r-xl">
-          <span className="mr-3 text-[15px] tracking-wide">Delete</span>
-          <i className="fa-solid fa-trash text-xl"></i>
-        </div>
-      </div>
-      <div 
-        ref={swipeRef}
-        className="relative z-10 w-full h-full bg-card rounded-xl shadow-sm border border-border will-change-transform"
-      >
-        {children}
-      </div>
-    </div>
-  );
-};
 
 interface ChartsClientProps {
   initialProducts?: Product[];
@@ -1140,79 +880,31 @@ export default function ProductChartsClient({
           </div>
           
           {/* Add Product Button */}
-          <div className="w-full min-w-0 relative group">
-            <button 
-              id="desktop-add-product-btn"
-              onClick={handleAddProduct}
-              disabled={!isAddProductEnabled || isAdding}
-              className={`w-full h-[45px] rounded-lg bg-primary-gradient text-white text-sm font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap px-2 min-w-0 ${
-                !isAddProductEnabled || isAdding 
-                  ? 'opacity-40 cursor-not-allowed shadow-none' 
-                  : 'opacity-100 hover:opacity-95 hover:shadow-md cursor-pointer active:scale-[0.98]'
-              }`}
-            >
-              {isAdding ? (
-                <>
-                  <i className="fa-solid fa-circle-notch fa-spin"></i> Adding...
-                </>
-              ) : (
-                'Add Product'
-              )}
-            </button>
-            {!isAddProductEnabled && (
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-zinc-800 text-white text-xs rounded py-1.5 px-2.5 whitespace-nowrap z-50 shadow-lg after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-zinc-800">
-                Please select the options to add the product
-              </div>
-            )}
-          </div>
+          <ChartAddButton
+            id="desktop-add-product-btn"
+            onClick={handleAddProduct}
+            disabled={!isAddProductEnabled}
+            loading={isAdding}
+            label="Add Product"
+            tooltipText="Please select the options to add the product"
+            variant="desktop"
+          />
         </div>
 
         {/* Data Rows */}
         <div className={`mt-2 ${addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
           {addedProducts.length === 0 ? (
             <>
-              {/* Mobile/Tablet Compact Card Empty State - Exact 3-row card layout matching commodity cards */}
-              <div 
+              {/* Mobile/Tablet Compact Card Empty State */}
+              <ChartMobileEmptyCard
                 onClick={() => setShowMobileAddForm(true)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowMobileAddForm(true); }}
-                className="lg:hidden relative overflow-hidden bg-card rounded-xl shadow-sm border border-dashed border-border hover:border-brand-green dark:hover:border-brand-green active:scale-[0.99] transition-all cursor-pointer group"
-              >
-                <div className="flex flex-col p-2">
-                  {/* Row 1: Watchlist Header & Count */}
-                  <div className="flex justify-between items-center text-[12px] text-foreground/60">
-                    <div className="flex items-center gap-1.5 font-medium">
-                      <i className="fa-solid fa-chart-line text-brand-green text-[11px]"></i>
-                      <span>Watchlist</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 font-medium">
-                      <span>0 Products</span>
-                    </div>
-                  </div>
-                  
-                  {/* Row 2: Title & Add Action */}
-                  <div className="flex justify-between items-center gap-2 mt-1">
-                    <div className="font-bold text-[14px] leading-tight text-foreground">
-                      No Products Added
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="font-bold text-[13px] text-brand-green group-hover:text-brand-green-hover flex items-center gap-1">
-                        <i className="fa-solid fa-plus text-[11px]"></i>
-                        <span>Add Product</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Row 3: Description & Chevron */}
-                  <div className="flex justify-between items-center text-[12px] text-foreground/60 mt-0.5">
-                    <div className="truncate">Tap to search & add commodity to chart</div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <i className="fa-solid fa-chevron-right text-[10px] text-zinc-400"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                icon="fa-solid fa-chart-line"
+                badgeLabel="Watchlist"
+                countLabel="0 Products"
+                title="No Products Added"
+                actionText="Add Product"
+                description="Tap to search & add commodity to chart"
+              />
 
               {/* Desktop Empty State with Interactive Step Pointers & Tutorial */}
               <div className="hidden lg:flex flex-col gap-3">
@@ -1568,54 +1260,27 @@ export default function ProductChartsClient({
                       onDelete={() => confirmDelete(item.id)}
                       onChart={() => openBottomSheet(item.id)}
                     >
-                      <div className="flex flex-col p-2">
-                        {/* Row 1: Origins and POD */}
-                        <div className="flex justify-between items-center text-[12px] text-foreground/60">
-                          <div className="flex items-center gap-1.5 font-medium">
+                      <ChartMobileItemCard
+                        row1Left={
+                          <>
                             {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
                             <span>{item.country}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 font-medium">
+                          </>
+                        }
+                        row1Right={
+                          <>
                             <span>{item.pod && item.pod !== 'N/A' ? 'POD' : 'POL'}: {item.pod && item.pod !== 'N/A' ? item.pod : item.pol}</span>
                             {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <img src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)!} alt={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} title={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
-                          </div>
-                        </div>
-                        
-                        {/* Row 2: Product Name & Price */}
-                        <div className="flex justify-between items-center gap-3 mt-1">
-                          <div className="font-bold text-[14px] leading-tight text-foreground">
-                            {item.product}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <div className="font-bold text-[14px] text-foreground whitespace-nowrap">
-                              {item.term}: ${item.price}
-                            </div>
-                            <button 
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openBottomSheet(item.id);
-                              }}
-                              className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-[#f4f4f5] active:bg-zinc-200 dark:active:bg-zinc-700 rounded-full transition-colors cursor-pointer"
-                              aria-label="Open product options"
-                            >
-                              <i className="fa-solid fa-ellipsis-vertical text-[17px]"></i>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Row 3: POL, ShipBy, Change */}
-                        <div className="flex justify-between items-center text-[12px] text-foreground/60 mt-0.5">
-                          <div>POL: {item.pol}</div>
-                          <div className="flex items-center gap-1">
-                            <span>({item.shipBy} - PMT)</span>
-                            <span className={`font-semibold flex items-center ${isPositive ? 'text-brand-green' : 'text-red-500'}`}>
-                              <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} mr-0.5`}></i>
-                              {isPositive ? `+${changeVal}$` : `${changeVal}$`}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                          </>
+                        }
+                        title={item.product}
+                        priceDisplay={`${item.term}: $${item.price}`}
+                        onOptionsClick={() => openBottomSheet(item.id)}
+                        row3Left={`POL: ${item.pol}`}
+                        row3Middle={`(${item.shipBy} - PMT)`}
+                        changeValue={item.change}
+                        isPositive={isPositive}
+                      />
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
@@ -1649,26 +1314,15 @@ export default function ProductChartsClient({
                         <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-emerald-600 dark:text-emerald-500' : 'text-zinc-400'}`}></i>
                       </div>
                       <div className="flex items-center justify-end gap-2.5 min-w-0">
-                        {userType === 'seller' ? (
-                          <button onClick={handleActionClick} className="px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap">
-                            Sell
-                          </button>
-                        ) : userType === 'buyer' ? (
-                          <button onClick={handleActionClick} className="px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap">
-                            Buy
-                          </button>
-                        ) : (
-                          <button onClick={handleActionClick} className="px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap">
-                            Buy/Sell
-                          </button>
-                        )}
-                        <button 
+                        <ChartActionButton
+                          onClick={handleActionClick}
+                          userType={userType}
+                          mode="product"
+                        />
+                        <ChartDeleteButton
                           onClick={() => confirmDelete(item.id)}
-                          className="text-red-500 hover:text-red-600 transition-colors flex items-center justify-center text-lg p-0.5"
                           title="Delete product"
-                        >
-                          <i className="fa-regular fa-trash-can"></i>
-                        </button>
+                        />
                       </div>
                     </div>
                   </div>
@@ -1711,59 +1365,34 @@ export default function ProductChartsClient({
               </>
             )}
           </div>
-          <button 
+          <ChartAddButton
             onClick={() => setShowMobileAddForm(true)}
-            className="px-6 py-[10px] bg-brand-green hover:bg-brand-green-hover text-white font-medium rounded-md text-[14px] shadow-sm transition-colors"
-          >
-            Add Product
-          </button>
+            label="Add Product"
+            variant="mobile-sticky"
+          />
         </div>
       </div>
       {/* Delete Confirmation Popup */}
-      {deleteConfirmId !== null && (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-card rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex gap-4 items-center mb-6">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0 text-red-600">
-                <i className="fa-solid fa-triangle-exclamation text-xl"></i>
-              </div>
-              <div className="flex flex-col justify-center w-full items-center">
-                <h3 className="text-[17px] font-bold text-red-600 dark:text-red-500 mb-1 leading-none text-center">Delete Product</h3>
-                <p className="text-foreground/70 text-[14px] leading-snug whitespace-nowrap text-center">Are you sure you want to delete this product?</p>
-              </div>
-            </div>
-            
-            <div className="flex w-full gap-3">
-              <button 
-                onClick={() => handleDelete(deleteConfirmId)}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-[15px] shadow-sm hover:bg-red-700 active:scale-[0.98] transition-all"
-              >
-                Delete
-              </button>
-              <button 
-                onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal
+        isOpen={deleteConfirmId !== null}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+        title="Delete Product"
+        description="Are you sure you want to delete this product?"
+      />
 
       {/* Bottom Sheet for Mobile Actions */}
       {activeBottomSheetId !== null && (() => {
         const activeItem = addedProducts.find(p => String(p.id) === String(activeBottomSheetId));
         if (!activeItem) return null;
         return (
-          <BottomSheetContainer 
+          <ChartBottomSheetContainer 
             activeItem={activeItem} 
-            setActiveBottomSheetId={closeBottomSheet} 
+            onClose={closeBottomSheet} 
             userType={userType} 
-            router={router} 
-            getFlagUrl={getFlagUrl} 
             defaultFullScreen={isInitialFullScreen}
             lang={lang}
+            swipeText="Swipe up for Commodity Details"
           />
         );
       })()}
@@ -1921,22 +1550,18 @@ export default function ProductChartsClient({
             {/* Sticky Add Button */}
             <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-background z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
               <div className="flex justify-center">
-                <button 
+                <ChartAddButton
                   onClick={async () => {
                     await handleAddProduct();
                     if (isAddProductEnabled) {
                       setShowMobileAddForm(false);
                     }
                   }}
-                  disabled={!isAddProductEnabled || isAdding}
-                  className={`w-[200px] h-12 rounded-lg text-white font-semibold text-[16px] shadow-sm transition-all flex items-center justify-center
-                    ${!isAddProductEnabled || isAdding 
-                      ? 'opacity-40 cursor-not-allowed shadow-none bg-zinc-300 dark:bg-zinc-700 text-foreground/60' 
-                      : 'bg-primary-gradient hover:opacity-95 active:scale-95 cursor-pointer shadow-md hover:shadow-lg'
-                    }`}
-                >
-                  {isAdding ? <><i className="fa-solid fa-circle-notch fa-spin mr-2"></i> Adding...</> : 'Add Product'}
-                </button>
+                  disabled={!isAddProductEnabled}
+                  loading={isAdding}
+                  label="Add Product"
+                  variant="mobile-overlay"
+                />
               </div>
             </div>
           </div>
@@ -1964,283 +1589,4 @@ export default function ProductChartsClient({
   );
 }
 
-// Sub-component to manage Bottom Sheet swipe-up logic (Agriguru Online style - Butter-smooth Hardware-Accelerated Expansion)
-// Sub-component to manage Bottom Sheet swipe-up logic (Agriguru Online style - Butter-smooth Hardware-Accelerated Expansion)
-const BottomSheetContainer = ({ activeItem, setActiveBottomSheetId, userType, getFlagUrl, defaultFullScreen = false, lang = 'en' }: any) => {
-  const [isFullScreen, setIsFullScreen] = useState(defaultFullScreen);
-  const startYRef = useRef<number | null>(null);
-  const currentYRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const isDraggingRef = useRef<boolean>(false);
-  const isFullScreenRef = useRef<boolean>(defaultFullScreen);
-  const mountTimeRef = useRef<number>(Date.now());
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(105);
 
-  useEffect(() => {
-    isFullScreenRef.current = isFullScreen;
-    if (sheetRef.current && !isDraggingRef.current) {
-      sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease';
-      sheetRef.current.style.transform = isFullScreen ? 'translateY(0px)' : 'translateY(calc(100% - 52vh))';
-    }
-  }, [isFullScreen]);
-
-  // Lock document body scroll while bottom sheet is open
-  useEffect(() => {
-    mountTimeRef.current = Date.now();
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setActiveBottomSheetId(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [setActiveBottomSheetId]);
-
-  const expandToFullScreen = () => {
-    setIsFullScreen(true);
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease';
-      sheetRef.current.style.transform = 'translateY(0px)';
-    }
-    if (typeof window !== 'undefined' && activeItem?.id) {
-      const url = new URL(window.location.href);
-      url.searchParams.set('chart', String(activeItem.id));
-      url.searchParams.set('full', '1');
-      window.history.pushState({ chart: activeItem.id, full: '1' }, '', url.toString());
-    }
-  };
-
-  const handleDragStart = (clientY: number) => {
-    if (Date.now() - mountTimeRef.current < 200) return;
-    startYRef.current = clientY;
-    currentYRef.current = clientY;
-    startTimeRef.current = Date.now();
-    isDraggingRef.current = true;
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = 'none';
-    }
-  };
-
-  const handleDragMove = (clientY: number) => {
-    if (!isDraggingRef.current || startYRef.current === null || !sheetRef.current) return;
-    currentYRef.current = clientY;
-    const diff = clientY - startYRef.current;
-    
-    if (isFullScreenRef.current) {
-      if (diff > 0) {
-        sheetRef.current.style.transform = `translateY(${diff}px)`;
-      }
-    } else {
-      sheetRef.current.style.transform = `translateY(calc(100% - 52vh + ${diff}px))`;
-    }
-  };
-
-  const handleDragEnd = () => {
-    if (startYRef.current === null || currentYRef.current === null || !sheetRef.current) {
-      isDraggingRef.current = false;
-      startYRef.current = null;
-      currentYRef.current = null;
-      return;
-    }
-
-    const diff = currentYRef.current - startYRef.current;
-    const timeTaken = Date.now() - startTimeRef.current;
-    const velocity = Math.abs(diff) / (timeTaken || 1);
-
-    isDraggingRef.current = false;
-    startYRef.current = null;
-    currentYRef.current = null;
-
-    if (!isFullScreenRef.current) {
-      // Swiping UP -> Must drag at least 30px or quick flick with velocity > 0.3
-      if (diff < -30 || (diff < -15 && velocity > 0.3)) {
-        expandToFullScreen();
-      } else if (diff > 60 || (diff > 25 && velocity > 0.35)) {
-        sheetRef.current.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 1, 1)';
-        sheetRef.current.style.transform = 'translateY(100%)';
-        setTimeout(() => setActiveBottomSheetId(null), 250);
-      } else {
-        sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
-        sheetRef.current.style.transform = 'translateY(calc(100% - 52vh))';
-      }
-    } else {
-      // Swiping DOWN from fullscreen
-      if (diff > 70 || (diff > 35 && velocity > 0.4)) {
-        sheetRef.current.style.transition = 'transform 0.25s cubic-bezier(0.4, 0, 1, 1)';
-        sheetRef.current.style.transform = 'translateY(100%)';
-        setTimeout(() => setActiveBottomSheetId(null), 250);
-      } else {
-        sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
-        sheetRef.current.style.transform = 'translateY(0px)';
-      }
-    }
-  };
-
-  // Dynamically measure header
-  useEffect(() => {
-    const measureHeader = () => {
-      const headerEl = document.querySelector('header');
-      if (headerEl) {
-        const rect = headerEl.getBoundingClientRect();
-        setHeaderHeight(Math.max(Math.round(rect.bottom), 64));
-      }
-    };
-    measureHeader();
-    window.addEventListener('resize', measureHeader);
-    return () => {
-      window.removeEventListener('resize', measureHeader);
-    };
-  }, []);
-
-  if (!activeItem) return null;
-
-  const maxExpandedHeight = `calc(100dvh - ${headerHeight}px)`;
-
-  return (
-    <>
-      {/* 1. Desktop Modal Popup (>= lg screens: Full Screen Pop-up Dialog) */}
-      <div className="hidden lg:flex fixed inset-0 z-[500] items-center justify-center p-4 xl:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto select-none">
-        {/* Click-away backdrop */}
-        <div 
-          className="absolute inset-0" 
-          onClick={() => setActiveBottomSheetId(null)} 
-        />
-        
-        {/* Desktop Popup Card Container */}
-        <div 
-          className="relative z-10 w-full max-w-6xl xl:max-w-7xl h-[92vh] max-h-[880px] bg-background rounded-2xl xl:rounded-3xl shadow-2xl border border-border flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <MobileCommodityChart 
-            item={activeItem} 
-            isFullScreen={true} 
-            onClose={() => setActiveBottomSheetId(null)} 
-            userType={userType} 
-            lang={lang}
-          />
-        </div>
-      </div>
-
-      {/* 2. Mobile/Tablet Bottom Sheet (< lg screens: Smooth GPU-Accelerated Drag Sheet) */}
-      <div 
-        className="lg:hidden fixed inset-0 z-[500] flex flex-col justify-end pointer-events-none select-none"
-        style={{ top: `${headerHeight}px` }}
-      >
-        {/* Click-away Backdrop below Header */}
-        <div 
-          className="absolute inset-0 bg-black/40 backdrop-blur-[1px] pointer-events-auto transition-opacity duration-300"
-          onClick={() => setActiveBottomSheetId(null)}
-        />
-
-        {/* Bottom Sheet Modal Container - Anchored Flush to Bottom, Fixed Full Height with GPU translateY */}
-        <div 
-          ref={sheetRef}
-          className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-background shadow-2xl flex flex-col will-change-transform z-[510] pointer-events-auto ${
-            isFullScreen 
-              ? 'rounded-none border-t border-border' 
-              : 'rounded-t-[28px] border-t border-border'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-          style={{ 
-            height: maxExpandedHeight,
-            maxHeight: maxExpandedHeight,
-            transform: isFullScreen ? 'translateY(0px)' : 'translateY(calc(100% - 52vh))', 
-            transition: 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease',
-          }}
-        >
-          {/* Exact Agriguru Online Style "Swipe up for Commodity Details" Indicator (Attached directly on top edge) */}
-          {!isFullScreen && (
-            <div 
-              onClick={expandToFullScreen}
-              onTouchStart={(e) => {
-                if (e.cancelable) e.preventDefault();
-                handleDragStart(e.touches[0].clientY);
-              }}
-              onTouchMove={(e) => {
-                if (e.cancelable) e.preventDefault();
-                handleDragMove(e.touches[0].clientY);
-              }}
-              onTouchEnd={handleDragEnd}
-              onTouchCancel={handleDragEnd}
-              className="absolute bottom-[100%] inset-x-0 flex flex-col items-center justify-center gap-1 cursor-pointer touch-none select-none z-[75] pointer-events-auto pb-2.5 transition-opacity duration-200"
-            >
-              {/* Agriguru Online Signature Wide Curved Chevron */}
-              <svg 
-                className="w-14 h-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse" 
-                viewBox="0 0 56 16" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path 
-                  d="M3 13L28 3L53 13" 
-                  stroke="currentColor" 
-                  strokeWidth="3.5" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                />
-              </svg>
-              
-              {/* Centered Clean Text Directly Underneath */}
-              <span className="text-[13px] font-semibold tracking-normal text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-                Swipe up for Commodity Details
-              </span>
-            </div>
-          )}
-
-          {/* Drag Handle Top Bar (visible when not fullscreen) */}
-          {!isFullScreen && (
-            <div 
-              className="pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none bg-background shrink-0"
-              onTouchStart={(e) => {
-                if (e.cancelable) e.preventDefault();
-                handleDragStart(e.touches[0].clientY);
-              }}
-              onTouchMove={(e) => {
-                if (e.cancelable) e.preventDefault();
-                handleDragMove(e.touches[0].clientY);
-              }}
-              onTouchEnd={handleDragEnd}
-              onTouchCancel={handleDragEnd}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleDragStart(e.clientY);
-                const onMouseMove = (m: MouseEvent) => handleDragMove(m.clientY);
-                const onMouseUp = () => {
-                  handleDragEnd();
-                  window.removeEventListener('mousemove', onMouseMove);
-                  window.removeEventListener('mouseup', onMouseUp);
-                };
-                window.addEventListener('mousemove', onMouseMove);
-                window.addEventListener('mouseup', onMouseUp);
-              }}
-            >
-              <div className="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
-            </div>
-          )}
-
-          {/* Scrollable Commodity View inside Flex */}
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-            <MobileCommodityChart 
-              item={activeItem} 
-              isFullScreen={isFullScreen} 
-              onClose={() => setActiveBottomSheetId(null)} 
-              userType={userType} 
-              onDragStart={handleDragStart}
-              onDragMove={handleDragMove}
-              onDragEnd={handleDragEnd}
-              lang={lang}
-            />
-          </div>
-        </div>
-      </div>
-    </>
-  );
-};
