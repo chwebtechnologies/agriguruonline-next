@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, useTransition } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { SearchProduct, SearchApiResponse } from '@/types/search'
 import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
@@ -20,7 +20,6 @@ export function HeaderSearch({
   lang = 'en',
 }: HeaderSearchProps) {
   const router = useRouter()
-  const pathname = usePathname()
   const [, startTransition] = useTransition()
   const containerRef = useRef<HTMLDivElement>(null)
   const desktopInputRef = useRef<HTMLInputElement>(null)
@@ -42,14 +41,19 @@ export function HeaderSearch({
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [isMac, setIsMac] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<SearchProduct | null>(null)
   const [selectedSpecsProduct, setSelectedSpecsProduct] = useState<SearchProduct | null>(null)
 
   // Reset query and close views on page navigation
   useEffect(() => {
-    setIsOpen(false)
-    setIsMobileSearchOpen(false)
-    setQuery('')
-  }, [pathname])
+    const handleNav = () => {
+      setIsOpen(false)
+      setIsMobileSearchOpen(false)
+      setQuery('')
+    }
+    window.addEventListener('popstate', handleNav)
+    return () => window.removeEventListener('popstate', handleNav)
+  }, [])
 
   // Data states
   const [initialProducts, setInitialProducts] = useState<SearchProduct[]>([])
@@ -245,7 +249,7 @@ export function HeaderSearch({
 
   const getProductImageUrl = (product: SearchProduct) => {
     const raw = product.thumbnail || product.image
-    if (!raw) return '/logo.svg'
+    if (!raw) return '/logo.webp'
     return raw.startsWith('http') ? raw : `${imageBaseUrl}${raw}`
   }
 

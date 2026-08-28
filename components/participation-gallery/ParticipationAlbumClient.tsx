@@ -171,39 +171,40 @@ export default function ParticipationAlbumClient({
         </div>
       )}
 
-      {/* ── YARL Lightbox ── */}
-      <Lightbox
-        open={lightboxIndex >= 0}
-        index={lightboxIndex}
-        close={() => setLightboxIndex(-1)}
-        slides={slides}
-        plugins={[Thumbnails, Zoom, Fullscreen, Counter]}
-        thumbnails={{
-          position: 'bottom',
-          width: 80,
-          height: 60,
-          border: 2,
-          borderRadius: 8,
-          padding: 2,
-          gap: 8,
-          vignette: true,
-          imageFit: 'cover',
-          showToggle: true,
-        }}
-        zoom={{
-          maxZoomPixelRatio: 4,
-          zoomInMultiplier: 2,
-          doubleTapDelay: 300,
-          doubleClickDelay: 300,
-          doubleClickMaxStops: 2,
-          keyboardMoveDistance: 50,
-          wheelZoomDistanceFactor: 100,
-          pinchZoomDistanceFactor: 100,
-          scrollToZoom: true,
-        }}
-        animation={{ fade: 200, swipe: 300 }}
-        carousel={{ finite: false, preload: 15 }}
-        controller={{ closeOnBackdropClick: true }}
+      {/* ── YARL Lightbox (Mount only when open to prevent blocking grid thumbnails) ── */}
+      {lightboxIndex >= 0 && (
+        <Lightbox
+          open={true}
+          index={lightboxIndex}
+          close={() => setLightboxIndex(-1)}
+          slides={slides}
+          plugins={[Thumbnails, Zoom, Fullscreen, Counter]}
+          thumbnails={{
+            position: 'bottom',
+            width: 80,
+            height: 60,
+            border: 2,
+            borderRadius: 8,
+            padding: 2,
+            gap: 8,
+            vignette: true,
+            imageFit: 'cover',
+            showToggle: true,
+          }}
+          zoom={{
+            maxZoomPixelRatio: 4,
+            zoomInMultiplier: 2,
+            doubleTapDelay: 300,
+            doubleClickDelay: 300,
+            doubleClickMaxStops: 2,
+            keyboardMoveDistance: 50,
+            wheelZoomDistanceFactor: 100,
+            pinchZoomDistanceFactor: 100,
+            scrollToZoom: true,
+          }}
+          animation={{ fade: 200, swipe: 300 }}
+          carousel={{ finite: false, preload: 3 }}
+          controller={{ closeOnBackdropClick: true }}
         render={{
           controls: () => (
             <>
@@ -400,6 +401,7 @@ export default function ParticipationAlbumClient({
           slide: { paddingTop: '56px', paddingBottom: '76px' },
         }}
       />
+      )}
     </div>
   )
 }

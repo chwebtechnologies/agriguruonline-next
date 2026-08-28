@@ -2,7 +2,7 @@ import React from 'react'
 
 export default function HomeLoading() {
   return (
-    <div className="bg-background text-foreground animate-pulse">
+    <div data-skeleton-wrapper className="bg-background text-foreground">
       {/* Hero Skeleton */}
       <div className="w-full h-[60vh] min-h-[400px] bg-muted relative">
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4">

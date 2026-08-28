@@ -16,7 +16,7 @@ export default function ParticipationGalleryCard({
   priority = false,
 }: ParticipationGalleryCardProps) {
   const getImageUrl = (imagePath: string) => {
-    if (!imagePath) return '/placeholder-image.jpg'
+    if (!imagePath) return '/logo.webp'
     if (imagePath.startsWith('http')) return imagePath
     const assetsUrl = getAssetsUrl()
     const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`

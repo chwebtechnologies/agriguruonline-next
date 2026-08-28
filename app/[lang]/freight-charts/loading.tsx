@@ -4,7 +4,7 @@ export default function Loading() {
   const gridCols = 'grid-cols-[1.2fr_1.4fr_1.4fr_0.9fr_1fr_0.9fr_0.7fr_1.3fr]'
 
   return (
-    <div className="bg-background text-foreground">
+    <div data-skeleton-wrapper className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-0 sm:pt-1.5 pb-4">
           <PageHeader title="Freight Charts" backText="Back" />

@@ -460,7 +460,7 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
                       ? (product.thumbnail || product.image)!.startsWith('http')
                         ? (product.thumbnail || product.image)!
                         : `${imageBaseUrl}${product.thumbnail || product.image}`
-                      : '/logo.svg'
+                      : '/logo.webp'
 
                     const flagUrl = product.country?.flag
                       ? product.country.flag.startsWith('http')
@@ -693,7 +693,7 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
                         ? (product.thumbnail || product.image)!.startsWith('http')
                           ? (product.thumbnail || product.image)!
                           : `${imageBaseUrl}${product.thumbnail || product.image}`
-                        : '/logo.svg'
+                        : '/logo.webp'
 
                       const flagUrl = product.country?.flag
                         ? product.country.flag.startsWith('http')
@@ -717,7 +717,7 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
                                 alt={product.name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 onError={(e) => {
-                                  e.currentTarget.src = '/logo.svg'
+                                  e.currentTarget.src = '/logo.webp'
                                 }}
                               />
                               {flagUrl && (

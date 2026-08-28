@@ -117,7 +117,7 @@ async function VideoGalleryGrid({ lang }: { lang: string }) {
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {categories.map((category, index) => (
-          <VideoGalleryCard priority={index < 4} key={category.category_id} category={category} lang={lang} />
+          <VideoGalleryCard priority={index < 2} key={category.category_id} category={category} lang={lang} />
         ))}
       </div>
     </>

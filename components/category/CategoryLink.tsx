@@ -1,6 +1,7 @@
 "use client"
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface CategoryLinkProps {
   href: string
@@ -21,10 +22,20 @@ export default function CategoryLink({
   children, 
   onClick 
 }: CategoryLinkProps) {
+  const router = useRouter()
+
+  const handleWarmup = () => {
+    try {
+      router.prefetch(href)
+    } catch {}
+  }
+
   return (
     <Link 
       href={href} 
       onClick={onClick} 
+      onPointerEnter={handleWarmup}
+      onTouchStart={handleWarmup}
       prefetch={true}
       className={`${baseClassName} ${isActive ? activeClassName : inactiveClassName}`}
     >

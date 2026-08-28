@@ -300,3 +300,12 @@ a, button, input, select, textarea, label, [role="button"] {
 .bg-plan-platinum {
   background: linear-gradient(269.31deg, rgb(0, 172, 120) 0.52%, rgb(0, 0, 0) 48.98%, rgb(0, 51, 83) 99.34%);
 }
+
+/* Debounced Smooth Skeleton Loading (Eliminates harsh blinking on fast/5G navigations) */
+
+.skeleton-loading-screen,
+[data-skeleton-wrapper] {
+  opacity: 1;
+}
+
+

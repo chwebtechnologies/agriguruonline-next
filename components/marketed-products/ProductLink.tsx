@@ -1,6 +1,7 @@
 "use client"
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface ProductLinkProps {
   href: string
@@ -17,12 +18,22 @@ export default function ProductLink({
   children, 
   onClick 
 }: ProductLinkProps) {
+  const router = useRouter()
+
+  const handleWarmup = () => {
+    try {
+      router.prefetch(href)
+    } catch {}
+  }
+
   return (
     <Link 
       href={href} 
       className={className} 
       title={title} 
       prefetch={true}
+      onPointerEnter={handleWarmup}
+      onTouchStart={handleWarmup}
       onClick={onClick}
     >
       {children}

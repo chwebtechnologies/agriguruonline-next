@@ -19,11 +19,12 @@ interface MarketReportCardProps {
 export default function MarketReportCard({ report, lang, priority = false }: MarketReportCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  const assetsUrl = getAssetsUrl();const imageUrl = report.thumbnail?.startsWith('http') 
-    ? report.thumbnail 
-    : report.thumbnail 
-      ? `${assetsUrl}/${report.thumbnail}`
-      : '/placeholder-image.jpg' // You might want to provide a default placeholder
+  const assetsUrl = getAssetsUrl();
+  const imageUrl = report.thumbnail
+    ? report.thumbnail.startsWith('http')
+      ? report.thumbnail
+      : `${assetsUrl}/${report.thumbnail}`
+    : '/logo.webp'
 
   // Use translated title if available, otherwise fallback to default
   const title = (report.translations?.find(t => t.lang_code === lang) as any)?.subject_title 

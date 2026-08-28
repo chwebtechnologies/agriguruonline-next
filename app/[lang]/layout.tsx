@@ -2,12 +2,16 @@ import type { Metadata, Viewport } from 'next'
 import { lang } from 'next/root-params'
 import ThemeInitializer from '@/components/ui/ThemeInitializer'
 import Header from '@/components/layout/Header'
-import { HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
+import { HeaderGuest, HeaderGuestStatic, HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
 import Footer from '@/components/layout/Footer'
 import AnnouncementBar from '@/components/layout/AnnouncementBar'
 import NavigationProgress from '@/components/ui/NavigationProgress'
 import { Suspense } from 'react'
 import { Toaster } from 'sonner'
+import ServiceWorkerRegister from '@/components/ui/ServiceWorkerRegister'
+import { getDictionary } from '@/app/[lang]/dictionaries'
+import { getCategories } from '@/lib/category'
+import { getTradingApiUrl } from '@/lib/api-utils'
 import '../globals.css'
 
 
@@ -87,8 +91,62 @@ export const viewport: Viewport = {
 export default async function LocalizedRootLayout({
   children,
 }: LayoutProps<'/[lang]'>) {
-  const activeLang = await lang()
+  const activeLang = (await lang()) || 'en'
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
+
+  const rawDict = await getDictionary(activeLang)
+  const tradingApiUrl = getTradingApiUrl()
+  const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
+
+  const apiCategories = await getCategories(activeLang, {
+    apiUrl: categoriesApiUrl,
+    stale: 300,
+    revalidate: 3600,
+    expire: 86400
+  })
+
+  const categories = apiCategories
+    .filter(cat => cat.is_active !== false)
+    .map(cat => {
+      const translation = cat.translations?.find(t => t.lang_code === activeLang)
+      const name = translation ? translation.name : cat.name
+      return {
+        name,
+        href: `/${activeLang}/category/${cat.slug}`
+      }
+    })
+
+  const defaultNavigation = {
+    login: "Login",
+    register: "Register",
+    logout: "Log Out",
+    dashboard: "Dashboard"
+  }
+
+  const defaultHeader = {
+    announcement: "Download Our Mobile App Now ! Click Here",
+    download_app: "Download Application",
+    contact_us: "Contact Us",
+    search_placeholder: "Search Product",
+    home: "Home",
+    about_us: "About Us",
+    register_here: "Register Here",
+    menu: "Menu"
+  }
+
+  const dict = {
+    navigation: {
+      ...defaultNavigation,
+      ...rawDict?.navigation
+    },
+    header: {
+      ...defaultHeader,
+      ...rawDict?.header,
+      categories: {
+        ...rawDict?.header?.categories
+      }
+    }
+  }
 
   return (
     <html
@@ -102,10 +160,12 @@ export default async function LocalizedRootLayout({
         <ThemeInitializer />
         <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
-        <link rel="preconnect" href="https://trading-api.agriguruonline.cloud" />
+        <link rel="preconnect" href="https://trading-api.agriguruonline.cloud" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://trading-api.agriguruonline.cloud" />
-        <link rel="dns-prefetch" href="https://user-api.agriguruonline.cloud" />
+        <link rel="preconnect" href="https://cms-api.agriguruonline.cloud" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
+        <link rel="preconnect" href="https://user-api.agriguruonline.cloud" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://user-api.agriguruonline.cloud" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200">
         <Suspense fallback={null}>
@@ -115,7 +175,7 @@ export default async function LocalizedRootLayout({
           <AnnouncementBar />
         </Suspense>
 
-        <Suspense fallback={<HeaderGuestSkeleton />}>
+        <Suspense fallback={<HeaderGuestStatic dict={dict} activeLang={activeLang} categories={categories} />}>
           <Header />
         </Suspense>
 
@@ -124,6 +184,7 @@ export default async function LocalizedRootLayout({
         </main>
 
         <Footer />
+        <ServiceWorkerRegister />
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>

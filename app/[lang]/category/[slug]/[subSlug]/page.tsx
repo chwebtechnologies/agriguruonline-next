@@ -219,8 +219,9 @@ export default async function SubCategoryProductsPage(
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
             {data.products.map((product, index) => {
               const productName = product.name || product.slug || 'Agricultural Commodity';
-              const imageUrl = product.image
-                ? (product.image.startsWith('http') ? product.image : `${imageBaseUrl}${product.image}`)
+              const rawImg = product.thumbnail || product.image;
+              const imageUrl = rawImg
+                ? (rawImg.startsWith('http') ? rawImg : `${imageBaseUrl}${rawImg}`)
                 : 'https://agriguruonline.com/logo.png'
 
               return (

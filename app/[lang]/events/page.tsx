@@ -98,106 +98,6 @@ const getLatestEvents = cache(async (lang: string, page: number, limit: number, 
   }
 })
 
-/* ---------- Skeleton shown during Suspense ---------- */
-function EventsGridSkeleton() {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
-      {[...Array(12)].map((_, i) => (
-        <div
-          key={i}
-          className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse"
-        >
-          <div className="w-full aspect-[3/2] bg-muted border-b border-border"></div>
-          <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center">
-                <div className="w-4 h-4 rounded bg-muted mr-2"></div>
-                <div className="w-28 h-3.5 rounded bg-muted"></div>
-              </div>
-              <div className="w-16 h-4 rounded-full bg-muted"></div>
-            </div>
-            <div className="w-full h-5 rounded bg-muted mb-2"></div>
-            <div className="w-3/4 h-5 rounded bg-muted mb-2"></div>
-            <div className="w-1/2 h-3.5 rounded bg-muted mb-4"></div>
-            <div className="flex-grow"></div>
-            <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
-              <div className="w-24 h-4 rounded bg-muted"></div>
-              <div className="w-6 h-6 rounded-full bg-muted"></div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/* ---------- Async component that fetches and renders events grid ---------- */
-async function EventsGrid({ lang, page, limit, search, categoryId }: {
-  lang: string
-  page: number
-  limit: number
-  search?: string
-  categoryId?: string
-}) {
-  const eventsData = await getLatestEvents(lang, page, limit, search, categoryId)
-  const eventsList = eventsData?.data?.events || []
-  const totalItems = eventsData?.data?.total || 0
-  const totalPages = Math.ceil(totalItems / limit)
-
-  if (eventsList.length === 0) {
-    return (
-      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
-          <i className="fa-regular fa-calendar-days text-2xl"></i>
-        </div>
-        <h3 className="text-xl font-semibold text-foreground mb-2">No Events Found</h3>
-        <p className="text-foreground/70 max-w-md mx-auto">
-          We couldn&apos;t find any events at the moment. Please check back later.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
-        {eventsList.map((eventItem, index) => (
-          <EventCard priority={index < 4} key={eventItem.id} event={eventItem} lang={lang} />
-        ))}
-      </div>
-      <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/events`} />
-
-      {/* JSON-LD Schema */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "ItemList",
-            "itemListElement": eventsList.map((eventItem, index) => ({
-              "@type": "ListItem",
-              "position": index + 1,
-              "item": {
-                "@type": "Event",
-                "name": eventItem.title,
-                "startDate": eventItem.start_date,
-                "endDate": eventItem.end_date,
-                "eventStatus": `https://schema.org/Event${eventItem.status === 'UPCOMING' ? 'Scheduled' : eventItem.status === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
-                "image": [
-                  eventItem.thumbnail.startsWith('http')
-                    ? eventItem.thumbnail
-                    : `https://assets.agriguruonline.com/${eventItem.thumbnail}`
-                ],
-                "url": `https://agriguruonline.com/${lang}/events/${eventItem.slug}`
-              }
-            }))
-          }).replace(/</g, '\\u003c')
-        }}
-      />
-    </>
-  )
-}
-
 /* ---------- Main page component ---------- */
 export default async function LatestEventsPage(props: {
   params: Promise<{ lang: string }>,
@@ -213,7 +113,8 @@ export default async function LatestEventsPage(props: {
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
 
-  const tradingApiUrl = getTradingApiUrl(); const apiCategories = await getCategories(lang, {
+  const tradingApiUrl = getTradingApiUrl();
+  const apiCategories = await getCategories(lang, {
     apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`,
     stale: 300,
     revalidate: 3600,
@@ -226,15 +127,17 @@ export default async function LatestEventsPage(props: {
     : undefined
   const categoryId = matchedCategory?.id
 
+  const eventsData = await getLatestEvents(lang, currentPage, limit, searchQuery, categoryId)
+  const eventsList = eventsData?.data?.events || []
+  const totalItems = eventsData?.data?.total || 0
+  const totalPages = Math.ceil(totalItems / limit)
+
   const categoryOptions = apiCategories
     .filter(cat => cat.is_active !== false)
     .map(cat => {
       const translation = cat.translations?.find(t => t.lang_code === lang)
       return { slug: cat.slug, name: translation ? translation.name : cat.name }
     })
-
-  // Unique key forces Suspense to re-mount and show skeleton when filters change
-  const suspenseKey = `events-${currentPage}-${searchQuery || ''}-${categorySlug || ''}`
 
   return (
     <div className="bg-background text-foreground">
@@ -243,9 +146,56 @@ export default async function LatestEventsPage(props: {
           <PageHeader title="Latest Events" backText="Back" />
           <ListingFilters categories={categoryOptions} />
 
-          <Suspense key={suspenseKey} fallback={<EventsGridSkeleton />}>
-            <EventsGrid lang={lang} page={currentPage} limit={limit} search={searchQuery} categoryId={categoryId} />
-          </Suspense>
+          {eventsList.length === 0 ? (
+            <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
+                <i className="fa-regular fa-calendar-days text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">No Events Found</h3>
+              <p className="text-foreground/70 max-w-md mx-auto">
+                We couldn&apos;t find any events at the moment. Please check back later.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+                {eventsList.map((eventItem, index) => (
+                  <EventCard priority={index < 4} key={eventItem.id} event={eventItem} lang={lang} />
+                ))}
+              </div>
+              <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/events`} />
+
+              {/* JSON-LD Schema */}
+              <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                  __html: JSON.stringify({
+                    "@context": "https://schema.org",
+                    "@type": "ItemList",
+                    "itemListElement": eventsList.map((eventItem, index) => ({
+                      "@type": "ListItem",
+                      "position": index + 1,
+                      "item": {
+                        "@type": "Event",
+                        "name": eventItem.title,
+                        "startDate": eventItem.start_date,
+                        "endDate": eventItem.end_date,
+                        "eventStatus": `https://schema.org/Event${eventItem.status === 'UPCOMING' ? 'Scheduled' : eventItem.status === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
+                        "image": [
+                          eventItem.thumbnail?.startsWith('http')
+                            ? eventItem.thumbnail
+                            : eventItem.thumbnail
+                              ? `https://assets.agriguruonline.com/${eventItem.thumbnail}`
+                              : 'https://agriguruonline.com/logo.png'
+                        ],
+                        "url": `https://agriguruonline.com/${lang}/events/${eventItem.slug}`
+                      }
+                    }))
+                  }).replace(/</g, '\\u003c')
+                }}
+              />
+            </>
+          )}
         </div>
       </div>
     </div>

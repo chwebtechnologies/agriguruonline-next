@@ -50,7 +50,7 @@ interface HeaderGuestProps {
 export function AgriGuruLogo({ size = 42 }: { size?: number }) {
   return (
     <Image
-      src="/logo.svg"
+      src="/logo.webp"
       alt="AgriGuru Logo"
       title="AgriGuru Online Logo"
       width={size}
@@ -435,7 +435,11 @@ export function HeaderGuest(props: HeaderGuestProps) {
   return <HeaderGuestBase {...props} pathname={pathname} />
 }
 
+export function HeaderGuestStatic(props: HeaderGuestProps) {
+  return <HeaderGuestBase {...props} pathname="" />
+}
+
 export function HeaderGuestSkeleton(props: Omit<HeaderGuestProps, 'loading'>) {
-  return <HeaderGuestBase {...props} pathname="/" loading={true} />
+  return <HeaderGuestBase {...props} pathname="" loading={true} />
 }
 

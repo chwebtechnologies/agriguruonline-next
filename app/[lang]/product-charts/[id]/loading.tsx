@@ -1,6 +1,6 @@
 export default function DedicatedChartLoading() {
   return (
-    <main className="bg-background text-foreground min-h-[100dvh] w-full flex flex-col items-center">
+    <main data-skeleton-wrapper className="bg-background text-foreground min-h-[100dvh] w-full flex flex-col items-center">
       <div className="w-full max-w-lg min-h-[100dvh] flex flex-col bg-background border-x border-border shadow-sm animate-pulse">
         {/* Header Skeleton */}
         <div className="h-14 border-b border-border flex items-center px-4 gap-3">

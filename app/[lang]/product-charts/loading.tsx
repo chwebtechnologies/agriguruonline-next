@@ -2,7 +2,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 
 export default function ProductChartsLoading() {
   return (
-    <div className="bg-background text-foreground">
+    <div data-skeleton-wrapper className="bg-background text-foreground">
       {/* Main Content */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-0 sm:pt-1.5 pb-4">

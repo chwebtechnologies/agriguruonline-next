@@ -14,7 +14,7 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
     ? update.thumbnail 
     : update.thumbnail 
       ? `${assetsUrl}/${update.thumbnail}`
-      : '/placeholder-image.jpg' // You might want to provide a default placeholder
+      : '/logo.webp'
 
   // Use translated title if available, otherwise fallback to default
   const title = update.translations?.find(t => t.lang_code === lang)?.title || update.title

@@ -13,14 +13,14 @@ interface VideoGalleryCardProps {
 export default function VideoGalleryCard({ category, lang, priority = false }: VideoGalleryCardProps) {
   // Determine full image URL
   const getImageUrl = (imagePath: string) => {
-    if (!imagePath) return '/placeholder-image.jpg'; // Fallback
+    if (!imagePath) return '/logo.webp';
     if (imagePath.startsWith('http')) return imagePath;
     const assetsUrl = getAssetsUrl();
     const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
     return `${imageBaseUrl}${imagePath}`;
   };
 
-  const imageUrl = getImageUrl(category.image);
+  const imageUrl = getImageUrl((category as any).thumbnail || category.image);
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">

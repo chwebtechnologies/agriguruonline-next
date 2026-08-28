@@ -1,16 +1,16 @@
-"use client"
-
-import { useState, useRef, useEffect } from 'react'
+import React from 'react'
+import Image from 'next/image'
 
 const ASSETS_BASE = 'https://assets.agriguruonline.com'
 
 export function resolveImageUrl(src: any): string {
-  if (!src || typeof src !== 'string') return '/logo.svg'
+  if (!src || typeof src !== 'string') return '/logo.webp'
   let url = src.trim()
-  // Rewrite wrong domain
+  if (url.startsWith('/logo.') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url
+  }
   url = url.replace('assets.agriguruonline.cloud', 'assets.agriguruonline.com')
-  // Prepend CDN base for relative paths
-  if (!url.startsWith('http') && !url.startsWith('/') && !url.startsWith('data:') && !url.startsWith('blob:')) {
+  if (!url.startsWith('http') && !url.startsWith('/')) {
     url = `${ASSETS_BASE}/${url}`
   }
   return url
@@ -34,7 +34,7 @@ export default function ImageWithSkeleton({
   src,
   alt = 'Image',
   title,
-  fill,
+  fill = false,
   sizes,
   width,
   height,
@@ -44,47 +44,21 @@ export default function ImageWithSkeleton({
   style,
 }: ImageWithSkeletonProps) {
   const resolvedSrc = resolveImageUrl(src)
-  const [loaded, setLoaded] = useState(false)
-  const [errored, setErrored] = useState(false)
-  const imgRef = useRef<HTMLImageElement>(null)
-
-  const finalSrc = errored ? '/logo.svg' : resolvedSrc
-
-  useEffect(() => {
-    if (imgRef.current?.complete) {
-      setLoaded(true)
-    }
-  }, [finalSrc])
-
-  const imgStyle: React.CSSProperties = fill
-    ? { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }
-    : { width: width || '100%', height: height || 'auto', objectFit: 'cover' }
 
   return (
-    <div
-      className={`relative overflow-hidden w-full h-full ${skeletonClassName}`}
-      style={{ backgroundColor: loaded ? 'transparent' : 'var(--muted, #e5e7eb)' }}
-    >
-      <img
-        ref={imgRef}
-        src={finalSrc}
+    <div className={`relative overflow-hidden w-full h-full ${skeletonClassName}`}>
+      <Image
+        src={resolvedSrc}
         alt={alt}
         title={title || alt}
-        loading={priority ? 'eager' : 'lazy'}
-        fetchPriority={priority ? 'high' : 'auto'}
-        decoding={priority ? 'sync' : 'async'}
-        width={fill ? undefined : width}
-        height={fill ? undefined : height}
-        sizes={sizes}
-        style={{ ...imgStyle, opacity: loaded ? 1 : 0, transition: 'opacity 0.15s ease', ...style }}
-        className={`${fill ? 'absolute inset-0 object-cover' : ''} ${className}`}
-        onLoad={() => setLoaded(true)}
-        onError={() => {
-          if (!errored) {
-            setErrored(true)
-            setLoaded(true)
-          }
-        }}
+        fill={fill}
+        width={fill ? undefined : (width || 400)}
+        height={fill ? undefined : (height || 267)}
+        sizes={sizes || '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
+        priority={priority}
+        quality={65}
+        style={{ objectFit: 'cover', ...style }}
+        className={className}
       />
     </div>
   )

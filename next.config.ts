@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  compress: true,
+  poweredByHeader: false,
   cacheComponents: true,
   partialPrefetching: true,
   experimental: {
@@ -81,10 +83,8 @@ const nextConfig: NextConfig = {
   images: {
     minimumCacheTTL: 31536000,
     formats: ['image/avif', 'image/webp'],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    // We use native <img> tags pointing directly to the Cloudflare CDN (assets.agriguruonline.com)
-    // which already serves WebP and is cached at the edge. The Next.js image proxy is bypassed.
-    unoptimized: true,
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [32, 64, 96, 128, 256, 384],
     remotePatterns: [
       {
         protocol: 'https',
@@ -93,6 +93,10 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'assets.agriguruonline.cloud',
+      },
+      {
+        protocol: 'https',
+        hostname: 'agriguruonline.com',
       },
       {
         protocol: 'https',
