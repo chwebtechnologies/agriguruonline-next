@@ -56,6 +56,8 @@ export default function ImageWithSkeleton({
         height={fill ? undefined : (height || 267)}
         sizes={sizes || '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
         priority={priority}
+        fetchPriority={priority ? 'high' : 'auto'}
+        loading={priority ? 'eager' : 'lazy'}
         quality={65}
         style={{ objectFit: 'cover', ...style }}
         className={className}

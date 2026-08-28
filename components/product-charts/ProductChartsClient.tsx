@@ -747,7 +747,7 @@ export default function ProductChartsClient({
                 <div key={i} className="inline-flex items-center px-4 border-r border-border last:border-0 h-10 group/item">
                   {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt={`${p.country || 'Country'} Flag`} title={`${p.country || 'Country'} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border mr-2" />}
                   <span className="font-semibold text-foreground/80 text-[13px]">{p.name}</span>
-                  {p.port && <span className="text-foreground/60 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
+                  {p.port && <span className="text-foreground/75 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
                   <span className="text-blue-600 dark:text-blue-500 font-bold text-[13px] mx-3">${p.price}</span>
                   <span className={`font-semibold text-[13px] flex items-center ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`}>
                     <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-[11px] mr-1`}></i>
@@ -921,12 +921,12 @@ export default function ProductChartsClient({
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className={`fa-solid ${selectedCategory ? 'fa-check text-emerald-500' : 'fa-filter text-blue-500/80'} text-[11px]`}></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/60">Filter</span>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/75">Filter</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedCategory ? (categories.find(c => String(c.id) === String(selectedCategory))?.name || 'Category') : 'Category'}
                     </div>
-                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedCategory ? '✓ Selected' : 'Optional filter'}
                     </div>
                   </div>
@@ -942,12 +942,12 @@ export default function ProductChartsClient({
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className={`fa-solid ${selectedCountry ? 'fa-check text-emerald-500' : 'fa-filter text-blue-500/80'} text-[11px]`}></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/60">Filter</span>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/75">Filter</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedCountry ? (countries.find(c => String(c.id) === String(selectedCountry))?.name || 'Country') : 'Country'}
                     </div>
-                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedCountry ? '✓ Selected' : 'Optional filter'}
                     </div>
                   </div>
@@ -970,7 +970,7 @@ export default function ProductChartsClient({
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedProduct ? (filteredProducts.find(p => String(p.id) === String(selectedProduct))?.name || 'Product') : 'Select Product'}
                     </div>
-                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedProduct ? '✓ Selected' : 'Auto-fills Origin'}
                     </div>
                   </div>
@@ -996,7 +996,7 @@ export default function ProductChartsClient({
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedShipBy ? (shippingContainers.find(c => String(c.id) === String(selectedShipBy))?.title || 'Ship By') : 'Ship By'}
                     </div>
-                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedShipBy ? '✓ Selected' : 'Container'}
                     </div>
                   </div>
@@ -1021,7 +1021,7 @@ export default function ProductChartsClient({
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedTerm ? (shippingTerms.find(t => String(t.id) === String(selectedTerm))?.title || 'Term') : 'Term'}
                     </div>
-                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedTerm ? '✓ Selected' : 'FOB/CIF'}
                     </div>
                   </div>
@@ -1046,7 +1046,7 @@ export default function ProductChartsClient({
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedPOL ? (loadingPorts.find(p => String(p.id) === String(selectedPOL))?.name || 'POL') : 'POL'}
                     </div>
-                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {selectedPOL ? '✓ Selected' : 'Loading port'}
                     </div>
                   </div>
@@ -1073,13 +1073,13 @@ export default function ProductChartsClient({
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {!isPodRequired ? 'POD' : selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'POD') : 'POD'}
                     </div>
-                    <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                    <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                       {!isPodRequired ? 'Not required' : selectedPOD ? '✓ Selected' : 'Destination'}
                     </div>
                   </div>
 
                   {/* Col 8: Price (PMT) Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Live</span>
@@ -1093,7 +1093,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 9: Change Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Trend</span>
@@ -1107,7 +1107,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 10: Chart Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-chart-line text-purple-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
@@ -1138,7 +1138,7 @@ export default function ProductChartsClient({
                     <div className={`font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white' : 'text-foreground/80'}`}>
                       Add Product
                     </div>
-                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white/90 font-medium' : 'text-foreground/60'}`}>
+                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${isAddProductEnabled ? 'text-white/90 font-medium' : 'text-foreground/75'}`}>
                       {isAddProductEnabled ? 'Ready! Click here' : 'Complete steps'}
                     </div>
                   </div>
@@ -1156,7 +1156,7 @@ export default function ProductChartsClient({
                           <span>How to Build Your Watchlist</span>
                           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">Quick Guide</span>
                         </h3>
-                        <p className="text-xs text-foreground/60 mt-0.5">
+                        <p className="text-xs text-foreground/75 mt-0.5">
                           Select a commodity directly or use category & country filters to configure real-time market data.
                         </p>
                       </div>
@@ -1189,7 +1189,7 @@ export default function ProductChartsClient({
                       <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                         1. Direct Product Selection or Filters
                       </h4>
-                      <p className="text-[11px] text-foreground/60 leading-relaxed">
+                      <p className="text-[11px] text-foreground/75 leading-relaxed">
                         Select a <strong>Product</strong> directly to auto-fill Category & Country, or use them as optional filters to narrow your choices.
                       </p>
                     </div>
@@ -1213,7 +1213,7 @@ export default function ProductChartsClient({
                       <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                         2. Container, Incoterms & Ports
                       </h4>
-                      <p className="text-[11px] text-foreground/60 leading-relaxed">
+                      <p className="text-[11px] text-foreground/75 leading-relaxed">
                         Pick shipping container, Incoterm (FOB/CNF/CIF), and origin/destination ports.
                       </p>
                     </div>
@@ -1236,7 +1236,7 @@ export default function ProductChartsClient({
                       <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                         3. Live Tracking & Price Curves
                       </h4>
-                      <p className="text-[11px] text-foreground/60 leading-relaxed">
+                      <p className="text-[11px] text-foreground/75 leading-relaxed">
                         Click <strong>Add Product</strong> to monitor real-time PMT price trends, change percentages, and interactive charts.
                       </p>
                     </div>
@@ -1533,12 +1533,12 @@ export default function ProductChartsClient({
                         {fetchedPackingTitle && (
                           <div className="text-sm">
                             <span className="font-semibold text-foreground/80">Packing Type: </span>
-                            <span className="text-foreground/70">{fetchedPackingTitle}</span>
+                            <span className="text-foreground/80">{fetchedPackingTitle}</span>
                           </div>
                         )}
                         <div className="text-sm">
                           <span className="font-semibold text-foreground/80">Product Price: </span>
-                          <span className="text-foreground/70">USD/PMT</span>
+                          <span className="text-foreground/80">USD/PMT</span>
                         </div>
                       </div>
                     </div>

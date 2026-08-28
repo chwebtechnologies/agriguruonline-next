@@ -264,6 +264,7 @@ export default function SearchableCountrySelect({
                 <input
                   ref={searchInputRef}
                   type="text"
+                  aria-label={actualPlaceholder}
                   placeholder={actualPlaceholder}
                   value={search}
                   onChange={(e) => {
@@ -318,7 +319,7 @@ export default function SearchableCountrySelect({
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {showDialCode && (
-                            <span className="text-xs font-semibold text-foreground/70">{c.callingCode}</span>
+                            <span className="text-xs font-semibold text-foreground/80">{c.callingCode}</span>
                           )}
                           {isSelected && <i className="fa-solid fa-check text-brand-blue text-xs"></i>}
                         </div>
@@ -361,7 +362,7 @@ export default function SearchableCountrySelect({
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {showDialCode && (
-                          <span className="text-xs font-semibold text-foreground/70">{c.callingCode}</span>
+                          <span className="text-xs font-semibold text-foreground/80">{c.callingCode}</span>
                         )}
                         {isSelected && <i className="fa-solid fa-check text-brand-blue text-xs"></i>}
                       </div>

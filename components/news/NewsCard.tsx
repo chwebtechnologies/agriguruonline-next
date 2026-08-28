@@ -45,8 +45,8 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
       </Link>
       
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
-        <div className="flex items-center text-xs text-foreground/60 mb-2">
-          <i className="fa-regular fa-calendar mr-1.5"></i>
+        <div className="flex items-center text-xs text-foreground/80 font-medium mb-2">
+          <i className="fa-regular fa-calendar mr-1.5 text-foreground/70"></i>
           <time dateTime={article.posting_date}>{formattedDate}</time>
         </div>
         
@@ -56,7 +56,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
           </Link>
         </h3>
         
-        <p className="text-[13px] text-foreground/70 mb-4 line-clamp-3 flex-grow">
+        <p className="text-[13px] text-foreground/80 mb-4 line-clamp-3 flex-grow">
           {excerpt}
         </p>
         
@@ -65,7 +65,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
             href={`/${lang}/news/${article.slug}`}
             prefetch={true}
             aria-label={`Read more: ${title}`}
-            className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-brand-blue-hover transition-colors flex items-center gap-1.5 group/link"
+            className="text-[12px] uppercase tracking-wide font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1.5 group/link"
           >
             <span>Read More<span className="sr-only">: {title}</span></span>
             <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>

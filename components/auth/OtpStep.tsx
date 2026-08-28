@@ -181,7 +181,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
 
   return (
     <div className="w-full max-w-md mx-auto mt-4 p-5 sm:p-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">
-      <p className="text-sm text-foreground/70 mb-2 text-center">
+      <p className="text-sm text-foreground/80 mb-2 text-center">
         We sent a verification code to
       </p>
       <p className="text-sm font-medium text-foreground mb-8 text-center">
@@ -242,7 +242,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
         </div>
       </form>
       
-      <p className="mt-8 text-sm text-foreground/70 text-center flex items-center justify-center flex-wrap gap-1.5">
+      <p className="mt-8 text-sm text-foreground/80 text-center flex items-center justify-center flex-wrap gap-1.5">
         Didn&apos;t receive the code?{" "}
         {countdown > 0 && !isExpired ? (
           <span className="text-foreground/50 font-medium">

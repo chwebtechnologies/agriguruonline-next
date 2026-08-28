@@ -47,13 +47,13 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
           {title}
         </h3>
         
-        <p className="text-xs sm:text-sm text-foreground/70 line-clamp-2 mb-4 flex-grow">
+        <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 mb-4 flex-grow">
           {description}
         </p>
         
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
-          <span className="text-xs font-medium text-primary">Read More</span>
-          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+          <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Read More</span>
+          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sky-700 dark:text-sky-400 group-hover:bg-primary group-hover:text-white transition-colors">
             <i className="fa-solid fa-arrow-right text-[10px]"></i>
           </div>
         </div>

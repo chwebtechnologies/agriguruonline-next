@@ -32,7 +32,7 @@ export function DeleteConfirmModal({
             <h3 className="text-[17px] font-bold text-red-600 dark:text-red-500 mb-1 leading-none text-center">
               {title}
             </h3>
-            <p className="text-foreground/70 text-[14px] leading-snug whitespace-nowrap text-center">
+            <p className="text-foreground/80 text-[14px] leading-snug whitespace-nowrap text-center">
               {description}
             </p>
           </div>

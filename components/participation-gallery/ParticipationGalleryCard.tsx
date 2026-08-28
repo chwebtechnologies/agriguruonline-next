@@ -75,7 +75,7 @@ export default function ParticipationGalleryCard({
             href={albumUrl}
             prefetch={true}
             aria-label={`View album: ${category.category_name}`}
-            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-brand-blue hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
+            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
           >
             <span>View Album</span>
             <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] rtl:rotate-180 group-hover/link:translate-x-1 rtl:group-hover/link:-translate-x-1 transition-transform"></i>

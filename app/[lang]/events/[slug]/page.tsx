@@ -232,7 +232,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
             <i className="fa-regular fa-calendar-xmark"></i>
           </div>
           <h1 className="text-2xl font-bold mb-2">Event Not Found</h1>
-          <p className="text-foreground/70 mb-6 text-sm">
+          <p className="text-foreground/80 mb-6 text-sm">
             The event you are looking for might have been moved or concluded.
           </p>
           <Link
@@ -290,7 +290,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
       ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
       : statusUpper === 'ONGOING'
         ? 'bg-brand-blue/15 text-brand-blue border-brand-blue/30'
-        : 'bg-muted text-foreground/70 border-border'
+        : 'bg-muted text-foreground/80 border-border'
 
   // Filter other events to exclude current event
   const otherEventsList = allLatestEvents.filter(item => item.slug !== slug).slice(0, 5)
@@ -356,7 +356,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                         <>
                           <span className="text-border hidden md:inline">•</span>
                           <div className="hidden md:inline-flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium px-2 py-0.5 rounded-md bg-muted text-foreground/80 whitespace-nowrap shrink-0 border border-border/60 leading-none truncate max-w-[200px]">
-                            <i className="fa-solid fa-map-pin text-xs text-foreground/60 shrink-0"></i>
+                            <i className="fa-solid fa-map-pin text-xs text-foreground/75 shrink-0"></i>
                             <span className="truncate">{location}</span>
                           </div>
                         </>
@@ -383,7 +383,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                         className="text-[15px] sm:text-lg font-bold text-foreground tracking-tight flex items-center gap-2"
                         style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
                       >
-                        <span className="flex items-center justify-center w-6 h-6 rounded-md bg-muted text-foreground/70 text-xs border border-border/60">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-md bg-muted text-foreground/80 text-xs border border-border/60">
                           <i className="fa-regular fa-calendar-days"></i>
                         </span>
                         Other Events
@@ -442,7 +442,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                                     : itemStatusUpper === 'ONGOING'
                                       ? 'bg-brand-blue/15 text-brand-blue'
-                                      : 'bg-muted text-foreground/60'
+                                      : 'bg-muted text-foreground/75'
                                 }`}>
                                   {itemStatusUpper}
                                 </span>
@@ -450,19 +450,19 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                               <h4 className="text-[13px] min-[360px]:text-[14px] font-bold text-foreground line-clamp-2 leading-snug group-hover:text-brand-blue transition-colors">
                                 {itemTitle}
                               </h4>
-                              <p className="text-[11px] min-[360px]:text-[11.5px] text-foreground/70 truncate flex items-center gap-1">
+                              <p className="text-[11px] min-[360px]:text-[11.5px] text-foreground/80 font-medium truncate flex items-center gap-1">
                                 <i className="fa-solid fa-location-dot text-[9px] text-brand-blue shrink-0"></i>
                                 <span className="truncate">{itemLocation}</span>
                               </p>
 
                               {/* Date and View Details placed directly below location */}
                               <div className="flex items-center justify-between gap-1.5 pt-1 text-[11px] sm:text-xs">
-                                <div className="flex items-center gap-1 font-medium text-foreground/80 truncate">
+                                <div className="flex items-center gap-1 font-medium text-foreground/85 truncate">
                                   <i className="fa-regular fa-calendar text-[10.5px] text-foreground/70 shrink-0"></i>
                                   <time dateTime={item.start_date} className="truncate">{itemDateFormatted}</time>
                                 </div>
 
-                                <div className="flex items-center gap-1 font-bold text-brand-blue shrink-0 group-hover:underline">
+                                <div className="flex items-center gap-1 font-bold text-sky-700 dark:text-sky-400 shrink-0 group-hover:underline">
                                   <span>View Details<span className="sr-only">: {itemTitle}</span></span>
                                   <i className="fa-solid fa-arrow-right text-[8px] sm:text-[9px] group-hover:translate-x-1 transition-transform" aria-hidden="true"></i>
                                 </div>
@@ -494,7 +494,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                       <i className="fa-regular fa-calendar-check"></i>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-foreground/60">Event Dates</div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-foreground/75">Event Dates</div>
                       <div className="text-[13px] sm:text-[13.5px] font-semibold text-foreground leading-snug truncate">
                         {dateRangeDisplay}
                       </div>
@@ -507,7 +507,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                       <i className="fa-solid fa-location-dot"></i>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-foreground/60">Location / Venue</div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-foreground/75">Location / Venue</div>
                       <div className="text-[13px] sm:text-[13.5px] font-semibold text-foreground leading-snug truncate">
                         {location}
                       </div>
@@ -522,7 +522,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                     dangerouslySetInnerHTML={{ __html: formattedContent }}
                   />
                 ) : (
-                  <p className="text-foreground/70 text-sm leading-relaxed flex-1">
+                  <p className="text-foreground/80 text-sm leading-relaxed flex-1">
                     Stay tuned for more updates and scheduling details about this event.
                   </p>
                 )}
@@ -665,7 +665,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                 {/* Tags at Bottom (without icons) */}
                 {event.categories && event.categories.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs font-semibold text-foreground/60 mr-1">Event For Commodities:</span>
+                    <span className="text-xs font-semibold text-foreground/80 mr-1">Event For Commodities:</span>
                     {event.categories.map((cat) => (
                       <span
                         key={cat.id}
@@ -680,13 +680,13 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                 {/* Bottom of Content: Source / Official Website Link */}
                 <div className="mt-3 pt-3 border-t border-border flex flex-wrap justify-between items-center gap-2 text-sm text-foreground/80">
                   <div className="flex items-center gap-2 font-medium">
-                    <span className="text-foreground/60 font-semibold">Organizer / Source:</span>
+                    <span className="text-foreground/80 font-semibold">Organizer / Source:</span>
                     {event.source_url ? (
                       <a
                         href={event.source_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-brand-blue hover:underline font-semibold flex items-center gap-1.5"
+                        className="text-sky-700 dark:text-sky-400 hover:underline font-semibold flex items-center gap-1.5"
                       >
                         {sourceName}
                         <i className="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>

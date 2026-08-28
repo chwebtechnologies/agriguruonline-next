@@ -258,7 +258,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
             <i className="fa-regular fa-newspaper"></i>
           </div>
           <h1 className="text-2xl font-bold mb-2">News Article Not Found</h1>
-          <p className="text-foreground/70 mb-6 text-sm">
+          <p className="text-foreground/80 mb-6 text-sm">
             The article you are looking for might have been moved or removed.
           </p>
           <Link
@@ -354,7 +354,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                       <span className="text-border hidden md:inline">•</span>
                       {/* Reading Time: Desktop Only */}
                       <div className="hidden md:inline-flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium px-2 py-0.5 rounded-md bg-muted text-foreground/80 whitespace-nowrap shrink-0 border border-border/60 leading-none">
-                        <i className="fa-regular fa-clock text-xs sm:text-sm text-foreground/60"></i>
+                        <i className="fa-regular fa-clock text-xs sm:text-sm text-foreground/75"></i>
                         <span>{readingTime} min read</span>
                       </div>
                     </div>
@@ -379,7 +379,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                         className="text-[15px] sm:text-lg font-bold text-foreground tracking-tight flex items-center gap-2"
                         style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
                       >
-                        <span className="flex items-center justify-center w-6 h-6 rounded-md bg-muted text-foreground/70 text-xs border border-border/60">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-md bg-muted text-foreground/80 text-xs border border-border/60">
                           <i className="fa-regular fa-newspaper"></i>
                         </span>
                         Other News
@@ -452,7 +452,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                               </div>
 
                               {/* Read More Aligned with Theme Blue */}
-                              <div className="flex items-center gap-1 font-bold text-brand-blue shrink-0 group-hover:underline">
+                              <div className="flex items-center gap-1 font-bold text-sky-700 dark:text-sky-400 shrink-0 group-hover:underline">
                                 <span>Read More<span className="sr-only">: {itemTitle}</span></span>
                                 <i className="fa-solid fa-arrow-right text-[8px] sm:text-[9px] group-hover:translate-x-1 transition-transform" aria-hidden="true"></i>
                               </div>
@@ -626,7 +626,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                 {/* Bottom of Content: Source on the LEFT side with reduced spacing */}
                 <div className="mt-4 pt-3 border-t border-border flex justify-start items-center text-sm text-foreground/80">
                   <div className="flex items-center gap-2 font-medium">
-                    <span className="text-foreground/60 font-semibold">Source:</span>
+                    <span className="text-foreground/80 font-semibold">Source:</span>
                     {article.source_url ? (
                       <a 
                         href={article.source_url} 

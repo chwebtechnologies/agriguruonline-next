@@ -13,6 +13,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
 import { getTradingApiUrl } from '@/lib/api-utils'
 import '../globals.css'
+import '../fontawesome.css'
 
 
 
@@ -164,14 +165,6 @@ export default async function LocalizedRootLayout({
         />
         <link rel="alternate" hrefLang="x-default" href={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/`} />
         <ThemeInitializer />
-        <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
-        <link rel="preconnect" href="https://trading-api.agriguruonline.cloud" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://trading-api.agriguruonline.cloud" />
-        <link rel="preconnect" href="https://cms-api.agriguruonline.cloud" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
-        <link rel="preconnect" href="https://user-api.agriguruonline.cloud" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://user-api.agriguruonline.cloud" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200">
         <Suspense fallback={null}>

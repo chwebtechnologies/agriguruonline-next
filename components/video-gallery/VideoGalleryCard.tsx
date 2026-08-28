@@ -70,7 +70,7 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
             href={`/${lang}/video-gallery/${category.slug}`}
             prefetch={true}
             aria-label={`View collection: ${category.category_name}`}
-            className="flex items-center text-sm font-medium text-primary hover:text-brand-blue transition-colors group/link"
+            className="flex items-center text-sm font-semibold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity group/link"
           >
             View Collection
             <i className="fa-solid fa-arrow-right ml-2 text-xs group-hover/link:translate-x-1 transition-transform"></i>

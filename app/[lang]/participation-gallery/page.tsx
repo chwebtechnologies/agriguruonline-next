@@ -117,11 +117,11 @@ async function ParticipationGalleryGrid({
   if (categories.length === 0) {
     return (
       <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border mt-3">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
           <i className="fa-solid fa-images text-2xl"></i>
         </div>
         <h3 className="text-xl font-bold text-foreground mb-2">No Albums Found</h3>
-        <p className="text-foreground/70 max-w-md mx-auto text-sm">
+        <p className="text-foreground/80 max-w-md mx-auto text-sm">
           We couldn&apos;t find any participation albums on this page. Please check back later.
         </p>
       </div>

@@ -109,7 +109,7 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
         <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
           
           {/* Meta Info (ID & Date) */}
-          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/60 mb-2 font-medium gap-2">
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/80 mb-2 font-medium gap-2">
             {displayId && (
               <span className="bg-primary/5 text-primary px-1.5 sm:px-2 py-0.5 rounded border border-primary/20 font-mono whitespace-nowrap overflow-hidden text-ellipsis font-semibold">
                 {displayId}
@@ -127,16 +127,16 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
           </h3>
           
           {description && (
-            <p className="text-xs sm:text-sm text-foreground/70 line-clamp-2 mb-4 flex-grow">
+            <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 mb-4 flex-grow">
               {description}
             </p>
           )}
           
           <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
-            <span className="text-xs font-semibold text-primary">
+            <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">
               {isPdf ? 'Read Report' : 'Download Report'}
             </span>
-            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sky-700 dark:text-sky-400 group-hover:bg-primary group-hover:text-white transition-colors">
               <i className={`fa-solid ${isPdf ? 'fa-book-open' : 'fa-download'} text-[10px]`}></i>
             </div>
           </div>

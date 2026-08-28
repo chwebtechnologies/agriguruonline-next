@@ -29,7 +29,7 @@ export default function GlobalError({
               <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">
                 Critical Error
               </h2>
-              <p className="text-foreground/70 text-sm md:text-base">
+              <p className="text-foreground/80 text-sm md:text-base">
                 A critical error occurred while loading the application.
               </p>
             </div>

@@ -717,7 +717,7 @@ export default function MobileCommodityChart({
                 <i className="fa-solid fa-info text-[9px]"></i>
               </button>
             </div>
-            <p className="text-[10px] min-[390px]:text-[11px] sm:text-[12px] text-foreground/60 mt-0.5 font-medium leading-tight truncate">
+            <p className="text-[10px] min-[390px]:text-[11px] sm:text-[12px] text-foreground/75 mt-0.5 font-medium leading-tight truncate">
               {item.country || apiProduct?.country?.name || 'Global'} • {item.term || apiProduct?.shipping_term?.title || 'FOB'} • {item.pol || apiProduct?.loading_port?.name || 'Port'}
             </p>
           </div>
@@ -732,7 +732,7 @@ export default function MobileCommodityChart({
               className={`py-1.5 px-3.5 text-[13px] font-bold rounded-lg transition-all cursor-pointer ${
                 activeTab === tab
                   ? 'bg-card text-brand-blue shadow-xs font-bold'
-                  : 'text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
+                  : 'text-foreground/75 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               {tab}
@@ -787,7 +787,7 @@ export default function MobileCommodityChart({
             className={`py-2 px-2.5 min-[390px]:px-4 text-[12px] min-[390px]:text-[14px] font-bold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
               activeTab === tab
                 ? 'border-brand-blue text-brand-blue'
-                : 'border-transparent text-foreground/60 hover:text-foreground'
+                : 'border-transparent text-foreground/75 hover:text-foreground'
             }`}
           >
             {tab}
@@ -818,7 +818,7 @@ export default function MobileCommodityChart({
                 if (!isFullScreen && onDragEnd) onDragEnd();
               }}
             >
-              <div className="flex items-center gap-1.5 text-[12px] lg:text-[13px] text-foreground/70 font-medium">
+              <div className="flex items-center gap-1.5 text-[12px] lg:text-[13px] text-foreground/80 font-medium">
                 <span>Over {timeframeLabel}</span>
                 <span className="text-foreground/30">•</span>
                 <span className="text-[11px] lg:text-[12px] text-foreground/50">
@@ -898,7 +898,7 @@ export default function MobileCommodityChart({
 
                           return (
                             <div className="bg-card text-foreground text-[11px] font-bold px-3 py-2 rounded-xl shadow-2xl border border-border max-w-[270px] z-50">
-                              <div className="flex items-center justify-between gap-3 text-foreground/60 text-[10px] font-normal">
+                              <div className="flex items-center justify-between gap-3 text-foreground/75 text-[10px] font-normal">
                                 <span>{pt.formattedDate}</span>
                                 <span className="text-[13px] text-foreground font-black">${pt.price}</span>
                               </div>
@@ -992,7 +992,7 @@ export default function MobileCommodityChart({
                 {selectedCommentPoint && (
                   <button
                     onClick={() => setSelectedCommentPoint(null)}
-                    className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-background text-foreground/70 hover:text-brand-blue shadow-xs flex items-center justify-center text-[10px] transition-transform active:scale-90 cursor-pointer border border-border"
+                    className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-background text-foreground/80 hover:text-brand-blue shadow-xs flex items-center justify-center text-[10px] transition-transform active:scale-90 cursor-pointer border border-border"
                     aria-label="Close note"
                   >
                     <i className="fa-solid fa-xmark"></i>
@@ -1064,7 +1064,7 @@ export default function MobileCommodityChart({
                     className={`text-[12px] font-bold px-2.5 py-1 transition-all rounded-lg cursor-pointer ${
                       timeRange === range
                         ? 'text-white bg-brand-blue shadow-xs font-extrabold'
-                        : 'text-foreground/60 hover:text-foreground hover:bg-muted'
+                        : 'text-foreground/75 hover:text-foreground hover:bg-muted'
                     }`}
                   >
                     {range}
@@ -1115,7 +1115,7 @@ export default function MobileCommodityChart({
                     </div>
                     <div>
                       <h2 className="font-extrabold text-[15px] text-foreground">Product Specifications</h2>
-                      <p className="text-[11px] text-foreground/60">Quality parameters & commodity description</p>
+                      <p className="text-[11px] text-foreground/75">Quality parameters & commodity description</p>
                     </div>
                   </div>
                   <button
@@ -1195,7 +1195,7 @@ export default function MobileCommodityChart({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-foreground/60 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-2 border-t border-border">
                     <span>Capacity: <strong className="text-foreground">{loadingCapacity} MT</strong></span>
                     <span>Container: <strong className="text-foreground">{containerTitle}</strong> (~520 Bags)</span>
                   </div>
@@ -1294,7 +1294,7 @@ export default function MobileCommodityChart({
                       <h2 className="font-extrabold text-[14px] sm:text-[15px] text-foreground leading-snug">
                         Date-wise Market Commentary & Notes
                       </h2>
-                      <p className="text-[11px] text-foreground/60">
+                      <p className="text-[11px] text-foreground/75">
                         Product and Freight remarks logged date-wise ({timeRange})
                       </p>
                     </div>
@@ -1346,7 +1346,7 @@ export default function MobileCommodityChart({
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
                         historicalFilter === 'all'
                           ? 'bg-foreground text-background shadow-xs'
-                          : 'bg-card text-foreground/70 border border-border hover:bg-muted'
+                          : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                       }`}
                     >
                       All Notes ({filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length})
@@ -1356,7 +1356,7 @@ export default function MobileCommodityChart({
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
                         historicalFilter === 'product_only'
                           ? 'bg-brand-blue text-white shadow-xs'
-                          : 'bg-card text-foreground/70 border border-border hover:bg-muted'
+                          : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                       }`}
                     >
                       <i className="fa-solid fa-wheat-awn text-[10px]"></i>
@@ -1367,7 +1367,7 @@ export default function MobileCommodityChart({
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
                         historicalFilter === 'freight_only'
                           ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'bg-card text-foreground/70 border border-border hover:bg-muted'
+                          : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                       }`}
                     >
                       <i className="fa-solid fa-ship text-[10px]"></i>
@@ -1380,6 +1380,7 @@ export default function MobileCommodityChart({
                     <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground/40 text-[11px]"></i>
                     <input
                       type="text"
+                      aria-label="Search remark or date"
                       value={historicalSearch}
                       onChange={(e) => setHistoricalSearch(e.target.value)}
                       placeholder="Search remark or date..."
@@ -1438,7 +1439,7 @@ export default function MobileCommodityChart({
                       <h3 className="font-extrabold text-[14px] text-foreground">
                         No Commentary Found
                       </h3>
-                      <p className="text-[12px] text-foreground/60 mt-1 max-w-xs mx-auto">
+                      <p className="text-[12px] text-foreground/75 mt-1 max-w-xs mx-auto">
                         No remarks recorded for the selected filter or search query.
                       </p>
                       <button
@@ -1566,7 +1567,7 @@ export default function MobileCommodityChart({
               {/* Detailed Period Price Range Card */}
               <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs">
                 <div className="flex items-center justify-between pb-2 border-b border-border">
-                  <span className="text-[11px] font-bold text-foreground/60 uppercase tracking-wider">
+                  <span className="text-[11px] font-bold text-foreground/75 uppercase tracking-wider">
                     {timeRange} Price Range & Occurrence Dates
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
@@ -1580,7 +1581,7 @@ export default function MobileCommodityChart({
                     <span className="text-[15px] font-black text-brand-red mt-0.5">
                       ${periodMinPoint.price}
                     </span>
-                    <span className="text-[10px] text-foreground/60 font-medium leading-tight mt-0.5">
+                    <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
                       {periodMinPoint.formattedDate}
                     </span>
                   </div>
@@ -1590,7 +1591,7 @@ export default function MobileCommodityChart({
                     <span className="text-[15px] font-black text-foreground mt-0.5">
                       ${periodLatestPoint.price}
                     </span>
-                    <span className="text-[10px] text-foreground/60 font-medium leading-tight mt-0.5">
+                    <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
                       {periodLatestPoint.formattedDate}
                     </span>
                   </div>
@@ -1600,7 +1601,7 @@ export default function MobileCommodityChart({
                     <span className="text-[15px] font-black text-brand-green mt-0.5">
                       ${periodMaxPoint.price}
                     </span>
-                    <span className="text-[10px] text-foreground/60 font-medium leading-tight mt-0.5">
+                    <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
                       {periodMaxPoint.formattedDate}
                     </span>
                   </div>
@@ -1624,7 +1625,7 @@ export default function MobileCommodityChart({
               {fobPrice != null && (
                 <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs">
                   <div className="flex items-center justify-between pb-2 border-b border-border">
-                    <span className="text-[11px] font-bold text-foreground/60 uppercase tracking-wider">
+                    <span className="text-[11px] font-bold text-foreground/75 uppercase tracking-wider">
                       Cost Breakdown (FOB vs Estimated Freight)
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-md">
@@ -1637,7 +1638,7 @@ export default function MobileCommodityChart({
                       <span className="text-[14px] font-extrabold text-foreground mt-0.5">
                         ${fobPrice}
                       </span>
-                      <span className="text-[10px] text-foreground/60 font-medium leading-tight" title={item.pol || 'POL'}>
+                      <span className="text-[10px] text-foreground/75 font-medium leading-tight" title={item.pol || 'POL'}>
                         {item.pol || 'Port'}
                       </span>
                     </div>
@@ -1647,7 +1648,7 @@ export default function MobileCommodityChart({
                       <span className="text-[14px] font-extrabold text-purple-600 dark:text-purple-400 mt-0.5">
                         +${cifFreightSpread.toFixed(2)}
                       </span>
-                      <span className="text-[10px] text-foreground/60 font-medium">Ocean Logistics</span>
+                      <span className="text-[10px] text-foreground/75 font-medium">Ocean Logistics</span>
                     </div>
 
                     <div className="flex flex-col items-end text-right">
@@ -1655,7 +1656,7 @@ export default function MobileCommodityChart({
                       <span className="text-[14px] font-extrabold text-brand-green mt-0.5">
                         ${periodLatestPoint.price}
                       </span>
-                      <span className="text-[10px] text-foreground/60 font-medium leading-tight" title={item.pod || 'POD'}>
+                      <span className="text-[10px] text-foreground/75 font-medium leading-tight" title={item.pod || 'POD'}>
                         {item.pod && item.pod !== 'N/A' ? item.pod : (item.term || 'POD')}
                       </span>
                     </div>
@@ -1668,7 +1669,7 @@ export default function MobileCommodityChart({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-[14px] text-foreground">Know Your Commodity</h3>
-                    <p className="text-[11px] text-foreground/60 mt-0.5">
+                    <p className="text-[11px] text-foreground/75 mt-0.5">
                       Verified product specifications, packaging options & trade terms.
                     </p>
                   </div>
@@ -1728,7 +1729,7 @@ export default function MobileCommodityChart({
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-foreground/60 pt-1.5 border-t border-border">
+                  <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-1.5 border-t border-border">
                     <span>Container: <strong className="text-foreground">{containerTitle}</strong></span>
                     <span>Capacity: <strong className="text-foreground">{loadingCapacity} Metric Tons</strong></span>
                   </div>
@@ -1744,7 +1745,7 @@ export default function MobileCommodityChart({
           {/* Quick Trade / Action Widget */}
           <div className="bg-card rounded-2xl border border-border p-4 shadow-xs space-y-3.5">
             <div className="flex items-center justify-between pb-3 border-b border-border">
-              <span className="text-[12px] font-bold text-foreground/60 uppercase tracking-wider">
+              <span className="text-[12px] font-bold text-foreground/75 uppercase tracking-wider">
                 Instant Trade Action
               </span>
               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-brand-blue/10 text-brand-blue">
@@ -1762,7 +1763,7 @@ export default function MobileCommodityChart({
               <div className="text-[24px] font-black text-foreground mt-1">
                 ${currentDisplayPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-[13px] font-normal text-foreground/50">PMT</span>
               </div>
-              <div className="text-[11px] text-foreground/60 mt-1 flex items-center gap-1.5">
+              <div className="text-[11px] text-foreground/75 mt-1 flex items-center gap-1.5">
                 <i className="fa-solid fa-box text-brand-blue text-[10px]"></i>
                 <span>Load: {loadingCapacity} MT ({containerTitle})</span>
               </div>
@@ -1950,7 +1951,7 @@ export default function MobileCommodityChart({
               </h3>
               <button 
                 onClick={() => setShowSpecsModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-foreground/70 focus:outline-none cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-foreground/80 focus:outline-none cursor-pointer"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-lg"></i>
@@ -2074,7 +2075,7 @@ export default function MobileCommodityChart({
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-foreground/60 pt-1.5 border-t border-border">
+                  <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-1.5 border-t border-border">
                     <span>Container: <strong className="text-foreground">{containerTitle}</strong></span>
                     <span>Capacity: <strong className="text-foreground">{loadingCapacity} MT</strong></span>
                   </div>
@@ -2084,7 +2085,7 @@ export default function MobileCommodityChart({
 
             {/* Modal Footer */}
             <div className="px-5 py-3 border-t border-border bg-background/50 flex items-center justify-between">
-              <span className="text-[11px] text-foreground/60 font-medium">
+              <span className="text-[11px] text-foreground/75 font-medium">
                 Standard Verified Specifications
               </span>
               <button 

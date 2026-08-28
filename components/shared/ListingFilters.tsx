@@ -68,6 +68,8 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
             <i className="fa-solid fa-filter text-foreground/40 text-sm"></i>
           </div>
           <select
+            id="category-filter"
+            aria-label="Filter by category"
             className="block w-full pl-9 pr-8 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all appearance-none cursor-pointer shadow-2xs"
             value={initialCategory}
             onChange={(e) => handleCategoryChange(e.target.value)}
@@ -92,6 +94,8 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
         </div>
         <input
           type="text"
+          id="search-filter"
+          aria-label="Search items"
           className="block w-full pl-9 pr-10 py-2.5 bg-card border border-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all shadow-2xs"
           placeholder="Search..."
           value={searchTerm}

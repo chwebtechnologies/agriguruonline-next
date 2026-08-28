@@ -23,7 +23,7 @@ export default async function NotFound() {
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
             Page Not Found
           </h2>
-          <p className="text-foreground/70 text-sm md:text-base leading-relaxed max-w-sm mx-auto">
+          <p className="text-foreground/80 text-sm md:text-base leading-relaxed max-w-sm mx-auto">
             The page you&apos;re looking for doesn&apos;t exist, has been moved,
             or is temporarily unavailable.
           </p>

@@ -167,6 +167,7 @@ export default function SearchablePhoneInput({
       {/* Number Input (Strictly digits, no duplicate country code) */}
       <input
         type="tel"
+        aria-label="Phone number"
         inputMode="numeric"
         pattern="[0-9]*"
         value={formattedDisplay}

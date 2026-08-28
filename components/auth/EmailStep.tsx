@@ -166,7 +166,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
         </button>
       </div>
 
-      <p className="mt-8 text-xs text-center text-foreground/70">
+      <p className="mt-8 text-xs text-center text-foreground/80">
         By continuing, you accept AgriGuru Online{" "}
         <Link href={`/${lang}/terms`} className="font-bold hover:underline text-foreground">
           Terms of Service

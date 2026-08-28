@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   experimental: {
+    optimizeCss: true,
     staleTimes: {
       dynamic: 300, // 5 minutes in-memory client router cache for dynamic routes
       static: 1800, // 30 minutes in-memory client router cache for static routes
@@ -48,7 +49,9 @@ const nextConfig: NextConfig = {
       "frame-ancestors 'self'",
       "require-trusted-types-for 'script'",
       "trusted-types default nextjs nextjs#bundler 'allow-duplicates'",
-      "upgrade-insecure-requests",
+      // Note: upgrade-insecure-requests intentionally omitted.
+      // HTTPS is enforced via Strict-Transport-Security (HSTS) header in production.
+      // Including this directive breaks mobile/LAN HTTP testing environments.
     ].join('; ');
 
     return [

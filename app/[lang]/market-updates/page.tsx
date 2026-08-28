@@ -126,11 +126,11 @@ export default async function MarketUpdatesPage(props: {
 
           {flyers.length === 0 ? (
             <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
                 <i className="fa-solid fa-chart-line text-2xl"></i>
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">No Market Updates Found</h3>
-              <p className="text-foreground/70 max-w-md mx-auto">
+              <p className="text-foreground/80 max-w-md mx-auto">
                 We couldn&apos;t find any market updates at the moment. Please check back later.
               </p>
             </div>

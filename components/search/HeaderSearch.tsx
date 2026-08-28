@@ -259,21 +259,35 @@ export function HeaderSearch({
     return flag.startsWith('http') ? flag : `${imageBaseUrl}${flag}`
   }
 
+  const scrollRafRef = useRef<number | null>(null)
+
+  // Clean up RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current)
+    }
+  }, [])
+
   // Update permanent custom scrollbar positions for desktop dropdown
   const updateScrollMetrics = useCallback(() => {
-    const el = scrollContainerRef.current
-    if (!el) return
-    const { scrollTop, scrollHeight, clientHeight } = el
-    const maxScroll = scrollHeight - clientHeight
-    if (maxScroll > 10) {
-      setCanScroll(true)
-      const ratio = scrollTop / maxScroll
-      setScrollRatio(Math.min(1, Math.max(0, ratio)))
-      const heightPercent = Math.max(20, Math.min(80, (clientHeight / scrollHeight) * 100))
-      setThumbHeightPercent(heightPercent)
-    } else {
-      setCanScroll(false)
+    if (scrollRafRef.current) {
+      cancelAnimationFrame(scrollRafRef.current)
     }
+    scrollRafRef.current = requestAnimationFrame(() => {
+      const el = scrollContainerRef.current
+      if (!el) return
+      const { scrollTop, scrollHeight, clientHeight } = el
+      const maxScroll = scrollHeight - clientHeight
+      if (maxScroll > 10) {
+        setCanScroll(true)
+        const ratio = scrollTop / maxScroll
+        setScrollRatio(Math.min(1, Math.max(0, ratio)))
+        const heightPercent = Math.max(20, Math.min(80, (clientHeight / scrollHeight) * 100))
+        setThumbHeightPercent(heightPercent)
+      } else {
+        setCanScroll(false)
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -336,6 +350,8 @@ export function HeaderSearch({
         <input
           ref={desktopInputRef}
           type="text"
+          id="header-search-desktop"
+          aria-label="Search commodities and markets"
           name="q"
           value={query}
           onFocus={handleDesktopFocus}
@@ -653,6 +669,8 @@ export function HeaderSearch({
               <input
                 ref={mobileInputRef}
                 type="text"
+                id="header-search-mobile"
+                aria-label="Search commodities and markets"
                 name="mobile_q"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}

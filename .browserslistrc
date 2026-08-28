@@ -1,6 +1,4 @@
-chrome >= 92
-firefox >= 90
-safari >= 15.4
-edge >= 92
-ios >= 15.4
-opera >= 78
+last 2 Chrome versions
+last 2 Firefox versions
+last 2 Safari versions
+last 2 Edge versions

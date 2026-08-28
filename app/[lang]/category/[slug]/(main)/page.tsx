@@ -258,11 +258,11 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
             </div>
           ) : (
             <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/60">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
                 <i className="fa-solid fa-box-open text-2xl"></i>
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">No Sub Categories Found</h3>
-              <p className="text-foreground/70 max-w-md mx-auto">
+              <p className="text-foreground/80 max-w-md mx-auto">
                 We couldn&apos;t find any sub categories for this category at the moment. Please check back later.
               </p>
             </div>

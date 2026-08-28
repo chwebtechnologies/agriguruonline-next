@@ -153,13 +153,13 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
           <div className="mt-auto">
             {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
               <div className="flex items-baseline justify-center gap-1 mt-0.5 mb-2.5">
-                <span className="text-[16px] sm:text-[18px] font-extrabold text-foreground/70 mr-0.5 leading-none tracking-tight">
+                <span className="text-[16px] sm:text-[18px] font-extrabold text-foreground/85 mr-0.5 leading-none tracking-tight">
                   FOB
                 </span>
                 <span className="text-[16px] sm:text-[18px] font-extrabold text-brand-green leading-none tracking-tight">
                   ${product.loading_ports[0].price}
                 </span>
-                <span className="text-[10px] sm:text-[11px] text-foreground/60 font-semibold uppercase">
+                <span className="text-[10px] sm:text-[11px] text-foreground/80 font-semibold uppercase">
                   / MT
                 </span>
               </div>

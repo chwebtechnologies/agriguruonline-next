@@ -292,7 +292,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                 {getStatusBadge(currentUploadedDoc?.status || "Missing")}
               </div>
             </div>
-            <p className="text-sm text-foreground/60 hidden sm:block mt-0.5">Manage your identity documents.</p>
+            <p className="text-sm text-foreground/80 hidden sm:block mt-0.5">Manage your identity documents.</p>
           </div>
         </div>
         <i className={`fa-solid fa-chevron-down lg:!hidden transition-transform duration-300 text-foreground/50 ${isOpen ? 'rotate-180' : ''}`}></i>
@@ -312,9 +312,11 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
           <div className="flex flex-col gap-3">
             {/* Document Type Dropdown (Locked if active document is uploaded) */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">Select Document Type <span className="text-red-500">*</span></label>
+              <label htmlFor="kyc-doc-type-select" className="text-sm font-medium text-foreground">Select Document Type <span className="text-red-500">*</span></label>
               <div className="relative">
                 <select 
+                  id="kyc-doc-type-select"
+                  aria-label="Select Document Type"
                   value={currentSelectedId}
                   disabled={hasActiveUpload}
                   onChange={(e) => {
@@ -470,7 +472,7 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                     <div className="w-12 h-12 rounded-full bg-foreground/5 flex items-center justify-center text-foreground/30">
                       <i className="fa-solid fa-check-double text-xl"></i>
                     </div>
-                    <p className="text-foreground/60 text-sm font-medium">No required documents found.</p>
+                    <p className="text-foreground/80 text-sm font-medium">No required documents found.</p>
                   </div>
                 )}
               </div>

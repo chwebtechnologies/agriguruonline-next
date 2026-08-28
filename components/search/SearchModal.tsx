@@ -374,6 +374,8 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
           <input
             ref={inputRef}
             type="text"
+            id="global-search-modal-input"
+            aria-label="Search commodities, origins, products"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search commodities, origins, products (e.g. Rice, Sugar, Santos)..."

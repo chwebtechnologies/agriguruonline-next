@@ -32,7 +32,7 @@ export function ChartMobileItemCard({
   return (
     <div className={`flex flex-col p-2 select-none ${className}`}>
       {/* Row 1: Left / Right Badges with Flags */}
-      <div className="flex justify-between items-center text-[12px] text-foreground/60">
+      <div className="flex justify-between items-center text-[12px] text-foreground/75">
         <div className="flex items-center gap-1.5 font-medium min-w-0">
           {row1Left}
         </div>
@@ -65,7 +65,7 @@ export function ChartMobileItemCard({
       </div>
 
       {/* Row 3: Subtitle / Container / Change Pill */}
-      <div className="flex justify-between items-center text-[12px] text-foreground/60 mt-0.5">
+      <div className="flex justify-between items-center text-[12px] text-foreground/75 mt-0.5">
         <div className="truncate min-w-0">{row3Left}</div>
         <div className="flex items-center gap-1 shrink-0">
           {row3Middle && <span>{row3Middle}</span>}

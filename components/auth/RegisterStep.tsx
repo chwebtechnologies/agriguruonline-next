@@ -93,7 +93,7 @@ export default function RegisterStep({ email, onComplete, lang }: RegisterStepPr
 
   return (
     <div className="w-full max-w-md mx-auto mt-4 p-5 sm:p-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">
-      <p className="text-sm text-foreground/70 mb-3 text-center">
+      <p className="text-sm text-foreground/80 mb-3 text-center">
         It looks like you don't have an account yet. Let's get you set up.
       </p>
       <div className="w-full flex justify-center mb-8">

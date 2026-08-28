@@ -47,6 +47,8 @@ export default function SearchFilter() {
         </div>
         <input
           type="text"
+          id="search-filter-input"
+          aria-label="Search"
           className="block w-full pl-9 pr-10 py-2.5 bg-card border border-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all shadow-2xs"
           placeholder="Search..."
           value={searchTerm}

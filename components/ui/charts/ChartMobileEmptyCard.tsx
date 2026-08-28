@@ -35,7 +35,7 @@ export function ChartMobileEmptyCard({
     >
       <div className="flex flex-col p-2">
         {/* Row 1: Header & Count */}
-        <div className="flex justify-between items-center text-[12px] text-foreground/60">
+        <div className="flex justify-between items-center text-[12px] text-foreground/75">
           <div className="flex items-center gap-1.5 font-medium">
             <i className={`${icon} text-brand-green text-[11px]`}></i>
             <span>{badgeLabel}</span>
@@ -59,7 +59,7 @@ export function ChartMobileEmptyCard({
         </div>
 
         {/* Row 3: Description & Chevron */}
-        <div className="flex justify-between items-center text-[12px] text-foreground/60 mt-0.5">
+        <div className="flex justify-between items-center text-[12px] text-foreground/75 mt-0.5">
           <div className="truncate">{description}</div>
           <div className="flex items-center gap-1 shrink-0">
             <i className="fa-solid fa-chevron-right text-[10px] text-zinc-400"></i>

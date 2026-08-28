@@ -405,7 +405,7 @@ export default function FreightChartClient({
                       <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                         {selectedShipBy ? (shippingContainers.find(c => String(c.id) === String(selectedShipBy))?.title || 'Ship by') : 'Select Container'}
                       </div>
-                      <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         {selectedShipBy ? '✓ Selected' : '20FT / 40FT / Bulk'}
                       </div>
                     </div>
@@ -431,7 +431,7 @@ export default function FreightChartClient({
                       <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                         {selectedPOL ? (loadingPorts.find(p => String(p.id) === String(selectedPOL))?.name || 'Port') : 'Loading Port'}
                       </div>
-                      <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         {selectedPOL ? '✓ Selected' : 'Origin port'}
                       </div>
                     </div>
@@ -458,13 +458,13 @@ export default function FreightChartClient({
                       <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                         {selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'Destination') : 'Destination Port'}
                       </div>
-                      <div className="text-[9.5px] text-foreground/60 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         {selectedPOD ? '✓ Selected' : 'Discharge port'}
                       </div>
                     </div>
 
                     {/* Col 4: Freight Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                         <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
                         <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Total</span>
@@ -478,7 +478,7 @@ export default function FreightChartClient({
                     </div>
 
                     {/* Col 5: Freight (PMT) Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                         <i className="fa-solid fa-scale-balanced text-emerald-500/80 text-[11px]"></i>
                         <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">PMT</span>
@@ -492,7 +492,7 @@ export default function FreightChartClient({
                     </div>
 
                     {/* Col 6: Change Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                         <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
                         <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Trend</span>
@@ -506,7 +506,7 @@ export default function FreightChartClient({
                     </div>
 
                     {/* Col 7: Chart Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/60 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                         <i className="fa-solid fa-chart-line text-purple-500/80 text-[11px]"></i>
                         <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Curve</span>
@@ -537,7 +537,7 @@ export default function FreightChartClient({
                       <div className={`font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight ${isAddFreightEnabled ? 'text-white' : 'text-foreground/80'}`}>
                         Add Freight
                       </div>
-                      <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${isAddFreightEnabled ? 'text-white/90 font-medium' : 'text-foreground/60'}`}>
+                      <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${isAddFreightEnabled ? 'text-white/90 font-medium' : 'text-foreground/75'}`}>
                         {isAddFreightEnabled ? 'Ready! Click here' : 'Complete 3 steps'}
                       </div>
                     </div>
@@ -555,7 +555,7 @@ export default function FreightChartClient({
                             <span>How to Track Global Freight Rates</span>
                             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">Quick Guide</span>
                           </h3>
-                          <p className="text-xs text-foreground/60 mt-0.5">
+                          <p className="text-xs text-foreground/75 mt-0.5">
                             Select container type, origin port of loading, and destination port to monitor live shipping costs.
                           </p>
                         </div>
@@ -594,7 +594,7 @@ export default function FreightChartClient({
                         <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                           1. Choose Container Type
                         </h4>
-                        <p className="text-[11px] text-foreground/60 leading-relaxed">
+                        <p className="text-[11px] text-foreground/75 leading-relaxed">
                           Select <strong>20FT FCL</strong>, <strong>40FT FCL</strong>, or <strong>Vessel/Bulk</strong> shipping modes.
                         </p>
                       </div>
@@ -618,7 +618,7 @@ export default function FreightChartClient({
                         <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                           2. Origin & Destination Ports
                         </h4>
-                        <p className="text-[11px] text-foreground/60 leading-relaxed">
+                        <p className="text-[11px] text-foreground/75 leading-relaxed">
                           Choose the <strong>Loading Port</strong> (POL) and the <strong>Destination Port</strong> (POD).
                         </p>
                       </div>
@@ -641,7 +641,7 @@ export default function FreightChartClient({
                         <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
                           3. Track PMT & Instant Booking
                         </h4>
-                        <p className="text-[11px] text-foreground/60 leading-relaxed">
+                        <p className="text-[11px] text-foreground/75 leading-relaxed">
                           Click <strong>Add Freight</strong> to monitor real-time freight trends, PMT breakdowns, and book containers.
                         </p>
                       </div>
@@ -942,7 +942,7 @@ export default function FreightChartClient({
                       <i className="fa-solid fa-circle-info text-blue-500 mt-1"></i>
                       <div className="space-y-1 text-sm">
                         <div className="font-semibold text-foreground/80">Ocean Freight Details:</div>
-                        <div className="text-foreground/70">Rate type: USD/PMT & Total FCL Container Cost</div>
+                        <div className="text-foreground/80">Rate type: USD/PMT & Total FCL Container Cost</div>
                       </div>
                     </div>
                   </div>
