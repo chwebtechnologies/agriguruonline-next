@@ -3,15 +3,32 @@ import { lang } from 'next/root-params'
 import Script from 'next/script'
 import type { Metadata } from 'next'
 
-// SEO Organization schema component helper
+// SEO Organization & WebSite schema component helper
 function OrganizationSchema() {
   const schema = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
-    'name': 'AgriGuru Online',
-    'url': 'https://agriguruonline.com',
-    'logo': 'https://agriguruonline.com/logo.png',
-    'description': 'The premium B2B SaaS platform for global agricultural trade.',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        '@id': 'https://agriguruonline.com/#organization',
+        'name': 'AgriGuru Online',
+        'url': 'https://agriguruonline.com',
+        'logo': {
+          '@type': 'ImageObject',
+          'url': 'https://agriguruonline.com/logo.png'
+        },
+        'description': 'The premium B2B SaaS platform for global agricultural trade.'
+      },
+      {
+        '@type': 'WebSite',
+        '@id': 'https://agriguruonline.com/#website',
+        'url': 'https://agriguruonline.com',
+        'name': 'AgriGuru Online',
+        'publisher': {
+          '@id': 'https://agriguruonline.com/#organization'
+        }
+      }
+    ]
   }
 
   return (

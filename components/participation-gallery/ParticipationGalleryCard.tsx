@@ -36,6 +36,7 @@ export default function ParticipationGalleryCard({
         href={albumUrl}
         prefetch={true}
         title={category.category_name}
+        aria-label={category.category_name}
         className="relative w-full aspect-square bg-muted overflow-hidden border-b border-border block"
       >
         <ImageWithSkeleton
@@ -73,6 +74,7 @@ export default function ParticipationGalleryCard({
           <Link
             href={albumUrl}
             prefetch={true}
+            aria-label={`View album: ${category.category_name}`}
             className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-brand-blue hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
           >
             <span>View Album</span>

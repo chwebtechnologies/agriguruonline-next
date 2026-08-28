@@ -100,7 +100,11 @@ export default function middleware(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
     pathname.includes('.') ||
-    pathname === '/favicon.ico'
+    pathname === '/favicon.ico' ||
+    pathname === '/manifest.webmanifest' ||
+    pathname === '/manifest.json' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml'
 
   if (isInternalOrStatic) return NextResponse.next()
 
@@ -111,7 +115,7 @@ export default function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all paths except internal paths, static files, and favicon
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    // Match all paths except internal paths, static files, and metadata routes
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|manifest.json|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js)$).*)',
   ],
 }

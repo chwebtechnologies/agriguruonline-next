@@ -30,7 +30,7 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
-      <Link href={`/${lang}/events/${event.slug}`} prefetch={true} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
+      <Link href={`/${lang}/events/${event.slug}`} prefetch={true} aria-label={event.title} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
         <ImageWithSkeleton
           src={imageUrl}
           alt={event.title}
@@ -75,10 +75,11 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
           <Link 
             href={`/${lang}/events/${event.slug}`}
             prefetch={true}
+            aria-label={`View details: ${event.title}`}
             className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-brand-blue-hover transition-colors flex items-center gap-1.5 group/link"
           >
-            View Details
-            <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
+            <span>View Details<span className="sr-only">: {event.title}</span></span>
+            <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
           </Link>
           
           <ShareButton 

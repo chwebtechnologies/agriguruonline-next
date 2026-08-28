@@ -27,6 +27,7 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
       <Link 
         href={`/${lang}/video-gallery/${category.slug}`}
         prefetch={true}
+        aria-label={category.category_name}
         className="w-full aspect-video relative overflow-hidden bg-card/30 block"
       >
         <ImageWithSkeleton
@@ -68,6 +69,7 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
           <Link 
             href={`/${lang}/video-gallery/${category.slug}`}
             prefetch={true}
+            aria-label={`View collection: ${category.category_name}`}
             className="flex items-center text-sm font-medium text-primary hover:text-brand-blue transition-colors group/link"
           >
             View Collection

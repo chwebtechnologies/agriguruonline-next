@@ -1,0 +1,31 @@
+{
+  "name": "AgriGuru Online - Global Agricultural Trading",
+  "short_name": "AgriGuru",
+  "description": "The premium B2B SaaS platform for global agricultural trade.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/logo.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

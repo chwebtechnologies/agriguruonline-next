@@ -71,6 +71,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
             onClick={handlePageClick}
             onPointerEnter={() => warmPage(1)}
             onTouchStart={() => warmPage(1)}
+            aria-label="Go to page 1"
             className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs cursor-pointer"
           >
             1
@@ -88,6 +89,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
           onClick={handlePageClick}
           onPointerEnter={() => warmPage(page)}
           onTouchStart={() => warmPage(page)}
+          aria-label={`Go to page ${page}`}
           className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border transition-colors duration-200 font-bold text-sm shadow-2xs cursor-pointer ${
             currentPage === page
               ? 'bg-brand-blue text-white border-brand-blue shadow-sm'
@@ -109,6 +111,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
             onClick={handlePageClick}
             onPointerEnter={() => warmPage(totalPages)}
             onTouchStart={() => warmPage(totalPages)}
+            aria-label={`Go to page ${totalPages}`}
             className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs cursor-pointer"
           >
             {totalPages}

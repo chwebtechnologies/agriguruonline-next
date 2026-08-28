@@ -260,12 +260,12 @@ export function HeaderGuestBase({
               )}
 
               {!isScrolled ? (
-                <Link href={`/${activeLang}`} className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
+                <Link href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
                   <AgriGuruLogo size={42} />
                 </Link>
               ) : (
                 <div className="md:hidden">
-                  <Link href={`/${activeLang}`} className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
+                  <Link href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
                     <AgriGuruLogo size={42} />
                   </Link>
                 </div>

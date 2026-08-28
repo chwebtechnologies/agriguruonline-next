@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   cacheComponents: true,
   partialPrefetching: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
   experimental: {
     staleTimes: {
       dynamic: 300, // 5 minutes in-memory client router cache for dynamic routes
@@ -30,10 +33,40 @@ const nextConfig: NextConfig = {
     '10.*.*.*',
   ],
   async headers() {
+    const cspHeader = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com",
+      "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com https://www.transparenttextures.com",
+      "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com",
+      "connect-src 'self' https://trading-api.agriguruonline.cloud https://cms-api.agriguruonline.cloud https://user-api.agriguruonline.cloud https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com ws: wss:",
+      "media-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud",
+      "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'self'",
+      "require-trusted-types-for 'script'",
+      "trusted-types default nextjs nextjs#bundler 'allow-duplicates'",
+      "upgrade-insecure-requests",
+    ].join('; ');
+
     return [
       {
-        source: '/(.*)',
+        source: '/:path*',
         headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: cspHeader,
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+          {
+            key: 'Cross-Origin-Resource-Policy',
+            value: 'cross-origin',
+          },
           {
             key: 'X-Frame-Options',
             value: 'SAMEORIGIN',
@@ -61,7 +94,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/api/(.*)',
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/profile/:path*',
         headers: [
           {
             key: 'X-Robots-Tag',

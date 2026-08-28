@@ -74,7 +74,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/favicon.ico',
-    apple: '/apple-icon.png',
+    apple: '/logo.png',
   },
   manifest: '/manifest.json',
 }
@@ -156,6 +156,12 @@ export default async function LocalizedRootLayout({
       suppressHydrationWarning
     >
       <head>
+        <meta charSet="utf-8" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if(typeof window!=='undefined'&&window.trustedTypes&&window.trustedTypes.createPolicy){try{if(!window.trustedTypes.defaultPolicy){window.trustedTypes.createPolicy('default',{createHTML:function(s){return s},createScript:function(s){return s},createScriptURL:function(s){return s}})}}catch(e){}}`
+          }}
+        />
         <link rel="alternate" hrefLang="x-default" href={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/`} />
         <ThemeInitializer />
         <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />

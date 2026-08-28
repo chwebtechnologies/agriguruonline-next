@@ -32,7 +32,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
-      <Link href={`/${lang}/news/${article.slug}`} prefetch={true} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
+      <Link href={`/${lang}/news/${article.slug}`} prefetch={true} aria-label={title} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
         <ImageWithSkeleton
           src={imageUrl}
           alt={title}
@@ -64,10 +64,11 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
           <Link 
             href={`/${lang}/news/${article.slug}`}
             prefetch={true}
+            aria-label={`Read more: ${title}`}
             className="text-[12px] uppercase tracking-wide font-bold text-brand-blue hover:text-brand-blue-hover transition-colors flex items-center gap-1.5 group/link"
           >
-            Read More
-            <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
+            <span>Read More<span className="sr-only">: {title}</span></span>
+            <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
           </Link>
           
           <ShareButton 

@@ -463,8 +463,8 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                                 </div>
 
                                 <div className="flex items-center gap-1 font-bold text-brand-blue shrink-0 group-hover:underline">
-                                  <span>View Details</span>
-                                  <i className="fa-solid fa-arrow-right text-[8px] sm:text-[9px] group-hover:translate-x-1 transition-transform"></i>
+                                  <span>View Details<span className="sr-only">: {itemTitle}</span></span>
+                                  <i className="fa-solid fa-arrow-right text-[8px] sm:text-[9px] group-hover:translate-x-1 transition-transform" aria-hidden="true"></i>
                                 </div>
                               </div>
                             </div>

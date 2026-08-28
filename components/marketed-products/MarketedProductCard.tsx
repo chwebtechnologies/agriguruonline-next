@@ -97,7 +97,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
     <>
       <div className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs">
         <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border">
-          <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="block w-full h-full">
+          <Link href={`/${lang}/product/${product.slug}`} prefetch={true} aria-label={product.name} className="block w-full h-full">
             <ImageWithSkeleton
               src={imageUrl}
               alt={product.name}

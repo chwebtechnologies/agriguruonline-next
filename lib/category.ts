@@ -43,19 +43,10 @@ export const getCategories = cache(async (lang: string, config: CacheConfig): Pr
     })
 
     if (!response.ok) {
-      console.error(`[Categories API Error] Fetch failed: ${response.status} ${response.statusText} for URL: ${url}`)
       return []
     }
 
     const json = await response.json()
-    
-    // Log response keys in development to assist debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Categories API Info] Keys returned:`, Object.keys(json))
-      if (json.data) {
-        console.log(`[Categories API Info] json.data structure type: ${typeof json.data} (isArray: ${Array.isArray(json.data)})`)
-      }
-    }
 
     if (json && (json.success === 1 || json.success === true || json.status === 'success')) {
       // 1. Check nested data.categories
@@ -72,10 +63,8 @@ export const getCategories = cache(async (lang: string, config: CacheConfig): Pr
       }
     }
 
-    console.warn(`[Categories API Warning] Response layout unrecognized or empty:`, JSON.stringify(json).slice(0, 200))
     return []
-  } catch (error) {
-    console.error(`[Categories API Exception] Failed fetching from ${url}:`, error)
+  } catch {
     return []
   }
 })

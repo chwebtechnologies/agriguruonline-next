@@ -453,8 +453,8 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
 
                               {/* Read More Aligned with Theme Blue */}
                               <div className="flex items-center gap-1 font-bold text-brand-blue shrink-0 group-hover:underline">
-                                <span>Read More</span>
-                                <i className="fa-solid fa-arrow-right text-[8px] sm:text-[9px] group-hover:translate-x-1 transition-transform"></i>
+                                <span>Read More<span className="sr-only">: {itemTitle}</span></span>
+                                <i className="fa-solid fa-arrow-right text-[8px] sm:text-[9px] group-hover:translate-x-1 transition-transform" aria-hidden="true"></i>
                               </div>
                             </div>
                           </Link>
