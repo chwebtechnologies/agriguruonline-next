@@ -312,7 +312,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-8">
           {/* Header */}
-          <PageHeader title="Latest News" backText="Back" />
+          <PageHeader title="Latest News" backText="Back" backHref={`/${lang}/news`} />
 
           {/* 50-50 Split Layout using CSS Grid Areas */}
           <div className="mt-3 w-full max-w-full overflow-hidden">

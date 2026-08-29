@@ -206,7 +206,7 @@ export default async function ParticipationAlbumPage(props: {
     <div className="bg-background text-foreground min-h-screen">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={albumTitle} backText="Back" />
+          <PageHeader title={albumTitle} backText="Back" backHref={`/${lang}/participation-gallery`} />
 
           {isNotFound ? (
             <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border mt-3">

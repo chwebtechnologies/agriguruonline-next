@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
-export function PageHeader({ title, backText = "Back", hideBack = false }: { title: string, backText?: string, hideBack?: boolean }) {
+export function PageHeader({ title, backText = "Back", hideBack = false, backHref }: { title: string, backText?: string, hideBack?: boolean, backHref?: string }) {
   const router = useRouter()
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false)
 
@@ -31,6 +31,14 @@ export function PageHeader({ title, backText = "Back", hideBack = false }: { tit
   // On mobile: always 69px. On desktop: 69px when category bar collapsed, 109px when category bar open.
   const stickyTopClass = isHeaderScrolled ? 'top-[69px]' : 'top-[69px] md:top-[109px]'
 
+  const handleBackClick = () => {
+    if (backHref) {
+      router.push(backHref)
+    } else {
+      router.back()
+    }
+  }
+
   return (
     <div className={`sticky ${stickyTopClass} z-40 py-1 sm:py-1.5 grid grid-cols-[1fr_auto_1fr] items-center w-full mb-1 sm:mb-2 bg-background transition-[top] duration-200`}>
       {/* Full-width background bleed */}
@@ -41,7 +49,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false }: { tit
         {!hideBack && (
           <button 
             type="button"
-            onClick={() => router.back()}
+            onClick={handleBackClick}
             className="group flex items-center gap-1.5 sm:gap-2 text-foreground hover:text-brand-blue dark:hover:text-brand-blue transition-colors cursor-pointer"
             aria-label="Go back"
           >

@@ -304,7 +304,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-8">
           {/* Header */}
-          <PageHeader title="Events" backText="Back" />
+          <PageHeader title="Events" backText="Back" backHref={`/${lang}/events`} />
 
           {/* 50-50 Split Layout using CSS Grid Areas */}
           <div className="mt-3 w-full max-w-full overflow-hidden">
