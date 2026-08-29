@@ -34,7 +34,7 @@ const getProducts = cache(async (slug: string, subSlug: string, lang: string): P
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
 
     if (!res.ok) {
@@ -59,7 +59,7 @@ export async function generateStaticParams() {
 
   try {
     const res = await fetch(`${tradingApiUrl}/category?page=1&limit=15&lang_code=en&source=web`, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
     if (res.ok) {
       const json = await res.json()
@@ -68,7 +68,7 @@ export async function generateStaticParams() {
         if (!cat.slug) continue
         try {
           const subRes = await fetch(`${tradingApiUrl}/sub-category/for-category/web/${cat.slug}?lang_code=en&source=web`, {
-            next: { revalidate: 3600 }
+            next: { revalidate: 60 }
           })
           if (subRes.ok) {
             const subJson = await subRes.json()

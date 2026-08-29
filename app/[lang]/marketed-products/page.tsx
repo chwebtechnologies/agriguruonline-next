@@ -45,7 +45,7 @@ const getMarketedProducts = cache(async (lang: string, page: number, limit: numb
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
 
     if (!res.ok) {

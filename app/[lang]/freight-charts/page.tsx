@@ -92,9 +92,9 @@ async function getFreightInitialData(lang: string = 'en') {
 
   // Execute all independent API fetches concurrently in parallel
   const [containersSettled, profileSettled, favsSettled] = await Promise.allSettled([
-    fetch(cUrl, { next: { revalidate: 300 } }).then(r => r.ok ? r.json() : null),
-    token ? fetch(uUrl, { headers: authHeaders, cache: 'no-store' }).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
-    fetch(fUrl, { headers: authHeaders, cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+    fetch(cUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
+    token ? fetch(uUrl, { headers: authHeaders, next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+    fetch(fUrl, { headers: authHeaders, next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null)
   ])
 
   // 1. Process shipping containers

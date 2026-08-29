@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import FastLink from '@/components/ui/FastLink'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
 import type { NewsArticle, NewsTranslation } from '@/types/news'
@@ -32,7 +32,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
-      <Link href={`/${lang}/news/${article.slug}`} prefetch={true} aria-label={title} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
+      <FastLink href={`/${lang}/news/${article.slug}`} aria-label={title} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
         <ImageWithSkeleton
           src={imageUrl}
           alt={title}
@@ -42,7 +42,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
           className="object-cover group-hover:scale-105 transition-transform duration-300"
           priority={priority}
         />
-      </Link>
+      </FastLink>
       
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
         <div className="flex items-center text-xs text-foreground/80 font-medium mb-2">
@@ -51,9 +51,9 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
         </div>
         
         <h3 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-          <Link href={`/${lang}/news/${article.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
+          <FastLink href={`/${lang}/news/${article.slug}`} className="hover:text-brand-blue transition-colors">
             {title}
-          </Link>
+          </FastLink>
         </h3>
         
         <p className="text-[13px] text-foreground/80 mb-4 line-clamp-3 flex-grow">
@@ -61,15 +61,14 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
         </p>
         
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
-          <Link 
+          <FastLink 
             href={`/${lang}/news/${article.slug}`}
-            prefetch={true}
             aria-label={`Read more: ${title}`}
             className="text-[12px] uppercase tracking-wide font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1.5 group/link"
           >
             <span>Read More<span className="sr-only">: {title}</span></span>
             <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
-          </Link>
+          </FastLink>
           
           <ShareButton 
             title={title} 

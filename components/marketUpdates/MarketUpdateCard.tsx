@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import FastLink from '@/components/ui/FastLink'
 import Image from 'next/image'
 import type { MarketUpdateItem } from '@/types/marketUpdates'
 import { getAssetsUrl } from '@/lib/api-utils';
@@ -25,9 +25,8 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
   const description = cleanDesc.length > 100 ? `${cleanDesc.substring(0, 100)}...` : cleanDesc
 
   return (
-    <Link 
+    <FastLink 
       href={`/${lang}/market-updates/${update.slug}`}
-      prefetch={true}
       aria-label={title}
       className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg hover:border-primary/40 transition-all duration-300"
     >
@@ -58,6 +57,6 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
           </div>
         </div>
       </div>
-    </Link>
+    </FastLink>
   )
 }

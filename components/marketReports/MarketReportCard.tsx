@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
+import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { MarketReportItem } from '@/types/marketReports'
 import dynamic from 'next/dynamic'
 import { getAssetsUrl } from '@/lib/api-utils';
@@ -96,13 +96,15 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
         </div>
 
         <div className="relative w-full aspect-[794/1120] bg-muted/60 overflow-hidden border-b border-border">
-          <Image
+          <ImageWithSkeleton
             src={imageUrl}
             alt={title}
             title={title}
             fill
-            className="object-contain transition-transform duration-500 group-hover:scale-105"
+            className="transition-transform duration-500 group-hover:scale-105"
+            style={{ objectFit: 'contain' }}
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 20vw"
+            priority={priority}
           />
         </div>
         

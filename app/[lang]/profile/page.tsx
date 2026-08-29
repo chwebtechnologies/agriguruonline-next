@@ -99,7 +99,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
       headers: {
         'Authorization': `Bearer ${token}`
       },
-      cache: 'no-store'
+      next: { revalidate: 60 }
     });
     
     if (res.ok) {
@@ -140,10 +140,10 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
 
   const [categoriesResult, countriesResult, kycResult] = await Promise.allSettled([
     getCategories(lang, { apiUrl: categoriesApiUrl, stale: cacheStale, revalidate: cacheRevalidate, expire: cacheExpire }),
-    fetch(`${tradingApiUrl}/country?lang_code=${lang}&source=web`, { cache: 'no-store' }).then(r => r.json()),
+    fetch(`${tradingApiUrl}/country?lang_code=${lang}&source=web`, { next: { revalidate: 60 } }).then(r => r.json()),
     fetch(`${userApiUrl}/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
       headers: { 'Authorization': `Bearer ${token}` },
-      cache: 'no-store'
+      next: { revalidate: 60 }
     }).then(r => r.json())
   ]);
 

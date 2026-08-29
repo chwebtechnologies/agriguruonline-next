@@ -17,7 +17,7 @@ export async function generateStaticParams() {
   try {
     const cmsApiUrl = getCmsApiUrl()
     const res = await fetch(`${cmsApiUrl}/dashboard/categories/gallery?source=web&page=1&limit=50`, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
     if (res.ok) {
       const data: ParticipationCategoriesResponse = await res.json()
@@ -44,7 +44,7 @@ const getAlbumDetails = cache(
 
     try {
       const res = await fetch(url, {
-        next: { revalidate: 3600 },
+        next: { revalidate: 60 },
       })
 
       if (!res.ok) {

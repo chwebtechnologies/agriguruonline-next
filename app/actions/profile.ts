@@ -46,7 +46,7 @@ export async function updateProfile(
         "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify(payload),
-      cache: "no-store"
+      next: { revalidate: 60 }
     });
 
     const data = await response.json().catch(() => ({}));
@@ -99,7 +99,7 @@ export async function uploadKycDocument(
         "Authorization": `Bearer ${token}`
       },
       body: formData,
-      cache: "no-store"
+      next: { revalidate: 60 }
     });
 
     const data = await response.json().catch(() => ({}));

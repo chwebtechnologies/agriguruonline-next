@@ -96,10 +96,10 @@ async function getChartsInitialData(lang: string = 'en') {
 
   // Execute all independent API fetches concurrently in parallel
   const [productsSettled, termsSettled, profileSettled, favsSettled] = await Promise.allSettled([
-    fetch(pUrl, { next: { revalidate: 300 } }).then(r => r.ok ? r.json() : null),
-    fetch(tUrl, { next: { revalidate: 300 } }).then(r => r.ok ? r.json() : null),
-    token ? fetch(uUrl, { headers: authHeaders, cache: 'no-store' }).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
-    fetch(fUrl, { headers: authHeaders, cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+    fetch(pUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
+    fetch(tUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
+    token ? fetch(uUrl, { headers: authHeaders, next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+    fetch(fUrl, { headers: authHeaders, next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null)
   ])
 
   // 1. Process products

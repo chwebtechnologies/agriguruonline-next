@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import FastLink from '@/components/ui/FastLink'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
 import type { EventItem } from '@/types/events'
@@ -30,7 +30,7 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
-      <Link href={`/${lang}/events/${event.slug}`} prefetch={true} aria-label={event.title} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
+      <FastLink href={`/${lang}/events/${event.slug}`} aria-label={event.title} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
         <ImageWithSkeleton
           src={imageUrl}
           alt={event.title}
@@ -40,7 +40,7 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
           className="object-cover group-hover:scale-105 transition-transform duration-300"
           priority={priority}
         />
-      </Link>
+      </FastLink>
       
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
         <div className="flex items-center justify-between mb-2">
@@ -61,9 +61,9 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
         </div>
         
         <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2 flex-grow" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-          <Link href={`/${lang}/events/${event.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
+          <FastLink href={`/${lang}/events/${event.slug}`} className="hover:text-brand-blue transition-colors">
             {event.title}
-          </Link>
+          </FastLink>
         </h2>
 
         <div className="flex items-center text-xs text-foreground/80 mb-2 truncate">
@@ -72,15 +72,14 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
         </div>
         
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
-          <Link 
+          <FastLink 
             href={`/${lang}/events/${event.slug}`}
-            prefetch={true}
             aria-label={`View details: ${event.title}`}
             className="text-[12px] uppercase tracking-wide font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1.5 group/link"
           >
             <span>View Details<span className="sr-only">: {event.title}</span></span>
             <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
-          </Link>
+          </FastLink>
           
           <ShareButton 
             title={event.title} 

@@ -39,7 +39,7 @@ const getSubCategories = cache(async (slug: string, lang: string): Promise<Categ
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
 
     if (!res.ok) {
@@ -66,7 +66,7 @@ export async function generateStaticParams() {
     const categories = await getCategories('en', {
       apiUrl: categoriesApiUrl,
       stale: 300,
-      revalidate: 3600,
+      revalidate: 0,
       expire: 86400
     })
 

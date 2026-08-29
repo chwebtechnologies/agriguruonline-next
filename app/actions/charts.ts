@@ -23,7 +23,7 @@ export async function getShippingContainersAction(
     const safeProdId = encodeURIComponent(productId);
 
     const url = `${getTradingApiUrl()}/favorite-product/shipping-container/${safeProdId}?lang_code=${safeLang}&source=web`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     const json = await res.json().catch(() => ({}));
 
     const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
@@ -58,7 +58,7 @@ export async function getProductDetailsAction(
     const safeProdId = encodeURIComponent(productId);
 
     const url = `${getTradingApiUrl()}/product/${safeProdId}?lang_code=${safeLang}&source=web`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     const json = await res.json().catch(() => ({}));
 
     const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
@@ -89,7 +89,7 @@ export async function getLoadingPortsAction(
     const safeTerm = encodeURIComponent(term);
 
     const url = `${getTradingApiUrl()}/favorite-product/loading-port/${safeProdId}/${safeShipBy}/${safeTerm}?lang_code=${safeLang}&source=web`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     const json = await res.json().catch(() => ({}));
 
     const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
@@ -128,7 +128,7 @@ export async function getDestinationPortsAction(
     const safePol = encodeURIComponent(pol);
 
     const url = `${getTradingApiUrl()}/favorite-product/destination-port/${safeProdId}/${safeShipBy}/${safePol}?lang_code=${safeLang}&source=web`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     const json = await res.json().catch(() => ({}));
 
     const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
@@ -174,7 +174,7 @@ export async function addFavoriteProductAction(
       method: "POST",
       headers,
       body: JSON.stringify(payload),
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
 
     const json = await res.json().catch(() => ({}));
@@ -217,7 +217,7 @@ export async function deleteFavoriteProductAction(
     let res = await fetch(url, {
       method: "DELETE",
       headers,
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
 
     // Fallback if direct ID DELETE was not found
@@ -226,7 +226,7 @@ export async function deleteFavoriteProductAction(
         method: "DELETE",
         headers,
         body: JSON.stringify({ id: Number(id) || id }),
-        cache: "no-store",
+        next: { revalidate: 60 },
       });
     }
 
@@ -266,7 +266,7 @@ export async function getFavoriteProductsAction(
     const url = `${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, {
       headers,
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
 
     const json = await res.json().catch(() => ({}));

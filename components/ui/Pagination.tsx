@@ -1,8 +1,7 @@
 'use client'
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useTransition } from 'react';
 
 interface PaginationProps {
   currentPage: number;
@@ -23,7 +22,15 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
     startPage = Math.max(1, endPage - 4);
   }
 
+  const [isPending, startTransition] = useTransition();
+
   const pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+
+  const navigateTo = (pageNumber: number) => {
+    startTransition(() => {
+      router.push(`${baseUrl}?page=${pageNumber}`, { scroll: true });
+    });
+  };
 
   const warmPage = (pageNumber: number) => {
     try {
@@ -31,30 +38,22 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
     } catch {}
   };
 
-  const handlePageClick = () => {
-    try {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    } catch {
-      window.scrollTo(0, 0);
-    }
-  };
+
 
   return (
     <div className="flex justify-center items-center space-x-1 sm:space-x-2 mt-8">
       {/* Previous Button */}
       {currentPage > 1 ? (
-        <Link
-          href={`${baseUrl}?page=${currentPage - 1}`}
-          prefetch={true}
-          scroll={true}
-          onClick={handlePageClick}
+        <button
+          onClick={() => navigateTo(currentPage - 1)}
+          disabled={isPending}
           onPointerEnter={() => warmPage(currentPage - 1)}
           onTouchStart={() => warmPage(currentPage - 1)}
-          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs cursor-pointer"
+          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs cursor-pointer disabled:opacity-50"
           aria-label="Previous page"
         >
           <i className="fa-solid fa-chevron-left text-xs sm:text-sm"></i>
-        </Link>
+        </button>
       ) : (
         <span className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card/50 text-foreground/30 cursor-not-allowed">
           <i className="fa-solid fa-chevron-left text-xs sm:text-sm"></i>
@@ -64,33 +63,29 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
       {/* Page Numbers */}
       {startPage > 1 && (
         <>
-          <Link
-            href={`${baseUrl}?page=1`}
-            prefetch={true}
-            scroll={true}
-            onClick={handlePageClick}
+          <button
+            onClick={() => navigateTo(1)}
+            disabled={isPending}
             onPointerEnter={() => warmPage(1)}
             onTouchStart={() => warmPage(1)}
             aria-label="Go to page 1"
-            className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs cursor-pointer"
+            className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs cursor-pointer disabled:opacity-50"
           >
             1
-          </Link>
+          </button>
           {startPage > 2 && <span className="hidden sm:flex items-center justify-center w-10 h-10 text-foreground/50 font-bold">...</span>}
         </>
       )}
 
       {pages.map((page) => (
-        <Link
+        <button
           key={page}
-          href={`${baseUrl}?page=${page}`}
-          prefetch={true}
-          scroll={true}
-          onClick={handlePageClick}
+          onClick={() => navigateTo(page)}
+          disabled={isPending}
           onPointerEnter={() => warmPage(page)}
           onTouchStart={() => warmPage(page)}
           aria-label={`Go to page ${page}`}
-          className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border transition-colors duration-200 font-bold text-sm shadow-2xs cursor-pointer ${
+          className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border transition-colors duration-200 font-bold text-sm shadow-2xs cursor-pointer disabled:opacity-50 ${
             currentPage === page
               ? 'bg-brand-blue text-white border-brand-blue shadow-sm'
               : 'border-border bg-card text-foreground hover:bg-brand-blue/10 hover:border-brand-blue/50'
@@ -98,41 +93,37 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
           aria-current={currentPage === page ? 'page' : undefined}
         >
           {page}
-        </Link>
+        </button>
       ))}
 
       {endPage < totalPages && (
         <>
           {endPage < totalPages - 1 && <span className="hidden sm:flex items-center justify-center w-10 h-10 text-foreground/50 font-bold">...</span>}
-          <Link
-            href={`${baseUrl}?page=${totalPages}`}
-            prefetch={true}
-            scroll={true}
-            onClick={handlePageClick}
+          <button
+            onClick={() => navigateTo(totalPages)}
+            disabled={isPending}
             onPointerEnter={() => warmPage(totalPages)}
             onTouchStart={() => warmPage(totalPages)}
             aria-label={`Go to page ${totalPages}`}
-            className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs cursor-pointer"
+            className="hidden sm:flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 font-bold shadow-2xs cursor-pointer disabled:opacity-50"
           >
             {totalPages}
-          </Link>
+          </button>
         </>
       )}
 
       {/* Next Button */}
       {currentPage < totalPages ? (
-        <Link
-          href={`${baseUrl}?page=${currentPage + 1}`}
-          prefetch={true}
-          scroll={true}
-          onClick={handlePageClick}
+        <button
+          onClick={() => navigateTo(currentPage + 1)}
+          disabled={isPending}
           onPointerEnter={() => warmPage(currentPage + 1)}
           onTouchStart={() => warmPage(currentPage + 1)}
-          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs cursor-pointer"
+          className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-brand-blue hover:text-white hover:border-brand-blue transition-colors duration-200 shadow-2xs cursor-pointer disabled:opacity-50"
           aria-label="Next page"
         >
           <i className="fa-solid fa-chevron-right text-xs sm:text-sm"></i>
-        </Link>
+        </button>
       ) : (
         <span className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border border-border bg-card/50 text-foreground/30 cursor-not-allowed">
           <i className="fa-solid fa-chevron-right text-xs sm:text-sm"></i>

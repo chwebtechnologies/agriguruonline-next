@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withSerwistInit from "@serwist/next";
 
 const nextConfig: NextConfig = {
   compress: true,
@@ -22,6 +23,7 @@ const nextConfig: NextConfig = {
       'yet-another-react-lightbox',
     ],
   },
+  turbopack: {},
   // Allow mobile devices on local network & cloudflare tunnels to access dev server HMR in development
   allowedDevOrigins: [
     '*.trycloudflare.com',
@@ -151,4 +153,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const withSerwist = withSerwistInit({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV === "development",
+  reloadOnOnline: true,
+});
+
+export default withSerwist(nextConfig);

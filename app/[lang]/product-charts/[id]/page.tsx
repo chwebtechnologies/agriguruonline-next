@@ -98,7 +98,7 @@ async function getChartProductData(id: string, lang: string = 'en') {
     try {
       const uRes = await fetch(`${getUserApiUrl()}/user/my-profile?lang_code=${safeLang}&source=web`, {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        cache: 'no-store'
+        next: { revalidate: 60 }
       });
       if (uRes.ok) {
         const uJson = await uRes.json();
@@ -120,7 +120,7 @@ async function getChartProductData(id: string, lang: string = 'en') {
 
     const fRes = await fetch(`${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`, {
       headers: fHeaders,
-      cache: 'no-store'
+      next: { revalidate: 60 }
     });
     if (fRes.ok) {
       const fJson = await fRes.json();
@@ -158,7 +158,7 @@ async function getChartProductData(id: string, lang: string = 'en') {
   if (!itemData) {
     try {
       const pRes = await fetch(`${getTradingApiUrl()}/product/${encodeURIComponent(id)}?lang_code=${safeLang}&source=web`, {
-        next: { revalidate: 300 }
+        next: { revalidate: 60 }
       });
       if (pRes.ok) {
         const pJson = await pRes.json();

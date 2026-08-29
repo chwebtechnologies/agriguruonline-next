@@ -80,7 +80,7 @@ const getVideoCategories = cache(async (): Promise<VideoGalleryResponse | null> 
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
     
     if (!res.ok) {

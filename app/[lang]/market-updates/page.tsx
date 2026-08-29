@@ -82,7 +82,7 @@ const getMarketUpdates = cache(async (lang: string, page: number, limit: number,
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
 
     if (!res.ok) {

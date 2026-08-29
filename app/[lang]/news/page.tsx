@@ -83,7 +83,7 @@ const getLatestNews = cache(async (lang: string, page: number, limit: number, se
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
 
     if (!res.ok) {
@@ -117,7 +117,7 @@ export default async function LatestNewsPage(props: {
   const apiCategories = await getCategories(lang, {
     apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`,
     stale: 300,
-    revalidate: 3600,
+    revalidate: 0,
     expire: 86400
   })
 

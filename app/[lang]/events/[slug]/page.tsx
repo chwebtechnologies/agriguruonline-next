@@ -13,7 +13,7 @@ const getEventDetail = cache(async (slug: string, lang: string): Promise<EventDe
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
 
     if (!res.ok) {
@@ -37,7 +37,7 @@ const getOtherEvents = cache(async (lang: string, limit = 6): Promise<EventItem[
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
 
     if (!res.ok) {
@@ -59,7 +59,7 @@ export async function generateStaticParams() {
   try {
     const cmsApiUrl = getCmsApiUrl()
     const res = await fetch(`${cmsApiUrl}/latestevents?is_active=true&source=web&page=1&limit=50`, {
-      next: { revalidate: 3600 }
+      next: { revalidate: 60 }
     })
     if (res.ok) {
       const json: EventsResponse = await res.json()

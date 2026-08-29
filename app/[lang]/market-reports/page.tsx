@@ -93,7 +93,7 @@ const getMarketReports = cache(async (lang: string, page: number, limit: number,
       headers: {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
-      cache: 'no-store'
+      next: { revalidate: 60 }
     })
     
     if (!res.ok) {
@@ -228,8 +228,7 @@ export default async function MarketReportsPage(props: {
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categoryQuery = typeof searchParams.category === 'string' ? searchParams.category : undefined
   
-  // Unique key forces Suspense to re-mount and show skeleton when filters change
-  const suspenseKey = `market-reports-${currentPage}-${searchQuery || ''}-${categoryQuery || ''}`
+
 
   // Fetch categories using identical Next.js cached configuration as Header
   const tradingApiUrl = getTradingApiUrl();
@@ -265,7 +264,7 @@ export default async function MarketReportsPage(props: {
           <PageHeader title="Market Reports" backText="Back" />
           <ListingFilters categories={filterCategories} />
           
-          <Suspense key={suspenseKey} fallback={<MarketReportsGridSkeleton />}>
+          <Suspense fallback={<MarketReportsGridSkeleton />}>
             <MarketReportsGrid lang={lang} page={currentPage} apiLimit={apiLimit} displayLimit={displayLimit} search={searchQuery} token={token} categoryId={categoryId} />
           </Suspense>
         </div>

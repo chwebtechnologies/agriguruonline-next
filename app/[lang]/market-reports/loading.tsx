@@ -8,11 +8,13 @@ export default function MarketReportsLoading() {
           <PageHeader title="Market Reports" backText="Back" />
           
           {/* ListingFilters Skeleton */}
-          <div className="mb-4 flex flex-wrap gap-2 animate-pulse mt-4">
-            <div className="h-10 w-24 bg-muted rounded-full"></div>
-            <div className="h-10 w-32 bg-muted rounded-full"></div>
-            <div className="h-10 w-28 bg-muted rounded-full"></div>
-            <div className="h-10 ml-auto w-48 bg-muted rounded-lg"></div>
+          <div className="flex flex-row gap-2 sm:gap-3 w-full mt-4 mb-2 animate-pulse">
+            <div className="w-1/2">
+              <div className="w-full h-[46px] bg-muted rounded-xl"></div>
+            </div>
+            <div className="w-1/2">
+              <div className="w-full h-[46px] bg-muted rounded-xl"></div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">

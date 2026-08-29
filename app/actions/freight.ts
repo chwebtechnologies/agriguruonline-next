@@ -13,7 +13,7 @@ export async function getFreightShippingContainersAction(
   try {
     const safeLang = getSafeLang(lang);
     const url = `${getTradingApiUrl()}/shipping-container?is_active=true&lang_code=${safeLang}&source=web`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     const json = await res.json().catch(() => ({}));
 
     const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
@@ -48,7 +48,7 @@ export async function getFreightLoadingPortsAction(
     const safeContainerId = encodeURIComponent(containerId);
 
     const url = `${getTradingApiUrl()}/favourite-port/loading/${safeContainerId}?lang_code=${safeLang}&source=web`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     const json = await res.json().catch(() => ({}));
 
     const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
@@ -85,7 +85,7 @@ export async function getFreightDestinationPortsAction(
     const safeLoadingPortId = encodeURIComponent(loadingPortId);
 
     const url = `${getTradingApiUrl()}/favourite-port/destination/${safeContainerId}/${safeLoadingPortId}?lang_code=${safeLang}&source=web`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     const json = await res.json().catch(() => ({}));
 
     const isSuccess = json.success === 1 || json.success === true || Boolean(json.data);
@@ -128,7 +128,7 @@ export async function getFavoritePortsAction(
     const url = `${getTradingApiUrl()}/favourite-port?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, {
       headers,
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
 
     const json = await res.json().catch(() => ({}));
@@ -179,7 +179,7 @@ export async function addFavoritePortAction(
       method: "POST",
       headers,
       body: JSON.stringify(payload),
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
 
     const json = await res.json().catch(() => ({}));
@@ -221,7 +221,7 @@ export async function deleteFavoritePortAction(
     let res = await fetch(url, {
       method: "DELETE",
       headers,
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
 
     if (!res.ok && (res.status === 405 || res.status === 404)) {
@@ -229,7 +229,7 @@ export async function deleteFavoritePortAction(
         method: "DELETE",
         headers,
         body: JSON.stringify({ id }),
-        cache: "no-store",
+        next: { revalidate: 60 },
       });
     }
 

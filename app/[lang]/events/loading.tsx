@@ -8,11 +8,13 @@ export default function EventsLoading() {
           <PageHeader title="Latest Events" backText="Back" />
           
           {/* ListingFilters Skeleton */}
-          <div className="mb-4 flex flex-wrap gap-2 animate-pulse mt-4">
-            <div className="h-10 w-24 bg-muted rounded-full"></div>
-            <div className="h-10 w-32 bg-muted rounded-full"></div>
-            <div className="h-10 w-28 bg-muted rounded-full"></div>
-            <div className="h-10 ml-auto w-48 bg-muted rounded-lg"></div>
+          <div className="flex flex-row gap-2 sm:gap-3 w-full mt-4 mb-2 animate-pulse">
+            <div className="w-1/2">
+              <div className="w-full h-[46px] bg-muted rounded-xl"></div>
+            </div>
+            <div className="w-1/2">
+              <div className="w-full h-[46px] bg-muted rounded-xl"></div>
+            </div>
           </div>
 
           {/* EventsGrid Skeleton */}
