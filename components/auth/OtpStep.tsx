@@ -180,7 +180,7 @@ export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps)
   };
 
   return (
-    <div className="w-full max-w-md mx-auto mt-4 p-5 sm:p-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">
+    <div className="w-full max-w-md mx-auto mt-[5px] p-5 sm:p-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">
       <p className="text-sm text-foreground/80 mb-2 text-center">
         We sent a verification code to
       </p>

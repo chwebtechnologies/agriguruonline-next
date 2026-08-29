@@ -82,7 +82,9 @@ export default function middleware(request: NextRequest) {
   const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|market-reports)/);
   
   if (isProtectedRoute && !token) {
-    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+    const loginUrl = new URL(`/${locale}/login`, request.url);
+    loginUrl.searchParams.set('redirectUrl', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Define guest-only routes (redirect if logged in)

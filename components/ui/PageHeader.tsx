@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
-export function PageHeader({ title, backText = "Back", hideBack = false, backHref }: { title: string, backText?: string, hideBack?: boolean, backHref?: string }) {
+export function PageHeader({ title, backText = "Back", hideBack = false, backHref, onBackClick }: { title: string, backText?: string, hideBack?: boolean, backHref?: string, onBackClick?: () => void }) {
   const router = useRouter()
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false)
 
@@ -32,7 +32,9 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
   const stickyTopClass = isHeaderScrolled ? 'top-[69px]' : 'top-[69px] md:top-[109px]'
 
   const handleBackClick = () => {
-    if (backHref) {
+    if (onBackClick) {
+      onBackClick()
+    } else if (backHref) {
       router.push(backHref)
     } else {
       router.back()

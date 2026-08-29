@@ -7,14 +7,16 @@ import RegisterStep from "./RegisterStep";
 import { useRouter } from "next/navigation";
 
 import { PageHeader } from "@/components/ui/PageHeader";
+import LoginRequiredBanner from "./LoginRequiredBanner";
 
 type AuthStep = "EMAIL" | "OTP" | "REGISTER";
 
 interface AuthFlowProps {
   lang: string;
+  redirectUrl?: string;
 }
 
-export default function AuthFlow({ lang }: AuthFlowProps) {
+export default function AuthFlow({ lang, redirectUrl }: AuthFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState<AuthStep>("EMAIL");
   const [email, setEmail] = useState("");
@@ -43,22 +45,52 @@ export default function AuthFlow({ lang }: AuthFlowProps) {
     }
   }, []);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      // If user presses browser back button, always take them to EMAIL step
+      setStep("EMAIL");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const handleEmailNext = (submittedEmail: string) => {
     setEmail(submittedEmail);
+    // Push a state so browser back button works
+    window.history.pushState({ step: "OTP" }, "");
     setStep("OTP");
   };
 
   const handleOtpVerify = (otp: string, nextStep: string | null) => {
     if (nextStep === "REQUIRE_REGISTRATION") {
+      // Replace state so going back from REGISTER skips OTP
+      window.history.replaceState({ step: "REGISTER" }, "");
       setStep("REGISTER");
     } else {
-      router.push(`/${lang}/profile`);
+      if (redirectUrl) {
+        router.push(redirectUrl);
+      } else {
+        router.push(`/${lang}/profile`);
+      }
     }
   };
 
   const handleRegisterComplete = () => {
     // Simulate completing registration and logging in
-    router.push(`/${lang}/profile`);
+    if (redirectUrl) {
+      router.push(redirectUrl);
+    } else {
+      router.push(`/${lang}/profile`);
+    }
+  };
+
+  const handlePageHeaderBack = () => {
+    if (step === "EMAIL") {
+      router.push(`/${lang}`);
+    } else if (step === "OTP") {
+      // Go back in history which will trigger popstate and set step to EMAIL
+      window.history.back();
+    }
   };
 
   const getTitle = () => {
@@ -69,15 +101,21 @@ export default function AuthFlow({ lang }: AuthFlowProps) {
 
   return (
     <>
-      <PageHeader title={getTitle()} backText="Back" hideBack={step === "REGISTER"} />
-      <div className="w-full flex justify-center px-4 sm:px-0">
-      {step === "EMAIL" && (
-        <EmailStep onNext={handleEmailNext} lang={lang} />
-      )}
+      <PageHeader 
+        title={getTitle()} 
+        backText="Back" 
+        hideBack={step === "REGISTER"} 
+        onBackClick={handlePageHeaderBack}
+      />
+      <div className="w-full flex flex-col items-center px-4 sm:px-0">
+        <LoginRequiredBanner redirectUrl={redirectUrl} />
+        {step === "EMAIL" && (
+          <EmailStep onNext={handleEmailNext} lang={lang} />
+        )}
       {step === "OTP" && (
         <OtpStep
           email={email}
-          onBack={() => setStep("EMAIL")}
+          onBack={() => window.history.back()}
           onVerify={handleOtpVerify}
           lang={lang}
         />

@@ -102,7 +102,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto mt-4 p-5 sm:p-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">      
+    <div className="w-full max-w-md mx-auto mt-[5px] p-5 sm:p-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">      
       <form onSubmit={handleSubmit} className="w-full mb-6">
         <div className="mb-4">
           <label htmlFor="email" className={`block text-sm font-medium mb-2 transition-colors ${error ? 'text-red-500' : 'text-foreground'}`}>
