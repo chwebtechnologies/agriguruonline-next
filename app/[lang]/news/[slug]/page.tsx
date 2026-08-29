@@ -375,7 +375,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                 <div className="grid-area-other w-full max-w-full min-w-0 mt-6 md:mt-0 md:h-full md:min-h-0">
                   <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 md:p-5 shadow-xs space-y-3 sm:space-y-3.5 overflow-hidden flex flex-col md:h-full md:min-h-[340px]">
                     <div className="flex items-center justify-between pb-2 border-b border-border shrink-0">
-                      <h3 
+                      <h2 
                         className="text-[15px] sm:text-lg font-bold text-foreground tracking-tight flex items-center gap-2"
                         style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
                       >
@@ -383,7 +383,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                           <i className="fa-regular fa-newspaper"></i>
                         </span>
                         Other News
-                      </h3>
+                      </h2>
                       <Link
                         href={`/${lang}/news`}
                         className="text-xs font-bold text-foreground/80 hover:text-brand-blue hover:underline flex items-center gap-1 transition-colors"
@@ -581,6 +581,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                     font-size: 0.875rem;
                     font-weight: 700;
                     margin-bottom: 0.35rem;
+                    color: var(--foreground);
                   }
 
                   .editorial-callout .callout-text {
@@ -598,28 +599,28 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                     border-left: 3.5px solid var(--brand-blue) !important;
                   }
                   .callout-traders .callout-label {
-                    color: var(--brand-blue);
+                    color: var(--foreground);
                   }
 
                   .callout-exporters {
                     border-left: 3.5px solid var(--brand-green) !important;
                   }
                   .callout-exporters .callout-label {
-                    color: var(--brand-green);
+                    color: var(--foreground);
                   }
 
                   .callout-importers {
                     border-left: 3.5px solid #f59e0b !important;
                   }
                   .callout-importers .callout-label {
-                    color: #f59e0b;
+                    color: var(--foreground);
                   }
 
                   .callout-risk {
                     border-left: 3.5px solid var(--brand-red) !important;
                   }
                   .callout-risk .callout-label {
-                    color: var(--brand-red);
+                    color: var(--foreground);
                   }
                 `}} />
 
@@ -632,7 +633,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                         href={article.source_url} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="text-brand-blue hover:underline font-semibold flex items-center gap-1.5"
+                        className="text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-1.5"
                       >
                         {sourceName}
                         <i className="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
