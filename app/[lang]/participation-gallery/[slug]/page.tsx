@@ -180,8 +180,13 @@ export async function generateMetadata(
 /* ---------- Main Album Page ---------- */
 export default async function ParticipationAlbumPage(props: {
   params: Promise<{ lang: string; slug: string }>
+  searchParams?: Promise<{ photo?: string; page?: string }>
 }) {
   const params = await props.params
+  const searchParams = props.searchParams ? await props.searchParams : {}
+  const pageStr = searchParams.page
+  const currentPage = pageStr ? parseInt(pageStr, 10) : 1
+
   const lang = params.lang || 'en'
   const slug = params.slug
 
@@ -226,6 +231,7 @@ export default async function ParticipationAlbumPage(props: {
               albumTitle={albumTitle}
               albumSlug={slug}
               lang={lang}
+              currentPage={currentPage}
             />
           )}
         </div>

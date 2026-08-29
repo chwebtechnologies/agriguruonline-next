@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import Lightbox from 'yet-another-react-lightbox'
+import { Pagination } from '@/components/ui/Pagination'
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
 import Zoom from 'yet-another-react-lightbox/plugins/zoom'
 
@@ -23,6 +24,7 @@ interface ParticipationAlbumClientProps {
   albumTitle: string
   albumSlug?: string
   lang: string
+  currentPage?: number
 }
 
 const PHOTOS_PER_PAGE = 50
@@ -32,12 +34,13 @@ export default function ParticipationAlbumClient({
   albumTitle,
   albumSlug = '',
   lang,
+  currentPage = 1,
 }: ParticipationAlbumClientProps) {
   const [lightboxIndex, setLightboxIndex] = useState(-1)
-  const [currentPage, setCurrentPage] = useState(1)
 
   const totalPages = Math.ceil(photos.length / PHOTOS_PER_PAGE)
-  const startIndex = (currentPage - 1) * PHOTOS_PER_PAGE
+  const validPage = isNaN(currentPage) || currentPage < 1 ? 1 : currentPage > totalPages && totalPages > 0 ? totalPages : currentPage
+  const startIndex = (validPage - 1) * PHOTOS_PER_PAGE
   const currentPhotos = photos.slice(startIndex, startIndex + PHOTOS_PER_PAGE)
 
   const getPhotoTitle = useCallback(
@@ -132,44 +135,11 @@ export default function ParticipationAlbumClient({
       </div>
 
       {/* ── Pagination ── */}
-      {totalPages > 1 && (
-        <div className="flex justify-center items-center space-x-1 sm:space-x-2 mt-8">
-          <button
-            type="button"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-primary hover:text-white hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold cursor-pointer"
-            aria-label="Previous page"
-          >
-            <i className="fa-solid fa-chevron-left text-xs rtl:rotate-180" />
-          </button>
-
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-            <button
-              key={pg}
-              type="button"
-              onClick={() => setCurrentPage(pg)}
-              className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border font-bold text-sm transition-colors cursor-pointer ${
-                currentPage === pg
-                  ? 'bg-primary text-white border-primary shadow-xs'
-                  : 'border-border bg-card text-foreground hover:bg-primary/10 hover:border-primary/50'
-              }`}
-            >
-              {pg}
-            </button>
-          ))}
-
-          <button
-            type="button"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-border bg-card text-foreground hover:bg-primary hover:text-white hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold cursor-pointer"
-            aria-label="Next page"
-          >
-            <i className="fa-solid fa-chevron-right text-xs rtl:rotate-180" />
-          </button>
-        </div>
-      )}
+      <Pagination 
+        currentPage={validPage} 
+        totalPages={totalPages} 
+        baseUrl={`/${lang}/participation-gallery/${albumSlug}`} 
+      />
 
       {/* ── YARL Lightbox (Mount only when open to prevent blocking grid thumbnails) ── */}
       {lightboxIndex >= 0 && (
