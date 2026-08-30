@@ -237,7 +237,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
           </p>
           <Link
             href={`/${lang}/events`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-blue text-white font-semibold text-sm hover:bg-brand-blue-hover transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-700 text-white font-bold text-sm hover:bg-blue-800 transition-colors"
           >
             <i className="fa-solid fa-arrow-left text-xs"></i>
             Back to All Events
@@ -308,6 +308,8 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
 
           {/* 50-50 Split Layout using CSS Grid Areas */}
           <div className="mt-3 w-full max-w-full overflow-hidden">
+            {/* Screen Reader Only H1 to enforce descending heading hierarchy for Accessibility & SEO */}
+            <h1 className="sr-only">{title}</h1>
             <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
               
               {/* FEATURED IMAGE & METADATA BAR */}
@@ -376,8 +378,8 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
 
               {/* OTHER EVENTS SECTION (Mobile: Bottom, Desktop: Under Image) */}
               {otherEventsList.length > 0 && (
-                <div className="grid-area-other w-full max-w-full min-w-0 mt-6 md:mt-0 md:h-full md:min-h-0">
-                  <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 md:p-5 shadow-xs space-y-3 sm:space-y-3.5 overflow-hidden flex flex-col md:h-full md:min-h-[340px]">
+                <div className="grid-area-other w-full max-w-full min-w-0 mt-6 md:mt-0 md:h-full md:min-h-[340px]">
+                  <div className="bg-card text-card-foreground rounded-2xl border border-border p-3 sm:p-4 md:p-5 shadow-xs space-y-3 sm:space-y-3.5 overflow-hidden flex flex-col md:h-full md:min-h-[340px] md:max-h-[720px]">
                     <div className="flex items-center justify-between pb-2 border-b border-border shrink-0">
                       <h2
                         className="text-[15px] sm:text-lg font-bold text-foreground tracking-tight flex items-center gap-2"
@@ -420,7 +422,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                           <Link
                             key={item.id}
                             href={`/${lang}/events/${item.slug}`}
-                            className="group flex flex-row gap-2.5 sm:gap-3.5 p-2.5 sm:p-3 rounded-xl bg-background/50 hover:bg-muted/60 transition-all border border-border/70 hover:border-brand-blue/40 overflow-hidden items-start"
+                            className="group flex flex-row gap-2.5 sm:gap-3.5 p-2.5 sm:p-3 rounded-xl bg-background hover:bg-muted transition-all border border-border hover:border-brand-blue/50 overflow-hidden items-start"
                           >
                             {/* 3:2 Thumbnail on Left */}
                             <div className="relative w-[95px] min-[360px]:w-[110px] sm:w-[125px] min-w-[95px] min-[360px]:min-w-[110px] sm:min-w-[125px] aspect-[3/2] rounded-lg overflow-hidden shrink-0 border border-border bg-muted/40">
@@ -439,7 +441,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                               <div className="flex items-center gap-1.5">
                                 <span className={`text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                                   itemStatusUpper === 'UPCOMING'
-                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300'
                                     : itemStatusUpper === 'ONGOING'
                                       ? 'bg-brand-blue/15 text-brand-blue'
                                       : 'bg-muted text-foreground/75'
@@ -477,14 +479,14 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
               )}
 
               {/* EVENT CONTENT (Mobile: Middle, Desktop: Right Column) */}
-              <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col overflow-hidden md:h-full">
+              <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col overflow-hidden self-start md:h-auto">
                 
                 {/* Title */}
-                <h1
-                  className="article-title text-xl sm:text-2xl md:text-[25px] font-bold text-foreground mb-3 pb-2.5 border-b border-border leading-[1.3] tracking-tight"
+                <h2 
+                  className="article-title text-xl sm:text-2xl md:text-[25px] font-bold text-foreground mb-3.5 pb-2.5 border-b border-border leading-[1.3] tracking-tight"
                 >
                   {title}
-                </h1>
+                </h2>
 
                 {/* Event Highlights Grid (Clean single-layer cards, no double-nested wrapper) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 mb-5">
@@ -701,7 +703,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                       href={event.source_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-blue text-white font-semibold text-xs hover:bg-brand-blue-hover transition-colors shadow-xs"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 text-white font-bold text-xs hover:bg-blue-800 transition-colors shadow-xs"
                     >
                       <span>Official Event Website</span>
                       <i className="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>

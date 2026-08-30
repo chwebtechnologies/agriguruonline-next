@@ -249,6 +249,8 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
 
           {/* 50-50 Split Layout using CSS Grid Areas */}
           <div className="mt-3 w-full max-w-full overflow-hidden">
+            {/* Screen Reader Only H1 to enforce descending heading hierarchy for Accessibility & SEO */}
+            <h1 className="sr-only">{title}</h1>
             <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
               
               {/* FEATURED IMAGE */}
@@ -297,8 +299,8 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
 
               {/* OTHER UPDATES */}
               {otherList.length > 0 && (
-                <div className="grid-area-other w-full max-w-full min-w-0 mt-6 md:mt-0 md:h-full md:min-h-0">
-                  <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 md:p-5 shadow-xs space-y-3 sm:space-y-3.5 overflow-hidden flex flex-col md:h-full md:min-h-[340px]">
+                <div className="grid-area-other w-full max-w-full min-w-0 mt-6 md:mt-0 md:h-full md:min-h-[340px]">
+                  <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 md:p-5 shadow-xs space-y-3 sm:space-y-3.5 overflow-hidden flex flex-col md:h-full md:min-h-[340px] md:max-h-[720px]">
                     <div className="flex items-center justify-between pb-2 border-b border-border shrink-0">
                       <h2 
                         className="text-[15px] sm:text-lg font-bold text-foreground tracking-tight flex items-center gap-2"
@@ -357,7 +359,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
                                 )}
                               </div>
                               <div className="flex items-center justify-end mt-2 pt-2 border-t border-border/40">
-                                <div className="inline-flex items-center gap-1.5 font-bold text-[11px] sm:text-[12px] text-brand-blue shrink-0 group-hover:underline">
+                                <div className="inline-flex items-center gap-1.5 font-bold text-[11px] sm:text-[12px] text-sky-700 dark:text-sky-400 shrink-0 group-hover:underline">
                                   <span>Read More<span className="sr-only">: {itemTitle}</span></span>
                                   <i className="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition-transform" aria-hidden="true"></i>
                                 </div>
@@ -372,13 +374,13 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
               )}
 
               {/* ARTICLE CONTENT */}
-              <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col overflow-hidden md:h-full">
+              <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col overflow-hidden self-start md:h-auto">
                 
-                <h1 
+                <h2 
                   className="article-title text-xl sm:text-2xl md:text-[25px] font-bold text-foreground mb-3.5 pb-2.5 border-b border-border leading-[1.3] tracking-tight"
                 >
                   {title}
-                </h1>
+                </h2>
 
                 <div 
                   className="editorial-body text-foreground flex-1 w-full max-w-full overflow-hidden"

@@ -25,8 +25,8 @@ export default function Loading() {
               </div>
 
               {/* OTHER NEWS SKELETON */}
-              <div className="grid-area-other w-full max-w-full min-w-0 animate-pulse mt-6 md:mt-0 md:h-full md:min-h-0">
-                <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 md:p-5 shadow-xs space-y-3 sm:space-y-3.5 overflow-hidden flex flex-col md:h-full md:min-h-[340px]">
+              <div className="grid-area-other w-full max-w-full min-w-0 animate-pulse mt-6 md:mt-0 md:h-full md:min-h-[340px]">
+                <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 md:p-5 shadow-xs space-y-3 sm:space-y-3.5 overflow-hidden flex flex-col md:h-full md:min-h-[340px] md:max-h-[720px]">
                   <div className="flex items-center justify-between pb-2 border-b border-border shrink-0">
                     <div className="w-28 h-5 bg-muted rounded"></div>
                     <div className="w-16 h-3 bg-muted rounded"></div>
@@ -53,7 +53,7 @@ export default function Loading() {
               </div>
 
               {/* ARTICLE CONTENT SKELETON */}
-              <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col animate-pulse overflow-hidden md:h-full">
+              <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col animate-pulse overflow-hidden self-start md:h-auto">
                 <div className="w-full h-7 sm:h-8 bg-muted rounded mb-2"></div>
                 <div className="w-4/5 h-7 sm:h-8 bg-muted rounded mb-3.5 border-b border-border pb-2.5"></div>
                 
