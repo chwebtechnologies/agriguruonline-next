@@ -228,6 +228,28 @@ a, button, input, select, textarea, label, [role="button"] {
   animation-play-state: paused;
 }
 
+/* Periodic vibrant color shine sweep animation for high-converting CTA buttons */
+@keyframes buttonShine {
+  0%, 100% {
+    transform: translateX(-160%) skewX(-20deg);
+    opacity: 0;
+  }
+  3% {
+    opacity: 1;
+  }
+  22%, 30% {
+    transform: translateX(280%) skewX(-20deg);
+    opacity: 1;
+  }
+  33% {
+    opacity: 0;
+  }
+}
+
+.animate-button-shine {
+  animation: buttonShine 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 /* Custom vertical text style for membership floating tabs */
 .writing-mode-vertical {
   writing-mode: vertical-rl;

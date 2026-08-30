@@ -144,7 +144,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
         {/* Right: Sub actions */}
         <div className="flex items-center gap-5 text-[13.5px] shrink-0 font-bold">
-          <Link href="#download-section" className="hidden sm:flex items-center gap-2 hover:text-emerald-300 transition-colors">
+          <Link href={`/${activeLang}/download-application`} className="hidden sm:flex items-center gap-2 hover:text-emerald-300 transition-colors">
             <i className="fa-solid fa-mobile-screen-button text-[14px]"></i>
             <span>{dict.header.download_app}</span>
           </Link>

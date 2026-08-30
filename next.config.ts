@@ -4,16 +4,16 @@ import withSerwistInit from "@serwist/next";
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
-  cacheComponents: true,
-  partialPrefetching: true,
+  // cacheComponents: true,     // REMOVED: caches RSC payloads in memory but skips CSS chunk re-injection on navigation
+  // partialPrefetching: true,  // REMOVED: lazily loads CSS chunks causing FOUC (Flash of Unstyled Content) on first visit
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   experimental: {
-    optimizeCss: true,
+    // optimizeCss: true,  // DISABLED: critters defers page-unique CSS (IPhoneFrame, gradients) — never re-injected on client-nav
     staleTimes: {
-      dynamic: 300, // 5 minutes in-memory client router cache for dynamic routes
-      static: 1800, // 30 minutes in-memory client router cache for static routes
+      dynamic: 30,   // Keep short: prevents stale RSC cache from bypassing CSS chunk loading
+      static: 1800,  // 30 minutes for fully static routes
     },
     optimizePackageImports: [
       '@fortawesome/fontawesome-free',
@@ -130,6 +130,7 @@ const nextConfig: NextConfig = {
   images: {
     minimumCacheTTL: 31536000,
     formats: ['image/avif', 'image/webp'],
+    qualities: [65, 75, 85, 90],
     deviceSizes: [640, 750, 828, 1080, 1200],
     imageSizes: [32, 64, 96, 128, 256, 384],
     remotePatterns: [
