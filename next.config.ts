@@ -49,6 +49,7 @@ const nextConfig: NextConfig = {
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'self'",
+      "frame-src 'self' https://www.youtube.com https://youtube.com",
       "require-trusted-types-for 'script'",
       "trusted-types default nextjs nextjs#bundler 'allow-duplicates'",
       // Note: upgrade-insecure-requests intentionally omitted.
