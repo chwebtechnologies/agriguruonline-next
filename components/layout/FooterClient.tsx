@@ -123,7 +123,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
         <div className="hidden md:grid grid-cols-5 gap-6 text-sm font-bold tracking-wide">
           {/* Column 1: Company Details */}
           <div>
-            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.company_details}</h3>
+            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.company_details}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/about`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.about_us}</Link></li>
               <li><Link href={`/${activeLang}/founder`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.founder_profile}</Link></li>
@@ -132,7 +132,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
 
           {/* Column 2: Trade Services */}
           <div>
-            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.trade_services}</h3>
+            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.trade_services}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/manual`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.user_manual}</Link></li>
               <li><Link href={`/${activeLang}/guide`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.user_guide}</Link></li>
@@ -141,7 +141,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
 
           {/* Column 3: Membership Plans */}
           <div>
-            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.membership_plans}</h3>
+            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.membership_plans}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/membership`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.membership_plans}</Link></li>
             </ul>
@@ -149,7 +149,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
 
           {/* Column 4: Regulatory Norms */}
           <div>
-            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.regulatory_norms}</h3>
+            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.regulatory_norms}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/disclaimer`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.disclaimer}</Link></li>
               <li><Link href={`/${activeLang}/terms`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.terms_conditions}</Link></li>
@@ -160,7 +160,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
 
           {/* Column 5: Contact Us */}
           <div>
-            <h3 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.contact_us}</h3>
+            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.contact_us}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
               <li><Link href={`/${activeLang}/contact`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
             </ul>

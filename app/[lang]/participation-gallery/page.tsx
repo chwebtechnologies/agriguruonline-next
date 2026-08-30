@@ -120,7 +120,7 @@ async function ParticipationGalleryGrid({
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
           <i className="fa-solid fa-images text-2xl"></i>
         </div>
-        <h3 className="text-xl font-bold text-foreground mb-2">No Albums Found</h3>
+        <h2 className="text-xl font-bold text-foreground mb-2">No Albums Found</h2>
         <p className="text-foreground/80 max-w-md mx-auto text-sm">
           We couldn&apos;t find any participation albums on this page. Please check back later.
         </p>
@@ -180,7 +180,7 @@ export default async function ParticipationGalleryPage(props: {
   }
 
   return (
-    <div className="bg-background text-foreground min-h-screen">
+    <div className="bg-background text-foreground">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

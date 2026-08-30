@@ -267,7 +267,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-500 rounded-full blur-3xl opacity-20 -ml-10 -mb-10"></div>
               <div className="relative z-10 flex flex-col gap-1">
                 <span className="inline-block px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-bold tracking-widest uppercase rounded-sm w-max mb-1">Sponsored</span>
-                <h3 className="font-extrabold text-white text-[18px] min-[390px]:text-[20px] leading-tight">HDFC Bank<br/>Business</h3>
+                <h2 className="font-extrabold text-white text-[18px] min-[390px]:text-[20px] leading-tight">HDFC Bank<br/>Business</h2>
               </div>
             </div>
             
@@ -284,7 +284,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                 <i className="fa-solid fa-triangle-exclamation text-xl"></i>
               </div>
               <div className="flex flex-col justify-center w-full items-center">
-                <h3 className="text-[17px] font-bold text-red-600 dark:text-red-500 mb-1 leading-none text-center">Logout</h3>
+                <h2 className="text-[17px] font-bold text-red-600 dark:text-red-500 mb-1 leading-none text-center">Logout</h2>
                 <p className="text-foreground/80 text-[14px] leading-snug whitespace-nowrap text-center">Are you sure you want to log out of your account?</p>
               </div>
             </div>

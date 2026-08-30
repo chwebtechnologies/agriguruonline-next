@@ -56,9 +56,9 @@ const getNewsDetail = cache(async (slug: string, lang: string): Promise<NewsDeta
   }
 })
 
-const getOtherNews = cache(async (lang: string, limit = 6): Promise<NewsArticle[]> => {
+const getOtherNews = cache(async (lang: string, categoryId?: string, limit = 6): Promise<NewsArticle[]> => {
   const cmsApiUrl = getCmsApiUrl()
-  const url = `${cmsApiUrl}/latestnews?is_active=true&lang_code=${lang}&source=web&page=1&limit=${limit}`
+  const url = `${cmsApiUrl}/latestnews?is_active=true&lang_code=${lang}&source=web&page=1&limit=${limit}${categoryId ? `&category_id=${categoryId}` : ''}`
   
   try {
     const res = await fetch(url, {
@@ -245,10 +245,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
   const params = await props.params
   const { lang, slug } = params
   
-  const [article, allLatestNews] = await Promise.all([
-    getNewsDetail(slug, lang),
-    getOtherNews(lang, 6)
-  ])
+  const article = await getNewsDetail(slug, lang)
   
   if (!article) {
     return (
@@ -272,6 +269,17 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
       </div>
     )
   }
+
+  const categoryId = article.categories?.[0]?.id
+  let allLatestNews = await getOtherNews(lang, categoryId, 6)
+  let otherNewsList = allLatestNews.filter(item => item.slug !== slug)
+
+  if (otherNewsList.length === 0 && categoryId) {
+    allLatestNews = await getOtherNews(lang, undefined, 6)
+    otherNewsList = allLatestNews.filter(item => item.slug !== slug)
+  }
+
+  otherNewsList = otherNewsList.slice(0, 5)
 
   const translation = article.translations?.find(t => t.lang_code === lang)
   const title = translation?.title || article.title
@@ -300,9 +308,6 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
   const plainText = rawContent.replace(/<[^>]+>/g, '')
   const wordCount = plainText.trim().split(/\s+/).length
   const readingTime = Math.max(1, Math.ceil(wordCount / 200))
-
-  // Filter other news to exclude current article
-  const otherNewsList = allLatestNews.filter(item => item.slug !== slug).slice(0, 5)
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
   const articleUrl = `${siteUrl}/${lang}/news/${slug}`

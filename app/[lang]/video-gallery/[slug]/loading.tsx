@@ -1,11 +1,11 @@
 import { PageHeader } from '@/components/ui/PageHeader'
 
-export default function Loading() {
+export default function VideoCollectionLoading() {
   return (
-    <div data-skeleton-wrapper className="bg-background text-foreground">
+    <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Video Gallery" backText="Back" />
+          <PageHeader title="Loading..." backText="Back" />
           
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
             {[...Array(8)].map((_, i) => (

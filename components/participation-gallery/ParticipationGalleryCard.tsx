@@ -60,14 +60,14 @@ export default function ParticipationGalleryCard({
 
       <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col justify-between flex-grow">
         <div>
-          <h3
+          <h2
             className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight"
             style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
           >
             <Link href={albumUrl} prefetch={true} title={category.category_name} className="hover:text-brand-blue transition-colors">
               {category.category_name}
             </Link>
-          </h3>
+          </h2>
         </div>
 
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
@@ -75,7 +75,7 @@ export default function ParticipationGalleryCard({
             href={albumUrl}
             prefetch={true}
             aria-label={`View album: ${category.category_name}`}
-            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
+            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link p-2 -ml-2"
           >
             <span>View Album</span>
             <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] rtl:rotate-180 group-hover/link:translate-x-1 rtl:group-hover/link:-translate-x-1 transition-transform"></i>

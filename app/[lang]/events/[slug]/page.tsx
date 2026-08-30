@@ -379,7 +379,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                 <div className="grid-area-other w-full max-w-full min-w-0 mt-6 md:mt-0 md:h-full md:min-h-0">
                   <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 md:p-5 shadow-xs space-y-3 sm:space-y-3.5 overflow-hidden flex flex-col md:h-full md:min-h-[340px]">
                     <div className="flex items-center justify-between pb-2 border-b border-border shrink-0">
-                      <h3
+                      <h2
                         className="text-[15px] sm:text-lg font-bold text-foreground tracking-tight flex items-center gap-2"
                         style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
                       >
@@ -387,7 +387,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                           <i className="fa-regular fa-calendar-days"></i>
                         </span>
                         Other Events
-                      </h3>
+                      </h2>
                       <Link
                         href={`/${lang}/events`}
                         className="text-xs font-bold text-foreground/80 hover:text-brand-blue hover:underline flex items-center gap-1 transition-colors"
@@ -447,9 +447,9 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                                   {itemStatusUpper}
                                 </span>
                               </div>
-                              <h4 className="text-[13px] min-[360px]:text-[14px] font-bold text-foreground line-clamp-2 leading-snug group-hover:text-brand-blue transition-colors">
+                              <h3 className="text-[13px] min-[360px]:text-[14px] font-bold text-foreground line-clamp-2 leading-snug group-hover:text-brand-blue transition-colors">
                                 {itemTitle}
-                              </h4>
+                              </h3>
                               <p className="text-[11px] min-[360px]:text-[11.5px] text-foreground/80 font-medium truncate flex items-center gap-1">
                                 <i className="fa-solid fa-location-dot text-[9px] text-brand-blue shrink-0"></i>
                                 <span className="truncate">{itemLocation}</span>

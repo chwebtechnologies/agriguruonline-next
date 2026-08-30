@@ -151,7 +151,7 @@ export default async function LatestNewsPage(props: {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
                 <i className="fa-regular fa-newspaper text-2xl"></i>
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">No News Found</h3>
+              <h2 className="text-xl font-semibold text-foreground mb-2">No News Found</h2>
               <p className="text-foreground/80 max-w-md mx-auto">
                 We couldn&apos;t find any latest news articles at the moment. Please check back later.
               </p>

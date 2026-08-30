@@ -42,9 +42,9 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
       </div>
       
       <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
-        <h3 className="text-sm sm:text-base font-semibold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors">
+        <h2 className="text-sm sm:text-base font-semibold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors">
           {title}
-        </h3>
+        </h2>
         
         <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 mb-4 flex-grow">
           {description}

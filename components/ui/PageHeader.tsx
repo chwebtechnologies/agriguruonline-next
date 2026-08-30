@@ -42,12 +42,12 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
   }
 
   return (
-    <div className={`sticky ${stickyTopClass} z-40 py-1 sm:py-1.5 grid grid-cols-[1fr_auto_1fr] items-center w-full mb-1 sm:mb-2 bg-background transition-[top] duration-200`}>
+    <div className={`sticky ${stickyTopClass} z-40 py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-2 bg-background transition-[top] duration-200 relative`}>
       {/* Full-width background bleed */}
       <div className="absolute inset-y-0 w-[100vw] left-1/2 -translate-x-1/2 bg-background z-0 pointer-events-none" />
       
       {/* Left Column: Back Button */}
-      <div className="flex items-center justify-start min-w-0 relative z-10">
+      <div className="flex-none flex items-center justify-start relative z-20">
         {!hideBack && (
           <button 
             type="button"
@@ -58,15 +58,15 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
             <div className="flex shrink-0 items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-card border border-border shadow-xs group-hover:border-brand-blue transition-colors">
               <i className="fa-solid fa-arrow-left text-[14px] sm:text-[15px] text-foreground rtl:rotate-180 group-hover:-translate-x-0.5 rtl:group-hover:translate-x-0.5 transition-transform"></i>
             </div>
-            <span className="text-[19px] sm:text-[21px] font-bold hidden sm:block leading-none pb-[2px] truncate">{backText}</span>
+            <span className="text-[19px] sm:text-[21px] font-bold hidden sm:block leading-none pb-[2px] truncate max-w-[140px]">{backText}</span>
           </button>
         )}
       </div>
 
       {/* Middle Column: Centered Title */}
-      <div className="flex items-center justify-center px-1 sm:px-4 min-w-0 relative z-10">
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center px-[45px] sm:px-[120px] z-10">
         <h1 
-          className="text-xl min-[375px]:text-[22px] min-[410px]:text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-extrabold text-center truncate tracking-tight leading-tight"
+          className="pointer-events-auto text-xl min-[375px]:text-[22px] min-[410px]:text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-extrabold text-center truncate tracking-tight leading-tight w-full"
           style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
         >
           {(title || '').split(' ').map((word, index, arr) => (
@@ -81,7 +81,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
       </div>
 
       {/* Right Column: Spacer for perfect centering */}
-      <div className="flex items-center justify-end min-w-0 relative z-10"></div>
+      <div className="flex-none flex items-center justify-end relative z-20 w-[32px] sm:w-[36px]"></div>
     </div>
   )
 }

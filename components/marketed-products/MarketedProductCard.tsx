@@ -223,9 +223,9 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 <div className="flex flex-col flex-1 text-left justify-center min-w-0 py-0.5">
                   {/* Top Row: Title + FOB word */}
                   <div className="flex items-end justify-between gap-3 mb-1.5">
-                    <h3 className="font-bold text-lg sm:text-xl leading-tight text-foreground/90 truncate">
+                    <h2 className="font-bold text-lg sm:text-xl leading-tight text-foreground/90 truncate">
                       {product.name}
-                    </h3>
+                    </h2>
                     {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
                       <span className="font-bold text-lg sm:text-xl text-foreground/50 uppercase whitespace-nowrap leading-tight">
                         FOB

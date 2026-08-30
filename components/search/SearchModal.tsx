@@ -853,10 +853,10 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
           >
             {/* Spec Header */}
             <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-card">
-              <h3 className="font-bold text-base sm:text-lg text-foreground flex items-center gap-2">
-                <i className="fa-solid fa-file-lines text-primary"></i>
-                <span>{selectedSpecsProduct.name} Specifications</span>
-              </h3>
+              <h2 className="font-bold text-base sm:text-lg text-foreground flex items-center gap-2">
+                <i className="fa-solid fa-file-lines text-primary text-xs"></i>
+                <span className="truncate">{selectedSpecsProduct.name} Specifications</span>
+              </h2>
               <button
                 onClick={() => setSelectedSpecsProduct(null)}
                 className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"

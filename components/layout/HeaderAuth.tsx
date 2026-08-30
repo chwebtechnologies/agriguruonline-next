@@ -282,7 +282,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   {isNotificationsOpen && (
                     <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-64 md:w-80 rounded-lg bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
                       <div className="flex items-center justify-between border-b border-border pb-2 mb-2">
-                        <h3 className="font-bold text-[16px] text-foreground">Notifications</h3>
+                        <h2 className="font-bold text-[16px] text-foreground">Notifications</h2>
                       </div>
                       <div className="flex flex-col items-center justify-center py-6 text-center">
                         <i className="fa-regular fa-bell-slash text-3xl text-zinc-400 mb-3"></i>

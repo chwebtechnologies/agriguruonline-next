@@ -23,12 +23,12 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
   const imageUrl = getImageUrl((category as any).thumbnail || category.image);
 
   return (
-    <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">
+    <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">
       <Link 
         href={`/${lang}/video-gallery/${category.slug}`}
         prefetch={true}
         aria-label={category.category_name}
-        className="w-full aspect-video relative overflow-hidden bg-card/30 block"
+        className="w-full aspect-video relative overflow-hidden bg-card/30 block border-b border-border"
       >
         <ImageWithSkeleton
           src={imageUrl}
@@ -56,24 +56,22 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
         )}
       </Link>
 
-      <div className="px-4 py-4 flex flex-col flex-grow relative">
-        <h3 className="text-base font-semibold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors duration-200 leading-snug">
-          <Link href={`/${lang}/video-gallery/${category.slug}`} prefetch={true}>
+      <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
+        <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+          <Link href={`/${lang}/video-gallery/${category.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
             {category.category_name}
           </Link>
-        </h3>
+        </h2>
         
-        <div className="flex-grow"></div>
-        
-        <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+        <div className="flex items-center justify-between mt-1">
           <Link 
             href={`/${lang}/video-gallery/${category.slug}`}
             prefetch={true}
             aria-label={`View collection: ${category.category_name}`}
-            className="flex items-center text-sm font-semibold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity group/link"
+            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
           >
-            View Collection
-            <i className="fa-solid fa-arrow-right ml-2 text-xs group-hover/link:translate-x-1 transition-transform"></i>
+            <span>View Collection</span>
+            <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
           </Link>
 
           <ShareButton 

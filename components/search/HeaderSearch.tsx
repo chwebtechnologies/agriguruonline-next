@@ -763,10 +763,10 @@ export function HeaderSearch({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card">
-              <h3 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-2">
+              <h2 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-2">
                 <i className="fa-solid fa-file-lines text-primary text-xs"></i>
                 <span className="truncate">{selectedSpecsProduct.name} Specifications</span>
-              </h3>
+              </h2>
               <button
                 onClick={() => setSelectedSpecsProduct(null)}
                 className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"

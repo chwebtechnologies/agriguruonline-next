@@ -2,7 +2,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 
 export default function AboutLoading() {
   return (
-    <div data-skeleton-wrapper className="bg-background text-foreground min-h-screen">
+    <div data-skeleton-wrapper className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="About Us" backText="Back" />

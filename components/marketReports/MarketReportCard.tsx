@@ -124,9 +124,9 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
             )}
           </div>
 
-          <h3 className="text-sm sm:text-base font-bold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors leading-tight">
+          <h2 className="text-sm sm:text-base font-bold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors leading-tight">
             {title}
-          </h3>
+          </h2>
           
           {description && (
             <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 mb-4 flex-grow">

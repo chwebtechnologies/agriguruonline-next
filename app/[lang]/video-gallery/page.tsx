@@ -105,7 +105,7 @@ async function VideoGalleryGrid({ lang }: { lang: string }) {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
           <i className="fa-solid fa-video-slash text-2xl"></i>
         </div>
-        <h3 className="text-xl font-semibold text-foreground mb-2">No Videos Found</h3>
+        <h2 className="text-xl font-semibold text-foreground mb-2">No Videos Found</h2>
         <p className="text-foreground/80 max-w-md mx-auto">
           We couldn&apos;t find any video categories at the moment. Please check back later.
         </p>
@@ -132,7 +132,7 @@ export default async function VideoGalleryPage(props: {
   const lang = params.lang || 'en'
   
   return (
-    <div className="bg-background text-foreground min-h-screen">
+    <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Video Gallery" backText="Back" />
@@ -157,12 +157,13 @@ function VideoGalleryGridSkeleton() {
           className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse"
         >
           <div className="w-full aspect-video bg-muted border-b border-border"></div>
-          <div className="px-4 py-4 flex flex-col flex-grow">
-            <div className="w-full h-5 rounded bg-muted mb-2"></div>
-            <div className="w-3/4 h-5 rounded bg-muted mb-4"></div>
-            <div className="flex-grow"></div>
-            <div className="w-24 h-4 rounded bg-muted mt-4"></div>
-          </div>
+                <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
+                  <div className="w-3/4 h-4 sm:h-5 rounded bg-muted mb-1"></div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="w-20 h-3 sm:h-4 rounded bg-muted"></div>
+                    <div className="w-6 h-6 rounded-full bg-muted"></div>
+                  </div>
+                </div>
         </div>
       ))}
     </div>

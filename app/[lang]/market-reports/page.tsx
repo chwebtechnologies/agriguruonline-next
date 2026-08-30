@@ -183,7 +183,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
           <i className="fa-solid fa-file-pdf text-2xl"></i>
         </div>
-        <h3 className="text-xl font-semibold text-foreground mb-2">No Market Reports Found</h3>
+        <h2 className="text-xl font-semibold text-foreground mb-2">No Market Reports Found</h2>
         <p className="text-foreground/80 max-w-md mx-auto">
           We couldn&apos;t find any market reports at the moment. Please check back later.
         </p>
