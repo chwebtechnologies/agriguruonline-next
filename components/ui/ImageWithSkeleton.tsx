@@ -58,7 +58,7 @@ export default function ImageWithSkeleton({
         priority={priority}
         fetchPriority={priority ? 'high' : 'auto'}
         loading={priority ? 'eager' : 'lazy'}
-        decoding={priority ? 'sync' : 'async'}
+        decoding="async"
         quality={65}
         style={{ objectFit: 'cover', ...style }}
         className={className}

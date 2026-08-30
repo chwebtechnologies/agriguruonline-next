@@ -160,7 +160,7 @@ export default async function LatestNewsPage(props: {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
                 {articles.map((article, index) => (
-                  <NewsCard priority={index < 4} key={article.id} article={article} lang={lang} />
+                  <NewsCard priority={index < 2} key={article.id} article={article} lang={lang} />
                 ))}
               </div>
               <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/news`} />

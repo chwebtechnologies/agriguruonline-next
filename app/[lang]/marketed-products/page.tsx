@@ -188,7 +188,7 @@ export default async function MarketedProductsPage(
                 lang={lang}
                 common={common}
                 imageBaseUrl={imageBaseUrl}
-                priority={index < 10}
+                priority={index === 0}
               />
             ))}
           </div>

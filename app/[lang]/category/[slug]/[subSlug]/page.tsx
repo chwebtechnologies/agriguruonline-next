@@ -230,7 +230,7 @@ export default async function SubCategoryProductsPage(
                   title={productName}
                   className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                 >
-                  <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="relative w-full aspect-square bg-card/30 overflow-hidden border-b border-border block" title={productName}>
+                  <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="relative w-full aspect-square bg-muted animate-pulse overflow-hidden border-b border-border block" title={productName} tabIndex={-1} aria-hidden="true">
                     <ImageWithSkeleton
                       src={imageUrl}
                       alt={productName}
@@ -238,7 +238,7 @@ export default async function SubCategoryProductsPage(
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      priority={index < 2}
+                      priority={index === 0}
                     />
                   </Link>
 
@@ -270,7 +270,8 @@ export default async function SubCategoryProductsPage(
                         href={`/${lang}/product/${product.slug}`}
                         prefetch={true}
                         title={`${common.viewDetails} - ${product.name}`}
-                        aria-label={`${common.viewDetails} ${product.name}`}
+                        tabIndex={-1}
+                        aria-hidden="true"
                         className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
                       >
                         <span aria-hidden="true">{common.viewDetails}</span>

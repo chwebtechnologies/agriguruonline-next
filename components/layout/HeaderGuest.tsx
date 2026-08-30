@@ -288,7 +288,7 @@ export function HeaderGuestBase({
 
           {/* Right Section: Navigation Links & Actions */}
           <div className="flex items-center gap-4 shrink-0">
-            <nav className="hidden lg:flex items-center gap-8 text-[18px] whitespace-nowrap">
+            <nav className="hidden lg:flex items-center gap-8 text-[19px] whitespace-nowrap">
               {loading ? (
                 <>
                   <div className="h-5 w-16 bg-muted animate-pulse rounded" />
