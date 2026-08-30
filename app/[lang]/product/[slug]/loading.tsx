@@ -1,0 +1,130 @@
+import { PageHeader } from '@/components/ui/PageHeader'
+
+export default function ProductDetailLoading() {
+  return (
+    <div className="bg-background text-foreground min-h-screen">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <div className="animate-pulse">
+            <div className="h-10 w-48 bg-muted rounded mb-4"></div>
+          </div>
+
+          <div className="mt-4 sm:mt-5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 p-4 sm:p-5 md:p-6">
+              
+              {/* Product Image Section Skeleton (Side-by-side with title on mobile) */}
+              <div className="flex flex-row md:flex-col gap-4 md:gap-0 md:space-y-4 md:col-span-5 lg:col-span-4">
+                <div className="relative w-2/5 md:w-full aspect-square bg-muted rounded-xl border border-border flex-shrink-0 animate-pulse">
+                </div>
+                
+                {/* Mobile Title & Tags Skeleton */}
+                <div className="flex flex-col md:hidden justify-start pt-1 flex-1 space-y-3">
+                  <div className="h-6 w-full bg-muted rounded animate-pulse"></div>
+                  <div className="h-4 w-3/4 bg-muted rounded animate-pulse mt-0.5"></div>
+                  
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <div className="h-6 w-20 bg-muted rounded-full animate-pulse"></div>
+                    <div className="h-6 w-24 bg-muted rounded-full animate-pulse"></div>
+                    <div className="h-6 w-20 bg-muted rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+
+                {/* Action Buttons Skeleton (Desktop) */}
+                <div className="hidden md:flex flex-col gap-2 mt-2">
+                  <div className="h-[46px] md:h-[50px] w-full bg-muted rounded-xl animate-pulse"></div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="h-[46px] md:h-[50px] bg-muted rounded-xl animate-pulse"></div>
+                    <div className="h-[46px] md:h-[50px] bg-muted rounded-xl animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Info Section Skeleton */}
+              <div className="flex flex-col space-y-6 md:col-span-7 lg:col-span-8">
+                {/* Desktop Title & Tags Skeleton */}
+                <div className="hidden md:block">
+                  <div className="h-8 w-3/4 bg-muted rounded mb-3 animate-pulse"></div>
+                  <div className="h-4 w-1/4 bg-muted rounded mb-5 animate-pulse"></div>
+                  
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <div className="h-7 w-24 bg-muted rounded-full animate-pulse"></div>
+                    <div className="h-7 w-20 bg-muted rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+
+                {/* Action Buttons Skeleton (Desktop) */}
+                <div className="hidden md:flex flex-col gap-2 mt-2">
+                  <div className="h-[46px] md:h-[50px] w-full bg-muted rounded-xl animate-pulse"></div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="h-[46px] md:h-[50px] bg-muted rounded-xl animate-pulse"></div>
+                    <div className="h-[46px] md:h-[50px] bg-muted rounded-xl animate-pulse"></div>
+                  </div>
+                </div>
+
+                <hr className="border-border" />
+
+                {/* Additional Information Grids Skeleton */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="bg-muted/40 p-4 rounded-xl border border-border h-32 animate-pulse"></div>
+                  <div className="bg-muted/40 p-4 rounded-xl border border-border h-32 animate-pulse"></div>
+                  <div className="bg-muted/40 p-4 rounded-xl border border-border sm:col-span-2 xl:col-span-1 h-32 animate-pulse"></div>
+                </div>
+
+                <hr className="border-border" />
+
+                {/* Specifications & Description Skeleton */}
+                <div className="space-y-6">
+                  <div>
+                    <div className="h-6 w-48 bg-muted rounded mb-3 animate-pulse flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-brand-green/30"></div>
+                      <div className="h-4 w-32 bg-muted rounded"></div>
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+                      <table className="w-full text-xs text-left">
+                        <tbody className="divide-y divide-border/60">
+                          {[...Array(4)].map((_, i) => (
+                            <tr key={i}>
+                              <td className="px-3.5 py-2.5 bg-background/40 w-[40%] sm:w-1/3 border-r border-border">
+                                <div className="h-3 w-2/3 bg-muted rounded animate-pulse"></div>
+                              </td>
+                              <td className="px-3.5 py-2.5">
+                                <div className="h-3 w-3/4 bg-muted rounded animate-pulse"></div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="h-6 w-48 bg-muted rounded mb-3 animate-pulse flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-brand-blue/30"></div>
+                      <div className="h-4 w-32 bg-muted rounded"></div>
+                    </div>
+                    <div className="p-3 bg-background/50 rounded-xl border border-border space-y-2">
+                      <div className="h-3 w-full bg-muted rounded animate-pulse"></div>
+                      <div className="h-3 w-5/6 bg-muted rounded animate-pulse"></div>
+                      <div className="h-3 w-4/6 bg-muted rounded animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons Skeleton (Mobile) */}
+                <div className="flex md:hidden flex-col gap-2 mt-6">
+                  <div className="h-[46px] md:h-[50px] w-full bg-muted rounded-xl animate-pulse"></div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="h-[46px] md:h-[50px] bg-muted rounded-xl animate-pulse"></div>
+                    <div className="h-[46px] md:h-[50px] bg-muted rounded-xl animate-pulse"></div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  )
+}
