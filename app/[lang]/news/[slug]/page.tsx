@@ -334,7 +334,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                     />
                     {categoryName && (
                       <div className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-lg border border-white/10 flex items-center gap-1.5 pointer-events-none">
-                        <i className="fa-solid fa-tag text-[9px] text-brand-blue"></i>
+                        <i className="fa-solid fa-tag text-[9px] text-sky-300"></i>
                         {categoryName}
                       </div>
                     )}
@@ -432,9 +432,9 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
 
                               {/* Title & Description */}
                               <div className="flex-1 min-w-0 space-y-1">
-                                <h4 className="text-[13px] min-[360px]:text-[14px] font-bold text-foreground line-clamp-2 leading-snug group-hover:text-brand-blue transition-colors">
+                                <h3 className="text-[13px] min-[360px]:text-[14px] font-bold text-foreground line-clamp-2 leading-snug group-hover:text-brand-blue transition-colors">
                                   {itemTitle}
-                                </h4>
+                                </h3>
                                 {itemDesc && (
                                   <p className="text-[11.5px] min-[360px]:text-[12px] sm:text-[12.5px] text-foreground/75 line-clamp-2 leading-relaxed text-left">
                                     {itemDesc}

@@ -179,7 +179,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
       <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Category not found</h1>
-          <Link href={`/${lang}`} className="text-brand-blue hover:underline">
+          <Link href={`/${lang}`} className="text-sky-700 dark:text-sky-400 hover:underline">
             Return to Home
           </Link>
         </div>
@@ -225,25 +225,27 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                         title={subCatName}
                         fill
                         sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                        priority={index < 10}
+                        priority={index < 2}
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     </ProductLink>
 
                     <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
-                      <h3 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                      <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
                         <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors">
                           {subCatName}
                         </ProductLink>
-                      </h3>
+                      </h2>
 
                       <div className="flex items-center justify-between mt-1">
                         <ProductLink
                           href={`/${lang}/category/${slug}/${subCat.slug}`}
-                          className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-brand-blue hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
+                          aria-label={`${common.explore} ${subCatName}`}
+                          className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
                         >
-                          {common.explore}
-                          <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
+                          <span aria-hidden="true">{common.explore}</span>
+                          <span className="sr-only">{common.explore} {subCatName}</span>
+                          <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
                         </ProductLink>
 
                         <ShareButton

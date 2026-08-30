@@ -50,11 +50,11 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
           <time dateTime={article.posting_date}>{formattedDate}</time>
         </div>
         
-        <h3 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+        <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
           <FastLink href={`/${lang}/news/${article.slug}`} className="hover:text-brand-blue transition-colors">
             {title}
           </FastLink>
-        </h3>
+        </h2>
         
         <p className="text-[13px] text-foreground/80 mb-4 line-clamp-3 flex-grow">
           {excerpt}

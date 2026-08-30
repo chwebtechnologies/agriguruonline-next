@@ -31,7 +31,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
   const pathname = usePathname()
   const router = useRouter()
   const langDropdownRef = useRef<HTMLDivElement>(null)
-  
+
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -72,7 +72,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
     const pathname = window.location.pathname
     const segments = pathname.split('/').filter(Boolean)
     const isFirstSegmentLang = ['en', 'ar', 'zh', 'fr'].includes(segments[0])
-    
+
     let newPath = '/'
     if (isFirstSegmentLang) {
       segments[0] = newLang
@@ -122,7 +122,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
               const translation = ann.translations?.find(t => t.lang_code === activeLang)
               const title = translation?.title || ann.title
               const label = translation?.label || ann.label
-              
+
               return (
                 <div key={ann.id || idx} className="h-6 flex items-center gap-2 truncate">
                   <span className="tracking-wide">{title}</span>
@@ -171,9 +171,8 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
                     <button
                       key={l.code}
                       onClick={() => changeLanguage(l.code)}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold hover:bg-zinc-800 transition-colors ${
-                        activeLang === l.code ? 'text-emerald-400 bg-zinc-800/40' : 'text-zinc-300'
-                      }`}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold hover:bg-zinc-800 transition-colors ${activeLang === l.code ? 'text-emerald-400 bg-zinc-800/40' : 'text-zinc-300'
+                        }`}
                     >
                       <span className="text-[15px]">{l.flag}</span>
                       <span>{l.name}</span>
@@ -188,27 +187,24 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
           <div className="hidden md:flex items-center gap-1.5 bg-black/35 p-0.5 rounded-full border border-white/10 shadow-inner select-none">
             <button
               onClick={() => changeTheme('system')}
-              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${
-                theme === 'system' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
-              }`}
+              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${theme === 'system' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
+                }`}
               title="System Mode"
             >
               <i className="fa-solid fa-desktop text-[11px]"></i>
             </button>
             <button
               onClick={() => changeTheme('light')}
-              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${
-                theme === 'light' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
-              }`}
+              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${theme === 'light' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
+                }`}
               title="Light Mode"
             >
               <i className="fa-solid fa-sun text-[11px]"></i>
             </button>
             <button
               onClick={() => changeTheme('dark')}
-              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${
-                theme === 'dark' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
-              }`}
+              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${theme === 'dark' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
+                }`}
               title="Dark Mode"
             >
               <i className="fa-solid fa-moon text-[11px]"></i>

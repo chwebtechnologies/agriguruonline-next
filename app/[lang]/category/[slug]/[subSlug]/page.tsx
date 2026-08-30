@@ -200,7 +200,7 @@ export default async function SubCategoryProductsPage(
       <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">No products found</h1>
-          <Link href={`/${lang}/category/${slug}`} className="text-brand-blue hover:underline">
+          <Link href={`/${lang}/category/${slug}`} className="text-sky-700 dark:text-sky-400 hover:underline">
             Return to Category
           </Link>
         </div>
@@ -238,7 +238,7 @@ export default async function SubCategoryProductsPage(
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      priority={index < 10}
+                      priority={index < 2}
                     />
                   </Link>
 
@@ -270,9 +270,11 @@ export default async function SubCategoryProductsPage(
                         href={`/${lang}/product/${product.slug}`}
                         prefetch={true}
                         title={`${common.viewDetails} - ${product.name}`}
+                        aria-label={`${common.viewDetails} ${product.name}`}
                         className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
                       >
-                        {common.viewDetails}
+                        <span aria-hidden="true">{common.viewDetails}</span>
+                        <span className="sr-only">{common.viewDetails} {product.name}</span>
                       </Link>
                     </div>
                   </div>
