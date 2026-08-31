@@ -654,9 +654,7 @@ export default function FreightChartClient({
                 {addedFreights.map((item, index) => {
                   const changeVal = Number(item.change) || 0;
                   const isPositive = changeVal >= 0;
-                  const desktopRowBg = index % 2 === 0
-                    ? 'bg-card dark:bg-[#18181b]'
-                    : 'bg-[#eef3f8] dark:bg-[#202630]';
+                  const desktopRowBg = 'bg-card dark:bg-[#18181b] hover:bg-zinc-50 dark:hover:bg-zinc-800/50';
 
                   return (
                     <div key={item.id || index}>
