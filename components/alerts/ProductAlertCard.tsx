@@ -20,7 +20,7 @@ export function ProductAlertCard({
   const incoterm = typeof incotermStr === 'string' ? incotermStr.toUpperCase() : 'FOB';
   
   const rightTargetLabel = incoterm;
-  const rightTargetPrice = `₹ ${Number(price).toLocaleString('en-IN')}`;
+  const rightTargetPrice = `$ ${Number(price).toLocaleString('en-IN')}`;
   const bottomTag = alert.shipping_container || 'Commodity';
 
   const originName = alert.loading_port?.name || alert.origin?.name || alert.origin_name || 'India';
@@ -38,24 +38,27 @@ export function ProductAlertCard({
   const showDest = incoterm === 'CNF' || incoterm === 'CIF' || incoterm === 'CFR';
 
   const routeDisplay = (
-    <div className="flex flex-row items-center gap-2 sm:gap-5 text-[12px] sm:text-[15px] font-medium text-muted-foreground min-w-0">
+    <div className="flex flex-row items-center gap-1.5 sm:gap-3 text-[12px] sm:text-[15px] font-medium text-muted-foreground min-w-0">
       <span className="flex items-center gap-1 sm:gap-1.5 truncate">
         {originFlag.includes('http') ? (
           <img src={originFlag} className="w-[20px] h-[15px] sm:w-[22px] sm:h-[16px] object-cover rounded-[2px]" alt="" />
         ) : (
           <span className="text-[16px] sm:text-[18px] leading-none">{originFlag}</span>
         )} 
-        POL: <span className="truncate max-w-[80px] sm:max-w-none">{originName}</span>
+        POL: <span className="truncate max-w-[120px]">{originName}</span>
       </span>
       {showDest && (
-        <span className="flex items-center gap-1 sm:gap-1.5 truncate">
-          {destFlag.includes('http') ? (
-            <img src={destFlag} className="w-[20px] h-[15px] sm:w-[22px] sm:h-[16px] object-cover rounded-[2px]" alt="" />
-          ) : (
-            <span className="text-[16px] sm:text-[18px] leading-none">{destFlag}</span>
-          )}
-          POD: <span className="truncate max-w-[80px] sm:max-w-none">{destName}</span>
-        </span>
+        <>
+          <i className="fa-solid fa-arrow-right-long text-muted-foreground text-[11px] sm:text-[14px] shrink-0"></i>
+          <span className="flex items-center gap-1 sm:gap-1.5 truncate">
+            {destFlag.includes('http') ? (
+              <img src={destFlag} className="w-[20px] h-[15px] sm:w-[22px] sm:h-[16px] object-cover rounded-[2px]" alt="" />
+            ) : (
+              <span className="text-[16px] sm:text-[18px] leading-none">{destFlag}</span>
+            )}
+            POD: <span className="truncate max-w-[120px]">{destName}</span>
+          </span>
+        </>
       )}
     </div>
   );
