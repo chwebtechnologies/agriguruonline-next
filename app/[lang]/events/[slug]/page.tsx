@@ -308,21 +308,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                       className="object-cover"
                     />
 
-                    {/* Status Badge Top-Left */}
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 pointer-events-none">
-                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border backdrop-blur-md shadow-xs flex items-center gap-1.5 ${statusColorClass}`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
-                        {statusUpper}
-                      </span>
-                    </div>
-
-                    {/* Location Badge Top-Right (if available) */}
-                    {location && (
-                      <div className="absolute top-2.5 right-2.5 bg-black/70 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-white/10 flex items-center gap-1.5 max-w-[55%] truncate pointer-events-none">
-                        <i className="fa-solid fa-location-dot text-[10px] text-brand-blue shrink-0"></i>
-                        <span className="truncate">{location}</span>
-                      </div>
-                    )}
+                    {/* Image badges removed */}
                   </div>
 
                   {/* Below Image: Event Date, Location & Share Button */}
@@ -336,15 +322,11 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                         </time>
                       </div>
 
-                      {location && (
-                        <>
-                          <span className="text-border hidden md:inline">•</span>
-                          <div className="hidden md:inline-flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium px-2 py-0.5 rounded-md bg-muted text-foreground/80 whitespace-nowrap shrink-0 border border-border/60 leading-none truncate max-w-[200px]">
-                            <i className="fa-solid fa-map-pin text-xs text-foreground/75 shrink-0"></i>
-                            <span className="truncate">{location}</span>
-                          </div>
-                        </>
-                      )}
+                      <span className="text-border hidden sm:inline">•</span>
+                      <div className={`hidden sm:inline-flex items-center gap-1.5 text-[11px] sm:text-[12px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap shrink-0 border leading-none ${statusColorClass}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                        {statusUpper}
+                      </div>
                     </div>
 
                     {/* Share Button */}
