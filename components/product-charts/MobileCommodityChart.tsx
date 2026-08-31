@@ -61,7 +61,7 @@ const productDetailsCache = new Map<string, any>();
 // Helper to parse quality specifications from HTML string
 export const parseSpecifications = (html?: string) => {
   if (!html) return { tableData: [], otherData: [] };
-  
+
   let decoded = html
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -69,21 +69,21 @@ export const parseSpecifications = (html?: string) => {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ');
-    
+
   const textWithNewlines = decoded
     .replace(/<\/(p|div|li)>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]*>/g, '');
-    
+
   const items = textWithNewlines.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
-  
+
   const tableData: { key: string; value: string }[] = [];
   const otherData: string[] = [];
-  
+
   items.forEach(item => {
     const cleanItem = item.replace(/,$/, '').trim();
     if (!cleanItem) return;
-    
+
     const colonIndex = cleanItem.indexOf(':');
     if (colonIndex > 0) {
       const key = cleanItem.substring(0, colonIndex).trim();
@@ -101,7 +101,7 @@ export const parseSpecifications = (html?: string) => {
       otherData.push(cleanItem);
     }
   });
-  
+
   return { tableData, otherData };
 };
 
@@ -205,7 +205,7 @@ export default function MobileCommodityChart({
               const timestamp = isNaN(d.getTime()) ? Date.now() : d.getTime();
               const isCurrentYear = d.getFullYear() === curYear;
               const formattedDate = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-              const shortDate = isCurrentYear 
+              const shortDate = isCurrentYear
                 ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
                 : d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
               const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
@@ -490,11 +490,11 @@ export default function MobileCommodityChart({
     const freightSpread = fob > 0 ? Math.max(0, last - fob) : 0;
 
     const rawPacking = apiProduct?.product?.packing_types || productDetails?.packing_types;
-    const packingTypes = Array.isArray(rawPacking) 
+    const packingTypes = Array.isArray(rawPacking)
       ? rawPacking.map((p: any) => ({
-          title: p.packing_type?.title || p.title || 'Standard Bag',
-          isDefault: !!p.is_default
-        }))
+        title: p.packing_type?.title || p.title || 'Standard Bag',
+        isDefault: !!p.is_default
+      }))
       : [];
 
     let aiLabel = 'Bullish Momentum';
@@ -571,7 +571,7 @@ export default function MobileCommodityChart({
     return imgPath.startsWith('http') ? imgPath : `${baseUrl}/${imgPath.replace(/^\//, '')}`;
   };
 
-  const tabs = ['Overview', 'Technical', 'Specifications', 'Historical'];
+  const tabs = ['Overview', 'Alert Setups', 'AI Predict', 'Historical', 'Specifications'];
 
   const timeframeLabel = {
     '1W': '1 week',
@@ -606,8 +606,8 @@ export default function MobileCommodityChart({
     if (!payload || cx == null || cy == null) return null;
 
     const hasComment = Boolean(
-      payload.product_comment || 
-      payload.freight_comment || 
+      payload.product_comment ||
+      payload.freight_comment ||
       payload.comment ||
       payload.remarks
     );
@@ -617,8 +617,8 @@ export default function MobileCommodityChart({
     const isSelected = (activeCommentItem?.date === payload.date);
 
     return (
-      <g 
-        key={`comment-dot-${payload.date}`} 
+      <g
+        key={`comment-dot-${payload.date}`}
         className="cursor-pointer group select-none"
         onClick={(e) => {
           e.stopPropagation();
@@ -653,14 +653,14 @@ export default function MobileCommodityChart({
   }, [activeCommentItem?.date]);
 
   return (
-    <div 
+    <div
       className="w-full h-full flex flex-col bg-background text-foreground select-none min-h-0 relative"
       onClick={() => {
         if (selectedCommentPoint) setSelectedCommentPoint(null);
       }}
     >
       {/* 1. Header (Sticky Top / Shrink-0) - Fully Draggable on Mobile */}
-      <div 
+      <div
         className="shrink-0 px-2.5 min-[390px]:px-4 lg:px-6 py-2 min-[390px]:py-2.5 lg:py-3.5 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-md z-20 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none gap-2 lg:gap-4"
         onTouchStart={(e) => {
           if (!isFullScreen && onDragStart) onDragStart(e.touches[0].clientY);
@@ -729,11 +729,10 @@ export default function MobileCommodityChart({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-1.5 px-3.5 text-[13px] font-bold rounded-lg transition-all cursor-pointer ${
-                activeTab === tab
+              className={`py-1.5 px-3.5 text-[13px] font-bold rounded-lg transition-all cursor-pointer ${activeTab === tab
                   ? 'bg-card text-brand-blue shadow-xs font-bold'
                   : 'text-foreground/75 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
+                }`}
             >
               {tab}
             </button>
@@ -743,9 +742,8 @@ export default function MobileCommodityChart({
         {/* Right: Price, Trend Change & Top Right Close Cross Button */}
         <div className="flex items-center gap-2 lg:gap-3 shrink-0">
           <div className="text-right">
-            <div className={`flex items-center justify-end gap-1 font-bold text-[15px] min-[390px]:text-[17px] sm:text-[18px] lg:text-[20px] tracking-tight transition-colors ${
-              isPositive ? 'text-brand-green' : 'text-brand-red'
-            }`}>
+            <div className={`flex items-center justify-end gap-1 font-bold text-[15px] min-[390px]:text-[17px] sm:text-[18px] lg:text-[20px] tracking-tight transition-colors ${isPositive ? 'text-brand-green' : 'text-brand-red'
+              }`}>
               <span>${currentDisplayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span className="text-[11px] min-[390px]:text-[12px] lg:text-[13px]">{isPositive ? '▲' : '▼'}</span>
             </div>
@@ -775,20 +773,18 @@ export default function MobileCommodityChart({
       </div>
 
       {/* Top Navigation Tabs Bar for Mobile (Revealed on FullScreen) */}
-      <div 
-        className={`lg:hidden shrink-0 flex items-center px-3 min-[390px]:px-4 overflow-x-auto scrollbar-hide bg-card border-b border-border transition-all duration-200 ${
-          isFullScreen ? 'h-11 opacity-100' : 'h-0 opacity-0 overflow-hidden pointer-events-none border-b-0'
-        }`}
+      <div
+        className={`lg:hidden shrink-0 flex items-center px-3 min-[390px]:px-4 overflow-x-auto scrollbar-hide bg-card border-b border-border transition-all duration-200 ${isFullScreen ? 'h-11 opacity-100' : 'h-0 opacity-0 overflow-hidden pointer-events-none border-b-0'
+          }`}
       >
         {tabs.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`py-2 px-2.5 min-[390px]:px-4 text-[12px] min-[390px]:text-[14px] font-bold whitespace-nowrap transition-all border-b-2 cursor-pointer ${
-              activeTab === tab
+            className={`py-2 px-2.5 min-[390px]:px-4 text-[12px] min-[390px]:text-[14px] font-bold whitespace-nowrap transition-all border-b-2 cursor-pointer ${activeTab === tab
                 ? 'border-brand-blue text-brand-blue'
                 : 'border-transparent text-foreground/75 hover:text-foreground'
-            }`}
+              }`}
           >
             {tab}
           </button>
@@ -796,17 +792,16 @@ export default function MobileCommodityChart({
       </div>
 
       {/* 2. Scrollable Body Content (Responsive Split: Left Main Area + Right Sidebar on Desktop) */}
-      <div className={`flex-1 px-2.5 min-[390px]:px-3.5 lg:p-5 pt-2.5 min-[390px]:pt-3 pb-4 scrollbar-hide lg:flex lg:flex-row lg:gap-5 min-h-0 ${
-        isFullScreen 
-          ? 'overflow-y-auto overscroll-contain' 
+      <div className={`flex-1 px-2.5 min-[390px]:px-3.5 lg:p-5 pt-2.5 min-[390px]:pt-3 pb-4 scrollbar-hide lg:flex lg:flex-row lg:gap-5 min-h-0 ${isFullScreen
+          ? 'overflow-y-auto overscroll-contain'
           : 'overflow-hidden'
-      }`}>
+        }`}>
         {/* LEFT COLUMN: Chart + Dynamic Tab Content */}
         <div className="w-full lg:flex-1 lg:overflow-y-auto lg:pr-2.5 space-y-3.5 scrollbar-thin min-w-0">
           {/* Chart Card */}
           <div className="w-full bg-card rounded-2xl border border-border p-2.5 min-[390px]:p-3.5 lg:p-4 shadow-xs">
             {/* Over timeframe header with exact date range */}
-            <div 
+            <div
               className="flex flex-col items-center justify-center text-center pb-2 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none"
               onTouchStart={(e) => {
                 if (!isFullScreen && onDragStart) onDragStart(e.touches[0].clientY);
@@ -849,8 +844,8 @@ export default function MobileCommodityChart({
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart 
-                    data={chartData} 
+                  <AreaChart
+                    data={chartData}
                     margin={{ top: 12, right: 25, left: 10, bottom: 0 }}
                     onMouseMove={(e: any) => {
                       if (e && e.activePayload && e.activePayload.length) {
@@ -878,11 +873,11 @@ export default function MobileCommodityChart({
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#2C2C2E' : '#F2F2F7'} strokeOpacity={0.7} />
-                    <XAxis 
-                      dataKey="shortDate" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fill: isDark ? '#AEAEB2' : '#6E6E73', fontWeight: 500 }} 
+                    <XAxis
+                      dataKey="shortDate"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: isDark ? '#AEAEB2' : '#6E6E73', fontWeight: 500 }}
                       dy={5}
                       minTickGap={24}
                     />
@@ -954,12 +949,12 @@ export default function MobileCommodityChart({
                     />
 
                     {/* Interactive Chart Range Slider Brush */}
-                    <Brush 
-                      dataKey="shortDate" 
-                      height={18} 
-                      stroke={strokeColor} 
+                    <Brush
+                      dataKey="shortDate"
+                      height={18}
+                      stroke={strokeColor}
                       fill={isDark ? 'rgba(255, 255, 255, 0.05)' : (isPositive ? 'rgba(42, 175, 133, 0.08)' : 'rgba(219, 95, 103, 0.08)')}
-                      travellerWidth={8} 
+                      travellerWidth={8}
                       tickFormatter={() => ''}
                     />
                   </AreaChart>
@@ -985,7 +980,7 @@ export default function MobileCommodityChart({
 
             {/* Direct Market Comment Intelligence Banner */}
             {activeCommentItem && (
-              <div 
+              <div
                 className="mt-2.5 bg-card border border-brand-blue/30 rounded-2xl p-3 shadow-md animate-in fade-in slide-in-from-top-1 duration-200 relative"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -1061,29 +1056,28 @@ export default function MobileCommodityChart({
                       setHoveredPoint(null);
                       setSelectedCommentPoint(null);
                     }}
-                    className={`text-[12px] font-bold px-2.5 py-1 transition-all rounded-lg cursor-pointer ${
-                      timeRange === range
+                    className={`text-[12px] font-bold px-2.5 py-1 transition-all rounded-lg cursor-pointer ${timeRange === range
                         ? 'text-white bg-brand-blue shadow-xs font-extrabold'
                         : 'text-foreground/75 hover:text-foreground hover:bg-muted'
-                    }`}
+                      }`}
                   >
                     {range}
                   </button>
                 ))}
               </div>
 
-              <button 
+              <button
                 type="button"
                 className="hidden sm:flex items-center gap-1.5 ml-2 px-3 py-1 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue font-bold text-[11px] lg:text-[12px] rounded-lg border border-brand-blue/30 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
               >
-                <i className="fa-solid fa-wand-magic-sparkles text-brand-blue text-[11px]"></i>
+                <i className="fa-solid fa-microchip text-brand-blue text-[11px]"></i>
                 <span>AI Predict</span>
               </button>
             </div>
 
             {/* Swipe up for details hint (Mobile only when half-sheet) */}
             {!isFullScreen && (
-              <div 
+              <div
                 onClick={() => {
                   if (onDragStart) onDragStart(0);
                   if (onDragMove) onDragMove(-100);
@@ -1098,645 +1092,624 @@ export default function MobileCommodityChart({
           </div>
 
           {/* Dynamic Content Below Chart (Visible on FullScreen or Desktop) */}
-          <div 
-            className={`transition-opacity duration-200 ${
-              isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'
-            }`}
+          <div
+            className={`transition-opacity duration-200 ${isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'
+              }`}
           >
-          {activeTab === 'Specifications' ? (
-            /* TAB 3: PRODUCT SPECIFICATIONS VIEW */
-            <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              {/* Header / Summary Card */}
-              <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs">
-                <div className="flex items-center justify-between pb-3 border-b border-border">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold">
-                      <i className="fa-solid fa-file-lines"></i>
+            {activeTab === 'Specifications' ? (
+              /* TAB 3: PRODUCT SPECIFICATIONS VIEW */
+              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                {/* Header / Summary Card */}
+                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs">
+                  <div className="flex items-center justify-between pb-3 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold">
+                        <i className="fa-solid fa-file-lines"></i>
+                      </div>
+                      <div>
+                        <h2 className="font-extrabold text-[15px] text-foreground">Product Specifications</h2>
+                        <p className="text-[11px] text-foreground/75">Quality parameters & commodity description</p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="font-extrabold text-[15px] text-foreground">Product Specifications</h2>
-                      <p className="text-[11px] text-foreground/75">Quality parameters & commodity description</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowSpecsModal(true)}
-                    className="text-[11px] font-bold px-2.5 py-1 bg-brand-blue text-white hover:opacity-90 rounded-lg shadow-xs flex items-center gap-1 cursor-pointer transition-opacity"
-                  >
-                    <i className="fa-solid fa-up-right-from-square text-[10px]"></i>
-                    <span>Full View</span>
-                  </button>
-                </div>
-
-                {/* Product Description */}
-                {productDescClean && (
-                  <div className="mt-3 bg-background/50 p-3 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider mb-1">
-                      Commodity Description
-                    </div>
-                    <p className="text-[12px] text-foreground leading-relaxed font-medium">
-                      {productDescClean}
-                    </p>
-                  </div>
-                )}
-
-                {/* Dynamic Specifications Table */}
-                <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card shadow-xs">
-                  <table className="w-full text-xs text-left table-fixed">
-                    <tbody className="divide-y divide-ag-header-border">
-                      {parsedSpecs.tableData.map((row, i) => (
-                        <tr key={i} className="hover:bg-muted transition-colors">
-                          <td className="px-3.5 py-2.5 font-bold text-foreground/80 bg-background/40 w-1/2 border-r border-border align-top break-words">
-                            {row.key}
-                          </td>
-                          <td className="px-3.5 py-2.5 text-foreground font-semibold align-top break-words">
-                            {row.value}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Packaging Specifications Card */}
-              <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center text-sm font-bold">
-                      <i className="fa-solid fa-box-open"></i>
-                    </div>
-                    <h3 className="font-extrabold text-[14px] text-foreground">Packaging & Containerization</h3>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
-                    {containerTitle}
-                  </span>
-                </div>
-
-                <div className="bg-background/50 p-3 rounded-xl border border-border space-y-2">
-                  <div className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Available Packing Types</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {packingTypesList.length > 0 ? (
-                      packingTypesList.map((pt: any, idx: number) => (
-                        <span 
-                          key={idx}
-                          className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${
-                            pt.isDefault 
-                              ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30' 
-                              : 'bg-muted text-foreground/80'
-                          }`}
-                        >
-                          {pt.title} {pt.isDefault ? '(Default)' : ''}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[11px] font-semibold px-2.5 py-1 bg-brand-blue/10 text-brand-blue rounded-lg">
-                        {defaultPacking || '50 kg bag (Standard)'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-2 border-t border-border">
-                    <span>Capacity: <strong className="text-foreground">{loadingCapacity} MT</strong></span>
-                    <span>Container: <strong className="text-foreground">{containerTitle}</strong> (~520 Bags)</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Shipping & Delivery Terms Card */}
-              <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm font-bold">
-                    <i className="fa-solid fa-ship"></i>
-                  </div>
-                  <h3 className="font-extrabold text-[14px] text-foreground">Shipping & Delivery Terms</h3>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">Loading Port (POL)</div>
-                    <div className="text-[13px] font-bold text-foreground mt-0.5">
-                      {item.pol || 'Mundra Port, India'}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSpecsModal(true)}
+                      className="text-[11px] font-bold px-2.5 py-1 bg-brand-blue text-white hover:opacity-90 rounded-lg shadow-xs flex items-center gap-1 cursor-pointer transition-opacity"
+                    >
+                      <i className="fa-solid fa-up-right-from-square text-[10px]"></i>
+                      <span>Full View</span>
+                    </button>
                   </div>
 
-                  <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">Destination Port (POD)</div>
-                    <div className="text-[13px] font-bold text-foreground mt-0.5">
-                      {item.pod && item.pod !== 'N/A' ? item.pod : (item.term || 'Banjul, Gambia')}
-                    </div>
-                  </div>
-
-                  <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">Incoterm Basis</div>
-                    <div className="text-[13px] font-bold text-foreground mt-0.5">
-                      {item.term || 'CIF'} Delivery
-                    </div>
-                  </div>
-
-                  <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">Inspection Agency</div>
-                    <div className="text-[13px] font-bold text-foreground mt-0.5">
-                      SGS / Third-Party
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : activeTab === 'Technical' ? (
-            /* TAB 2: TECHNICAL ANALYSIS VIEW */
-            <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs">
-                <div className="flex items-center justify-between pb-3 border-b border-border">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-brand-green/10 text-brand-green flex items-center justify-center text-sm font-bold">
-                      <i className="fa-solid fa-chart-line"></i>
-                    </div>
-                    <h2 className="font-extrabold text-[15px] text-foreground">Technical Indicators</h2>
-                  </div>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                    aiSentiment.isBullish ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-red/10 text-brand-red'
-                  }`}>
-                    {aiSentiment.label}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-3">
-                  <div className="bg-background/50 p-3 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">30-Day Moving Avg</div>
-                    <div className="text-[14px] font-black text-foreground mt-0.5">${avgPrice.toFixed(2)}</div>
-                  </div>
-                  <div className="bg-background/50 p-3 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">Price Volatility</div>
-                    <div className="text-[14px] font-black text-foreground mt-0.5">{volatilityInfo.value}</div>
-                  </div>
-                  <div className="bg-background/50 p-3 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">Support Level</div>
-                    <div className="text-[14px] font-black text-brand-green mt-0.5">${supportResistance.support}</div>
-                  </div>
-                  <div className="bg-background/50 p-3 rounded-xl border border-border">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">Resistance Level</div>
-                    <div className="text-[14px] font-black text-brand-red mt-0.5">${supportResistance.resistance}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : activeTab === 'Historical' ? (
-            /* TAB 4: DATE-WISE MARKET COMMENTARY VIEW (ONLY DATES WITH COMMENTS) */
-            <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
-              {/* Header & Commentary Stats */}
-              <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between pb-2.5 border-b border-border">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold shadow-xs">
-                      <i className="fa-solid fa-comments"></i>
-                    </div>
-                    <div>
-                      <h2 className="font-extrabold text-[14px] sm:text-[15px] text-foreground leading-snug">
-                        Date-wise Market Commentary & Notes
-                      </h2>
-                      <p className="text-[11px] text-foreground/75">
-                        Product and Freight remarks logged date-wise ({timeRange})
+                  {/* Product Description */}
+                  {productDescClean && (
+                    <div className="mt-3 bg-background/50 p-3 rounded-xl border border-border">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider mb-1">
+                        Commodity Description
+                      </div>
+                      <p className="text-[12px] text-foreground leading-relaxed font-medium">
+                        {productDescClean}
                       </p>
                     </div>
-                  </div>
-                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20">
-                    {filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length} Dates with Notes
-                  </span>
-                </div>
+                  )}
 
-                {/* Mini Summary Stats for Comments */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
-                      <span>All Notes</span>
-                      <i className="fa-solid fa-comment-dots text-brand-green"></i>
-                    </div>
-                    <div className="text-[15px] font-black text-brand-green mt-0.5">
-                      {filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length}
-                    </div>
-                  </div>
-
-                  <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
-                      <span>Product Notes</span>
-                      <i className="fa-solid fa-wheat-awn text-brand-blue"></i>
-                    </div>
-                    <div className="text-[15px] font-black text-brand-blue mt-0.5">
-                      {filteredData.filter(d => Boolean(d.product_comment)).length}
-                    </div>
-                  </div>
-
-                  <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                    <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
-                      <span>Freight Notes</span>
-                      <i className="fa-solid fa-ship text-indigo-500"></i>
-                    </div>
-                    <div className="text-[15px] font-black text-indigo-500 mt-0.5">
-                      {filteredData.filter(d => Boolean(d.freight_comment)).length}
-                    </div>
+                  {/* Dynamic Specifications Table */}
+                  <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+                    <table className="w-full text-xs text-left table-fixed">
+                      <tbody className="divide-y divide-ag-header-border">
+                        {parsedSpecs.tableData.map((row, i) => (
+                          <tr key={i} className="hover:bg-muted transition-colors">
+                            <td className="px-3.5 py-2.5 font-bold text-foreground/80 bg-background/40 w-1/2 border-r border-border align-top break-words">
+                              {row.key}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-foreground font-semibold align-top break-words">
+                              {row.value}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                {/* Filter Tabs & Search Bar */}
-                <div className="pt-1 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
-                  {/* Filter Pills */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                    <button
-                      onClick={() => setHistoricalFilter('all')}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 cursor-pointer ${
-                        historicalFilter === 'all'
-                          ? 'bg-foreground text-background shadow-xs'
-                          : 'bg-card text-foreground/80 border border-border hover:bg-muted'
-                      }`}
-                    >
-                      All Notes ({filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length})
-                    </button>
-                    <button
-                      onClick={() => setHistoricalFilter('product_only')}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
-                        historicalFilter === 'product_only'
-                          ? 'bg-brand-blue text-white shadow-xs'
-                          : 'bg-card text-foreground/80 border border-border hover:bg-muted'
-                      }`}
-                    >
-                      <i className="fa-solid fa-wheat-awn text-[10px]"></i>
-                      Product Remarks ({filteredData.filter(d => Boolean(d.product_comment)).length})
-                    </button>
-                    <button
-                      onClick={() => setHistoricalFilter('freight_only')}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
-                        historicalFilter === 'freight_only'
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'bg-card text-foreground/80 border border-border hover:bg-muted'
-                      }`}
-                    >
-                      <i className="fa-solid fa-ship text-[10px]"></i>
-                      Freight Remarks ({filteredData.filter(d => Boolean(d.freight_comment)).length})
-                    </button>
+                {/* Packaging Specifications Card */}
+                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center text-sm font-bold">
+                        <i className="fa-solid fa-box-open"></i>
+                      </div>
+                      <h3 className="font-extrabold text-[14px] text-foreground">Packaging & Containerization</h3>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
+                      {containerTitle}
+                    </span>
                   </div>
 
-                  {/* Quick Search */}
-                  <div className="relative shrink-0 sm:w-56">
-                    <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground/40 text-[11px]"></i>
-                    <input
-                      type="text"
-                      aria-label="Search remark or date"
-                      value={historicalSearch}
-                      onChange={(e) => setHistoricalSearch(e.target.value)}
-                      placeholder="Search remark or date..."
-                      className="w-full bg-background text-foreground pl-7 pr-7 py-1 text-[11px] rounded-lg border border-border focus:outline-hidden focus:border-brand-blue"
-                    />
-                    {historicalSearch && (
-                      <button
-                        onClick={() => setHistoricalSearch('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/40 hover:text-foreground text-[11px] cursor-pointer"
-                      >
-                        <i className="fa-solid fa-xmark"></i>
-                      </button>
-                    )}
+                  <div className="bg-background/50 p-3 rounded-xl border border-border space-y-2">
+                    <div className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Available Packing Types</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {packingTypesList.length > 0 ? (
+                        packingTypesList.map((pt: any, idx: number) => (
+                          <span
+                            key={idx}
+                            className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${pt.isDefault
+                                ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30'
+                                : 'bg-muted text-foreground/80'
+                              }`}
+                          >
+                            {pt.title} {pt.isDefault ? '(Default)' : ''}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] font-semibold px-2.5 py-1 bg-brand-blue/10 text-brand-blue rounded-lg">
+                          {defaultPacking || '50 kg bag (Standard)'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-2 border-t border-border">
+                      <span>Capacity: <strong className="text-foreground">{loadingCapacity} MT</strong></span>
+                      <span>Container: <strong className="text-foreground">{containerTitle}</strong> (~520 Bags)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Shipping & Delivery Terms Card */}
+                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm font-bold">
+                      <i className="fa-solid fa-ship"></i>
+                    </div>
+                    <h3 className="font-extrabold text-[14px] text-foreground">Shipping & Delivery Terms</h3>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase">Loading Port (POL)</div>
+                      <div className="text-[13px] font-bold text-foreground mt-0.5">
+                        {item.pol || 'Mundra Port, India'}
+                      </div>
+                    </div>
+
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase">Destination Port (POD)</div>
+                      <div className="text-[13px] font-bold text-foreground mt-0.5">
+                        {item.pod && item.pod !== 'N/A' ? item.pod : (item.term || 'Banjul, Gambia')}
+                      </div>
+                    </div>
+
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase">Incoterm Basis</div>
+                      <div className="text-[13px] font-bold text-foreground mt-0.5">
+                        {item.term || 'CIF'} Delivery
+                      </div>
+                    </div>
+
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase">Inspection Agency</div>
+                      <div className="text-[13px] font-bold text-foreground mt-0.5">
+                        SGS / Third-Party
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+            ) : activeTab === 'Alert Setups' ? (
+              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
+                  <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
+                    <i className="fa-regular fa-bell-slash"></i>
+                  </div>
+                  <h2 className="font-extrabold text-[16px] text-foreground">No Alerts Set</h2>
+                  <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't configured any price alerts for this commodity yet.</p>
+                  <button className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 transition-all flex items-center gap-2">
+                    <i className="fa-solid fa-bell"></i> Create Alert
+                  </button>
+                </div>
+              </div>
+            ) : activeTab === 'AI Predict' ? (
+              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
+                  <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
+                    <i className="fa-solid fa-microchip"></i>
+                  </div>
+                  <h2 className="font-extrabold text-[16px] text-foreground">No Analysis Generated</h2>
+                  <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">Run our advanced machine learning models to forecast future price trends.</p>
+                  <button className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 transition-all flex items-center gap-2">
+                    <i className="fa-solid fa-microchip"></i> Analyse
+                  </button>
+                </div>
+              </div>
+            ) : activeTab === 'Historical' ? (
+              /* TAB 4: DATE-WISE MARKET COMMENTARY VIEW (ONLY DATES WITH COMMENTS) */
+              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                {/* Header & Commentary Stats */}
+                <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold shadow-xs">
+                        <i className="fa-solid fa-comments"></i>
+                      </div>
+                      <div>
+                        <h2 className="font-extrabold text-[14px] sm:text-[15px] text-foreground leading-snug">
+                          Date-wise Market Commentary & Notes
+                        </h2>
+                        <p className="text-[11px] text-foreground/75">
+                          Product and Freight remarks logged date-wise ({timeRange})
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20">
+                      {filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length} Dates with Notes
+                    </span>
+                  </div>
 
-              {/* Date-wise Comments List (Strictly dates with comments) */}
-              {(() => {
-                const commentedDates = [...filteredData]
-                  .filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks))
-                  .reverse();
+                  {/* Mini Summary Stats for Comments */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
+                        <span>All Notes</span>
+                        <i className="fa-solid fa-comment-dots text-brand-green"></i>
+                      </div>
+                      <div className="text-[15px] font-black text-brand-green mt-0.5">
+                        {filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length}
+                      </div>
+                    </div>
 
-                const displayList = commentedDates.filter(d => {
-                  if (historicalFilter === 'product_only' && !d.product_comment) return false;
-                  if (historicalFilter === 'freight_only' && !d.freight_comment) return false;
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
+                        <span>Product Notes</span>
+                        <i className="fa-solid fa-wheat-awn text-brand-blue"></i>
+                      </div>
+                      <div className="text-[15px] font-black text-brand-blue mt-0.5">
+                        {filteredData.filter(d => Boolean(d.product_comment)).length}
+                      </div>
+                    </div>
 
-                  if (historicalSearch.trim()) {
-                    const query = historicalSearch.toLowerCase().trim();
-                    const dateStr = (d.formattedDate || '').toLowerCase();
-                    const weekdayStr = (d.weekday || '').toLowerCase();
-                    const prodComment = (d.product_comment || '').toLowerCase();
-                    const freightComment = (d.freight_comment || '').toLowerCase();
-                    const genComment = (d.comment || d.remarks || '').toLowerCase();
-                    const priceStr = String(d.price);
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
+                        <span>Freight Notes</span>
+                        <i className="fa-solid fa-ship text-indigo-500"></i>
+                      </div>
+                      <div className="text-[15px] font-black text-indigo-500 mt-0.5">
+                        {filteredData.filter(d => Boolean(d.freight_comment)).length}
+                      </div>
+                    </div>
+                  </div>
 
+                  {/* Filter Tabs & Search Bar */}
+                  <div className="pt-1 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
+                    {/* Filter Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                      <button
+                        onClick={() => setHistoricalFilter('all')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 cursor-pointer ${historicalFilter === 'all'
+                            ? 'bg-foreground text-background shadow-xs'
+                            : 'bg-card text-foreground/80 border border-border hover:bg-muted'
+                          }`}
+                      >
+                        All Notes ({filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length})
+                      </button>
+                      <button
+                        onClick={() => setHistoricalFilter('product_only')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'product_only'
+                            ? 'bg-brand-blue text-white shadow-xs'
+                            : 'bg-card text-foreground/80 border border-border hover:bg-muted'
+                          }`}
+                      >
+                        <i className="fa-solid fa-wheat-awn text-[10px]"></i>
+                        Product Remarks ({filteredData.filter(d => Boolean(d.product_comment)).length})
+                      </button>
+                      <button
+                        onClick={() => setHistoricalFilter('freight_only')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'freight_only'
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'bg-card text-foreground/80 border border-border hover:bg-muted'
+                          }`}
+                      >
+                        <i className="fa-solid fa-ship text-[10px]"></i>
+                        Freight Remarks ({filteredData.filter(d => Boolean(d.freight_comment)).length})
+                      </button>
+                    </div>
+
+                    {/* Quick Search */}
+                    <div className="relative shrink-0 sm:w-56">
+                      <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground/40 text-[11px]"></i>
+                      <input
+                        type="text"
+                        aria-label="Search remark or date"
+                        value={historicalSearch}
+                        onChange={(e) => setHistoricalSearch(e.target.value)}
+                        placeholder="Search remark or date..."
+                        className="w-full bg-background text-foreground pl-7 pr-7 py-1 text-[11px] rounded-lg border border-border focus:outline-hidden focus:border-brand-blue"
+                      />
+                      {historicalSearch && (
+                        <button
+                          onClick={() => setHistoricalSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/40 hover:text-foreground text-[11px] cursor-pointer"
+                        >
+                          <i className="fa-solid fa-xmark"></i>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Date-wise Comments List (Strictly dates with comments) */}
+                {(() => {
+                  const commentedDates = [...filteredData]
+                    .filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks))
+                    .reverse();
+
+                  const displayList = commentedDates.filter(d => {
+                    if (historicalFilter === 'product_only' && !d.product_comment) return false;
+                    if (historicalFilter === 'freight_only' && !d.freight_comment) return false;
+
+                    if (historicalSearch.trim()) {
+                      const query = historicalSearch.toLowerCase().trim();
+                      const dateStr = (d.formattedDate || '').toLowerCase();
+                      const weekdayStr = (d.weekday || '').toLowerCase();
+                      const prodComment = (d.product_comment || '').toLowerCase();
+                      const freightComment = (d.freight_comment || '').toLowerCase();
+                      const genComment = (d.comment || d.remarks || '').toLowerCase();
+                      const priceStr = String(d.price);
+
+                      return (
+                        dateStr.includes(query) ||
+                        weekdayStr.includes(query) ||
+                        prodComment.includes(query) ||
+                        freightComment.includes(query) ||
+                        genComment.includes(query) ||
+                        priceStr.includes(query)
+                      );
+                    }
+
+                    return true;
+                  });
+
+                  if (displayList.length === 0) {
                     return (
-                      dateStr.includes(query) ||
-                      weekdayStr.includes(query) ||
-                      prodComment.includes(query) ||
-                      freightComment.includes(query) ||
-                      genComment.includes(query) ||
-                      priceStr.includes(query)
+                      <div className="bg-card rounded-2xl border border-border p-8 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-foreground/40 mx-auto mb-3 text-lg">
+                          <i className="fa-solid fa-comment-slash"></i>
+                        </div>
+                        <h3 className="font-extrabold text-[14px] text-foreground">
+                          No Commentary Found
+                        </h3>
+                        <p className="text-[12px] text-foreground/75 mt-1 max-w-xs mx-auto">
+                          No remarks recorded for the selected filter or search query.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setHistoricalFilter('all');
+                            setHistoricalSearch('');
+                          }}
+                          className="mt-3.5 px-3.5 py-1.5 rounded-xl bg-brand-blue text-white font-bold text-[11px] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+                        >
+                          Show All Notes
+                        </button>
+                      </div>
                     );
                   }
 
-                  return true;
-                });
-
-                if (displayList.length === 0) {
                   return (
-                    <div className="bg-card rounded-2xl border border-border p-8 text-center">
-                      <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-foreground/40 mx-auto mb-3 text-lg">
-                        <i className="fa-solid fa-comment-slash"></i>
-                      </div>
-                      <h3 className="font-extrabold text-[14px] text-foreground">
-                        No Commentary Found
-                      </h3>
-                      <p className="text-[12px] text-foreground/75 mt-1 max-w-xs mx-auto">
-                        No remarks recorded for the selected filter or search query.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setHistoricalFilter('all');
-                          setHistoricalSearch('');
-                        }}
-                        className="mt-3.5 px-3.5 py-1.5 rounded-xl bg-brand-blue text-white font-bold text-[11px] hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
-                      >
-                        Show All Notes
-                      </button>
-                    </div>
-                  );
-                }
+                    <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+                      {displayList.map((d, index) => {
+                        const hasProductNote = Boolean(d.product_comment);
+                        const hasFreightNote = Boolean(d.freight_comment);
+                        const hasGeneralNote = Boolean((d.comment || d.remarks) && !d.product_comment);
 
-                return (
-                  <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
-                    {displayList.map((d, index) => {
-                      const hasProductNote = Boolean(d.product_comment);
-                      const hasFreightNote = Boolean(d.freight_comment);
-                      const hasGeneralNote = Boolean((d.comment || d.remarks) && !d.product_comment);
-
-                      return (
-                        <div
-                          key={d.date || index}
-                          className="bg-card rounded-2xl border border-border hover:border-brand-blue transition-all duration-200 p-3.5 shadow-xs"
-                        >
-                          <div className="flex items-center justify-between pb-2.5 border-b border-border">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
-                                <i className="fa-solid fa-calendar-day"></i>
+                        return (
+                          <div
+                            key={d.date || index}
+                            className="bg-card rounded-2xl border border-border hover:border-brand-blue transition-all duration-200 p-3.5 shadow-xs"
+                          >
+                            <div className="flex items-center justify-between pb-2.5 border-b border-border">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
+                                  <i className="fa-solid fa-calendar-day"></i>
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-black text-[13px] text-foreground">
+                                      {d.formattedDate}
+                                    </span>
+                                    {d.weekday && (
+                                      <span className="text-[10px] font-semibold text-foreground/50">
+                                        • {d.weekday}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    {hasProductNote && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-brand-blue/10 text-brand-blue flex items-center gap-1">
+                                        <i className="fa-solid fa-wheat-awn text-[8px]"></i> Product Note
+                                      </span>
+                                    )}
+                                    {hasFreightNote && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-500 flex items-center gap-1">
+                                        <i className="fa-solid fa-ship text-[8px]"></i> Freight Note
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <div>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-black text-[13px] text-foreground">
-                                    {d.formattedDate}
-                                  </span>
-                                  {d.weekday && (
-                                    <span className="text-[10px] font-semibold text-foreground/50">
-                                      • {d.weekday}
-                                    </span>
-                                  )}
+
+                              <div className="text-right shrink-0">
+                                <div className="text-[14px] sm:text-[15px] font-black text-foreground">
+                                  ${d.price.toFixed(2)} <span className="text-[10px] font-medium text-foreground/50">PMT</span>
                                 </div>
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  {hasProductNote && (
-                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-brand-blue/10 text-brand-blue flex items-center gap-1">
-                                      <i className="fa-solid fa-wheat-awn text-[8px]"></i> Product Note
-                                    </span>
-                                  )}
-                                  {hasFreightNote && (
-                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-500 flex items-center gap-1">
-                                      <i className="fa-solid fa-ship text-[8px]"></i> Freight Note
-                                    </span>
-                                  )}
-                                </div>
+                                {d.changeVal != null && d.changeVal !== 0 ? (
+                                  <div className={`text-[10px] font-bold flex items-center justify-end gap-1 ${d.changeVal > 0
+                                      ? 'text-brand-green'
+                                      : 'text-brand-red'
+                                    }`}>
+                                    <i className={`fa-solid ${d.changeVal > 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[9px]`}></i>
+                                    <span>{d.changeVal > 0 ? `+$${d.changeVal}` : `-$${Math.abs(d.changeVal)}`} ({d.changePct && d.changePct > 0 ? `+${d.changePct}%` : `${d.changePct}%`})</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-foreground/50 font-medium">Unchanged</span>
+                                )}
                               </div>
                             </div>
 
-                            <div className="text-right shrink-0">
-                              <div className="text-[14px] sm:text-[15px] font-black text-foreground">
-                                ${d.price.toFixed(2)} <span className="text-[10px] font-medium text-foreground/50">PMT</span>
-                              </div>
-                              {d.changeVal != null && d.changeVal !== 0 ? (
-                                <div className={`text-[10px] font-bold flex items-center justify-end gap-1 ${
-                                  d.changeVal > 0 
-                                    ? 'text-brand-green' 
-                                    : 'text-brand-red'
-                                }`}>
-                                  <i className={`fa-solid ${d.changeVal > 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[9px]`}></i>
-                                  <span>{d.changeVal > 0 ? `+$${d.changeVal}` : `-$${Math.abs(d.changeVal)}`} ({d.changePct && d.changePct > 0 ? `+${d.changePct}%` : `${d.changePct}%`})</span>
+                            <div className="mt-2.5 space-y-2">
+                              {hasProductNote && (
+                                <div className="bg-brand-blue/5 border border-brand-blue/20 rounded-xl p-2.5">
+                                  <div className="flex items-center gap-1.5 text-brand-blue font-bold uppercase text-[10px] tracking-wide mb-1">
+                                    <i className="fa-solid fa-wheat-awn text-[10px]"></i>
+                                    <span>Product & Commodity Remark</span>
+                                  </div>
+                                  <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
+                                    {d.product_comment}
+                                  </p>
                                 </div>
-                              ) : (
-                                <span className="text-[10px] text-foreground/50 font-medium">Unchanged</span>
+                              )}
+
+                              {hasFreightNote && (
+                                <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-2.5">
+                                  <div className="flex items-center gap-1.5 text-indigo-500 font-bold uppercase text-[10px] tracking-wide mb-1">
+                                    <i className="fa-solid fa-ship text-[10px]"></i>
+                                    <span>Freight & Shipping Logistics Remark</span>
+                                  </div>
+                                  <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
+                                    {d.freight_comment}
+                                  </p>
+                                </div>
+                              )}
+
+                              {hasGeneralNote && (
+                                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-2.5">
+                                  <div className="flex items-center gap-1.5 text-amber-500 font-bold uppercase text-[10px] tracking-wide mb-1">
+                                    <i className="fa-solid fa-comment-dots text-[10px]"></i>
+                                    <span>General Market Intelligence</span>
+                                  </div>
+                                  <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
+                                    {d.comment || d.remarks}
+                                  </p>
+                                </div>
                               )}
                             </div>
                           </div>
-
-                          <div className="mt-2.5 space-y-2">
-                            {hasProductNote && (
-                              <div className="bg-brand-blue/5 border border-brand-blue/20 rounded-xl p-2.5">
-                                <div className="flex items-center gap-1.5 text-brand-blue font-bold uppercase text-[10px] tracking-wide mb-1">
-                                  <i className="fa-solid fa-wheat-awn text-[10px]"></i>
-                                  <span>Product & Commodity Remark</span>
-                                </div>
-                                <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
-                                  {d.product_comment}
-                                </p>
-                              </div>
-                            )}
-
-                            {hasFreightNote && (
-                              <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-2.5">
-                                <div className="flex items-center gap-1.5 text-indigo-500 font-bold uppercase text-[10px] tracking-wide mb-1">
-                                  <i className="fa-solid fa-ship text-[10px]"></i>
-                                  <span>Freight & Shipping Logistics Remark</span>
-                                </div>
-                                <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
-                                  {d.freight_comment}
-                                </p>
-                              </div>
-                            )}
-
-                            {hasGeneralNote && (
-                              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-2.5">
-                                <div className="flex items-center gap-1.5 text-amber-500 font-bold uppercase text-[10px] tracking-wide mb-1">
-                                  <i className="fa-solid fa-comment-dots text-[10px]"></i>
-                                  <span>General Market Intelligence</span>
-                                </div>
-                                <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
-                                  {d.comment || d.remarks}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </div>
-          ) : (
-            /* TAB 1: OVERVIEW VIEW */
-            <div className="space-y-3.5">
-              {/* Detailed Period Price Range Card */}
-              <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-border">
-                  <span className="text-[11px] font-bold text-foreground/75 uppercase tracking-wider">
-                    {timeRange} Price Range & Occurrence Dates
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
-                    Spread: ${(periodMaxPoint.price - periodMinPoint.price).toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 pt-3 text-center">
-                  <div className="flex flex-col items-start text-left">
-                    <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Period Low</span>
-                    <span className="text-[15px] font-black text-brand-red mt-0.5">
-                      ${periodMinPoint.price}
-                    </span>
-                    <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
-                      {periodMinPoint.formattedDate}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Current Rate</span>
-                    <span className="text-[15px] font-black text-foreground mt-0.5">
-                      ${periodLatestPoint.price}
-                    </span>
-                    <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
-                      {periodLatestPoint.formattedDate}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col items-end text-right">
-                    <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Period High</span>
-                    <span className="text-[15px] font-black text-brand-green mt-0.5">
-                      ${periodMaxPoint.price}
-                    </span>
-                    <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
-                      {periodMaxPoint.formattedDate}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="relative w-full h-2 rounded-full bg-gradient-to-r from-brand-red via-amber-400 to-brand-green mt-3.5">
-                  <div 
-                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-foreground rounded-full shadow-lg border-2 border-background transition-all duration-300"
-                    style={{ left: `${periodPositionPercent}%` }}
-                    title={`Current: $${periodLatestPoint.price}`}
-                  ></div>
-                </div>
-                <div className="flex justify-between items-center text-[10px] text-foreground/50 mt-1 font-medium">
-                  <span>Low Range (${periodMinPoint.price})</span>
-                  <span>Avg (${avgPrice.toFixed(2)})</span>
-                  <span>High Range (${periodMaxPoint.price})</span>
-                </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
-
-              {/* FOB Base Price vs Estimated Freight & Shipping Spread */}
-              {fobPrice != null && (
+            ) : (
+              /* TAB 1: OVERVIEW VIEW */
+              <div className="space-y-3.5">
+                {/* Detailed Period Price Range Card */}
                 <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs">
                   <div className="flex items-center justify-between pb-2 border-b border-border">
                     <span className="text-[11px] font-bold text-foreground/75 uppercase tracking-wider">
-                      Cost Breakdown (FOB vs Estimated Freight)
+                      {timeRange} Price Range & Occurrence Dates
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-md">
-                      {item.term || 'CIF'} Basis
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
+                      Spread: ${(periodMaxPoint.price - periodMinPoint.price).toFixed(2)}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 pt-2.5 text-center">
+
+                  <div className="grid grid-cols-3 gap-2 pt-3 text-center">
                     <div className="flex flex-col items-start text-left">
-                      <span className="text-[10px] font-bold text-foreground/50 uppercase">FOB Origin</span>
-                      <span className="text-[14px] font-extrabold text-foreground mt-0.5">
-                        ${fobPrice}
+                      <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Period Low</span>
+                      <span className="text-[15px] font-black text-brand-red mt-0.5">
+                        ${periodMinPoint.price}
                       </span>
-                      <span className="text-[10px] text-foreground/75 font-medium leading-tight" title={item.pol || 'POL'}>
-                        {item.pol || 'Port'}
+                      <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
+                        {periodMinPoint.formattedDate}
                       </span>
                     </div>
 
                     <div className="flex flex-col items-center text-center">
-                      <span className="text-[10px] font-bold text-foreground/50 uppercase">Est. Freight Spread</span>
-                      <span className="text-[14px] font-extrabold text-purple-600 dark:text-purple-400 mt-0.5">
-                        +${cifFreightSpread.toFixed(2)}
+                      <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Current Rate</span>
+                      <span className="text-[15px] font-black text-foreground mt-0.5">
+                        ${periodLatestPoint.price}
                       </span>
-                      <span className="text-[10px] text-foreground/75 font-medium">Ocean Logistics</span>
+                      <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
+                        {periodLatestPoint.formattedDate}
+                      </span>
                     </div>
 
                     <div className="flex flex-col items-end text-right">
-                      <span className="text-[10px] font-bold text-foreground/50 uppercase">Total {item.term || 'CIF'}</span>
-                      <span className="text-[14px] font-extrabold text-brand-green mt-0.5">
-                        ${periodLatestPoint.price}
+                      <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Period High</span>
+                      <span className="text-[15px] font-black text-brand-green mt-0.5">
+                        ${periodMaxPoint.price}
                       </span>
-                      <span className="text-[10px] text-foreground/75 font-medium leading-tight" title={item.pod || 'POD'}>
-                        {item.pod && item.pod !== 'N/A' ? item.pod : (item.term || 'POD')}
+                      <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
+                        {periodMaxPoint.formattedDate}
                       </span>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Enhanced "Know Your Commodity" Section on Mobile / Overview */}
-              <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-[14px] text-foreground">Know Your Commodity</h3>
-                    <p className="text-[11px] text-foreground/75 mt-0.5">
-                      Verified product specifications, packaging options & trade terms.
-                    </p>
+                  <div className="relative w-full h-2 rounded-full bg-gradient-to-r from-brand-red via-amber-400 to-brand-green mt-3.5">
+                    <div
+                      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-foreground rounded-full shadow-lg border-2 border-background transition-all duration-300"
+                      style={{ left: `${periodPositionPercent}%` }}
+                      title={`Current: $${periodLatestPoint.price}`}
+                    ></div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowSpecsModal(true)}
-                    className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <i className="fa-solid fa-info-circle text-[10px]"></i>
-                    <span>Specs</span>
-                  </button>
+                  <div className="flex justify-between items-center text-[10px] text-foreground/50 mt-1 font-medium">
+                    <span>Low Range (${periodMinPoint.price})</span>
+                    <span>Avg (${avgPrice.toFixed(2)})</span>
+                    <span>High Range (${periodMaxPoint.price})</span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className={`bg-background/50 p-2.5 rounded-xl border border-border border-l-4 ${
-                    aiSentiment.isBullish ? 'border-l-brand-green' : 'border-l-brand-red'
-                  }`}>
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">AI FORECAST & SIGNAL</div>
-                    <div className={`text-[12px] min-[390px]:text-[13px] font-bold mt-0.5 leading-snug ${
-                      aiSentiment.isBullish ? 'text-brand-green' : 'text-brand-red'
-                    }`}>
-                      {aiSentiment.label} ({aiSentiment.change})
+                {/* FOB Base Price vs Estimated Freight & Shipping Spread */}
+                {fobPrice != null && (
+                  <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs">
+                    <div className="flex items-center justify-between pb-2 border-b border-border">
+                      <span className="text-[11px] font-bold text-foreground/75 uppercase tracking-wider">
+                        Cost Breakdown (FOB vs Estimated Freight)
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-md">
+                        {item.term || 'CIF'} Basis
+                      </span>
                     </div>
-                  </div>
-
-                  <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-brand-blue">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase">SUPPORT / RESISTANCE</div>
-                    <div className="text-[13px] font-bold text-foreground mt-0.5">
-                      ${supportResistance.support} — ${supportResistance.resistance}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-background/50 p-3 rounded-xl border border-border space-y-2">
-                  <div className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">
-                    Available Packaging & Load Capacity
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {packingTypesList.length > 0 ? (
-                      packingTypesList.map((pt: any, idx: number) => (
-                        <span 
-                          key={idx}
-                          className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-md ${
-                            pt.isDefault 
-                              ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30' 
-                              : 'bg-muted text-foreground/80'
-                          }`}
-                        >
-                          {pt.title} {pt.isDefault ? '(Default)' : ''}
+                    <div className="grid grid-cols-3 gap-2 pt-2.5 text-center">
+                      <div className="flex flex-col items-start text-left">
+                        <span className="text-[10px] font-bold text-foreground/50 uppercase">FOB Origin</span>
+                        <span className="text-[14px] font-extrabold text-foreground mt-0.5">
+                          ${fobPrice}
                         </span>
-                      ))
-                    ) : (
-                      <span className="text-[11px] font-semibold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
-                        {defaultPacking || '50 kg bag (Standard)'}
-                      </span>
-                    )}
+                        <span className="text-[10px] text-foreground/75 font-medium leading-tight" title={item.pol || 'POL'}>
+                          {item.pol || 'Port'}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[10px] font-bold text-foreground/50 uppercase">Est. Freight Spread</span>
+                        <span className="text-[14px] font-extrabold text-purple-600 dark:text-purple-400 mt-0.5">
+                          +${cifFreightSpread.toFixed(2)}
+                        </span>
+                        <span className="text-[10px] text-foreground/75 font-medium">Ocean Logistics</span>
+                      </div>
+
+                      <div className="flex flex-col items-end text-right">
+                        <span className="text-[10px] font-bold text-foreground/50 uppercase">Total {item.term || 'CIF'}</span>
+                        <span className="text-[14px] font-extrabold text-brand-green mt-0.5">
+                          ${periodLatestPoint.price}
+                        </span>
+                        <span className="text-[10px] text-foreground/75 font-medium leading-tight" title={item.pod || 'POD'}>
+                          {item.pod && item.pod !== 'N/A' ? item.pod : (item.term || 'POD')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Enhanced "Know Your Commodity" Section on Mobile / Overview */}
+                <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-[14px] text-foreground">Know Your Commodity</h3>
+                      <p className="text-[11px] text-foreground/75 mt-0.5">
+                        Verified product specifications, packaging options & trade terms.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSpecsModal(true)}
+                      className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <i className="fa-solid fa-info-circle text-[10px]"></i>
+                      <span>Specs</span>
+                    </button>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-1.5 border-t border-border">
-                    <span>Container: <strong className="text-foreground">{containerTitle}</strong></span>
-                    <span>Capacity: <strong className="text-foreground">{loadingCapacity} Metric Tons</strong></span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`bg-background/50 p-2.5 rounded-xl border border-border border-l-4 ${aiSentiment.isBullish ? 'border-l-brand-green' : 'border-l-brand-red'
+                      }`}>
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase">AI FORECAST & SIGNAL</div>
+                      <div className={`text-[12px] min-[390px]:text-[13px] font-bold mt-0.5 leading-snug ${aiSentiment.isBullish ? 'text-brand-green' : 'text-brand-red'
+                        }`}>
+                        {aiSentiment.label} ({aiSentiment.change})
+                      </div>
+                    </div>
+
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-brand-blue">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase">SUPPORT / RESISTANCE</div>
+                      <div className="text-[13px] font-bold text-foreground mt-0.5">
+                        ${supportResistance.support} — ${supportResistance.resistance}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-background/50 p-3 rounded-xl border border-border space-y-2">
+                    <div className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">
+                      Available Packaging & Load Capacity
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {packingTypesList.length > 0 ? (
+                        packingTypesList.map((pt: any, idx: number) => (
+                          <span
+                            key={idx}
+                            className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-md ${pt.isDefault
+                                ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30'
+                                : 'bg-muted text-foreground/80'
+                              }`}
+                          >
+                            {pt.title} {pt.isDefault ? '(Default)' : ''}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
+                          {defaultPacking || '50 kg bag (Standard)'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-1.5 border-t border-border">
+                      <span>Container: <strong className="text-foreground">{containerTitle}</strong></span>
+                      <span>Capacity: <strong className="text-foreground">{loadingCapacity} Metric Tons</strong></span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
           </div>
         </div>
 
@@ -1771,22 +1744,21 @@ export default function MobileCommodityChart({
 
             {/* CTA Buttons */}
             <div className="space-y-2">
-              <button 
+              <button
                 type="button"
-                className={`w-full py-3 font-extrabold text-[14px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer ${
-                  userType === 'seller' 
-                    ? 'bg-brand-red text-white shadow-red-500/20' 
-                    : userType === 'buyer' 
+                className={`w-full py-3 font-extrabold text-[14px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer ${userType === 'seller'
+                    ? 'bg-brand-red text-white shadow-red-500/20'
+                    : userType === 'buyer'
                       ? 'bg-brand-green text-white shadow-emerald-500/20'
                       : 'bg-primary-gradient text-white shadow-blue-500/20'
-                }`}
+                  }`}
               >
                 <i className={`fa-solid ${userType === 'seller' ? 'fa-tag' : 'fa-cart-shopping'}`}></i>
                 <span>{userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY'}</span>
               </button>
 
               <div className="grid grid-cols-2 gap-2">
-                <button 
+                <button
                   type="button"
                   className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs border border-border cursor-pointer"
                 >
@@ -1794,11 +1766,11 @@ export default function MobileCommodityChart({
                   <span className="whitespace-nowrap">Create Alert</span>
                 </button>
 
-                <button 
+                <button
                   type="button"
                   className="w-full py-2.5 bg-brand-blue/10 hover:bg-brand-blue/20 active:scale-95 text-brand-blue font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs border border-brand-blue/30 cursor-pointer"
                 >
-                  <i className="fa-solid fa-wand-magic-sparkles text-brand-blue text-[12px]"></i>
+                  <i className="fa-solid fa-microchip text-brand-blue text-[12px]"></i>
                   <span className="whitespace-nowrap">AI Predict</span>
                 </button>
               </div>
@@ -1821,7 +1793,7 @@ export default function MobileCommodityChart({
                 <span className="text-zinc-800 dark:text-zinc-200">${low52.toFixed(0)} — ${high52.toFixed(0)}</span>
               </div>
               <div className="relative w-full h-2 rounded-full bg-gradient-to-r from-red-400 via-purple-400 to-emerald-500 mt-2">
-                <div 
+                <div
                   className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-zinc-900 dark:bg-white rounded-full shadow-md border-2 border-white dark:border-zinc-900 transition-all duration-300"
                   style={{ left: `${pos52Percent}%` }}
                 ></div>
@@ -1901,7 +1873,7 @@ export default function MobileCommodityChart({
       {/* 3. Sticky Bottom Action Bar (Shrink-0 / Always pinned in Half-Sheet & Full-Screen on Mobile) */}
       <div className="lg:hidden shrink-0 bg-card/95 backdrop-blur-md border-t border-border px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
         {/* 1. Create Alert (Left) */}
-        <button 
+        <button
           type="button"
           className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-xs border border-border cursor-pointer"
         >
@@ -1910,36 +1882,35 @@ export default function MobileCommodityChart({
         </button>
 
         {/* 2. Buy / Sell Action Button (Center) */}
-        <button 
+        <button
           type="button"
-          className={`flex-1 py-2 min-[390px]:py-2.5 font-extrabold text-[12px] min-[390px]:text-[14px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer ${
-            userType === 'seller' 
-              ? 'bg-brand-red hover:bg-brand-red-hover text-white shadow-red-500/20' 
-              : userType === 'buyer' 
+          className={`flex-1 py-2 min-[390px]:py-2.5 font-extrabold text-[12px] min-[390px]:text-[14px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer ${userType === 'seller'
+              ? 'bg-brand-red hover:bg-brand-red-hover text-white shadow-red-500/20'
+              : userType === 'buyer'
                 ? 'bg-brand-green hover:bg-brand-green-hover text-white shadow-emerald-500/20'
                 : 'bg-gradient-to-r from-brand-green to-brand-blue hover:opacity-95 text-white shadow-blue-500/20'
-          }`}
+            }`}
         >
           <span>{userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'}</span>
         </button>
 
         {/* 3. AI Predict (Right) */}
-        <button 
+        <button
           type="button"
           className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-xs border border-border cursor-pointer"
         >
-          <i className="fa-solid fa-wand-magic-sparkles text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
+          <i className="fa-solid fa-microchip text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
           <span className="whitespace-nowrap">AI Predict</span>
         </button>
       </div>
 
       {/* 4. Specifications & Description Information Icon Popup Modal */}
       {showSpecsModal && (
-        <div 
+        <div
           className="fixed inset-0 z-[550] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setShowSpecsModal(false)}
         >
-          <div 
+          <div
             className="bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -1949,7 +1920,7 @@ export default function MobileCommodityChart({
                 <i className="fa-solid fa-file-lines"></i>
                 <span>Specifications & Details</span>
               </h3>
-              <button 
+              <button
                 onClick={() => setShowSpecsModal(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-foreground/80 focus:outline-none cursor-pointer"
                 aria-label="Close"
@@ -1957,7 +1928,7 @@ export default function MobileCommodityChart({
                 <i className="fa-solid fa-xmark text-lg"></i>
               </button>
             </div>
-            
+
             {/* Modal Scrollable Body */}
             <div className="px-4 sm:px-5 py-4 overflow-y-auto space-y-4">
               {/* Product Profile Top Banner */}
@@ -1965,15 +1936,15 @@ export default function MobileCommodityChart({
                 {(productDetails?.thumbnail || productDetails?.image || item.countryFlag) && (
                   <div className="w-14 h-14 rounded-lg overflow-hidden border border-brand-blue/20 shadow-xs relative flex-shrink-0 bg-card flex items-center justify-center">
                     {productDetails?.thumbnail || productDetails?.image ? (
-                      <img 
-                        src={getProductImgUrl(productDetails.thumbnail || productDetails.image)!} 
+                      <img
+                        src={getProductImgUrl(productDetails.thumbnail || productDetails.image)!}
                         alt={item.product || 'Product'}
                         title={item.product || 'Product'}
                         className="w-full h-full object-cover"
                       />
                     ) : item.countryFlag ? (
-                      <img 
-                        src={getFlagUrl(item.countryFlag)!} 
+                      <img
+                        src={getFlagUrl(item.countryFlag)!}
                         alt={`${item.country || 'Country'} Flag`}
                         title={`${item.country || 'Country'} Flag`}
                         className="w-8 h-6 object-cover rounded"
@@ -2058,13 +2029,12 @@ export default function MobileCommodityChart({
                   <div className="flex flex-wrap gap-1.5">
                     {packingTypesList.length > 0 ? (
                       packingTypesList.map((pt: any, idx: number) => (
-                        <span 
+                        <span
                           key={idx}
-                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                            pt.isDefault 
-                              ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30' 
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${pt.isDefault
+                              ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30'
                               : 'bg-muted text-foreground/80'
-                          }`}
+                            }`}
                         >
                           {pt.title} {pt.isDefault ? '(Default)' : ''}
                         </span>
@@ -2088,7 +2058,7 @@ export default function MobileCommodityChart({
               <span className="text-[11px] text-foreground/75 font-medium">
                 Standard Verified Specifications
               </span>
-              <button 
+              <button
                 onClick={() => setShowSpecsModal(false)}
                 className="px-4 py-1.5 rounded-lg bg-brand-blue hover:opacity-90 text-white text-[12px] font-bold transition-opacity cursor-pointer shadow-xs"
               >
@@ -2097,7 +2067,7 @@ export default function MobileCommodityChart({
             </div>
           </div>
         </div>
-        )}
+      )}
     </div>
   );
 }
