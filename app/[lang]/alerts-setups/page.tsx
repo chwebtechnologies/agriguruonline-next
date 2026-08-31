@@ -68,7 +68,7 @@ export default async function AlertsSetupsPage(props: { params: Promise<{ lang: 
   const alertsList = Array.isArray(alertsData) ? alertsData : (Array.isArray(alertsData?.alerts) ? alertsData.alerts : []);
 
   return (
-    <div className="bg-background text-foreground transition-theme min-h-screen pb-10">
+    <div className="bg-background text-foreground transition-theme pb-5">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5 px-3 sm:px-0">
           <PageHeader title="Alerts Setups" backText="Back" />
