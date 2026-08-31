@@ -50,8 +50,8 @@ const nextConfig: NextConfig = {
       "form-action 'self'",
       "frame-ancestors 'self'",
       "frame-src 'self' https://www.youtube.com https://youtube.com",
-      "require-trusted-types-for 'script'",
-      "trusted-types default nextjs nextjs#bundler 'allow-duplicates'",
+      // "require-trusted-types-for 'script'",
+      // "trusted-types default nextjs nextjs#bundler 'allow-duplicates'",
       // Note: upgrade-insecure-requests intentionally omitted.
       // HTTPS is enforced via Strict-Transport-Security (HSTS) header in production.
       // Including this directive breaks mobile/LAN HTTP testing environments.

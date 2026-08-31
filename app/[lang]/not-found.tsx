@@ -1,8 +1,10 @@
 import Link from 'next/link'
-import { lang } from 'next/root-params'
+import { headers } from 'next/headers'
 
 export default async function NotFound() {
-  const activeLang = await lang()
+  const headersList = await headers()
+  const pathname = headersList.get('x-invoke-path') || ''
+  const activeLang = pathname.split('/')[1] || 'en'
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 py-24 text-center bg-background text-foreground">

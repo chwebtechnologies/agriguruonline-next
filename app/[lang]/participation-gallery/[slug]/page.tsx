@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ParticipationAlbumClient from '@/components/participation-gallery/ParticipationAlbumClient'
 import type { Metadata } from 'next'
@@ -201,6 +202,9 @@ export default async function ParticipationAlbumPage(props: {
   }
 
   const isNotFound = !category && photos.length === 0
+  if (isNotFound) {
+    notFound()
+  }
 
   return (
     <div className="bg-background text-foreground">
@@ -208,32 +212,13 @@ export default async function ParticipationAlbumPage(props: {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title={albumTitle} backText="Back" backHref={`/${lang}/participation-gallery`} />
 
-          {isNotFound ? (
-            <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border mt-3">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
-                <i className="fa-solid fa-folder-open text-2xl"></i>
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Album Not Found</h3>
-              <p className="text-foreground/80 max-w-md mx-auto text-sm mb-6">
-                The requested participation album could not be found or has no available photos.
-              </p>
-              <Link
-                href={`/${lang}/participation-gallery`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
-              >
-                <i className="fa-solid fa-arrow-left text-xs rtl:rotate-180"></i>
-                <span>Back to All Albums</span>
-              </Link>
-            </div>
-          ) : (
-            <ParticipationAlbumClient
-              photos={photos}
-              albumTitle={albumTitle}
-              albumSlug={slug}
-              lang={lang}
-              currentPage={currentPage}
-            />
-          )}
+          <ParticipationAlbumClient
+            photos={photos}
+            albumTitle={albumTitle}
+            albumSlug={slug}
+            lang={lang}
+            currentPage={currentPage}
+          />
         </div>
       </div>
     </div>

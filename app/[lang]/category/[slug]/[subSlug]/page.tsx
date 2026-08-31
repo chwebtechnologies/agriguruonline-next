@@ -230,7 +230,7 @@ export default async function SubCategoryProductsPage(
                   title={productName}
                   className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                 >
-                  <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="relative w-full aspect-square bg-muted animate-pulse overflow-hidden border-b border-border block" title={productName} tabIndex={-1} aria-hidden="true">
+                  <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="relative w-full aspect-square bg-muted overflow-hidden border-b border-border block" title={productName} tabIndex={-1} aria-hidden="true">
                     <ImageWithSkeleton
                       src={imageUrl}
                       alt={productName}

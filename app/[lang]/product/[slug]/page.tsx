@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
@@ -201,16 +202,7 @@ export default async function ProductDetailPage(
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
   if (!product) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Product not found</h1>
-          <Link href={`/${lang}`} className="text-brand-blue hover:underline">
-            Return to Home
-          </Link>
-        </div>
-      </div>
-    )
+    notFound()
   }
 
   const similarProducts = product.category?.id ? await getSimilarProducts(product.category.id, lang, slug) : []

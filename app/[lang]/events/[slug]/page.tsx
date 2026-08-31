@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
@@ -225,26 +226,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
   ])
 
   if (!event) {
-    return (
-      <div className="bg-background text-foreground min-h-[60vh] flex items-center justify-center">
-        <div className="text-center p-8 max-w-md bg-card rounded-2xl border border-border shadow-xs">
-          <div className="w-16 h-16 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center mx-auto mb-4 text-2xl">
-            <i className="fa-regular fa-calendar-xmark"></i>
-          </div>
-          <h1 className="text-2xl font-bold mb-2">Event Not Found</h1>
-          <p className="text-foreground/80 mb-6 text-sm">
-            The event you are looking for might have been moved or concluded.
-          </p>
-          <Link
-            href={`/${lang}/events`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-700 text-white font-bold text-sm hover:bg-blue-800 transition-colors"
-          >
-            <i className="fa-solid fa-arrow-left text-xs"></i>
-            Back to All Events
-          </Link>
-        </div>
-      </div>
-    )
+    notFound()
   }
 
   const translation = event.translations?.find(t => t.lang_code === lang)

@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
@@ -175,16 +176,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   }
 
   if (!data) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Category not found</h1>
-          <Link href={`/${lang}`} className="text-sky-700 dark:text-sky-400 hover:underline">
-            Return to Home
-          </Link>
-        </div>
-      </div>
-    )
+    notFound()
   }
 
   // Helper to get translated name

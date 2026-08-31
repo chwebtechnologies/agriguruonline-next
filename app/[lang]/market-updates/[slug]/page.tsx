@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
@@ -192,26 +193,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
   const article = await getMarketUpdateDetail(slug, lang)
   
   if (!article) {
-    return (
-      <div className="bg-background text-foreground min-h-[60vh] flex items-center justify-center">
-        <div className="text-center p-8 max-w-md bg-card rounded-2xl border border-border shadow-xs">
-          <div className="w-16 h-16 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center mx-auto mb-4 text-2xl">
-            <i className="fa-regular fa-newspaper"></i>
-          </div>
-          <h1 className="text-2xl font-bold mb-2">Market Update Not Found</h1>
-          <p className="text-foreground/80 mb-6 text-sm">
-            The update you are looking for might have been moved or removed.
-          </p>
-          <Link
-            href={`/${lang}/market-updates`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-blue text-white font-semibold text-sm hover:bg-brand-blue-hover transition-colors"
-          >
-            <i className="fa-solid fa-arrow-left text-xs"></i>
-            Back to Market Updates
-          </Link>
-        </div>
-      </div>
-    )
+    notFound()
   }
 
   const allUpdates = await getOtherUpdates(lang, 6)
