@@ -7,39 +7,28 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Missing url parameter', { status: 400 })
   }
 
-  // Prevent SSRF by allowing only trusted origins
-  const allowedOrigins = [
-    'https://assets.agriguruonline.com',
-    'https://assets.agriguruonline.cloud',
-    'https://trading-api.agriguruonline.cloud',
-    'https://cms-api.agriguruonline.cloud'
-  ];
-
-  let isValidOrigin = false;
+  // Parse the URL
+  let parsedUrl;
   try {
-    const parsedUrl = new URL(url);
-    if (allowedOrigins.includes(parsedUrl.origin)) {
-      isValidOrigin = true;
-    }
+    parsedUrl = new URL(url);
   } catch (e) {
+    console.error(`Invalid URL format provided to PDF proxy: ${url}`);
     return new NextResponse('Invalid URL format', { status: 400 });
-  }
-
-  if (!isValidOrigin) {
-    return new NextResponse('Domain not allowed', { status: 403 });
   }
 
   try {
     const response = await fetch(url)
     
     if (!response.ok) {
+      console.error(`PDF proxy upstream failed for ${url} with status ${response.status}`);
       return new NextResponse(`Failed to fetch from upstream: ${response.statusText}`, { status: response.status })
     }
 
     const contentType = response.headers.get('Content-Type');
-    if (!contentType || !contentType.includes('application/pdf')) {
-      return new NextResponse('Upstream returned non-PDF content', { status: 400 });
-    }
+    console.log(`PDF Proxy fetched ${url} with Content-Type: ${contentType}`);
+    
+    // Some storage providers (like S3) might return application/octet-stream or binary/octet-stream for PDFs
+    // So we just log the content type and continue instead of strictly blocking it.
 
     const blob = await response.blob()
     

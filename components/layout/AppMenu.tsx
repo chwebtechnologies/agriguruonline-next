@@ -109,7 +109,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
 
   if (profile) {
     MENU_GROUPS.push([
-      { label: 'Logout', icon: 'fa-solid fa-power-off', href: '#', iconBg: 'bg-red-500', textColor: 'text-red-500 hover:text-red-600' },
+      { label: 'Logout', icon: 'fa-solid fa-power-off', href: '#', iconBg: 'bg-brand-red', textColor: 'text-brand-red hover:text-brand-red-hover' },
     ]);
   }
 
@@ -205,7 +205,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
             <div className="grid grid-cols-3 gap-2 min-[390px]:gap-2.5">
               {profile ? (
                 <button onClick={confirmLogout} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
-                  <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-red-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+                  <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-brand-red shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                     <i className="fa-solid fa-power-off text-[10px] min-[390px]:text-[11px] text-white"></i>
                   </div>
                   <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Logout</span>
@@ -280,11 +280,11 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="bg-background rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
             <div className="flex gap-4 items-center mb-6">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center shrink-0 text-red-600">
+              <div className="w-12 h-12 bg-brand-red/10 dark:bg-brand-red/20 rounded-full flex items-center justify-center shrink-0 text-brand-red">
                 <i className="fa-solid fa-triangle-exclamation text-xl"></i>
               </div>
               <div className="flex flex-col justify-center w-full items-center">
-                <h2 className="text-[17px] font-bold text-red-600 dark:text-red-500 mb-1 leading-none text-center">Logout</h2>
+                <h2 className="text-[17px] font-bold text-brand-red mb-1 leading-none text-center">Logout</h2>
                 <p className="text-foreground/80 text-[14px] leading-snug whitespace-nowrap text-center">Are you sure you want to log out of your account?</p>
               </div>
             </div>
@@ -292,7 +292,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
             <div className="flex w-full gap-3">
               <button 
                 onClick={handleLogout}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-[15px] shadow-sm hover:bg-red-700 active:scale-[0.98] transition-all"
+                className="flex-1 py-2.5 rounded-xl bg-brand-red text-white font-semibold text-[15px] shadow-sm hover:bg-brand-red-hover active:scale-[0.98] transition-all"
               >
                 Logout
               </button>
