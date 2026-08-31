@@ -12,7 +12,11 @@ interface MenuItem {
   textColor?: string;
 }
 
+import { useParams } from 'next/navigation'
+
 export function AppMenu({ children, align = 'right', profile }: { children?: React.ReactNode, align?: 'left' | 'right', profile?: any }) {
+  const params = useParams();
+  const lang = (params?.lang as string) || 'en';
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -65,8 +69,8 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     setShowLogoutConfirm(false);
     setIsOpen(false);
     await logoutUser();
-    const lang = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en';
-    window.location.href = `/${lang}/`;
+    const currentLang = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en';
+    window.location.href = `/${currentLang}/`;
   };
 
   // Helper to safely extract user type string
@@ -89,21 +93,22 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     ],
     [
       { label: inquiriesLabel, icon: 'fa-solid fa-comments', href: '#', iconBg: 'bg-indigo-500' },
-      { label: 'Product Charts', icon: 'fa-solid fa-chart-line', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/product-charts`, iconBg: 'bg-orange-500' },
-      { label: 'Freight Charts', icon: 'fa-solid fa-chart-area', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/freight-charts`, iconBg: 'bg-amber-500' },
-    ],[
-      { label: 'Alerts Setups', icon: 'fa-solid fa-bell', href: '#', iconBg: 'bg-rose-500' },
+      { label: 'Product Charts', icon: 'fa-solid fa-chart-line', href: `/${lang}/product-charts`, iconBg: 'bg-orange-500' },
+      { label: 'Freight Charts', icon: 'fa-solid fa-chart-area', href: `/${lang}/freight-charts`, iconBg: 'bg-amber-500' },
+    ],
+    [
+      { label: 'Alerts Setups', icon: 'fa-solid fa-bell', href: `/${lang}/alerts-setups`, iconBg: 'bg-rose-500' },
       { label: 'AI Predicts', icon: 'fa-solid fa-microchip', href: '#', iconBg: 'bg-purple-500' },
     ],
     [
       { label: 'Smart Docs', icon: 'fa-solid fa-file-pen', href: '#', iconBg: 'bg-cyan-500' },
       { label: 'Instructions', icon: 'fa-solid fa-person-chalkboard', href: '#', iconBg: 'bg-teal-500' },
-      { label: 'Market Reports', icon: 'fa-solid fa-file-contract', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/market-reports`, iconBg: 'bg-sky-500' },
+      { label: 'Market Reports', icon: 'fa-solid fa-file-contract', href: `/${lang}/market-reports`, iconBg: 'bg-sky-500' },
     ],
     [
       { label: 'Messages', icon: 'fa-solid fa-comment-dots', href: 'https://wa.me/918980131000?text=Hey%2C%20I%20want%20to%20connect%21', iconBg: 'bg-green-500' },
       { label: 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-zinc-500' },
-      { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/profile`, iconBg: 'bg-zinc-500' },
+      { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${lang}/profile`, iconBg: 'bg-zinc-500' },
     ]
   ];
 
@@ -211,14 +216,14 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                   <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Logout</span>
                 </button>
               ) : (
-                <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en'}/login`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
+                <Link onClick={() => setIsOpen(false)} href={`/${lang}/login`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                   <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-emerald-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                     <i className="fa-solid fa-user text-[10px] min-[390px]:text-[11px] text-white"></i>
                   </div>
                   <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Login</span>
                 </Link>
               )}
-              <Link onClick={() => setIsOpen(false)} href={`/${typeof window !== 'undefined' ? window.location.pathname.split('/')[1] : 'en'}`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
+              <Link onClick={() => setIsOpen(false)} href={`/${lang}`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                 <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-blue-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className="fa-solid fa-house text-[10px] min-[390px]:text-[11px] text-white"></i>
                 </div>
