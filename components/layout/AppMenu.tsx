@@ -20,9 +20,11 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
     const syncTheme = () => {
       setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     };
@@ -133,7 +135,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   const alignClass = align === 'left' ? 'left-0 origin-top-left' : 'right-0 origin-top-right';
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative" ref={menuRef} suppressHydrationWarning>
       {/* Trigger */}
       <div
         role="button"
@@ -157,49 +159,49 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
       </div>
 
       {/* --- DESKTOP DROPDOWN VIEW (Ultra Compact Single Column Agriguru Online Settings) --- */}
-      <div className={`hidden md:block absolute top-[calc(100%+0.5rem)] ${alignClass} w-[260px] bg-background border border-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl overflow-hidden transition-all duration-200 z-[100] ${isOpen ? 'scale-100 opacity-100 visible translate-y-0' : 'scale-95 opacity-0 invisible -translate-y-2'}`}>
-        <div className="max-h-[calc(100vh-100px)] overflow-y-auto px-2 py-2 space-y-1.5">
+      <div className={`hidden md:block absolute top-[calc(100%+0.5rem)] ${alignClass} w-[260px] bg-background border border-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl overflow-hidden transition-all duration-200 z-[100] ${isOpen ? 'scale-100 opacity-100 visible translate-y-0' : 'scale-95 opacity-0 invisible -translate-y-2'}`} suppressHydrationWarning>
+        <div className="max-h-[calc(100vh-100px)] overflow-y-auto px-2 py-2 space-y-1.5" suppressHydrationWarning>
           {MENU_GROUPS.map((group, groupIndex) => (
-            <div key={groupIndex} className="bg-background rounded-[10px] overflow-hidden border border-border/50 shadow-sm">
-              <ul className="flex flex-col">
-                {group.map((item, index) => (
-                  <li key={index} className="relative group">
-                    {item.label === 'Logout' ? (
-                      <button onClick={confirmLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
-                            <i className={`${item.icon} text-[12px] text-white`}></i>
+              <div key={`group-${groupIndex}`} className="bg-background rounded-[10px] overflow-hidden border border-border/50 shadow-sm">
+                <ul className="flex flex-col">
+                  {group.map((item, index) => (
+                    <li key={`item-${item.label}-${index}`} className="relative group">
+                      {item.label === 'Logout' ? (
+                        <button onClick={confirmLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+                              <i className={`${item.icon} text-[12px] text-white`}></i>
+                            </div>
+                            <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
+                              {item.label}
+                            </span>
                           </div>
-                          <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
-                            {item.label}
-                          </span>
-                        </div>
-                        <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
-                      </button>
-                    ) : (
-                      <Link href={item.href} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
-                            <i className={`${item.icon} text-[12px] text-white`}></i>
+                          <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                        </button>
+                      ) : (
+                        <Link href={item.href} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+                              <i className={`${item.icon} text-[12px] text-white`}></i>
+                            </div>
+                            <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
+                              {item.label}
+                            </span>
                           </div>
-                          <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
-                            {item.label}
-                          </span>
-                        </div>
-                        <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
-                      </Link>
-                    )}
-                    {/* Inline separator, except for last item */}
-                    {index !== group.length - 1 && (
-                      <div className="absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                          <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                        </Link>
+                      )}
+                      {/* Inline separator, except for last item */}
+                      {index !== group.length - 1 && (
+                        <div className="absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
       {/* --- MOBILE/TABLET DROPDOWN VIEW (Below Header, Premium Grid Layout) --- */}
       {isOpen && (
@@ -233,7 +235,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                 <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-purple-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} text-[10px] min-[390px]:text-[11px] text-white`}></i>
                 </div>
-                <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                <span suppressHydrationWarning className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
               </button>
             </div>
 
@@ -254,7 +256,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
               {MENU_GROUPS.flat().filter(item => item.label !== 'Logout').map((item, index) => (
                 <Link 
                   onClick={() => setIsOpen(false)}
-                  key={index} 
+                  key={`mobile-${item.label}-${index}`} 
                   href={item.href}
                   className="flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden"
                 >

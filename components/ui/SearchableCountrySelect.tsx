@@ -231,7 +231,7 @@ export default function SearchableCountrySelect({
         onKeyDown={handleKeyDown}
         className={`flex items-center justify-between hover:opacity-90 transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed select-none group ${
           !showDialCode
-            ? "w-full px-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl text-foreground font-medium text-sm"
+            ? `w-full px-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl text-foreground font-medium text-sm focus:bg-background focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue ${isOpen ? "bg-background ring-2 ring-brand-blue/50 border-brand-blue" : ""}`
             : "gap-2 pr-3 py-1 border-r border-foreground/15 mr-3 text-foreground"
         }`}
       >

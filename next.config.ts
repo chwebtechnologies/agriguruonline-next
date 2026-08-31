@@ -38,18 +38,18 @@ const nextConfig: NextConfig = {
   async headers() {
     const cspHeader = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
       "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com https://www.transparenttextures.com",
       "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com",
-      "connect-src 'self' https://trading-api.agriguruonline.cloud https://cms-api.agriguruonline.cloud https://user-api.agriguruonline.cloud https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com ws: wss: https://unpkg.com",
+      "connect-src 'self' https://trading-api.agriguruonline.cloud https://cms-api.agriguruonline.cloud https://user-api.agriguruonline.cloud https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com ws: wss: https://unpkg.com https://get.geojs.io https://api.country.is",
       "media-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud",
       "worker-src 'self' blob: https://unpkg.com",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'self'",
-      "frame-src 'self' https://www.youtube.com https://youtube.com",
+      "frame-src 'self' https://www.youtube.com https://youtube.com https://www.google.com/recaptcha/",
       // "require-trusted-types-for 'script'",
       // "trusted-types default nextjs nextjs#bundler 'allow-duplicates'",
       // Note: upgrade-insecure-requests intentionally omitted.

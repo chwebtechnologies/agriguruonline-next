@@ -22,7 +22,6 @@ self.addEventListener('fetch', (event) => {
   // Cache-first for Next.js optimized images, CDN images, and static media
   if (
     url.pathname.startsWith('/_next/image') ||
-    url.pathname.startsWith('/_next/static') ||
     url.hostname === 'assets.agriguruonline.com' ||
     url.hostname === 'assets.agriguruonline.cloud' ||
     url.pathname.endsWith('.webp') ||

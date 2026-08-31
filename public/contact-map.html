@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #f8fafc;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    .custom-marker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .pin-bubble {
+      background: #0284c7;
+      color: #ffffff;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      border: 1.5px solid #ffffff;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .pin-bubble.hq {
+      background: #059669;
+      font-size: 12px;
+      padding: 4px 10px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 3px 12px rgba(5,150,105,0.4);
+    }
+    .pin-tip {
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid #0284c7;
+      margin-top: -1px;
+    }
+    .pin-tip.hq {
+      border-top-color: #059669;
+    }
+    .custom-marker:hover .pin-bubble {
+      transform: translateY(-2px) scale(1.08);
+    }
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      padding: 4px 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .leaflet-control-zoom {
+      border: none !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+      border-radius: 8px !important;
+      overflow: hidden;
+    }
+    .leaflet-control-zoom a {
+      background: #ffffff !important;
+      color: #334155 !important;
+      border: none !important;
+      width: 28px !important;
+      height: 28px !important;
+      line-height: 28px !important;
+    }
+    .leaflet-control-zoom a:hover {
+      background: #f1f5f9 !important;
+    }
+    .leaflet-control-attribution {
+      font-size: 9px !important;
+      background: rgba(255,255,255,0.7) !important;
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map', {
+      center: [20, 20],
+      zoom: 2,
+      minZoom: 1,
+      maxZoom: 12,
+      zoomControl: true,
+      scrollWheelZoom: false
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    var locations = [
+      { name: "India (HQ)", fullName: "India - Ahmedabad (Global Headquarters)", lat: 23.0225, lng: 72.5714, isHq: true },
+      { name: "UAE", fullName: "United Arab Emirates (Dubai)", lat: 25.2048, lng: 55.2708 },
+      { name: "China", fullName: "China Office Network", lat: 35.8617, lng: 104.1954 },
+      { name: "France", fullName: "France Office Network", lat: 48.8566, lng: 2.3522 },
+      { name: "Kenya", fullName: "Kenya - Nairobi Office", lat: -1.2921, lng: 36.8219 },
+      { name: "Mombasa", fullName: "Kenya - Mombasa Port Hub", lat: -4.0435, lng: 39.6682 },
+      { name: "Brazil", fullName: "Brazil Office Network", lat: -14.2350, lng: -51.9253 }
+    ];
+
+    locations.forEach(function(loc) {
+      var html = '<div class="custom-marker">' +
+        '<div class="pin-bubble ' + (loc.isHq ? 'hq' : '') + '">' +
+          (loc.isHq ? '★ ' : '') + loc.name +
+        '</div>' +
+        '<div class="pin-tip ' + (loc.isHq ? 'hq' : '') + '"></div>' +
+      '</div>';
+
+      var customMarker = L.divIcon({
+        className: '',
+        html: html,
+        iconSize: [loc.isHq ? 85 : 65, 30],
+        iconAnchor: [loc.isHq ? 42 : 32, 28]
+      });
+
+      var marker = L.marker([loc.lat, loc.lng], { icon: customMarker }).addTo(map);
+      marker.bindPopup('<div style="padding:4px 2px;">' +
+        '<div style="font-weight:700;font-size:13px;color:' + (loc.isHq ? '#059669' : '#0284c7') + ';">' + loc.fullName + '</div>' +
+        '<div style="font-size:11px;color:#64748b;margin-top:2px;">Active AgriGuru Trade Network</div>' +
+      '</div>');
+    });
+
+    window.addEventListener('resize', function() {
+      map.invalidateSize();
+    });
+    setTimeout(function() {
+      map.invalidateSize();
+    }, 300);
+  </script>
+</body>
+</html>

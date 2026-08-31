@@ -38,6 +38,13 @@ export default function SearchablePhoneInput({
 
   const [country, setCountry] = useState<Country>(initialCountry);
 
+  // Sync country if defaultCountry changes externally and there's no value yet
+  useEffect(() => {
+    if (!value && defaultCountry) {
+      setCountry(defaultCountry);
+    }
+  }, [defaultCountry, value]);
+
   // Extract initial national digits
   const getNationalDigitsFromValue = (val: string, c: Country) => {
     if (!val) return "";
