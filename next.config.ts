@@ -128,7 +128,24 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/proxy-trading/:path*',
+        destination: `${process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'}/:path*`,
+      },
+      {
+        source: '/api/proxy-cms/:path*',
+        destination: `${process.env.NEXT_PUBLIC_CMS_API_URL || 'https://cms-api.agriguruonline.cloud'}/:path*`,
+      },
+      {
+        source: '/api/proxy-user/:path*',
+        destination: `${process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud'}/:path*`,
+      }
+    ]
+  },
   images: {
+    unoptimized: true,
     minimumCacheTTL: 31536000,
     formats: ['image/avif', 'image/webp'],
     qualities: [65, 75, 85, 90],

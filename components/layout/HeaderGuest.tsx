@@ -25,6 +25,12 @@ interface HeaderGuestProps {
       about_us: string
       register_here: string
       menu: string
+      insights?: string
+      news?: string
+      events?: string
+      market_updates?: string
+      video_gallery?: string
+      participation_gallery?: string
       categories: {
         rice: string
         sugar: string
@@ -41,6 +47,7 @@ interface HeaderGuestProps {
         machinery?: string
       }
     }
+    common?: any
   }
   activeLang?: string
   categories?: Array<{ name: string; href: string }>
@@ -135,7 +142,8 @@ export function HeaderGuestBase({
         ...defaultHeader.categories,
         ...rawDict?.header?.categories
       }
-    }
+    },
+    common: rawDict?.common || {}
   }
 
   // Scroll listener for sticky collapse behavior
@@ -231,7 +239,7 @@ export function HeaderGuestBase({
   return (
     <div className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
 
-      {/* 2. Main Header Bar */}
+        {/* 2. Main Header Bar */}
       <header className="w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
           
@@ -281,6 +289,7 @@ export function HeaderGuestBase({
                   placeholder={dict.header.search_placeholder}
                   lang={activeLang}
                   categories={categoriesList}
+                  dict={dict.common}
                 />
               )}
             </div>
@@ -310,15 +319,15 @@ export function HeaderGuestBase({
                   </Link>
                   <div className="relative group" onMouseLeave={() => setHideInsights(false)}>
                     <button className={`flex items-center gap-1.5 transition-colors duration-150 font-extrabold focus:outline-none ${isInsightsActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-                      <span>Insights</span>
+                      <span>{dict.header.insights || 'Insights'}</span>
                       <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}></i>
                     </button>
                     <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
-                      <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>News</Link>
-                      <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Events</Link>
-                      <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Market Updates</Link>
-                      <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Video Gallery</Link>
-                      <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Participation Gallery</Link>
+                      <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.news || 'News'}</Link>
+                      <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.events || 'Events'}</Link>
+                      <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.market_updates || 'Market Updates'}</Link>
+                      <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.video_gallery || 'Video Gallery'}</Link>
+                      <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.participation_gallery || 'Participation Gallery'}</Link>
                     </div>
                   </div>
                 </>

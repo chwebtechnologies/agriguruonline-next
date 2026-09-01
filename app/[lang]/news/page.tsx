@@ -135,8 +135,7 @@ export default async function LatestNewsPage(props: {
   const categoryOptions = apiCategories
     .filter(cat => cat.is_active !== false)
     .map(cat => {
-      const translation = cat.translations?.find(t => t.lang_code === lang)
-      return { slug: cat.slug, name: translation ? translation.name : cat.name }
+      return { slug: cat.slug, name: cat.name }
     })
 
   return (
@@ -177,7 +176,7 @@ export default async function LatestNewsPage(props: {
                       "position": index + 1,
                       "item": {
                         "@type": "NewsArticle",
-                        "headline": article.translations?.[0]?.title || article.slug,
+                        "headline": article.title || article.slug,
                         "image": [
                           article.thumbnail?.startsWith('http')
                             ? article.thumbnail

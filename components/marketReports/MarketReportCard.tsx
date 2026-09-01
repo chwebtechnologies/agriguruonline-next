@@ -14,9 +14,10 @@ interface MarketReportCardProps {
   report: MarketReportItem
   lang: string
   priority?: boolean;
+  dict?: any;
 }
 
-export default function MarketReportCard({ report, lang, priority = false }: MarketReportCardProps) {
+export default function MarketReportCard({ report, lang, priority = false, dict = {} }: MarketReportCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const assetsUrl = getAssetsUrl();
@@ -26,15 +27,11 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
       : `${assetsUrl}/${report.thumbnail}`
     : '/logo.webp'
 
-  // Use translated title if available, otherwise fallback to default
-  const title = (report.translations?.find(t => t.lang_code === lang) as any)?.subject_title 
-    || report.translations?.find(t => t.lang_code === lang)?.title 
-    || report.subject_title 
-    || report.title 
-    || 'Market Report'
+  // Use title directly since translations object is removed from API
+  const title = report.subject_title || report.title || 'Market Report'
 
   // Strip HTML from description for the summary
-  const rawDesc = report.translations?.find(t => t.lang_code === lang)?.description || report.description || ''
+  const rawDesc = report.description || ''
   const cleanDesc = rawDesc.replace(/<[^>]*>?/gm, '')
   const description = cleanDesc.length > 100 ? `${cleanDesc.substring(0, 100)}...` : cleanDesc
 
@@ -67,7 +64,7 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
   const handleOpenReport = (e: React.MouseEvent) => {
     e.preventDefault()
     if (!fileUrl) {
-      alert("This report file is currently unavailable.")
+      alert(dict?.report_unavailable || "This report file is currently unavailable.")
       return
     }
     
@@ -136,7 +133,7 @@ export default function MarketReportCard({ report, lang, priority = false }: Mar
           
           <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
             <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">
-              {isPdf ? 'Read Report' : 'Download Report'}
+              {isPdf ? (dict?.read_report || 'Read Report') : (dict?.download_report || 'Download Report')}
             </span>
             <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sky-700 dark:text-sky-400 group-hover:bg-primary group-hover:text-white transition-colors">
               <i className={`fa-solid ${isPdf ? 'fa-book-open' : 'fa-download'} text-[10px]`}></i>

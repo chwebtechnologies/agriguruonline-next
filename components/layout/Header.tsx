@@ -41,7 +41,8 @@ export default async function Header() {
       categories: {
         ...rawDict?.header?.categories
       }
-    }
+    },
+    common: rawDict?.common || {}
   }
 
   const tradingApiUrl = getTradingApiUrl()
@@ -57,8 +58,7 @@ export default async function Header() {
   const categories = apiCategories
     .filter(cat => cat.is_active !== false)
     .map(cat => {
-      const translation = cat.translations?.find(t => t.lang_code === activeLang)
-      const name = translation ? translation.name : cat.name
+      const name = cat.name
       return {
         name,
         href: `/${activeLang}/category/${cat.slug}`

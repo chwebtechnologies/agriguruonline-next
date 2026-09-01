@@ -4,6 +4,7 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { getCmsApiUrl, getAssetsUrl } from '@/lib/api-utils'
 import { cache, Suspense } from 'react'
+import { getDictionary } from '../../dictionaries'
 
 interface VideoItem {
   id: string
@@ -72,7 +73,7 @@ export async function generateMetadata(
 
 import VideoCollectionClient from '@/components/video-gallery/VideoCollectionClient'
 
-async function VideoGrid({ slug, lang }: { slug: string; lang: string }) {
+async function VideoGrid({ slug, lang, dict }: { slug: string; lang: string; dict: any }) {
   const data = await getCollectionVideos(slug, lang)
   
   if (!data || !data.videos || data.videos.length === 0) {
@@ -92,7 +93,7 @@ async function VideoGrid({ slug, lang }: { slug: string; lang: string }) {
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
-  return <VideoCollectionClient videos={data.videos} lang={lang} imageBaseUrl={imageBaseUrl} />
+  return <VideoCollectionClient videos={data.videos} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict} />
 }
 
 export default async function VideoCollectionPage(props: { 
@@ -106,15 +107,16 @@ export default async function VideoCollectionPage(props: {
   const categoryName = data?.category?.translations?.find(t => t.lang_code === lang)?.category_name 
     || data?.category?.category_name 
     || 'Video Collection'
+  const dict = await getDictionary(lang)
   
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={categoryName} backText="Back" />
+          <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
           
           <Suspense fallback={null}>
-            <VideoGrid slug={slug} lang={lang} />
+            <VideoGrid slug={slug} lang={lang} dict={dict.common} />
           </Suspense>
         </div>
       </div>

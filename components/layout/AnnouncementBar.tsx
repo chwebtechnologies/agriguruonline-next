@@ -50,12 +50,6 @@ export default async function AnnouncementBar() {
         title: "Your AgriTrade & Our AgriTech",
         label: "Download Now",
         link: "#download-section",
-        translations: [
-          { lang_code: 'en', title: "Your AgriTrade & Our AgriTech", label: "Download Now" },
-          { lang_code: 'fr', title: "Votre AgriTrade et notre AgriTech", label: "Télécharger maintenant" },
-          { lang_code: 'ar', title: "التجارة الزراعية الخاصة بك والتكنولوجيا الزراعية الخاصة بنا", label: "التنزيل الآن" },
-          { lang_code: 'zh', title: "您的 AgriTrade 和我们的 AgriTech", label: "立即下载" }
-        ]
       }
     ]
   }

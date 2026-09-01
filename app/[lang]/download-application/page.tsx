@@ -21,7 +21,13 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function DownloadAppPage() {
+import { getDictionary } from '../dictionaries'
+
+export default async function DownloadAppPage({ params }: { params: Promise<{ lang: string }> }) {
+  const resolvedParams = await params
+  const lang = (resolvedParams?.lang || 'en') as 'en' | 'ar' | 'fr' | 'zh'
+  const dict = await getDictionary(lang)
+  
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
@@ -353,19 +359,19 @@ export default async function DownloadAppPage() {
                 {/* Badge 1: Live Market Prices (Top-Left) */}
                 <div className="absolute top-1 left-1 sm:left-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4s' }}>
                   <i className="fa-solid fa-chart-line text-brand-blue text-xs sm:text-sm"></i>
-                  <span>Live Market Prices</span>
+                  <span>{dict.download_app?.live_market_prices || 'Live Market Prices'}</span>
                 </div>
 
                 {/* Badge 2: Live Freight Rates (Top-Right) */}
                 <div className="absolute top-3 right-1 sm:right-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4.8s' }}>
                   <i className="fa-solid fa-ship text-brand-green text-xs sm:text-sm"></i>
-                  <span>Live Freight Rates</span>
+                  <span>{dict.download_app?.live_freight_rates || 'Live Freight Rates'}</span>
                 </div>
 
                 {/* Badge 3: AI Predict (Middle-Left) */}
                 <div className="absolute top-[38%] -left-1 sm:-left-3 lg:-left-5 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '3.6s' }}>
                   <i className="fa-solid fa-brain text-purple-600 text-xs sm:text-sm"></i>
-                  <span>AI Predict</span>
+                  <span>{dict.download_app?.ai_predict || 'AI Predict'}</span>
                 </div>
 
                 {/* Left Phone (Angled Back Layer) */}
@@ -387,13 +393,13 @@ export default async function DownloadAppPage() {
                 {/* Badge 4: Create Alert (Middle-Right) */}
                 <div className="absolute top-[42%] -right-1 sm:-right-3 lg:-right-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4.4s' }}>
                   <i className="fa-solid fa-bell text-amber-500 text-xs sm:text-sm"></i>
-                  <span>Create Alert</span>
+                  <span>{dict.download_app?.create_alert || 'Create Alert'}</span>
                 </div>
 
                 {/* Badge 5: Smart Docs (Bottom-Left) */}
                 <div className="absolute bottom-9 left-1 sm:left-3 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '3.9s' }}>
                   <i className="fa-solid fa-file-invoice text-brand-red text-xs sm:text-sm"></i>
-                  <span>Smart Docs</span>
+                  <span>{dict.download_app?.smart_docs || 'Smart Docs'}</span>
                 </div>
 
                 {/* Badge 6: iOS & Android Ready (Bottom-Center - Static) */}

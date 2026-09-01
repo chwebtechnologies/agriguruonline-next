@@ -119,9 +119,8 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
           >
             {announcements.map((ann, idx) => {
               // Extract localized translation if present
-              const translation = ann.translations?.find(t => t.lang_code === activeLang)
-              const title = translation?.title || ann.title
-              const label = translation?.label || ann.label
+              const title = ann.title
+              const label = ann.label
 
               return (
                 <div key={ann.id || idx} className="h-6 flex items-center gap-2 truncate">

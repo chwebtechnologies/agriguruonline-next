@@ -13,11 +13,13 @@ interface HeaderSearchProps {
   placeholder?: string
   lang?: string
   categories?: Array<{ name: string; href: string }>
+  dict?: any
 }
 
 export function HeaderSearch({
   placeholder = 'Search Product',
   lang = 'en',
+  dict = {},
 }: HeaderSearchProps) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -126,22 +128,39 @@ export function HeaderSearch({
     }
   }, [])
 
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
   // Fetch initial products once (Frequently Searched, Marketed Products, Best Seller)
   const loadInitialProducts = useCallback(async () => {
     if (initialLoadedRef.current || isInitialLoading) return
     initialLoadedRef.current = true
     setIsInitialLoading(true)
+    setFetchError(null)
 
     try {
       const url = `${tradingApiUrl}/product?is_active=true&lang_code=${lang}&source=web&limit=50`
       const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to fetch initial products')
-      const json: SearchApiResponse = await res.json()
-      if (json.success && json.data?.products) {
-        setInitialProducts(json.data.products.filter((p) => p.is_active !== false))
+      if (!res.ok) throw new Error(`HTTP Error ${res.status}`)
+      const json = await res.json()
+      
+      // More resilient parsing in case API structure changed
+      let productsArray: SearchProduct[] = []
+      if (json?.data?.products && Array.isArray(json.data.products)) {
+        productsArray = json.data.products
+      } else if (json?.data && Array.isArray(json.data)) {
+        productsArray = json.data
+      } else if (Array.isArray(json)) {
+        productsArray = json
       }
-    } catch (err) {
+      
+      if (productsArray.length > 0) {
+        setInitialProducts(productsArray.filter((p: any) => p.is_active !== false))
+      } else {
+        setFetchError('No products received from API')
+      }
+    } catch (err: any) {
       console.error('Error fetching initial search products:', err)
+      setFetchError(err.message || 'Network or CORS error')
       initialLoadedRef.current = false
     } finally {
       setIsInitialLoading(false)
@@ -201,9 +220,18 @@ export function HeaderSearch({
         const url = `${tradingApiUrl}/product?is_active=true&search=${encodeURIComponent(trimmed)}&lang_code=${lang}&source=web`
         const res = await fetch(url)
         if (!res.ok) throw new Error('Search failed')
-        const json: SearchApiResponse = await res.json()
-        if (json.success && json.data) {
-          const prods = json.data.products || []
+        const json = await res.json()
+        
+        let prods: SearchProduct[] = []
+        if (json?.data?.products && Array.isArray(json.data.products)) {
+          prods = json.data.products
+        } else if (json?.data && Array.isArray(json.data)) {
+          prods = json.data
+        } else if (Array.isArray(json)) {
+          prods = json
+        }
+        
+        if (prods.length > 0) {
           cacheRef.current.set(cacheKey, prods)
           setSearchResults(prods)
         } else {
@@ -423,7 +451,7 @@ export function HeaderSearch({
                 <div className="p-3.5 sm:p-4">
                   <div className="flex items-center gap-2 mb-3 text-foreground font-bold text-[14px] sm:text-[15px]">
                     <i className="fa-solid fa-mug-hot text-foreground/80 text-[14px]"></i>
-                    <span>Search Result for &ldquo;{query}&rdquo;</span>
+                    <span>{dict?.search_result_for || 'Search Result for'} &ldquo;{query}&rdquo;</span>
                   </div>
 
                   {isSearching ? (
@@ -469,7 +497,7 @@ export function HeaderSearch({
                   ) : (
                     <div className="py-7 px-3 text-center animate-in fade-in duration-200">
                       <i className="fa-solid fa-wheat-awn-circle-exclamation text-2xl text-muted-foreground mb-2"></i>
-                      <p className="text-xs font-bold text-foreground">No search results found for &ldquo;{query}&rdquo;</p>
+                      <p className="text-xs font-bold text-foreground">{dict?.no_search_results_found_for || 'No search results found for'} &ldquo;{query}&rdquo;</p>
                     </div>
                   )}
                 </div>
@@ -480,7 +508,7 @@ export function HeaderSearch({
                   <div>
                     <div className="flex items-center gap-2 mb-2 text-foreground font-bold text-[13.5px] sm:text-[14.5px]">
                       <i className="fa-solid fa-spinner text-foreground/80 text-[13px]"></i>
-                      <span>Frequently Searched</span>
+                      <span>{dict?.frequently_searched || 'Frequently Searched'}</span>
                     </div>
 
                     {isInitialLoading ? (
@@ -489,6 +517,8 @@ export function HeaderSearch({
                           <div key={n} className="h-7 w-24 bg-muted rounded-xl"></div>
                         ))}
                       </div>
+                    ) : fetchError ? (
+                      <div className="text-sm text-red-500 font-bold px-2">API Error: {fetchError}</div>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {frequentlySearchedList.map((product) => (
@@ -509,7 +539,7 @@ export function HeaderSearch({
                   <div>
                     <div className="flex items-center gap-2 mb-2 text-foreground font-bold text-[13.5px] sm:text-[14.5px]">
                       <i className="fa-solid fa-mug-hot text-foreground/80 text-[13px]"></i>
-                      <span>Marketed Products</span>
+                      <span>{dict?.marketed_products || 'Marketed Products'}</span>
                     </div>
 
                     {isInitialLoading ? (
@@ -557,7 +587,7 @@ export function HeaderSearch({
                   <div className="pb-1">
                     <div className="flex items-center gap-2 mb-2 text-foreground font-bold text-[13.5px] sm:text-[14.5px]">
                       <i className="fa-solid fa-medal text-foreground/80 text-[13px]"></i>
-                      <span>Best Sellers</span>
+                      <span>{dict?.best_sellers || 'Best Sellers'}</span>
                     </div>
 
                     {isInitialLoading ? (
@@ -737,8 +767,8 @@ export function HeaderSearch({
               ) : (
                 <div className="py-12 px-4 text-center">
                   <i className="fa-solid fa-wheat-awn-circle-exclamation text-3xl text-muted-foreground mb-3"></i>
-                  <p className="text-sm font-bold text-foreground">No commodities found for &ldquo;{query}&rdquo;</p>
-                  <p className="text-xs text-muted-foreground mt-1">Try searching another commodity name</p>
+                  <p className="text-sm font-bold text-foreground">{dict?.no_commodities_found_for || 'No commodities found for'} &ldquo;{query}&rdquo;</p>
+                  <p className="text-xs text-muted-foreground mt-1">{dict?.try_searching_another || 'Try searching another commodity name'}</p>
                 </div>
               )}
             </div>
@@ -765,7 +795,7 @@ export function HeaderSearch({
             <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card">
               <h2 className="font-bold text-sm sm:text-base text-foreground flex items-center gap-2">
                 <i className="fa-solid fa-file-lines text-primary text-xs"></i>
-                <span className="truncate">{selectedSpecsProduct.name} Specifications</span>
+                <span className="truncate">{selectedSpecsProduct.name} {dict?.specifications || 'Specifications'}</span>
               </h2>
               <button
                 onClick={() => setSelectedSpecsProduct(null)}

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -178,19 +179,23 @@ export async function generateMetadata(
   }
 }
 
-// Editorial content formatter for rich styling
-function formatEditorialContent(htmlContent: string): string {
+// Editorial content formatter
+function formatEditorialContent(htmlContent: string, dict?: any): string {
   if (!htmlContent) return ''
-
+  
   let formatted = htmlContent
     .replace(/<p>\s*(<br\s*\/?>|&nbsp;|\s)*\s*<\/p>/gi, '')
     .replace(/(<br\s*\/?>\s*){2,}/gi, '<br />')
+
+  const eventHighlightsStr = dict?.event_highlights || "Event Highlights"
+  const whoShouldAttendStr = dict?.who_should_attend || "Who Should Attend"
+  const keyFocusStr = dict?.key_focus || "Key Focus"
 
   // Format "Event Highlights:"
   formatted = formatted.replace(
     /<p>(\s*<strong>)?(\s*Event Highlights:)(\s*<\/strong>)?([\s\S]*?)<\/p>/gi,
     `<div class="editorial-callout callout-highlights">
-      <div class="callout-label"><i class="fa-solid fa-star"></i> Event Highlights</div>
+      <div class="callout-label"><i class="fa-solid fa-star"></i> ${eventHighlightsStr}</div>
       <p class="callout-text">$4</p>
     </div>`
   )
@@ -199,7 +204,7 @@ function formatEditorialContent(htmlContent: string): string {
   formatted = formatted.replace(
     /<p>(\s*<strong>)?(\s*Who Should Attend:)(\s*<\/strong>)?([\s\S]*?)<\/p>/gi,
     `<div class="editorial-callout callout-attendees">
-      <div class="callout-label"><i class="fa-solid fa-users"></i> Who Should Attend</div>
+      <div class="callout-label"><i class="fa-solid fa-users"></i> ${whoShouldAttendStr}</div>
       <p class="callout-text">$4</p>
     </div>`
   )
@@ -208,7 +213,7 @@ function formatEditorialContent(htmlContent: string): string {
   formatted = formatted.replace(
     /<p>(\s*<strong>)?(\s*Key Focus:)(\s*<\/strong>)?([\s\S]*?)<\/p>/gi,
     `<div class="editorial-callout callout-focus">
-      <div class="callout-label"><i class="fa-solid fa-bullseye"></i> Key Focus</div>
+      <div class="callout-label"><i class="fa-solid fa-bullseye"></i> ${keyFocusStr}</div>
       <p class="callout-text">$4</p>
     </div>`
   )
@@ -232,7 +237,9 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
   const translation = event.translations?.find(t => t.lang_code === lang)
   const title = translation?.title || event.title
   const rawContent = translation?.description || event.description || ''
-  const formattedContent = formatEditorialContent(rawContent)
+  
+  const dict = await getDictionary(lang as any)
+  const formattedContent = formatEditorialContent(rawContent, dict.common)
   const location = translation?.location || event.location || 'A-1107, Mondeal Heights'
   const sourceName = translation?.source || event.source || 'AgriGuru Online'
 
@@ -646,7 +653,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                 {/* Bottom of Content: Source / Official Website Link */}
                 <div className="mt-3 pt-3 border-t border-border flex flex-wrap justify-between items-center gap-2 text-sm text-foreground/80">
                   <div className="flex items-center gap-2 font-medium">
-                    <span className="text-foreground/80 font-semibold">Organizer / Source:</span>
+                    <span className="text-foreground/80 font-semibold">{dict.common?.organizer_source || "Organizer / Source:"}</span>
                     {event.source_url ? (
                       <a
                         href={event.source_url}
@@ -669,7 +676,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-700 text-white font-bold text-xs hover:bg-blue-800 transition-colors shadow-xs"
                     >
-                      <span>Official Event Website</span>
+                      <span>{dict.common?.official_event_website || "Official Event Website"}</span>
                       <i className="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                     </a>
                   )}

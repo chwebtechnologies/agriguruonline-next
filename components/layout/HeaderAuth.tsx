@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import CategoryLink from '@/components/category/CategoryLink'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -18,6 +19,8 @@ interface HeaderAuthProps {
       register: string
       logout: string
       dashboard?: string
+      products?: string
+      profile?: string
     }
     header: {
       announcement: string
@@ -28,6 +31,20 @@ interface HeaderAuthProps {
       about_us: string
       register_here: string
       menu: string
+      insights?: string
+      news?: string
+      events?: string
+      market_updates?: string
+      video_gallery?: string
+      participation_gallery?: string
+      upgrade_plan?: string
+      free_trial?: string
+      notifications?: string
+      alerts?: string
+      ai_predicts?: string
+      no_notifications?: string
+      no_alerts?: string
+      no_ai_predictions?: string
       categories: {
         rice: string
         sugar: string
@@ -44,6 +61,7 @@ interface HeaderAuthProps {
         machinery?: string
       }
     }
+    common?: any
   }
   activeLang: string
   categories?: Array<{ name: string; href: string }>
@@ -205,7 +223,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   return (
     <div className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
 
-      {/* 2. Main Header Bar (Always sticky) */}
+        {/* 2. Main Header Bar (Always sticky) */}
       <header className="w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
 
@@ -259,6 +277,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 placeholder={dict.header.search_placeholder}
                 lang={activeLang}
                 categories={categoriesList}
+                dict={dict.common}
               />
             </div>
           </div>
@@ -278,19 +297,19 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 href="#"
                 className="transition-colors duration-150 font-extrabold text-muted-foreground hover:text-foreground"
               >
-                Products
+                {dict.navigation.products || 'Products'}
               </Link>
               <div className="relative group" onMouseLeave={() => setHideInsights(false)}>
                 <button className={`flex items-center gap-1.5 transition-colors duration-150 font-extrabold focus:outline-none ${isInsightsActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
-                  <span>Insights</span>
+                  <span>{dict.header.insights || 'Insights'}</span>
                   <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}></i>
                 </button>
                 <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
-                  <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>News</Link>
-                  <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Events</Link>
-                  <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Market Updates</Link>
-                  <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Video Gallery</Link>
-                  <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>Participation Gallery</Link>
+                  <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.news || 'News'}</Link>
+                  <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.events || 'Events'}</Link>
+                  <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.market_updates || 'Market Updates'}</Link>
+                  <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.video_gallery || 'Video Gallery'}</Link>
+                  <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.participation_gallery || 'Participation Gallery'}</Link>
                 </div>
               </div>
             </nav>
@@ -301,7 +320,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   href="#"
                   className="h-10 px-5 hidden lg:inline-flex items-center justify-center rounded-lg bg-primary-gradient text-[15px] font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
                 >
-                  {profile?.membership ? 'Upgrade Plan' : 'Free Trial'}
+                  {profile?.membership ? (dict.header.upgrade_plan || 'Upgrade Plan') : (dict.header.free_trial || 'Free Trial')}
                 </Link>
 
                 <div className="relative" ref={notificationsRef}>
@@ -319,19 +338,19 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                           onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('notifications'); }}
                           className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'notifications' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
                         >
-                          Notifications
+                          {dict.header.notifications || 'Notifications'}
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('alerts'); }}
                           className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'alerts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
                         >
-                          Alerts
+                          {dict.header.alerts || 'Alerts'}
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('ai_predicts'); }}
                           className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'ai_predicts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
                         >
-                          AI Predicts
+                          {dict.header.ai_predicts || 'AI Predicts'}
                         </button>
                       </div>
                       
@@ -356,9 +375,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                   return (
                                     <div key={item.id || idx} className={`flex gap-3 p-3 rounded-lg border border-transparent hover:border-border hover:bg-muted/50 transition-colors cursor-pointer ${!isRead ? 'bg-muted/30' : ''}`}>
                                       {image && (
-                                        <div className="shrink-0 w-14 h-14 rounded bg-muted overflow-hidden border border-border">
-                                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                                          <img src={image.startsWith('http') ? image : `${getAssetsUrl()}${image.startsWith('/') ? '' : '/'}${image}`} alt={title} className="w-full h-full object-cover" />
+                                        <div className="shrink-0 w-14 h-14 rounded bg-muted overflow-hidden border border-border relative">
+                                          <Image 
+                                            src={image.startsWith('http') ? image : `${getAssetsUrl()}${image.startsWith('/') ? '' : '/'}${image}`} 
+                                            alt={title} 
+                                            fill
+                                            sizes="56px"
+                                            className="object-cover" 
+                                          />
                                         </div>
                                       )}
                                       <div className="flex-1 min-w-0">
@@ -388,7 +412,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                             ) : (
                               <div className="flex flex-col items-center justify-center py-6 text-center">
                                 <i className="fa-regular fa-bell-slash text-3xl text-zinc-400 mb-3"></i>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400">No notifications</p>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400">{dict.header.no_notifications || 'No notifications'}</p>
                               </div>
                             )}
                           </div>
@@ -396,13 +420,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         {activeNotificationTab === 'alerts' && (
                           <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in duration-200">
                             <i className="fa-solid fa-triangle-exclamation text-3xl text-zinc-400 mb-3"></i>
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400">No alerts</p>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400">{dict.header.no_alerts || 'No alerts'}</p>
                           </div>
                         )}
                         {activeNotificationTab === 'ai_predicts' && (
                           <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in duration-200">
                             <i className="fa-solid fa-brain text-3xl text-zinc-400 mb-3"></i>
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400">No AI predictions</p>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400">{dict.header.no_ai_predictions || 'No AI predictions'}</p>
                           </div>
                         )}
                       </div>
@@ -415,12 +439,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                     className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-muted text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-border shadow-lg hover:scale-105 active:scale-95 duration-200"
                   >
                     {profile?.profile_image ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        className="h-full w-full rounded-full border border-border object-cover"
+                      <Image
+                        className="rounded-full border border-border object-cover"
                         src={profile.profile_image.startsWith('http') ? profile.profile_image : `${getAssetsUrl()}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
                         alt="Profile"
-                        title="User Profile"
+                        title={dict.navigation.profile || "User Profile"}
+                        fill
+                        sizes="48px"
                         onError={(e) => {
                           // Fallback to icon on error
                           e.currentTarget.style.display = 'none';
@@ -436,7 +461,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                       style={{ display: profile?.profile_image ? 'none' : 'flex' }}
                     >
                       <i className="fa-solid fa-user text-[15px] mb-0.5"></i>
-                      <span className="text-[9px] font-extrabold leading-none mt-0.5">Profile</span>
+                      <span className="text-[9px] font-extrabold leading-none mt-0.5">{dict.navigation.profile || 'Profile'}</span>
                     </div>
                     
                     <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ag-header-bg ring-2 ring-emerald-500/20" />

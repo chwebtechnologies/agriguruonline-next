@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -24,12 +25,6 @@ interface NewsDetail {
   categories?: Array<{
     id: string
     name: string
-  }>
-  translations: Array<{
-    lang_code: string
-    title: string
-    description: string
-    source: string
   }>
 }
 
@@ -122,10 +117,9 @@ export async function generateMetadata(
     }
   }
 
-  const translation = article.translations?.find(t => t.lang_code === lang)
-  const title = translation?.title || article.title || 'AgriGuru Online News'
+  const title = article.title || 'AgriGuru Online News'
   
-  const rawDescription = translation?.description || article.description || ''
+  const rawDescription = article.description || ''
   const cleanDescription = article.meta_description 
     || rawDescription.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 160)
   
@@ -196,18 +190,23 @@ export async function generateMetadata(
 }
 
 // Editorial content formatter
-function formatEditorialContent(htmlContent: string): string {
+function formatEditorialContent(htmlContent: string, dict?: any): string {
   if (!htmlContent) return ''
   
   let formatted = htmlContent
     .replace(/<p>\s*(<br\s*\/?>|&nbsp;|\s)*\s*<\/p>/gi, '')
     .replace(/(<br\s*\/?>\s*){2,}/gi, '<br />')
 
+  const forTradersStr = dict?.for_traders || "For Traders"
+  const forExportersStr = dict?.for_exporters || "For Exporters"
+  const forImportersStr = dict?.for_importers || "For Importers"
+  const keyRiskStr = dict?.key_risk || "Key Risk"
+
   // Format "For Traders:"
   formatted = formatted.replace(
     /<p>(\s*<strong>)?(\s*For Traders:)(\s*<\/strong>)?([\s\S]*?)<\/p>/gi,
     `<div class="editorial-callout callout-traders">
-      <div class="callout-label"><i class="fa-solid fa-chart-line"></i> For Traders</div>
+      <div class="callout-label"><i class="fa-solid fa-chart-line"></i> ${forTradersStr}</div>
       <p class="callout-text">$4</p>
     </div>`
   )
@@ -216,7 +215,7 @@ function formatEditorialContent(htmlContent: string): string {
   formatted = formatted.replace(
     /<p>(\s*<strong>)?(\s*For Exporters:)(\s*<\/strong>)?([\s\S]*?)<\/p>/gi,
     `<div class="editorial-callout callout-exporters">
-      <div class="callout-label"><i class="fa-solid fa-ship"></i> For Exporters</div>
+      <div class="callout-label"><i class="fa-solid fa-ship"></i> ${forExportersStr}</div>
       <p class="callout-text">$4</p>
     </div>`
   )
@@ -225,7 +224,7 @@ function formatEditorialContent(htmlContent: string): string {
   formatted = formatted.replace(
     /<p>(\s*<strong>)?(\s*For Importers:)(\s*<\/strong>)?([\s\S]*?)<\/p>/gi,
     `<div class="editorial-callout callout-importers">
-      <div class="callout-label"><i class="fa-solid fa-boxes-packing"></i> For Importers</div>
+      <div class="callout-label"><i class="fa-solid fa-boxes-packing"></i> ${forImportersStr}</div>
       <p class="callout-text">$4</p>
     </div>`
   )
@@ -234,7 +233,7 @@ function formatEditorialContent(htmlContent: string): string {
   formatted = formatted.replace(
     /<p>(\s*<strong>)?(\s*Key Risk:)(\s*<\/strong>)?([\s\S]*?)<\/p>/gi,
     `<div class="editorial-callout callout-risk">
-      <div class="callout-label"><i class="fa-solid fa-triangle-exclamation"></i> Key Risk</div>
+      <div class="callout-label"><i class="fa-solid fa-triangle-exclamation"></i> ${keyRiskStr}</div>
       <p class="callout-text">$4</p>
     </div>`
   )
@@ -263,11 +262,11 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
 
   otherNewsList = otherNewsList.slice(0, 5)
 
-  const translation = article.translations?.find(t => t.lang_code === lang)
-  const title = translation?.title || article.title
-  const rawContent = translation?.description || article.description
-  const formattedContent = formatEditorialContent(rawContent)
-  const sourceName = translation?.source || article.source || "Agriguru Online"
+  const title = article.title
+  const rawContent = article.description
+  const dict = await getDictionary(lang as any)
+  const formattedContent = formatEditorialContent(rawContent, dict.common)
+  const sourceName = article.source || "Agriguru Online"
   const categoryName = article.categories?.[0]?.name
 
   const assetsUrl = getAssetsUrl()
@@ -385,9 +384,8 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                     {/* Scrollable list on desktop when content card is tall */}
                     <div className="space-y-2.5 sm:space-y-3 md:flex-1 md:overflow-y-auto md:pr-1 custom-scrollbar min-h-0">
                       {otherNewsList.map((newsItem) => {
-                        const itemTranslation = newsItem.translations?.find(t => t.lang_code === lang) || newsItem.translations?.[0]
-                        const itemTitle = itemTranslation?.title || newsItem.slug
-                        const itemDesc = (itemTranslation?.description || '').replace(/<[^>]+>/g, '').trim()
+                        const itemTitle = newsItem.title || newsItem.slug
+                        const itemDesc = (newsItem.description || '').replace(/<[^>]+>/g, '').trim()
                         const itemImg = newsItem.thumbnail?.startsWith('http') 
                           ? newsItem.thumbnail 
                           : `${imageBaseUrl}${newsItem.thumbnail}`

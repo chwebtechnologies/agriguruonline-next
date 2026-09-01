@@ -1,7 +1,7 @@
 import FastLink from '@/components/ui/FastLink'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
-import type { NewsArticle, NewsTranslation } from '@/types/news'
+import type { NewsArticle } from '@/types/news'
 import { getAssetsUrl } from '@/lib/api-utils';
 
 interface NewsCardProps {
@@ -11,12 +11,7 @@ interface NewsCardProps {
 }
 
 export default function NewsCard({ article, lang, priority = false }: NewsCardProps) {
-  const getTranslatedData = (translations: NewsTranslation[]) => {
-    const translation = translations.find(t => t.lang_code === lang) || translations[0]
-    return translation || { title: '', description: '', source: '' }
-  }
-
-  const { title, description, source } = getTranslatedData(article.translations)
+  const { title = '', description = '', source = '' } = article
   
   const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   const imageUrl = article.thumbnail.startsWith('http') ? article.thumbnail : `${imageBaseUrl}${article.thumbnail}`

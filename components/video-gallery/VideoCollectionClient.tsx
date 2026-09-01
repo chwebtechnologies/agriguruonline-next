@@ -26,6 +26,7 @@ interface VideoCollectionClientProps {
   videos: VideoItem[]
   lang: string
   imageBaseUrl: string
+  dict?: any
 }
 
 function getYoutubeId(url: string): string | null {
@@ -34,11 +35,11 @@ function getYoutubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export default function VideoCollectionClient({ videos, lang, imageBaseUrl }: VideoCollectionClientProps) {
+export default function VideoCollectionClient({ videos, lang, imageBaseUrl, dict = {} }: VideoCollectionClientProps) {
   const [lightboxIndex, setLightboxIndex] = useState(-1)
 
   const slides = videos.map(video => {
-    const title = video.translations?.find(t => t.lang_code === lang)?.title || video.title
+    const title = video.title
     const thumbnailPath = video.video_thumbnail || video.image
     const imageUrl = thumbnailPath?.startsWith('http') ? thumbnailPath : `${imageBaseUrl}${thumbnailPath}`
     
@@ -54,7 +55,7 @@ export default function VideoCollectionClient({ videos, lang, imageBaseUrl }: Vi
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {videos.map((video, index) => {
-          const title = video.translations?.find(t => t.lang_code === lang)?.title || video.title
+          const title = video.title
           const thumbnailPath = video.video_thumbnail || video.image
           const imageUrl = thumbnailPath?.startsWith('http') ? thumbnailPath : `${imageBaseUrl}${thumbnailPath}`
           const videoUrl = video.video_url || video.url
@@ -100,7 +101,7 @@ export default function VideoCollectionClient({ videos, lang, imageBaseUrl }: Vi
                     onClick={() => setLightboxIndex(index)}
                     className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link cursor-pointer"
                   >
-                    <span aria-hidden="true">Watch Now</span>
+                    <span aria-hidden="true">{dict?.watch_now || 'Watch Now'}</span>
                     <span className="sr-only">Watch {title}</span>
                     <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
                   </button>

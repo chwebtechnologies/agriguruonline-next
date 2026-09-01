@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -167,18 +168,20 @@ export async function generateMetadata(
   }
 }
 
-function formatEditorialContent(htmlContent: string): string {
+function formatEditorialContent(htmlContent: string, dict?: any): string {
   if (!htmlContent) return ''
   
   let formatted = htmlContent
     .replace(/<p>\s*(<br\s*\/?>|&nbsp;|\s)*\s*<\/p>/gi, '')
     .replace(/(<br\s*\/?>\s*){2,}/gi, '<br />')
 
+  const forTradersStr = dict?.for_traders || "For Traders"
+
   // Support editorial callouts if any
   formatted = formatted.replace(
     /<p>(\s*<strong>)?(\s*For Traders:)(\s*<\/strong>)?([\s\S]*?)<\/p>/gi,
     `<div class="editorial-callout callout-traders">
-      <div class="callout-label"><i class="fa-solid fa-chart-line"></i> For Traders</div>
+      <div class="callout-label"><i class="fa-solid fa-chart-line"></i> ${forTradersStr}</div>
       <p class="callout-text">$4</p>
     </div>`
   )
@@ -202,7 +205,9 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
   const translation = article.translations?.find((t: any) => t.lang_code === lang)
   const title = translation?.title || article.title
   const rawContent = translation?.description || article.description
-  const formattedContent = formatEditorialContent(rawContent)
+
+  const dict = await getDictionary(lang as any)
+  const formattedContent = formatEditorialContent(rawContent, dict.common)
 
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`

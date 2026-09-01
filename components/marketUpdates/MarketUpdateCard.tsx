@@ -16,11 +16,11 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
       ? `${assetsUrl}/${update.thumbnail}`
       : '/logo.webp'
 
-  // Use translated title if available, otherwise fallback to default
-  const title = update.translations?.find(t => t.lang_code === lang)?.title || update.title
+  // Use title directly since translations object is removed from API
+  const title = update.title
 
   // Strip HTML from description for the summary
-  const rawDesc = update.translations?.find(t => t.lang_code === lang)?.description || update.description || ''
+  const rawDesc = update.description || ''
   const cleanDesc = rawDesc.replace(/<[^>]*>?/gm, '')
   const description = cleanDesc.length > 100 ? `${cleanDesc.substring(0, 100)}...` : cleanDesc
 

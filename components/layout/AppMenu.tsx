@@ -132,7 +132,13 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     };
   }, [isOpen]);
 
-  const alignClass = align === 'left' ? 'left-0 origin-top-left' : 'right-0 origin-top-right';
+  const isRtl = lang === 'ar';
+  let alignClass = '';
+  if (align === 'left') {
+    alignClass = isRtl ? 'right-0 origin-top-right' : 'left-0 origin-top-left';
+  } else {
+    alignClass = isRtl ? 'left-0 origin-top-left' : 'right-0 origin-top-right';
+  }
 
   return (
     <div className="relative" ref={menuRef} suppressHydrationWarning>

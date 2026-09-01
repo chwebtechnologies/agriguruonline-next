@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import type { VideoGalleryResponse } from '@/types/videoGallery'
 import { cache, Suspense } from 'react'
 import { getCmsApiUrl } from '@/lib/api-utils';
+import { getDictionary } from '../dictionaries'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -130,12 +131,13 @@ export default async function VideoGalleryPage(props: {
 }) {
   const params = await props.params
   const lang = params.lang || 'en'
+  const dict = await getDictionary(lang)
   
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Video Gallery" backText="Back" />
+          <PageHeader title={dict.header?.video_gallery || "Video Gallery"} backText={dict.common?.back || "Back"} />
                     
           
           <Suspense fallback={<VideoGalleryGridSkeleton />}>

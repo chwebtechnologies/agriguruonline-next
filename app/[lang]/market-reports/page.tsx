@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation'
 import { getCategories } from '@/lib/category'
 import { ForceLogout } from '@/components/auth/ForceLogout'
 import { getCmsApiUrl, getTradingApiUrl } from '@/lib/api-utils'
+import { getDictionary } from '../dictionaries'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -154,7 +155,7 @@ function MarketReportsGridSkeleton() {
 }
 
 /* ---------- Async component that fetches and renders market reports grid ---------- */
-async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, token, categoryId }: {
+async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, token, categoryId, dict }: {
   lang: string
   page: number
   apiLimit: number
@@ -162,6 +163,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
   search?: string
   token: string
   categoryId?: string
+  dict: any
 }) {
   const reportsData = await getMarketReports(lang, page, apiLimit, search, token, categoryId)
   
@@ -195,7 +197,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
         {reports.map((report: any, index: number) => (
-          <MarketReportCard priority={index < 4} key={report.id || report._id || Math.random()} report={report} lang={lang} />
+          <MarketReportCard priority={index < 4} key={report.id || report._id || Math.random()} report={report} lang={lang} dict={dict} />
         ))}
       </div>
       <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/market-reports`} />
@@ -257,15 +259,17 @@ export default async function MarketReportsPage(props: {
     name: c.name
   }))
 
+  const dict = await getDictionary(lang)
+
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Market Reports" backText="Back" />
+          <PageHeader title={dict.header?.market_reports || "Market Reports"} backText={dict.common?.back || "Back"} />
           <ListingFilters categories={filterCategories} />
           
           <Suspense fallback={<MarketReportsGridSkeleton />}>
-            <MarketReportsGrid lang={lang} page={currentPage} apiLimit={apiLimit} displayLimit={displayLimit} search={searchQuery} token={token} categoryId={categoryId} />
+            <MarketReportsGrid lang={lang} page={currentPage} apiLimit={apiLimit} displayLimit={displayLimit} search={searchQuery} token={token} categoryId={categoryId} dict={dict.common} />
           </Suspense>
         </div>
       </div>

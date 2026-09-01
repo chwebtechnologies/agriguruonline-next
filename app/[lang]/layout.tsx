@@ -109,8 +109,7 @@ export default async function LocalizedRootLayout({
   const categories = apiCategories
     .filter(cat => cat.is_active !== false)
     .map(cat => {
-      const translation = cat.translations?.find(t => t.lang_code === activeLang)
-      const name = translation ? translation.name : cat.name
+      const name = cat.name
       return {
         name,
         href: `/${activeLang}/category/${cat.slug}`
@@ -146,7 +145,8 @@ export default async function LocalizedRootLayout({
       categories: {
         ...rawDict?.header?.categories
       }
-    }
+    },
+    common: rawDict?.common || {}
   }
 
   return (
@@ -171,7 +171,6 @@ export default async function LocalizedRootLayout({
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" precedence="default" />
         <Script
           id="trusted-types-policy"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `if(typeof window!=='undefined'&&window.trustedTypes&&window.trustedTypes.createPolicy){try{if(!window.trustedTypes.defaultPolicy){window.trustedTypes.createPolicy('default',{createHTML:function(s){return s},createScript:function(s){return s},createScriptURL:function(s){return s}})}}catch(e){}}`
           }}

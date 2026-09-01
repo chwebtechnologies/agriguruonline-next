@@ -11,7 +11,9 @@ export interface NewsArticle {
   thumbnail: string;
   is_active: boolean;
   slug: string;
-  translations: NewsTranslation[];
+  title: string;
+  description: string;
+  source?: string;
   posting_date: string;
   created_at: string;
 }
