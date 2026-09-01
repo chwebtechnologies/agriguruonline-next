@@ -121,6 +121,47 @@ async function VideoGalleryGrid({ lang }: { lang: string }) {
           <VideoGalleryCard priority={index < 2} key={category.category_id} category={category} lang={lang} />
         ))}
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Home",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": "Video Gallery",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/video-gallery`
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              "itemListElement": categories.map((category, index) => {
+                const title = (category as any).translations?.find((t: any) => t.lang_code === lang)?.category_name || category.category_name
+                return {
+                  "@type": "ListItem",
+                  "position": index + 1,
+                  "item": {
+                    "@type": "CollectionPage",
+                    "name": title,
+                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/video-gallery/${category.slug}`
+                  }
+                }
+              })
+            }
+          ]).replace(/</g, '\\u003c')
+        }}
+      />
     </>
   )
 }

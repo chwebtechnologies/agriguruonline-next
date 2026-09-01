@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import type { EventsResponse } from '@/types/events'
 import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getTradingApiUrl, getCmsApiUrl } from '@/lib/api-utils';
 
 export async function generateStaticParams() {
@@ -112,6 +113,7 @@ export default async function LatestEventsPage(props: {
   const limit = 12
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
+  const dict = await getDictionary(lang);
 
   const tradingApiUrl = getTradingApiUrl();
   const apiCategories = await getCategories(lang, {
@@ -143,7 +145,7 @@ export default async function LatestEventsPage(props: {
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Latest Events" backText="Back" />
+          <PageHeader title={dict.header?.events || "Latest Events"} backText={dict.common?.back || "Back"} />
           <ListingFilters categories={categoryOptions} />
 
           {eventsList.length === 0 ? (
@@ -151,7 +153,7 @@ export default async function LatestEventsPage(props: {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
                 <i className="fa-regular fa-calendar-days text-2xl"></i>
               </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">No Events Found</h2>
+              <h2 className="text-xl font-semibold text-foreground mb-2">{dict.common?.no_search_results_found_for ? dict.common.no_search_results_found_for.replace('for', '').trim() : "No Events Found"}</h2>
               <p className="text-foreground/80 max-w-md mx-auto">
                 We couldn&apos;t find any events at the moment. Please check back later.
               </p>
@@ -169,7 +171,32 @@ export default async function LatestEventsPage(props: {
               <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{
-                  __html: JSON.stringify({
+                  __html: JSON.stringify([
+                    {
+                      "@context": "https://schema.org",
+                      "@type": "BreadcrumbList",
+                      "itemListElement": [
+                        {
+                          "@type": "ListItem",
+                          "position": 1,
+                          "name": dict.navigation?.home || "Home",
+                          "item": `https://agriguruonline.com/${lang}`
+                        },
+                        {
+                          "@type": "ListItem",
+                          "position": 2,
+                          "name": dict.header?.events || "Events",
+                          "item": `https://agriguruonline.com/${lang}/events`
+                        },
+                        ...(matchedCategory ? [{
+                          "@type": "ListItem",
+                          "position": 3,
+                          "name": matchedCategory.translations?.find((t: any) => t.lang_code === lang)?.name || matchedCategory.name,
+                          "item": `https://agriguruonline.com/${lang}/events?category=${matchedCategory.slug}`
+                        }] : [])
+                      ]
+                    },
+                    {
                     "@context": "https://schema.org",
                     "@type": "ItemList",
                     "itemListElement": eventsList.map((eventItem, index) => ({
@@ -177,10 +204,20 @@ export default async function LatestEventsPage(props: {
                       "position": index + 1,
                       "item": {
                         "@type": "Event",
-                        "name": eventItem.title,
+                        "name": eventItem.translations?.find((t: any) => t.lang_code === lang)?.title || eventItem.title,
+                        "description": eventItem.translations?.find((t: any) => t.lang_code === lang)?.description || "",
                         "startDate": eventItem.start_date,
                         "endDate": eventItem.end_date,
                         "eventStatus": `https://schema.org/Event${eventItem.status === 'UPCOMING' ? 'Scheduled' : eventItem.status === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
+                        "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+                        "location": {
+                          "@type": "Place",
+                          "name": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "Venue to be announced",
+                          "address": {
+                            "@type": "PostalAddress",
+                            "addressLocality": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "TBA"
+                          }
+                        },
                         "image": [
                           eventItem.thumbnail?.startsWith('http')
                             ? eventItem.thumbnail
@@ -191,7 +228,7 @@ export default async function LatestEventsPage(props: {
                         "url": `https://agriguruonline.com/${lang}/events/${eventItem.slug}`
                       }
                     }))
-                  }).replace(/</g, '\\u003c')
+                  }]).replace(/</g, '\\u003c')
                 }}
               />
             </>

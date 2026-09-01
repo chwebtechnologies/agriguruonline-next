@@ -221,6 +221,44 @@ export default async function ParticipationAlbumPage(props: {
           />
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Home",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": "Participation Gallery",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/participation-gallery`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 3,
+                  "name": albumTitle,
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/participation-gallery/${slug}`
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "ImageGallery",
+              "name": albumTitle,
+              "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/participation-gallery/${slug}`,
+              "image": photos.map((photo: any) => photo.image?.startsWith('http') ? photo.image : `https://agriguruonline.com${photo.image}`)
+            }
+          ]).replace(/</g, '\\u003c')
+        }}
+      />
     </div>
   )
 }

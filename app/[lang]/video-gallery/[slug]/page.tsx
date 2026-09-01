@@ -120,6 +120,56 @@ export default async function VideoCollectionPage(props: {
           </Suspense>
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": dict.navigation?.home || "Home",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": dict.header?.video_gallery || "Video Gallery",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/video-gallery`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 3,
+                  "name": categoryName,
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/video-gallery/${slug}`
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              "itemListElement": data?.videos?.map((video: any, index: number) => {
+                const title = video.translations?.find((t: any) => t.lang_code === lang)?.title || video.title
+                return {
+                  "@type": "ListItem",
+                  "position": index + 1,
+                  "item": {
+                    "@type": "VideoObject",
+                    "name": title,
+                    "description": title,
+                    "thumbnailUrl": video.image?.startsWith('http') ? video.image : `https://agriguruonline.com${video.image}`,
+                    "uploadDate": video.created_at,
+                    "contentUrl": video.video_url
+                  }
+                }
+              }) || []
+            }
+          ]).replace(/</g, '\\u003c')
+        }}
+      />
     </div>
   )
 }

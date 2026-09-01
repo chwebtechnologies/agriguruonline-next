@@ -16,6 +16,7 @@ export interface NewsArticle {
   source?: string;
   posting_date: string;
   created_at: string;
+  translations?: NewsTranslation[];
 }
 
 export interface NewsResponse {

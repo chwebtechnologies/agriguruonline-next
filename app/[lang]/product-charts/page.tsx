@@ -360,6 +360,29 @@ export default async function ChartsPage(props: { params: Promise<{ lang: string
           </div>
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Product Charts",
+                "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/product-charts`
+              }
+            ]
+          }).replace(/</g, '\\u003c')
+        }}
+      />
     </div>
   )
 }

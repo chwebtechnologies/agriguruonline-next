@@ -155,7 +155,7 @@ export default async function MarketUpdatesPage(props: {
                       "position": index + 1,
                       "item": {
                         "@type": "Article",
-                        "headline": flyer.translations?.[0]?.title || flyer.title || flyer.slug,
+                        "headline": flyer.translations?.find((t: any) => t.lang_code === lang)?.title || flyer.title || flyer.slug,
                         "image": [
                           flyer.thumbnail?.startsWith('http')
                             ? flyer.thumbnail

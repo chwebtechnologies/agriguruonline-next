@@ -147,6 +147,52 @@ export async function OffersPageTemplate({ lang, searchParams, offerType, pageTi
           </div>
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": (dict as Record<string, any>)?.navigation?.home || "Home",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": pageTitle,
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/${offerType === 'SELLER' ? 'latest-inquiries-for-sellers' : 'latest-offers-for-buyers'}`
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              "itemListElement": inquiries.map((inquiry, index) => {
+                return {
+                  "@type": "ListItem",
+                  "position": index + 1,
+                  "item": {
+                    "@type": "Offer",
+                    "name": `${inquiry.product.name} - ${inquiry.product.country.name}`,
+                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/${offerType === 'SELLER' ? 'latest-inquiries-for-sellers' : 'latest-offers-for-buyers'}`,
+                    "priceCurrency": "USD",
+                    "availability": "https://schema.org/InStock",
+                    "seller": {
+                      "@type": "Organization",
+                      "name": "AgriGuru Online"
+                    }
+                  }
+                }
+              })
+            }
+          ]).replace(/</g, '\\u003c')
+        }}
+      />
     </div>
   )
 }

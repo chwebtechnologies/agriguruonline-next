@@ -690,44 +690,86 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                "@context": "https://schema.org",
-                "@type": "Event",
-                "mainEntityOfPage": {
-                  "@type": "WebPage",
-                  "@id": eventUrl
+              __html: JSON.stringify([
+                {
+                  "@context": "https://schema.org",
+                  "@type": "BreadcrumbList",
+                  "itemListElement": [
+                    {
+                      "@type": "ListItem",
+                      "position": 1,
+                      "name": dict.navigation?.home || "Home",
+                      "item": `${siteUrl}/${lang}`
+                    },
+                    {
+                      "@type": "ListItem",
+                      "position": 2,
+                      "name": dict.header?.events || "Events",
+                      "item": `${siteUrl}/${lang}/events`
+                    },
+                    {
+                      "@type": "ListItem",
+                      "position": 3,
+                      "name": title,
+                      "item": eventUrl
+                    }
+                  ]
                 },
-                "name": title,
-                "description": event.meta_description || plainText.substring(0, 160),
-                "image": [imageUrl],
-                "startDate": event.start_date,
-                "endDate": event.end_date,
-                "eventStatus": `https://schema.org/Event${statusUpper === 'UPCOMING' ? 'Scheduled' : statusUpper === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
-                "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-                "location": {
-                  "@type": "Place",
-                  "name": location || "Event Venue",
-                  "address": {
-                    "@type": "PostalAddress",
-                    "streetAddress": location || "Worldwide",
-                    "addressLocality": location || "Global"
-                  }
-                },
-                "organizer": {
-                  "@type": "Organization",
-                  "name": sourceName,
-                  "url": event.source_url || siteUrl
-                },
-                "publisher": {
-                  "@type": "Organization",
-                  "name": "AgriGuru Online",
-                  "logo": {
-                    "@type": "ImageObject",
-                    "url": `${siteUrl}/logo.png`
-                  }
-                },
-                "url": eventUrl
-              }).replace(/</g, '\\u003c')
+                {
+                  "@context": "https://schema.org",
+                  "@type": "Event",
+                  "mainEntityOfPage": {
+                    "@type": "WebPage",
+                    "@id": eventUrl
+                  },
+                  "name": title,
+                  "description": event.meta_description || plainText.substring(0, 160),
+                  "image": [imageUrl],
+                  "startDate": event.start_date,
+                  "endDate": event.end_date,
+                  "dateModified": (event as any).updated_at || event.start_date,
+                  "eventStatus": `https://schema.org/EventScheduled`,
+                  "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+                  "location": {
+                    "@type": "Place",
+                    "name": location || "Event Venue",
+                    "address": {
+                      "@type": "PostalAddress",
+                      "streetAddress": location || "Worldwide",
+                      "addressLocality": location || "Global"
+                    }
+                  },
+                  "organizer": {
+                    "@type": "Organization",
+                    "name": sourceName,
+                    "url": event.source_url || siteUrl
+                  },
+                  "publisher": {
+                    "@type": "Organization",
+                    "name": "AgriGuru Online",
+                    "logo": {
+                      "@type": "ImageObject",
+                      "url": `${siteUrl}/logo.png`
+                    }
+                  },
+                  "offers": {
+                    "@type": "Offer",
+                    "url": event.source_url || eventUrl,
+                    "availability": "https://schema.org/InStock"
+                  },
+                  "about": [
+                    ...(event.categories?.map(cat => ({
+                      "@type": "Thing",
+                      "name": cat.name
+                    })) || []),
+                    { "@type": "Thing", "name": "B2B Agri Commodity Event" },
+                    { "@type": "Thing", "name": "Global Agriculture Trade" },
+                    { "@type": "Thing", "name": "Commodity Conferences" }
+                  ],
+                  "url": eventUrl,
+                  "keywords": event.meta_keywords || "Agriculture Events, Commodity Conferences, Agri Expos"
+                }
+              ]).replace(/</g, '\\u003c')
             }}
           />
         </div>

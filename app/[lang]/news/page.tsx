@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import type { NewsResponse } from '@/types/news'
 import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getTradingApiUrl, getCmsApiUrl } from '@/lib/api-utils';
 
 export async function generateStaticParams() {
@@ -112,6 +113,7 @@ export default async function LatestNewsPage(props: {
   const limit = 12
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
+  const dict = await getDictionary(lang);
 
   const tradingApiUrl = getTradingApiUrl();
   const apiCategories = await getCategories(lang, {
@@ -142,7 +144,7 @@ export default async function LatestNewsPage(props: {
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Latest News" backText="Back" />
+          <PageHeader title={dict.header?.news || "Latest News"} backText={dict.common?.back || "Back"} />
           <ListingFilters categories={categoryOptions} />
 
           {articles.length === 0 ? (
@@ -150,7 +152,7 @@ export default async function LatestNewsPage(props: {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
                 <i className="fa-regular fa-newspaper text-2xl"></i>
               </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">No News Found</h2>
+              <h2 className="text-xl font-semibold text-foreground mb-2">{dict.common?.no_search_results_found_for ? dict.common.no_search_results_found_for.replace('for', '').trim() : "No News Found"}</h2>
               <p className="text-foreground/80 max-w-md mx-auto">
                 We couldn&apos;t find any latest news articles at the moment. Please check back later.
               </p>
@@ -168,7 +170,32 @@ export default async function LatestNewsPage(props: {
               <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{
-                  __html: JSON.stringify({
+                  __html: JSON.stringify([
+                    {
+                      "@context": "https://schema.org",
+                      "@type": "BreadcrumbList",
+                      "itemListElement": [
+                        {
+                          "@type": "ListItem",
+                          "position": 1,
+                          "name": dict.navigation?.home || "Home",
+                          "item": `https://agriguruonline.com/${lang}`
+                        },
+                        {
+                          "@type": "ListItem",
+                          "position": 2,
+                          "name": dict.header?.news || "News",
+                          "item": `https://agriguruonline.com/${lang}/news`
+                        },
+                        ...(matchedCategory ? [{
+                          "@type": "ListItem",
+                          "position": 3,
+                          "name": matchedCategory.name,
+                          "item": `https://agriguruonline.com/${lang}/news?category=${matchedCategory.slug}`
+                        }] : [])
+                      ]
+                    },
+                    {
                     "@context": "https://schema.org",
                     "@type": "ItemList",
                     "itemListElement": articles.map((article, index) => ({
@@ -176,7 +203,8 @@ export default async function LatestNewsPage(props: {
                       "position": index + 1,
                       "item": {
                         "@type": "NewsArticle",
-                        "headline": article.title || article.slug,
+                        "headline": article.translations?.find((t: any) => t.lang_code === lang)?.title || article.title || article.slug,
+                        "description": article.translations?.find((t: any) => t.lang_code === lang)?.description || article.description,
                         "image": [
                           article.thumbnail?.startsWith('http')
                             ? article.thumbnail
@@ -184,11 +212,24 @@ export default async function LatestNewsPage(props: {
                               ? `https://assets.agriguruonline.com/${article.thumbnail}`
                               : 'https://agriguruonline.com/logo.png'
                         ],
-                        "datePublished": article.posting_date,
+                        "datePublished": article.posting_date || article.created_at,
+                        "dateModified": article.posting_date || article.created_at,
+                        "author": {
+                          "@type": "Organization",
+                          "name": article.translations?.find((t: any) => t.lang_code === lang)?.source || article.source || "AgriGuru Online"
+                        },
+                        "publisher": {
+                          "@type": "Organization",
+                          "name": "AgriGuru Online",
+                          "logo": {
+                            "@type": "ImageObject",
+                            "url": "https://agriguruonline.com/logo.png"
+                          }
+                        },
                         "url": `https://agriguruonline.com/${lang}/news/${article.slug}`
                       }
                     }))
-                  }).replace(/</g, '\\u003c')
+                  }]).replace(/</g, '\\u003c')
                 }}
               />
             </>

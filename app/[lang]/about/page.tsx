@@ -270,7 +270,7 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "AboutPage",
-            "name": "About AgriGuru Online",
+            "name": `${dict.header?.about_us || "About Us"} - AgriGuru Online`,
             "description": "The AI-powered B2B platform simplifying global agricultural commodity trade for buyers, sellers, and traders worldwide.",
             "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/about`,
             "mainEntity": {

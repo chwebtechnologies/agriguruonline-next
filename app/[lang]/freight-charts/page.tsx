@@ -304,6 +304,29 @@ export default async function FreightChartsPage(props: { params: Promise<{ lang:
           </div>
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Freight Charts",
+                "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/freight-charts`
+              }
+            ]
+          }).replace(/</g, '\\u003c')
+        }}
+      />
     </div>
   )
 }

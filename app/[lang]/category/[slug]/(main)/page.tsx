@@ -263,6 +263,47 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
           )}
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": (dict as Record<string, any>)?.navigation?.home || "Home",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": categoryName,
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${slug}`
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              "itemListElement": data.sub_categories?.map((subCat, index) => {
+                const subCatName = getTranslatedName(subCat.translations, subCat.name) || subCat.slug || 'Category'
+                return {
+                  "@type": "ListItem",
+                  "position": index + 1,
+                  "item": {
+                    "@type": "Thing",
+                    "name": subCatName,
+                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${slug}/${subCat.slug}`
+                  }
+                }
+              }) || []
+            }
+          ]).replace(/</g, '\\u003c')
+        }}
+      />
     </div>
   )
 }

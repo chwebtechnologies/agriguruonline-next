@@ -13,6 +13,10 @@ interface EventCardProps {
 export default function EventCard({ event, lang, priority = false }: EventCardProps) {
   const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   const imageUrl = event.thumbnail.startsWith('http') ? event.thumbnail : `${imageBaseUrl}${event.thumbnail}`
+  
+  const translation = event.translations?.find(t => t.lang_code === lang)
+  const title = translation?.title || event.title
+  const location = translation?.location || event.location
 
   const startDate = new Intl.DateTimeFormat(lang, {
     year: 'numeric',
@@ -30,11 +34,11 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full">
-      <FastLink href={`/${lang}/events/${event.slug}`} aria-label={event.title} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
+      <FastLink href={`/${lang}/events/${event.slug}`} aria-label={title} className="relative w-full aspect-[3/2] bg-card/30 overflow-hidden border-b border-border block">
         <ImageWithSkeleton
           src={imageUrl}
-          alt={event.title}
-          title={event.title}
+          alt={title}
+          title={title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
           className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -62,27 +66,27 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
         
         <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2 flex-grow" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
           <FastLink href={`/${lang}/events/${event.slug}`} className="hover:text-brand-blue transition-colors">
-            {event.title}
+            {title}
           </FastLink>
         </h2>
 
         <div className="flex items-center text-xs text-foreground/80 mb-2 truncate">
           <i className="fa-solid fa-location-dot mr-1.5 text-brand-blue shrink-0 text-[11px]"></i>
-          <span className="truncate">{event.location || 'A-1107, Mondeal Heights'}</span>
+          <span className="truncate">{location || 'A-1107, Mondeal Heights'}</span>
         </div>
         
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
           <FastLink 
             href={`/${lang}/events/${event.slug}`}
-            aria-label={`View details: ${event.title}`}
+            aria-label={`View details: ${title}`}
             className="text-[12px] uppercase tracking-wide font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1.5 group/link"
           >
-            <span>View Details<span className="sr-only">: {event.title}</span></span>
+            <span>View Details<span className="sr-only">: {title}</span></span>
             <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
           </FastLink>
           
           <ShareButton 
-            title={event.title} 
+            title={title} 
             url={`/${lang}/events/${event.slug}`} 
           />
         </div>

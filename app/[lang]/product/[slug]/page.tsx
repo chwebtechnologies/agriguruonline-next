@@ -523,6 +523,55 @@ export default async function ProductDetailPage(
           
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": (dict as Record<string, any>)?.navigation?.home || "Home",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": (dict as Record<string, any>)?.navigation?.products || "Products",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 3,
+                  "name": product.category?.name || "Category",
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${(product.category as any)?.slug || ''}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 4,
+                  "name": productName,
+                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/product/${slug}`
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "Product",
+              "name": productName,
+              "image": imageUrl,
+              "description": product.description?.replace(/<[^>]+>/g, '').substring(0, 160) || productName,
+              "sku": product.product_code || slug,
+              "brand": {
+                "@type": "Brand",
+                "name": "AgriGuru Online"
+              }
+            }
+          ]).replace(/</g, '\\u003c')
+        }}
+      />
     </div>
   )
 }

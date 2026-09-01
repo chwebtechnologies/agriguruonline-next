@@ -502,31 +502,57 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                "@context": "https://schema.org",
-                "@type": "Article",
-                "mainEntityOfPage": {
-                  "@type": "WebPage",
-                  "@id": articleUrl
+              __html: JSON.stringify([
+                {
+                  "@context": "https://schema.org",
+                  "@type": "BreadcrumbList",
+                  "itemListElement": [
+                    {
+                      "@type": "ListItem",
+                      "position": 1,
+                      "name": dict.navigation?.home || "Home",
+                      "item": `${siteUrl}/${lang}`
+                    },
+                    {
+                      "@type": "ListItem",
+                      "position": 2,
+                      "name": dict.header?.market_updates || "Market Updates",
+                      "item": `${siteUrl}/${lang}/market-updates`
+                    },
+                    {
+                      "@type": "ListItem",
+                      "position": 3,
+                      "name": title,
+                      "item": articleUrl
+                    }
+                  ]
                 },
-                "headline": title,
-                "image": [imageUrl],
-                "datePublished": article.created_at,
-                "author": {
-                  "@type": "Organization",
-                  "name": "AgriGuru Online",
-                  "url": siteUrl
-                },
-                "publisher": {
-                  "@type": "Organization",
-                  "name": "AgriGuru Online",
-                  "logo": {
-                    "@type": "ImageObject",
-                    "url": `${siteUrl}/logo.png`
-                  }
-                },
-                "description": plainText.substring(0, 160)
-              }).replace(/</g, '\\u003c')
+                {
+                  "@context": "https://schema.org",
+                  "@type": "Article",
+                  "mainEntityOfPage": {
+                    "@type": "WebPage",
+                    "@id": articleUrl
+                  },
+                  "headline": title,
+                  "image": [imageUrl],
+                  "datePublished": article.created_at,
+                  "author": {
+                    "@type": "Organization",
+                    "name": "AgriGuru Online",
+                    "url": siteUrl
+                  },
+                  "publisher": {
+                    "@type": "Organization",
+                    "name": "AgriGuru Online",
+                    "logo": {
+                      "@type": "ImageObject",
+                      "url": `${siteUrl}/logo.png`
+                    }
+                  },
+                  "description": plainText.substring(0, 160)
+                }
+              ]).replace(/</g, '\\u003c')
             }}
           />
         </div>

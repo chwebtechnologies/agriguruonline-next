@@ -11,7 +11,10 @@ interface NewsCardProps {
 }
 
 export default function NewsCard({ article, lang, priority = false }: NewsCardProps) {
-  const { title = '', description = '', source = '' } = article
+  const translation = article.translations?.find(t => t.lang_code === lang)
+  const title = translation?.title || article.title || ''
+  const description = translation?.description || article.description || ''
+  const source = translation?.source || article.source || ''
   
   const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   const imageUrl = article.thumbnail.startsWith('http') ? article.thumbnail : `${imageBaseUrl}${article.thumbnail}`

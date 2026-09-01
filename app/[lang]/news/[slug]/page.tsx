@@ -26,6 +26,7 @@ interface NewsDetail {
     id: string
     name: string
   }>
+  translations?: import('@/types/news').NewsTranslation[]
 }
 
 const getNewsDetail = cache(async (slug: string, lang: string): Promise<NewsDetail | null> => {
@@ -117,9 +118,10 @@ export async function generateMetadata(
     }
   }
 
-  const title = article.title || 'AgriGuru Online News'
+  const translation = article.translations?.find((t: any) => t.lang_code === lang)
+  const title = translation?.title || article.title || 'AgriGuru Online News'
   
-  const rawDescription = article.description || ''
+  const rawDescription = translation?.description || article.description || ''
   const cleanDescription = article.meta_description 
     || rawDescription.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 160)
   
@@ -262,11 +264,12 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
 
   otherNewsList = otherNewsList.slice(0, 5)
 
-  const title = article.title
-  const rawContent = article.description
+  const translation = article.translations?.find((t: any) => t.lang_code === lang)
+  const title = translation?.title || article.title
+  const rawContent = translation?.description || article.description || ''
   const dict = await getDictionary(lang as any)
   const formattedContent = formatEditorialContent(rawContent, dict.common)
-  const sourceName = article.source || "Agriguru Online"
+  const sourceName = translation?.source || article.source || "Agriguru Online"
   const categoryName = article.categories?.[0]?.name
 
   const assetsUrl = getAssetsUrl()
@@ -639,31 +642,71 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
-                "@context": "https://schema.org",
-                "@type": "NewsArticle",
-                "mainEntityOfPage": {
-                  "@type": "WebPage",
-                  "@id": articleUrl
+              __html: JSON.stringify([
+                {
+                  "@context": "https://schema.org",
+                  "@type": "BreadcrumbList",
+                  "itemListElement": [
+                    {
+                      "@type": "ListItem",
+                      "position": 1,
+                      "name": dict.navigation?.home || "Home",
+                      "item": `${siteUrl}/${lang}`
+                    },
+                    {
+                      "@type": "ListItem",
+                      "position": 2,
+                      "name": dict.header?.news || "News",
+                      "item": `${siteUrl}/${lang}/news`
+                    },
+                    {
+                      "@type": "ListItem",
+                      "position": 3,
+                      "name": title,
+                      "item": articleUrl
+                    }
+                  ]
                 },
-                "headline": title,
-                "image": [imageUrl],
-                "datePublished": article.posting_date,
-                "author": {
-                  "@type": "Organization",
-                  "name": sourceName,
-                  "url": article.source_url || siteUrl
-                },
-                "publisher": {
-                  "@type": "Organization",
-                  "name": "AgriGuru Online",
-                  "logo": {
-                    "@type": "ImageObject",
-                    "url": `${siteUrl}/logo.png`
-                  }
-                },
-                "description": article.meta_description || plainText.substring(0, 160)
-              }).replace(/</g, '\\u003c')
+                {
+                  "@context": "https://schema.org",
+                  "@type": "NewsArticle",
+                  "mainEntityOfPage": {
+                    "@type": "WebPage",
+                    "@id": articleUrl
+                  },
+                  "headline": title,
+                  "image": [imageUrl],
+                  "datePublished": article.posting_date,
+                  "dateModified": (article as any).updated_at || article.posting_date,
+                  "author": [{
+                    "@type": "Organization",
+                    "name": sourceName,
+                    "url": article.source_url || siteUrl
+                  }],
+                  "publisher": {
+                    "@type": "Organization",
+                    "name": "AgriGuru Online",
+                    "logo": {
+                      "@type": "ImageObject",
+                      "url": `${siteUrl}/logo.png`
+                    }
+                  },
+                  "description": article.meta_description || plainText.substring(0, 160),
+                  "about": [
+                    ...(article.categories?.map(cat => ({
+                      "@type": "Thing",
+                      "name": cat.name
+                    })) || []),
+                    { "@type": "Thing", "name": "B2B Agri Commodity Trading" },
+                    { "@type": "Thing", "name": "Global Agriculture Import Export" },
+                    { "@type": "Thing", "name": "Commodity Market News" }
+                  ],
+                  "articleBody": plainText.substring(0, 5000), // Limiting to prevent massive payload
+                  "wordCount": wordCount,
+                  "articleSection": categoryName || "Agriculture News",
+                  "keywords": article.meta_keywords || "AgriGuru, Agriculture News, Commodities"
+                }
+              ]).replace(/</g, '\\u003c')
             }}
           />
         </div>

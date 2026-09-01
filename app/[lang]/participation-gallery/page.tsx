@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import ParticipationGalleryCard from '@/components/participation-gallery/ParticipationGalleryCard'
 import { Pagination } from '@/components/ui/Pagination'
 import type { Metadata } from 'next'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { ParticipationCategoriesResponse } from '@/types/participationGallery'
 import { cache, Suspense } from 'react'
 import { getCmsApiUrl } from '@/lib/api-utils'
@@ -165,10 +166,12 @@ export default async function ParticipationGalleryPage(props: {
   const page = parseInt(searchParams?.page || '1', 10) || 1
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
 
+  const dict = await getDictionary(lang as any)
+  
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: 'Participation Gallery - AgriGuru Online',
+    name: `${dict.header?.participation_gallery || 'Participation Gallery'} - AgriGuru Online`,
     description:
       'Photo albums and exhibition memories from AgriGuru Online\'s participation in global agricultural trade conferences and events.',
     url: `${siteUrl}/${lang}/participation-gallery`,
