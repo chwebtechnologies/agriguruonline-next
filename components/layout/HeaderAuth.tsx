@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/layout/AppMenu'
-import { getAssetsUrl } from '@/lib/api-utils';
+import { getAssetsUrl, getUserApiUrl } from '@/lib/api-utils';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
 
 interface HeaderAuthProps {
@@ -54,6 +54,11 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [profile, setProfile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const [activeNotificationTab, setActiveNotificationTab] = useState<'notifications' | 'alerts' | 'ai_predicts'>('notifications')
+  const [notificationsData, setNotificationsData] = useState<any[]>([])
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
+  const [hasFetchedNotifications, setHasFetchedNotifications] = useState(false)
+  
   const categoriesRef = useRef<HTMLDivElement>(null)
   const notificationsRef = useRef<HTMLDivElement>(null)
 
@@ -128,6 +133,34 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Fetch notifications
+  useEffect(() => {
+    if (isNotificationsOpen && !hasFetchedNotifications && token) {
+      const fetchNotifications = async () => {
+        setIsLoadingNotifications(true);
+        try {
+          const res = await fetch(`${getUserApiUrl()}/custom-notification?lang_code=${activeLang}&source=web`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            // Try to extract the items based on standard structures
+            const extractedItems = Array.isArray(data) ? data : (data?.data?.data || data?.data || data?.notifications || data?.results || []);
+            setNotificationsData(extractedItems);
+          }
+        } catch (error) {
+          console.error("Failed to fetch notifications:", error);
+        } finally {
+          setIsLoadingNotifications(false);
+          setHasFetchedNotifications(true);
+        }
+      }
+      fetchNotifications();
+    }
+  }, [isNotificationsOpen, hasFetchedNotifications, token, activeLang])
 
   // Hydration-safe responsive logic to prevent category item overflow
   const [mounted, setMounted] = useState(false)
@@ -280,13 +313,98 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   </button>
                   
                   {isNotificationsOpen && (
-                    <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-64 md:w-80 rounded-lg bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
-                      <div className="flex items-center justify-between border-b border-border pb-2 mb-2">
-                        <h2 className="font-bold text-[16px] text-foreground">Notifications</h2>
+                    <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[340px] md:w-[380px] rounded-lg bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                      <div className="flex items-center p-1 bg-muted rounded-lg mb-2">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('notifications'); }}
+                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'notifications' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                        >
+                          Notifications
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('alerts'); }}
+                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'alerts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                        >
+                          Alerts
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('ai_predicts'); }}
+                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'ai_predicts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                        >
+                          AI Predicts
+                        </button>
                       </div>
-                      <div className="flex flex-col items-center justify-center py-6 text-center">
-                        <i className="fa-regular fa-bell-slash text-3xl text-zinc-400 mb-3"></i>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">No notifications</p>
+                      
+                      <div className="mt-2 min-h-[120px] flex flex-col justify-center">
+                        {activeNotificationTab === 'notifications' && (
+                          <div className="flex flex-col w-full max-h-[350px] overflow-y-auto custom-scrollbar animate-in fade-in duration-200 -mx-4 px-4">
+                            {isLoadingNotifications ? (
+                              <div className="flex items-center justify-center py-6">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                              </div>
+                            ) : notificationsData.length > 0 ? (
+                              <div className="flex flex-col w-full space-y-1">
+                                {notificationsData.map((item, idx) => {
+                                  // If the API structure is completely unexpected, this item might be the raw JSON
+                                  if (!item || typeof item !== 'object') return null;
+
+                                  const isRead = item.is_read || item.read || false;
+                                  const title = item.title || item.heading || 'Notification';
+                                  const message = item.message || item.description || item.short_message || '';
+                                  const image = item.thumbnail; // Using only thumbnail as requested
+                                  
+                                  return (
+                                    <div key={item.id || idx} className={`flex gap-3 p-3 rounded-lg border border-transparent hover:border-border hover:bg-muted/50 transition-colors cursor-pointer ${!isRead ? 'bg-muted/30' : ''}`}>
+                                      {image && (
+                                        <div className="shrink-0 w-14 h-14 rounded bg-muted overflow-hidden border border-border">
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img src={image.startsWith('http') ? image : `${getAssetsUrl()}${image.startsWith('/') ? '' : '/'}${image}`} alt={title} className="w-full h-full object-cover" />
+                                        </div>
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className={`text-sm ${!isRead ? 'font-extrabold text-foreground' : 'font-semibold text-muted-foreground'} truncate`}>
+                                          {title}
+                                        </h4>
+                                        {message && (
+                                          <p className={`text-[13px] mt-0.5 line-clamp-2 leading-tight ${!isRead ? 'font-medium text-foreground/90' : 'text-muted-foreground'}`}>
+                                            {message}
+                                          </p>
+                                        )}
+                                        {item.created_at && (
+                                          <span className="text-[10px] text-muted-foreground mt-1.5 block font-medium">
+                                            {new Date(item.created_at).toLocaleDateString()}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {!isRead && (
+                                        <div className="shrink-0 flex items-start justify-center pt-1.5">
+                                          <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_5px_rgba(var(--primary),0.5)]"></div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-6 text-center">
+                                <i className="fa-regular fa-bell-slash text-3xl text-zinc-400 mb-3"></i>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400">No notifications</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {activeNotificationTab === 'alerts' && (
+                          <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in duration-200">
+                            <i className="fa-solid fa-triangle-exclamation text-3xl text-zinc-400 mb-3"></i>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400">No alerts</p>
+                          </div>
+                        )}
+                        {activeNotificationTab === 'ai_predicts' && (
+                          <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in duration-200">
+                            <i className="fa-solid fa-brain text-3xl text-zinc-400 mb-3"></i>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400">No AI predictions</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
