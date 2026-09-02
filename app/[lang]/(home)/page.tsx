@@ -40,73 +40,19 @@ function OrganizationSchema() {
   )
 }
 
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
+
 export async function generateMetadata(
   props: { params?: Promise<{ lang: string }> }
 ): Promise<Metadata> {
   const params = props.params ? await props.params : undefined;
-  const activeLang = params?.lang || 'en'
-  const rawDict = await getDictionary(activeLang)
-  const dictTitle = (rawDict as Record<string, any>)?.home?.title
-  const pageTitle = dictTitle && dictTitle !== 'Welcome to AgriGuru Online'
-    ? dictTitle
-    : 'Global Agricultural Trading & B2B Commodity Platform'
-  const description = 'Discover global agricultural trade opportunities, real-time commodity prices, market trends, and B2B trading intelligence on AgriGuru Online.'
+  const activeLang = getSafeLanguage(params?.lang)
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  const fullTitle = `AgriGuru Online - ${pageTitle}`
-
-  return {
-    title: {
-      absolute: fullTitle
-    },
-    description,
-    keywords: [
-      'Agricultural Trading',
-      'Commodities Marketplace',
-      'Agri B2B Platform',
-      'Global Crop Prices',
-      'AgriGuru Online',
-      'Export Import Agriculture'
-    ],
-    robots: {
-      index: true,
-      follow: true,
-    },
-    openGraph: {
-      title: fullTitle,
-      description,
-      url: `${siteUrl}/${activeLang}`,
-      siteName: 'AgriGuru Online',
-      images: [
-        {
-          url: `${siteUrl}/logo.png`,
-          width: 1200,
-          height: 630,
-          alt: 'AgriGuru Online',
-        },
-      ],
-      locale: activeLang,
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: fullTitle,
-      description,
-      images: [`${siteUrl}/logo.png`],
-      site: '@AgriGuruOnline',
-      creator: '@AgriGuruOnline',
-    },
-    alternates: {
-      canonical: `${siteUrl}/${activeLang}`,
-      languages: {
-        'en': `${siteUrl}/en`,
-        'ar': `${siteUrl}/ar`,
-        'fr': `${siteUrl}/fr`,
-        'zh': `${siteUrl}/zh`,
-        'x-default': `${siteUrl}/en`,
-      },
-    },
-  }
+  return getStandardMetadata({
+    pageKey: 'home',
+    pathname: '',
+    lang: activeLang,
+  })
 }
 
 export default async function LocalizedHomePage() {

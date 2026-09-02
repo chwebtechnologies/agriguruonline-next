@@ -237,17 +237,17 @@ export function HeaderGuestBase({
   const dropdownCategories = categoriesList.slice(finalFitCount)
 
   return (
-    <div className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
+    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar */}
-      <header className="w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
+      <header className="relative w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
           
           <div className="flex items-center flex-1 gap-3 md:gap-4">
             <div className="flex items-center shrink-0 md:w-[110px] rtl:md:w-[130px] w-auto">
               <div className="md:hidden">
                 <AppMenu align="left">
-                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
@@ -257,7 +257,7 @@ export function HeaderGuestBase({
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
                   <AppMenu align="left">
-                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                       </svg>
@@ -376,12 +376,12 @@ export function HeaderGuestBase({
               <div className="h-5 w-16 bg-muted animate-pulse rounded" />
             ) : (
               <AppMenu align="left">
-                <button className="flex items-center gap-3 text-foreground hover:text-primary focus:outline-none p-1.5 -ml-1.5 rounded transition-colors">
+                <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                   </svg>
                   <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
-                </button>
+                </div>
               </AppMenu>
             )}
           </div>

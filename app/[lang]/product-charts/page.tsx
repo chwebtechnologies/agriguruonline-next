@@ -5,69 +5,19 @@ import { cookies } from 'next/headers'
 import { getTradingApiUrl, getUserApiUrl, getSafeLang } from '@/lib/api-utils'
 import { Suspense } from 'react'
 
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params.lang || 'en';
-  const title = 'Agricultural Commodity Price Charts & Trends';
-  const fullTitle = 'Agricultural Commodity Price Charts & Trends | AgriGuru Online';
-  const description = 'Track live and historical agricultural commodity price charts, market trends, and FOB price movements across global origins on AgriGuru Online.';
+  const lang = getSafeLanguage(params?.lang);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
-  const pageUrl = `${siteUrl}/${lang}/product-charts`;
-
-  return {
-    title,
-    description,
-    keywords: [
-      'Commodity Price Charts',
-      'Agri Price Trends',
-      'Historical Crop Prices',
-      'FOB Price Tracking',
-      'Global Agriculture Data',
-      'AgriGuru Online'
-    ],
-    robots: {
-      index: true,
-      follow: true,
-    },
-    openGraph: {
-      title: fullTitle,
-      description,
-      url: pageUrl,
-      siteName: 'AgriGuru Online',
-      images: [
-        {
-          url: `${siteUrl}/logo.png`,
-          width: 1200,
-          height: 630,
-          alt: 'Agricultural Commodity Price Charts',
-        },
-      ],
-      locale: lang,
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: fullTitle,
-      description,
-      images: [`${siteUrl}/logo.png`],
-      site: '@AgriGuruOnline',
-      creator: '@AgriGuruOnline',
-    },
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${siteUrl}/en/product-charts`,
-        ar: `${siteUrl}/ar/product-charts`,
-        fr: `${siteUrl}/fr/product-charts`,
-        zh: `${siteUrl}/zh/product-charts`,
-        'x-default': `${siteUrl}/en/product-charts`,
-      }
-    }
-  };
+  return getStandardMetadata({
+    pageKey: 'product_charts',
+    pathname: 'product-charts',
+    lang,
+  });
 }
 
 async function getChartsInitialData(lang: string = 'en') {
@@ -350,13 +300,11 @@ export default async function ChartsPage(props: { params: Promise<{ lang: string
     <div className="bg-background text-foreground">
       {/* Main Content */}
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-0 sm:pt-1.5 pb-4">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Product Charts" backText="Back" />
 
-          <div className="mt-0 sm:mt-1.5">
-            <Suspense fallback={<ProductChartsGridSkeleton />}>
+          <div className="mt-4">
               <ChartsContent lang={lang} />
-            </Suspense>
           </div>
         </div>
       </div>

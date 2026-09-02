@@ -13,68 +13,19 @@ export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
 
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params.lang || 'en';
-  const title = 'Global Agriculture Events, Expos & Conferences';
-  const fullTitle = 'Global Agriculture Events, Expos & Conferences | AgriGuru Online';
-  const description = 'Discover upcoming international agricultural exhibitions, commodity trade fairs, expos, and networking conferences worldwide on AgriGuru Online.';
+  const lang = getSafeLanguage(params?.lang);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
-  const pageUrl = `${siteUrl}/${lang}/events`;
-
-  return {
-    title,
-    description,
-    keywords: [
-      'Agriculture Events',
-      'Commodity Trade Expos',
-      'Agri Trade Shows',
-      'Global Farming Conferences',
-      'AgriGuru Online',
-      'International Agri Expos'
-    ],
-    robots: {
-      index: true,
-      follow: true,
-    },
-    openGraph: {
-      title: fullTitle,
-      description,
-      url: pageUrl,
-      siteName: 'AgriGuru Online',
-      images: [
-        {
-          url: `${siteUrl}/logo.png`,
-          width: 1200,
-          height: 630,
-          alt: 'Global Agriculture Events',
-        },
-      ],
-      locale: lang,
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: fullTitle,
-      description,
-      images: [`${siteUrl}/logo.png`],
-      site: '@AgriGuruOnline',
-      creator: '@AgriGuruOnline',
-    },
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${siteUrl}/en/events`,
-        ar: `${siteUrl}/ar/events`,
-        fr: `${siteUrl}/fr/events`,
-        zh: `${siteUrl}/zh/events`,
-        'x-default': `${siteUrl}/en/events`,
-      }
-    }
-  };
+  return getStandardMetadata({
+    pageKey: 'events',
+    pathname: 'events',
+    lang,
+  });
 }
 
 

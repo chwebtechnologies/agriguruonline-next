@@ -101,20 +101,37 @@ export async function generateStaticParams() {
   return params
 }
 
+import { getAlternates, getSafeLanguage } from '@/lib/seo'
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {
   const params = await props.params
-  const { lang, slug } = params
+  const lang = getSafeLanguage(params.lang)
+  const slug = params.slug
   
   // URL decode slug in case it contains special characters
   const decodedSlug = decodeURIComponent(slug)
   const article = await getNewsDetail(decodedSlug, lang)
+  const alternates = getAlternates(`news/${slug}`, lang)
   
   if (!article) {
+    const notFoundTitles: Record<string, string> = {
+      en: 'News Not Found',
+      ar: 'الخبر غير موجود',
+      zh: '未找到新闻',
+      fr: 'Actualité Non Trouvée',
+    }
+    const notFoundDescs: Record<string, string> = {
+      en: 'The requested news article could not be found on AgriGuru Online.',
+      ar: 'تعذر العثور على المقال الإخباري المطلوب على AgriGuru Online.',
+      zh: '在 AgriGuru Online 上未找到所请求的新闻报道。',
+      fr: 'L’article d’actualité demandé est introuvable sur AgriGuru Online.',
+    }
     return {
-      title: 'News Not Found',
-      description: 'The requested news article could not be found on AgriGuru Online.',
+      title: notFoundTitles[lang] || notFoundTitles.en,
+      description: notFoundDescs[lang] || notFoundDescs.en,
+      alternates,
     }
   }
 
@@ -134,16 +151,13 @@ export async function generateMetadata(
     ? sourceImage 
     : (sourceImage ? `${imageBaseUrl}${imagePath}` : 'https://agriguruonline.com/logo.png')
   
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  const articleUrl = `${siteUrl}/${lang}/news/${slug}`
-
   const fullTitle = `${title} | AgriGuru Online`
 
   return {
     title, // Uses root layout template "%s | AgriGuru Online" for clean title
     description: cleanDescription,
-    keywords: article.meta_keywords ? article.meta_keywords.split(',').map(k => k.trim()) : ['AgriGuru', 'Agriculture News', 'Commodities'],
-    authors: [{ name: article.source || 'AgriGuru Online', url: article.source_url || siteUrl }],
+    keywords: article.meta_keywords ? article.meta_keywords.split(',').map(k => k.trim()) : [title, 'AgriGuru', 'Agriculture News', 'Commodities'],
+    authors: [{ name: article.source || 'AgriGuru Online', url: article.source_url || alternates.canonical }],
     creator: 'AgriGuru Online',
     publisher: 'AgriGuru Online',
     robots: {
@@ -153,7 +167,7 @@ export async function generateMetadata(
     openGraph: {
       title: fullTitle,
       description: cleanDescription,
-      url: articleUrl,
+      url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -178,16 +192,7 @@ export async function generateMetadata(
       creator: '@AgriGuruOnline',
       site: '@AgriGuruOnline',
     },
-    alternates: {
-      canonical: articleUrl,
-      languages: {
-        en: `${siteUrl}/en/news/${slug}`,
-        ar: `${siteUrl}/ar/news/${slug}`,
-        fr: `${siteUrl}/fr/news/${slug}`,
-        zh: `${siteUrl}/zh/news/${slug}`,
-        'x-default': `${siteUrl}/en/news/${slug}`,
-      }
-    }
+    alternates,
   }
 }
 
@@ -299,7 +304,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-8">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
           {/* Header */}
           <PageHeader title="Latest News" backText="Back" backHref={`/${lang}/news`} />
 

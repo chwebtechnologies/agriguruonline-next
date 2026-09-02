@@ -60,7 +60,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
   }
 
   return (
-    <div className={`flex flex-row gap-2 sm:gap-3 w-full mt-4 mb-2 ${categories.length === 0 ? 'justify-end' : ''}`}>
+    <form method="GET" action="" className={`flex flex-row gap-2 sm:gap-3 w-full mt-1 mb-2 ${categories.length === 0 ? 'justify-end' : ''}`}>
       {/* Category Filter - LEFT */}
       {categories.length > 0 && (
         <div className="relative w-1/2">
@@ -68,6 +68,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
             <i className="fa-solid fa-filter text-foreground/40 text-sm"></i>
           </div>
           <select
+            name="category"
             id="category-filter"
             aria-label="Filter by category"
             className="block w-full pl-9 pr-8 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all appearance-none cursor-pointer shadow-2xs"
@@ -94,6 +95,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
         </div>
         <input
           type="text"
+          name="search"
           id="search-filter"
           aria-label="Search items"
           className="block w-full pl-9 pr-10 py-2.5 bg-card border border-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all shadow-2xs"
@@ -112,13 +114,56 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
           </button>
         )}
       </div>
-    </div>
+      
+      {/* Hidden submit button for Enter key support natively */}
+      <button type="submit" className="hidden" aria-hidden="true"></button>
+    </form>
   )
 }
 
 export default function ListingFilters(props: ListingFiltersProps) {
+  const FallbackUI = (
+    <form method="GET" action="" className={`flex flex-row gap-2 sm:gap-3 w-full mt-1 mb-2 ${!props.categories || props.categories.length === 0 ? 'justify-end' : ''}`}>
+      {props.categories && props.categories.length > 0 && (
+        <div className="relative w-1/2">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i className="fa-solid fa-filter text-foreground/40 text-sm"></i>
+          </div>
+          <select
+            name="category"
+            aria-label="Filter by category"
+            className="block w-full pl-9 pr-8 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all appearance-none cursor-pointer shadow-2xs"
+          >
+            <option value="">All Categories</option>
+            {props.categories.map((cat) => (
+              <option key={cat.slug} value={cat.slug}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <i className="fa-solid fa-chevron-down text-foreground/40 text-[10px]"></i>
+          </div>
+        </div>
+      )}
+      <div className={`relative ${props.categories && props.categories.length > 0 ? 'w-1/2' : 'w-full sm:w-1/2'}`}>
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <i className="fa-solid fa-magnifying-glass text-foreground/40 text-sm"></i>
+        </div>
+        <input
+          type="text"
+          name="search"
+          aria-label="Search items"
+          className="block w-full pl-9 pr-10 py-2.5 bg-card border border-border rounded-xl text-sm placeholder-foreground/50 text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all shadow-2xs"
+          placeholder="Search..."
+        />
+        <button type="submit" className="hidden" aria-hidden="true"></button>
+      </div>
+    </form>
+  )
+
   return (
-    <Suspense fallback={<div className="h-10 w-full animate-pulse bg-muted rounded-xl mt-4 mb-2"></div>}>
+    <Suspense fallback={FallbackUI}>
       <ListingFiltersInner {...props} />
     </Suspense>
   )

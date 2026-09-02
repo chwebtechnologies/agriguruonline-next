@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useId, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -28,13 +28,23 @@ interface AnnouncementBarClientProps {
 }
 
 export default function AnnouncementBarClient({ announcements, dict, activeLang }: AnnouncementBarClientProps) {
-  const pathname = usePathname()
+  const langDropdownId = useId()
+  const pathname = usePathname() || '/'
   const router = useRouter()
   const langDropdownRef = useRef<HTMLDivElement>(null)
 
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [currentIndex, setCurrentIndex] = useState(0)
+
+  // Keep html dir and lang attribute in sync seamlessly
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.dir = activeLang === 'ar' ? 'rtl' : 'ltr'
+      document.documentElement.lang = activeLang
+    }
+  }, [activeLang])
 
   // Sync theme state from localStorage
   useEffect(() => {
@@ -67,20 +77,51 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const changeLanguage = (newLang: string) => {
-    setLangDropdownOpen(false)
-    const pathname = window.location.pathname
-    const segments = pathname.split('/').filter(Boolean)
-    const isFirstSegmentLang = ['en', 'ar', 'zh', 'fr'].includes(segments[0])
+  const getLangUrl = (newLang: string) => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname || '/'
+      const s = window.location.search || ''
+      const h = window.location.hash || ''
+      const segments = p.split('/').filter(Boolean)
+      const isFirstSegmentLang = ['en', 'ar', 'zh', 'fr'].includes(segments[0])
+      if (isFirstSegmentLang) {
+        segments[0] = newLang
+      } else {
+        segments.unshift(newLang)
+      }
+      return '/' + segments.join('/') + s + h
+    }
 
-    let newPath = '/'
+    const segments = (pathname || '/').split('/').filter(Boolean)
+    const isFirstSegmentLang = ['en', 'ar', 'zh', 'fr'].includes(segments[0])
     if (isFirstSegmentLang) {
       segments[0] = newLang
-      newPath = '/' + segments.join('/')
     } else {
-      newPath = `/${newLang}${pathname}`
+      segments.unshift(newLang)
     }
-    router.push(newPath)
+    return '/' + segments.join('/')
+  }
+
+  const handleDropdownToggle = (open: boolean) => {
+    setLangDropdownOpen(open)
+    if (open) {
+      languages.forEach((l) => {
+        if (l.code !== activeLang) {
+          router.prefetch(getLangUrl(l.code))
+        }
+      })
+    }
+  }
+
+  const handleLanguageSelect = (e: React.MouseEvent, targetLang: string) => {
+    e.preventDefault()
+    setLangDropdownOpen(false)
+    if (targetLang === activeLang) return
+
+    const targetUrl = getLangUrl(targetLang)
+    startTransition(() => {
+      router.replace(targetUrl, { scroll: false })
+    })
   }
 
   const changeTheme = (newTheme: 'light' | 'dark' | 'system') => {
@@ -148,38 +189,52 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
             <span>{dict.header.download_app}</span>
           </Link>
 
-          <Link href="#footer" className="hidden sm:flex items-center gap-2 hover:text-emerald-300 transition-colors">
+          <Link href={`/${activeLang}/contact-us`} className="hidden sm:flex items-center gap-2 hover:text-emerald-300 transition-colors">
             <i className="fa-solid fa-headset text-[14px]"></i>
             <span>{dict.header.contact_us}</span>
           </Link>
 
           {/* Language Dropdown */}
           <div className="relative inline-block text-left" ref={langDropdownRef}>
-            <button
-              onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-              className="flex items-center gap-2 text-white hover:text-emerald-300 transition-colors focus:outline-none"
+            <input 
+              type="checkbox" 
+              id={langDropdownId} 
+              className="peer sr-only" 
+              checked={langDropdownOpen} 
+              onChange={(e) => handleDropdownToggle(e.target.checked)} 
+              aria-label="Select Language"
+            />
+            <label
+              htmlFor={langDropdownId}
+              className="flex items-center gap-2 text-white hover:text-emerald-300 transition-colors focus:outline-none cursor-pointer select-none"
             >
               <span className="text-[15.5px] leading-none">{activeLanguage.flag}</span>
               <span>{activeLanguage.name}</span>
-              <i className="fa-solid fa-chevron-down text-[10px] ml-0.5 text-emerald-300"></i>
-            </button>
-            {langDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-32 rounded-lg bg-zinc-900 border border-zinc-800 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="py-1">
-                  {languages.map((l) => (
-                    <button
-                      key={l.code}
-                      onClick={() => changeLanguage(l.code)}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold hover:bg-zinc-800 transition-colors ${activeLang === l.code ? 'text-emerald-400 bg-zinc-800/40' : 'text-zinc-300'
-                        }`}
-                    >
-                      <span className="text-[15px]">{l.flag}</span>
-                      <span>{l.name}</span>
-                    </button>
-                  ))}
-                </div>
+              {isPending ? (
+                <i className="fa-solid fa-circle-notch fa-spin text-[11px] text-emerald-300"></i>
+              ) : (
+                <i className={`fa-solid fa-chevron-down text-[10px] ml-0.5 text-emerald-300 transition-transform duration-200 ${langDropdownOpen ? 'rotate-180' : ''}`}></i>
+              )}
+            </label>
+            <div className={`hidden peer-checked:block absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-2 w-36 rounded-lg bg-zinc-900 border border-zinc-800 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150`}>
+              <div className="py-1">
+                {languages.map((l) => (
+                  <Link
+                    key={l.code}
+                    href={getLangUrl(l.code)}
+                    prefetch={true}
+                    scroll={false}
+                    onMouseEnter={() => router.prefetch(getLangUrl(l.code))}
+                    onClick={(e) => handleLanguageSelect(e, l.code)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold hover:bg-zinc-800 transition-colors ${activeLang === l.code ? 'text-emerald-400 bg-zinc-800/40' : 'text-zinc-300'
+                      }`}
+                  >
+                    <span className="text-[15px]">{l.flag}</span>
+                    <span>{l.name}</span>
+                  </Link>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Theme Switcher Bar */}

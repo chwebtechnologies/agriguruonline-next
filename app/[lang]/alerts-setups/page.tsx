@@ -7,15 +7,20 @@ import { AlertsClient } from './AlertsClient';
 
 import { getTradingApiUrl } from '@/lib/api-utils';
 
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params.lang || 'en';
-  return {
-    title: 'Alerts Setups | AgriGuru Online',
-    description: 'Manage your price alerts and market setups on AgriGuru Online.',
-  };
+  const lang = getSafeLanguage(params?.lang);
+
+  return getStandardMetadata({
+    pageKey: 'alerts_setups',
+    pathname: 'alerts-setups',
+    lang,
+    noIndex: true,
+  });
 }
 
 export default async function AlertsSetupsPage(props: { params: Promise<{ lang: string }> }) {

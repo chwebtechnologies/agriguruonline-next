@@ -60,6 +60,8 @@ const getAlbumDetails = cache(
   }
 )
 
+import { getAlternates, getSafeLanguage } from '@/lib/seo'
+
 export async function generateMetadata(
   props: {
     params: Promise<{ lang: string; slug: string }>
@@ -68,7 +70,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const params = await props.params
   const searchParams = props.searchParams ? await props.searchParams : {}
-  const lang = params.lang || 'en'
+  const lang = getSafeLanguage(params.lang)
   const slug = params.slug
   const photoParam = searchParams.photo
 
@@ -111,19 +113,19 @@ export async function generateMetadata(
     ? (rawImageUrl.startsWith('http') ? rawImageUrl : `${imageBaseUrl}${rawImageUrl}`)
     : `${siteUrl}/logo.png`
 
-  const title = targetPhoto
-    ? `${albumTitle} Memories | AgriGuru Online`
-    : `${albumTitle} - Participation Gallery`
-  const fullTitle = targetPhoto
-    ? `${albumTitle} - Exhibition Memories with AgriGuru Online`
-    : `${albumTitle} | Participation Gallery | AgriGuru Online`
-  const description = targetPhoto
-    ? `Cherishing memorable moments & valuable connections at ${albumTitle}. Click to view this high-resolution exhibition photo and explore our global trade participation on AgriGuru Online.`
-    : `View photos and exhibition moments from AgriGuru Online's participation at ${albumTitle}. Featuring ${photos.length} exhibition photos.`
+  const albumDescriptions: Record<string, string> = {
+    en: `View photos and exhibition moments from AgriGuru Online's participation at ${albumTitle}. Featuring ${photos.length} exhibition photos.`,
+    ar: `شاهد صور ولحظات مشاركة AgriGuru Online في معرض ومؤتمر ${albumTitle}. يضم المعرض ${photos.length} صورة حصرية.`,
+    zh: `查阅 AgriGuru Online 在 ${albumTitle} 展会上的精彩现场图集与商务合作瞬间，共计收录 ${photos.length} 张高清照片。`,
+    fr: `Découvrez les photos et moments forts de la participation d'AgriGuru Online à ${albumTitle}. Présentant ${photos.length} photos d'exposition.`,
+  }
 
-  const pageUrl = photoParam
-    ? `${siteUrl}/${lang}/participation-gallery/${slug}?photo=${encodeURIComponent(photoParam)}`
-    : `${siteUrl}/${lang}/participation-gallery/${slug}`
+  const title = `${albumTitle} | AgriGuru Online`
+  const fullTitle = `${albumTitle} - Exhibition Memories | AgriGuru Online`
+  const description = albumDescriptions[lang] || albumDescriptions.en
+
+  const pathWithParam = photoParam ? `participation-gallery/${slug}?photo=${encodeURIComponent(photoParam)}` : `participation-gallery/${slug}`
+  const alternates = getAlternates(pathWithParam, lang)
 
   return {
     title,
@@ -144,7 +146,7 @@ export async function generateMetadata(
     openGraph: {
       title: fullTitle,
       description,
-      url: pageUrl,
+      url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -165,16 +167,7 @@ export async function generateMetadata(
       site: '@AgriGuruOnline',
       creator: '@AgriGuruOnline',
     },
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${siteUrl}/en/participation-gallery/${slug}${photoParam ? `?photo=${photoParam}` : ''}`,
-        ar: `${siteUrl}/ar/participation-gallery/${slug}${photoParam ? `?photo=${photoParam}` : ''}`,
-        fr: `${siteUrl}/fr/participation-gallery/${slug}${photoParam ? `?photo=${photoParam}` : ''}`,
-        zh: `${siteUrl}/zh/participation-gallery/${slug}${photoParam ? `?photo=${photoParam}` : ''}`,
-        'x-default': `${siteUrl}/en/participation-gallery/${slug}${photoParam ? `?photo=${photoParam}` : ''}`,
-      },
-    },
+    alternates,
   }
 }
 

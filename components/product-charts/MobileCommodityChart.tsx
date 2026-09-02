@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid } from 'recharts';
 
 export interface CommodityItemData {
@@ -681,13 +682,17 @@ export default function MobileCommodityChart({
         {/* Left: Flag, Title, Subtitle */}
         <div className="flex items-center gap-1.5 min-[390px]:gap-2.5 flex-1 min-w-0 pr-1">
           {isFullScreen && !onClose && (
-            <button
-              onClick={() => router.back()}
+            <Link
+              href={`/${lang || 'en'}`}
+              onClick={(e) => {
+                e.preventDefault();
+                router.back();
+              }}
               className="lg:hidden group flex items-center justify-center w-7 h-7 min-[390px]:w-8 min-[390px]:h-8 rounded-full bg-card border border-border shadow-xs text-foreground hover:text-brand-blue hover:border-brand-blue transition-all active:scale-95 shrink-0 cursor-pointer"
               aria-label="Go Back"
             >
               <i className="fa-solid fa-arrow-left text-[12px] min-[390px]:text-[13px] text-foreground group-hover:text-brand-blue group-hover:-translate-x-0.5 transition-transform"></i>
-            </button>
+            </Link>
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0 w-full flex-wrap sm:flex-nowrap">

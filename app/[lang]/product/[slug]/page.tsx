@@ -107,33 +107,66 @@ const getSimilarProducts = cache(async (categoryId: string, lang: string, curren
   }
 })
 
+import { getAlternates, getSafeLanguage } from '@/lib/seo'
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params?.lang || 'en';
+  const lang = getSafeLanguage(params?.lang);
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
 
   const data = await getProduct(slug, lang);
 
   const productName = data?.name || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
   const title = `${productName} | AgriGuru Online`
-  const description = data?.description?.replace(/<[^>]*>?/gm, '').substring(0, 160) || `Buy and sell ${productName} on AgriGuru Online.`
+  
+  const fallbackDescriptions: Record<string, string> = {
+    en: `Buy and sell ${productName} on AgriGuru Online. Check live market prices, specifications, and verified global suppliers.`,
+    ar: `بيع وشراء ${productName} على AgriGuru Online. تحقق من أسعار السوق اللحظية، المواصفات الفنية، والموردين المعتمدين عالمياً.`,
+    zh: `在 AgriGuru Online 上买卖 ${productName}。实时查看全球市场价格行情、规格参数与认证供应商。`,
+    fr: `Achetez et vendez ${productName} sur AgriGuru Online. Consultez les cours en direct, spécifications et fournisseurs vérifiés.`,
+  }
+
+  const rawDescription = data?.description?.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim()
+  const description = (rawDescription && rawDescription.length > 10 ? rawDescription.substring(0, 160) : fallbackDescriptions[lang]) || fallbackDescriptions.en
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
   const imageUrl = data?.image ? `${getAssetsUrl()}/${data.image}` : `${siteUrl}/logo.png`
-  const pageUrl = `${siteUrl}/${lang}/product/${slug}`
+  const alternates = getAlternates(`product/${params.slug}`, lang)
 
   return {
     title,
     description,
+    keywords: [
+      productName,
+      `${productName} Price`,
+      `${productName} Export Import`,
+      'AgriGuru Online',
+      'Agricultural Commodities'
+    ],
+    robots: {
+      index: true,
+      follow: true,
+    },
     openGraph: {
       title,
       description,
-      url: pageUrl,
+      url: alternates.canonical,
+      siteName: 'AgriGuru Online',
       images: [{ url: imageUrl, width: 1200, height: 630, alt: productName }],
+      locale: lang,
       type: 'website',
-    }
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [imageUrl],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates,
   }
 }
 

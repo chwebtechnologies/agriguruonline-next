@@ -91,11 +91,13 @@ export async function generateStaticParams() {
   return params
 }
 
+import { getAlternates, getSafeLanguage } from '@/lib/seo'
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string; subSlug: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params?.lang || 'en';
+  const lang = getSafeLanguage(params?.lang);
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
   const subSlug = params?.subSlug ? decodeURIComponent(params.subSlug) : '';
 
@@ -111,13 +113,27 @@ export async function generateMetadata(
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-  const title = `${formattedName} Prices & Trade Listings`;
-  const fullTitle = `${formattedName} Prices & Trade Listings | AgriGuru Online`;
-  const description = `Looking to trade ${formattedName}? View active ${categoryName} listings and check live market prices. Explore global B2B trade opportunities on AgriGuru Online.`
+  const titles: Record<string, string> = {
+    en: `${formattedName} Prices & Trade Listings`,
+    ar: `أسعار وقوائم تداول ${formattedName}`,
+    zh: `${formattedName} 价格行情与供求现货信息`,
+    fr: `Cours et Annonces Commerciales de ${formattedName}`,
+  };
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  const imageUrl = `${siteUrl}/logo.png`
-  const pageUrl = `${siteUrl}/${lang}/category/${slug}/${subSlug}`
+  const descriptions: Record<string, string> = {
+    en: `Looking to trade ${formattedName}? View active ${categoryName} listings and check live market prices. Explore global B2B trade opportunities on AgriGuru Online.`,
+    ar: `هل تبحث عن تداول ${formattedName}؟ تصفح عروض ${categoryName} النشطة وتحقق من أسعار السوق اللحظية على AgriGuru Online.`,
+    zh: `想要采购或供应 ${formattedName}？浏览当前 ${categoryName} 活跃外贸现货信息，掌握实时国际报价，在 AgriGuru Online 拓展商机。`,
+    fr: `Vous cherchez à négocier ${formattedName} ? Consultez les offres actives de ${categoryName} et les cours en direct sur AgriGuru Online.`,
+  };
+
+  const title = titles[lang] || titles.en;
+  const fullTitle = `${title} | AgriGuru Online`;
+  const description = descriptions[lang] || descriptions.en;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const imageUrl = `${siteUrl}/logo.png`;
+  const alternates = getAlternates(`category/${params.slug}/${params.subSlug}`, lang);
 
   return {
     title,
@@ -137,7 +153,7 @@ export async function generateMetadata(
     openGraph: {
       title: fullTitle,
       description,
-      url: pageUrl,
+      url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -158,17 +174,8 @@ export async function generateMetadata(
       site: '@AgriGuruOnline',
       creator: '@AgriGuruOnline',
     },
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${siteUrl}/en/category/${slug}/${subSlug}`,
-        ar: `${siteUrl}/ar/category/${slug}/${subSlug}`,
-        fr: `${siteUrl}/fr/category/${slug}/${subSlug}`,
-        zh: `${siteUrl}/zh/category/${slug}/${subSlug}`,
-        'x-default': `${siteUrl}/en/category/${slug}/${subSlug}`,
-      }
-    }
-  }
+    alternates,
+  };
 }
 
 export default async function SubCategoryProductsPage(

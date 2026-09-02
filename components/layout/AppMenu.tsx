@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useId } from 'react'
 import Link from 'next/link'
 import { logoutUser } from '@/app/actions/auth'
 
@@ -17,6 +17,7 @@ import { useParams } from 'next/navigation'
 export function AppMenu({ children, align = 'right', profile }: { children?: React.ReactNode, align?: 'left' | 'right', profile?: any }) {
   const params = useParams();
   const lang = (params?.lang as string) || 'en';
+  const menuId = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -114,12 +115,6 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     ]
   ];
 
-  if (profile) {
-    MENU_GROUPS.push([
-      { label: 'Logout', icon: 'fa-solid fa-power-off', href: '#', iconBg: 'bg-brand-red', textColor: 'text-brand-red hover:text-brand-red-hover' },
-    ]);
-  }
-
   // Lock body scroll when mobile menu is open
   useEffect(() => {
     if (isOpen) {
@@ -135,87 +130,55 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   const isRtl = lang === 'ar';
   let alignClass = '';
   if (align === 'left') {
-    alignClass = isRtl ? 'right-0 origin-top-right' : 'left-0 origin-top-left';
+    alignClass = isRtl ? 'md:right-0 md:origin-top-right' : 'md:left-0 md:origin-top-left';
   } else {
-    alignClass = isRtl ? 'left-0 origin-top-left' : 'right-0 origin-top-right';
+    alignClass = isRtl ? 'md:left-0 md:origin-top-left' : 'md:right-0 md:origin-top-right';
   }
 
   return (
-    <div className="relative" ref={menuRef} suppressHydrationWarning>
+    <div className="md:relative" ref={menuRef} suppressHydrationWarning>
+      <input 
+        type="checkbox" 
+        id={menuId} 
+        className="peer sr-only" 
+        checked={isOpen} 
+        onChange={(e) => setIsOpen(e.target.checked)} 
+        aria-label="Toggle menu"
+      />
       {/* Trigger */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setIsOpen(!isOpen)}
+      <label
+        htmlFor={menuId}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             setIsOpen(!isOpen);
           }
         }}
-        className="cursor-pointer bg-transparent border-0 p-0 m-0 appearance-none outline-none"
-        aria-label="Toggle menu"
-        aria-expanded={isOpen}
+        className="block cursor-pointer bg-transparent border-0 p-0 m-0 appearance-none outline-none"
       >
         {children || (
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background border border-border shadow-sm hover:shadow text-foreground transition-all">
-            <i className="fa-solid fa-bars text-xl"></i>
+            <span className="sr-only">Toggle menu</span>
+            <i className="fa-solid fa-bars text-xl" aria-hidden="true"></i>
           </div>
         )}
-      </div>
+      </label>
 
-      {/* --- DESKTOP DROPDOWN VIEW (Ultra Compact Single Column Agriguru Online Settings) --- */}
-      <div className={`hidden md:block absolute top-[calc(100%+0.5rem)] ${alignClass} w-[260px] bg-background border border-border shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl overflow-hidden transition-all duration-200 z-[100] ${isOpen ? 'scale-100 opacity-100 visible translate-y-0' : 'scale-95 opacity-0 invisible -translate-y-2'}`} suppressHydrationWarning>
-        <div className="max-h-[calc(100vh-100px)] overflow-y-auto px-2 py-2 space-y-1.5" suppressHydrationWarning>
-          {MENU_GROUPS.map((group, groupIndex) => (
-              <div key={`group-${groupIndex}`} className="bg-background rounded-[10px] overflow-hidden border border-border/50 shadow-sm">
-                <ul className="flex flex-col">
-                  {group.map((item, index) => (
-                    <li key={`item-${item.label}-${index}`} className="relative group">
-                      {item.label === 'Logout' ? (
-                        <button onClick={confirmLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
-                              <i className={`${item.icon} text-[12px] text-white`}></i>
-                            </div>
-                            <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
-                              {item.label}
-                            </span>
-                          </div>
-                          <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
-                        </button>
-                      ) : (
-                        <Link href={item.href} onClick={() => setIsOpen(false)} className="flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
-                              <i className={`${item.icon} text-[12px] text-white`}></i>
-                            </div>
-                            <span className={`text-[13.5px] font-semibold tracking-tight ${item.textColor || 'text-foreground'}`}>
-                              {item.label}
-                            </span>
-                          </div>
-                          <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
-                        </Link>
-                      )}
-                      {/* Inline separator, except for last item */}
-                      {index !== group.length - 1 && (
-                        <div className="absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-
-      {/* --- MOBILE/TABLET DROPDOWN VIEW (Below Header, Premium Grid Layout) --- */}
-      {isOpen && (
-        <div className="md:hidden absolute top-[calc(100%+14px)] -left-4 w-screen max-h-[calc(100vh-70px)] overflow-y-auto bg-background z-[100] shadow-[0_20px_40px_rgba(0,0,0,0.2)] animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out border-t border-border">
-          <div className="px-3 min-[390px]:px-4 py-4 space-y-3.5 pb-24">
+      {/* --- RESPONSIVE UNIFIED DROPDOWN VIEW --- */}
+      <div className={`
+        /* Mobile: Absolute drawer below header */
+        hidden peer-checked:block absolute top-[100%] left-0 right-0 h-[calc(100vh-65px)] bg-background z-[100] border-t border-border overflow-y-auto animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out
+        
+        /* Desktop: Absolute popover */
+        md:block md:absolute md:top-[calc(100%+0.5rem)] ${alignClass} md:w-[260px] md:h-auto md:bottom-auto md:border md:rounded-2xl md:overflow-hidden md:shadow-[0_8px_30px_rgb(0,0,0,0.12)]
+        md:transition-all md:duration-200 md:animate-none md:z-[100]
+        md:scale-95 md:opacity-0 md:invisible md:-translate-y-2
+        md:peer-checked:scale-100 md:peer-checked:opacity-100 md:peer-checked:visible md:peer-checked:translate-y-0
+      `} suppressHydrationWarning>
+        <div className="px-3 min-[390px]:px-4 py-4 md:p-2 space-y-3.5 md:space-y-0 pb-24 md:max-h-[calc(100vh-100px)] md:overflow-y-auto" suppressHydrationWarning>
             
-            {/* Quick Actions Row (Logout/Login, Home, Mode) */}
-            <div className="grid grid-cols-3 gap-2 min-[390px]:gap-2.5">
+            {/* Quick Actions Row (Mobile Only) */}
+            <div className="md:hidden grid grid-cols-3 gap-2 min-[390px]:gap-2.5 mb-3.5">
               {profile ? (
                 <button onClick={confirmLogout} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                   <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-brand-red shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
@@ -245,8 +208,8 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
               </button>
             </div>
 
-            {/* Premium Upgrade Banner */}
-            <div className="flex justify-center my-1.5">
+            {/* Premium Upgrade Banner (Mobile Only) */}
+            <div className="md:hidden flex justify-center my-1.5 mb-3.5">
               <Link onClick={() => setIsOpen(false)} href="#" className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
                 <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[13px] min-[390px]:text-[14px]"></i>
@@ -257,25 +220,60 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
               </Link>
             </div>
 
-            {/* 2-Column Menu Grid */}
-            <div className="grid grid-cols-2 gap-2 min-[390px]:gap-2.5">
-              {MENU_GROUPS.flat().filter(item => item.label !== 'Logout').map((item, index) => (
-                <Link 
-                  onClick={() => setIsOpen(false)}
-                  key={`mobile-${item.label}-${index}`} 
-                  href={item.href}
-                  className="flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden"
-                >
-                  <div className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 rounded-md shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
-                    <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] text-white`}></i>
-                  </div>
-                  <span className="font-semibold text-[12.5px] min-[375px]:text-[13.5px] text-foreground tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0">{item.label}</span>
-                </Link>
+            {/* Unified Menu Links */}
+            <div className="grid grid-cols-2 gap-2 min-[390px]:gap-2.5 md:flex md:flex-col md:gap-0 md:space-y-1.5">
+              {MENU_GROUPS.map((group, groupIndex) => (
+                <div key={`group-${groupIndex}`} className="contents md:block md:bg-background md:rounded-[10px] md:overflow-hidden md:border md:border-border/50 md:shadow-sm">
+                  <ul className="contents md:flex md:flex-col">
+                    {group.map((item, index) => (
+                      <li key={`item-${item.label}-${index}`} className="contents md:block md:relative md:group">
+                        <Link href={item.href} onClick={() => setIsOpen(false)} className="
+                          flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden
+                          md:justify-between md:px-3 md:py-1.5 md:hover:bg-muted md:border-none md:rounded-none md:shadow-none
+                        ">
+                          <div className="flex items-center gap-2 min-[390px]:gap-2.5 md:gap-3">
+                            <div className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 md:w-6 md:h-6 rounded-md md:rounded-[5px] shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+                              <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] md:text-[12px] text-white`}></i>
+                            </div>
+                            <span className={`font-semibold text-[12.5px] min-[375px]:text-[13.5px] md:text-[13.5px] md:tracking-tight ${item.textColor || 'text-foreground'} tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0`}>
+                              {item.label}
+                            </span>
+                          </div>
+                          <i className="hidden md:block fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                        </Link>
+                        {index !== group.length - 1 && (
+                          <div className="hidden md:block absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
+              
+              {/* Desktop Logout Appended manually */}
+              {profile && (
+                <div className="hidden md:block bg-background rounded-[10px] overflow-hidden border border-border/50 shadow-sm mt-1.5">
+                  <ul className="flex flex-col">
+                    <li className="relative group">
+                      <button onClick={confirmLogout} className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex items-center justify-center w-6 h-6 rounded-[5px] bg-brand-red shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+                            <i className={`fa-solid fa-power-off text-[12px] text-white`}></i>
+                          </div>
+                          <span className={`text-[13.5px] font-semibold tracking-tight text-brand-red hover:text-brand-red-hover`}>
+                            Logout
+                          </span>
+                        </div>
+                        <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
 
-            {/* Advertisement Placeholder */}
-            <div className="w-full mt-2 rounded-xl overflow-hidden shadow-md relative bg-brand-blue-hover border border-blue-900 h-[120px] min-[390px]:h-[140px] flex flex-col justify-center px-5 min-[390px]:px-6">
+            {/* Advertisement Placeholder (Mobile Only) */}
+            <div className="md:hidden w-full mt-3.5 rounded-xl overflow-hidden shadow-md relative bg-brand-blue-hover border border-blue-900 h-[120px] min-[390px]:h-[140px] flex flex-col justify-center px-5 min-[390px]:px-6">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 rounded-full blur-3xl opacity-30 -mr-10 -mt-10"></div>
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-red-500 rounded-full blur-3xl opacity-20 -ml-10 -mb-10"></div>
               <div className="relative z-10 flex flex-col gap-1">
@@ -286,7 +284,6 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
             
           </div>
         </div>
-      )}
 
       {/* Logout Confirmation Popup */}
       {showLogoutConfirm && (

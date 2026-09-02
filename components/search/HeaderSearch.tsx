@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo, useTransition } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, useTransition, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -22,6 +22,7 @@ export function HeaderSearch({
   dict = {},
 }: HeaderSearchProps) {
   const router = useRouter()
+  const searchId = useId()
   const [, startTransition] = useTransition()
   const containerRef = useRef<HTMLDivElement>(null)
   const desktopInputRef = useRef<HTMLInputElement>(null)
@@ -424,14 +425,24 @@ export function HeaderSearch({
       {/* 2. MOBILE HEADER TRIGGER INPUT (Shown on Screens < lg)                     */}
       {/* ========================================================================= */}
       <div className="lg:hidden w-full">
-        <button
-          type="button"
+        <input 
+          type="checkbox" 
+          id={`mobile-search-${searchId}`} 
+          className="peer sr-only" 
+          checked={isMobileSearchOpen} 
+          onChange={(e) => {
+            setIsMobileSearchOpen(e.target.checked)
+            if (e.target.checked) loadInitialProducts()
+          }} 
+        />
+        <label
+          htmlFor={`mobile-search-${searchId}`}
           onClick={handleMobileClick}
-          className="w-full h-10 rounded-lg border border-border bg-muted/80 px-3 flex items-center gap-2.5 text-xs text-muted-foreground focus:outline-none cursor-pointer"
+          className="w-full h-10 rounded-lg border border-border bg-muted/80 px-3 flex items-center gap-2.5 text-xs text-muted-foreground focus:outline-none cursor-pointer block"
         >
           <i className="fa-solid fa-magnifying-glass text-[13px] text-muted-foreground"></i>
           <span className="truncate">{query || placeholder}</span>
-        </button>
+        </label>
       </div>
 
       {/* ========================================================================= */}
@@ -657,22 +668,21 @@ export function HeaderSearch({
       {/* ========================================================================= */}
       {/* 4. MOBILE / TABLET FULL-SCREEN SEARCH VIEW (Portaled to document.body)     */}
       {/* ========================================================================= */}
-      {isMobileSearchOpen && mounted && typeof document !== 'undefined' && createPortal(
-        <div className="lg:hidden fixed inset-0 z-[999999] bg-background text-foreground flex flex-col animate-in fade-in duration-150">
+        <div className="hidden peer-checked:flex lg:hidden fixed inset-0 z-[999999] bg-background text-foreground flex-col animate-in fade-in duration-150">
           {/* Mobile Header Bar matching main header bg-card, border-border, text-foreground */}
           <header className="sticky top-0 z-20 w-full bg-card text-foreground border-b border-border py-2.5 px-3 sm:px-4 flex items-center gap-3 shadow-sm">
             {/* Back Button '<' */}
-            <button
-              type="button"
+            <label
+              htmlFor={`mobile-search-${searchId}`}
               onClick={() => {
                 setIsMobileSearchOpen(false)
                 setQuery('')
               }}
               className="w-10 h-10 rounded-full bg-muted text-foreground hover:text-primary flex items-center justify-center border border-border shrink-0 transition-colors cursor-pointer"
-              aria-label="Back"
             >
-              <i className="fa-solid fa-chevron-left text-base"></i>
-            </button>
+              <span className="sr-only">Back</span>
+              <i className="fa-solid fa-chevron-left text-base" aria-hidden="true"></i>
+            </label>
 
             {/* AgriGuru Logo */}
             <Link
@@ -773,9 +783,7 @@ export function HeaderSearch({
               )}
             </div>
           </div>
-        </div>,
-        document.body
-      )}
+        </div>
 
       {/* ========================================================================= */}
       {/* 5. EMBEDDED SPECIFICATIONS MODAL (When tapping Info icon)                 */}

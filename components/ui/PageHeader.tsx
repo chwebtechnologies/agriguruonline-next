@@ -5,31 +5,36 @@ import { useState, useEffect } from 'react'
 
 export function PageHeader({ title, backText = "Back", hideBack = false, backHref, onBackClick }: { title: string, backText?: string, hideBack?: boolean, backHref?: string, onBackClick?: () => void }) {
   const router = useRouter()
-  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false)
+  const [headerHeight, setHeaderHeight] = useState<number>(0)
 
   useEffect(() => {
-    let scrolled = false
-    const handleScroll = () => {
-      const sy = window.scrollY
-      if (scrolled) {
-        if (sy < 20) {
-          scrolled = false
-          setIsHeaderScrolled(false)
-        }
-      } else {
-        if (sy > 120) {
-          scrolled = true
-          setIsHeaderScrolled(true)
-        }
+    const updateHeaderHeight = () => {
+      const header = document.getElementById('site-header')
+      if (header) {
+        setHeaderHeight(header.offsetHeight)
       }
     }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    handleScroll()
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
-  // On mobile: always 69px. On desktop: 69px when category bar collapsed, 109px when category bar open.
-  const stickyTopClass = isHeaderScrolled ? 'top-[69px]' : 'top-[69px] md:top-[109px]'
+    updateHeaderHeight()
+
+    const header = document.getElementById('site-header')
+    let observer: ResizeObserver | null = null
+    if (header && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => {
+        updateHeaderHeight()
+      })
+      observer.observe(header)
+    }
+
+    window.addEventListener('resize', updateHeaderHeight)
+    window.addEventListener('scroll', updateHeaderHeight, { passive: true })
+
+    return () => {
+      if (observer) observer.disconnect()
+      window.removeEventListener('resize', updateHeaderHeight)
+      window.removeEventListener('scroll', updateHeaderHeight)
+    }
+  }, [])
 
   const handleBackClick = () => {
     if (onBackClick) {
@@ -42,7 +47,10 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
   }
 
   return (
-    <div className={`sticky ${stickyTopClass} z-40 py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-2 bg-background transition-[top] duration-200 relative`}>
+    <div
+      style={{ top: headerHeight ? `${headerHeight}px` : undefined }}
+      className="sticky top-[69px] md:top-[122px] z-40 -mt-3 py-1.5 sm:py-2 flex items-center justify-between w-full mb-1 sm:mb-2 bg-background relative"
+    >
       {/* Full-width background bleed */}
       <div className="absolute inset-y-0 w-[100vw] left-1/2 -translate-x-1/2 bg-background z-0 pointer-events-none" />
       

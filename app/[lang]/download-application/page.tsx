@@ -9,16 +9,19 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 export const dynamic = 'force-static'
 export const revalidate = false
 
-export async function generateMetadata(): Promise<Metadata> {
-  const title = `Download Mobile Application`;
-  const fullTitle = `${title} | AgriGuru Online`;
-  const description = `Download the AgriGuru Online Mobile App for Agri Commodity Importers, Exporters and Traders. Real-time product prices, ocean freight rates, and smart documentation.`;
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
 
-  return {
-    title,
-    description,
-    openGraph: { title: fullTitle, description },
-  }
+export async function generateMetadata(props: {
+  params?: Promise<{ lang: string }>
+}): Promise<Metadata> {
+  const params = props.params ? await props.params : undefined
+  const lang = getSafeLanguage(params?.lang)
+
+  return getStandardMetadata({
+    pageKey: 'download_app',
+    pathname: 'download-application',
+    lang,
+  })
 }
 
 import { getDictionary } from '../dictionaries'

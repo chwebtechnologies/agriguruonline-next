@@ -2,9 +2,19 @@ import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ContactForm from './ContactForm'
 
-export const metadata: Metadata = {
-  title: 'Contact Us | AgriGuru Online',
-  description: 'Get in touch with AgriGuru Online. Find our global office locations, contact information, and send us a message.',
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
+
+export async function generateMetadata(props: {
+  params: Promise<{ lang: string }>
+}): Promise<Metadata> {
+  const params = await props.params
+  const lang = getSafeLanguage(params?.lang)
+
+  return getStandardMetadata({
+    pageKey: 'contact',
+    pathname: 'contact-us',
+    lang,
+  })
 }
 
 export default async function ContactUsPage(props: { params: Promise<{ lang: string }> }) {
@@ -12,12 +22,12 @@ export default async function ContactUsPage(props: { params: Promise<{ lang: str
   const lang = params.lang || 'en'
 
   return (
-    <div className="bg-background text-foreground pb-5">
+    <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5 px-3 sm:px-0">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Contact Us" backText="Back" />
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
             
             {/* Left Column: Office Info & Locations */}
             <div className="lg:col-span-5 flex flex-col gap-3 sm:gap-4">

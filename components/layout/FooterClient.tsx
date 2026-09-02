@@ -162,7 +162,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.contact_us}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/contact`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
+              <li><Link href={`/${activeLang}/contact-us`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
             </ul>
           </div>
         </div>
@@ -171,89 +171,64 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
         <div className="block md:hidden space-y-2.5">
 
           {/* Accordion 1: Company Details */}
-          <div className="border-b border-border pb-1">
-            <button
-              onClick={() => toggleSection('company')}
-              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
-            >
+          <details className="group border-b border-border pb-1">
+            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               <span>{dict.footer.company_details}</span>
-              <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.company ? 'rotate-180' : 'rotate-0'}`}>▼</span>
-            </button>
-            {expandedSections.company && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-                <li><Link href={`/${activeLang}/about`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.about_us}</Link></li>
-                <li><Link href={`/${activeLang}/founder`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.founder_profile}</Link></li>
-              </ul>
-            )}
-          </div>
+              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+            </summary>
+            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+              <li><Link href={`/${activeLang}/about`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.about_us}</Link></li>
+              <li><Link href={`/${activeLang}/founder`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.founder_profile}</Link></li>
+            </ul>
+          </details>
 
           {/* Accordion 2: Trade Services */}
-          <div className="border-b border-border pb-1">
-            <button
-              onClick={() => toggleSection('services')}
-              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
-            >
+          <details className="group border-b border-border pb-1">
+            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               <span>{dict.footer.trade_services}</span>
-              <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.services ? 'rotate-180' : 'rotate-0'}`}>▼</span>
-            </button>
-            {expandedSections.services && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-                <li><Link href={`/${activeLang}/manual`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.user_manual}</Link></li>
-                <li><Link href={`/${activeLang}/guide`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.user_guide}</Link></li>
-              </ul>
-            )}
-          </div>
+              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+            </summary>
+            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+              <li><Link href={`/${activeLang}/manual`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.user_manual}</Link></li>
+              <li><Link href={`/${activeLang}/guide`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.user_guide}</Link></li>
+            </ul>
+          </details>
 
           {/* Accordion 3: Membership Plans */}
-          <div className="border-b border-border pb-1">
-            <button
-              onClick={() => toggleSection('plans')}
-              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
-            >
+          <details className="group border-b border-border pb-1">
+            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               <span>{dict.footer.membership_plans}</span>
-              <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.plans ? 'rotate-180' : 'rotate-0'}`}>▼</span>
-            </button>
-            {expandedSections.plans && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-                <li><Link href={`/${activeLang}/membership`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.membership_plans}</Link></li>
-              </ul>
-            )}
-          </div>
+              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+            </summary>
+            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+              <li><Link href={`/${activeLang}/membership`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.membership_plans}</Link></li>
+            </ul>
+          </details>
 
           {/* Accordion 4: Regulatory Norms */}
-          <div className="border-b border-border pb-1">
-            <button
-              onClick={() => toggleSection('norms')}
-              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
-            >
+          <details className="group border-b border-border pb-1">
+            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               <span>{dict.footer.regulatory_norms}</span>
-              <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.norms ? 'rotate-180' : 'rotate-0'}`}>▼</span>
-            </button>
-            {expandedSections.norms && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-                <li><Link href={`/${activeLang}/disclaimer`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.disclaimer}</Link></li>
-                <li><Link href={`/${activeLang}/terms`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.terms_conditions}</Link></li>
-                <li><Link href={`/${activeLang}/refund`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.refund_cancellation}</Link></li>
-                <li><Link href={`/${activeLang}/privacy`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.privacy_policy}</Link></li>
-              </ul>
-            )}
-          </div>
+              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+            </summary>
+            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+              <li><Link href={`/${activeLang}/disclaimer`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.disclaimer}</Link></li>
+              <li><Link href={`/${activeLang}/terms`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.terms_conditions}</Link></li>
+              <li><Link href={`/${activeLang}/refund`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.refund_cancellation}</Link></li>
+              <li><Link href={`/${activeLang}/privacy`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.privacy_policy}</Link></li>
+            </ul>
+          </details>
 
           {/* Accordion 5: Contact Us */}
-          <div className="border-b border-border pb-1">
-            <button
-              onClick={() => toggleSection('contact')}
-              className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm"
-            >
+          <details className="group border-b border-border pb-1">
+            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               <span>{dict.footer.contact_us}</span>
-              <span className={`transform text-[10px] transition-transform duration-200 ${expandedSections.contact ? 'rotate-180' : 'rotate-0'}`}>▼</span>
-            </button>
-            {expandedSections.contact && (
-              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-                <li><Link href={`/${activeLang}/contact`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.contact_us}</Link></li>
-              </ul>
-            )}
-          </div>
+              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+            </summary>
+            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+              <li><Link href={`/${activeLang}/contact-us`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.contact_us}</Link></li>
+            </ul>
+          </details>
 
         </div>
 

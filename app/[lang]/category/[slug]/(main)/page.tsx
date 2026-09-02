@@ -82,11 +82,13 @@ export async function generateStaticParams() {
   }
 }
 
+import { getAlternates, getSafeLanguage } from '@/lib/seo'
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params?.lang || 'en'
+  const lang = getSafeLanguage(params?.lang)
   const slug = decodeURIComponent(params?.slug || '')
 
   const data = await getSubCategories(slug, lang)
@@ -97,13 +99,27 @@ export async function generateMetadata(
     ? (matchedCategory.translations?.find(t => t.lang_code === lang)?.name || matchedCategory.name)
     : slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
-  const title = `${categoryName} Prices & Global Trade Data`
-  const fullTitle = `${categoryName} Prices & Global Trade Data | AgriGuru Online`
-  const description = `Ready to trade ${categoryName}? Check live market prices and explore all available products. Discover global B2B trade opportunities on AgriGuru Online.`
+  const titles: Record<string, string> = {
+    en: `${categoryName} Prices & Global Trade Data`,
+    ar: `أسعار ${categoryName} وبيانات التجارة العالمية`,
+    zh: `${categoryName} 价格行情与全球外贸数据`,
+    fr: `Cours de ${categoryName} & Données du Commerce Mondial`,
+  }
+
+  const descriptions: Record<string, string> = {
+    en: `Ready to trade ${categoryName}? Check live market prices and explore all available products. Discover global B2B trade opportunities on AgriGuru Online.`,
+    ar: `هل أنت جاهز لتداول ${categoryName}؟ تحقق من أسعار السوق اللحظية وتصفح جميع المنتجات المتاحة. اكتشف فرص التجارة العالمية على AgriGuru Online.`,
+    zh: `寻找优质 ${categoryName} 贸易货源？实时查看即时市场行情与在售品类，对接 AgriGuru Online 全球B2B外贸商机。`,
+    fr: `Prêt à négocier ${categoryName} ? Consultez les cours en direct et parcourez les produits disponibles sur AgriGuru Online.`,
+  }
+
+  const title = titles[lang] || titles.en
+  const fullTitle = `${title} | AgriGuru Online`
+  const description = descriptions[lang] || descriptions.en
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
   const imageUrl = `${siteUrl}/logo.png`
-  const pageUrl = `${siteUrl}/${lang}/category/${slug}`
+  const alternates = getAlternates(`category/${params.slug}`, lang)
 
   return {
     title,
@@ -123,7 +139,7 @@ export async function generateMetadata(
     openGraph: {
       title: fullTitle,
       description,
-      url: pageUrl,
+      url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -144,16 +160,7 @@ export async function generateMetadata(
       site: '@AgriGuruOnline',
       creator: '@AgriGuruOnline',
     },
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${siteUrl}/en/category/${slug}`,
-        ar: `${siteUrl}/ar/category/${slug}`,
-        fr: `${siteUrl}/fr/category/${slug}`,
-        zh: `${siteUrl}/zh/category/${slug}`,
-        'x-default': `${siteUrl}/en/category/${slug}`,
-      }
-    }
+    alternates,
   }
 }
 

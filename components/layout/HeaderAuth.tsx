@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import CategoryLink from '@/components/category/CategoryLink'
@@ -69,6 +69,7 @@ interface HeaderAuthProps {
 }
 
 export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile }: HeaderAuthProps) {
+  const notificationsId = useId()
   const [profile, setProfile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -221,10 +222,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const dropdownCategories = categoriesList.slice(finalFitCount)
 
   return (
-    <div className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
+    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar (Always sticky) */}
-      <header className="w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
+      <header className="relative w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
 
           {/* Left side group containing Logo/Menu and Search bar with short spacing */}
@@ -235,7 +236,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   On Desktop (md+): Only show Hamburger Menu when scrolled (replacing Logo). */}
               <div className="md:hidden">
                 <AppMenu align="left" profile={profile}>
-                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
@@ -245,7 +246,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
                   <AppMenu align="left" profile={profile}>
-                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                       </svg>
@@ -324,15 +325,22 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 </Link>
 
                 <div className="relative" ref={notificationsRef}>
-                  <button 
+                  <input 
+                    type="checkbox" 
+                    id={notificationsId} 
+                    className="peer sr-only" 
+                    checked={isNotificationsOpen} 
+                    onChange={(e) => setIsNotificationsOpen(e.target.checked)} 
+                  />
+                  <label 
+                    htmlFor={notificationsId}
                     onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                    className="relative flex items-center justify-center p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200"
+                    className="relative flex items-center justify-center p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200 cursor-pointer"
                   >
                     <i className="fa-solid fa-bell text-[30px]"></i>
-                  </button>
+                  </label>
                   
-                  {isNotificationsOpen && (
-                    <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[340px] md:w-[380px] rounded-lg bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                  <div className={`hidden peer-checked:block absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[340px] md:w-[380px] rounded-lg bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
                       <div className="flex items-center p-1 bg-muted rounded-lg mb-2">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('notifications'); }}
@@ -431,7 +439,6 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         )}
                       </div>
                     </div>
-                  )}
                 </div>
 
                 <Link href={`/${activeLang}/profile`}>
@@ -483,7 +490,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           {/* Left-aligned Menu Trigger */}
           <div className="shrink-0 border-e border-border pe-5 flex items-center">
             <AppMenu align="left" profile={profile}>
-              <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
+              <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                 </svg>

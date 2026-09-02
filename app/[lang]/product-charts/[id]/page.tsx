@@ -5,22 +5,44 @@ import DedicatedChartClient from './DedicatedChartClient';
 import { cookies } from 'next/headers';
 import { getTradingApiUrl, getUserApiUrl, getSafeLang, getAssetsUrl } from '@/lib/api-utils';
 
+import { getAlternates, getSafeLanguage } from '@/lib/seo';
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; id: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params.lang || 'en';
+  const lang = getSafeLanguage(params.lang);
   const id = decodeURIComponent(params.id);
   const { itemData } = await getChartProductData(id, lang);
 
-  const productName = itemData?.product || 'Commodity Price Chart';
-  const title = `${productName} Price Chart & Historical Trends`;
-  const fullTitle = `${productName} Price Chart & Historical Trends | AgriGuru Online`;
-  const description = `Live historical and current price charts, trends, and FOB price data for ${productName}. Track market intelligence on AgriGuru Online.`;
+  const fallbackProductNames: Record<string, string> = {
+    en: 'Commodity Price Chart',
+    ar: 'الرسم البياني للسلعة',
+    zh: '农产品大宗价格图表',
+    fr: 'Graphique des Prix des Matières Premières',
+  };
+
+  const productName = itemData?.product || fallbackProductNames[lang] || fallbackProductNames.en;
+
+  const titles: Record<string, string> = {
+    en: `${productName} Price Chart & Historical Trends`,
+    ar: `الرسم البياني لأسعار ${productName} والاتجاهات التاريخية`,
+    zh: `${productName} 价格走势图表与历史行情`,
+    fr: `Graphique des Prix et Tendances Historiques de ${productName}`,
+  };
+
+  const descriptions: Record<string, string> = {
+    en: `Live historical and current price charts, trends, and FOB price data for ${productName}. Track market intelligence on AgriGuru Online.`,
+    ar: `الرسوم البيانية اللحظية والتاريخية لأسعار ${productName}، اتجاهات الأسعار، وبيانات FOB. تابع تحليلات السوق على AgriGuru Online.`,
+    zh: `实时追踪 ${productName} 的历史与即时价格走势图表、FOB离岸价数据及全球大宗行情动态。`,
+    fr: `Graphiques des prix en direct et historiques, tendances et cours FOB pour ${productName}. Suivez la veille de marché sur AgriGuru Online.`,
+  };
+
+  const title = titles[lang] || titles.en;
+  const fullTitle = `${title} | AgriGuru Online`;
+  const description = descriptions[lang] || descriptions.en;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
-  const pageUrl = `${siteUrl}/${lang}/product-charts/${id}`;
-
   const assetsUrl = getAssetsUrl();
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
   const productImg = itemData?.image || itemData?.thumbnail;
@@ -28,6 +50,8 @@ export async function generateMetadata(
   const imageUrl = productImg?.startsWith('http')
     ? productImg
     : (productImg ? `${imageBaseUrl}${imagePath}` : `${siteUrl}/logo.png`);
+
+  const alternates = getAlternates(`product-charts/${params.id}`, lang);
 
   return {
     title,
@@ -46,7 +70,7 @@ export async function generateMetadata(
     openGraph: {
       title: fullTitle,
       description,
-      url: pageUrl,
+      url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -67,16 +91,7 @@ export async function generateMetadata(
       site: '@AgriGuruOnline',
       creator: '@AgriGuruOnline',
     },
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${siteUrl}/en/product-charts/${id}`,
-        ar: `${siteUrl}/ar/product-charts/${id}`,
-        fr: `${siteUrl}/fr/product-charts/${id}`,
-        zh: `${siteUrl}/zh/product-charts/${id}`,
-        'x-default': `${siteUrl}/en/product-charts/${id}`,
-      }
-    }
+    alternates,
   };
 }
 

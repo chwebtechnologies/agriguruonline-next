@@ -46,7 +46,7 @@ export default async function NotFound() {
             {dict.not_found?.return_home || "Return Home"}
           </Link>
           <Link
-            href={`/${activeLang}/contact`}
+            href={`/${activeLang}/contact-us`}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-12 px-8 text-sm font-semibold transition-all duration-200 rounded-full border border-border bg-card text-foreground hover:bg-muted hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2"
           >
             <i className="fa-solid fa-headset text-sm" />

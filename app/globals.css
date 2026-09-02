@@ -31,7 +31,7 @@ body {
 
   /* Standard Agriguru Online System Labels / Text Hierarchy (Light Mode) */
   --agriguru-online-label: #1D1D1F;
-  --agriguru-online-secondary-label: #6E6E73;
+  --agriguru-online-secondary-label: #55555A;
   --agriguru-online-tertiary-label: #86868B;
   --agriguru-online-quaternary-label: #C7C7CC;
 
@@ -70,7 +70,7 @@ body {
   --background: #F5F5F7;
   --border: #E5E5EA;
   --muted: #F2F2F7;
-  --muted-foreground: #6E6E73;
+  --muted-foreground: #55555A;
   --foreground: var(--agriguru-online-label);
 
   --ag-card-bg: #FFFFFF;
@@ -91,7 +91,7 @@ body {
 
   /* Standard Agriguru Online System Labels / Text Hierarchy (Dark Mode) */
   --agriguru-online-label: #FFFFFF;
-  --agriguru-online-secondary-label: #8E8E93;
+  --agriguru-online-secondary-label: #A1A1A6;
   --agriguru-online-tertiary-label: #8E8E93;
   --agriguru-online-quaternary-label: #48484A;
 
@@ -110,7 +110,7 @@ body {
   --background: #000000;
   --border: #2C2C2E;
   --muted: #2C2C2E;
-  --muted-foreground: #8E8E93;
+  --muted-foreground: #A1A1A6;
   --foreground: #F5F5F7;
 
   --ag-card-bg: #1C1C1E;
@@ -310,5 +310,6 @@ a, button, input, select, textarea, label, [role="button"] {
 [data-skeleton-wrapper] {
   opacity: 1;
 }
+
 
 

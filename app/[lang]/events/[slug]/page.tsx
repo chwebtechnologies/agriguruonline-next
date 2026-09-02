@@ -81,19 +81,36 @@ export async function generateStaticParams() {
   return params
 }
 
+import { getAlternates, getSafeLanguage } from '@/lib/seo'
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {
   const params = await props.params
-  const { lang, slug } = params
+  const lang = getSafeLanguage(params.lang)
+  const slug = params.slug
 
   const decodedSlug = decodeURIComponent(slug)
   const event = await getEventDetail(decodedSlug, lang)
+  const alternates = getAlternates(`events/${slug}`, lang)
 
   if (!event) {
+    const notFoundTitles: Record<string, string> = {
+      en: 'Event Not Found',
+      ar: 'الفعالية غير موجودة',
+      zh: '未找到展会活动',
+      fr: 'Événement Non Trouvé',
+    }
+    const notFoundDescs: Record<string, string> = {
+      en: 'The requested event could not be found on AgriGuru Online.',
+      ar: 'تعذر العثور على الفعالية المطلوبة على AgriGuru Online.',
+      zh: '在 AgriGuru Online 上未找到所请求的展会活动。',
+      fr: 'L’événement demandé est introuvable sur AgriGuru Online.',
+    }
     return {
-      title: 'Event Not Found',
-      description: 'The requested event could not be found on AgriGuru Online.',
+      title: notFoundTitles[lang] || notFoundTitles.en,
+      description: notFoundDescs[lang] || notFoundDescs.en,
+      alternates,
     }
   }
 
@@ -113,9 +130,6 @@ export async function generateMetadata(
     ? sourceImage
     : (sourceImage ? `${imageBaseUrl}${imagePath}` : 'https://agriguruonline.com/logo.png')
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  const eventUrl = `${siteUrl}/${lang}/events/${slug}`
-
   const fullTitle = `${title} | AgriGuru Online`
 
   return {
@@ -131,7 +145,7 @@ export async function generateMetadata(
           event.location || 'Global Trade Event',
           'AgriGuru Online'
         ],
-    authors: [{ name: event.source || 'AgriGuru Online', url: event.source_url || siteUrl }],
+    authors: [{ name: event.source || 'AgriGuru Online', url: event.source_url || alternates.canonical }],
     creator: 'AgriGuru Online',
     publisher: 'AgriGuru Online',
     robots: {
@@ -141,7 +155,7 @@ export async function generateMetadata(
     openGraph: {
       title: fullTitle,
       description: cleanDescription,
-      url: eventUrl,
+      url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -166,16 +180,7 @@ export async function generateMetadata(
       creator: '@AgriGuruOnline',
       site: '@AgriGuruOnline',
     },
-    alternates: {
-      canonical: eventUrl,
-      languages: {
-        en: `${siteUrl}/en/events/${slug}`,
-        ar: `${siteUrl}/ar/events/${slug}`,
-        fr: `${siteUrl}/fr/events/${slug}`,
-        zh: `${siteUrl}/zh/events/${slug}`,
-        'x-default': `${siteUrl}/en/events/${slug}`,
-      }
-    }
+    alternates,
   }
 }
 
@@ -291,7 +296,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-8">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
           {/* Header */}
           <PageHeader title="Events" backText="Back" backHref={`/${lang}/events`} />
 

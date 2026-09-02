@@ -55,19 +55,52 @@ const getCollectionVideos = cache(async (slug: string, lang: string): Promise<Co
   }
 })
 
+import { getAlternates, getSafeLanguage, getSiteUrl } from '@/lib/seo'
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {
   const params = await props.params
-  const lang = params.lang || 'en'
+  const lang = getSafeLanguage(params.lang)
   const slug = params.slug
 
   const data = await getCollectionVideos(slug, lang)
   const categoryName = data?.category?.category_name || 'Video Collection'
 
+  const descriptions: Record<string, string> = {
+    en: `Watch expert videos and market analysis from ${categoryName} on AgriGuru Online.`,
+    ar: `شاهد مقاطع الفيديو وتحليلات السوق المتخصصة لـ ${categoryName} على AgriGuru Online.`,
+    zh: `在 AgriGuru Online 观看 ${categoryName} 的精选专家分析视频与深度行情。`,
+    fr: `Regardez les vidéos et analyses d'experts de ${categoryName} sur AgriGuru Online.`,
+  }
+
+  const title = `${categoryName} | AgriGuru Online`
+  const description = descriptions[lang] || descriptions.en
+  const alternates = getAlternates(`video-gallery/${slug}`, lang)
+  const siteUrl = getSiteUrl()
+  const imageUrl = `${siteUrl}/logo.png`
+
   return {
-    title: `${categoryName} | AgriGuru Online`,
-    description: `Watch videos from ${categoryName} on AgriGuru Online.`
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: alternates.canonical,
+      siteName: 'AgriGuru Online',
+      images: [{ url: imageUrl, width: 1200, height: 630, alt: categoryName }],
+      locale: lang,
+      type: 'video.other',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [imageUrl],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates,
   }
 }
 
@@ -115,9 +148,7 @@ export default async function VideoCollectionPage(props: {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
           
-          <Suspense fallback={null}>
             <VideoGrid slug={slug} lang={lang} dict={dict.common} />
-          </Suspense>
         </div>
       </div>
       <script

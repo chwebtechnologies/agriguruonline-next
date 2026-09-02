@@ -13,71 +13,19 @@ export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
 
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {
-  const params = await props.params
-  const lang = params.lang || 'en'
-  const title = 'Participation Gallery'
-  const fullTitle = 'Participation Gallery | AgriGuru Online'
-  const description =
-    'Explore AgriGuru Online\'s participation across premier international agriculture conferences, global trade expos, and summits worldwide.'
+  const params = await props.params;
+  const lang = getSafeLanguage(params?.lang);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  const pageUrl = `${siteUrl}/${lang}/participation-gallery`
-
-  return {
-    title,
-    description,
-    keywords: [
-      'AgriGuru Participation Gallery',
-      'Agriculture Conferences Exhibitor',
-      'Gulfood Exhibitor AgriGuru',
-      'World Rice Summit Photos',
-      'AgriFundx Conference Album',
-      'Agro Food Iraq Expo',
-      'Global Agricultural Trade Events',
-      'AgriGuru Online Exhibitions'
-    ],
-    robots: {
-      index: true,
-      follow: true,
-    },
-    openGraph: {
-      title: fullTitle,
-      description,
-      url: pageUrl,
-      siteName: 'AgriGuru Online',
-      images: [
-        {
-          url: `${siteUrl}/logo.png`,
-          width: 1200,
-          height: 630,
-          alt: 'AgriGuru Participation Gallery',
-        },
-      ],
-      locale: lang,
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: fullTitle,
-      description,
-      images: [`${siteUrl}/logo.png`],
-      site: '@AgriGuruOnline',
-      creator: '@AgriGuruOnline',
-    },
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${siteUrl}/en/participation-gallery`,
-        ar: `${siteUrl}/ar/participation-gallery`,
-        fr: `${siteUrl}/fr/participation-gallery`,
-        zh: `${siteUrl}/zh/participation-gallery`,
-        'x-default': `${siteUrl}/en/participation-gallery`,
-      },
-    },
-  }
+  return getStandardMetadata({
+    pageKey: 'participation_gallery',
+    pathname: 'participation-gallery',
+    lang,
+  });
 }
 
 const getParticipationCategories = cache(
@@ -193,9 +141,7 @@ export default async function ParticipationGalleryPage(props: {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Participation Gallery" backText="Back" />
 
-          <Suspense key={page} fallback={<ParticipationGalleryGridSkeleton />}>
             <ParticipationGalleryGrid lang={lang} page={page} />
-          </Suspense>
         </div>
       </div>
     </div>

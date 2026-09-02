@@ -35,8 +35,6 @@ export default async function Footer() {
   }
 
   return (
-    <Suspense fallback={null}>
-      <FooterClient dict={dict} activeLang={activeLang} />
-    </Suspense>
+    <FooterClient dict={dict} activeLang={activeLang} />
   )
 }

@@ -67,68 +67,19 @@ export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
 
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const lang = params.lang || 'en'
-  const title = "Marketed Agricultural Commodities & Products"
-  const fullTitle = "Marketed Agricultural Commodities & Products | AgriGuru Online"
-  const description = "Browse active marketed agricultural commodities, origin details, specifications, and FOB prices. Explore B2B trade opportunities on AgriGuru Online."
+  const lang = getSafeLanguage(params?.lang);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  const pageUrl = `${siteUrl}/${lang}/marketed-products`
-
-  return {
-    title,
-    description,
-    keywords: [
-      'Marketed Agricultural Commodities',
-      'Agri Commodity Listings',
-      'FOB Commodity Prices',
-      'Global Agriculture Trade',
-      'AgriGuru Online',
-      'B2B Crop Trading'
-    ],
-    robots: {
-      index: true,
-      follow: true,
-    },
-    openGraph: {
-      title: fullTitle,
-      description,
-      url: pageUrl,
-      siteName: 'AgriGuru Online',
-      images: [
-        {
-          url: `${siteUrl}/logo.png`,
-          width: 1200,
-          height: 630,
-          alt: 'Marketed Agricultural Products',
-        },
-      ],
-      locale: lang,
-      type: 'website',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: fullTitle,
-      description,
-      images: [`${siteUrl}/logo.png`],
-      site: '@AgriGuruOnline',
-      creator: '@AgriGuruOnline',
-    },
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${siteUrl}/en/marketed-products`,
-        ar: `${siteUrl}/ar/marketed-products`,
-        fr: `${siteUrl}/fr/marketed-products`,
-        zh: `${siteUrl}/zh/marketed-products`,
-        'x-default': `${siteUrl}/en/marketed-products`,
-      }
-    }
-  }
+  return getStandardMetadata({
+    pageKey: 'marketed_products',
+    pathname: 'marketed-products',
+    lang,
+  });
 }
 
 export default async function MarketedProductsPage(

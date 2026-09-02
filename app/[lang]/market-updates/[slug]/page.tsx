@@ -81,19 +81,36 @@ export async function generateStaticParams() {
   return params
 }
 
+import { getAlternates, getSafeLanguage } from '@/lib/seo'
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
 ): Promise<Metadata> {
   const params = await props.params
-  const { lang, slug } = params
+  const lang = getSafeLanguage(params.lang)
+  const slug = params.slug
   
   const decodedSlug = decodeURIComponent(slug)
   const article = await getMarketUpdateDetail(decodedSlug, lang)
+  const alternates = getAlternates(`market-updates/${slug}`, lang)
   
   if (!article) {
+    const notFoundTitles: Record<string, string> = {
+      en: 'Market Update Not Found',
+      ar: 'تحديث السوق غير موجود',
+      zh: '未找到市场快讯',
+      fr: 'Mise à Jour Non Trouvée',
+    }
+    const notFoundDescs: Record<string, string> = {
+      en: 'The requested market update could not be found on AgriGuru Online.',
+      ar: 'تعذر العثور على تحديث السوق المطلوب على AgriGuru Online.',
+      zh: '在 AgriGuru Online 上未找到所请求的市场动态。',
+      fr: 'La mise à jour de marché demandée est introuvable sur AgriGuru Online.',
+    }
     return {
-      title: 'Market Update Not Found',
-      description: 'The requested market update could not be found on AgriGuru Online.',
+      title: notFoundTitles[lang] || notFoundTitles.en,
+      description: notFoundDescs[lang] || notFoundDescs.en,
+      alternates,
     }
   }
 
@@ -111,17 +128,14 @@ export async function generateMetadata(
   const imageUrl = sourceImage?.startsWith('http') 
     ? sourceImage 
     : (sourceImage ? `${imageBaseUrl}${imagePath}` : 'https://agriguruonline.com/logo.png')
-  
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  const articleUrl = `${siteUrl}/${lang}/market-updates/${slug}`
 
   const fullTitle = `${title} | AgriGuru Online`
 
   return {
     title,
     description: cleanDescription,
-    keywords: ['AgriGuru', 'Market Updates', 'Agriculture', 'Commodities'],
-    authors: [{ name: 'AgriGuru Online', url: siteUrl }],
+    keywords: [title, 'AgriGuru', 'Market Updates', 'Agriculture', 'Commodities'],
+    authors: [{ name: 'AgriGuru Online', url: alternates.canonical }],
     creator: 'AgriGuru Online',
     publisher: 'AgriGuru Online',
     robots: {
@@ -131,7 +145,7 @@ export async function generateMetadata(
     openGraph: {
       title: fullTitle,
       description: cleanDescription,
-      url: articleUrl,
+      url: alternates.canonical,
       siteName: 'AgriGuru Online',
       images: [
         {
@@ -155,16 +169,7 @@ export async function generateMetadata(
       creator: '@AgriGuruOnline',
       site: '@AgriGuruOnline',
     },
-    alternates: {
-      canonical: articleUrl,
-      languages: {
-        en: `${siteUrl}/en/market-updates/${slug}`,
-        ar: `${siteUrl}/ar/market-updates/${slug}`,
-        fr: `${siteUrl}/fr/market-updates/${slug}`,
-        zh: `${siteUrl}/zh/market-updates/${slug}`,
-        'x-default': `${siteUrl}/en/market-updates/${slug}`,
-      }
-    }
+    alternates,
   }
 }
 
@@ -230,7 +235,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-8">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
           {/* Header */}
           <PageHeader title="Market Updates" backText="Back" backHref={`/${lang}/market-updates`} />
 

@@ -13,71 +13,71 @@ import ServiceWorkerRegister from '@/components/ui/ServiceWorkerRegister'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
 import { getTradingApiUrl } from '@/lib/api-utils'
+import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/lib/seo'
 import '../globals.css'
 
+export async function generateMetadata(props: {
+  params: Promise<{ lang: string }>
+}): Promise<Metadata> {
+  const params = await props.params
+  const activeLang = getSafeLanguage(params?.lang)
+  const siteUrl = getSiteUrl()
+  const seo = SEO_DICTIONARY.root[activeLang]
+  const alternates = getAlternates('', activeLang)
 
-
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'),
-  title: {
-    default: 'AgriGuru Online - Global Agricultural Trading',
-    template: '%s | AgriGuru Online',
-  },
-  description: 'The premium B2B SaaS platform for global agricultural trade.',
-  keywords: [
-    'Agriculture',
-    'Commodity Trading',
-    'B2B Marketplace',
-    'Agricultural Commodities',
-    'AgriGuru Online',
-    'Agricultural Trade',
-    'Commodity Prices',
-    'Crop Intelligence',
-    'Export',
-    'Import'
-  ],
-  authors: [{ name: 'AgriGuru Online', url: 'https://agriguruonline.com' }],
-  creator: 'AgriGuru Online',
-  publisher: 'AgriGuru Online',
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+  return {
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: seo.title,
+      template: '%s | AgriGuru Online',
+    },
+    description: seo.description,
+    keywords: seo.keywords,
+    authors: [{ name: 'AgriGuru Online', url: siteUrl }],
+    creator: 'AgriGuru Online',
+    publisher: 'AgriGuru Online',
+    robots: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
-  openGraph: {
-    type: 'website',
-    siteName: 'AgriGuru Online',
-    title: 'AgriGuru Online - Global Agricultural Trading',
-    description: 'The premium B2B SaaS platform for global agricultural trade.',
-    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com',
-    images: [
-      {
-        url: '/logo.png',
-        width: 1200,
-        height: 630,
-        alt: 'AgriGuru Online Logo',
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
       },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'AgriGuru Online - Global Agricultural Trading',
-    description: 'The premium B2B SaaS platform for global agricultural trade.',
-    images: ['/logo.png'],
-    site: '@AgriGuruOnline',
-    creator: '@AgriGuruOnline',
-  },
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/logo.png',
-  },
-  manifest: '/manifest.json',
+    },
+    openGraph: {
+      type: 'website',
+      siteName: 'AgriGuru Online',
+      title: seo.title,
+      description: seo.description,
+      url: alternates.canonical,
+      locale: activeLang,
+      images: [
+        {
+          url: '/logo.png',
+          width: 1200,
+          height: 630,
+          alt: 'AgriGuru Online Logo',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: seo.title,
+      description: seo.description,
+      images: ['/logo.png'],
+      site: '@AgriGuruOnline',
+      creator: '@AgriGuruOnline',
+    },
+    alternates,
+    icons: {
+      icon: '/favicon.ico',
+      apple: '/logo.png',
+    },
+    manifest: '/manifest.json',
+  }
 }
 
 export const viewport: Viewport = {
@@ -175,20 +175,14 @@ export default async function LocalizedRootLayout({
             __html: `if(typeof window!=='undefined'&&window.trustedTypes&&window.trustedTypes.createPolicy){try{if(!window.trustedTypes.defaultPolicy){window.trustedTypes.createPolicy('default',{createHTML:function(s){return s},createScript:function(s){return s},createScriptURL:function(s){return s}})}}catch(e){}}`
           }}
         />
-        <link rel="alternate" hrefLang="x-default" href={`${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/`} />
         <ThemeInitializer />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200">
         <Suspense fallback={null}>
           <NavigationProgress />
         </Suspense>
-        <Suspense fallback={<div className="h-10 w-full bg-primary-gradient shrink-0" />}>
-          <AnnouncementBar />
-        </Suspense>
-
-        <Suspense fallback={<HeaderGuestStatic dict={dict} activeLang={activeLang} categories={categories} />}>
-          <Header />
-        </Suspense>
+        <AnnouncementBar />
+        <Header />
 
         <main className="flex-grow w-full relative">
           {children}
