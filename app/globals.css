@@ -125,6 +125,53 @@ body {
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    /* Standard Agriguru Online System Grays (Dark Mode) */
+    --agriguru-online-gray-1: #8E8E93;
+    --agriguru-online-gray-2: #636366;
+    --agriguru-online-gray-3: #48484A;
+    --agriguru-online-gray-4: #3A3A3C;
+    --agriguru-online-gray-5: #2C2C2E;
+    --agriguru-online-gray-6: #1C1C1E;
+
+    /* Standard Agriguru Online System Labels / Text Hierarchy (Dark Mode) */
+    --agriguru-online-label: #FFFFFF;
+    --agriguru-online-secondary-label: #A1A1A6;
+    --agriguru-online-tertiary-label: #8E8E93;
+    --agriguru-online-quaternary-label: #48484A;
+
+    /* Standard Agriguru Online System Backgrounds (Dark Mode) */
+    --agriguru-online-system-bg: #000000;
+    --agriguru-online-system-secondary-bg: #1C1C1E;
+    --agriguru-online-system-tertiary-bg: #2C2C2E;
+    --agriguru-online-system-grouped-bg: #000000;
+    --agriguru-online-system-secondary-grouped-bg: #1C1C1E;
+    --agriguru-online-system-tertiary-grouped-bg: #2C2C2E;
+
+    /* Standard Agriguru Online System Separators (Dark Mode) */
+    --agriguru-online-separator: #2C2C2E;
+    --agriguru-online-opaque-separator: #38383A;
+
+    --background: #000000;
+    --border: #2C2C2E;
+    --muted: #2C2C2E;
+    --muted-foreground: #A1A1A6;
+    --foreground: #F5F5F7;
+
+    --ag-card-bg: #1C1C1E;
+
+    --ag-announcement-bg: var(--brand-blue);
+    --ag-announcement-text: #FFFFFF;
+
+    --ag-primary: var(--brand-blue);
+    --ag-primary-hover: #1080d0;
+    --ag-accent-cyan: #6cbfff;
+    --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
+    --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
+  }
+}
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
