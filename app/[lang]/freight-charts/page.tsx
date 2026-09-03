@@ -197,7 +197,7 @@ function FreightChartGridSkeleton() {
         {[...Array(4)].map((_, i) => (
           <div
             key={`desk-${i}`}
-            className={`grid ${gridCols} gap-1.5 items-center px-3.5 py-3.5 rounded-lg bg-card dark:bg-[#18181b] shadow-xs border border-border text-sm animate-pulse`}
+            className={`grid ${gridCols} gap-1.5 items-center px-3.5 py-3.5 rounded-lg bg-card shadow-xs border border-border text-sm animate-pulse`}
           >
             <div className="h-4 w-24 bg-muted rounded min-w-0"></div>
             <div className="flex items-center gap-2 min-w-0">

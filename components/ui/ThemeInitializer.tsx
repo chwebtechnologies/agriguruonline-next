@@ -15,8 +15,10 @@ export default function ThemeInitializer() {
                 var d = document.documentElement;
                 if (t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                   d.classList.add('dark');
+                  d.classList.remove('light');
                 } else {
                   d.classList.remove('dark');
+                  d.classList.add('light');
                 }
               } catch(e) {}
             })()

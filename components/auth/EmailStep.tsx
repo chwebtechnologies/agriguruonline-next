@@ -11,9 +11,10 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 interface EmailStepProps {
   onNext: (email: string) => void;
   lang: string;
+  dict?: any;
 }
 
-export default function EmailStep({ onNext, lang }: EmailStepProps) {
+export default function EmailStep({ onNext, lang, dict }: EmailStepProps) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -106,7 +107,7 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
       <form onSubmit={handleSubmit} className="w-full mb-6">
         <div className="mb-4">
           <label htmlFor="email" className={`block text-sm font-medium mb-2 transition-colors ${error ? 'text-red-500' : 'text-foreground'}`}>
-            Email Address
+            {dict?.email_label || "Email Address"}
           </label>
           <input
             type="email"
@@ -145,13 +146,13 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
           {isPending ? (
             <i className="fa-solid fa-spinner fa-spin mr-2"></i>
           ) : null}
-          Continue
+          {dict?.continue || "Continue"}
         </button>
       </form>
 
       <div className="flex items-center w-full mb-6">
         <div className="flex-1 h-px bg-foreground/20"></div>
-        <span className="px-3 text-sm text-foreground/50">or continue with</span>
+        <span className="px-3 text-sm text-foreground/50">{dict?.or_continue_with || "or continue with"}</span>
         <div className="flex-1 h-px bg-foreground/20"></div>
       </div>
 
@@ -167,13 +168,13 @@ export default function EmailStep({ onNext, lang }: EmailStepProps) {
       </div>
 
       <p className="mt-8 text-xs text-center text-foreground/80">
-        By continuing, you accept AgriGuru Online{" "}
+        {dict?.by_continuing || "By continuing, you accept AgriGuru Online"} {" "}
         <Link href={`/${lang}/terms`} className="font-bold hover:underline text-foreground">
-          Terms of Service
+          {dict?.terms_of_service || "Terms of Service"}
         </Link>{" "}
-        and{" "}
+        {dict?.and || "and"} {" "}
         <Link href={`/${lang}/privacy`} className="font-bold hover:underline text-foreground">
-          Privacy Policy
+          {dict?.privacy_policy || "Privacy Policy"}
         </Link>.
       </p>
     </div>

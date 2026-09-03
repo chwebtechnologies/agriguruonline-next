@@ -12,9 +12,10 @@ interface RegisterStepProps {
   email: string;
   onComplete: () => void;
   lang: string;
+  dict?: any;
 }
 
-export default function RegisterStep({ email, onComplete, lang }: RegisterStepProps) {
+export default function RegisterStep({ email, onComplete, lang, dict }: RegisterStepProps) {
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
@@ -103,37 +104,49 @@ export default function RegisterStep({ email, onComplete, lang }: RegisterStepPr
       </div>
 
       <form onSubmit={handleSubmit} className="w-full">
-        <div className="mb-4">
-          <label htmlFor="fullName" className="block text-sm font-medium text-foreground mb-2">
-            Full Name
+        <div className="mb-5">
+          <label htmlFor="fullName" className="block text-[13px] font-bold text-foreground mb-1.5">
+            Full Name <span className="text-brand-red">*</span>
           </label>
-          <input
-            type="text"
-            id="fullName"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/50"
-            required
-          />
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-brand-blue transition-colors">
+              <i className="fa-regular fa-user text-[14px]"></i>
+            </div>
+            <input
+              type="text"
+              id="fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
+              placeholder="John Doe"
+              required
+            />
+          </div>
         </div>
 
-        <div className="mb-4">
-          <label htmlFor="companyName" className="block text-sm font-medium text-foreground mb-2">
-            Company Name
+        <div className="mb-5">
+          <label htmlFor="companyName" className="block text-[13px] font-bold text-foreground mb-1.5">
+            Company Name <span className="text-brand-red">*</span>
           </label>
-          <input
-            type="text"
-            id="companyName"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/50"
-            required
-          />
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-brand-blue transition-colors">
+              <i className="fa-regular fa-building text-[14px]"></i>
+            </div>
+            <input
+              type="text"
+              id="companyName"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
+              placeholder="Your Company LLC"
+              required
+            />
+          </div>
         </div>
 
         <div className="mb-8">
-          <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">
-            Mobile Number
+          <label htmlFor="phone" className="block text-[13px] font-bold text-foreground mb-1.5">
+            Mobile Number <span className="text-brand-red">*</span>
           </label>
           <div className="custom-phone-wrapper">
             <SearchablePhoneInput
@@ -152,10 +165,12 @@ export default function RegisterStep({ email, onComplete, lang }: RegisterStepPr
         <button
           type="submit"
           disabled={!isFormValid || isPending}
-          className="w-full flex items-center justify-center py-3 px-4 bg-foreground text-background rounded-lg font-medium transition-transform active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 disabled:cursor-not-allowed"
+          className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-bold h-12 rounded-xl flex items-center justify-center gap-2.5 text-[15px] transition-all shadow-md hover:shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group relative overflow-hidden"
         >
-          {isPending ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : null}
-          Create Account
+          {isPending ? <i className="fa-solid fa-circle-notch fa-spin text-[14px]"></i> : <i className="fa-solid fa-user-plus text-[14px] group-hover:scale-110 transition-transform"></i>}
+          {isPending ? 'Creating...' : 'Create Account'}
+          {/* Shine effect */}
+          <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-button-shine" />
         </button>
       </form>
     </div>

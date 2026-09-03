@@ -247,7 +247,7 @@ function ProductChartsGridSkeleton() {
         {[...Array(4)].map((_, i) => (
           <div
             key={`desk-${i}`}
-            className="grid grid-cols-[0.92fr_0.98fr_1.85fr_1.0fr_0.78fr_1.22fr_1.27fr_0.68fr_0.72fr_0.5fr_1.08fr] gap-1.5 items-center px-3.5 py-3.5 rounded-lg bg-card dark:bg-[#18181b] shadow-xs border border-border text-sm animate-pulse"
+            className="grid grid-cols-[0.92fr_0.98fr_1.85fr_1.0fr_0.78fr_1.22fr_1.27fr_0.68fr_0.72fr_0.5fr_1.08fr] gap-1.5 items-center px-3.5 py-3.5 rounded-lg bg-card shadow-xs border border-border text-sm animate-pulse"
           >
             <div className="h-4 w-3/4 bg-muted rounded min-w-0"></div>
             <div className="flex items-center gap-2 min-w-0">

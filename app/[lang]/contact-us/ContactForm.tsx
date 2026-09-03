@@ -9,7 +9,11 @@ import en from 'react-phone-number-input/locale/en.json';
 import { toast } from 'sonner';
 import ReCAPTCHA from 'react-google-recaptcha';
 
-export default function ContactForm() {
+interface ContactFormProps {
+  contactDict?: any;
+}
+
+export default function ContactForm({ contactDict = {} }: ContactFormProps) {
   const [country, setCountry] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [defaultCountryCode, setDefaultCountryCode] = useState<Country>('IN');
@@ -115,23 +119,28 @@ export default function ContactForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 flex-1 flex flex-col">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 flex-1 flex flex-col">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         {/* Name */}
-        <div className="space-y-1">
-          <label htmlFor="name" className="text-[12px] sm:text-[13px] font-bold text-foreground">Name <span className="text-brand-red">*</span></label>
-          <input 
-            type="text" 
-            id="name" 
-            name="name" 
-            className="w-full h-[46px] px-3.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue transition-all placeholder:text-foreground/30"
-            placeholder="John Doe"
-            required
-          />
+        <div className="space-y-1.5">
+          <label htmlFor="name" className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.name || "Name"} <span className="text-brand-red">*</span></label>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-brand-blue transition-colors">
+              <i className="fa-regular fa-user text-[14px]"></i>
+            </div>
+            <input 
+              type="text" 
+              id="name" 
+              name="name" 
+              className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
+              placeholder="John Doe"
+              required
+            />
+          </div>
         </div>
         {/* Country */}
-        <div className="space-y-1">
-          <label className="text-[12px] sm:text-[13px] font-bold text-foreground">Country <span className="text-brand-red">*</span></label>
+        <div className="space-y-1.5">
+          <label className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.country || "Country"} <span className="text-brand-red">*</span></label>
           <SearchableCountrySelect 
             value={country} 
             onChange={(val) => setCountry(val || '')} 
@@ -142,10 +151,10 @@ export default function ContactForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         {/* Phone */}
-        <div className="space-y-1">
-          <label className="text-[12px] sm:text-[13px] font-bold text-foreground">Contact No. <span className="text-brand-red">*</span></label>
+        <div className="space-y-1.5">
+          <label className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.contact_no || "Contact No."} <span className="text-brand-red">*</span></label>
           <SearchablePhoneInput 
             value={phone} 
             onChange={setPhone} 
@@ -154,50 +163,63 @@ export default function ContactForm() {
           />
         </div>
         {/* Email */}
-        <div className="space-y-1">
-          <label htmlFor="email" className="text-[12px] sm:text-[13px] font-bold text-foreground">Email Address <span className="text-brand-red">*</span></label>
-          <input 
-            type="email" 
-            id="email" 
-            name="email" 
-            className="w-full h-[46px] px-3.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue transition-all placeholder:text-foreground/30"
-            placeholder="john@example.com"
-            required
-          />
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.email || "Email Address"} <span className="text-brand-red">*</span></label>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-brand-blue transition-colors">
+              <i className="fa-regular fa-envelope text-[14px]"></i>
+            </div>
+            <input 
+              type="email" 
+              id="email" 
+              name="email" 
+              className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
+              placeholder="john@example.com"
+              required
+            />
+          </div>
         </div>
       </div>
 
       {/* Source */}
-      <div className="space-y-1">
-        <label htmlFor="source" className="text-[12px] sm:text-[13px] font-bold text-foreground">How did you find out about us?</label>
-        <input 
-          type="text" 
-          id="source" 
-          name="source" 
-          className="w-full h-[46px] px-3.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue transition-all placeholder:text-foreground/30"
-          placeholder="e.g. Google, Social Media, etc."
-        />
+      <div className="space-y-1.5">
+        <label htmlFor="source" className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.source || "How did you find out about us?"}</label>
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-brand-blue transition-colors">
+            <i className="fa-solid fa-magnifying-glass text-[14px]"></i>
+          </div>
+          <input 
+            type="text" 
+            id="source" 
+            name="source" 
+            className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
+            placeholder="e.g. Google, Social Media, etc."
+          />
+        </div>
       </div>
 
       {/* Message */}
-      <div className="space-y-1 flex-1 flex flex-col">
-        <label htmlFor="message" className="text-[12px] sm:text-[13px] font-bold text-foreground">Message <span className="text-brand-red">*</span></label>
+      <div className="space-y-1.5 flex-1 flex flex-col">
+        <label htmlFor="message" className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.message || "Message"} <span className="text-brand-red">*</span></label>
         <textarea 
           id="message" 
           name="message" 
-          className="w-full flex-1 min-h-[100px] p-3.5 bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue transition-all resize-none placeholder:text-foreground/30"
+          className="w-full flex-1 min-h-[120px] p-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm resize-none placeholder:text-muted-foreground/50"
           placeholder="Type your message here..."
           required
         ></textarea>
       </div>
 
       {/* ReCAPTCHA */}
-      <div className="py-2 flex justify-center overflow-hidden">
-        <ReCAPTCHA
-          ref={recaptchaRef}
-          sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
-          onChange={(token) => setCaptchaToken(token)}
-        />
+      <div className="py-3 flex justify-center overflow-hidden">
+        <div className="bg-card p-2 rounded-xl shadow-sm border border-border/50">
+          <ReCAPTCHA
+            ref={recaptchaRef}
+            sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
+            onChange={(token) => setCaptchaToken(token)}
+            theme="light"
+          />
+        </div>
       </div>
 
       {/* Submit */}
@@ -205,14 +227,17 @@ export default function ContactForm() {
         <button 
           type="submit" 
           disabled={loading}
-          className="w-full bg-brand-blue hover:opacity-90 text-white font-bold h-10 rounded-lg flex items-center justify-center gap-2 text-[14px] transition-opacity shadow-xs active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
+          className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white font-bold h-12 rounded-xl flex items-center justify-center gap-2.5 text-[15px] transition-all shadow-md hover:shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group relative overflow-hidden"
         >
           {loading ? (
-            <i className="fa-solid fa-circle-notch fa-spin text-[12px]"></i>
+            <i className="fa-solid fa-circle-notch fa-spin text-[14px]"></i>
           ) : (
-            <i className="fa-solid fa-paper-plane text-[12px]"></i>
+            <i className="fa-solid fa-paper-plane text-[14px] group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform"></i>
           )}
-          {loading ? 'Sending...' : 'Submit Message'}
+          {loading ? (contactDict.sending || 'Sending...') : (contactDict.send_message || 'Send Message')}
+          
+          {/* Shine effect */}
+          <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-button-shine" />
         </button>
       </div>
     </form>

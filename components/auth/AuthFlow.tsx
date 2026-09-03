@@ -14,9 +14,11 @@ type AuthStep = "EMAIL" | "OTP" | "REGISTER";
 interface AuthFlowProps {
   lang: string;
   redirectUrl?: string;
+  dict?: any;
+  commonDict?: any;
 }
 
-export default function AuthFlow({ lang, redirectUrl }: AuthFlowProps) {
+export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState<AuthStep>("EMAIL");
   const [email, setEmail] = useState("");
@@ -94,23 +96,23 @@ export default function AuthFlow({ lang, redirectUrl }: AuthFlowProps) {
   };
 
   const getTitle = () => {
-    if (step === "EMAIL") return "Sign In / Register";
-    if (step === "OTP") return "OTP Verification";
-    return "Register";
+    if (step === "EMAIL") return dict?.sign_in_register || "Sign In / Register";
+    if (step === "OTP") return dict?.otp_verification || "OTP Verification";
+    return dict?.register || "Register";
   };
 
   return (
     <>
       <PageHeader 
         title={getTitle()} 
-        backText="Back" 
+        backText={commonDict?.back || "Back"} 
         hideBack={step === "REGISTER"} 
         onBackClick={handlePageHeaderBack}
       />
       <div className="w-full flex flex-col items-center px-4 sm:px-0">
         <LoginRequiredBanner redirectUrl={redirectUrl} />
         {step === "EMAIL" && (
-          <EmailStep onNext={handleEmailNext} lang={lang} />
+          <EmailStep onNext={handleEmailNext} lang={lang} dict={dict} />
         )}
       {step === "OTP" && (
         <OtpStep
@@ -118,6 +120,7 @@ export default function AuthFlow({ lang, redirectUrl }: AuthFlowProps) {
           onBack={() => window.history.back()}
           onVerify={handleOtpVerify}
           lang={lang}
+          dict={dict}
         />
       )}
       {step === "REGISTER" && (
@@ -125,6 +128,7 @@ export default function AuthFlow({ lang, redirectUrl }: AuthFlowProps) {
           email={email}
           onComplete={handleRegisterComplete}
           lang={lang}
+          dict={dict}
         />
       )}
     </div>

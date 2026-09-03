@@ -2,6 +2,7 @@ import AuthFlow from "@/components/auth/AuthFlow";
 import { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { getDictionary } from '@/app/[lang]/dictionaries';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -41,6 +42,8 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   const resolvedSearchParams = await searchParams;
   const redirectUrl = resolvedSearchParams?.redirectUrl as string | undefined;
 
+  const dict = await getDictionary(lang);
+
   // Check if the user is already logged in
   const cookieStore = await cookies();
   const token = cookieStore.get("auth_token")?.value;
@@ -58,7 +61,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <AuthFlow lang={lang} redirectUrl={redirectUrl} />
+          <AuthFlow lang={lang} redirectUrl={redirectUrl} dict={dict.auth} commonDict={dict.common} />
         </div>
       </div>
     </div>

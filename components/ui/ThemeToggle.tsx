@@ -9,6 +9,24 @@ export default function ThemeToggle() {
     const savedTheme = (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system'
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(savedTheme)
+    
+    // Add listener for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (e: MediaQueryListEvent) => {
+      const currentTheme = localStorage.getItem('theme') || 'system'
+      if (currentTheme === 'system') {
+        if (e.matches) {
+          document.documentElement.classList.add('dark')
+          document.documentElement.classList.remove('light')
+        } else {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        }
+      }
+    }
+    
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
   const changeTheme = (newTheme: 'light' | 'dark' | 'system') => {
@@ -21,8 +39,10 @@ export default function ThemeToggle() {
       (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     ) {
       root.classList.add('dark')
+      root.classList.remove('light')
     } else {
       root.classList.remove('dark')
+      root.classList.add('light')
     }
   }
 

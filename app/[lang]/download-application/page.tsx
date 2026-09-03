@@ -31,13 +31,17 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
   const lang = (resolvedParams?.lang || 'en') as 'en' | 'ar' | 'fr' | 'zh'
   const dict = await getDictionary(lang)
   
+  const downDict = (dict as Record<string, any>).download_app || {};
+  const commonDict = (dict as Record<string, any>).common || {};
+  const backText = commonDict.back || "Back";
+
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           
           {/* Header */}
-          <PageHeader title="Download App" backText="Back" />
+          <PageHeader title={dict.header?.download_app || "Download App"} backText={backText} />
 
           {/* SECTION 1: HERO - 2 Column Layout */}
           <section className="relative pt-4 sm:pt-6 lg:pt-8 pb-8 lg:pb-12">
@@ -46,16 +50,16 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
               {/* Left: Text & CTA with QR codes */}
               <div className="flex-1 text-center lg:text-left relative z-10 w-full lg:w-1/2">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-blue/10 text-brand-blue font-bold text-xs sm:text-sm mb-5 border border-brand-blue/20 shadow-xs">
-                  <i className="fa-solid fa-globe"></i> For Agri Commodity Importers &amp; Exporters
+                  <i className="fa-solid fa-globe"></i> {downDict.for_importers_exporters || "For Agri Commodity Importers & Exporters"}
                 </div>
                 
                 <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-black tracking-tight text-foreground mb-4 sm:mb-6 leading-[1.15]">
-                  Your AgriTrade &amp;<br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-blue to-brand-green">Our AgriTech.</span>
+                  {downDict.hero_title_1 || "Your AgriTrade &"}<br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-blue to-brand-green">{downDict.hero_title_2 || "Our AgriTech."}</span>
                 </h1>
                 
                 <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mb-6 sm:mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                  Are you always busy but never sure if you got the right price? Stop calling multiple brokers just to find out the market has already moved. The ultimate B2B platform built by traders to solve your core bottlenecks: Product Prices (FOB, CNF, CIF), Ocean Freight Rates, and Smart Documentation.
+                  {downDict.hero_desc || "Are you always busy but never sure if you got the right price? Stop calling multiple brokers just to find out the market has already moved. The ultimate B2B platform built by traders to solve your core bottlenecks: Product Prices (FOB, CNF, CIF), Ocean Freight Rates, and Smart Documentation."}
                 </p>
                 
                 {/* Download Buttons + QR Codes */}
@@ -92,7 +96,7 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                 {/* Mobile QR Quick Note */}
                 <p className="text-[11px] sm:text-xs text-muted-foreground mt-3 flex items-center justify-center lg:justify-start gap-1.5">
                   <i className="fa-solid fa-qrcode text-brand-blue"></i>
-                  <span>Scan QR code with your phone camera or click to download.</span>
+                  <span>{downDict.scan_qr || "Scan QR code with your phone camera or click to download."}</span>
                 </p>
               </div>
 
@@ -135,10 +139,8 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
           <section className="pt-8 sm:pt-10 pb-12 sm:pb-16 border-t border-border/50 relative overflow-hidden">
             
             <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
-              <h2 className="text-2xl sm:text-4xl font-black mb-3 text-foreground tracking-tight">Complete Price Intelligence</h2>
-              <p className="text-muted-foreground text-xs sm:text-base leading-relaxed">
-                Master the global market with live Product Prices (FOB, CNF, CIF). Let <strong>AI Predict</strong> be your pocket market analyst to understand risks and know when to buy or sell, while <strong>Create Alert</strong> notifies you the moment prices hit your target deal level.
-              </p>
+              <h2 className="text-2xl sm:text-4xl font-black mb-3 text-foreground tracking-tight">{downDict.price_intel_title || "Complete Price Intelligence"}</h2>
+              <p className="text-muted-foreground text-xs sm:text-base leading-relaxed" dangerouslySetInnerHTML={{ __html: downDict.price_intel_desc || "Master the global market with live Product Prices (FOB, CNF, CIF). Let <strong>AI Predict</strong> be your pocket market analyst to understand risks and know when to buy or sell, while <strong>Create Alert</strong> notifies you the moment prices hit your target deal level." }} />
             </div>
             
             <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-14">
@@ -164,12 +166,12 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
               {/* Right side: Features Grid */}
               <div className="flex-[1.5] w-full grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                 {[
-                  { icon: "fa-tags", title: "Realtime Prices", desc: "Live FOB, CNF, and CIF pricing directly on your mobile." },
-                  { icon: "fa-chart-area", title: "Historical Charts", desc: "Analyze past trends with detailed historical price charts." },
-                  { icon: "fa-bell", title: "Alert Setups", desc: "Configure triggers to notify you exactly when prices hit your target." },
-                  { icon: "fa-brain", title: "AI Price Prediction", desc: "Leverage market analysis and AI to predict future price movements." },
-                  { icon: "fa-file-pdf", title: "Market Reports", desc: "Deep-dive insights and downloadable product market reports." },
-                  { icon: "fa-handshake", title: "Inquiries / Offers", desc: "Direct connection between genuine Importers and Exporters." },                  
+                  { icon: "fa-tags", title: downDict.feature_realtime_title || "Realtime Prices", desc: downDict.feature_realtime_desc || "Live FOB, CNF, and CIF pricing directly on your mobile." },
+                  { icon: "fa-chart-area", title: downDict.feature_historical_title || "Historical Charts", desc: downDict.feature_historical_desc || "Analyze past trends with detailed historical price charts." },
+                  { icon: "fa-bell", title: downDict.feature_alerts_title || "Alert Setups", desc: downDict.feature_alerts_desc || "Configure triggers to notify you exactly when prices hit your target." },
+                  { icon: "fa-brain", title: downDict.feature_ai_title || "AI Price Prediction", desc: downDict.feature_ai_desc || "Leverage market analysis and AI to predict future price movements." },
+                  { icon: "fa-file-pdf", title: downDict.feature_reports_title || "Market Reports", desc: downDict.feature_reports_desc || "Deep-dive insights and downloadable product market reports." },
+                  { icon: "fa-handshake", title: downDict.feature_inquiries_title || "Inquiries / Offers", desc: downDict.feature_inquiries_desc || "Direct connection between genuine Importers and Exporters." },                  
                 ].map((feature, idx) => (
                   <div key={idx} className="bg-card p-4 sm:p-5 rounded-xl shadow-xs border border-border/60 hover:border-brand-blue/60 hover:shadow-sm transition-all duration-200 group">
                     <div className="flex items-center gap-3 mb-1.5 sm:mb-2">
@@ -196,12 +198,12 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                     <i className="fa-solid fa-ship text-lg sm:text-xl"></i>
                   </div>
                   <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black leading-tight text-foreground tracking-tight text-left">
-                    Ocean Freight Rates.<br/>
-                    <span className="text-muted-foreground font-light text-lg sm:text-2xl lg:text-3xl">Without the Wait.</span>
+                    {downDict.freight_title || "Ocean Freight Rates."}<br/>
+                    <span className="text-muted-foreground font-light text-lg sm:text-2xl lg:text-3xl">{downDict.freight_subtitle || "Without the Wait."}</span>
                   </h2>
                 </div>
                 <p className="text-muted-foreground mb-6 text-xs sm:text-base leading-relaxed max-w-2xl mx-auto lg:mx-0">
-                  Different sources give different numbers. Vessel availability, port conditions, booking periods—all affect your bottom line. Stop waiting days for freight quotes. Instantly access Ocean Freight Rates across major Port to Port Routes globally.
+                  {downDict.freight_desc || "Different sources give different numbers. Vessel availability, port conditions, booking periods—all affect your bottom line. Stop waiting days for freight quotes. Instantly access Ocean Freight Rates across major Port to Port Routes globally."}
                 </p>
                 
                 <div className="space-y-3 sm:space-y-4 max-w-xl mx-auto lg:mx-0 text-left">
@@ -210,8 +212,8 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                       <i className="fa-solid fa-location-dot text-sm sm:text-base"></i>
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm sm:text-base mb-1 text-foreground">Instant Port-to-Port Routes</h4>
-                      <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">Select your origin and destination ports to instantly view highly accurate shipping costs.</p>
+                      <h4 className="font-bold text-sm sm:text-base mb-1 text-foreground">{downDict.freight_feature1_title || "Instant Port-to-Port Routes"}</h4>
+                      <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{downDict.freight_feature1_desc || "Select your origin and destination ports to instantly view highly accurate shipping costs."}</p>
                     </div>
                   </div>
                   
@@ -220,8 +222,8 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                       <i className="fa-solid fa-bolt text-sm sm:text-base"></i>
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm sm:text-base mb-1 text-foreground">Live Market Adjustments</h4>
-                      <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">Freight rates are updated constantly to reflect true, current market dynamics avoiding nasty surprises.</p>
+                      <h4 className="font-bold text-sm sm:text-base mb-1 text-foreground">{downDict.freight_feature2_title || "Live Market Adjustments"}</h4>
+                      <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{downDict.freight_feature2_desc || "Freight rates are updated constantly to reflect true, current market dynamics avoiding nasty surprises."}</p>
                     </div>
                   </div>
                 </div>
@@ -264,9 +266,9 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                 <div className="absolute z-30 bg-gradient-to-br from-brand-red to-brand-red/85 text-white rounded-2xl px-5 py-4 sm:p-6 shadow-xl border border-white/20 animate-bounce" style={{animationDuration: '3s'}}>
                   <div className="flex items-center gap-2 mb-1">
                     <i className="fa-solid fa-hourglass-half text-base sm:text-xl animate-pulse"></i>
-                    <h3 className="font-black text-base sm:text-xl uppercase tracking-wider">Coming Soon</h3>
+                    <h3 className="font-black text-base sm:text-xl uppercase tracking-wider">{downDict.coming_soon || "Coming Soon"}</h3>
                   </div>
-                  <p className="font-medium text-white/90 text-[11px] sm:text-xs">Development is in full swing.</p>
+                  <p className="font-medium text-white/90 text-[11px] sm:text-xs">{downDict.dev_full_swing || "Development is in full swing."}</p>
                 </div>
               </div>
               
@@ -276,20 +278,20 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                     <i className="fa-solid fa-file-invoice text-lg sm:text-xl"></i>
                   </div>
                   <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black leading-tight text-foreground tracking-tight text-left">
-                    Smart Export<br/>
-                    <span className="text-muted-foreground font-light text-lg sm:text-2xl lg:text-3xl">Shipping Documents</span>
+                    {downDict.docs_title || "Smart Export"}<br/>
+                    <span className="text-muted-foreground font-light text-lg sm:text-2xl lg:text-3xl">{downDict.docs_subtitle || "Shipping Documents"}</span>
                   </h2>
                 </div>
                 <p className="text-muted-foreground text-xs sm:text-base leading-relaxed mb-6 max-w-2xl mx-auto lg:mx-0">
-                  Anyone who has done international agri trade knows how one small mistake in documents can hold up an entire shipment or cause bank rejections. Soon, you will be able to flawlessly prepare smart export shipping documents right from your phone. 
+                  {downDict.docs_desc || "Anyone who has done international agri trade knows how one small mistake in documents can hold up an entire shipment or cause bank rejections. Soon, you will be able to flawlessly prepare smart export shipping documents right from your phone."}
                 </p>
                 
                 <div className="bg-card border border-border/60 rounded-xl p-4 sm:p-5 shadow-xs text-left w-full max-w-2xl mx-auto lg:mx-0">
                   <h4 className="font-bold text-sm sm:text-base mb-1.5 flex items-center gap-2 text-foreground">
-                    <i className="fa-solid fa-bolt text-brand-red"></i> Quick Preparation
+                    <i className="fa-solid fa-bolt text-brand-red"></i> {downDict.docs_feature_title || "Quick Preparation"}
                   </h4>
                   <p className="text-muted-foreground leading-relaxed text-xs sm:text-sm">
-                    Automated, compliant templates for Importers &amp; Exporters reducing errors to zero and saving hours of repetitive administrative work per shipment.
+                    {downDict.docs_feature_desc || "Automated, compliant templates for Importers & Exporters reducing errors to zero and saving hours of repetitive administrative work per shipment."}
                   </p>
                 </div>
               </div>
@@ -303,11 +305,9 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                 <span className="bg-white/15 border border-white/25 px-3.5 py-1 rounded-full text-white font-bold tracking-wider uppercase text-[10px] sm:text-xs mb-4 inline-block shadow-xs">
                   Your AgriTrade &amp; Our AgriTech
                 </span>
-                <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black mb-3 sm:mb-4 leading-[1.15] tracking-tight">
-                  Try It Risk-Free.<br/>90 Days Completely Free.
-                </h2>
+                <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black mb-3 sm:mb-4 leading-[1.15] tracking-tight" dangerouslySetInnerHTML={{ __html: downDict.cta_title || "Try It Risk-Free.<br/>90 Days Completely Free." }} />
                 <p className="text-white/90 text-xs sm:text-base mb-6 max-w-xl mx-auto lg:mx-0">
-                  The Silver Plan trial costs nothing. No credit card, no banking details, no catch. Just sign up and explore it for yourself.
+                  {downDict.cta_desc || "The Silver Plan trial costs nothing. No credit card, no banking details, no catch. Just sign up and explore it for yourself."}
                 </p>
                 
                 {/* Download Cards with Prominent Large QR Codes */}
@@ -362,19 +362,19 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                 {/* Badge 1: Live Market Prices (Top-Left) */}
                 <div className="absolute top-1 left-1 sm:left-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4s' }}>
                   <i className="fa-solid fa-chart-line text-brand-blue text-xs sm:text-sm"></i>
-                  <span>{dict.download_app?.live_market_prices || 'Live Market Prices'}</span>
+                  <span>{downDict.live_market_prices || 'Live Market Prices'}</span>
                 </div>
 
                 {/* Badge 2: Live Freight Rates (Top-Right) */}
                 <div className="absolute top-3 right-1 sm:right-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4.8s' }}>
                   <i className="fa-solid fa-ship text-brand-green text-xs sm:text-sm"></i>
-                  <span>{dict.download_app?.live_freight_rates || 'Live Freight Rates'}</span>
+                  <span>{downDict.live_freight_rates || 'Live Freight Rates'}</span>
                 </div>
 
                 {/* Badge 3: AI Predict (Middle-Left) */}
                 <div className="absolute top-[38%] -left-1 sm:-left-3 lg:-left-5 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '3.6s' }}>
                   <i className="fa-solid fa-brain text-purple-600 text-xs sm:text-sm"></i>
-                  <span>{dict.download_app?.ai_predict || 'AI Predict'}</span>
+                  <span>{downDict.ai_predict || 'AI Predict'}</span>
                 </div>
 
                 {/* Left Phone (Angled Back Layer) */}
@@ -396,19 +396,19 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                 {/* Badge 4: Create Alert (Middle-Right) */}
                 <div className="absolute top-[42%] -right-1 sm:-right-3 lg:-right-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4.4s' }}>
                   <i className="fa-solid fa-bell text-amber-500 text-xs sm:text-sm"></i>
-                  <span>{dict.download_app?.create_alert || 'Create Alert'}</span>
+                  <span>{downDict.create_alert || 'Create Alert'}</span>
                 </div>
 
                 {/* Badge 5: Smart Docs (Bottom-Left) */}
                 <div className="absolute bottom-9 left-1 sm:left-3 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '3.9s' }}>
                   <i className="fa-solid fa-file-invoice text-brand-red text-xs sm:text-sm"></i>
-                  <span>{dict.download_app?.smart_docs || 'Smart Docs'}</span>
+                  <span>{downDict.smart_docs || 'Smart Docs'}</span>
                 </div>
 
                 {/* Badge 6: iOS & Android Ready (Bottom-Center - Static) */}
                 <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs whitespace-nowrap">
                   <i className="fa-solid fa-circle-check text-brand-blue text-xs sm:text-sm"></i>
-                  <span>iOS &amp; Android Ready</span>
+                  <span>{downDict.ios_android_ready || 'iOS & Android Ready'}</span>
                 </div>
               </div>
             </div>

@@ -10,9 +10,10 @@ interface OtpStepProps {
   onBack: () => void;
   onVerify: (otp: string, nextStep: string | null) => void;
   lang: string;
+  dict?: any;
 }
 
-export default function OtpStep({ email, onBack, onVerify, lang }: OtpStepProps) {
+export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStepProps) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [isPending, startTransition] = useTransition();
