@@ -174,7 +174,7 @@ export async function addFavoriteProductAction(
       method: "POST",
       headers,
       body: JSON.stringify(payload),
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     const json = await res.json().catch(() => ({}));
@@ -217,7 +217,7 @@ export async function deleteFavoriteProductAction(
     let res = await fetch(url, {
       method: "DELETE",
       headers,
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     // Fallback if direct ID DELETE was not found
@@ -226,7 +226,7 @@ export async function deleteFavoriteProductAction(
         method: "DELETE",
         headers,
         body: JSON.stringify({ id: Number(id) || id }),
-        next: { revalidate: 60 },
+        cache: "no-store",
       });
     }
 
@@ -266,7 +266,7 @@ export async function getFavoriteProductsAction(
     const url = `${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`;
     const res = await fetch(url, {
       headers,
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     const json = await res.json().catch(() => ({}));
@@ -285,6 +285,46 @@ export async function getFavoriteProductsAction(
   } catch (err: any) {
     console.error("getFavoriteProductsAction error:", err);
     return { success: false, error: err.message, data: [] };
+  }
+}
+
+/**
+ * Fetch price history on server side
+ */
+export async function getPriceHistoryAction(
+  id: string | number,
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    if (!id) return { success: false, data: null };
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+
+    const safeLang = getSafeLang(lang);
+    const safeId = encodeURIComponent(String(id));
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const url = `${getTradingApiUrl()}/favorite-product/price-history/${safeId}?lang_code=${safeLang}&source=web`;
+    const res = await fetch(url, {
+      headers,
+      cache: "no-store",
+    });
+
+    const json = await res.json().catch(() => ({}));
+    const isSuccess = res.ok || json.success === 1 || json.success === true || Boolean(json.data);
+    if (isSuccess && json.data) {
+      return { success: true, data: json.data };
+    }
+    return { success: false, data: null, error: json.message };
+  } catch (err: any) {
+    console.error("getPriceHistoryAction error:", err);
+    return { success: false, error: err.message, data: null };
   }
 }
 

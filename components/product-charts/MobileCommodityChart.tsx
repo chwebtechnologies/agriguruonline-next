@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid } from 'recharts';
+import { getPriceHistoryAction, getProductDetailsAction } from '@/app/actions/charts';
 
 export interface CommodityItemData {
   id: number | string;
@@ -130,21 +131,7 @@ export default function MobileCommodityChart({
   const ranges = ['1W', '1M', '6M', '1Y', '5Y', 'ALL'] as const;
   type RangeType = typeof ranges[number];
 
-  const [isDark, setIsDark] = useState<boolean>(false);
 
-  useEffect(() => {
-    const checkDark = () => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    };
-    checkDark();
-    window.addEventListener('theme-changed', checkDark);
-    const observer = new MutationObserver(checkDark);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => {
-      window.removeEventListener('theme-changed', checkDark);
-      observer.disconnect();
-    };
-  }, []);
 
   const [timeRange, setTimeRange] = useState<RangeType>('1Y');
   const [activeTab, setActiveTab] = useState<string>('Overview');
@@ -179,25 +166,10 @@ export default function MobileCommodityChart({
 
       setIsLoading(true);
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
-        const url = `${baseUrl.replace(/\/$/, '')}/favorite-product/price-history/${encodeURIComponent(String(item.id))}?lang_code=${lang}&source=web`;
-
-        let authToken = '';
-        if (typeof document !== 'undefined') {
-          const match = document.cookie.match(/(?:^|;\s*)(?:auth_token|__Secure-uid)=([^;]*)/);
-          if (match) authToken = decodeURIComponent(match[1]);
-        }
-
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (authToken) {
-          headers['Authorization'] = `Bearer ${authToken}`;
-        }
-
-        const res = await fetch(url, { headers });
-        if (res.ok) {
-          const json: PriceHistoryApiResponse = await res.json();
-          if (isMounted && json.data) {
-            const rawHistory = Array.isArray(json.data.price_history) ? json.data.price_history : [];
+        const res = await getPriceHistoryAction(item.id, lang);
+        if (res.success && res.data) {
+          if (isMounted) {
+            const rawHistory = Array.isArray(res.data.price_history) ? res.data.price_history : [];
             const curYear = new Date().getFullYear();
 
             // Pre-parse dates and values once to make filtering and rendering 0ms instant
@@ -256,8 +228,8 @@ export default function MobileCommodityChart({
               }
             }
 
-            const alertRangeData = json.data.alert_price_range || null;
-            const favProductData = json.data.favourite_product || null;
+            const alertRangeData = res.data.alert_price_range || null;
+            const favProductData = res.data.favourite_product || null;
 
             priceHistoryCache.set(cacheKey, {
               history: sortedHistory,
@@ -300,14 +272,10 @@ export default function MobileCommodityChart({
 
     const fetchProduct = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
-        const res = await fetch(`${baseUrl.replace(/\/$/, '')}/product/${encodeURIComponent(String(prodId))}?lang_code=${lang}&source=web`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data) {
-            productDetailsCache.set(prodCacheKey, json.data);
-            setProductDetails(json.data);
-          }
+        const res = await getProductDetailsAction(String(prodId), lang);
+        if (res.success && res.data) {
+          productDetailsCache.set(prodCacheKey, res.data);
+          setProductDetails(res.data);
         }
       } catch (e) {
         // Silently continue with fallback data
@@ -583,7 +551,7 @@ export default function MobileCommodityChart({
     'ALL': 'all time',
   }[timeRange];
 
-  const strokeColor = isPositive ? '#00A86B' : '#EF4444';
+  const strokeColor = isPositive ? 'var(--brand-green)' : 'var(--brand-red)';
   const fillColorId = isPositive ? 'colorPriceGreen' : 'colorPriceRed';
 
   const defaultPacking = apiProduct?.product?.packing_types?.find((p: any) => p.is_default)?.packing_type?.title;
@@ -630,7 +598,7 @@ export default function MobileCommodityChart({
           cx={cx}
           cy={cy}
           r={isSelected ? 10 : 8}
-          fill="#1D92EB"
+          fill="var(--brand-blue)"
           opacity={0.3}
           className="animate-pulse"
         />
@@ -638,8 +606,8 @@ export default function MobileCommodityChart({
           cx={cx}
           cy={cy}
           r={isSelected ? 5.5 : 4.5}
-          fill="#1D92EB"
-          stroke="#ffffff"
+          fill="var(--brand-blue)"
+          stroke="var(--ag-card-bg)"
           strokeWidth={1.5}
           style={{ filter: 'drop-shadow(0px 0px 3px rgba(29, 146, 235, 0.8))' }}
         />
@@ -647,7 +615,7 @@ export default function MobileCommodityChart({
           cx={cx}
           cy={cy}
           r={1.5}
-          fill="#ffffff"
+          fill="var(--foreground)"
         />
       </g>
     );
@@ -688,7 +656,7 @@ export default function MobileCommodityChart({
                 e.preventDefault();
                 router.back();
               }}
-              className="lg:hidden group flex items-center justify-center w-7 h-7 min-[390px]:w-8 min-[390px]:h-8 rounded-full bg-card border border-border shadow-xs text-foreground hover:text-brand-blue hover:border-brand-blue transition-all active:scale-95 shrink-0 cursor-pointer"
+              className="lg:hidden group flex items-center justify-center w-7 h-7 min-[390px]:w-8 min-[390px]:h-8 rounded-full bg-card border border-border shadow-xs text-foreground hover:text-brand-blue hover:border-brand-blue  active:scale-95 shrink-0 cursor-pointer"
               aria-label="Go Back"
             >
               <i className="fa-solid fa-arrow-left text-[12px] min-[390px]:text-[13px] text-foreground group-hover:text-brand-blue group-hover:-translate-x-0.5 transition-transform"></i>
@@ -734,7 +702,7 @@ export default function MobileCommodityChart({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-1.5 px-3.5 text-[13px] font-bold rounded-lg transition-all cursor-pointer ${activeTab === tab
+              className={`py-1.5 px-3.5 text-[13px] font-bold rounded-lg  cursor-pointer ${activeTab === tab
                   ? 'bg-card text-brand-blue shadow-xs font-bold'
                   : 'text-foreground/75 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
@@ -747,7 +715,7 @@ export default function MobileCommodityChart({
         {/* Right: Price, Trend Change & Top Right Close Cross Button */}
         <div className="flex items-center gap-2 lg:gap-3 shrink-0">
           <div className="text-right">
-            <div className={`flex items-center justify-end gap-1 font-bold text-[15px] min-[390px]:text-[17px] sm:text-[18px] lg:text-[20px] tracking-tight transition-colors ${isPositive ? 'text-brand-green' : 'text-brand-red'
+            <div className={`flex items-center justify-end gap-1 font-bold text-[15px] min-[390px]:text-[17px] sm:text-[18px] lg:text-[20px] tracking-tight  ${isPositive ? 'text-brand-green' : 'text-brand-red'
               }`}>
               <span>${currentDisplayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span className="text-[11px] min-[390px]:text-[12px] lg:text-[13px]">{isPositive ? '▲' : '▼'}</span>
@@ -767,7 +735,7 @@ export default function MobileCommodityChart({
                 e.stopPropagation();
                 onClose();
               }}
-              className="w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center bg-card border border-border text-foreground hover:text-brand-blue transition-all active:scale-95 cursor-pointer ml-1 sm:ml-2 shadow-xs"
+              className="w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center bg-card border border-border text-foreground hover:text-brand-blue  active:scale-95 cursor-pointer ml-1 sm:ml-2 shadow-xs"
               aria-label="Close popup"
               title="Close (Esc)"
             >
@@ -779,14 +747,14 @@ export default function MobileCommodityChart({
 
       {/* Top Navigation Tabs Bar for Mobile (Revealed on FullScreen) */}
       <div
-        className={`lg:hidden shrink-0 flex items-center px-3 min-[390px]:px-4 overflow-x-auto scrollbar-hide bg-card border-b border-border transition-all duration-200 ${isFullScreen ? 'h-11 opacity-100' : 'h-0 opacity-0 overflow-hidden pointer-events-none border-b-0'
+        className={`lg:hidden shrink-0 flex items-center px-3 min-[390px]:px-4 overflow-x-auto scrollbar-hide bg-card border-b border-border   ${isFullScreen ? 'h-11 opacity-100' : 'h-0 opacity-0 overflow-hidden pointer-events-none border-b-0'
           }`}
       >
         {tabs.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`py-2 px-2.5 min-[390px]:px-4 text-[12px] min-[390px]:text-[14px] font-bold whitespace-nowrap transition-all border-b-2 cursor-pointer ${activeTab === tab
+            className={`py-2 px-2.5 min-[390px]:px-4 text-[12px] min-[390px]:text-[14px] font-bold whitespace-nowrap  border-b-2 cursor-pointer ${activeTab === tab
                 ? 'border-brand-blue text-brand-blue'
                 : 'border-transparent text-foreground/75 hover:text-foreground'
               }`}
@@ -869,20 +837,20 @@ export default function MobileCommodityChart({
                   >
                     <defs>
                       <linearGradient id="colorPriceGreen" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2AAF85" stopOpacity={isDark ? 0.45 : 0.28} />
-                        <stop offset="95%" stopColor="#2AAF85" stopOpacity={0.0} />
+                        <stop offset="0%" stopColor="var(--brand-green)" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="var(--brand-green)" stopOpacity={0.0} />
                       </linearGradient>
                       <linearGradient id="colorPriceRed" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#DB5F67" stopOpacity={isDark ? 0.45 : 0.28} />
-                        <stop offset="95%" stopColor="#DB5F67" stopOpacity={0.0} />
+                        <stop offset="0%" stopColor="var(--brand-red)" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="var(--brand-red)" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? '#2C2C2E' : '#F2F2F7'} strokeOpacity={0.7} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.7} />
                     <XAxis
                       dataKey="shortDate"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fill: isDark ? '#AEAEB2' : '#6E6E73', fontWeight: 500 }}
+                      tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 500 }}
                       dy={5}
                       minTickGap={24}
                     />
@@ -945,7 +913,7 @@ export default function MobileCommodityChart({
                       strokeWidth={2.5}
                       fillOpacity={1}
                       fill={`url(#${fillColorId})`}
-                      activeDot={{ r: 5.5, fill: strokeColor, stroke: isDark ? '#1C1C1E' : '#FFFFFF', strokeWidth: 2 }}
+                      activeDot={{ r: 5.5, fill: strokeColor, stroke: "var(--ag-card-bg)", strokeWidth: 2 }}
                       dot={renderCustomDot}
                       isAnimationActive={true}
                       animationDuration={500}
@@ -958,7 +926,7 @@ export default function MobileCommodityChart({
                       dataKey="shortDate"
                       height={18}
                       stroke={strokeColor}
-                      fill={isDark ? 'rgba(255, 255, 255, 0.05)' : (isPositive ? 'rgba(42, 175, 133, 0.08)' : 'rgba(219, 95, 103, 0.08)')}
+                      fill={isPositive ? 'rgba(42, 175, 133, 0.08)' : 'rgba(219, 95, 103, 0.08)'}
                       travellerWidth={8}
                       tickFormatter={() => ''}
                     />
@@ -986,7 +954,7 @@ export default function MobileCommodityChart({
             {/* Direct Market Comment Intelligence Banner */}
             {activeCommentItem && (
               <div
-                className="mt-2.5 bg-card border border-brand-blue/30 rounded-2xl p-3 shadow-md animate-in fade-in slide-in-from-top-1 duration-200 relative"
+                className="mt-2.5 bg-card border border-brand-blue/30 rounded-2xl p-3 shadow-md animate-in fade-in slide-in-from-top-1  relative"
                 onClick={(e) => e.stopPropagation()}
               >
                 {selectedCommentPoint && (
@@ -1061,7 +1029,7 @@ export default function MobileCommodityChart({
                       setHoveredPoint(null);
                       setSelectedCommentPoint(null);
                     }}
-                    className={`text-[12px] font-bold px-2.5 py-1 transition-all rounded-lg cursor-pointer ${timeRange === range
+                    className={`text-[12px] font-bold px-2.5 py-1  rounded-lg cursor-pointer ${timeRange === range
                         ? 'text-white bg-brand-blue shadow-xs font-extrabold'
                         : 'text-foreground/75 hover:text-foreground hover:bg-muted'
                       }`}
@@ -1073,7 +1041,7 @@ export default function MobileCommodityChart({
 
               <button
                 type="button"
-                className="hidden sm:flex items-center gap-1.5 ml-2 px-3 py-1 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue font-bold text-[11px] lg:text-[12px] rounded-lg border border-brand-blue/30 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
+                className="hidden sm:flex items-center gap-1.5 ml-2 px-3 py-1 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue font-bold text-[11px] lg:text-[12px] rounded-lg border border-brand-blue/30  shadow-xs cursor-pointer active:scale-95 shrink-0"
               >
                 <i className="fa-solid fa-microchip text-brand-blue text-[11px]"></i>
                 <span>AI Predict</span>
@@ -1098,12 +1066,12 @@ export default function MobileCommodityChart({
 
           {/* Dynamic Content Below Chart (Visible on FullScreen or Desktop) */}
           <div
-            className={`transition-opacity duration-200 ${isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'
+            className={`transition-opacity  ${isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'
               }`}
           >
             {activeTab === 'Specifications' ? (
               /* TAB 3: PRODUCT SPECIFICATIONS VIEW */
-              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 ">
                 {/* Header / Summary Card */}
                 <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs">
                   <div className="flex items-center justify-between pb-3 border-b border-border">
@@ -1143,7 +1111,7 @@ export default function MobileCommodityChart({
                     <table className="w-full text-xs text-left table-fixed">
                       <tbody className="divide-y divide-ag-header-border">
                         {parsedSpecs.tableData.map((row, i) => (
-                          <tr key={i} className="hover:bg-muted transition-colors">
+                          <tr key={i} className="hover:bg-muted ">
                             <td className="px-3.5 py-2.5 font-bold text-foreground/80 bg-background/40 w-1/2 border-r border-border align-top break-words">
                               {row.key}
                             </td>
@@ -1240,34 +1208,34 @@ export default function MobileCommodityChart({
                 </div>
               </div>
             ) : activeTab === 'Alert Setups' ? (
-              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 ">
                 <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
                   <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
                     <i className="fa-regular fa-bell-slash"></i>
                   </div>
                   <h2 className="font-extrabold text-[16px] text-foreground">No Alerts Set</h2>
                   <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't configured any price alerts for this commodity yet.</p>
-                  <button className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 transition-all flex items-center gap-2">
+                  <button className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95  flex items-center gap-2">
                     <i className="fa-solid fa-bell"></i> Create Alert
                   </button>
                 </div>
               </div>
             ) : activeTab === 'AI Predict' ? (
-              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 ">
                 <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
                   <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
                     <i className="fa-solid fa-microchip"></i>
                   </div>
                   <h2 className="font-extrabold text-[16px] text-foreground">No Analysis Generated</h2>
                   <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">Run our advanced machine learning models to forecast future price trends.</p>
-                  <button className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 transition-all flex items-center gap-2">
+                  <button className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95  flex items-center gap-2">
                     <i className="fa-solid fa-microchip"></i> Analyse
                   </button>
                 </div>
               </div>
             ) : activeTab === 'Historical' ? (
               /* TAB 4: DATE-WISE MARKET COMMENTARY VIEW (ONLY DATES WITH COMMENTS) */
-              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 ">
                 {/* Header & Commentary Stats */}
                 <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between pb-2.5 border-b border-border">
@@ -1328,7 +1296,7 @@ export default function MobileCommodityChart({
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                       <button
                         onClick={() => setHistoricalFilter('all')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 cursor-pointer ${historicalFilter === 'all'
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold  shrink-0 cursor-pointer ${historicalFilter === 'all'
                             ? 'bg-foreground text-background shadow-xs'
                             : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                           }`}
@@ -1337,7 +1305,7 @@ export default function MobileCommodityChart({
                       </button>
                       <button
                         onClick={() => setHistoricalFilter('product_only')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'product_only'
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold  shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'product_only'
                             ? 'bg-brand-blue text-white shadow-xs'
                             : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                           }`}
@@ -1347,7 +1315,7 @@ export default function MobileCommodityChart({
                       </button>
                       <button
                         onClick={() => setHistoricalFilter('freight_only')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'freight_only'
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold  shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'freight_only'
                             ? 'bg-indigo-600 text-white shadow-xs'
                             : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                           }`}
@@ -1447,7 +1415,7 @@ export default function MobileCommodityChart({
                         return (
                           <div
                             key={d.date || index}
-                            className="bg-card rounded-2xl border border-border hover:border-brand-blue transition-all duration-200 p-3.5 shadow-xs"
+                            className="bg-card rounded-2xl border border-border hover:border-brand-blue   p-3.5 shadow-xs"
                           >
                             <div className="flex items-center justify-between pb-2.5 border-b border-border">
                               <div className="flex items-center gap-2.5">
@@ -1590,7 +1558,7 @@ export default function MobileCommodityChart({
 
                   <div className="relative w-full h-2 rounded-full bg-gradient-to-r from-brand-red via-amber-400 to-brand-green mt-3.5">
                     <div
-                      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-foreground rounded-full shadow-lg border-2 border-background transition-all duration-300"
+                      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-foreground rounded-full shadow-lg border-2 border-background  "
                       style={{ left: `${periodPositionPercent}%` }}
                       title={`Current: $${periodLatestPoint.price}`}
                     ></div>
@@ -1657,7 +1625,7 @@ export default function MobileCommodityChart({
                     <button
                       type="button"
                       onClick={() => setShowSpecsModal(true)}
-                      className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                      className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20 rounded-md flex items-center gap-1 cursor-pointer "
                     >
                       <i className="fa-solid fa-info-circle text-[10px]"></i>
                       <span>Specs</span>
@@ -1751,7 +1719,7 @@ export default function MobileCommodityChart({
             <div className="space-y-2">
               <button
                 type="button"
-                className={`w-full py-3 font-extrabold text-[14px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer ${userType === 'seller'
+                className={`w-full py-3 font-extrabold text-[14px] tracking-wide rounded-xl shadow-md  flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer ${userType === 'seller'
                     ? 'bg-brand-red text-white shadow-red-500/20'
                     : userType === 'buyer'
                       ? 'bg-brand-green text-white shadow-emerald-500/20'
@@ -1765,7 +1733,7 @@ export default function MobileCommodityChart({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs border border-border cursor-pointer"
+                  className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shadow-xs border border-border cursor-pointer"
                 >
                   <i className="fa-solid fa-bell text-amber-500 text-[12px]"></i>
                   <span className="whitespace-nowrap">Create Alert</span>
@@ -1773,7 +1741,7 @@ export default function MobileCommodityChart({
 
                 <button
                   type="button"
-                  className="w-full py-2.5 bg-brand-blue/10 hover:bg-brand-blue/20 active:scale-95 text-brand-blue font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs border border-brand-blue/30 cursor-pointer"
+                  className="w-full py-2.5 bg-brand-blue/10 hover:bg-brand-blue/20 active:scale-95 text-brand-blue font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shadow-xs border border-brand-blue/30 cursor-pointer"
                 >
                   <i className="fa-solid fa-microchip text-brand-blue text-[12px]"></i>
                   <span className="whitespace-nowrap">AI Predict</span>
@@ -1799,7 +1767,7 @@ export default function MobileCommodityChart({
               </div>
               <div className="relative w-full h-2 rounded-full bg-gradient-to-r from-red-400 via-purple-400 to-emerald-500 mt-2">
                 <div
-                  className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-zinc-900 dark:bg-white rounded-full shadow-md border-2 border-white dark:border-zinc-900 transition-all duration-300"
+                  className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-zinc-900 dark:bg-white rounded-full shadow-md border-2 border-white dark:border-zinc-900  "
                   style={{ left: `${pos52Percent}%` }}
                 ></div>
               </div>
@@ -1866,7 +1834,7 @@ export default function MobileCommodityChart({
 
             <button
               onClick={() => setShowSpecsModal(true)}
-              className="w-full py-2 bg-blue-50 dark:bg-blue-900/20 text-brand-blue dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-bold text-xs rounded-xl border border-blue-200/80 dark:border-blue-800/60 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full py-2 bg-blue-50 dark:bg-blue-900/20 text-brand-blue dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-bold text-xs rounded-xl border border-blue-200/80 dark:border-blue-800/60  cursor-pointer flex items-center justify-center gap-1.5"
             >
               <i className="fa-solid fa-file-lines text-xs"></i>
               <span>View All Quality Specs</span>
@@ -1880,7 +1848,7 @@ export default function MobileCommodityChart({
         {/* 1. Create Alert (Left) */}
         <button
           type="button"
-          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-xs border border-border cursor-pointer"
+          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shrink-0 shadow-xs border border-border cursor-pointer"
         >
           <i className="fa-solid fa-bell text-amber-500 text-[12px] min-[390px]:text-[13px]"></i>
           <span className="whitespace-nowrap">Create Alert</span>
@@ -1889,7 +1857,7 @@ export default function MobileCommodityChart({
         {/* 2. Buy / Sell Action Button (Center) */}
         <button
           type="button"
-          className={`flex-1 py-2 min-[390px]:py-2.5 font-extrabold text-[12px] min-[390px]:text-[14px] tracking-wide rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer ${userType === 'seller'
+          className={`flex-1 py-2 min-[390px]:py-2.5 font-extrabold text-[12px] min-[390px]:text-[14px] tracking-wide rounded-xl shadow-md  flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer ${userType === 'seller'
               ? 'bg-brand-red hover:bg-brand-red-hover text-white shadow-red-500/20'
               : userType === 'buyer'
                 ? 'bg-brand-green hover:bg-brand-green-hover text-white shadow-emerald-500/20'
@@ -1902,7 +1870,7 @@ export default function MobileCommodityChart({
         {/* 3. AI Predict (Right) */}
         <button
           type="button"
-          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-xs border border-border cursor-pointer"
+          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shrink-0 shadow-xs border border-border cursor-pointer"
         >
           <i className="fa-solid fa-microchip text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
           <span className="whitespace-nowrap">AI Predict</span>
@@ -1912,11 +1880,11 @@ export default function MobileCommodityChart({
       {/* 4. Specifications & Description Information Icon Popup Modal */}
       {showSpecsModal && (
         <div
-          className="fixed inset-0 z-[550] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[550] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in "
           onClick={() => setShowSpecsModal(false)}
         >
           <div
-            className="bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+            className="bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 "
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -1927,7 +1895,7 @@ export default function MobileCommodityChart({
               </h3>
               <button
                 onClick={() => setShowSpecsModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-foreground/80 focus:outline-none cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted  text-foreground/80 focus:outline-none cursor-pointer"
                 aria-label="Close"
               >
                 <i className="fa-solid fa-xmark text-lg"></i>
@@ -2010,7 +1978,7 @@ export default function MobileCommodityChart({
                   <table className="w-full text-xs text-left">
                     <tbody className="divide-y divide-ag-header-border">
                       {parsedSpecs.tableData.map((row, i) => (
-                        <tr key={i} className="hover:bg-muted transition-colors">
+                        <tr key={i} className="hover:bg-muted ">
                           <td className="px-3.5 py-2.5 font-bold text-foreground/80 bg-background/40 w-1/2 border-r border-border align-top">
                             {row.key}
                           </td>

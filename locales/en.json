@@ -78,6 +78,11 @@
     "copyright": "Copyright © by Agriguru Online Trade Pvt Ltd"
   },
   "common": {
+    "add_product": "Add Product",
+    "buy": "Buy",
+    "sell": "Sell",
+    "view_details": "View Details",
+    "product_list": "Product List",
     "back": "Back",
     "search_result_for": "Search Result for",
     "no_search_results_found_for": "No search results found for",

@@ -125,8 +125,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.company_details}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/about`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.about_us}</Link></li>
-              <li><Link href={`/${activeLang}/founder`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.founder_profile}</Link></li>
+              <li><Link href={`/${activeLang}/about`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.about_us}</Link></li>
+              <li><Link href={`/${activeLang}/founder`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.founder_profile}</Link></li>
             </ul>
           </div>
 
@@ -134,8 +134,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.trade_services}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/manual`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.user_manual}</Link></li>
-              <li><Link href={`/${activeLang}/guide`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.user_guide}</Link></li>
+              <li><Link href={`/${activeLang}/manual`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_manual}</Link></li>
+              <li><Link href={`/${activeLang}/guide`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_guide}</Link></li>
             </ul>
           </div>
 
@@ -143,7 +143,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.membership_plans}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/membership`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.membership_plans}</Link></li>
+              <li><Link href={`/${activeLang}/membership`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.membership_plans}</Link></li>
             </ul>
           </div>
 
@@ -151,10 +151,10 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.regulatory_norms}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/disclaimer`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.disclaimer}</Link></li>
-              <li><Link href={`/${activeLang}/terms`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.terms_conditions}</Link></li>
-              <li><Link href={`/${activeLang}/refund`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.refund_cancellation}</Link></li>
-              <li><Link href={`/${activeLang}/privacy`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.privacy_policy}</Link></li>
+              <li><Link href={`/${activeLang}/disclaimer`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.disclaimer}</Link></li>
+              <li><Link href={`/${activeLang}/terms`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.terms_conditions}</Link></li>
+              <li><Link href={`/${activeLang}/refund`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.refund_cancellation}</Link></li>
+              <li><Link href={`/${activeLang}/privacy`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.privacy_policy}</Link></li>
             </ul>
           </div>
 
@@ -162,7 +162,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.contact_us}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/contact-us`} className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
+              <li><Link href={`/${activeLang}/contact-us`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
             </ul>
           </div>
         </div>
@@ -177,8 +177,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
               <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/about`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.about_us}</Link></li>
-              <li><Link href={`/${activeLang}/founder`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.founder_profile}</Link></li>
+              <li><Link href={`/${activeLang}/about`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.about_us}</Link></li>
+              <li><Link href={`/${activeLang}/founder`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.founder_profile}</Link></li>
             </ul>
           </details>
 
@@ -189,8 +189,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
               <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/manual`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.user_manual}</Link></li>
-              <li><Link href={`/${activeLang}/guide`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.user_guide}</Link></li>
+              <li><Link href={`/${activeLang}/manual`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_manual}</Link></li>
+              <li><Link href={`/${activeLang}/guide`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_guide}</Link></li>
             </ul>
           </details>
 
@@ -201,7 +201,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
               <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/membership`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.membership_plans}</Link></li>
+              <li><Link href={`/${activeLang}/membership`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.membership_plans}</Link></li>
             </ul>
           </details>
 
@@ -212,10 +212,10 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
               <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/disclaimer`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.disclaimer}</Link></li>
-              <li><Link href={`/${activeLang}/terms`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.terms_conditions}</Link></li>
-              <li><Link href={`/${activeLang}/refund`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.refund_cancellation}</Link></li>
-              <li><Link href={`/${activeLang}/privacy`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.privacy_policy}</Link></li>
+              <li><Link href={`/${activeLang}/disclaimer`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.disclaimer}</Link></li>
+              <li><Link href={`/${activeLang}/terms`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.terms_conditions}</Link></li>
+              <li><Link href={`/${activeLang}/refund`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.refund_cancellation}</Link></li>
+              <li><Link href={`/${activeLang}/privacy`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.privacy_policy}</Link></li>
             </ul>
           </details>
 
@@ -226,7 +226,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
               <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/contact-us`} className="block py-0.5 hover:text-emerald-600 dark:hover:text-emerald-400">{dict.footer.contact_us}</Link></li>
+              <li><Link href={`/${activeLang}/contact-us`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.contact_us}</Link></li>
             </ul>
           </details>
 
@@ -248,7 +248,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* Left side tab - Crown at the top pointing right, text goes top-to-bottom (facing right/inwards) */}
       <Link
         href={`/${activeLang}/membership`}
-        className="group hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-r border-emerald-500/30 text-white rounded-r-xl shadow-lg shadow-emerald-500/10 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer lg:py-3.5 lg:px-1.5 xl:py-5 xl:px-2 select-none flex-col items-center gap-2.5 xl:gap-3 w-[32px] xl:w-[38px] hover:scale-105 active:scale-95 origin-left duration-200 transition-all"
+        className="group hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-r border-blue-500/30 text-white rounded-r-xl shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 cursor-pointer lg:py-3.5 lg:px-1.5 xl:py-5 xl:px-2 select-none flex-col items-center gap-2.5 xl:gap-3 w-[32px] xl:w-[38px] hover:scale-105 active:scale-95 origin-left duration-200 transition-all"
       >
         <i className="fa-solid fa-crown text-white/90 text-[12px] xl:text-[14px] shrink-0 rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
         <span className="[writing-mode:vertical-lr] text-[11px] xl:text-sm font-black uppercase tracking-widest leading-none">Membership</span>
@@ -257,7 +257,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* Right side tab - Crown at the top pointing left, text goes bottom-to-top (facing left/inwards) */}
       <Link
         href={`/${activeLang}/membership`}
-        className="group hidden lg:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-l border-emerald-500/30 text-white rounded-l-xl shadow-lg shadow-emerald-500/10 hover:shadow-xl hover:shadow-emerald-500/20 cursor-pointer lg:py-3.5 lg:px-1.5 xl:py-5 xl:px-2 select-none flex-col items-center gap-2.5 xl:gap-3 w-[32px] xl:w-[38px] hover:scale-105 active:scale-95 origin-right duration-200 transition-all"
+        className="group hidden lg:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-l border-blue-500/30 text-white rounded-l-xl shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 cursor-pointer lg:py-3.5 lg:px-1.5 xl:py-5 xl:px-2 select-none flex-col items-center gap-2.5 xl:gap-3 w-[32px] xl:w-[38px] hover:scale-105 active:scale-95 origin-right duration-200 transition-all"
       >
         <i className="fa-solid fa-crown text-white/90 text-[12px] xl:text-[14px] shrink-0 -rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
         <span className="[writing-mode:vertical-lr] rotate-180 text-[11px] xl:text-sm font-black uppercase tracking-widest leading-none">Membership</span>
@@ -290,7 +290,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
         )}
 
         {/* WhatsApp Chat Floater */}
-        <a href="https://wa.me/123456789" className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-green text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-emerald-400/20" aria-label="WhatsApp support">
+        <a href="https://wa.me/123456789" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-green-400/20" aria-label="WhatsApp support">
           <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
             <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 001.335 4.963L2 22l5.233-1.371a9.96 9.96 0 004.773 1.212h.005c5.506 0 9.989-4.479 9.99-9.985A9.994 9.994 0 0012.012 2zm5.836 14.199c-.24.675-1.18 1.233-1.63 1.282-.45.05-1.02.08-2.93-.67-2.44-.96-4.01-3.43-4.13-3.6-.12-.17-1.02-1.36-1.02-2.59 0-1.23.64-1.83.87-2.08a.86.86 0 01.63-.29c.15 0 .3.01.43.01.14 0 .33-.05.51.38.19.45.64 1.57.7 1.69.06.12.1.26.02.42-.08.16-.12.26-.24.4-.12.14-.25.31-.36.42-.12.12-.25.25-.11.49.14.24.63 1.03 1.35 1.67.93.82 1.71 1.08 1.95 1.2.24.12.38.1.52-.06.14-.16.6-.7.76-.94.16-.24.32-.2.53-.12s1.35.63 1.58.75c.23.12.38.18.44.28.06.11.06.61-.18 1.29z" />
           </svg>

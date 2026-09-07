@@ -78,6 +78,11 @@
     "copyright": "Droits d’auteur © par AgriGuru Online Trade Private Limited"
   },
   "common": {
+    "add_product": "Ajouter un produit",
+    "buy": "Acheter",
+    "sell": "Vendre",
+    "view_details": "Voir les détails",
+    "product_list": "Liste des produits",
     "back": "Retour",
     "search_result_for": "Résultat de recherche pour",
     "no_search_results_found_for": "Aucun résultat de recherche trouvé pour",

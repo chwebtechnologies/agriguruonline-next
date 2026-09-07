@@ -10,11 +10,25 @@ export default function ThemeToggle() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(savedTheme)
     
+    // Enforce theme on mount to handle edge cases (like re-enabling JS)
+    const root = document.documentElement
+    if (
+      savedTheme === 'dark' ||
+      (savedTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    ) {
+      root.classList.add('dark')
+      root.classList.remove('light')
+    } else {
+      root.classList.remove('dark')
+      root.classList.add('light')
+    }
+    
     // Add listener for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = (e: MediaQueryListEvent) => {
       const currentTheme = localStorage.getItem('theme') || 'system'
       if (currentTheme === 'system') {
+        document.documentElement.classList.add('disable-transitions')
         if (e.matches) {
           document.documentElement.classList.add('dark')
           document.documentElement.classList.remove('light')
@@ -22,6 +36,9 @@ export default function ThemeToggle() {
           document.documentElement.classList.remove('dark')
           document.documentElement.classList.add('light')
         }
+        setTimeout(() => {
+          document.documentElement.classList.remove('disable-transitions')
+        }, 0)
       }
     }
     
@@ -30,6 +47,9 @@ export default function ThemeToggle() {
   }, [])
 
   const changeTheme = (newTheme: 'light' | 'dark' | 'system') => {
+    // Temporarily disable transitions to allow instant theme swap without visual glitches
+    document.documentElement.classList.add('disable-transitions');
+    
     setTheme(newTheme)
     localStorage.setItem('theme', newTheme)
     
@@ -44,6 +64,11 @@ export default function ThemeToggle() {
       root.classList.remove('dark')
       root.classList.add('light')
     }
+
+    // Restore transitions after the browser has painted the new theme
+    setTimeout(() => {
+      document.documentElement.classList.remove('disable-transitions');
+    }, 0);
   }
 
   return (

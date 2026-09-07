@@ -1,7 +1,16 @@
 @import "tailwindcss";
 @source "../components";
 @source "../app";
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:not(:where(.light, .light *)) {
+      @slot;
+    }
+  }
+}
 
 
 
@@ -37,15 +46,15 @@ body {
 
   /* Standard Agriguru Online System Backgrounds (Light Mode) */
   --agriguru-online-system-bg: #FFFFFF;
-  --agriguru-online-system-secondary-bg: #F2F2F7;
-  --agriguru-online-system-tertiary-bg: #FFFFFF;
-  --agriguru-online-system-grouped-bg: #F2F2F7;
-  --agriguru-online-system-secondary-grouped-bg: #FFFFFF;
-  --agriguru-online-system-tertiary-grouped-bg: #F2F2F7;
+  --agriguru-online-system-secondary-bg: var(--agriguru-online-gray-6);
+  --agriguru-online-system-tertiary-bg: var(--agriguru-online-system-bg);
+  --agriguru-online-system-grouped-bg: var(--agriguru-online-gray-6);
+  --agriguru-online-system-secondary-grouped-bg: var(--agriguru-online-system-bg);
+  --agriguru-online-system-tertiary-grouped-bg: var(--agriguru-online-gray-6);
 
   /* Standard Agriguru Online System Separators (Light Mode) */
-  --agriguru-online-separator: #E5E5EA;
-  --agriguru-online-opaque-separator: #D1D1D6;
+  --agriguru-online-separator: var(--agriguru-online-gray-5);
+  --agriguru-online-opaque-separator: var(--agriguru-online-gray-4);
 
   /* ==========================================================================
      AgriGuru Brand Colors & Gradients (100% EXACT / 0% CHANGE)
@@ -68,12 +77,12 @@ body {
      Semantic Fallbacks (Defaulting to Agriguru Online Light Theme)
      ========================================================================== */
   --background: #F5F5F7;
-  --border: #E5E5EA;
-  --muted: #F2F2F7;
-  --muted-foreground: #55555A;
+  --border: var(--agriguru-online-separator);
+  --muted: var(--agriguru-online-gray-6);
+  --muted-foreground: var(--agriguru-online-secondary-label);
   --foreground: var(--agriguru-online-label);
 
-  --ag-card-bg: #FFFFFF;
+  --ag-card-bg: var(--agriguru-online-system-bg);
 
   --ag-announcement-bg: #e8f4fc;
   --ag-announcement-text: var(--brand-blue);
@@ -97,23 +106,23 @@ body {
 
   /* Standard Agriguru Online System Backgrounds (Dark Mode) */
   --agriguru-online-system-bg: #000000;
-  --agriguru-online-system-secondary-bg: #1C1C1E;
-  --agriguru-online-system-tertiary-bg: #2C2C2E;
-  --agriguru-online-system-grouped-bg: #000000;
-  --agriguru-online-system-secondary-grouped-bg: #1C1C1E;
-  --agriguru-online-system-tertiary-grouped-bg: #2C2C2E;
+  --agriguru-online-system-secondary-bg: var(--agriguru-online-gray-6);
+  --agriguru-online-system-tertiary-bg: var(--agriguru-online-gray-5);
+  --agriguru-online-system-grouped-bg: var(--agriguru-online-system-bg);
+  --agriguru-online-system-secondary-grouped-bg: var(--agriguru-online-gray-6);
+  --agriguru-online-system-tertiary-grouped-bg: var(--agriguru-online-gray-5);
 
   /* Standard Agriguru Online System Separators (Dark Mode) */
-  --agriguru-online-separator: #2C2C2E;
+  --agriguru-online-separator: var(--agriguru-online-gray-5);
   --agriguru-online-opaque-separator: #38383A;
 
-  --background: #000000;
-  --border: #2C2C2E;
-  --muted: #2C2C2E;
-  --muted-foreground: #A1A1A6;
+  --background: var(--agriguru-online-system-bg);
+  --border: var(--agriguru-online-separator);
+  --muted: var(--agriguru-online-gray-5);
+  --muted-foreground: var(--agriguru-online-secondary-label);
   --foreground: #F5F5F7;
 
-  --ag-card-bg: #1C1C1E;
+  --ag-card-bg: var(--agriguru-online-gray-6);
 
   --ag-announcement-bg: var(--brand-blue);
   --ag-announcement-text: #FFFFFF;
@@ -143,23 +152,23 @@ body {
 
     /* Standard Agriguru Online System Backgrounds (Dark Mode) */
     --agriguru-online-system-bg: #000000;
-    --agriguru-online-system-secondary-bg: #1C1C1E;
-    --agriguru-online-system-tertiary-bg: #2C2C2E;
-    --agriguru-online-system-grouped-bg: #000000;
-    --agriguru-online-system-secondary-grouped-bg: #1C1C1E;
-    --agriguru-online-system-tertiary-grouped-bg: #2C2C2E;
+    --agriguru-online-system-secondary-bg: var(--agriguru-online-gray-6);
+    --agriguru-online-system-tertiary-bg: var(--agriguru-online-gray-5);
+    --agriguru-online-system-grouped-bg: var(--agriguru-online-system-bg);
+    --agriguru-online-system-secondary-grouped-bg: var(--agriguru-online-gray-6);
+    --agriguru-online-system-tertiary-grouped-bg: var(--agriguru-online-gray-5);
 
     /* Standard Agriguru Online System Separators (Dark Mode) */
-    --agriguru-online-separator: #2C2C2E;
+    --agriguru-online-separator: var(--agriguru-online-gray-5);
     --agriguru-online-opaque-separator: #38383A;
 
-    --background: #000000;
-    --border: #2C2C2E;
-    --muted: #2C2C2E;
-    --muted-foreground: #A1A1A6;
+    --background: var(--agriguru-online-system-bg);
+    --border: var(--agriguru-online-separator);
+    --muted: var(--agriguru-online-gray-5);
+    --muted-foreground: var(--agriguru-online-secondary-label);
     --foreground: #F5F5F7;
 
-    --ag-card-bg: #1C1C1E;
+    --ag-card-bg: var(--agriguru-online-gray-6);
 
     --ag-announcement-bg: var(--brand-blue);
     --ag-announcement-text: #FFFFFF;
@@ -234,7 +243,7 @@ a, button, input, select, textarea, label, [role="button"] {
 
 /* Custom transitions and helper styles */
 .transition-theme {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  /* removed to prevent laggy theme transitions */
 }
 
 /* Custom horizontal scrolling animation for commodities ticker */
@@ -357,6 +366,8 @@ a, button, input, select, textarea, label, [role="button"] {
 [data-skeleton-wrapper] {
   opacity: 1;
 }
-
-
-
+/* Instantly disable all transitions during theme toggling */
+.disable-transitions,
+.disable-transitions * {
+  transition: none !important;
+}

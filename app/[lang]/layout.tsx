@@ -177,7 +177,7 @@ export default async function LocalizedRootLayout({
         />
         <ThemeInitializer />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200">
+      <body className="min-h-full flex flex-col bg-background text-foreground">
         <Suspense fallback={null}>
           <NavigationProgress />
         </Suspense>

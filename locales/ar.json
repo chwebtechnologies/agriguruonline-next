@@ -78,6 +78,11 @@
     "copyright": "حقوق الطبع والنشر © محفوظة لشركة Agriguru Online Trade Pvt Ltd"
   },
   "common": {
+    "add_product": "أضف منتج",
+    "buy": "شراء",
+    "sell": "بيع",
+    "view_details": "عرض التفاصيل",
+    "product_list": "قائمة المنتجات",
     "back": "رجوع",
     "search_result_for": "نتائج البحث عن",
     "no_search_results_found_for": "لم يتم العثور على نتائج بحث عن",

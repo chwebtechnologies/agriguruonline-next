@@ -78,7 +78,12 @@
     "copyright": "版权所有 © Agriguru Online Trade Pvt Ltd"
   },
   "common": {
-    "back": "Back",
+    "add_product": "添加产品",
+    "buy": "购买",
+    "sell": "出售",
+    "view_details": "查看详情",
+    "product_list": "产品列表",
+    "back": "后退",
     "all_country_origins": "所有原产国",
     "explore": "探索",
     "add_product": "添加产品",

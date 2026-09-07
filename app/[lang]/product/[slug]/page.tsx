@@ -220,7 +220,7 @@ export default async function ProductDetailPage(
   const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
     back: commonDict.back || "Back",
-    addProduct: commonDict.add_product || "Add",
+    addProduct: commonDict.add_product || "Add Product",
     buy: commonDict.buy || "Buy",
     sell: commonDict.sell || "Sell",
     specifications: commonDict.specifications || "Specifications",

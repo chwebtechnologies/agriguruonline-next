@@ -583,7 +583,7 @@ export default function ProductChartsClient({
         setDestinationPorts([]);
         
         toast.success("Product added successfully!", {
-          style: { background: '#10b981', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
+          style: { background: 'var(--brand-green)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
           duration: 3000
         });
         setTimeout(() => {
@@ -592,13 +592,13 @@ export default function ProductChartsClient({
       } else {
         console.error('Failed to add product:', result.error);
         toast.error(result.error || "Failed to add product", {
-          style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+          style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
         });
       }
     } catch (error) {
       console.error('Error adding product:', error);
       toast.error("An error occurred while adding the product", {
-        style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+        style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
       });
     } finally {
       setIsAdding(false);
@@ -629,7 +629,7 @@ export default function ProductChartsClient({
       const res = await deleteFavoriteProductAction(id, lang);
       if (res.success) {
         toast.success("Product deleted successfully!", {
-          style: { background: '#10b981', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
+          style: { background: 'var(--brand-green)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
           duration: 3000
         });
 
@@ -691,7 +691,7 @@ export default function ProductChartsClient({
         // Rollback state if server deletion was unsuccessful
         setAddedProducts(previousProducts);
         toast.error(res.error || "Failed to delete product from server", {
-          style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+          style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
         });
       }
     } catch (error) {
@@ -699,7 +699,7 @@ export default function ProductChartsClient({
       setAddedProducts(previousProducts);
       console.error('Failed to delete favorite product:', error);
       toast.error("Failed to delete product", {
-        style: { background: '#ef4444', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+        style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
       });
     }
   };
@@ -761,7 +761,7 @@ export default function ProductChartsClient({
                           setShowMobileAddForm(true);
                         }
                       }}
-                      className="ml-4 px-2.5 py-1 bg-brand-blue hover:bg-brand-blue-hover text-white text-[11px] font-semibold rounded cursor-pointer transition-colors shadow-sm"
+                      className="ml-4 px-2.5 py-1 bg-brand-blue hover:bg-brand-blue-hover text-white text-[11px] font-semibold rounded cursor-pointer  shadow-sm"
                     >
                       Add
                     </button>
@@ -913,7 +913,7 @@ export default function ProductChartsClient({
                   {/* Col 1: Category (Optional Filter) */}
                   <div 
                     onClick={() => document.getElementById('desktop-category-select')?.click()}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
+                    className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
                       selectedCategory
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                         : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/60 text-foreground/70'
@@ -934,7 +934,7 @@ export default function ProductChartsClient({
                   {/* Col 2: Country (Optional Filter) */}
                   <div 
                     onClick={() => document.getElementById('desktop-country-select')?.click()}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
+                    className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
                       selectedCountry
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                         : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/60 text-foreground/70'
@@ -955,7 +955,7 @@ export default function ProductChartsClient({
                   {/* Col 3: Product Name (Required / Main Step) */}
                   <div 
                     onClick={() => document.getElementById('desktop-product-select')?.click()}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
+                    className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
                       !selectedProduct
                         ? 'bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
                         : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -981,7 +981,7 @@ export default function ProductChartsClient({
                       if (selectedProduct) document.getElementById('desktop-shipby-select')?.click();
                       else document.getElementById('desktop-product-select')?.click();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedProduct 
                         ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
                         : !selectedShipBy
@@ -1006,7 +1006,7 @@ export default function ProductChartsClient({
                     onClick={() => {
                       if (selectedShipBy) document.getElementById('desktop-term-select')?.click();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedShipBy 
                         ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
                         : !selectedTerm
@@ -1031,7 +1031,7 @@ export default function ProductChartsClient({
                     onClick={() => {
                       if (selectedTerm) document.getElementById('desktop-pol-select')?.click();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedTerm 
                         ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
                         : !selectedPOL
@@ -1056,7 +1056,7 @@ export default function ProductChartsClient({
                     onClick={() => {
                       if (isPodRequired && selectedPOL) document.getElementById('desktop-pod-select')?.click();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !isPodRequired
                         ? 'bg-zinc-50/60 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-600'
                         : !selectedPOL 
@@ -1079,7 +1079,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 8: Price (PMT) Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Live</span>
@@ -1093,7 +1093,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 9: Change Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Trend</span>
@@ -1107,7 +1107,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 10: Chart Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-chart-line text-purple-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
@@ -1125,7 +1125,7 @@ export default function ProductChartsClient({
                     onClick={() => {
                       if (isAddProductEnabled) handleAddProduct();
                     }}
-                    className={`group h-[74px] rounded-xl p-1.5 transition-all flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
+                    className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !isAddProductEnabled
                         ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
                         : 'cursor-pointer bg-primary-gradient text-white border-transparent shadow-md hover:shadow-lg ring-2 ring-emerald-500/40 active:scale-[0.98]'
@@ -1145,7 +1145,7 @@ export default function ProductChartsClient({
                 </div>
 
                 {/* Visual Tutorial Showcase Card */}
-                <div className="bg-card rounded-2xl p-5 shadow-sm border border-border transition-all">
+                <div className="bg-card rounded-2xl p-5 shadow-sm border border-border ">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-100 dark:border-zinc-800/80">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-brand-blue flex items-center justify-center text-lg shadow-sm border border-blue-100 dark:border-blue-900/40">
@@ -1176,7 +1176,7 @@ export default function ProductChartsClient({
                     {/* Step 1 */}
                     <div 
                       onClick={() => document.getElementById('desktop-product-select')?.click()}
-                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50 transition-all cursor-pointer group"
+                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50  cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
@@ -1200,7 +1200,7 @@ export default function ProductChartsClient({
                         if (selectedProduct) document.getElementById('desktop-shipby-select')?.click();
                         else document.getElementById('desktop-product-select')?.click();
                       }}
-                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50 transition-all cursor-pointer group"
+                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50  cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
@@ -1223,7 +1223,7 @@ export default function ProductChartsClient({
                       onClick={() => {
                         if (isAddProductEnabled) handleAddProduct();
                       }}
-                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-emerald-400/50 transition-all cursor-pointer group"
+                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-emerald-400/50  cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
@@ -1249,7 +1249,7 @@ export default function ProductChartsClient({
               {addedProducts.map((item, index) => {
                 const changeVal = Number(item.change) || 0;
                 const isPositive = changeVal >= 0;
-                const desktopRowBg = 'bg-card dark:bg-[#18181b] hover:bg-zinc-50 dark:hover:bg-zinc-800/50';
+                const desktopRowBg = 'bg-card hover:bg-muted';
                 
                 return (
                   <div key={item.id || index}>
@@ -1282,7 +1282,7 @@ export default function ProductChartsClient({
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
-                    <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm transition-all text-sm font-semibold`}>
+                    <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-sm font-semibold`}>
                       <div className="truncate text-foreground/90 min-w-0" title={item.category}>{item.category}</div>
                       <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.country}>
                         {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
@@ -1333,17 +1333,17 @@ export default function ProductChartsClient({
 
         {/* Global Actions Bar for Mobile/Tablet - Sticky when products overflow */}
         <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 backdrop-blur-sm border-t border-border shadow-xs mt-3 pointer-events-auto">
-          <button className="px-5 py-[9px] bg-card hover:bg-muted border border-border text-foreground font-semibold rounded-md text-[14px] shadow-sm transition-colors">
+          <button className="px-5 py-[9px] bg-card hover:bg-muted border border-border text-foreground font-semibold rounded-md text-[14px] shadow-sm ">
              Inquiry / Offer
           </button>
           <div className="relative flex items-center justify-center">
-            <button onClick={() => setShowDisclaimer(true)} className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100 transition-colors flex items-center justify-center">
+            <button onClick={() => setShowDisclaimer(true)} className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100  flex items-center justify-center">
               <i className="fa-solid fa-triangle-exclamation text-[22px]"></i>
             </button>
 
             {showDisclaimer && (
               <>
-                <div className="absolute top-full mt-4 z-50 w-[300px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute top-full mt-4 z-50 w-[300px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 ">
                   {/* Triangle pointer at top center */}
                   <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card border-t border-l border-brand-blue transform rotate-45"></div>
                   
@@ -1354,7 +1354,7 @@ export default function ProductChartsClient({
                   <div className="border-t border-border pt-3 text-center">
                     <button 
                       onClick={() => setShowDisclaimer(false)}
-                      className="text-brand-blue font-bold text-[15px] hover:text-blue-500 transition-colors"
+                      className="text-brand-blue font-bold text-[15px] hover:text-blue-500 "
                     >
                       Got it
                     </button>
@@ -1397,7 +1397,7 @@ export default function ProductChartsClient({
 
       {/* Full Screen Mobile Add Product Form */}
       {showMobileAddForm && (
-        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 duration-300">
+        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 ">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <button 
@@ -1572,13 +1572,12 @@ export default function ProductChartsClient({
               border: none !important;
             }
             .mobile-add-select .h-10:not(.bg-\\[\\#1D92EB\\]) {
-              background-color: #EAEAEA !important;
-              color: #4b5563 !important;
-              opacity: 1 !important;
+              background-color: var(--muted) !important;
+              color: var(--muted-foreground) !important;
             }
             .dark .mobile-add-select .h-10:not(.bg-\\[\\#1D92EB\\]) {
-              background-color: #1f1f22 !important;
-              color: #d1d5db !important;
+              background-color: var(--muted) !important;
+              color: var(--muted-foreground) !important;
             }
           `}} />
         </div>
