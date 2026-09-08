@@ -38,13 +38,13 @@ const nextConfig: NextConfig = {
   async headers() {
     const cspHeader = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com https://www.google.com/recaptcha/ https://www.gstatic.com",
       "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com https://www.transparenttextures.com",
       "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com",
-      "connect-src 'self' https://trading-api.agriguruonline.cloud https://cms-api.agriguruonline.cloud https://user-api.agriguruonline.cloud https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com ws: wss: https://unpkg.com https://get.geojs.io https://api.country.is",
+      "connect-src 'self' https://trading-api.agriguruonline.cloud https://cms-api.agriguruonline.cloud https://user-api.agriguruonline.cloud https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com ws: wss: https://unpkg.com https://get.geojs.io https://api.country.is https://*.googleapis.com https://*.firebaseio.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://*.firebase.com https://firebase.googleapis.com",
       "media-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud",
-      "worker-src 'self' blob: https://unpkg.com",
+      "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

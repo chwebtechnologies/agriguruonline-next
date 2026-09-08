@@ -14,6 +14,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
 import { getTradingApiUrl } from '@/lib/api-utils'
 import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/lib/seo'
+import { NotificationProvider } from '@/components/providers/NotificationProvider'
 import '../globals.css'
 
 export async function generateMetadata(props: {
@@ -178,19 +179,21 @@ export default async function LocalizedRootLayout({
         <ThemeInitializer />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <Suspense fallback={null}>
-          <NavigationProgress />
-        </Suspense>
-        <AnnouncementBar />
-        <Header />
+        <NotificationProvider>
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
+          <AnnouncementBar />
+          <Header />
 
-        <main className="flex-grow w-full relative">
-          {children}
-        </main>
+          <main className="flex-grow w-full relative">
+            {children}
+          </main>
 
-        <Footer />
-        <ServiceWorkerRegister />
-        <Toaster position="top-right" richColors closeButton />
+          <Footer />
+          <ServiceWorkerRegister />
+          <Toaster position="top-right" richColors closeButton />
+        </NotificationProvider>
       </body>
     </html>
   )

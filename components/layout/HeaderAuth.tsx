@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useId } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import CategoryLink from '@/components/category/CategoryLink'
@@ -10,6 +10,7 @@ import { AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/layout/AppMenu'
 import { getAssetsUrl, getUserApiUrl } from '@/lib/api-utils';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
+import { useNotification } from '@/components/providers/NotificationProvider'
 
 interface HeaderAuthProps {
   token: string
@@ -69,7 +70,6 @@ interface HeaderAuthProps {
 }
 
 export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile }: HeaderAuthProps) {
-  const notificationsId = useId()
   const [profile, setProfile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -77,6 +77,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [notificationsData, setNotificationsData] = useState<any[]>([])
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
   const [hasFetchedNotifications, setHasFetchedNotifications] = useState(false)
+  const { hasUnread, setHasUnread, fcmToken } = useNotification()
   
   const categoriesRef = useRef<HTMLDivElement>(null)
   const notificationsRef = useRef<HTMLDivElement>(null)
@@ -180,6 +181,35 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
       fetchNotifications();
     }
   }, [isNotificationsOpen, hasFetchedNotifications, token, activeLang])
+
+  // Sync FCM Token with backend
+  useEffect(() => {
+    if (fcmToken && token) {
+      // Check if we already synced this exact token for this auth token to prevent unnecessary API calls
+      const syncKey = `synced_fcm_${token.substring(0, 20)}`; // Use part of token as key to avoid large storage
+      const lastSyncedToken = localStorage.getItem(syncKey);
+      
+      if (lastSyncedToken !== fcmToken) {
+        fetch(`${getUserApiUrl()}/auth/set-fcm`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ fcm_token: fcmToken, source: "WEB" })
+        })
+        .then(res => {
+          if (res.ok) {
+            localStorage.setItem(syncKey, fcmToken);
+            console.log('FCM Token synced with backend successfully.');
+          }
+        })
+        .catch(err => {
+          console.error("Failed to sync FCM token to backend:", err);
+        });
+      }
+    }
+  }, [fcmToken, token]);
 
   // Hydration-safe responsive logic to prevent category item overflow
   const [mounted, setMounted] = useState(false)
@@ -325,22 +355,23 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 </Link>
 
                 <div className="relative" ref={notificationsRef}>
-                  <input 
-                    type="checkbox" 
-                    id={notificationsId} 
-                    className="peer sr-only" 
-                    checked={isNotificationsOpen} 
-                    onChange={(e) => setIsNotificationsOpen(e.target.checked)} 
-                  />
-                  <label 
-                    htmlFor={notificationsId}
-                    onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                  <button
+                    onClick={() => {
+                      setIsNotificationsOpen(!isNotificationsOpen);
+                      if (!isNotificationsOpen) setHasUnread(false);
+                    }}
                     className="relative flex items-center justify-center p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200 cursor-pointer"
+                    aria-label="Open notifications"
                   >
                     <i className="fa-solid fa-bell text-[30px]"></i>
-                  </label>
-                  
-                  <div className={`hidden peer-checked:block absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[340px] md:w-[380px] rounded-lg bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                    {hasUnread && (
+                      <span className="absolute top-2 right-2 h-3 w-3 rounded-full bg-red-500 animate-pulse border-2 border-background"></span>
+                    )}
+                  </button>
+
+                  {isNotificationsOpen && (
+                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[340px] md:w-[380px] rounded-lg bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+
                       <div className="flex items-center p-1 bg-muted rounded-lg mb-2">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('notifications'); }}
@@ -439,6 +470,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         )}
                       </div>
                     </div>
+                  )}
                 </div>
 
                 <Link href={`/${activeLang}/profile`}>

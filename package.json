@@ -15,6 +15,7 @@
     "@serwist/sw": "^9.5.12",
     "critters": "^0.0.23",
     "disposable-email-domains": "^1.0.62",
+    "firebase": "^12.18.0",
     "leaflet": "^1.9.4",
     "libphonenumber-js": "^1.13.10",
     "next": "16.3.0",

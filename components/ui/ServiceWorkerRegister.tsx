@@ -4,24 +4,31 @@ import { useEffect } from 'react'
 
 export default function ServiceWorkerRegister() {
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      if (process.env.NODE_ENV === 'production') {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker
-            .register('/sw.js')
-            .then((reg) => {})
-            .catch((err) => {})
-        })
-      } else {
-        // UNREGISTER ROGUE SW IN DEVELOPMENT!
-        // This permanently fixes the issue of broken designs on normal refreshes
-        // caused by stale CSS being served from old service workers.
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for(let registration of registrations) {
-            registration.unregister()
+    if (!('serviceWorker' in navigator)) return;
+
+    if (process.env.NODE_ENV === 'production') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then(() => {})
+          .catch(() => {})
+      })
+    } else {
+      // In development: Serwist's /sw.js is disabled, so only unregister
+      // non-firebase SWs that may be stale from previous production builds.
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          const swUrl =
+            registration.active?.scriptURL ||
+            registration.installing?.scriptURL ||
+            registration.waiting?.scriptURL ||
+            '';
+          // Keep firebase SW (any scope), remove everything else
+          if (!swUrl.includes('firebase-messaging-sw')) {
+            registration.unregister();
           }
-        })
-      }
+        }
+      });
     }
   }, [])
 
