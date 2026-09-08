@@ -23,12 +23,7 @@ const UNREAD_KEY = 'ag_has_unread_notif';
 
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   // Initialize from localStorage so it persists across navigations and page loads
-  const [hasUnread, setHasUnreadState] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(UNREAD_KEY) === '1';
-    }
-    return false;
-  });
+  const [hasUnread, setHasUnreadState] = useState(false);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const hasUnreadRef = useRef(hasUnread);
   hasUnreadRef.current = hasUnread;

@@ -580,7 +580,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         )}
                         {activeNotificationTab === 'alerts' && (
                           <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in duration-200">
-                            <i className="fa-solid fa-triangle-exclamation text-3xl text-zinc-400 mb-3"></i>
+                            <i className="fa-regular fa-bell text-3xl text-zinc-400 mb-3"></i>
                             <p className="text-sm text-zinc-500 dark:text-zinc-400">{dict.header.no_alerts || 'No alerts'}</p>
                           </div>
                         )}
