@@ -97,7 +97,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     fetch(`${tradingApiUrl}/country?lang_code=${lang}&source=web`, { next: { revalidate: 60 } }).then(r => r.json()),
     fetch(`${userApiUrl}/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
       headers: { 'Authorization': `Bearer ${token}` },
-      next: { revalidate: 60 }
+      cache: 'no-store'
     }).then(r => r.json())
   ]);
 

@@ -182,32 +182,27 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     }
   }, [isNotificationsOpen, hasFetchedNotifications, token, activeLang])
 
-  // Sync FCM Token with backend
+  // Sync FCM Token with backend reliably
+  const fcmSyncedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (fcmToken && token) {
-      // Check if we already synced this exact token for this auth token to prevent unnecessary API calls
-      const syncKey = `synced_fcm_${token.substring(0, 20)}`; // Use part of token as key to avoid large storage
-      const lastSyncedToken = localStorage.getItem(syncKey);
-      
-      if (lastSyncedToken !== fcmToken) {
-        fetch(`${getUserApiUrl()}/auth/set-fcm`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ fcm_token: fcmToken, source: "WEB" })
-        })
-        .then(res => {
-          if (res.ok) {
-            localStorage.setItem(syncKey, fcmToken);
-            console.log('FCM Token synced with backend successfully.');
-          }
-        })
-        .catch(err => {
-          console.error("Failed to sync FCM token to backend:", err);
-        });
-      }
+    if (fcmToken && token && fcmSyncedRef.current !== fcmToken) {
+      fcmSyncedRef.current = fcmToken;
+      fetch(`${getUserApiUrl()}/auth/set-fcm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ fcm_token: fcmToken, source: "WEB" })
+      })
+      .then(res => {
+        if (res.ok) {
+          console.log('[FCM] Token synced with backend successfully.');
+        }
+      })
+      .catch(err => {
+        console.error("Failed to sync FCM token to backend:", err);
+      });
     }
   }, [fcmToken, token]);
 
@@ -365,7 +360,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   >
                     <i className="fa-solid fa-bell text-[30px]"></i>
                     {hasUnread && (
-                      <span className="absolute top-2 right-2 h-3 w-3 rounded-full bg-red-500 animate-pulse border-2 border-background"></span>
+                      <span className="absolute top-2 right-2 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-background"></span>
+                      </span>
                     )}
                   </button>
 

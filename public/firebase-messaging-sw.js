@@ -19,6 +19,14 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
+  // Broadcast to all open tabs via BroadcastChannel
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('fcm_channel');
+      channel.postMessage(payload);
+    }
+  } catch (err) {}
+
   // Support both notification payload and data-only payload
   const notificationTitle =
     payload?.notification?.title ||
@@ -41,6 +49,18 @@ messaging.onBackgroundMessage((payload) => {
 // Open or focus the app window when notification is clicked
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // Notify tabs that notification was clicked
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('fcm_channel');
+      channel.postMessage({
+        data: event.notification.data,
+        clicked: true
+      });
+    }
+  } catch (err) {}
+
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })

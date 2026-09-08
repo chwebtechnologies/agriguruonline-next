@@ -72,6 +72,13 @@ export async function updateProfile(
   }
 }
 
+import { revalidatePath } from "next/cache";
+
+export async function revalidateProfile(lang: string = "en") {
+  revalidatePath(`/${lang}/profile`);
+  revalidatePath(`/`, "layout");
+}
+
 /**
  * Uploads KYC verification documents securely from the server.
  */
@@ -111,6 +118,9 @@ export async function uploadKycDocument(
       };
     }
 
+    revalidatePath(`/${lang}/profile`);
+    revalidatePath(`/`, "layout");
+
     return {
       success: true,
       message: data.message || "Document uploaded successfully.",
@@ -123,4 +133,36 @@ export async function uploadKycDocument(
       error: err.message || "A network error occurred while uploading document."
     };
   }
+}
+
+export async function fetchKycDocsForClient(lang: string = "en", userId: string): Promise<any> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+
+  if (!token || !userId) {
+    return { success: false, data: [] };
+  }
+
+  try {
+    if (!USER_API_URL) throw new Error("Missing USER_API_URL in environment");
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : "en";
+    
+    // Use cache: 'no-store' to ensure we ALWAYS get the latest DB state
+    const apiUrl = `${USER_API_URL.replace(/\/$/, '')}/required-document/verification/${encodeURIComponent(userId)}?lang_code=${safeLang}&source=web`;
+    const response = await fetch(apiUrl, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      },
+      cache: 'no-store'
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return { success: true, data: data.data || [] };
+    }
+  } catch (err) {
+    console.error("fetchKycDocsForClient error:", err);
+  }
+  return { success: false, data: [] };
 }

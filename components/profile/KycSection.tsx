@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { uploadKycDocument } from "@/app/actions/profile";
+import { uploadKycDocument, fetchKycDocsForClient } from "@/app/actions/profile";
 import { getAssetsUrl } from '@/lib/api-utils';
 
 type KycStatus = "Missing" | "Under Review" | "Approved" | "Rejected" | "Expired";
@@ -138,6 +138,79 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
       selectedTypeIdRef.current = "";
     }
   }, [parsed]);
+
+  // Listen for KYC-related notifications & tab visibility to auto-refresh state
+  useEffect(() => {
+    const refreshKycStatus = async () => {
+      const userId = profileData?.id || profileData?._id || profileData?.customer_id;
+      if (!userId) return;
+      try {
+        const res = await fetchKycDocsForClient(lang, userId);
+        if (res.success && res.data) {
+          const newParsed = parseKycData(res.data);
+          setRequiredDocs(newParsed.mappedRequired);
+          setUserDocs(newParsed.mappedUploaded);
+          
+          const rejectedOrExpired = newParsed.mappedUploaded.find((u: any) => u.status === "Rejected" || u.status === "Expired");
+          if (rejectedOrExpired?.document_type_id) {
+            setSelectedTypeId(rejectedOrExpired.document_type_id);
+            selectedTypeIdRef.current = rejectedOrExpired.document_type_id;
+          } else if (newParsed.mappedRequired.length > 0) {
+            setSelectedTypeId(newParsed.mappedRequired[0].id);
+            selectedTypeIdRef.current = newParsed.mappedRequired[0].id;
+          } else {
+            setSelectedTypeId("");
+            selectedTypeIdRef.current = "";
+          }
+          return true;
+        }
+      } catch (e) {
+        console.error("Failed to refresh KYC status:", e);
+      }
+      return false;
+    };
+
+    const handleFcmMessage = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const payload = customEvent.detail;
+      
+      const title = payload?.notification?.title || payload?.data?.title || '';
+      const body = payload?.notification?.body || payload?.data?.body || '';
+      const type = payload?.data?.type || '';
+      
+      const isKycRelated = (title + body + type).toLowerCase().includes('kyc') || 
+                           (title + body).toLowerCase().includes('document') ||
+                           (title + body).toLowerCase().includes('verif') ||
+                           (title + body).toLowerCase().includes('reject') ||
+                           (title + body).toLowerCase().includes('approv');
+
+      if (isKycRelated) {
+        setTimeout(async () => {
+          const updated = await refreshKycStatus();
+          if (updated) {
+            toast.success("KYC status updated automatically.");
+          }
+          router.refresh();
+        }, 1200);
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        refreshKycStatus();
+      }
+    };
+
+    window.addEventListener('fcm-message', handleFcmMessage);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener('fcm-message', handleFcmMessage);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [lang, router, profileData]);
 
   const handleUploadClick = () => {
     if (!selectedTypeId) {
