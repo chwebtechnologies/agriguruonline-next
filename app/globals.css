@@ -288,6 +288,20 @@ a, button, input, select, textarea, label, [role="button"] {
   animation: buttonShine 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
+/* Clean subtle blink animation for notification bell dot (opacity only, no resizing or glow strobe) */
+@keyframes notifBlink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+.animate-notif-blink {
+  animation: notifBlink 1.3s ease-in-out infinite;
+}
+
 /* Custom vertical text style for membership floating tabs */
 .writing-mode-vertical {
   writing-mode: vertical-rl;

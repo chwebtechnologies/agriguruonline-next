@@ -162,6 +162,9 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
             setSelectedTypeId("");
             selectedTypeIdRef.current = "";
           }
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('kyc-docs-updated', { detail: { docs: res.data } }));
+          }
           return true;
         }
       } catch (e) {
@@ -282,6 +285,9 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
           
           setSelectedTypeId("");
           selectedTypeIdRef.current = "";
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('kyc-docs-updated'));
+          }
           router.refresh();
         } else {
           toast.error(result.error || "Failed to upload document.", { id: uploadId });

@@ -11,6 +11,7 @@ import { AppMenu } from '@/components/layout/AppMenu'
 import { getAssetsUrl, getUserApiUrl } from '@/lib/api-utils';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
 import { useNotification } from '@/components/providers/NotificationProvider'
+import { getUnreadStatusFromIndexedDB, setUnreadStatusInIndexedDB } from '@/lib/notificationStorage'
 
 interface HeaderAuthProps {
   token: string
@@ -78,7 +79,123 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
   const [hasFetchedNotifications, setHasFetchedNotifications] = useState(false)
   const { hasUnread, setHasUnread, fcmToken } = useNotification()
-  
+
+  // Local unread state synced with localStorage, IndexedDB, and real-time events
+  const [localUnread, setLocalUnread] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Sync from both localStorage and IndexedDB
+    const syncUnreadState = async () => {
+      if (!isMounted) return;
+      const isIdbUnread = await getUnreadStatusFromIndexedDB();
+      const isLocalUnread = typeof window !== 'undefined' && localStorage.getItem('ag_has_unread_notif') === '1';
+      if (isIdbUnread || isLocalUnread) {
+        setLocalUnread(true);
+        setHasUnread(true);
+      }
+    };
+
+    syncUnreadState();
+
+    // 2. Check backend for unread notifications on mount and tab focus
+    const checkBackendUnread = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(`${getUserApiUrl()}/custom-notification?lang_code=${activeLang}&source=web`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json) ? json : (json?.data?.data || json?.data || json?.notifications || json?.results || []);
+          if (Array.isArray(items) && items.length > 0) {
+            const isItemRead = (item: any) => {
+              if (!item || typeof item !== 'object') return true;
+              return item.is_read === true || item.is_read === 1 || item.is_read === '1' ||
+                     item.read === true || item.read === 1 || item.read === '1';
+            };
+            const hasUnreadItem = items.some((item: any) => !isItemRead(item));
+            if (hasUnreadItem) {
+              setLocalUnread(true);
+              setHasUnread(true);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('ag_has_unread_notif', '1');
+              }
+              setUnreadStatusInIndexedDB(true);
+            }
+          }
+        }
+      } catch (err) {
+        // network or auth error
+      }
+    };
+
+    checkBackendUnread();
+
+    const triggerUnread = () => {
+      setLocalUnread(true);
+      setHasUnread(true);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ag_has_unread_notif', '1');
+      }
+      setUnreadStatusInIndexedDB(true);
+    };
+
+    const onKycUpdate = (e: any) => {
+      const docs = e.detail?.docs;
+      if (Array.isArray(docs)) {
+        const hasRejected = docs.some((d: any) => d.status?.toUpperCase() === 'REJECTED');
+        if (hasRejected) {
+          triggerUnread();
+        }
+      } else {
+        triggerUnread();
+      }
+    };
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'ag_has_unread_notif') {
+        const val = e.newValue === '1';
+        setLocalUnread(val);
+        setHasUnread(val);
+      }
+    };
+
+    const onFocusOrVis = () => {
+      syncUnreadState();
+      checkBackendUnread();
+    };
+
+    window.addEventListener('fcm-message', triggerUnread);
+    window.addEventListener('new-notification', triggerUnread);
+    window.addEventListener('notification-received', triggerUnread);
+    window.addEventListener('kyc-notification', triggerUnread);
+    window.addEventListener('kyc-docs-updated', onKycUpdate);
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onFocusOrVis);
+    document.addEventListener('visibilitychange', onFocusOrVis);
+
+    const intervalId = setInterval(syncUnreadState, 1500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      window.removeEventListener('fcm-message', triggerUnread);
+      window.removeEventListener('new-notification', triggerUnread);
+      window.removeEventListener('notification-received', triggerUnread);
+      window.removeEventListener('kyc-notification', triggerUnread);
+      window.removeEventListener('kyc-docs-updated', onKycUpdate);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onFocusOrVis);
+      document.removeEventListener('visibilitychange', onFocusOrVis);
+    };
+  }, [token, activeLang, setHasUnread]);
+
+  // Combined: show dot if either context OR local listener has unread
+  const showUnreadDot = hasUnread || localUnread
+
+
   const categoriesRef = useRef<HTMLDivElement>(null)
   const notificationsRef = useRef<HTMLDivElement>(null)
 
@@ -353,18 +470,25 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   <button
                     onClick={() => {
                       setIsNotificationsOpen(!isNotificationsOpen);
-                      if (!isNotificationsOpen) setHasUnread(false);
+                      if (!isNotificationsOpen) {
+                        setHasUnread(false);
+                        setLocalUnread(false);
+                        if (typeof window !== 'undefined') {
+                          localStorage.removeItem('ag_has_unread_notif');
+                        }
+                        setUnreadStatusInIndexedDB(false);
+                        setHasFetchedNotifications(false); // Force refetch on open
+                      }
                     }}
                     className="relative flex items-center justify-center p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200 cursor-pointer"
                     aria-label="Open notifications"
                   >
-                    <i className="fa-solid fa-bell text-[30px]"></i>
-                    {hasUnread && (
-                      <span className="absolute top-2 right-2 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-background"></span>
-                      </span>
-                    )}
+                    <div className="relative inline-flex items-center justify-center">
+                      <i className="fa-solid fa-bell text-[28px]"></i>
+                      {showUnreadDot && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 md:w-3.5 md:h-3.5 rounded-full bg-red-600 border-2 border-background animate-notif-blink z-30 pointer-events-none" />
+                      )}
+                    </div>
                   </button>
 
                   {isNotificationsOpen && (

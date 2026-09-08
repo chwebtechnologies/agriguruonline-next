@@ -15,17 +15,63 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
+const DB_NAME = 'ag_notification_db';
+const STORE_NAME = 'unread_state';
+
+// Save unread state to IndexedDB so any tab (even if opened later or currently backgrounded) can access it
+function saveUnreadToIndexedDB(payload) {
+  try {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = function(e) {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = function(e) {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) return;
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put({
+        id: 'status',
+        hasUnread: true,
+        timestamp: Date.now(),
+        payload: payload || null
+      });
+    };
+  } catch (err) {
+    console.warn('[SW] IndexedDB save failed:', err);
+  }
+}
+
+function broadcastToClients(payload) {
+  // 1. Immediately persist unread status in IndexedDB across the origin
+  saveUnreadToIndexedDB(payload);
+
+  // 2. BroadcastChannel to notify active open tabs in real time
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('fcm_channel');
+      channel.postMessage({ type: 'FCM_MESSAGE', payload, timestamp: Date.now() });
+    }
+  } catch (err) {}
+
+  // 3. Direct client postMessage to all open tabs
+  try {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        client.postMessage({ type: 'FCM_MESSAGE', payload });
+      }
+    });
+  } catch (err) {}
+}
+
 // Handle background messages (app is in background or closed)
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
-  // Broadcast to all open tabs via BroadcastChannel
-  try {
-    if (typeof BroadcastChannel !== 'undefined') {
-      const channel = new BroadcastChannel('fcm_channel');
-      channel.postMessage(payload);
-    }
-  } catch (err) {}
+  broadcastToClients(payload);
 
   // Support both notification payload and data-only payload
   const notificationTitle =
@@ -46,17 +92,37 @@ messaging.onBackgroundMessage((payload) => {
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
+// Fallback push event listener to ensure zero push messages are dropped
+self.addEventListener('push', (event) => {
+  try {
+    if (event.data) {
+      const json = event.data.json();
+      broadcastToClients(json);
+    } else {
+      broadcastToClients({});
+    }
+  } catch (err) {
+    // Non-JSON push payload fallback
+    broadcastToClients({});
+  }
+});
+
 // Open or focus the app window when notification is clicked
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // Ensure unread is recorded in IndexedDB
+  saveUnreadToIndexedDB(event.notification.data);
 
   // Notify tabs that notification was clicked
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const channel = new BroadcastChannel('fcm_channel');
       channel.postMessage({
+        type: 'FCM_NOTIFICATION_CLICKED',
         data: event.notification.data,
-        clicked: true
+        clicked: true,
+        timestamp: Date.now()
       });
     }
   } catch (err) {}
