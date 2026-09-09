@@ -466,21 +466,50 @@ export default function MobileCommodityChart({
       }))
       : [];
 
-    let aiLabel = 'Bullish Momentum';
-    let aiChange = '+2.4%';
-    let aiBullish = true;
-    if (pct > 2) {
-      aiLabel = 'Strong Rebound / Bullish';
-      aiChange = `+${Math.min(pct * 1.2, 8.5).toFixed(1)}%`;
-      aiBullish = true;
-    } else if (pct < -2) {
-      aiLabel = 'Bearish Consolidation';
-      aiChange = `-${Math.min(Math.abs(pct) * 0.9, 6.2).toFixed(1)}%`;
-      aiBullish = false;
-    } else {
-      aiLabel = 'Steady / Accumulation';
-      aiChange = '+1.1%';
-      aiBullish = true;
+    // Calculate 14-period RSI
+    let rsi = 50;
+    if (filteredData.length > 1) {
+      let gains = 0;
+      let losses = 0;
+      const rsiPeriod = Math.min(14, filteredData.length - 1);
+      const recentData = filteredData.slice(-rsiPeriod - 1);
+      
+      for (let i = 1; i < recentData.length; i++) {
+        const change = recentData[i].price - recentData[i - 1].price;
+        if (change > 0) gains += change;
+        else losses -= Math.abs(change);
+      }
+      
+      const avgGain = gains / rsiPeriod;
+      const avgLoss = losses / rsiPeriod;
+      
+      if (avgLoss === 0) rsi = 100;
+      else if (avgGain === 0) rsi = 0;
+      else {
+        const rs = avgGain / avgLoss;
+        rsi = 100 - (100 / (1 + rs));
+      }
+    }
+
+    let rsiLabel = 'Neutral';
+    if (rsi >= 70) rsiLabel = 'Overbought';
+    else if (rsi <= 30) rsiLabel = 'Oversold';
+
+    // Calculate Current Streak
+    let streakCount = 0;
+    let streakDirection = 'None';
+    if (filteredData.length > 1) {
+      const lastPrice = filteredData[filteredData.length - 1].price;
+      const prevPrice = filteredData[filteredData.length - 2].price;
+      const isUpStreak = lastPrice >= prevPrice;
+      streakDirection = isUpStreak ? 'Up' : 'Down';
+      
+      for (let i = filteredData.length - 1; i > 0; i--) {
+        const diff = filteredData[i].price - filteredData[i - 1].price;
+        if (isUpStreak && diff >= 0) streakCount++;
+        else if (!isUpStreak && diff <= 0) streakCount++;
+        else break;
+      }
     }
 
     return {
@@ -496,7 +525,7 @@ export default function MobileCommodityChart({
       periodStartPoint: firstPoint,
       periodPositionPercent: pPos,
       pos52Percent: pos52,
-      aiSentiment: { label: aiLabel, change: aiChange, isBullish: aiBullish },
+      technicalInsights: { rsi: Math.round(rsi), rsiLabel, streakCount, streakDirection },
       volatilityInfo: { value: `${vol.toFixed(1)}%`, label: volLabel },
       supportResistance: { support: supportLevel, resistance: resistanceLevel },
       cifFreightSpread: freightSpread,
@@ -518,7 +547,6 @@ export default function MobileCommodityChart({
     periodStartPoint,
     periodPositionPercent,
     pos52Percent,
-    aiSentiment,
     volatilityInfo,
     supportResistance,
     cifFreightSpread,
@@ -526,7 +554,12 @@ export default function MobileCommodityChart({
     commentPointsCount,
   } = periodMetrics;
 
-  const currentDisplayPrice = hoveredPoint ? hoveredPoint.price : endPrice;
+  const basePrice = Number(item.price) || endPrice;
+  const currentDisplayPrice = hoveredPoint ? hoveredPoint.price : basePrice;
+  const baseChange = Number(item.change) || 0;
+  const currentChangeVal = hoveredPoint ? (hoveredPoint.changeVal || 0) : baseChange;
+  const currentChangePct = hoveredPoint ? (hoveredPoint.changePct || 0) : (basePrice > 0 && baseChange !== 0 ? (baseChange / basePrice) * 100 : 0);
+  const currentIsPositive = currentChangeVal >= 0;
 
   const getFlagUrl = (flagPath?: string) => {
     if (!flagPath) return null;
@@ -555,8 +588,18 @@ export default function MobileCommodityChart({
   const fillColorId = isPositive ? 'colorPriceGreen' : 'colorPriceRed';
 
   const defaultPacking = apiProduct?.product?.packing_types?.find((p: any) => p.is_default)?.packing_type?.title;
+  
+  const defaultPackingStr = defaultPacking || '50 kg';
+  const bagWeightMatch = defaultPackingStr.toLowerCase().match(/(\d+(?:\.\d+)?)\s*kg/);
+  const bagWeight = bagWeightMatch ? parseFloat(bagWeightMatch[1]) : (defaultPackingStr.toLowerCase().includes('mt') ? 1000 : 50);
+  
+  const roundedPrice = Math.round(periodLatestPoint.price);
+  const pricePerBag = (roundedPrice / 1000) * bagWeight;
+
   const containerTitle = apiProduct?.shipping_container?.title || item.shipBy || '20FT FCL';
   const loadingCapacity = apiProduct?.loading_capacity || 26;
+  const numericCapacityMatch = String(loadingCapacity).match(/(\d+(?:\.\d+)?)/);
+  const numericCapacity = numericCapacityMatch ? parseFloat(numericCapacityMatch[1]) : 26;
   const fobPrice = apiProduct?.fob_price != null ? apiProduct.fob_price : (productDetails?.loading_ports?.[0]?.price ?? null);
 
   const activeCommentItem = useMemo(() => {
@@ -675,25 +718,43 @@ export default function MobileCommodityChart({
               <h1 className="font-extrabold text-[13px] min-[390px]:text-[15px] sm:text-[16px] lg:text-[18px] xl:text-[19px] tracking-tight leading-tight text-foreground uppercase line-clamp-1 flex-1 min-w-0">
                 {item.product || apiProduct?.product?.name}
               </h1>
-
-              {/* Information Icon to trigger Specifications & Description Modal */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowSpecsModal(true);
-                }}
-                className="flex items-center justify-center w-5 h-5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/30 shadow-xs hover:scale-110 active:scale-90 transition-transform cursor-pointer shrink-0"
-                title="View Specifications & Description"
-                aria-label="View Specifications & Description"
-              >
-                <i className="fa-solid fa-info text-[9px]"></i>
-              </button>
             </div>
-            <p className="text-[10px] min-[390px]:text-[11px] sm:text-[12px] text-foreground/75 mt-0.5 font-medium leading-tight truncate">
-              {item.country || apiProduct?.country?.name || 'Global'} • {item.term || apiProduct?.shipping_term?.title || 'FOB'} • {item.pol || apiProduct?.loading_port?.name || 'Port'}
-            </p>
+            <div className="flex items-center gap-1.5 text-[10px] min-[390px]:text-[11px] sm:text-[12px] mt-1 whitespace-nowrap overflow-hidden">
+              <span className="font-semibold text-foreground/80 truncate">{item.country || apiProduct?.country?.name || 'Global'}</span>
+              <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+              <span className="font-semibold text-foreground/80 shrink-0">{item.term || apiProduct?.shipping_term?.title || 'FOB'}</span>
+              <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+              <span className="font-semibold text-foreground/80 shrink-0">{item.shipBy || apiProduct?.shipping_container?.title || '20FT FCL'}</span>
+              <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+              <div className="flex items-center gap-1 shrink-0 truncate">
+                <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POL</span>
+                <span className="font-medium text-foreground/80 truncate">{item.pol || apiProduct?.loading_port?.name || 'Port'}</span>
+              </div>
+              {['CNF', 'CIF'].includes(item.term || apiProduct?.shipping_term?.title || '') && (
+                <>
+                  <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+                  <div className="flex items-center gap-1 shrink-0 truncate">
+                    <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POD</span>
+                    <span className="font-medium text-foreground/80 truncate">{item.pod || apiProduct?.destination_port?.name || 'Port'}</span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
+
+          {/* Information Icon to trigger Specifications & Description Modal */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowSpecsModal(true);
+            }}
+            className="flex items-center justify-center w-5 h-5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/30 shadow-xs hover:scale-110 active:scale-90 transition-transform cursor-pointer shrink-0 ml-1"
+            title="View Specifications & Description"
+            aria-label="View Specifications & Description"
+          >
+            <i className="fa-solid fa-info text-[9px]"></i>
+          </button>
         </div>
 
         {/* Center: Desktop Navigation Tabs (Visible on >= lg) */}
@@ -715,14 +776,15 @@ export default function MobileCommodityChart({
         {/* Right: Price, Trend Change & Top Right Close Cross Button */}
         <div className="flex items-center gap-2 lg:gap-3 shrink-0">
           <div className="text-right">
-            <div className={`flex items-center justify-end gap-1 font-bold text-[15px] min-[390px]:text-[17px] sm:text-[18px] lg:text-[20px] tracking-tight  ${isPositive ? 'text-brand-green' : 'text-brand-red'
+            <div className={`flex items-center justify-end gap-1 font-bold text-[15px] min-[390px]:text-[17px] sm:text-[18px] lg:text-[20px] tracking-tight  ${currentIsPositive ? 'text-brand-green' : 'text-brand-red'
               }`}>
-              <span>${currentDisplayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="text-[11px] min-[390px]:text-[12px] lg:text-[13px]">{isPositive ? '▲' : '▼'}</span>
+              <span>${currentDisplayPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+              <span className="text-[11px] min-[390px]:text-[12px] lg:text-[13px]">{currentIsPositive ? '▲' : '▼'}</span>
             </div>
-            <div className="text-[10px] min-[390px]:text-[11px] sm:text-[12px] font-medium mt-0.5 whitespace-nowrap">
-              <span className={isPositive ? 'text-brand-green' : 'text-brand-red'}>
-                {isPositive ? `+$${Math.abs(timeframeDiff).toFixed(2)}` : `-$${Math.abs(timeframeDiff).toFixed(2)}`} ({isPositive ? '+' : '-'}{timeframePercent}%)
+            <div className="text-[10px] min-[390px]:text-[11px] sm:text-[12px] font-medium mt-0.5 whitespace-nowrap flex items-center justify-end gap-1">
+              <span className="text-foreground/50">Change:</span>
+              <span className={currentIsPositive ? 'text-brand-green' : 'text-brand-red'}>
+                {currentIsPositive ? `+$${Math.abs(currentChangeVal).toFixed(0)}` : `-$${Math.abs(currentChangeVal).toFixed(0)}`}
               </span>
             </div>
           </div>
@@ -793,13 +855,19 @@ export default function MobileCommodityChart({
                   {periodStartPoint.formattedDate} — {periodLatestPoint.formattedDate}
                 </span>
               </div>
-              <span className={`text-[13px] lg:text-[14px] font-bold mt-0.5 ${isPositive ? 'text-brand-green' : 'text-brand-red'}`}>
-                {isPositive ? `+$${Math.abs(timeframeDiff).toFixed(2)}` : `-$${Math.abs(timeframeDiff).toFixed(2)}`} ({isPositive ? '+' : '-'}{timeframePercent}%)
-              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[12px] lg:text-[13px] font-medium text-foreground/50">Change:</span>
+                <span className={`text-[13px] lg:text-[14px] font-bold ${isPositive ? 'text-brand-green' : 'text-brand-red'}`}>
+                  {isPositive ? `+$${Math.abs(timeframeDiff).toFixed(0)}` : `-$${Math.abs(timeframeDiff).toFixed(0)}`}
+                </span>
+              </div>
             </div>
 
             {/* Area / Line Chart with Range Slider Brush & Direct Tooltip Comments */}
             <div className="w-full h-[140px] min-[390px]:h-[175px] sm:h-[210px] lg:h-[270px] xl:h-[300px] relative">
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-[0.1] dark:opacity-[0.00] z-0 select-none">
+                <img src="/logo.svg" alt="Agriguru Watermark" className="w-[60%] max-w-[200px] grayscale object-contain" />
+              </div>
               {isLoading ? (
                 <div className="w-full h-full flex flex-col justify-end p-3 gap-2">
                   <div className="w-full h-[80%] bg-muted rounded-xl animate-pulse flex items-center justify-center">
@@ -868,7 +936,7 @@ export default function MobileCommodityChart({
                             <div className="bg-card text-foreground text-[11px] font-bold px-3 py-2 rounded-xl shadow-2xl border border-border max-w-[270px] z-50">
                               <div className="flex items-center justify-between gap-3 text-foreground/75 text-[10px] font-normal">
                                 <span>{pt.formattedDate}</span>
-                                <span className="text-[13px] text-foreground font-black">${pt.price}</span>
+                                <span className="text-[13px] text-foreground font-black">${pt.price.toFixed(0)}</span>
                               </div>
 
                               {hasProductNote && (
@@ -977,7 +1045,7 @@ export default function MobileCommodityChart({
                     </span>
                     <span className="text-foreground/30">•</span>
                     <span className="text-[11px] font-bold text-foreground">
-                      {activeCommentItem.formattedDate} (${activeCommentItem.price} PMT)
+                      {activeCommentItem.formattedDate} (${activeCommentItem.price.toFixed(0)} PMT)
                     </span>
                   </div>
                 </div>
@@ -1038,14 +1106,6 @@ export default function MobileCommodityChart({
                   </button>
                 ))}
               </div>
-
-              <button
-                type="button"
-                className="hidden sm:flex items-center gap-1.5 ml-2 px-3 py-1 bg-brand-blue/10 hover:bg-brand-blue/20 text-brand-blue font-bold text-[11px] lg:text-[12px] rounded-lg border border-brand-blue/30  shadow-xs cursor-pointer active:scale-95 shrink-0"
-              >
-                <i className="fa-solid fa-microchip text-brand-blue text-[11px]"></i>
-                <span>AI Predict</span>
-              </button>
             </div>
 
             {/* Swipe up for details hint (Mobile only when half-sheet) */}
@@ -1450,7 +1510,7 @@ export default function MobileCommodityChart({
 
                               <div className="text-right shrink-0">
                                 <div className="text-[14px] sm:text-[15px] font-black text-foreground">
-                                  ${d.price.toFixed(2)} <span className="text-[10px] font-medium text-foreground/50">PMT</span>
+                                  ${d.price.toFixed(0)} <span className="text-[10px] font-medium text-foreground/50">PMT</span>
                                 </div>
                                 {d.changeVal != null && d.changeVal !== 0 ? (
                                   <div className={`text-[10px] font-bold flex items-center justify-end gap-1 ${d.changeVal > 0
@@ -1520,7 +1580,7 @@ export default function MobileCommodityChart({
                       {timeRange} Price Range & Occurrence Dates
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
-                      Spread: ${(periodMaxPoint.price - periodMinPoint.price).toFixed(2)}
+                      Spread: ${(periodMaxPoint.price - periodMinPoint.price).toFixed(0)}
                     </span>
                   </div>
 
@@ -1528,7 +1588,7 @@ export default function MobileCommodityChart({
                     <div className="flex flex-col items-start text-left">
                       <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Period Low</span>
                       <span className="text-[15px] font-black text-brand-red mt-0.5">
-                        ${periodMinPoint.price}
+                        ${periodMinPoint.price.toFixed(0)}
                       </span>
                       <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
                         {periodMinPoint.formattedDate}
@@ -1538,7 +1598,7 @@ export default function MobileCommodityChart({
                     <div className="flex flex-col items-center text-center">
                       <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Current Rate</span>
                       <span className="text-[15px] font-black text-foreground mt-0.5">
-                        ${periodLatestPoint.price}
+                        ${periodLatestPoint.price.toFixed(0)}
                       </span>
                       <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
                         {periodLatestPoint.formattedDate}
@@ -1548,7 +1608,7 @@ export default function MobileCommodityChart({
                     <div className="flex flex-col items-end text-right">
                       <span className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">Period High</span>
                       <span className="text-[15px] font-black text-brand-green mt-0.5">
-                        ${periodMaxPoint.price}
+                        ${periodMaxPoint.price.toFixed(0)}
                       </span>
                       <span className="text-[10px] text-foreground/75 font-medium leading-tight mt-0.5">
                         {periodMaxPoint.formattedDate}
@@ -1560,13 +1620,13 @@ export default function MobileCommodityChart({
                     <div
                       className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-foreground rounded-full shadow-lg border-2 border-background  "
                       style={{ left: `${periodPositionPercent}%` }}
-                      title={`Current: $${periodLatestPoint.price}`}
+                      title={`Current: $${periodLatestPoint.price.toFixed(0)}`}
                     ></div>
                   </div>
                   <div className="flex justify-between items-center text-[10px] text-foreground/50 mt-1 font-medium">
-                    <span>Low Range (${periodMinPoint.price})</span>
-                    <span>Avg (${avgPrice.toFixed(2)})</span>
-                    <span>High Range (${periodMaxPoint.price})</span>
+                    <span>Low Range (${periodMinPoint.price.toFixed(0)})</span>
+                    <span>Avg (${avgPrice.toFixed(0)})</span>
+                    <span>High Range (${periodMaxPoint.price.toFixed(0)})</span>
                   </div>
                 </div>
 
@@ -1595,7 +1655,7 @@ export default function MobileCommodityChart({
                       <div className="flex flex-col items-center text-center">
                         <span className="text-[10px] font-bold text-foreground/50 uppercase">Est. Freight Spread</span>
                         <span className="text-[14px] font-extrabold text-purple-600 dark:text-purple-400 mt-0.5">
-                          +${cifFreightSpread.toFixed(2)}
+                          +${cifFreightSpread.toFixed(0)}
                         </span>
                         <span className="text-[10px] text-foreground/75 font-medium">Ocean Logistics</span>
                       </div>
@@ -1603,7 +1663,7 @@ export default function MobileCommodityChart({
                       <div className="flex flex-col items-end text-right">
                         <span className="text-[10px] font-bold text-foreground/50 uppercase">Total {item.term || 'CIF'}</span>
                         <span className="text-[14px] font-extrabold text-brand-green mt-0.5">
-                          ${periodLatestPoint.price}
+                          ${periodLatestPoint.price.toFixed(0)}
                         </span>
                         <span className="text-[10px] text-foreground/75 font-medium leading-tight" title={item.pod || 'POD'}>
                           {item.pod && item.pod !== 'N/A' ? item.pod : (item.term || 'POD')}
@@ -1613,11 +1673,11 @@ export default function MobileCommodityChart({
                   </div>
                 )}
 
-                {/* Enhanced "Know Your Commodity" Section on Mobile / Overview */}
+                {/* Enhanced "Commodity Insights" Section on Mobile / Overview */}
                 <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-bold text-[14px] text-foreground">Know Your Commodity</h3>
+                      <h3 className="font-bold text-[14px] text-foreground">Commodity Insights</h3>
                       <p className="text-[11px] text-foreground/75 mt-0.5">
                         Verified product specifications, packaging options & trade terms.
                       </p>
@@ -1633,20 +1693,20 @@ export default function MobileCommodityChart({
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className={`bg-background/50 p-2.5 rounded-xl border border-border border-l-4 ${aiSentiment.isBullish ? 'border-l-brand-green' : 'border-l-brand-red'
-                      }`}>
-                      <div className="text-[10px] font-bold text-foreground/50 uppercase">AI FORECAST & SIGNAL</div>
-                      <div className={`text-[12px] min-[390px]:text-[13px] font-bold mt-0.5 leading-snug ${aiSentiment.isBullish ? 'text-brand-green' : 'text-brand-red'
-                        }`}>
-                        {aiSentiment.label} ({aiSentiment.change})
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-brand-blue">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase">Est. Cargo Value</div>
+                      <div className="text-[13px] min-[390px]:text-[14px] font-bold mt-0.5 text-foreground">
+                        ${(roundedPrice * numericCapacity).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </div>
+                      <div className="text-[10px] text-foreground/50 mt-0.5">Per {loadingCapacity} MT Container</div>
                     </div>
 
-                    <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-brand-blue">
-                      <div className="text-[10px] font-bold text-foreground/50 uppercase">SUPPORT / RESISTANCE</div>
-                      <div className="text-[13px] font-bold text-foreground mt-0.5">
-                        ${supportResistance.support} — ${supportResistance.resistance}
+                    <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-emerald-500">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase">Unit Rate (Per Bag)</div>
+                      <div className="text-[13px] min-[390px]:text-[14px] font-bold mt-0.5 text-foreground">
+                        ${pricePerBag.toFixed(2)}
                       </div>
+                      <div className="text-[10px] text-foreground/50 mt-0.5">For {bagWeight} KG Bag</div>
                     </div>
                   </div>
 
@@ -1702,12 +1762,15 @@ export default function MobileCommodityChart({
             <div className="bg-background/50 rounded-xl p-3 border border-border">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-foreground/50 uppercase">Current Rate</span>
-                <span className={`text-[12px] font-bold ${isPositive ? 'text-brand-green' : 'text-brand-red'}`}>
-                  {isPositive ? `▲ +$${Math.abs(timeframeDiff).toFixed(2)}` : `▼ -$${Math.abs(timeframeDiff).toFixed(2)}`} ({isPositive ? '+' : '-'}{timeframePercent}%)
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-medium text-foreground/50">Change:</span>
+                  <span className={`text-[12px] font-bold ${isPositive ? 'text-brand-green' : 'text-brand-red'}`}>
+                    {isPositive ? `▲ +$${Math.abs(timeframeDiff).toFixed(0)}` : `▼ -$${Math.abs(timeframeDiff).toFixed(0)}`}
+                  </span>
+                </div>
               </div>
               <div className="text-[24px] font-black text-foreground mt-1">
-                ${currentDisplayPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-[13px] font-normal text-foreground/50">PMT</span>
+                ${currentDisplayPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} <span className="text-[13px] font-normal text-foreground/50">PMT</span>
               </div>
               <div className="text-[11px] text-foreground/75 mt-1 flex items-center gap-1.5">
                 <i className="fa-solid fa-box text-brand-blue text-[10px]"></i>
@@ -1733,42 +1796,42 @@ export default function MobileCommodityChart({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shadow-xs border border-border cursor-pointer"
+                  className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
                 >
-                  <i className="fa-solid fa-bell text-amber-500 text-[12px]"></i>
+                  <i className="fa-solid fa-bell text-amber-500 text-[16px]"></i>
                   <span className="whitespace-nowrap">Create Alert</span>
                 </button>
 
                 <button
                   type="button"
-                  className="w-full py-2.5 bg-brand-blue/10 hover:bg-brand-blue/20 active:scale-95 text-brand-blue font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shadow-xs border border-brand-blue/30 cursor-pointer"
+                  className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
                 >
-                  <i className="fa-solid fa-microchip text-brand-blue text-[12px]"></i>
+                  <i className="fa-solid fa-microchip text-brand-blue text-[16px]"></i>
                   <span className="whitespace-nowrap">AI Predict</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* 52-Week Range & Market Metrics Card */}
+          {/* Period Range & Market Metrics Card */}
           <div className="bg-card rounded-2xl border border-border p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-border">
-              <span className="text-[12px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                52-Week & Market Key Stats
+              <span className="text-[12px] font-bold text-foreground/75 uppercase tracking-wider">
+                {timeRange} & Market Key Stats
               </span>
-              <i className="fa-solid fa-chart-simple text-blue-500 text-sm"></i>
+              <i className="fa-solid fa-chart-simple text-brand-blue text-sm"></i>
             </div>
 
-            {/* 52-Week Range */}
+            {/* Period Range */}
             <div>
               <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="text-zinc-400 uppercase">52-Week Range</span>
-                <span className="text-zinc-800 dark:text-zinc-200">${low52.toFixed(0)} — ${high52.toFixed(0)}</span>
+                <span className="text-foreground/50 uppercase">{timeRange} Range</span>
+                <span className="text-foreground">${periodMinPoint.price.toFixed(0)} — ${periodMaxPoint.price.toFixed(0)}</span>
               </div>
-              <div className="relative w-full h-2 rounded-full bg-gradient-to-r from-red-400 via-purple-400 to-emerald-500 mt-2">
+              <div className="relative w-full h-2 rounded-full bg-gradient-to-r from-brand-red via-amber-400 to-brand-green mt-2">
                 <div
-                  className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-zinc-900 dark:bg-white rounded-full shadow-md border-2 border-white dark:border-zinc-900  "
-                  style={{ left: `${pos52Percent}%` }}
+                  className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-foreground rounded-full shadow-md border-2 border-background  "
+                  style={{ left: `${periodPositionPercent}%` }}
                 ></div>
               </div>
             </div>
@@ -1776,20 +1839,12 @@ export default function MobileCommodityChart({
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-2 pt-1">
               <div className="bg-muted p-2.5 rounded-xl border border-border">
-                <div className="text-[10px] font-bold text-zinc-400 uppercase">Avg. Price</div>
-                <div className="text-[13px] font-extrabold text-zinc-900 dark:text-white mt-0.5">${avgPrice.toFixed(2)}</div>
+                <div className="text-[10px] font-bold text-foreground/50 uppercase">Avg. Price</div>
+                <div className="text-[13px] font-extrabold text-foreground mt-0.5">${avgPrice.toFixed(0)}</div>
               </div>
               <div className="bg-muted p-2.5 rounded-xl border border-border">
-                <div className="text-[10px] font-bold text-zinc-400 uppercase">Volatility</div>
-                <div className="text-[13px] font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{volatilityInfo.value}</div>
-              </div>
-              <div className="bg-muted p-2.5 rounded-xl border border-border">
-                <div className="text-[10px] font-bold text-zinc-400 uppercase">Support</div>
-                <div className="text-[13px] font-extrabold text-emerald-600 mt-0.5">${supportResistance.support}</div>
-              </div>
-              <div className="bg-muted p-2.5 rounded-xl border border-border">
-                <div className="text-[10px] font-bold text-zinc-400 uppercase">Resistance</div>
-                <div className="text-[13px] font-extrabold text-red-500 mt-0.5">${supportResistance.resistance}</div>
+                <div className="text-[10px] font-bold text-foreground/50 uppercase">Fluctuation</div>
+                <div className="text-[13px] font-extrabold text-brand-blue mt-0.5">{volatilityInfo.value}</div>
               </div>
             </div>
 
