@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import DedicatedChartClient from './DedicatedChartClient';
 import { cookies } from 'next/headers';
 import { getTradingApiUrl, getUserApiUrl, getSafeLang, getAssetsUrl } from '@/lib/api-utils';
+import { getUserProfile } from '@/lib/user-data';
 
 import { getAlternates, getSafeLanguage } from '@/lib/seo';
 
@@ -108,20 +109,14 @@ async function getChartProductData(id: string, lang: string = 'en') {
   let userType: string | null = null;
   let itemData: any = null;
 
-  // 1. Fetch user profile for userType
+  // 1. Fetch user profile for userType — deduplicated via React cache()
   if (token) {
     try {
-      const uRes = await fetch(`${getUserApiUrl()}/user/my-profile?lang_code=${safeLang}&source=web`, {
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        next: { revalidate: 60 }
-      });
-      if (uRes.ok) {
-        const uJson = await uRes.json();
-        if (uJson.data?.user_type) {
-          userType = typeof uJson.data.user_type === 'string'
-            ? uJson.data.user_type.toLowerCase()
-            : String(uJson.data.user_type.name || '').toLowerCase();
-        }
+      const { userProfile } = await getUserProfile(token, safeLang);
+      if (userProfile?.user_type) {
+        userType = typeof userProfile.user_type === 'string'
+          ? userProfile.user_type.toLowerCase()
+          : String(userProfile.user_type.name || '').toLowerCase();
       }
     } catch (e) {
       console.error('Failed to fetch profile:', e);

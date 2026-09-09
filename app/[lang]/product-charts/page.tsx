@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import ProductChartsClient from '@/components/product-charts/ProductChartsClient'
 import { cookies } from 'next/headers'
 import { getTradingApiUrl, getUserApiUrl, getSafeLang } from '@/lib/api-utils'
+import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
@@ -48,7 +49,7 @@ async function getChartsInitialData(lang: string = 'en') {
   const [productsSettled, termsSettled, profileSettled, favsSettled] = await Promise.allSettled([
     fetch(pUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
     fetch(tUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
-    token ? fetch(uUrl, { headers: authHeaders, cache: 'no-store' }).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+    token ? getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null) : Promise.resolve(null),
     fetch(fUrl, { headers: authHeaders, cache: 'no-store' }).then(r => r.ok ? r.json() : null)
   ])
 

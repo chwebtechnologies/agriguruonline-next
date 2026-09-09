@@ -101,7 +101,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     ],
     [
       { label: 'Alerts Setups', icon: 'fa-solid fa-bell', href: `/${lang}/alerts-setups`, iconBg: 'bg-rose-500' },
-      { label: 'AI Predicts', icon: 'fa-solid fa-microchip', href: '#', iconBg: 'bg-purple-500' },
+      { label: 'AI Predicts', icon: 'fa-solid fa-microchip', href: `/${lang}/ai-predict`, iconBg: 'bg-purple-500' },
     ],
     [
       { label: 'Smart Docs', icon: 'fa-solid fa-file-pen', href: '#', iconBg: 'bg-cyan-500' },

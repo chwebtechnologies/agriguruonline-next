@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import FreightChartClient from '@/components/freight-chart/FreightChartClient'
 import { cookies } from 'next/headers'
 import { getTradingApiUrl, getUserApiUrl, getSafeLang } from '@/lib/api-utils'
+import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
@@ -44,7 +45,7 @@ async function getFreightInitialData(lang: string = 'en') {
   // Execute all independent API fetches concurrently in parallel
   const [containersSettled, profileSettled, favsSettled] = await Promise.allSettled([
     fetch(cUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
-    token ? fetch(uUrl, { headers: authHeaders, next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null) : Promise.resolve(null),
+    token ? getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null) : Promise.resolve(null),
     fetch(fUrl, { headers: authHeaders, next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null)
   ])
 

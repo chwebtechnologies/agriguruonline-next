@@ -3,9 +3,9 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ForceLogout } from '@/components/auth/ForceLogout';
-import { AlertsClient } from './AlertsClient';
+import { AIPredictClient } from '@/app/[lang]/ai-predict/AIPredictClient';
 
-import { getUserAlerts } from '@/lib/user-data';
+import { getUserAiPredicts } from '@/lib/user-data';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -16,14 +16,14 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang);
 
   return getStandardMetadata({
-    pageKey: 'alerts_setups',
-    pathname: 'alerts-setups',
+    pageKey: 'ai_predicts',
+    pathname: 'ai-predict',
     lang,
     noIndex: true,
   });
 }
 
-export default async function AlertsSetupsPage(props: { params: Promise<{ lang: string }> }) {
+export default async function AIPredictPage(props: { params: Promise<{ lang: string }> }) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
   
@@ -34,15 +34,15 @@ export default async function AlertsSetupsPage(props: { params: Promise<{ lang: 
     redirect(`/${lang}/login`);
   }
 
-  const alertsList = await getUserAlerts(token, lang);
+  const predictsList = await getUserAiPredicts(token, lang);
 
   return (
     <div className="bg-background text-foreground transition-theme pb-5">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Alerts Setups" backText="Back" />
+          <PageHeader title="AI Predict" backText="Back" />
 
-          <AlertsClient initialAlerts={alertsList} lang={lang} />
+          <AIPredictClient initialPredicts={predictsList} lang={lang} />
 
         </div>
       </div>

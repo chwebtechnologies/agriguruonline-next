@@ -11,6 +11,7 @@ import KycAlertBanner from '@/components/profile/KycAlertBanner';
 import { getCategories } from '@/lib/category';
 import { ForceLogout } from '@/components/auth/ForceLogout';
 import { getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
+import { getUserProfile } from '@/lib/user-data';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -44,40 +45,8 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   const dict = await getDictionary(lang);
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
 
-  // Fetch profile data
-  const userApiUrl = getUserApiUrl();
-  const profileApiUrl = `${userApiUrl}/user/my-profile?lang_code=${lang}&source=web`;
-  let profileData = null;
-  let shouldLogout = false;
-  try {
-    const res = await fetch(profileApiUrl, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      cache: 'no-store'
-    });
-    
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success === false || !json.data) {
-        // Token might be expired but API returned 200 with success: false
-        shouldLogout = true;
-      } else {
-        profileData = json.data;
-      }
-    } else {
-      // Any non-200 status for profile means we cannot securely render the page
-      shouldLogout = true;
-    }
-  } catch (error: any) {
-    console.error('Failed to fetch profile', error);
-    if (error.name === 'AbortError' || error.message?.includes('aborted')) {
-      // Don't immediately logout on abort error (which can happen during fast navigations)
-      // We will let the lack of profile data trigger ForceLogout, but maybe we should try one more time?
-      console.log('Abort error detected, not an auth failure necessarily.');
-    }
-    shouldLogout = true;
-  }
+  // Fetch profile data — deduplicated with Header via React cache()
+  const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
 
   // 100% Security: If there is no profile data or we marked for logout, redirect immediately
   if (shouldLogout || !profileData) {
@@ -94,9 +63,9 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   const userId = profileData.id || profileData._id || profileData.customer_id;
 
   const [categoriesResult, countriesResult, kycResult] = await Promise.allSettled([
-    getCategories(lang, { apiUrl: categoriesApiUrl, stale: cacheStale, revalidate: cacheRevalidate, expire: cacheExpire }),
+    getCategories(lang),
     fetch(`${tradingApiUrl}/country?lang_code=${lang}&source=web`, { next: { revalidate: 60 } }).then(r => r.json()),
-    fetch(`${userApiUrl}/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
+    fetch(`${getUserApiUrl()}/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
       headers: { 'Authorization': `Bearer ${token}` },
       cache: 'no-store'
     }).then(r => r.json())

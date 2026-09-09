@@ -132,15 +132,15 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/proxy-trading/:path*',
-        destination: `${process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud'}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.com'}/:path*`,
       },
       {
         source: '/api/proxy-cms/:path*',
-        destination: `${process.env.NEXT_PUBLIC_CMS_API_URL || 'https://cms-api.agriguruonline.cloud'}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_CMS_API_URL || 'https://cms-api.agriguruonline.com'}/:path*`,
       },
       {
         source: '/api/proxy-user/:path*',
-        destination: `${process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud'}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.com'}/:path*`,
       }
     ]
   },

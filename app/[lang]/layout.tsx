@@ -184,7 +184,7 @@ export default async function LocalizedRootLayout({
             <NavigationProgress />
           </Suspense>
           <AnnouncementBar />
-          <Header />
+          <Header dict={dict} activeLang={activeLang} categories={categories} />
 
           <main className="flex-grow w-full relative">
             {children}

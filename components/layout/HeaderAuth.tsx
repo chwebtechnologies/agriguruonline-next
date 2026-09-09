@@ -12,6 +12,10 @@ import { getAssetsUrl, getUserApiUrl } from '@/lib/api-utils';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
 import { useNotification } from '@/components/providers/NotificationProvider'
 import { getUnreadStatusFromIndexedDB, setUnreadStatusInIndexedDB } from '@/lib/notificationStorage'
+import { ProductAlertCard } from '@/components/alerts/ProductAlertCard'
+import { FreightAlertCard } from '@/components/alerts/FreightAlertCard'
+import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard'
+import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard'
 
 interface HeaderAuthProps {
   token: string
@@ -68,16 +72,24 @@ interface HeaderAuthProps {
   activeLang: string
   categories?: Array<{ name: string; href: string }>
   profile?: any
+  alerts?: any[]
+  notifications?: any[]
+  aiPredicts?: any[]
 }
 
-export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile }: HeaderAuthProps) {
-  const [profile, setProfile] = useState<any>(initialProfile || null)
+export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile, alerts: initialAlerts = [], notifications: initialNotifications = [], aiPredicts: initialAiPredicts = [] }: HeaderAuthProps) {
+  const [profile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [activeNotificationTab, setActiveNotificationTab] = useState<'notifications' | 'alerts' | 'ai_predicts'>('notifications')
-  const [notificationsData, setNotificationsData] = useState<any[]>([])
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
-  const [hasFetchedNotifications, setHasFetchedNotifications] = useState(false)
+
+  // All data is initialized from SSR props — no client-side fetching
+  const [notificationsData] = useState<any[]>(initialNotifications)
+
+  const [alertsData] = useState<any[]>(initialAlerts)
+
+  const [aiPredictsData] = useState<any[]>(initialAiPredicts)
+
   const { hasUnread, setHasUnread, fcmToken } = useNotification()
 
   // Local unread state synced with localStorage, IndexedDB, and real-time events
@@ -99,39 +111,27 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
     syncUnreadState();
 
-    // 2. Check backend for unread notifications on mount and tab focus
-    const checkBackendUnread = async () => {
-      if (!token) return;
-      try {
-        const res = await fetch(`${getUserApiUrl()}/custom-notification?lang_code=${activeLang}&source=web`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const json = await res.json();
-          const items = Array.isArray(json) ? json : (json?.data?.data || json?.data || json?.notifications || json?.results || []);
-          if (Array.isArray(items) && items.length > 0) {
-            const isItemRead = (item: any) => {
-              if (!item || typeof item !== 'object') return true;
-              return item.is_read === true || item.is_read === 1 || item.is_read === '1' ||
-                     item.read === true || item.read === 1 || item.read === '1';
-            };
-            const hasUnreadItem = items.some((item: any) => !isItemRead(item));
-            if (hasUnreadItem) {
-              setLocalUnread(true);
-              setHasUnread(true);
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('ag_has_unread_notif', '1');
-              }
-              setUnreadStatusInIndexedDB(true);
-            }
+    // 2. Check SSR notifications for unread status on mount
+    const checkInitialUnread = () => {
+      if (initialNotifications && initialNotifications.length > 0) {
+        const isItemRead = (item: any) => {
+          if (!item || typeof item !== 'object') return true;
+          return item.is_read === true || item.is_read === 1 || item.is_read === '1' ||
+                 item.read === true || item.read === 1 || item.read === '1';
+        };
+        const hasUnreadItem = initialNotifications.some((item: any) => !isItemRead(item));
+        if (hasUnreadItem) {
+          setLocalUnread(true);
+          setHasUnread(true);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('ag_has_unread_notif', '1');
           }
+          setUnreadStatusInIndexedDB(true);
         }
-      } catch (err) {
-        // network or auth error
       }
     };
 
-    checkBackendUnread();
+    checkInitialUnread();
 
     const triggerUnread = () => {
       setLocalUnread(true);
@@ -164,7 +164,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
     const onFocusOrVis = () => {
       syncUnreadState();
-      checkBackendUnread();
+      // checkBackendUnread(); // Removed to prevent multiple API calls on window focus
     };
 
     window.addEventListener('fcm-message', triggerUnread);
@@ -174,13 +174,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     window.addEventListener('kyc-docs-updated', onKycUpdate);
     window.addEventListener('storage', onStorage);
     window.addEventListener('focus', onFocusOrVis);
-    document.addEventListener('visibilitychange', onFocusOrVis);
-
-    const intervalId = setInterval(syncUnreadState, 1500);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        onFocusOrVis();
+      }
+    });
 
     return () => {
       isMounted = false;
-      clearInterval(intervalId);
       window.removeEventListener('fcm-message', triggerUnread);
       window.removeEventListener('new-notification', triggerUnread);
       window.removeEventListener('notification-received', triggerUnread);
@@ -215,11 +216,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
-  useEffect(() => {
-    if (initialProfile) {
-      setProfile(initialProfile)
-    }
-  }, [initialProfile])
+  // SSR props are used directly for state initialization above.
+  // No useEffect needed to sync them — they are passed once at mount time from the Server Component.
 
   // Scroll listener for sticky collapse behavior with hysteresis to prevent blinking loops
   useEffect(() => {
@@ -271,43 +269,19 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Fetch notifications
-  useEffect(() => {
-    if (isNotificationsOpen && !hasFetchedNotifications && token) {
-      const fetchNotifications = async () => {
-        setIsLoadingNotifications(true);
-        try {
-          const res = await fetch(`${getUserApiUrl()}/custom-notification?lang_code=${activeLang}&source=web`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            // Try to extract the items based on standard structures
-            const extractedItems = Array.isArray(data) ? data : 
-              (Array.isArray(data?.data?.notifications) ? data.data.notifications : 
-              (Array.isArray(data?.data?.data) ? data.data.data : 
-              (Array.isArray(data?.data) ? data.data : 
-              (Array.isArray(data?.notifications) ? data.notifications : []))));
-            setNotificationsData(extractedItems);
-          }
-        } catch (error) {
-          console.error("Failed to fetch notifications:", error);
-        } finally {
-          setIsLoadingNotifications(false);
-          setHasFetchedNotifications(true);
-        }
-      }
-      fetchNotifications();
-    }
-  }, [isNotificationsOpen, hasFetchedNotifications, token, activeLang])
+  // All notification data is provided by SSR. No client-side fetching needed.
+  // The refs hasFetchedNotificationsRef, hasFetchedAlertsRef, hasFetchedAiPredictsRef are always true.
 
-  // Sync FCM Token with backend reliably
+  // Sync FCM Token with backend reliably (at most once per session)
   const fcmSyncedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (fcmToken && token && fcmSyncedRef.current !== fcmToken) {
+    if (fcmToken && token) {
+      if (typeof window !== 'undefined' && sessionStorage.getItem('ag_fcm_synced') === fcmToken) {
+        return;
+      }
+      if (fcmSyncedRef.current === fcmToken) return;
       fcmSyncedRef.current = fcmToken;
+
       fetch(`${getUserApiUrl()}/auth/set-fcm`, {
         method: 'POST',
         headers: {
@@ -318,6 +292,9 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
       })
       .then(res => {
         if (res.ok) {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('ag_fcm_synced', fcmToken);
+          }
           console.log('[FCM] Token synced with backend successfully.');
         }
       })
@@ -472,8 +449,11 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
                 <div className="relative" ref={notificationsRef}>
                   <button
-                    onClick={() => {
-                      setIsNotificationsOpen(!isNotificationsOpen);
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsNotificationsOpen(prev => !prev);
                       if (!isNotificationsOpen) {
                         setHasUnread(false);
                         setLocalUnread(false);
@@ -481,7 +461,6 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                           localStorage.removeItem('ag_has_unread_notif');
                         }
                         setUnreadStatusInIndexedDB(false);
-                        setHasFetchedNotifications(false); // Force refetch on open
                       }
                     }}
                     className="relative flex items-center justify-center p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200 cursor-pointer"
@@ -496,7 +475,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   </button>
 
                   {isNotificationsOpen && (
-                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[360px] md:w-[440px] rounded-2xl bg-card border border-border p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[360px] sm:w-[420px] md:w-[520px] rounded-2xl bg-card border border-border p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
 
                       <div className="flex items-center p-1 bg-muted rounded-lg mb-2">
                         <button 
@@ -522,11 +501,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                       <div className="mt-2 min-h-[120px] flex flex-col justify-center">
                         {activeNotificationTab === 'notifications' && (
                           <div className="flex flex-col w-full max-h-[350px] overflow-y-auto custom-scrollbar animate-in fade-in duration-200 mt-2">
-                            {isLoadingNotifications ? (
-                              <div className="flex items-center justify-center py-6">
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                              </div>
-                            ) : notificationsData.length > 0 ? (
+                            {notificationsData.length > 0 ? (
                               <div className="flex flex-col w-full space-y-2">
                                 {notificationsData.map((item, idx) => {
                                   // If the API structure is completely unexpected, this item might be the raw JSON
@@ -641,15 +616,101 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                           </div>
                         )}
                         {activeNotificationTab === 'alerts' && (
-                          <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in duration-200">
-                            <i className="fa-regular fa-bell text-3xl text-zinc-400 mb-3"></i>
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400">{dict.header.no_alerts || 'No alerts'}</p>
+                          <div className="flex flex-col w-full max-h-[350px] overflow-y-auto custom-scrollbar animate-in fade-in duration-200 mt-2">
+                            {alertsData.length > 0 ? (
+                              <div className="flex flex-col w-full space-y-2">
+                                {alertsData.map((item, idx) => {
+                                  if (!item || typeof item !== 'object') return null;
+
+                                  const alertType = item.alert_type || item.type || 'Price Alert';
+                                  const isFreight = alertType.toLowerCase().includes('freight');
+                                  
+                                  const handleAlertClick = (id?: string) => {
+                                    let link = item.url || item.redirect_link || item.meta_data?.redirect_link;
+                                    if (link) {
+                                      try {
+                                        const urlObj = new URL(link);
+                                        if (urlObj.hostname.includes('agriguruonline.cloud') || urlObj.hostname.includes('agriguruonline.com')) {
+                                          router.push(`/${activeLang}${urlObj.pathname}${urlObj.search}`);
+                                        } else {
+                                          window.location.href = link;
+                                        }
+                                      } catch (e) {
+                                        router.push(`/${activeLang}${link.startsWith('/') ? link : '/' + link}`);
+                                      }
+                                    } else {
+                                      router.push(`/${activeLang}/alerts-setups`);
+                                    }
+                                    setIsNotificationsOpen(false);
+                                  };
+
+                                  return (
+                                    <div key={item.id || idx} style={{ zoom: 0.85 }} className="w-full">
+                                      {isFreight ? (
+                                        <FreightAlertCard 
+                                          alert={item} 
+                                          isDropdownMode={true} 
+                                          onSelect={handleAlertClick} 
+                                        />
+                                      ) : (
+                                        <ProductAlertCard 
+                                          alert={item} 
+                                          isDropdownMode={true} 
+                                          onSelect={handleAlertClick} 
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-6 text-center">
+                                <i className="fa-regular fa-bell text-3xl text-zinc-400 mb-3"></i>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400">{dict.header.no_alerts || 'No alerts'}</p>
+                              </div>
+                            )}
                           </div>
                         )}
                         {activeNotificationTab === 'ai_predicts' && (
-                          <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in duration-200">
-                            <i className="fa-solid fa-brain text-3xl text-zinc-400 mb-3"></i>
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400">{dict.header.no_ai_predictions || 'No AI predictions'}</p>
+                          <div className="flex flex-col w-full max-h-[350px] overflow-y-auto custom-scrollbar animate-in fade-in duration-200 mt-2">
+                            {aiPredictsData.length > 0 ? (
+                              <div className="flex flex-col w-full space-y-2">
+                                {aiPredictsData.map((item, idx) => {
+                                  if (!item || typeof item !== 'object') return null;
+
+                                  const handlePredictClick = (id?: string) => {
+                                    router.push(`/${activeLang}/ai-predict`);
+                                    setIsNotificationsOpen(false);
+                                  };
+
+                                  const predictType = item.predict_type || item.type || item.analysis_type || item.alert_type || 'Product';
+                                  const isFreight = predictType.toLowerCase().includes('freight') || !!(item.freight_pmt || item.target_freight || item.pmt_price) || (!!item.loading_port && !!item.destination_port && !item.product?.name && !item.product_name && !item.commodity?.name);
+
+                                  return (
+                                    <div key={item.id || idx} style={{ zoom: 0.85 }} className="w-full">
+                                      {isFreight ? (
+                                        <AIPredictFreightCard 
+                                          predict={item} 
+                                          isDropdownMode={true} 
+                                          onSelect={handlePredictClick} 
+                                        />
+                                      ) : (
+                                        <AIPredictProductCard 
+                                          predict={item} 
+                                          isDropdownMode={true} 
+                                          onSelect={handlePredictClick} 
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in duration-200">
+                                <i className="fa-solid fa-brain text-3xl text-zinc-400 mb-3"></i>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400">{dict.header.no_ai_predictions || 'No AI predictions'}</p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -657,7 +718,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   )}
                 </div>
 
-                <Link href={`/${activeLang}/profile`}>
+                <Link href={`/${activeLang}/profile`} prefetch={false}>
                   <div
                     className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-muted text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-border shadow-lg hover:scale-105 active:scale-95 duration-200"
                   >

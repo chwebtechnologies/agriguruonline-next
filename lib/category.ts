@@ -21,15 +21,16 @@ export interface CacheConfig {
   expire: number
 }
 
+import { getTradingApiUrl } from '@/lib/api-utils'
+
 /**
  * Fetches categories from the external API and caches them using Next.js fetch caching.
- * Cache configuration is passed from the server component to customize lifetimes.
+ * React cache() deduplicates calls per request when using the default signature getCategories(lang).
  */
-export const getCategories = cache(async (lang: string, config: CacheConfig): Promise<Category[]> => {
-  const url = `${config.apiUrl}?page=1&limit=25&lang_code=${lang}&source=web`
-
-  // Use config.revalidate to enable cache
-  const revalidateValue = config.revalidate
+export const getCategories = cache(async (lang: string = 'en', config?: Partial<CacheConfig>): Promise<Category[]> => {
+  const tradingApiUrl = config?.apiUrl || `${getTradingApiUrl().replace(/\/$/, '')}/category`
+  const url = `${tradingApiUrl}?page=1&limit=25&lang_code=${lang}&source=web`
+  const revalidateValue = config?.revalidate ?? 3600
 
   try {
     const response = await fetch(url, {

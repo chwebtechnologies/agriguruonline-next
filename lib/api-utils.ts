@@ -6,7 +6,7 @@ export function getUserApiUrl(): string {
   if (typeof window !== 'undefined') {
     return '/api/proxy-user';
   }
-  const url = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.cloud";
+  const url = process.env.USER_API_URL || process.env.NEXT_PUBLIC_USER_API_URL || "https://user-api.agriguruonline.com";
   return url.replace(/\/$/, "");
 }
 
@@ -14,7 +14,7 @@ export function getTradingApiUrl(): string {
   if (typeof window !== 'undefined') {
     return '/api/proxy-trading';
   }
-  const url = process.env.TRADING_API_URL || process.env.NEXT_PUBLIC_TRADING_API_URL || "https://trading-api.agriguruonline.cloud";
+  const url = process.env.TRADING_API_URL || process.env.NEXT_PUBLIC_TRADING_API_URL || "https://trading-api.agriguruonline.com";
   return url.replace(/\/$/, "");
 }
 
@@ -22,7 +22,7 @@ export function getCmsApiUrl(): string {
   if (typeof window !== 'undefined') {
     return '/api/proxy-cms';
   }
-  const url = process.env.CMS_API_URL || process.env.NEXT_PUBLIC_CMS_API_URL || "https://cms-api.agriguruonline.cloud";
+  const url = process.env.CMS_API_URL || process.env.NEXT_PUBLIC_CMS_API_URL || "https://cms-api.agriguruonline.com";
   return url.replace(/\/$/, "");
 }
 

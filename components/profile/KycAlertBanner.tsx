@@ -63,25 +63,7 @@ export default function KycAlertBanner({ initialIsKycVerified, initialKycStatus,
     }
   }, [userId, lang]);
 
-  // On mount, immediately do a fresh client-side fetch
-  useEffect(() => {
-    refreshFromApi();
-  }, [refreshFromApi]);
 
-  // Listen for tab focus & visibility changes to refresh instantly
-  useEffect(() => {
-    const handleVis = () => {
-      if (document.visibilityState === 'visible') {
-        refreshFromApi();
-      }
-    };
-    window.addEventListener('focus', handleVis);
-    document.addEventListener('visibilitychange', handleVis);
-    return () => {
-      window.removeEventListener('focus', handleVis);
-      document.removeEventListener('visibilitychange', handleVis);
-    };
-  }, [refreshFromApi]);
 
   // Listen for custom event from KycSection when documents are uploaded or updated
   useEffect(() => {
