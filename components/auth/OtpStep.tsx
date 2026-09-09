@@ -144,6 +144,27 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     }
   }, []);
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text");
+    const pastedNumbers = pastedData.replace(/\D/g, "").slice(0, 6);
+    
+    if (pastedNumbers) {
+      const newOtp = [...otp];
+      for (let i = 0; i < pastedNumbers.length; i++) {
+        newOtp[i] = pastedNumbers[i];
+      }
+      setOtp(newOtp);
+      
+      const nextIndex = Math.min(pastedNumbers.length, 5);
+      inputRefs.current[nextIndex]?.focus();
+      
+      if (pastedNumbers.length === 6) {
+        handleVerify(pastedNumbers);
+      }
+    }
+  };
+
   const handleChange = (index: number, value: string) => {
     if (error) setError("");
     // Only allow numbers
@@ -190,7 +211,10 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
       </p>
 
       <form onSubmit={handleSubmit} className="w-full">
-        <div className={`flex justify-between gap-2 ${error ? "mb-2" : "mb-8"}`}>
+        <div 
+          className={`flex justify-between gap-2 ${error ? "mb-2" : "mb-8"} ${(countdown === 0 || isExpired) ? "cursor-not-allowed" : ""}`}
+          title={(countdown === 0 || isExpired) ? "Time expired. Please resend OTP to continue." : undefined}
+        >
           {otp.map((digit, index) => (
             <input
               key={index}
@@ -203,14 +227,15 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
               autoComplete={index === 0 ? "one-time-code" : "off"}
               maxLength={1}
               value={digit}
-              disabled={isPending}
+              disabled={isPending || countdown === 0 || isExpired}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
+              onPaste={handlePaste}
               className={`w-12 h-14 text-center text-xl font-bold rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 transition-all disabled:opacity-50 ${
                 error
                   ? "border-red-500 focus:ring-red-500/50 text-red-500"
                   : "border-foreground/20 focus:ring-foreground/50"
-              }`}
+              } ${(countdown === 0 || isExpired) ? "pointer-events-none" : ""}`}
             />
           ))}
         </div>
@@ -254,7 +279,7 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
             onClick={handleResend}
             disabled={isPending}
             className={
-              isExpired
+              (countdown === 0 || isExpired)
                 ? "text-brand-blue font-bold hover:underline transition-colors animate-pulse"
                 : "text-foreground font-medium hover:underline disabled:opacity-50"
             }

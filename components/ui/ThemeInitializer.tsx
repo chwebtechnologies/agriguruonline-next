@@ -13,12 +13,15 @@ export default function ThemeInitializer() {
               try {
                 var t = localStorage.getItem('theme') || 'system';
                 var d = document.documentElement;
-                if (t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                if (t === 'dark') {
                   d.classList.add('dark');
                   d.classList.remove('light');
-                } else {
+                } else if (t === 'light') {
                   d.classList.remove('dark');
                   d.classList.add('light');
+                } else {
+                  d.classList.remove('dark');
+                  d.classList.remove('light');
                 }
               } catch(e) {}
             })()

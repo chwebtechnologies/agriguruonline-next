@@ -12,38 +12,16 @@ export default function ThemeToggle() {
     
     // Enforce theme on mount to handle edge cases (like re-enabling JS)
     const root = document.documentElement
-    if (
-      savedTheme === 'dark' ||
-      (savedTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    ) {
+    if (savedTheme === 'dark') {
       root.classList.add('dark')
       root.classList.remove('light')
-    } else {
+    } else if (savedTheme === 'light') {
       root.classList.remove('dark')
       root.classList.add('light')
+    } else {
+      root.classList.remove('dark')
+      root.classList.remove('light')
     }
-    
-    // Add listener for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      const currentTheme = localStorage.getItem('theme') || 'system'
-      if (currentTheme === 'system') {
-        document.documentElement.classList.add('disable-transitions')
-        if (e.matches) {
-          document.documentElement.classList.add('dark')
-          document.documentElement.classList.remove('light')
-        } else {
-          document.documentElement.classList.remove('dark')
-          document.documentElement.classList.add('light')
-        }
-        setTimeout(() => {
-          document.documentElement.classList.remove('disable-transitions')
-        }, 0)
-      }
-    }
-    
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
   const changeTheme = (newTheme: 'light' | 'dark' | 'system') => {
@@ -54,15 +32,15 @@ export default function ThemeToggle() {
     localStorage.setItem('theme', newTheme)
     
     const root = document.documentElement
-    if (
-      newTheme === 'dark' ||
-      (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    ) {
+    if (newTheme === 'dark') {
       root.classList.add('dark')
       root.classList.remove('light')
-    } else {
+    } else if (newTheme === 'light') {
       root.classList.remove('dark')
       root.classList.add('light')
+    } else {
+      root.classList.remove('dark')
+      root.classList.remove('light')
     }
 
     // Restore transitions after the browser has painted the new theme
