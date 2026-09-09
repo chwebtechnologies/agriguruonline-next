@@ -119,7 +119,20 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           return item.is_read === true || item.is_read === 1 || item.is_read === '1' ||
                  item.read === true || item.read === 1 || item.read === '1';
         };
-        const hasUnreadItem = initialNotifications.some((item: any) => !isItemRead(item));
+        
+        let hasUnreadItem = false;
+        const lastSeenId = typeof window !== 'undefined' ? localStorage.getItem('ag_last_seen_notif_id') : null;
+
+        for (const item of initialNotifications) {
+          if (lastSeenId && item.id && item.id.toString() === lastSeenId) {
+            break;
+          }
+          if (!isItemRead(item)) {
+            hasUnreadItem = true;
+            break;
+          }
+        }
+
         if (hasUnreadItem) {
           setLocalUnread(true);
           setHasUnread(true);
@@ -459,6 +472,12 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         setLocalUnread(false);
                         if (typeof window !== 'undefined') {
                           localStorage.removeItem('ag_has_unread_notif');
+                          if (notificationsData && notificationsData.length > 0) {
+                            const firstId = notificationsData[0].id;
+                            if (firstId) {
+                              localStorage.setItem('ag_last_seen_notif_id', firstId.toString());
+                            }
+                          }
                         }
                         setUnreadStatusInIndexedDB(false);
                       }
