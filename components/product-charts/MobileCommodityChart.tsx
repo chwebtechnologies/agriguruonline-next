@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
 import { getPriceHistoryAction, getProductDetailsAction } from '@/app/actions/charts';
 
 export interface CommodityItemData {
@@ -140,6 +140,11 @@ export default function MobileCommodityChart({
   const [showSpecsModal, setShowSpecsModal] = useState<boolean>(false);
   const [historicalFilter, setHistoricalFilter] = useState<'all' | 'notes_only' | 'product_only' | 'freight_only'>('all');
   const [historicalSearch, setHistoricalSearch] = useState<string>('');
+
+  const [showAlertInput, setShowAlertInput] = useState<boolean>(false);
+  const [alertInputValue, setAlertInputValue] = useState<string>('');
+  const [alertError, setAlertError] = useState<string>('');
+  const [alertSuccess, setAlertSuccess] = useState<string>('');
 
   const [priceHistory, setPriceHistory] = useState<PriceHistoryItem[]>([]);
   const [alertRange, setAlertRange] = useState<{ min: number; max: number } | null>(null);
@@ -343,31 +348,9 @@ export default function MobileCommodityChart({
     return subset;
   }, [priceHistory, timeRange, item.price]);
 
-  // Fast downsampling for Recharts AreaChart (caps SVG complexity to ~90 points while preserving all milestone notes)
+  // Removed downsampling to show all data points on the chart
   const chartData = useMemo<PriceHistoryItem[]>(() => {
-    if (!filteredData || filteredData.length <= 110) {
-      return filteredData;
-    }
-
-    let minIdx = 0;
-    let maxIdx = 0;
-    for (let i = 1; i < filteredData.length; i++) {
-      if (filteredData[i].price < filteredData[minIdx].price) minIdx = i;
-      if (filteredData[i].price > filteredData[maxIdx].price) maxIdx = i;
-    }
-
-    const step = Math.ceil(filteredData.length / 90);
-    const result: PriceHistoryItem[] = [];
-    const lastIdx = filteredData.length - 1;
-
-    for (let i = 0; i <= lastIdx; i++) {
-      const pt = filteredData[i];
-      const hasComment = Boolean(pt.product_comment || pt.freight_comment || pt.comment || pt.remarks);
-      if (i === 0 || i === lastIdx || i === minIdx || i === maxIdx || hasComment || i % step === 0) {
-        result.push(pt);
-      }
-    }
-    return result;
+    return filteredData || [];
   }, [filteredData]);
 
   // Isolated Specifications Parsing (Runs ONLY when product details change)
@@ -560,6 +543,48 @@ export default function MobileCommodityChart({
   const currentChangeVal = hoveredPoint ? (hoveredPoint.changeVal || 0) : baseChange;
   const currentChangePct = hoveredPoint ? (hoveredPoint.changePct || 0) : (basePrice > 0 && baseChange !== 0 ? (baseChange / basePrice) * 100 : 0);
   const currentIsPositive = currentChangeVal >= 0;
+
+  const handleAlertSubmit = () => {
+    const val = Number(alertInputValue);
+    if (!val || isNaN(val)) {
+      setAlertError('Please enter a valid price.');
+      return;
+    }
+    
+    const minLimit = supportResistance.support;
+    const maxLimit = supportResistance.resistance;
+
+    if (val < minLimit || val > maxLimit) {
+      setAlertError(`Price must be between $${minLimit} and $${maxLimit}.`);
+      return;
+    }
+    setAlertError('');
+    // Hide input on success
+    setShowAlertInput(false);
+    setAlertInputValue('');
+    setAlertSuccess('Alert saved successfully!');
+    setTimeout(() => setAlertSuccess(''), 3000);
+  };
+
+  const handleAlertInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const valStr = e.target.value;
+    setAlertInputValue(valStr);
+    
+    if (valStr.trim() === '') {
+      setAlertError('');
+      return;
+    }
+    
+    const val = Number(valStr);
+    const minLimit = supportResistance.support;
+    const maxLimit = supportResistance.resistance;
+    
+    if (val < minLimit || val > maxLimit) {
+      setAlertError(`Alert limit reached! Allowed range: $${minLimit} - $${maxLimit}`);
+    } else {
+      setAlertError('');
+    }
+  };
 
   const getFlagUrl = (flagPath?: string) => {
     if (!flagPath) return null;
@@ -915,14 +940,31 @@ export default function MobileCommodityChart({
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.7} />
                     <XAxis
-                      dataKey="shortDate"
+                      dataKey="date"
                       axisLine={false}
                       tickLine={false}
                       tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 500 }}
                       dy={5}
                       minTickGap={24}
+                      tickFormatter={(val) => {
+                        const d = new Date(val);
+                        if (isNaN(d.getTime())) return val;
+                        return d.getFullYear() === new Date().getFullYear()
+                          ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+                          : d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                      }}
                     />
-                    <YAxis domain={['dataMin - 2', 'dataMax + 2']} hide />
+                    <YAxis 
+                      domain={[
+                        (dataMin: number) => Math.min(dataMin - 2, (supportResistance.support || dataMin) - 2),
+                        (dataMax: number) => Math.max(dataMax + 2, (supportResistance.resistance || dataMax) + 2)
+                      ]}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 500 }}
+                      tickFormatter={(value) => `$${value}`}
+                      width={35}
+                    />
                     <Tooltip
                       isAnimationActive={false}
                       content={({ active, payload }) => {
@@ -974,6 +1016,51 @@ export default function MobileCommodityChart({
                         return null;
                       }}
                     />
+
+                    {showAlertInput && (
+                      <>
+                        <ReferenceLine 
+                          y={basePrice} 
+                          stroke="#1d92eb" 
+                          strokeWidth={1.5}
+                          strokeDasharray="4 4" 
+                          strokeOpacity={0.8} 
+                          label={(props: any) => {
+                            const { viewBox } = props;
+                            const { x, y, width } = viewBox;
+                            return (
+                              <g>
+                                <rect x={x} y={y - 12} width={82} height={24} fill="#1d92eb" rx={12} />
+                                <text x={x + 41} y={y} fill="#fff" fontSize={11} fontWeight="bold" textAnchor="middle" dominantBaseline="central">Current Rate</text>
+                                <circle cx={x + width} cy={y} r={4} fill="#1d92eb" />
+                              </g>
+                            );
+                          }}
+                        />
+
+                        {alertInputValue && !isNaN(Number(alertInputValue)) && Number(alertInputValue) > 0 && (
+                          <ReferenceLine 
+                            y={Number(alertInputValue)} 
+                            stroke="#f59e0b" 
+                            strokeWidth={1.5}
+                            strokeDasharray="4 4" 
+                            strokeOpacity={0.8} 
+                            label={(props: any) => {
+                              const { viewBox } = props;
+                              const { x, y, width } = viewBox;
+                              return (
+                                <g>
+                                  <rect x={x + width - 90} y={y - 12} width={82} height={24} fill="#f59e0b" rx={12} />
+                                  <text x={x + width - 49} y={y} fill="#fff" fontSize={11} fontWeight="bold" textAnchor="middle" dominantBaseline="central">Desired Rate</text>
+                                  <circle cx={x + width} cy={y} r={4} fill="#f59e0b" />
+                                </g>
+                              );
+                            }}
+                          />
+                        )}
+                      </>
+                    )}
+
                     <Area
                       type="monotone"
                       dataKey="price"
@@ -1124,10 +1211,49 @@ export default function MobileCommodityChart({
             )}
           </div>
 
+          {showAlertInput && (
+            <div className="bg-card rounded-2xl border border-border p-4 shadow-xs mt-3 animate-in fade-in lg:hidden">
+              <div className="text-center mb-4">
+                <h2 className="font-extrabold text-[15px] text-foreground">Set Target Price</h2>
+                <p className="text-[11px] text-foreground/60 mt-0.5">Enter your desired rate for the alert.</p>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
+                <input
+                  type="number"
+                  min={supportResistance.support}
+                  max={supportResistance.resistance}
+                  value={alertInputValue}
+                  onChange={handleAlertInputChange}
+                  className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
+                  placeholder="Target Price..."
+                  autoFocus
+                />
+              </div>
+              {alertError && <div className="text-brand-red text-[11px] font-medium mt-1 text-center">{alertError}</div>}
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); }}
+                  className="flex-1 py-2 bg-muted text-foreground font-bold rounded-xl text-[13px] hover:bg-muted/80 active:scale-95 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAlertSubmit}
+                  disabled={!!alertError || !alertInputValue}
+                  className={`flex-1 py-2 font-bold rounded-xl text-[13px] shadow-md transition-colors ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Dynamic Content Below Chart (Visible on FullScreen or Desktop) */}
           <div
-            className={`transition-opacity  ${isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'
-              }`}
+            className={`transition-opacity ${isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'} ${showAlertInput ? 'hidden lg:block' : ''}`}
           >
             {activeTab === 'Specifications' ? (
               /* TAB 3: PRODUCT SPECIFICATIONS VIEW */
@@ -1275,7 +1401,18 @@ export default function MobileCommodityChart({
                   </div>
                   <h2 className="font-extrabold text-[16px] text-foreground">No Alerts Set</h2>
                   <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't configured any price alerts for this commodity yet.</p>
-                  <button className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95  flex items-center gap-2">
+                  
+                  {alertSuccess && (
+                    <div className="mt-3 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
+                      <i className="fa-solid fa-circle-check"></i>
+                      {alertSuccess}
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => { setAlertInputValue(String(currentDisplayPrice)); setShowAlertInput(true); setAlertSuccess(''); }}
+                    className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 cursor-pointer flex items-center gap-2"
+                  >
                     <i className="fa-solid fa-bell"></i> Create Alert
                   </button>
                 </div>
@@ -1793,23 +1930,61 @@ export default function MobileCommodityChart({
                 <span>{userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY'}</span>
               </button>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
-                >
-                  <i className="fa-solid fa-bell text-amber-500 text-[16px]"></i>
-                  <span className="whitespace-nowrap">Create Alert</span>
-                </button>
+              {showAlertInput ? (
+                <div className="w-full animate-in slide-in-from-right-4 duration-200">
+                  <div className="flex w-full items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); }}
+                      className="w-10 h-10 shrink-0 bg-muted border border-border text-foreground hover:bg-muted/80 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition-colors"
+                      aria-label="Cancel"
+                    >
+                      <i className="fa-solid fa-xmark text-[14px]"></i>
+                    </button>
+                    <div className="relative flex-1">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
+                      <input
+                        type="number"
+                        min={supportResistance.support}
+                        max={supportResistance.resistance}
+                        value={alertInputValue}
+                        onChange={handleAlertInputChange}
+                        className={`w-full pl-6 pr-2 py-2 min-[390px]:py-2.5 bg-background border rounded-xl text-[13px] min-[390px]:text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
+                        placeholder="Target Price..."
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAlertSubmit}
+                      disabled={!!alertError || !alertInputValue}
+                      className={`px-4 min-[390px]:px-5 py-2 min-[390px]:py-2.5 rounded-xl font-bold text-[13px] min-[390px]:text-[14px] shadow-md transition-all ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
+                    >
+                      Save
+                    </button>
+                  </div>
+                  {alertError && <div className="text-brand-red text-[11px] font-medium mt-1.5 text-center">{alertError}</div>}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setAlertInputValue(String(currentDisplayPrice)); setShowAlertInput(true); setAlertSuccess(''); }}
+                    className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
+                  >
+                    <i className="fa-solid fa-bell text-amber-500 text-[16px]"></i>
+                    <span className="whitespace-nowrap">Create Alert</span>
+                  </button>
 
-                <button
-                  type="button"
-                  className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
-                >
-                  <i className="fa-solid fa-microchip text-brand-blue text-[16px]"></i>
-                  <span className="whitespace-nowrap">AI Predict</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
+                  >
+                    <i className="fa-solid fa-microchip text-brand-blue text-[16px]"></i>
+                    <span className="whitespace-nowrap">AI Predict</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1899,38 +2074,46 @@ export default function MobileCommodityChart({
       </div>
 
       {/* 3. Sticky Bottom Action Bar (Shrink-0 / Always pinned in Half-Sheet & Full-Screen on Mobile) */}
-      <div className="lg:hidden shrink-0 bg-card/95 border-t border-border px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
-        {/* 1. Create Alert (Left) */}
-        <button
-          type="button"
-          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shrink-0 shadow-xs border border-border cursor-pointer"
-        >
-          <i className="fa-solid fa-bell text-amber-500 text-[12px] min-[390px]:text-[13px]"></i>
-          <span className="whitespace-nowrap">Create Alert</span>
-        </button>
+      {!showAlertInput && (
+        <div className="lg:hidden shrink-0 bg-card/95 border-t border-border px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
+          <>
+            {/* 1. Create Alert (Left) */}
+            <button
+              type="button"
+              onClick={() => {
+                setAlertInputValue(String(currentDisplayPrice));
+                setShowAlertInput(true);
+              }}
+              className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted border border-border text-foreground hover:bg-muted/80 active:scale-95 font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 shrink-0 shadow-xs cursor-pointer transition-colors"
+            >
+              <i className="fa-solid fa-bell text-amber-500 text-[12px] min-[390px]:text-[13px]"></i>
+              <span className="whitespace-nowrap">Create Alert</span>
+            </button>
 
-        {/* 2. Buy / Sell Action Button (Center) */}
-        <button
-          type="button"
-          className={`flex-1 py-2 min-[390px]:py-2.5 font-extrabold text-[12px] min-[390px]:text-[14px] tracking-wide rounded-xl shadow-md  flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer ${userType === 'seller'
-              ? 'bg-brand-red hover:bg-brand-red-hover text-white shadow-red-500/20'
-              : userType === 'buyer'
-                ? 'bg-brand-green hover:bg-brand-green-hover text-white shadow-emerald-500/20'
-                : 'bg-gradient-to-r from-brand-green to-brand-blue hover:opacity-95 text-white shadow-blue-500/20'
-            }`}
-        >
-          <span>{userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'}</span>
-        </button>
+            {/* 2. Buy / Sell Action Button (Center) */}
+            <button
+              type="button"
+              className={`flex-1 py-2 min-[390px]:py-2.5 font-extrabold text-[12px] min-[390px]:text-[14px] tracking-wide rounded-xl shadow-md  flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer ${userType === 'seller'
+                  ? 'bg-brand-red hover:bg-brand-red-hover text-white shadow-red-500/20'
+                  : userType === 'buyer'
+                    ? 'bg-brand-green hover:bg-brand-green-hover text-white shadow-emerald-500/20'
+                    : 'bg-gradient-to-r from-brand-green to-brand-blue hover:opacity-95 text-white shadow-blue-500/20'
+                }`}
+            >
+              <span>{userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'}</span>
+            </button>
 
-        {/* 3. AI Predict (Right) */}
-        <button
-          type="button"
-          className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shrink-0 shadow-xs border border-border cursor-pointer"
-        >
-          <i className="fa-solid fa-microchip text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
-          <span className="whitespace-nowrap">AI Predict</span>
-        </button>
-      </div>
+            {/* 3. AI Predict (Right) */}
+            <button
+              type="button"
+              className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shrink-0 shadow-xs border border-border cursor-pointer"
+            >
+              <i className="fa-solid fa-microchip text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
+              <span className="whitespace-nowrap">AI Predict</span>
+            </button>
+          </>
+        </div>
+      )}
 
       {/* 4. Specifications & Description Information Icon Popup Modal */}
       {showSpecsModal && (
