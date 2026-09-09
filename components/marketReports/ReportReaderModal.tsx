@@ -264,7 +264,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
   )
 
   return (
-    <div className="fixed inset-0 z-[500] flex flex-col items-center justify-between bg-black/95 backdrop-blur-md select-none animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[500] flex flex-col items-center justify-between bg-black/95 select-none animate-in fade-in duration-200">
       
       {/* Top Bar */}
       <div className="w-full h-14 flex items-center justify-between px-3 sm:px-6 bg-black/80 border-b border-white/10 shrink-0 z-[510]">
@@ -313,7 +313,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             onClick={handlePrev}
             disabled={isPrevDisabled}
             aria-label="Previous Page"
-            className={`hidden sm:flex fixed left-4 sm:left-6 top-1/2 -translate-y-1/2 z-40 sm:w-auto sm:px-5 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center gap-2 backdrop-blur-md transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer ${isPrevDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
+            className={`hidden sm:flex fixed left-4 sm:left-6 top-1/2 -translate-y-1/2 z-40 sm:w-auto sm:px-5 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer ${isPrevDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
           >
             <i className="fa-solid fa-chevron-left text-lg"></i>
             <span className="font-medium text-sm pr-1">Prev</span>
@@ -326,7 +326,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             onClick={handleNext}
             disabled={isNextDisabled}
             aria-label="Next Page"
-            className={`hidden sm:flex fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 z-40 sm:w-auto sm:px-5 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center gap-2 backdrop-blur-md transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer ${isNextDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
+            className={`hidden sm:flex fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 z-40 sm:w-auto sm:px-5 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer ${isNextDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
           >
             <span className="font-medium text-sm pl-1">Next</span>
             <i className="fa-solid fa-chevron-right text-lg"></i>
@@ -412,7 +412,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             onClick={handlePrev}
             disabled={isPrevDisabled}
             aria-label="Previous Page"
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium backdrop-blur-md transition-all ${isPrevDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100 active:scale-95'}`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all ${isPrevDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100 active:scale-95'}`}
           >
             <i className="fa-solid fa-chevron-left text-xs"></i>
             <span>Previous</span>
@@ -426,7 +426,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             onClick={handleNext}
             disabled={isNextDisabled}
             aria-label="Next Page"
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium backdrop-blur-md transition-all ${isNextDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100 active:scale-95'}`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all ${isNextDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100 active:scale-95'}`}
           >
             <span>Next</span>
             <i className="fa-solid fa-chevron-right text-xs"></i>

@@ -41,8 +41,8 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
         />
         
         {/* Play Icon Overlay */}
-        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">
-          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center transform scale-90 group-hover:scale-100 transition-transform duration-300 border border-white/30 shadow-lg">
+        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 backdrop-blur-[1px] transform-gpu transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">
+          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center transform scale-90 group-hover:scale-100 transition-transform duration-300 border border-white/30 shadow-lg">
             <i className="fa-solid fa-play text-white text-lg ml-1"></i>
           </div>
         </div>

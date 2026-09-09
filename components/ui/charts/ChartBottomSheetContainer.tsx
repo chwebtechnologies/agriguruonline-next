@@ -52,7 +52,7 @@ export function ChartBottomSheetContainer({
   const startTimeRef = useRef<number>(0);
   const isDraggingRef = useRef<boolean>(false);
   const isFullScreenRef = useRef<boolean>(defaultFullScreen);
-  const mountTimeRef = useRef<number>(Date.now());
+  const mountTimeRef = useRef<number>(0);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(105);
 
@@ -207,7 +207,7 @@ export function ChartBottomSheetContainer({
   return (
     <>
       {/* 1. Desktop Modal Popup (>= lg screens) */}
-      <div className="hidden lg:flex fixed inset-0 z-[500] items-center justify-center p-4 xl:p-8 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto select-none">
+      <div className="hidden lg:flex fixed inset-0 z-[500] items-center justify-center p-4 xl:p-8 bg-black/60 backdrop-blur-sm transform-gpu animate-in fade-in duration-200 pointer-events-auto select-none">
         {/* Click-away backdrop */}
         <div className="absolute inset-0" onClick={onClose} />
 
@@ -233,7 +233,7 @@ export function ChartBottomSheetContainer({
       >
         {/* Click-away Backdrop below Header */}
         <div
-          className="absolute inset-0 bg-black/40 backdrop-blur-[1px] pointer-events-auto transition-opacity duration-300"
+          className="absolute inset-0 bg-black/40 backdrop-blur-[1px] transform-gpu pointer-events-auto transition-opacity duration-300"
           onClick={onClose}
         />
 

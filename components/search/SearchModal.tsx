@@ -349,7 +349,7 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-start pt-12 sm:pt-20 px-3 sm:px-4 bg-black/70 backdrop-blur-md overflow-hidden animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-start pt-12 sm:pt-20 px-3 sm:px-4 bg-black/60 backdrop-blur-sm transform-gpu overflow-hidden animate-in fade-in duration-200"
       dir={isRtl ? 'rtl' : 'ltr'}
       onClick={onClose}
       role="dialog"
@@ -841,7 +841,7 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
       {/* Embedded Specifications Modal */}
       {selectedSpecsProduct && (
         <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu p-4 animate-in fade-in duration-200"
           onClick={(e) => {
             e.stopPropagation()
             setSelectedSpecsProduct(null)

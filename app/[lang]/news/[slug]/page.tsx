@@ -329,7 +329,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
                       className="object-cover"
                     />
                     {categoryName && (
-                      <div className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-lg border border-white/10 flex items-center gap-1.5 pointer-events-none">
+                      <div className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-sm transform-gpu text-white text-[11px] font-bold px-2.5 py-1 rounded-lg border border-white/10 flex items-center gap-1.5 pointer-events-none">
                         <i className="fa-solid fa-tag text-[9px] text-sky-300"></i>
                         {categoryName}
                       </div>

@@ -300,7 +300,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
       {/* 6. Mobile Bottom Navigation Bar (Pixel Perfect)            */}
       {/* ======================================================== */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl backdrop-blur-md px-1 py-1 transition-all duration-200 flex justify-between items-center h-[64px] min-[390px]:h-[68px]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl px-1 py-1 transition-all duration-200 flex justify-between items-center h-[64px] min-[390px]:h-[68px]">
         {tabs.map((tab, idx) => (
           <Link
             key={idx}

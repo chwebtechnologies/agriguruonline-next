@@ -630,7 +630,7 @@ export default function MobileCommodityChart({
     >
       {/* 1. Header (Sticky Top / Shrink-0) - Fully Draggable on Mobile */}
       <div
-        className="shrink-0 px-2.5 min-[390px]:px-4 lg:px-6 py-2 min-[390px]:py-2.5 lg:py-3.5 flex items-center justify-between border-b border-border bg-card/95 backdrop-blur-md z-20 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none gap-2 lg:gap-4"
+        className="shrink-0 px-2.5 min-[390px]:px-4 lg:px-6 py-2 min-[390px]:py-2.5 lg:py-3.5 flex items-center justify-between border-b border-border bg-card/95 z-20 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none gap-2 lg:gap-4"
         onTouchStart={(e) => {
           if (!isFullScreen && onDragStart) onDragStart(e.touches[0].clientY);
         }}
@@ -1844,7 +1844,7 @@ export default function MobileCommodityChart({
       </div>
 
       {/* 3. Sticky Bottom Action Bar (Shrink-0 / Always pinned in Half-Sheet & Full-Screen on Mobile) */}
-      <div className="lg:hidden shrink-0 bg-card/95 backdrop-blur-md border-t border-border px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
+      <div className="lg:hidden shrink-0 bg-card/95 border-t border-border px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
         {/* 1. Create Alert (Left) */}
         <button
           type="button"
@@ -1880,7 +1880,7 @@ export default function MobileCommodityChart({
       {/* 4. Specifications & Description Information Icon Popup Modal */}
       {showSpecsModal && (
         <div
-          className="fixed inset-0 z-[550] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in "
+          className="fixed inset-0 z-[550] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu p-3 sm:p-4 animate-in fade-in "
           onClick={() => setShowSpecsModal(false)}
         >
           <div

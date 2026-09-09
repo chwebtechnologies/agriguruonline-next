@@ -773,7 +773,7 @@ export default function FreightChartClient({
         </div>
 
         {/* Global Actions Bar for Mobile/Tablet - Sticky matching Product Charts */}
-        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 backdrop-blur-sm border-t border-border shadow-xs mt-3 pointer-events-auto">
+        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto">
           <button
             type="button"
             onClick={handleBooking}

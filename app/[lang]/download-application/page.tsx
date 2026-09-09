@@ -313,7 +313,7 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                 {/* Download Cards with Prominent Large QR Codes */}
                 <div className="flex flex-col sm:flex-row items-stretch justify-center lg:justify-start gap-4">
                   {/* Apple Card */}
-                  <div className="bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-3.5 shadow-lg">
+                  <div className="bg-white/10 border border-white/20 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-3.5 shadow-lg">
                     <div className="bg-white p-2 rounded-xl shadow-md shrink-0">
                       <Image src="/apple-qr.svg" alt="Scan to download iOS App" width={96} height={96} className="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-lg" />
                     </div>
@@ -333,7 +333,7 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                   </div>
 
                   {/* Android Card */}
-                  <div className="bg-white/10 backdrop-blur-md border border-white/20 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-3.5 shadow-lg">
+                  <div className="bg-white/10 border border-white/20 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-3.5 shadow-lg">
                     <div className="bg-white p-2 rounded-xl shadow-md shrink-0">
                       <Image src="/android-qr.svg" alt="Scan to download Android App" width={96} height={96} className="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-lg" />
                     </div>
@@ -360,19 +360,19 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] bg-white/15 blur-[60px] rounded-full pointer-events-none"></div>
 
                 {/* Badge 1: Live Market Prices (Top-Left) */}
-                <div className="absolute top-1 left-1 sm:left-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4s' }}>
+                <div className="absolute top-1 left-1 sm:left-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 animate-bounce" style={{ animationDuration: '4s' }}>
                   <i className="fa-solid fa-chart-line text-brand-blue text-xs sm:text-sm"></i>
                   <span>{downDict.live_market_prices || 'Live Market Prices'}</span>
                 </div>
 
                 {/* Badge 2: Live Freight Rates (Top-Right) */}
-                <div className="absolute top-3 right-1 sm:right-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4.8s' }}>
+                <div className="absolute top-3 right-1 sm:right-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 animate-bounce" style={{ animationDuration: '4.8s' }}>
                   <i className="fa-solid fa-ship text-brand-green text-xs sm:text-sm"></i>
                   <span>{downDict.live_freight_rates || 'Live Freight Rates'}</span>
                 </div>
 
                 {/* Badge 3: AI Predict (Middle-Left) */}
-                <div className="absolute top-[38%] -left-1 sm:-left-3 lg:-left-5 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '3.6s' }}>
+                <div className="absolute top-[38%] -left-1 sm:-left-3 lg:-left-5 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 animate-bounce" style={{ animationDuration: '3.6s' }}>
                   <i className="fa-solid fa-brain text-purple-600 text-xs sm:text-sm"></i>
                   <span>{downDict.ai_predict || 'AI Predict'}</span>
                 </div>
@@ -394,19 +394,19 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
                 </div>
 
                 {/* Badge 4: Create Alert (Middle-Right) */}
-                <div className="absolute top-[42%] -right-1 sm:-right-3 lg:-right-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '4.4s' }}>
+                <div className="absolute top-[42%] -right-1 sm:-right-3 lg:-right-4 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 animate-bounce" style={{ animationDuration: '4.4s' }}>
                   <i className="fa-solid fa-bell text-amber-500 text-xs sm:text-sm"></i>
                   <span>{downDict.create_alert || 'Create Alert'}</span>
                 </div>
 
                 {/* Badge 5: Smart Docs (Bottom-Left) */}
-                <div className="absolute bottom-9 left-1 sm:left-3 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs animate-bounce" style={{ animationDuration: '3.9s' }}>
+                <div className="absolute bottom-9 left-1 sm:left-3 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 animate-bounce" style={{ animationDuration: '3.9s' }}>
                   <i className="fa-solid fa-file-invoice text-brand-red text-xs sm:text-sm"></i>
                   <span>{downDict.smart_docs || 'Smart Docs'}</span>
                 </div>
 
                 {/* Badge 6: iOS & Android Ready (Bottom-Center - Static) */}
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 backdrop-blur-xs whitespace-nowrap">
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-30 bg-white/95 text-slate-900 text-[10px] sm:text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 border border-white/60 whitespace-nowrap">
                   <i className="fa-solid fa-circle-check text-brand-blue text-xs sm:text-sm"></i>
                   <span>{downDict.ios_android_ready || 'iOS & Android Ready'}</span>
                 </div>

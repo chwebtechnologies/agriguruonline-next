@@ -106,7 +106,7 @@ export default function ParticipationAlbumClient({
 
                 {/* Hover expand overlay */}
                 <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
-                  <div className="w-10 h-10 rounded-full bg-background/85 backdrop-blur-sm flex items-center justify-center text-foreground shadow-md">
+                  <div className="w-10 h-10 rounded-full bg-background/85 flex items-center justify-center text-foreground shadow-md">
                     <i className="fa-solid fa-expand text-sm" />
                   </div>
                 </div>
