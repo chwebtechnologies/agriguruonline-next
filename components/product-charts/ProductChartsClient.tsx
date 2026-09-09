@@ -898,7 +898,7 @@ export default function ProductChartsClient({
               {/* Mobile/Tablet Compact Card Empty State */}
               <ChartMobileEmptyCard
                 onClick={() => setShowMobileAddForm(true)}
-                icon="fa-solid fa-chart-line"
+                icon="fa-solid fa-chart-area"
                 badgeLabel="Watchlist"
                 countLabel="0 Products"
                 title="No Products Added"
@@ -1109,7 +1109,7 @@ export default function ProductChartsClient({
                   {/* Col 10: Chart Preview */}
                   <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                      <i className="fa-solid fa-chart-line text-purple-500/80 text-[11px]"></i>
+                      <i className="fa-solid fa-chart-area text-brand-blue/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
@@ -1305,11 +1305,11 @@ export default function ProductChartsClient({
                         <span className="truncate">{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
                       </div>
                       <div 
-                        className="w-full flex items-center justify-center text-center cursor-pointer hover:scale-110 transition-transform min-w-0"
-                        onClick={() => openBottomSheet(item.id)}
-                        title="View Product Chart"
+                        className={`w-full flex items-center justify-center text-center transition-transform min-w-0 ${item.chartStatus ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed opacity-50'}`}
+                        onClick={() => { if (item.chartStatus) openBottomSheet(item.id); }}
+                        title={item.chartStatus ? "View Product Chart" : "Chart Not Available"}
                       >
-                        <i className={`fa-solid fa-chart-line text-lg ${item.chartStatus ? 'text-emerald-600 dark:text-emerald-500' : 'text-zinc-400'}`}></i>
+                        <i className={`fa-solid fa-chart-area text-[18px] ${item.chartStatus ? 'bg-gradient-to-tr from-brand-blue to-brand-green bg-clip-text text-transparent' : 'text-zinc-400'}`}></i>
                       </div>
                       <div className="flex items-center justify-end gap-2.5 min-w-0">
                         <ChartActionButton

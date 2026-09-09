@@ -508,9 +508,9 @@ export default function FreightChartClient({
                     {/* Col 7: Chart Preview */}
                     <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className="fa-solid fa-chart-line text-purple-500/80 text-[11px]"></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Curve</span>
-                      </div>
+                      <i className="fa-solid fa-chart-area text-brand-blue/80 text-[11px]"></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
+                    </div>
                       <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
                         Chart
                       </div>
@@ -745,10 +745,10 @@ export default function FreightChartClient({
 
                         {/* 7. Chart Icon (Disabled for now as requested) */}
                         <div
-                          className="w-full flex items-center justify-center text-center cursor-not-allowed opacity-35 min-w-0 text-zinc-400 dark:text-zinc-600 select-none"
+                          className="w-full flex items-center justify-center text-center cursor-not-allowed opacity-35 min-w-0 select-none"
                           title="Chart coming soon"
                         >
-                          <i className="fa-solid fa-chart-line text-lg"></i>
+                          <i className="fa-solid fa-chart-area text-[18px] text-zinc-400 dark:text-zinc-600"></i>
                         </div>
 
                         {/* 8. Reusable Action Buttons (Book & Delete) */}

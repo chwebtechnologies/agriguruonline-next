@@ -15,7 +15,7 @@ interface ChartMobileEmptyCardProps {
 
 export function ChartMobileEmptyCard({
   onClick,
-  icon = 'fa-solid fa-chart-line',
+  icon = 'fa-solid fa-chart-area',
   badgeLabel = 'Watchlist',
   countLabel = '0 Items',
   title,
