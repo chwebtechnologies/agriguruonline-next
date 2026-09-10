@@ -79,7 +79,7 @@ export default function middleware(request: NextRequest) {
   }
 
   // Define protected routes (require auth)
-  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|market-reports)/);
+  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|market-reports|my-inquiries)/);
   
   if (isProtectedRoute && !token) {
     const loginUrl = new URL(`/${locale}/login`, request.url);

@@ -88,6 +88,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   const isSeller = getNormalizedType(profile?.user_type) === 'seller' || getNormalizedType(profile?.role) === 'seller';
   const isMember = !!profile?.membership;
   const inquiriesLabel = (isMember && isSeller) ? 'My Offers' : 'My Inquiries';
+  const inquiriesHref = (isMember && isSeller) ? `/${lang}/my-offers` : `/${lang}/my-inquiries`;
 
   // Grouped like Agriguru Online Settings
   const MENU_GROUPS: MenuItem[][] = [
@@ -95,7 +96,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
       { label: 'Dashboard', icon: 'fa-solid fa-table-cells-large', href: '#', iconBg: 'bg-blue-500' },      
     ],
     [
-      { label: inquiriesLabel, icon: 'fa-solid fa-comments', href: '#', iconBg: 'bg-indigo-500' },
+      { label: inquiriesLabel, icon: 'fa-solid fa-comments', href: inquiriesHref, iconBg: 'bg-indigo-500' },
       { label: 'Product Charts', icon: 'fa-solid fa-chart-line', href: `/${lang}/product-charts`, iconBg: 'bg-orange-500' },
       { label: 'Freight Charts', icon: 'fa-solid fa-chart-area', href: `/${lang}/freight-charts`, iconBg: 'bg-amber-500' },
     ],
