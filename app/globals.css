@@ -86,6 +86,23 @@ body {
 
   --ag-announcement-bg: #e8f4fc;
   --ag-announcement-text: var(--brand-blue);
+
+  /* Status Colors */
+  --status-approved-bg: rgba(42, 175, 133, 0.1);
+  --status-approved-text: #2AAF85;
+  --status-approved-border: rgba(42, 175, 133, 0.3);
+  
+  --status-rejected-bg: rgba(220, 38, 38, 0.08);
+  --status-rejected-text: #DC2626;
+  --status-rejected-border: rgba(220, 38, 38, 0.2);
+  
+  --status-processing-bg: rgba(245, 158, 11, 0.1); /* Amber/Yellow */
+  --status-processing-text: #D97706;
+  --status-processing-border: rgba(245, 158, 11, 0.3);
+  
+  --status-missing-bg: rgba(142, 142, 147, 0.1);
+  --status-missing-text: #8E8E93;
+  --status-missing-border: rgba(142, 142, 147, 0.3);
 }
 
 /* Explicit Agriguru Online Dark Theme Configuration */
@@ -132,6 +149,23 @@ body {
   --ag-accent-cyan: #6cbfff;
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
   --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
+
+  /* Status Colors (Dark Mode) */
+  --status-approved-bg: rgba(42, 175, 133, 0.15);
+  --status-approved-text: #4ade80;
+  --status-approved-border: rgba(74, 222, 128, 0.3);
+  
+  --status-rejected-bg: rgba(239, 68, 68, 0.15);
+  --status-rejected-text: #fca5a5;
+  --status-rejected-border: rgba(248, 113, 113, 0.3);
+  
+  --status-processing-bg: rgba(251, 191, 36, 0.15);
+  --status-processing-text: #fcd34d;
+  --status-processing-border: rgba(252, 211, 77, 0.3);
+  
+  --status-missing-bg: rgba(142, 142, 147, 0.15);
+  --status-missing-text: #A1A1A6;
+  --status-missing-border: rgba(161, 161, 166, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -178,6 +212,23 @@ body {
     --ag-accent-cyan: #6cbfff;
     --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
     --ag-gradient-heading: linear-gradient(to right, #3b82f6, #10b981);
+
+    /* Status Colors (Dark Mode) */
+    --status-approved-bg: rgba(42, 175, 133, 0.15);
+    --status-approved-text: #4ade80;
+    --status-approved-border: rgba(74, 222, 128, 0.3);
+    
+    --status-rejected-bg: rgba(239, 68, 68, 0.15);
+    --status-rejected-text: #fca5a5;
+    --status-rejected-border: rgba(248, 113, 113, 0.3);
+    
+    --status-processing-bg: rgba(251, 191, 36, 0.15);
+    --status-processing-text: #fcd34d;
+    --status-processing-border: rgba(252, 211, 77, 0.3);
+    
+    --status-missing-bg: rgba(142, 142, 147, 0.15);
+    --status-missing-text: #A1A1A6;
+    --status-missing-border: rgba(161, 161, 166, 0.3);
   }
 }
 
@@ -207,6 +258,22 @@ body {
   --color-ag-announcement-text: var(--ag-announcement-text);
   
   --color-ag-accent-cyan: var(--ag-accent-cyan);
+  
+  --color-status-approved-bg: var(--status-approved-bg);
+  --color-status-approved-text: var(--status-approved-text);
+  --color-status-approved-border: var(--status-approved-border);
+  
+  --color-status-rejected-bg: var(--status-rejected-bg);
+  --color-status-rejected-text: var(--status-rejected-text);
+  --color-status-rejected-border: var(--status-rejected-border);
+  
+  --color-status-processing-bg: var(--status-processing-bg);
+  --color-status-processing-text: var(--status-processing-text);
+  --color-status-processing-border: var(--status-processing-border);
+  
+  --color-status-missing-bg: var(--status-missing-bg);
+  --color-status-missing-text: var(--status-missing-text);
+  --color-status-missing-border: var(--status-missing-border);
   
   --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;

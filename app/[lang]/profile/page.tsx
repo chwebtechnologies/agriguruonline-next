@@ -104,13 +104,20 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
         return item.status?.toUpperCase() === "REJECTED";
       });
 
+      const hasExpired = kycData.data.some((item: any) => {
+        if (!item.is_uploaded) return false;
+        return item.status?.toUpperCase() === "EXPIRED";
+      });
+
       const hasApproved = kycData.data.some((item: any) => {
         if (!item.is_uploaded) return false;
-        return item.status?.toUpperCase() === "APPROVED";
+        return item.status?.toUpperCase() === "APPROVED" || item.status?.toUpperCase() === "VERIFIED";
       });
 
       if (hasRejected) {
         kycStatus = "REJECTED";
+      } else if (hasExpired) {
+        kycStatus = "EXPIRED";
       } else if (hasApproved) {
         kycStatus = "APPROVED";
       } else if (hasActive) {
@@ -123,7 +130,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     console.error("Failed to fetch KYC status on server", kycResult.reason);
   }
 
-  if (kycStatus === "REJECTED" || kycStatus === "MISSING") {
+  if (kycStatus === "REJECTED" || kycStatus === "MISSING" || kycStatus === "EXPIRED") {
     isKycVerified = false;
   }
 

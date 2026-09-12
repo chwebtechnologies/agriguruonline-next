@@ -26,6 +26,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   const [hasUnread, setHasUnreadState] = useState(false);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
   const hasUnreadRef = useRef(hasUnread);
+  const recentMessageIds = useRef<Set<string>>(new Set());
   hasUnreadRef.current = hasUnread;
 
   const setHasUnread = useCallback((value: boolean) => {
@@ -58,25 +59,42 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     const handlePayload = (payload: any) => {
       console.log('[FCM] Notification payload received:', payload);
       if (!isMounted) return;
+      
+      const messageId = payload?.messageId || payload?.fcmMessageId || JSON.stringify(payload);
+      if (recentMessageIds.current.has(messageId)) {
+        return;
+      }
+      
+      recentMessageIds.current.add(messageId);
+      setTimeout(() => {
+        if (isMounted) {
+          recentMessageIds.current.delete(messageId);
+        }
+      }, 5000);
+
       setHasUnread(true);
 
       // Dispatch custom event for KYC section, Header, and other components
       window.dispatchEvent(new CustomEvent('fcm-message', { detail: payload }));
       window.dispatchEvent(new CustomEvent('new-notification', { detail: payload }));
 
-      const title = payload?.notification?.title || payload?.data?.title || 'AgriGuru Online';
+      const title = payload?.notification?.title || payload?.data?.title;
       const body = payload?.notification?.body || payload?.data?.body || 'You received a new message.';
 
-      toast(title, {
-        description: body,
-        duration: 6000,
-        action: {
-          label: 'View',
-          onClick: () => {
-            if (isMounted) setHasUnread(false);
-          },
-        },
-      });
+      const contentStr = ((title || '') + ' ' + body).toLowerCase();
+      
+      const toastTitle = title || body;
+      const toastDesc = title ? body : undefined;
+      
+      if (contentStr.includes('approv') || contentStr.includes('success') || contentStr.includes('verif')) {
+        toast.success(toastTitle, { description: toastDesc, duration: 6000 });
+      } else if (contentStr.includes('reject') || contentStr.includes('fail') || contentStr.includes('expir') || contentStr.includes('error')) {
+        toast.error(toastTitle, { description: toastDesc, duration: 6000 });
+      } else if (contentStr.includes('warn')) {
+        toast.warning(toastTitle, { description: toastDesc, duration: 6000 });
+      } else {
+        toast.info(toastTitle, { description: toastDesc, duration: 6000 });
+      }
     };
 
     // 1. Initial sync from IndexedDB

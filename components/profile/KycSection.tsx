@@ -34,6 +34,7 @@ interface KycSectionProps {
 const mapStatus = (status: string): KycStatus => {
   switch (status?.toUpperCase()) {
     case "APPROVED":
+    case "VERIFIED":
       return "Approved";
     case "REJECTED":
       return "Rejected";
@@ -185,14 +186,12 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                            (title + body).toLowerCase().includes('document') ||
                            (title + body).toLowerCase().includes('verif') ||
                            (title + body).toLowerCase().includes('reject') ||
-                           (title + body).toLowerCase().includes('approv');
+                           (title + body).toLowerCase().includes('approv') ||
+                           (title + body).toLowerCase().includes('expir');
 
       if (isKycRelated) {
         setTimeout(async () => {
-          const updated = await refreshKycStatus();
-          if (updated) {
-            toast.success("KYC status updated automatically.");
-          }
+          await refreshKycStatus();
           router.refresh();
         }, 1200);
       }
@@ -305,15 +304,15 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
   const getStatusBadge = (status: KycStatus) => {
     switch (status?.toLowerCase()) {
       case "approved":
-        return <span className="px-2 py-0.5 bg-green-500/10 text-green-600 rounded text-xs font-semibold shrink-0">Approved</span>;
+        return <span className="px-2 py-0.5 bg-status-approved-bg text-status-approved-text rounded text-xs font-semibold shrink-0">Approved</span>;
       case "under review":
       case "processing":
       case "pending":
-        return <span className="px-2 py-0.5 bg-orange-500/10 text-orange-600 rounded text-xs font-semibold shrink-0">Under Review</span>;
+        return <span className="px-2 py-0.5 bg-status-processing-bg text-status-processing-text rounded text-xs font-semibold shrink-0">Under Review</span>;
       case "rejected":
-        return <span className="px-2 py-0.5 bg-red-500/10 text-red-600 rounded text-xs font-semibold shrink-0">Rejected</span>;
+        return <span className="px-2 py-0.5 bg-status-rejected-bg text-status-rejected-text rounded text-xs font-semibold shrink-0">Rejected</span>;
       case "expired":
-        return <span className="px-2 py-0.5 bg-gray-500/10 text-gray-600 rounded text-xs font-semibold shrink-0">Expired</span>;
+        return <span className="px-2 py-0.5 bg-status-rejected-bg text-status-rejected-text rounded text-xs font-semibold shrink-0">Expired</span>;
       default:
         return <span className="px-2 py-0.5 bg-foreground/5 text-foreground/50 rounded text-xs font-semibold shrink-0">Missing</span>;
     }
@@ -361,7 +360,13 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
     <div ref={kycRef} className="group bg-background border border-foreground/10 rounded-xl shadow-sm flex flex-col">
       <div onClick={toggleKyc} className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-3 bg-foreground/[0.02] cursor-pointer lg:pointer-events-none list-none rounded-xl lg:rounded-b-none lg:border-b lg:border-foreground/5 transition-colors select-none">
         <div className="flex items-center gap-3 sm:gap-4">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${
+            isApproved ? 'bg-status-approved-bg text-status-approved-text' :
+            isRejected ? 'bg-status-rejected-bg text-status-rejected-text' :
+            isExpired ? 'bg-status-rejected-bg text-status-rejected-text' :
+            isUnderReview ? 'bg-status-processing-bg text-status-processing-text' :
+            'bg-brand-blue/10 text-brand-blue'
+          }`}>
             <i className="fa-solid fa-shield-halved text-[14px] sm:text-base"></i>
           </div>
           <div>
@@ -434,23 +439,29 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
               <div className="flex flex-col gap-3.5">
                 <div 
                   className={`w-full p-6 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3.5 transition-colors mt-2 ${
-                    isUnderReview ? 'border-orange-500/30 bg-orange-500/[0.01]' :
-                    isApproved ? 'border-green-500/30 bg-green-500/[0.01]' :
-                    isRejected ? 'border-red-500/30 bg-red-500/[0.01]' :
+                    isUnderReview ? 'border-status-processing-border bg-status-processing-bg' :
+                    isApproved ? 'border-status-approved-border bg-status-approved-bg' :
+                    isRejected ? 'border-status-rejected-border bg-status-rejected-bg' :
+                    isExpired ? 'border-status-rejected-border bg-status-rejected-bg' :
                     'border-foreground/15 bg-foreground/[0.01]'
                   }`}
                 >
-                  {/* Clickable Area for View */}
+                  {/* Clickable Area for Replace (or View if Approved) */}
                   <div 
-                    onClick={() => currentUploadedDoc.file_url && window.open(currentUploadedDoc.file_url, '_blank')}
-                    className="flex flex-col items-center justify-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity text-center w-full"
-                    title="Click to view document"
+                    onClick={() => {
+                      if (!isApproved) {
+                        handleReplaceClick(currentUploadedDoc.document_type_id!);
+                      }
+                    }}
+                    className={`flex flex-col items-center justify-center gap-2.5 transition-opacity text-center w-full ${!isApproved ? 'cursor-pointer hover:opacity-80' : ''}`}
+                    title={!isApproved ? "Click to replace document" : "Document approved"}
                   >
                     {/* Big File Icon */}
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                      isUnderReview ? 'bg-orange-500/10 text-orange-500' :
-                      isApproved ? 'bg-green-500/10 text-green-500' :
-                      isRejected ? 'bg-red-500/10 text-red-500' :
+                      isUnderReview ? 'bg-status-processing-bg text-status-processing-text' :
+                      isApproved ? 'bg-status-approved-bg text-status-approved-text' :
+                      isRejected ? 'bg-status-rejected-bg text-status-rejected-text' :
+                      isExpired ? 'bg-status-rejected-bg text-status-rejected-text' :
                       'bg-foreground/5 text-foreground/50'
                     }`}>
                       <i className={`fa-solid fa-file-pdf text-2xl ${isUnderReview ? 'animate-pulse' : ''}`}></i>
@@ -470,30 +481,39 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                     {/* Status Badge & View Action */}
                     <div className="flex items-center gap-2.5 mt-0.5 justify-center">
                       {isUnderReview ? (
-                        <span className="px-2.5 py-1 bg-orange-500/10 text-orange-600 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-orange-500/20">
+                        <span className="px-2.5 py-1 bg-status-processing-bg text-status-processing-text rounded-lg text-[10px] font-bold uppercase tracking-wider border border-status-processing-border">
                           <i className="fa-solid fa-circle-notch fa-spin text-[10px] mr-1"></i>
                           Under Review
                         </span>
                       ) : isApproved ? (
-                        <span className="px-2.5 py-1 bg-green-500/10 text-green-600 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-green-500/20">
+                        <span className="px-2.5 py-1 bg-status-approved-bg text-status-approved-text rounded-lg text-[10px] font-bold uppercase tracking-wider border border-status-approved-border">
                           <i className="fa-solid fa-circle-check mr-1"></i>
                           Approved
                         </span>
                       ) : isRejected ? (
-                        <span className="px-2.5 py-1 bg-red-500/10 text-red-600 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-red-500/20">
+                        <span className="px-2.5 py-1 bg-status-rejected-bg text-status-rejected-text rounded-lg text-[10px] font-bold uppercase tracking-wider border border-status-rejected-border">
                           <i className="fa-solid fa-circle-xmark mr-1"></i>
                           Rejected
                         </span>
                       ) : isExpired ? (
-                        <span className="px-2.5 py-1 bg-gray-500/10 text-gray-600 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-gray-500/20">
+                        <span className="px-2.5 py-1 bg-status-rejected-bg text-status-rejected-text rounded-lg text-[10px] font-bold uppercase tracking-wider border border-status-rejected-border">
                           <i className="fa-solid fa-clock-rotate-left mr-1"></i>
                           Expired
                         </span>
                       ) : null}
                       
-                      <span className="text-[10px] text-brand-blue hover:underline font-bold flex items-center gap-1">
-                        <i className="fa-solid fa-eye text-[9px]"></i> View File
-                      </span>
+                      {currentUploadedDoc.file_url && (
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(currentUploadedDoc.file_url, '_blank');
+                          }}
+                          className="mt-1.5 text-xs text-brand-blue bg-brand-blue/10 hover:bg-brand-blue/20 px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 z-10 relative cursor-pointer transition-colors active:scale-95 shadow-sm"
+                        >
+                          <i className="fa-solid fa-eye text-[11px]"></i> View File
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -510,21 +530,21 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                 </div>
 
                 {isRejected && currentUploadedDoc.rejection_reason && (
-                  <div className="p-3.5 rounded-xl border border-red-500/20 bg-red-500/5 text-sm flex items-start gap-2.5">
-                    <i className="fa-solid fa-circle-exclamation mt-0.5 shrink-0 text-red-500"></i>
+                  <div className="p-3.5 rounded-xl border border-status-rejected-border bg-status-rejected-bg text-sm flex items-start gap-2.5">
+                    <i className="fa-solid fa-circle-exclamation mt-0.5 shrink-0 text-status-rejected-text"></i>
                     <div>
-                      <p className="font-semibold mb-0.5 text-red-700 dark:text-red-400">Action Required</p>
-                      <p className="text-red-600/90 dark:text-red-300/90">{currentUploadedDoc.rejection_reason}</p>
+                      <p className="font-semibold mb-0.5 text-status-rejected-text">Action Required</p>
+                      <p className="text-status-rejected-text/90">{currentUploadedDoc.rejection_reason}</p>
                     </div>
                   </div>
                 )}
 
                 {isExpired && (
-                  <div className="p-3.5 rounded-xl border border-gray-500/20 bg-gray-500/5 text-sm flex items-start gap-2.5">
-                    <i className="fa-solid fa-clock-rotate-left mt-0.5 shrink-0 text-gray-500"></i>
+                  <div className="p-3.5 rounded-xl border border-status-rejected-border bg-status-rejected-bg text-sm flex items-start gap-2.5">
+                    <i className="fa-solid fa-clock-rotate-left mt-0.5 shrink-0 text-status-rejected-text"></i>
                     <div>
-                      <p className="font-semibold mb-0.5 text-gray-700 dark:text-gray-300">Document Expired</p>
-                      <p className="text-gray-600/90 dark:text-gray-400/90">{currentUploadedDoc.rejection_reason}</p>
+                      <p className="font-semibold mb-0.5 text-status-rejected-text">Document Expired</p>
+                      <p className="text-status-rejected-text/90">{currentUploadedDoc.rejection_reason || "Your document has expired. Please upload a new one."}</p>
                     </div>
                   </div>
                 )}

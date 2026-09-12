@@ -17,7 +17,8 @@ function computeStatusFromDocs(docs: any[]): { kycStatus: string; isKycVerified:
   }
 
   const hasRejected = docs.some((item: any) => item.is_uploaded && item.status?.toUpperCase() === 'REJECTED');
-  const hasApproved = docs.some((item: any) => item.is_uploaded && item.status?.toUpperCase() === 'APPROVED');
+  const hasExpired = docs.some((item: any) => item.is_uploaded && item.status?.toUpperCase() === 'EXPIRED');
+  const hasApproved = docs.some((item: any) => item.is_uploaded && (item.status?.toUpperCase() === 'APPROVED' || item.status?.toUpperCase() === 'VERIFIED'));
   const hasActive = docs.some((item: any) => {
     if (!item.is_uploaded) return false;
     const s = item.status?.toUpperCase();
@@ -26,11 +27,13 @@ function computeStatusFromDocs(docs: any[]): { kycStatus: string; isKycVerified:
 
   // Priority 1: If ANY document is rejected, KYC status is REJECTED
   if (hasRejected) return { kycStatus: 'REJECTED', isKycVerified: false };
-  // Priority 2: If approved and no rejection
-  if (hasApproved && !hasRejected) return { kycStatus: 'APPROVED', isKycVerified: true };
-  // Priority 3: If under review
+  // Priority 2: If ANY document is expired, KYC status is EXPIRED
+  if (hasExpired) return { kycStatus: 'EXPIRED', isKycVerified: false };
+  // Priority 3: If approved and no rejection/expiration
+  if (hasApproved) return { kycStatus: 'APPROVED', isKycVerified: true };
+  // Priority 4: If under review
   if (hasActive) return { kycStatus: 'PROCESSING', isKycVerified: false };
-  // Priority 4: Missing
+  // Priority 5: Missing
   return { kycStatus: 'MISSING', isKycVerified: false };
 }
 
@@ -94,7 +97,8 @@ export default function KycAlertBanner({ initialIsKycVerified, initialKycStatus,
         (title + body).toLowerCase().includes('document') ||
         (title + body).toLowerCase().includes('verif') ||
         (title + body).toLowerCase().includes('reject') ||
-        (title + body).toLowerCase().includes('approv');
+        (title + body).toLowerCase().includes('approv') ||
+        (title + body).toLowerCase().includes('expir');
 
       if (isKycRelated) {
         setUnreadStatusInIndexedDB(true);
@@ -103,9 +107,12 @@ export default function KycAlertBanner({ initialIsKycVerified, initialKycStatus,
         if (body.toLowerCase().includes('reject') || title.toLowerCase().includes('reject')) {
           setKycStatus('REJECTED');
           setIsKycVerified(false);
-        } else if (body.toLowerCase().includes('approv') || title.toLowerCase().includes('approv')) {
+        } else if (body.toLowerCase().includes('approv') || title.toLowerCase().includes('approv') || body.toLowerCase().includes('verif') || title.toLowerCase().includes('verif')) {
           setKycStatus('APPROVED');
           setIsKycVerified(true);
+        } else if (body.toLowerCase().includes('expir') || title.toLowerCase().includes('expir')) {
+          setKycStatus('EXPIRED');
+          setIsKycVerified(false);
         } else {
           setKycStatus('MISSING');
           setIsKycVerified(false);
@@ -132,36 +139,38 @@ export default function KycAlertBanner({ initialIsKycVerified, initialKycStatus,
 
   return (
     <div className={`mb-6 border rounded-xl p-3 sm:px-5 flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500 ${
-      kycStatus === 'REJECTED'
-        ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900'
-        : 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900'
+      kycStatus === 'REJECTED' || kycStatus === 'EXPIRED'
+        ? 'bg-status-rejected-bg border-status-rejected-border'
+        : 'bg-status-processing-bg border-status-processing-border'
     }`}>
       <div className="flex items-center gap-3 w-full">
         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 hidden sm:flex ${
-          kycStatus === 'REJECTED' ? 'bg-red-100 dark:bg-red-900/50 text-red-600' : 'bg-amber-100 dark:bg-amber-900/50 text-amber-600'
+          kycStatus === 'REJECTED' || kycStatus === 'EXPIRED' ? 'bg-status-rejected-bg text-status-rejected-text' : 'bg-status-processing-bg text-status-processing-text'
         }`}>
-          <i className={`fa-solid ${kycStatus === 'REJECTED' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'} text-sm`}></i>
+          <i className={`fa-solid ${kycStatus === 'REJECTED' ? 'fa-circle-xmark' : kycStatus === 'EXPIRED' ? 'fa-clock-rotate-left' : 'fa-triangle-exclamation'} text-sm`}></i>
         </div>
         <div className="flex flex-col md:flex-row md:items-center md:gap-2">
           <h3 className={`font-extrabold text-sm sm:text-base ${
-            kycStatus === 'REJECTED' ? 'text-red-800 dark:text-red-400' : 'text-amber-800 dark:text-amber-400'
+            kycStatus === 'REJECTED' || kycStatus === 'EXPIRED' ? 'text-status-rejected-text' : 'text-status-processing-text'
           }`}>
-            {kycStatus === 'REJECTED' ? 'KYC Rejected' : 'Action Required: KYC Verification'}
+            {kycStatus === 'REJECTED' ? 'KYC Rejected' : kycStatus === 'EXPIRED' ? 'KYC Expired' : 'Action Required: KYC Verification'}
           </h3>
           <span className={`hidden md:inline font-bold ${
-            kycStatus === 'REJECTED' ? 'text-red-400' : 'text-amber-400'
+            kycStatus === 'REJECTED' || kycStatus === 'EXPIRED' ? 'text-status-rejected-text' : 'text-status-processing-text'
           }`}>-</span>
           <p className={`text-sm font-medium leading-tight sm:leading-normal mt-0.5 md:mt-0 ${
-            kycStatus === 'REJECTED' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'
+            kycStatus === 'REJECTED' || kycStatus === 'EXPIRED' ? 'text-status-rejected-text/90' : 'text-status-processing-text/90'
           }`}>
             {kycStatus === 'REJECTED'
               ? 'Please upload a clear new document to verify.'
-              : 'Please upload required document to verify and unlock trading features.'}
+              : kycStatus === 'EXPIRED' 
+                ? 'Your document has expired. Please upload a new one.' 
+                : 'Please upload required document to verify and unlock trading features.'}
           </p>
         </div>
       </div>
       <a href="#kyc-section" className={`shrink-0 px-4 py-2 sm:px-5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold shadow-sm transition-all whitespace-nowrap text-white ${
-        kycStatus === 'REJECTED' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+        kycStatus === 'REJECTED' || kycStatus === 'EXPIRED' ? 'bg-red-700 hover:bg-red-800' : 'bg-amber-600 hover:bg-amber-700'
       }`}>
         Verify Now
       </a>

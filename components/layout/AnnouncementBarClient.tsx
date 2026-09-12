@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useId, useTransition } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 interface Announcement {
   id: string
@@ -30,6 +30,7 @@ interface AnnouncementBarClientProps {
 export default function AnnouncementBarClient({ announcements, dict, activeLang }: AnnouncementBarClientProps) {
   const langDropdownId = useId()
   const pathname = usePathname() || '/'
+  const searchParams = useSearchParams()
   const router = useRouter()
   const langDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -78,28 +79,19 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
   }, [])
 
   const getLangUrl = (newLang: string) => {
-    if (typeof window !== 'undefined') {
-      const p = window.location.pathname || '/'
-      const s = window.location.search || ''
-      const h = window.location.hash || ''
-      const segments = p.split('/').filter(Boolean)
-      const isFirstSegmentLang = ['en', 'ar', 'zh', 'fr'].includes(segments[0])
-      if (isFirstSegmentLang) {
-        segments[0] = newLang
-      } else {
-        segments.unshift(newLang)
-      }
-      return '/' + segments.join('/') + s + h
-    }
-
-    const segments = (pathname || '/').split('/').filter(Boolean)
+    const p = pathname || '/'
+    const s = searchParams ? searchParams.toString() : ''
+    const segments = p.split('/').filter(Boolean)
     const isFirstSegmentLang = ['en', 'ar', 'zh', 'fr'].includes(segments[0])
+    
     if (isFirstSegmentLang) {
       segments[0] = newLang
     } else {
       segments.unshift(newLang)
     }
-    return '/' + segments.join('/')
+    
+    const query = s ? `?${s}` : ''
+    return '/' + segments.join('/') + query
   }
 
   const handleDropdownToggle = (open: boolean) => {

@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
     // optimizeCss: true,  // DISABLED: critters defers page-unique CSS (IPhoneFrame, gradients) — never re-injected on client-nav
     staleTimes: {
       dynamic: 30,   // Keep short: prevents stale RSC cache from bypassing CSS chunk loading
