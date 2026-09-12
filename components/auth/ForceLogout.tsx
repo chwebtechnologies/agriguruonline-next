@@ -4,21 +4,20 @@ import { useEffect } from 'react'
 export function ForceLogout({ lang }: { lang: string }) {
   useEffect(() => {
     const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en'
+    
+    // Instantly destroy token locally to prevent authenticated UI flashes
+    document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;'
+    document.cookie = '__Secure-uid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;'
+    localStorage.removeItem('auth_token')
+    sessionStorage.clear()
+
     fetch(`/api/auth/logout?lang=${safeLang}`, { method: 'POST' })
-      .then(() => {
-        window.location.href = `/${safeLang}/login`
-      })
-      .catch(() => {
+      .finally(() => {
+        // Force hardware reload to login to guarantee no caching issues
         window.location.href = `/${safeLang}/login`
       })
   }, [lang])
   
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-10 h-10 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-        <p className="font-semibold text-sm animate-pulse">Logging out securely...</p>
-      </div>
-    </div>
-  )
+  // Return null to avoid rendering a broken loader and ruining the layout
+  return null
 }

@@ -75,7 +75,12 @@ export default async function Header(props?: HeaderProps) {
     await getAuthData(token, activeLang)
 
   if (shouldLogout) {
-    return <ForceLogout lang={activeLang} />
+    return (
+      <>
+        <ForceLogout lang={activeLang} />
+        <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} />
+      </>
+    )
   }
 
   return (

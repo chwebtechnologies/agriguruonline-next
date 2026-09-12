@@ -7,6 +7,7 @@ import { tradingService } from '@/lib/api/trading.service';
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 import MyInquiriesClient from '@/components/my-inquiries/MyInquiriesClient';
 import { getUserProfile } from '@/lib/user-data';
+import { ForceLogout } from '@/components/auth/ForceLogout';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,7 +40,7 @@ export default async function MyOffersPage(props: { params: Promise<{ lang: stri
   const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
   
   if (shouldLogout || !profileData) {
-    redirect(`/${lang}/login?redirectUrl=/${lang}/my-offers`);
+    return <ForceLogout lang={lang} />;
   }
 
   const getNormalizedType = (typeData: any) => {

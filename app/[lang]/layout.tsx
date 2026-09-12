@@ -183,11 +183,14 @@ export default async function LocalizedRootLayout({
         <ThemeProvider>
           <NotificationProvider>
             <Suspense fallback={null}>
-            <NavigationProgress />
-          </Suspense>
-          <Suspense fallback={<HeaderGuest dict={dict} activeLang={activeLang} categories={categories} />}>
-            <Header dict={dict} activeLang={activeLang} categories={categories} />
-          </Suspense>
+              <NavigationProgress />
+            </Suspense>
+            <Suspense fallback={<div className="h-10 bg-brand-blue" />}>
+              <AnnouncementBar />
+            </Suspense>
+            <Suspense fallback={<HeaderGuest dict={dict} activeLang={activeLang} categories={categories} />}>
+              <Header dict={dict} activeLang={activeLang} categories={categories} />
+            </Suspense>
 
           <main className="flex-grow w-full relative">
             {children}
