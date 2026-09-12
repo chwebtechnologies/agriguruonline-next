@@ -194,6 +194,8 @@ export default async function MyOffersPage(props: { params: Promise<{ lang: stri
               productInquiries={productInquiries} 
               freightInquiries={freightInquiries}
               dict={dict}
+              token={token}
+              userProfile={profileData}
             />
           </div>
         </div>

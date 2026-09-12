@@ -194,6 +194,8 @@ export default async function MyInquiriesPage(props: { params: Promise<{ lang: s
               productInquiries={productInquiries} 
               freightInquiries={freightInquiries}
               dict={dict}
+              token={token}
+              userProfile={profileData}
             />
           </div>
         </div>

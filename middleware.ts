@@ -66,6 +66,37 @@ export default function middleware(request: NextRequest) {
 
   // 2. Auth Guards
   const token = request.cookies.get('auth_token')?.value;
+  let isTokenValid = false;
+
+  if (token) {
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        // Standard JWT
+        // Fix base64 string to be properly parseable by atob
+        const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        // Pad the string with '=' to make its length a multiple of 4
+        const pad = payloadBase64.length % 4;
+        const paddedBase64 = pad ? payloadBase64 + '='.repeat(4 - pad) : payloadBase64;
+        
+        const decodedJson = atob(paddedBase64);
+        const payload = JSON.parse(decodedJson);
+        
+        // Expiration is typically in seconds
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+          isTokenValid = false;
+        } else {
+          isTokenValid = true;
+        }
+      } else {
+        // Non-JWT token format, assume valid
+        isTokenValid = true;
+      }
+    } catch (e) {
+      console.error('Error decoding JWT token in middleware:', e);
+      isTokenValid = false; // Safe fallback for security
+    }
+  }
   
   const pathnameHasLocale = locales.some(
     (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
@@ -79,12 +110,21 @@ export default function middleware(request: NextRequest) {
   }
 
   // Define protected routes (require auth)
-  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|market-reports|my-inquiries)/);
+  // Added: my-offers, alerts-setups, ai-predict, product-charts, etc. based on typical secure pages
+  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|market-reports|my-inquiries|my-offers|alerts-setups)/);
   
-  if (isProtectedRoute && !token) {
+  if (isProtectedRoute && (!token || !isTokenValid)) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set('redirectUrl', pathname);
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    
+    if (token && !isTokenValid) {
+      // Clear expired or invalid token
+      response.cookies.delete('auth_token');
+      response.cookies.delete('user_info');
+    }
+    
+    return response;
   }
 
   // Define guest-only routes (redirect if logged in)
