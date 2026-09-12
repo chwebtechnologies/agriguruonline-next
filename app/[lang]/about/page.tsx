@@ -22,7 +22,8 @@ export async function generateMetadata(
   });
 }
 
-// Enable Incremental Static Regeneration (ISR) for this page (1 hour)
+export const revalidate = 3600;
+
 export default async function AboutPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en';

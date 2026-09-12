@@ -1,0 +1,102 @@
+export interface ApiFetchOptions extends RequestInit {
+  token?: string;
+  params?: Record<string, string | number | boolean | undefined | null>;
+  revalidate?: number | false;
+  next?: {
+    revalidate?: number | false;
+    tags?: string[];
+  };
+}
+
+/**
+ * Universal high-performance fetcher for AgriGuru.
+ * - Public GET requests default to Next.js Data Cache with Stale-While-Revalidate (default 60s).
+ * - Authenticated requests (with token) and mutations (POST/PUT/PATCH/DELETE) default to { cache: 'no-store' } for 100% security.
+ * - Automatically handles Query Parameters serialization.
+ * - Injects Authorization Bearer token if provided.
+ * - Safe for both Server and Client components.
+ */
+export async function customFetch(url: string, options: ApiFetchOptions = {}): Promise<Response> {
+  const {
+    token,
+    params,
+    headers: customHeaders,
+    cache,
+    revalidate,
+    next: customNext,
+    method = 'GET',
+    ...rest
+  } = options;
+
+  let finalUrl = url;
+  if (params) {
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, String(value));
+      }
+    }
+    const queryString = searchParams.toString();
+    if (queryString) {
+      finalUrl += (finalUrl.includes('?') ? '&' : '?') + queryString;
+    }
+  }
+
+  const headers = new Headers(customHeaders || {});
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
+  }
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  // Determine caching strategy:
+  // 1. If explicit cache is passed, honor it.
+  // 2. If token is present or HTTP method is mutation (POST, PUT, DELETE, PATCH), strictly no-store.
+  // 3. For public GET requests, use Next.js Data Cache with revalidation (default 60s).
+  const isMutation = method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD';
+  const isAuthRequest = Boolean(token);
+
+  const fetchInit: RequestInit & { next?: { revalidate?: number | false; tags?: string[] } } = {
+    ...rest,
+    method,
+    headers,
+  };
+
+  if (cache !== undefined) {
+    fetchInit.cache = cache;
+    if (customNext) {
+      fetchInit.next = customNext;
+    }
+  } else if (isMutation || isAuthRequest) {
+    fetchInit.cache = 'no-store';
+  } else {
+    // Public GET request — enable Next.js Data Cache (Stale-While-Revalidate)
+    const revalidateSeconds = revalidate !== undefined ? revalidate : (customNext?.revalidate ?? 60);
+    fetchInit.next = {
+      ...(customNext || {}),
+      revalidate: revalidateSeconds,
+    };
+  }
+
+  try {
+    return await fetch(finalUrl, fetchInit);
+  } catch (error) {
+    console.error(`[customFetch] Network error for ${finalUrl}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Convenience helper to fetch and parse JSON response safely.
+ */
+export async function customFetchJSON<T>(url: string, options: ApiFetchOptions = {}): Promise<T | null> {
+  try {
+    const res = await customFetch(url, options);
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch (error) {
+    console.error(`[customFetchJSON] Error fetching JSON for ${url}:`, error);
+    return null;
+  }
+}

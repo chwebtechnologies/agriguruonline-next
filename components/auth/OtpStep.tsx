@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import { toast } from "sonner";
 import { createSession } from "@/app/actions/auth";
-import { getUserApiUrl } from '@/lib/api-utils';
+import { authService } from "@/lib/api";
 
 interface OtpStepProps {
   email: string;
@@ -51,14 +51,7 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     }
     startTransition(async () => {
       try {
-        const apiUrl = getUserApiUrl();
-        const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email }),
-        });
+        const response = await authService.sendOtp(email, lang);
 
         if (!response.ok) {
           let errorMessage = "Failed to resend OTP. Please try again.";
@@ -88,14 +81,7 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     setError("");
     startTransition(async () => {
       try {
-        const apiUrl = getUserApiUrl();
-        const response = await fetch(`${apiUrl}/auth/verify-otp?lang_code=${lang}&source=web`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, otp: otpString, source: "WEB" }),
-        });
+        const response = await authService.verifyOtp(email, otpString, lang);
 
         if (!response.ok) {
           let errorMessage = "Failed to verify OTP. Please try again.";

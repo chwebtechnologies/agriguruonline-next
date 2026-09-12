@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { PageHeader } from '@/components/ui/PageHeader';
 import DedicatedChartClient from './DedicatedChartClient';
 import { cookies } from 'next/headers';
-import { getTradingApiUrl, getUserApiUrl, getSafeLang, getAssetsUrl } from '@/lib/api-utils';
+import { getSafeLang, getAssetsUrl } from '@/lib/api-utils';
+import { tradingService } from '@/lib/api/trading.service';
 import { getUserProfile } from '@/lib/user-data';
 
 import { getAlternates, getSafeLanguage } from '@/lib/seo';
@@ -124,17 +125,9 @@ async function getChartProductData(id: string, lang: string = 'en') {
   }
 
   // 2. Fetch favorite products to find matching item
-  try {
-    const fHeaders: any = { 'Content-Type': 'application/json' };
-    if (token) fHeaders['Authorization'] = `Bearer ${token}`;
-
-    const fRes = await fetch(`${getTradingApiUrl()}/favorite-product?lang_code=${safeLang}&source=web`, {
-      headers: fHeaders,
-      next: { revalidate: 60 }
-    });
-    if (fRes.ok) {
-      const fJson = await fRes.json();
-      const rawFavs = fJson.data?.favorite_products || fJson.data?.favorite_product || (Array.isArray(fJson.data) ? fJson.data : []);
+  if (token) {
+    try {
+      const rawFavs = await tradingService.getFavoriteProducts(token, safeLang);
       if (Array.isArray(rawFavs)) {
         const match = rawFavs.find((f: any) => String(f.id) === String(id) || String(f.product?.id) === String(id) || String(f.product_id) === String(id));
         if (match) {
@@ -159,23 +152,18 @@ async function getChartProductData(id: string, lang: string = 'en') {
           };
         }
       }
+    } catch (e) {
+      console.error('Failed to fetch favorite product:', e);
     }
-  } catch (e) {
-    console.error('Failed to fetch favorite product:', e);
   }
 
   // 3. Fallback to product details if not in favorites
   if (!itemData) {
     try {
-      const pRes = await fetch(`${getTradingApiUrl()}/product/${encodeURIComponent(id)}?lang_code=${safeLang}&source=web`, {
-        next: { revalidate: 60 }
-      });
-      if (pRes.ok) {
-        const pJson = await pRes.json();
-        const pData = pJson.data;
-        if (pData) {
-          itemData = {
-            id: pData.id || id,
+      const pData = await tradingService.getProduct(id, safeLang);
+      if (pData) {
+        itemData = {
+          id: pData.id || id,
             category: pData.category?.name || 'N/A',
             country: pData.country?.name || 'N/A',
             countryFlag: pData.country?.flag || '',
@@ -189,8 +177,7 @@ async function getChartProductData(id: string, lang: string = 'en') {
             price: (pData.loading_ports?.[0]?.price != null ? Math.round(Number(pData.loading_ports[0].price)) : 0).toString(),
             change: (pData.change != null ? Math.round(Number(pData.change)) : 0).toString(),
             chartStatus: true,
-          };
-        }
+        };
       }
     } catch (e) {
       console.error('Failed to fetch product details fallback:', e);

@@ -5,11 +5,14 @@ import ListingFilters from '@/components/shared/ListingFilters'
 import type { Metadata } from 'next'
 import type { MarketUpdatesResponse } from '@/types/marketUpdates'
 import { cache, Suspense } from 'react'
-import { getCmsApiUrl, getAssetsUrl } from '@/lib/api-utils';
+import { getAssetsUrl } from '@/lib/api-utils';
+import { cmsService } from '@/lib/api/cms.service';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
+
+export const revalidate = 60;
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -26,28 +29,6 @@ export async function generateMetadata(
   });
 }
 
-
-
-const getMarketUpdates = cache(async (lang: string, page: number, limit: number, search?: string): Promise<MarketUpdatesResponse | null> => {
-  const cmsApiUrl = getCmsApiUrl(); const url = `${cmsApiUrl}/flyer?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json = await res.json()
-    return json
-  } catch (error) {
-    console.error('Failed to fetch market updates:', error)
-    return null
-  }
-})
-
 /* ---------- Main page component ---------- */
 export default async function MarketUpdatesPage(props: {
   params: Promise<{ lang: string }>,
@@ -62,7 +43,7 @@ export default async function MarketUpdatesPage(props: {
   const limit = 18 // Used 18 as per API limit in requirement
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
 
-  const updatesData = await getMarketUpdates(lang, currentPage, limit, searchQuery)
+  const updatesData = await cmsService.getMarketUpdates(lang, currentPage, limit, searchQuery)
   const flyers = updatesData?.data?.flyers || []
   const totalItems = updatesData?.data?.total || 0
   const totalPages = Math.ceil(totalItems / limit)

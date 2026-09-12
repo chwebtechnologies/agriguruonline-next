@@ -3,12 +3,14 @@ import VideoGalleryCard from '@/components/video-gallery/VideoGalleryCard'
 import type { Metadata } from 'next'
 import type { VideoGalleryResponse } from '@/types/videoGallery'
 import { cache, Suspense } from 'react'
-import { getCmsApiUrl } from '@/lib/api-utils';
+import { cmsService } from '@/lib/api/cms.service';
 import { getDictionary } from '../dictionaries'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
+
+export const revalidate = 60;
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -25,30 +27,9 @@ export async function generateMetadata(
   });
 }
 
-
-
-const getVideoCategories = cache(async (): Promise<VideoGalleryResponse | null> => {
-  const cmsApiUrl = getCmsApiUrl();const url = `${cmsApiUrl}/dashboard/categories/video?source=web`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-    
-    if (!res.ok) {
-      return null
-    }
-
-    return await res.json()
-  } catch (error) {
-    console.error('Failed to fetch video categories:', error)
-    return null
-  }
-})
-
 /* ---------- Async component that fetches and renders video grid ---------- */
 async function VideoGalleryGrid({ lang }: { lang: string }) {
-  const data = await getVideoCategories()
+  const data = await cmsService.getVideoCategories()
   const categories = data?.data?.categories || []
 
   if (categories.length === 0) {

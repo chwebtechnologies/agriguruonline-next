@@ -185,8 +185,9 @@ export default async function LocalizedRootLayout({
             <Suspense fallback={null}>
             <NavigationProgress />
           </Suspense>
-          <AnnouncementBar />
-          <Header dict={dict} activeLang={activeLang} categories={categories} />
+          <Suspense fallback={<HeaderGuest dict={dict} activeLang={activeLang} categories={categories} />}>
+            <Header dict={dict} activeLang={activeLang} categories={categories} />
+          </Suspense>
 
           <main className="flex-grow w-full relative">
             {children}

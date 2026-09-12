@@ -8,7 +8,8 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/layout/AppMenu'
-import { getAssetsUrl, getUserApiUrl } from '@/lib/api-utils';
+import { getAssetsUrl } from '@/lib/api-utils';
+import { authService } from '@/lib/api';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
 import { useNotification } from '@/components/providers/NotificationProvider'
 import { getUnreadStatusFromIndexedDB, setUnreadStatusInIndexedDB } from '@/lib/notificationStorage'
@@ -295,14 +296,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
       if (fcmSyncedRef.current === fcmToken) return;
       fcmSyncedRef.current = fcmToken;
 
-      fetch(`${getUserApiUrl()}/auth/set-fcm`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ fcm_token: fcmToken, source: "WEB" })
-      })
+      authService.setFcmToken(fcmToken, token)
       .then(res => {
         if (res.ok) {
           if (typeof window !== 'undefined') {

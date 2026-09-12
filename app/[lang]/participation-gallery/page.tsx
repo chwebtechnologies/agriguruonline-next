@@ -5,13 +5,15 @@ import type { Metadata } from 'next'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { ParticipationCategoriesResponse } from '@/types/participationGallery'
 import { cache, Suspense } from 'react'
-import { getCmsApiUrl } from '@/lib/api-utils'
+import { cmsService } from '@/lib/api/cms.service'
 
 const PAGE_LIMIT = 12
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
+
+export const revalidate = 60;
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -28,28 +30,6 @@ export async function generateMetadata(
   });
 }
 
-const getParticipationCategories = cache(
-  async (lang: string, page: number = 1, limit: number = PAGE_LIMIT): Promise<ParticipationCategoriesResponse | null> => {
-    const cmsApiUrl = getCmsApiUrl()
-    const url = `${cmsApiUrl}/dashboard/categories/gallery?lang_code=${lang}&source=web&page=${page}&limit=${limit}`
-
-    try {
-      const res = await fetch(url, {
-        next: { revalidate: 60 },
-      })
-
-      if (!res.ok) {
-        return null
-      }
-
-      return await res.json()
-    } catch (error) {
-      console.error('Failed to fetch participation categories:', error)
-      return null
-    }
-  }
-)
-
 /* ---------- Async component that fetches and renders participation category grid ---------- */
 async function ParticipationGalleryGrid({
   lang,
@@ -58,7 +38,7 @@ async function ParticipationGalleryGrid({
   lang: string
   page: number
 }) {
-  const data = await getParticipationCategories(lang, page, PAGE_LIMIT)
+  const data = await cmsService.getParticipationCategories(lang, page, PAGE_LIMIT)
   const categories = data?.data?.categories || []
   const totalCategories = data?.data?.total_categories || 0
   const totalPages = Math.ceil(totalCategories / PAGE_LIMIT)

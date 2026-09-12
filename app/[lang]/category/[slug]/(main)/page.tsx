@@ -9,7 +9,10 @@ import { ShareButton } from '@/components/ui/ShareButton'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
 import { cache } from 'react'
-import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils';
+import { getAssetsUrl } from '@/lib/api-utils';
+import { tradingService } from '@/lib/api/trading.service';
+
+export const revalidate = 60;
 
 interface SubCategory {
   id: string
@@ -35,41 +38,11 @@ interface CategoryData {
   }
 }
 
-const getSubCategories = cache(async (slug: string, lang: string): Promise<CategoryData | null> => {
-  const tradingApiUrl = getTradingApiUrl(); const url = `${tradingApiUrl}/sub-category/for-category/web/${slug}?lang_code=${lang}&source=web`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json = await res.json()
-    if (json.success && json.data) {
-      return json.data
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to fetch sub-categories:', error)
-    return null
-  }
-})
-
 export async function generateStaticParams() {
   const languages = ['en', 'ar', 'zh', 'fr']
-  const tradingApiUrl = getTradingApiUrl()
-  const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
 
   try {
-    const categories = await getCategories('en', {
-      apiUrl: categoriesApiUrl,
-      stale: 300,
-      revalidate: 0,
-      expire: 86400
-    })
+    const categories = await getCategories('en')
 
     return languages.flatMap(lang =>
       categories.filter(cat => cat.slug).map(cat => ({
@@ -91,7 +64,7 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang)
   const slug = decodeURIComponent(params?.slug || '')
 
-  const data = await getSubCategories(slug, lang)
+  const data = await tradingService.getSubCategories(slug, lang)
   const matchedCategory = data?.category
 
   // Use translation if available, otherwise format slug
@@ -172,7 +145,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   const slug = params.slug
 
   const [data, dict] = await Promise.all([
-    getSubCategories(slug, lang),
+    tradingService.getSubCategories(slug, lang),
     getDictionary(lang)
   ])
   const commonDict = (dict as Record<string, any>).common || {}
@@ -209,7 +182,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
               {data.sub_categories.map((subCat, index) => {
                 const subCatName = getTranslatedName(subCat.translations, subCat.name) || subCat.slug || 'Category'
-                const imageUrl = subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`
+                const imageUrl = subCat.image ? (subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`) : '/placeholder.png'
 
                 return (
                   <div

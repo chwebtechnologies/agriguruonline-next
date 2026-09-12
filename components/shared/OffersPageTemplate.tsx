@@ -3,8 +3,8 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import ListingFilters from '@/components/shared/ListingFilters'
 import { OfferCard } from '@/components/shared/OfferCard'
 import { getDictionary } from '@/app/[lang]/dictionaries'
-import { getCategories } from '@/lib/category'
-import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { tradingService } from '@/lib/api'
+import { getAssetsUrl } from '@/lib/api-utils'
 
 interface Inquiry {
   id: string
@@ -31,35 +31,15 @@ interface InquiriesResponse {
 }
 
 async function getLatestOffers(lang: string, offerType: 'BUYER' | 'SELLER', searchParams?: { search?: string, categoryId?: string }): Promise<InquiriesResponse | null> {
-  const tradingApiUrl = getTradingApiUrl()
-  // If we want latest offers FOR buyers, we fetch SELLER offers.
-  // If we want latest offers FOR sellers, we fetch BUYER offers.
   const apiType = offerType === 'BUYER' ? 'SELLER' : 'BUYER'
-  
-  let url = `${tradingApiUrl}/trading-inquiry/latest/for-web?type=${apiType}&page=1&limit=12&is_active=true&lang_code=${lang}&source=web`
-  
-  if (searchParams?.search) {
-    url += `&search=${encodeURIComponent(searchParams.search)}`
-  }
-  if (searchParams?.categoryId) {
-    url += `&category_id=${encodeURIComponent(searchParams.categoryId)}`
-  }
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json = await res.json()
-    return json
-  } catch (error) {
-    console.error('Failed to fetch latest offers:', error)
-    return null
-  }
+  return await tradingService.getLatestTradingInquiries({
+    type: apiType,
+    page: 1,
+    limit: 12,
+    search: searchParams?.search,
+    categoryId: searchParams?.categoryId,
+    lang,
+  });
 }
 
 interface OffersPageTemplateProps {
@@ -73,13 +53,7 @@ export async function OffersPageTemplate({ lang, searchParams, offerType, pageTi
   const searchStr = searchParams.search;
   const categoryStr = searchParams.category;
 
-  const tradingApiUrl = getTradingApiUrl();
-  const apiCategories = await getCategories(lang, {
-    apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`,
-    stale: 300,
-    revalidate: 0,
-    expire: 86400
-  })
+  const apiCategories = await tradingService.getCategories(lang);
 
   // Resolve slug to ID server-side so ID never leaks to the client
   const matchedCategory = categoryStr ? apiCategories.find(cat => cat.slug === categoryStr) : undefined

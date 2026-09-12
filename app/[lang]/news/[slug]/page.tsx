@@ -4,10 +4,12 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
-import { getCmsApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl } from '@/lib/api-utils'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { NewsArticle, NewsResponse } from '@/types/news'
 import { cache } from 'react'
+
+export const revalidate = 60;
 
 interface NewsDetail {
   id: string
@@ -29,68 +31,18 @@ interface NewsDetail {
   translations?: import('@/types/news').NewsTranslation[]
 }
 
-const getNewsDetail = cache(async (slug: string, lang: string): Promise<NewsDetail | null> => {
-  const cmsApiUrl = getCmsApiUrl()
-  const url = `${cmsApiUrl}/latestnews/${slug}?lang_code=${lang}&source=web`
-  
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-    
-    if (!res.ok) {
-      return null
-    }
-    
-    const json = await res.json()
-    if (json.success && json.data) {
-      return json.data
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to fetch news detail:', error)
-    return null
-  }
-})
-
-const getOtherNews = cache(async (lang: string, categoryId?: string, limit = 6): Promise<NewsArticle[]> => {
-  const cmsApiUrl = getCmsApiUrl()
-  const url = `${cmsApiUrl}/latestnews?is_active=true&lang_code=${lang}&source=web&page=1&limit=${limit}${categoryId ? `&category_id=${categoryId}` : ''}`
-  
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-    
-    if (!res.ok) {
-      return []
-    }
-    
-    const json: NewsResponse = await res.json()
-    return json?.data?.news || []
-  } catch (error) {
-    console.error('Failed to fetch other news:', error)
-    return []
-  }
-})
+import { cmsService } from '@/lib/api/cms.service'
 
 export async function generateStaticParams() {
   const languages = ['en', 'ar', 'zh', 'fr']
   const params: Array<{ lang: string; slug: string }> = []
 
   try {
-    const cmsApiUrl = getCmsApiUrl()
-    const res = await fetch(`${cmsApiUrl}/latestnews?is_active=true&source=web&page=1&limit=50`, {
-      next: { revalidate: 60 }
-    })
-    if (res.ok) {
-      const json: NewsResponse = await res.json()
-      const newsList = json?.data?.news || []
-      for (const lang of languages) {
-        for (const article of newsList) {
-          if (article.slug) {
-            params.push({ lang, slug: article.slug })
-          }
+    const newsList = await cmsService.getAllNewsStaticParams(50)
+    for (const lang of languages) {
+      for (const article of newsList) {
+        if (article.slug) {
+          params.push({ lang, slug: article.slug })
         }
       }
     }
@@ -110,9 +62,8 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params.lang)
   const slug = params.slug
   
-  // URL decode slug in case it contains special characters
   const decodedSlug = decodeURIComponent(slug)
-  const article = await getNewsDetail(decodedSlug, lang)
+  const article = await cmsService.getNewsDetail(decodedSlug, lang)
   const alternates = getAlternates(`news/${slug}`, lang)
   
   if (!article) {
@@ -252,18 +203,18 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
   const params = await props.params
   const { lang, slug } = params
   
-  const article = await getNewsDetail(slug, lang)
+  const article = await cmsService.getNewsDetail(slug, lang)
   
   if (!article) {
     notFound()
   }
 
   const categoryId = article.categories?.[0]?.id
-  let allLatestNews = await getOtherNews(lang, categoryId, 6)
+  let allLatestNews = await cmsService.getOtherNews(lang, categoryId, 6)
   let otherNewsList = allLatestNews.filter(item => item.slug !== slug)
 
   if (otherNewsList.length === 0 && categoryId) {
-    allLatestNews = await getOtherNews(lang, undefined, 6)
+    allLatestNews = await cmsService.getOtherNews(lang, undefined, 6)
     otherNewsList = allLatestNews.filter(item => item.slug !== slug)
   }
 

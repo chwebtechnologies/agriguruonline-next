@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { SearchProduct, SearchApiResponse } from '@/types/search'
-import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl } from '@/lib/api-utils'
+import { tradingService } from '@/lib/api'
 import { AgriGuruLogo } from '@/components/layout/HeaderGuest'
 import { MarketedProductCard } from '@/components/marketed-products/MarketedProductCard'
 
@@ -69,7 +70,6 @@ export function HeaderSearch({
 
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  const tradingApiUrl = getTradingApiUrl()
 
   const isRtl = lang === 'ar'
 
@@ -139,10 +139,7 @@ export function HeaderSearch({
     setFetchError(null)
 
     try {
-      const url = `${tradingApiUrl}/product?is_active=true&lang_code=${lang}&source=web&limit=50`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`HTTP Error ${res.status}`)
-      const json = await res.json()
+      const json = await tradingService.searchProducts({ isActive: true, lang, limit: 50 });
       
       // More resilient parsing in case API structure changed
       let productsArray: SearchProduct[] = []
@@ -166,7 +163,7 @@ export function HeaderSearch({
     } finally {
       setIsInitialLoading(false)
     }
-  }, [lang, tradingApiUrl, isInitialLoading])
+  }, [lang, isInitialLoading])
 
   // Open desktop dropdown / trigger initial fetch
   const handleDesktopFocus = () => {
@@ -218,10 +215,7 @@ export function HeaderSearch({
     setIsSearching(true)
     const timeoutId = setTimeout(async () => {
       try {
-        const url = `${tradingApiUrl}/product?is_active=true&search=${encodeURIComponent(trimmed)}&lang_code=${lang}&source=web`
-        const res = await fetch(url)
-        if (!res.ok) throw new Error('Search failed')
-        const json = await res.json()
+        const json = await tradingService.searchProducts({ isActive: true, query: trimmed, lang });
         
         let prods: SearchProduct[] = []
         if (json?.data?.products && Array.isArray(json.data.products)) {
@@ -247,7 +241,7 @@ export function HeaderSearch({
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [query, lang, tradingApiUrl])
+  }, [query, lang])
 
   // Select a product
   const handleProductSelect = (product: SearchProduct) => {

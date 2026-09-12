@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ProductChartsClient from '@/components/product-charts/ProductChartsClient'
 import { cookies } from 'next/headers'
-import { getTradingApiUrl, getUserApiUrl, getSafeLang } from '@/lib/api-utils'
+import { getSafeLang } from '@/lib/api-utils'
+import { tradingService } from '@/lib/api/trading.service'
 import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
 
@@ -32,31 +33,17 @@ async function getChartsInitialData(lang: string = 'en') {
   let favoriteProducts: any[] = []
   let marketedProducts: any[] = []
 
-  const tradingApiUrl = getTradingApiUrl()
-  const userApiUrl = getUserApiUrl()
-
-  const pUrl = `${tradingApiUrl}/product?is_active=true&lang_code=${safeLang}&source=web`
-  const tUrl = `${tradingApiUrl}/shipping-term?is_active=true&lang_code=${safeLang}&source=web`
-  const uUrl = `${userApiUrl}/user/my-profile?lang_code=${safeLang}&source=web`
-  const fUrl = `${tradingApiUrl}/favorite-product?lang_code=${safeLang}&source=web`
-
-  const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) {
-    authHeaders['Authorization'] = `Bearer ${token}`
-  }
-
-  // Execute all independent API fetches concurrently in parallel
+  // Execute all independent API fetches concurrently in parallel using centralized services
   const [productsSettled, termsSettled, profileSettled, favsSettled] = await Promise.allSettled([
-    fetch(pUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
-    fetch(tUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
+    tradingService.getAllProducts(safeLang),
+    tradingService.getShippingTerms(safeLang),
     token ? getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null) : Promise.resolve(null),
-    fetch(fUrl, { headers: authHeaders, cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+    token ? tradingService.getFavoriteProducts(token, safeLang) : Promise.resolve([])
   ])
 
   // 1. Process products
-  if (productsSettled.status === 'fulfilled' && productsSettled.value) {
-    const json = productsSettled.value
-    const rawProducts = json.data?.products || (Array.isArray(json.data) ? json.data : [])
+  if (productsSettled.status === 'fulfilled' && Array.isArray(productsSettled.value)) {
+    const rawProducts = productsSettled.value
     if (Array.isArray(rawProducts)) {
       products = rawProducts.map((p: any) => ({
         id: p.id || '',
@@ -96,8 +83,7 @@ async function getChartsInitialData(lang: string = 'en') {
 
   // 2. Process shipping terms
   if (termsSettled.status === 'fulfilled' && termsSettled.value) {
-    const json = termsSettled.value
-    const rawTerms = json.data?.shipping_term || json.data?.shipping_terms || (Array.isArray(json.data) ? json.data : [])
+    const rawTerms = Array.isArray(termsSettled.value) ? termsSettled.value : ((termsSettled.value as any)?.data?.shipping_term || []);
     if (Array.isArray(rawTerms)) {
       shippingTerms = rawTerms.map((t: any) => ({
         id: t.id || '',
@@ -118,15 +104,7 @@ async function getChartsInitialData(lang: string = 'en') {
 
   // 4. Process favorite products
   if (favsSettled.status === 'fulfilled' && favsSettled.value) {
-    const fJson = favsSettled.value
-    const rawFavs =
-      fJson?.data?.favorite_products ||
-      fJson?.data?.favorite_product ||
-      fJson?.data?.favorites ||
-      fJson?.data?.products ||
-      fJson?.data?.data ||
-      (Array.isArray(fJson?.data) ? fJson.data : []) ||
-      (Array.isArray(fJson) ? fJson : [])
+    const rawFavs = Array.isArray(favsSettled.value) ? favsSettled.value : [];
 
     if (Array.isArray(rawFavs)) {
       const getTitle = (obj: any, fallback = 'N/A') => {

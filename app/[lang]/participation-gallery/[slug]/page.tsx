@@ -8,26 +8,22 @@ import type {
   ParticipationPhotoItem,
 } from '@/types/participationGallery'
 import { cache } from 'react'
-import { getCmsApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl } from '@/lib/api-utils'
+import { cmsService } from '@/lib/api/cms.service'
 import Link from 'next/link'
+
+export const revalidate = 60;
 
 export async function generateStaticParams() {
   const languages = ['en', 'ar', 'zh', 'fr']
   const params: Array<{ lang: string; slug: string }> = []
 
   try {
-    const cmsApiUrl = getCmsApiUrl()
-    const res = await fetch(`${cmsApiUrl}/dashboard/categories/gallery?source=web&page=1&limit=50`, {
-      next: { revalidate: 60 }
-    })
-    if (res.ok) {
-      const data: ParticipationCategoriesResponse = await res.json()
-      const categories = data?.data?.categories || []
-      for (const lang of languages) {
-        for (const cat of categories) {
-          if (cat.slug) {
-            params.push({ lang, slug: cat.slug })
-          }
+    const categories = await cmsService.getAllParticipationCategoriesStaticParams(50)
+    for (const lang of languages) {
+      for (const cat of categories) {
+        if (cat.slug) {
+          params.push({ lang, slug: cat.slug })
         }
       }
     }
@@ -37,28 +33,6 @@ export async function generateStaticParams() {
 
   return params
 }
-
-const getAlbumDetails = cache(
-  async (slug: string, lang: string): Promise<ParticipationAlbumResponse | null> => {
-    const cmsApiUrl = getCmsApiUrl()
-    const url = `${cmsApiUrl}/dashboard/gallery/${slug}?lang_code=${lang}&source=web`
-
-    try {
-      const res = await fetch(url, {
-        next: { revalidate: 60 },
-      })
-
-      if (!res.ok) {
-        return null
-      }
-
-      return await res.json()
-    } catch (error) {
-      console.error('Failed to fetch album details:', error)
-      return null
-    }
-  }
-)
 
 import { getAlternates, getSafeLanguage } from '@/lib/seo'
 
@@ -74,7 +48,7 @@ export async function generateMetadata(
   const slug = params.slug
   const photoParam = searchParams.photo
 
-  const data = await getAlbumDetails(slug, lang)
+  const data = await cmsService.getParticipationAlbumDetails(slug, lang)
   const category = data?.data?.category
   const photos = data?.data?.images || data?.data?.galleries || []
 
@@ -184,7 +158,7 @@ export default async function ParticipationAlbumPage(props: {
   const lang = params.lang || 'en'
   const slug = params.slug
 
-  const data = await getAlbumDetails(slug, lang)
+  const data = await cmsService.getParticipationAlbumDetails(slug, lang)
   const category = data?.data?.category
   const photos = data?.data?.images || data?.data?.galleries || []
 

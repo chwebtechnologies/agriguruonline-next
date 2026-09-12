@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import FreightChartClient from '@/components/freight-chart/FreightChartClient'
 import { cookies } from 'next/headers'
-import { getTradingApiUrl, getUserApiUrl, getSafeLang } from '@/lib/api-utils'
+import { getSafeLang } from '@/lib/api-utils'
+import { tradingService } from '@/lib/api/trading.service'
 import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
 
@@ -30,29 +31,16 @@ async function getFreightInitialData(lang: string = 'en') {
   let userType: string | null = null
   let favoritePorts: any[] = []
 
-  const tradingApiUrl = getTradingApiUrl()
-  const userApiUrl = getUserApiUrl()
-
-  const cUrl = `${tradingApiUrl}/shipping-container?is_active=true&lang_code=${safeLang}&source=web`
-  const uUrl = `${userApiUrl}/user/my-profile?lang_code=${safeLang}&source=web`
-  const fUrl = `${tradingApiUrl}/favourite-port?lang_code=${safeLang}&source=web`
-
-  const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (token) {
-    authHeaders['Authorization'] = `Bearer ${token}`
-  }
-
-  // Execute all independent API fetches concurrently in parallel
+  // Execute all independent API fetches concurrently in parallel using centralized services
   const [containersSettled, profileSettled, favsSettled] = await Promise.allSettled([
-    fetch(cUrl, { next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null),
+    tradingService.getShippingContainers(safeLang),
     token ? getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null) : Promise.resolve(null),
-    fetch(fUrl, { headers: authHeaders, next: { revalidate: 60 } }).then(r => r.ok ? r.json() : null)
+    token ? tradingService.getFavoritePorts(token, safeLang) : Promise.resolve([])
   ])
 
   // 1. Process shipping containers
   if (containersSettled.status === 'fulfilled' && containersSettled.value) {
-    const json = containersSettled.value
-    const rawContainers = json.data?.shipping_container || json.data?.shipping_containers || (Array.isArray(json.data) ? json.data : [])
+    const rawContainers = Array.isArray(containersSettled.value) ? containersSettled.value : ((containersSettled.value as any)?.data?.shipping_container || []);
     if (Array.isArray(rawContainers)) {
       shippingContainers = rawContainers.map((c: any) => ({
         id: c.id || '',
@@ -75,15 +63,7 @@ async function getFreightInitialData(lang: string = 'en') {
 
   // 3. Process favorite freight ports
   if (favsSettled.status === 'fulfilled' && favsSettled.value) {
-    const fJson = favsSettled.value
-    const rawFavs =
-      fJson?.data?.favourite_ports ||
-      fJson?.data?.favourite_port ||
-      fJson?.data?.favorites ||
-      fJson?.data?.ports ||
-      fJson?.data?.data ||
-      (Array.isArray(fJson?.data) ? fJson.data : []) ||
-      (Array.isArray(fJson) ? fJson : [])
+    const rawFavs = Array.isArray(favsSettled.value) ? favsSettled.value : [];
 
     if (Array.isArray(rawFavs)) {
       const getTitle = (obj: any, fallback = 'N/A') => {

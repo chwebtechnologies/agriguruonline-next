@@ -7,11 +7,13 @@ import type { EventsResponse } from '@/types/events'
 import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
 import { getDictionary } from '@/app/[lang]/dictionaries'
-import { getTradingApiUrl, getCmsApiUrl } from '@/lib/api-utils';
+import { cmsService } from '@/lib/api/cms.service';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
+
+export const revalidate = 60;
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -27,28 +29,6 @@ export async function generateMetadata(
     lang,
   });
 }
-
-
-
-const getLatestEvents = cache(async (lang: string, page: number, limit: number, search?: string, categoryId?: string): Promise<EventsResponse | null> => {
-  const cmsApiUrl = getCmsApiUrl(); const url = `${cmsApiUrl}/latestevents?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}${categoryId ? `&category_id=${categoryId}` : ''}`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json = await res.json()
-    return json
-  } catch (error) {
-    console.error('Failed to fetch latest events:', error)
-    return null
-  }
-})
 
 /* ---------- Main page component ---------- */
 export default async function LatestEventsPage(props: {
@@ -66,13 +46,7 @@ export default async function LatestEventsPage(props: {
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
   const dict = await getDictionary(lang);
 
-  const tradingApiUrl = getTradingApiUrl();
-  const apiCategories = await getCategories(lang, {
-    apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`,
-    stale: 300,
-    revalidate: 0,
-    expire: 86400
-  })
+  const apiCategories = await getCategories(lang);
 
   // Resolve slug to ID server-side so ID never leaks to the client
   const matchedCategory = categorySlug
@@ -80,7 +54,7 @@ export default async function LatestEventsPage(props: {
     : undefined
   const categoryId = matchedCategory?.id
 
-  const eventsData = await getLatestEvents(lang, currentPage, limit, searchQuery, categoryId)
+  const eventsData = await cmsService.getLatestEvents({ lang, page: currentPage, limit, search: searchQuery, categoryId })
   const eventsList = eventsData?.data?.events || []
   const totalItems = eventsData?.data?.total || 0
   const totalPages = Math.ceil(totalItems / limit)

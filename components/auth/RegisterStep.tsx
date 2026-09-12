@@ -6,7 +6,7 @@ import "react-phone-number-input/style.css";
 import { toast } from "sonner";
 import { createSession } from "@/app/actions/auth";
 import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput";
-import { getUserApiUrl } from "@/lib/api-utils";
+import { authService } from "@/lib/api";
 
 interface RegisterStepProps {
   email: string;
@@ -60,12 +60,7 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
           source: "WEB"
         };
 
-        const apiUrl = getUserApiUrl();
-        const res = await fetch(`${apiUrl}/auth/register?lang_code=${lang}&source=web`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
+        const res = await authService.register(payload, lang);
 
         if (!res.ok) {
           let errorMessage = "Failed to register. Please try again.";

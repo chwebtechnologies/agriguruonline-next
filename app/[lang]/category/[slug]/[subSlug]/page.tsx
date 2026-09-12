@@ -4,7 +4,10 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { Metadata } from 'next'
-import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils';
+import { getAssetsUrl } from '@/lib/api-utils';
+import { tradingService } from '@/lib/api/trading.service';
+
+export const revalidate = 60;
 
 interface Product {
   id: string
@@ -29,60 +32,25 @@ interface ProductData {
   }
 }
 
-const getProducts = cache(async (slug: string, subSlug: string, lang: string): Promise<ProductData | null> => {
-  const tradingApiUrl = getTradingApiUrl(); const url = `${tradingApiUrl}/product/for-subcategory/web/${slug}/${subSlug}?lang_code=${lang}&is_active=true&source=web`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json = await res.json()
-    if (json.success && json.data) {
-      return json.data
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to fetch products:', error)
-    return null
-  }
-})
-
 export async function generateStaticParams() {
   const languages = ['en', 'ar', 'zh', 'fr']
   const params: Array<{ lang: string; slug: string; subSlug: string }> = []
-  const tradingApiUrl = getTradingApiUrl()
 
   try {
-    const res = await fetch(`${tradingApiUrl}/category?page=1&limit=15&lang_code=en&source=web`, {
-      next: { revalidate: 60 }
-    })
-    if (res.ok) {
-      const json = await res.json()
-      const categories = json.data?.categories || json.data || []
-      for (const cat of categories.slice(0, 10)) {
-        if (!cat.slug) continue
-        try {
-          const subRes = await fetch(`${tradingApiUrl}/sub-category/for-category/web/${cat.slug}?lang_code=en&source=web`, {
-            next: { revalidate: 60 }
-          })
-          if (subRes.ok) {
-            const subJson = await subRes.json()
-            const subCats = subJson.data?.sub_categories || []
-            for (const sub of subCats) {
-              if (sub.slug) {
-                for (const lang of languages) {
-                  params.push({ lang, slug: cat.slug, subSlug: sub.slug })
-                }
-              }
+    const categories = await tradingService.getCategories('en', 15)
+    for (const cat of categories.slice(0, 10)) {
+      if (!cat.slug) continue
+      try {
+        const subData = await tradingService.getSubCategories(cat.slug, 'en')
+        const subCats = subData?.sub_categories || []
+        for (const sub of subCats) {
+          if (sub.slug) {
+            for (const lang of languages) {
+              params.push({ lang, slug: cat.slug, subSlug: sub.slug })
             }
           }
-        } catch {}
-      }
+        }
+      } catch {}
     }
   } catch (error) {
     console.error('Failed to generate static params for subcategories:', error)
@@ -101,7 +69,7 @@ export async function generateMetadata(
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
   const subSlug = params?.subSlug ? decodeURIComponent(params.subSlug) : '';
 
-  const data = await getProducts(slug, subSlug, lang);
+  const data = await tradingService.getProductsForSubcategory(slug, subSlug, lang);
 
   let formattedName = data?.sub_category?.name || subSlug
     .split('-')
@@ -187,7 +155,7 @@ export default async function SubCategoryProductsPage(
   const subSlug = params?.subSlug || ''
 
   const [data, dict] = await Promise.all([
-    getProducts(slug, subSlug, lang),
+    tradingService.getProductsForSubcategory(slug, subSlug, lang),
     getDictionary(lang)
   ])
   const commonDict = (dict as Record<string, any>)?.common || {}
@@ -224,7 +192,7 @@ export default async function SubCategoryProductsPage(
           <PageHeader title={pageTitle} backText={common.back} backHref={`/${lang}/category/${slug}`} />
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
-            {data.products.map((product, index) => {
+            {data.products.map((product: any, index: number) => {
               const productName = product.name || product.slug || 'Agricultural Commodity';
               const rawImg = product.thumbnail || product.image;
               const imageUrl = rawImg
@@ -323,7 +291,7 @@ export default async function SubCategoryProductsPage(
             {
               "@context": "https://schema.org",
               "@type": "ItemList",
-              "itemListElement": data.products?.map((product, index) => {
+              "itemListElement": data.products?.map((product: any, index: number) => {
                 const p = product as any;
                 const productName = p.translations?.find((t: any) => t.lang_code === lang)?.name || p.name || p.slug || 'Product'
                 return {

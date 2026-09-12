@@ -8,6 +8,7 @@ import { parsePhoneNumber } from 'react-phone-number-input';
 import en from 'react-phone-number-input/locale/en.json';
 import { toast } from 'sonner';
 import ReCAPTCHA from 'react-google-recaptcha';
+import { userService } from '@/lib/api';
 
 interface ContactFormProps {
   contactDict?: any;
@@ -92,13 +93,7 @@ export default function ContactForm({ contactDict = {} }: ContactFormProps) {
         captcha_token: captchaToken
       };
 
-      const res = await fetch('https://user-api.agriguruonline.cloud/contact-us', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      const res = await userService.submitContactUs(payload);
 
       if (res.ok) {
         toast.success('Your message has been sent successfully!');

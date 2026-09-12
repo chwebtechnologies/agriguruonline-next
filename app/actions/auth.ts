@@ -2,8 +2,7 @@
 
 import disposableDomains from "disposable-email-domains";
 import { cookies } from "next/headers";
-
-import { getUserApiUrl } from "@/lib/api-utils";
+import { authService, userService } from "@/lib/api";
 
 export async function validateEmailDomain(email: string): Promise<{ isValid: boolean; error?: string }> {
   const domain = email.split("@")[1]?.toLowerCase();
@@ -63,12 +62,7 @@ export async function logoutUser() {
   
   if (token) {
     try {
-      await fetch(`${getUserApiUrl()}/auth/logout?lang_code=en&source=web`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
+      await authService.logout(token);
     } catch (error) {
       console.error("Logout API failed", error);
     }
@@ -100,13 +94,7 @@ export async function uploadProfileImage(formData: FormData) {
       const apiFormData = new FormData();
       apiFormData.append(fieldName, file);
 
-      const res = await fetch(`${getUserApiUrl()}/user/upload-profile?lang_code=en&source=web`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        },
-        body: apiFormData,
-      });
+      const res = await userService.uploadProfileImage(apiFormData, token);
       
       if (res.ok) {
         const data = await res.json();
@@ -121,7 +109,6 @@ export async function uploadProfileImage(formData: FormData) {
         console.error(`Profile upload failed with field '${fieldName}':`, res.status, errorText);
         return { success: false, error: "Failed to upload image" };
       }
-      // If it IS 'Unexpected field', the loop continues to try the next field name!
     }
 
     console.error("Profile upload failed: exhausted all field names. Last error:", lastError);

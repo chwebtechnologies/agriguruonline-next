@@ -7,13 +7,14 @@ import type { NewsResponse } from '@/types/news'
 import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
 import { getDictionary } from '@/app/[lang]/dictionaries'
-import { getTradingApiUrl, getCmsApiUrl } from '@/lib/api-utils';
+import { cmsService } from '@/lib/api/cms.service'
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+export const revalidate = 60;
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -27,28 +28,6 @@ export async function generateMetadata(
     lang,
   });
 }
-
-
-
-const getLatestNews = cache(async (lang: string, page: number, limit: number, search?: string, categoryId?: string): Promise<NewsResponse | null> => {
-  const cmsApiUrl = getCmsApiUrl(); const url = `${cmsApiUrl}/latestnews?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}${categoryId ? `&category_id=${categoryId}` : ''}`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json = await res.json()
-    return json
-  } catch (error) {
-    console.error('Failed to fetch latest news:', error)
-    return null
-  }
-})
 
 /* ---------- Main page component ---------- */
 export default async function LatestNewsPage(props: {
@@ -66,13 +45,7 @@ export default async function LatestNewsPage(props: {
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
   const dict = await getDictionary(lang);
 
-  const tradingApiUrl = getTradingApiUrl();
-  const apiCategories = await getCategories(lang, {
-    apiUrl: `${tradingApiUrl.replace(/\/$/, '')}/category`,
-    stale: 300,
-    revalidate: 0,
-    expire: 86400
-  })
+  const apiCategories = await getCategories(lang);
 
   // Resolve slug to ID server-side so ID never leaks to the client
   const matchedCategory = categorySlug
@@ -80,7 +53,7 @@ export default async function LatestNewsPage(props: {
     : undefined
   const categoryId = matchedCategory?.id
 
-  const newsData = await getLatestNews(lang, currentPage, limit, searchQuery, categoryId)
+  const newsData = await cmsService.getLatestNews({ lang, page: currentPage, limit, search: searchQuery, categoryId })
   const articles = newsData?.data?.news || []
   const totalItems = newsData?.data?.total || 0
   const totalPages = Math.ceil(totalItems / limit)

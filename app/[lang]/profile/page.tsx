@@ -10,7 +10,8 @@ import MembershipCard from '@/components/profile/MembershipCard';
 import KycAlertBanner from '@/components/profile/KycAlertBanner';
 import { getCategories } from '@/lib/category';
 import { ForceLogout } from '@/components/auth/ForceLogout';
-import { getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
+import { tradingService } from '@/lib/api/trading.service';
+import { userService } from '@/lib/api/user.service';
 import { getUserProfile } from '@/lib/user-data';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
@@ -53,37 +54,17 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     return <ForceLogout lang={lang} />;
   }
 
-  // Parallel Fetching for Categories, Countries, and KYC
-  const tradingApiUrl = getTradingApiUrl();
-  const categoriesApiUrl = `${tradingApiUrl}/category`;
-  const cacheStale = Number(process.env.CATEGORIES_CACHE_STALE) || 300
-  const cacheRevalidate = Number(process.env.CATEGORIES_CACHE_REVALIDATE) || 3600
-  const cacheExpire = Number(process.env.CATEGORIES_CACHE_EXPIRE) || 86400
-
+  // Parallel Fetching for Categories, Countries, and KYC using Centralized Services
   const userId = profileData.id || profileData._id || profileData.customer_id;
 
   const [categoriesResult, countriesResult, kycResult] = await Promise.allSettled([
     getCategories(lang),
-    fetch(`${tradingApiUrl}/country?lang_code=${lang}&source=web`, { next: { revalidate: 60 } }).then(r => r.json()),
-    fetch(`${getUserApiUrl()}/required-document/verification/${userId}?lang_code=${lang}&source=web`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-      cache: 'no-store'
-    }).then(r => r.json())
+    tradingService.getCountries(lang),
+    userService.getRequiredDocuments(userId, token, lang)
   ]);
 
   const apiCategories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
-  
-  let apiCountries: any[] = [];
-  if (countriesResult.status === 'fulfilled') {
-    const countriesData = countriesResult.value;
-    if (countriesData.data?.countries && Array.isArray(countriesData.data.countries)) {
-      apiCountries = countriesData.data.countries;
-    } else if (Array.isArray(countriesData.data)) {
-      apiCountries = countriesData.data;
-    }
-  } else {
-    console.error("Failed to fetch countries on server", countriesResult.reason);
-  }
+  const apiCountries = countriesResult.status === 'fulfilled' ? countriesResult.value : [];
 
   let isKycVerified = profileData?.is_kyc_verified || false;
   let kycStatus = "MISSING";

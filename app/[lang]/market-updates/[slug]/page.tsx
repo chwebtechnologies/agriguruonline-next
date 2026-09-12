@@ -4,73 +4,25 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
-import { getCmsApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl } from '@/lib/api-utils'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { cache } from 'react'
 import { MarketUpdateItem, MarketUpdatesResponse } from '@/types/marketUpdates'
 
-const getMarketUpdateDetail = cache(async (slug: string, lang: string): Promise<MarketUpdateItem & { created_at?: string } | null> => {
-  const cmsApiUrl = getCmsApiUrl()
-  const url = `${cmsApiUrl}/flyer/${slug}?lang_code=${lang}&source=web`
-  
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-    
-    if (!res.ok) {
-      return null
-    }
-    
-    const json = await res.json()
-    if (json.success && json.data) {
-      return json.data
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to fetch market update detail:', error)
-    return null
-  }
-})
+import { cmsService } from '@/lib/api/cms.service'
 
-const getOtherUpdates = cache(async (lang: string, limit = 6): Promise<MarketUpdateItem[]> => {
-  const cmsApiUrl = getCmsApiUrl()
-  const url = `${cmsApiUrl}/flyer?is_active=true&lang_code=${lang}&source=web&page=1&limit=${limit}`
-  
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-    
-    if (!res.ok) {
-      return []
-    }
-    
-    const json: MarketUpdatesResponse = await res.json()
-    return json?.data?.flyers || []
-  } catch (error) {
-    console.error('Failed to fetch other market updates:', error)
-    return []
-  }
-})
+export const revalidate = 60;
 
 export async function generateStaticParams() {
   const languages = ['en', 'ar', 'zh', 'fr']
   const params: Array<{ lang: string; slug: string }> = []
 
   try {
-    const cmsApiUrl = getCmsApiUrl()
-    const res = await fetch(`${cmsApiUrl}/flyer?is_active=true&source=web&page=1&limit=50`, {
-      next: { revalidate: 60 }
-    })
-    if (res.ok) {
-      const json: MarketUpdatesResponse = await res.json()
-      const list = json?.data?.flyers || []
-      for (const lang of languages) {
-        for (const item of list) {
-          if (item.slug) {
-            params.push({ lang, slug: item.slug })
-          }
+    const list = await cmsService.getAllMarketUpdatesStaticParams(50)
+    for (const lang of languages) {
+      for (const item of list) {
+        if (item.slug) {
+          params.push({ lang, slug: item.slug })
         }
       }
     }
@@ -91,7 +43,7 @@ export async function generateMetadata(
   const slug = params.slug
   
   const decodedSlug = decodeURIComponent(slug)
-  const article = await getMarketUpdateDetail(decodedSlug, lang)
+  const article = await cmsService.getMarketUpdateDetail(decodedSlug, lang)
   const alternates = getAlternates(`market-updates/${slug}`, lang)
   
   if (!article) {
@@ -198,13 +150,13 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
   const params = await props.params
   const { lang, slug } = params
   
-  const article = await getMarketUpdateDetail(slug, lang)
+  const article = await cmsService.getMarketUpdateDetail(slug, lang)
   
   if (!article) {
     notFound()
   }
 
-  const allUpdates = await getOtherUpdates(lang, 6)
+  const allUpdates = await cmsService.getOtherMarketUpdates(lang, 6)
   let otherList = allUpdates.filter(item => item.slug !== slug).slice(0, 5)
 
   const translation = article.translations?.find((t: any) => t.lang_code === lang)

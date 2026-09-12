@@ -9,7 +9,6 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getCategories } from '@/lib/category'
 import { ForceLogout } from '@/components/auth/ForceLogout'
-import { getCmsApiUrl, getTradingApiUrl } from '@/lib/api-utils'
 import { getDictionary } from '../dictionaries'
 
 export async function generateStaticParams() {
@@ -33,47 +32,7 @@ export async function generateMetadata(
 
 
 
-const getMarketReports = cache(async (lang: string, page: number, limit: number, search?: string, token?: string, categoryId?: string): Promise<MarketReportsResponse | null> => {
-  const cmsApiUrl = getCmsApiUrl();
-  let url = `${cmsApiUrl}/market-report/?is_active=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}`
-  if (search) url += `&search=${encodeURIComponent(search)}`
-  if (categoryId) url += `&category_id=${encodeURIComponent(categoryId)}`
-
-  let shouldLogout = false;
-  try {
-    const res = await fetch(url, {
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      next: { revalidate: 60 }
-    })
-    
-    if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
-        shouldLogout = true;
-      } else {
-        return null;
-      }
-    } else {
-      const json = await res.json()
-      if (json.success === false && (
-          json.message?.toLowerCase().includes('token') || 
-          json.message?.toLowerCase().includes('unauthorized') || 
-          json.message?.toLowerCase().includes('invalid') ||
-          json.message?.toLowerCase().includes('expire')
-      )) {
-         shouldLogout = true;
-      } else {
-         return json;
-      }
-    }
-  } catch (error) {
-    console.error('Failed to fetch market reports:', error)
-    return null
-  }
-
-  return null;
-})
+import { cmsService } from '@/lib/api/cms.service'
 
 /* ---------- Skeleton shown during Suspense ---------- */
 function MarketReportsGridSkeleton() {
@@ -116,7 +75,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
   categoryId?: string
   dict: any
 }) {
-  const reportsData = await getMarketReports(lang, page, apiLimit, search, token, categoryId)
+  const reportsData = await cmsService.getMarketReports({ lang, page, limit: apiLimit, search, token, categoryId })
   
   // Try to safely extract array of reports and total
   let reports = reportsData?.data?.market_reports || reportsData?.data || []
@@ -225,18 +184,7 @@ export default async function MarketReportsPage(props: {
 
 
   // Fetch categories using identical Next.js cached configuration as Header
-  const tradingApiUrl = getTradingApiUrl();
-  const categoriesApiUrl = `${tradingApiUrl}/category`;
-  const cacheStale = Number(process.env.CATEGORIES_CACHE_STALE) || 300
-  const cacheRevalidate = Number(process.env.CATEGORIES_CACHE_REVALIDATE) || 3600
-  const cacheExpire = Number(process.env.CATEGORIES_CACHE_EXPIRE) || 86400
-
-  const apiCategories = await getCategories(lang, {
-    apiUrl: categoriesApiUrl,
-    stale: cacheStale,
-    revalidate: cacheRevalidate,
-    expire: cacheExpire
-  })
+  const apiCategories = await getCategories(lang)
   
   let categoryId = undefined;
   if (categoryQuery && apiCategories) {

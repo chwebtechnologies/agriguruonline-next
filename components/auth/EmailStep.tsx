@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { validateEmailDomain } from "@/app/actions/auth";
 import { toast } from "sonner";
-import { getUserApiUrl } from '@/lib/api-utils';
+import { authService } from "@/lib/api";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -71,14 +71,7 @@ export default function EmailStep({ onNext, lang, dict }: EmailStepProps) {
           }
         }
         
-        const apiUrl = getUserApiUrl();
-        const response = await fetch(`${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email: trimmedEmail }),
-        });
+        const response = await authService.sendOtp(trimmedEmail, lang);
 
         if (!response.ok) {
           let errorMessage = "Failed to send OTP. Please try again.";

@@ -7,6 +7,8 @@ import { Pagination } from '@/components/ui/Pagination'
 import { MarketedProductCard } from '@/components/marketed-products/MarketedProductCard'
 import type { Metadata } from 'next'
 
+export const revalidate = 60;
+
 interface Product {
   id: string
   name: string
@@ -38,30 +40,8 @@ interface ProductData {
   total: number
 }
 
-import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
-
-const getMarketedProducts = cache(async (lang: string, page: number, limit: number): Promise<ProductData | null> => {
-  const url = `${getTradingApiUrl()}/product?is_active=true&is_marketed=true&lang_code=${lang}&source=web&page=${page}&limit=${limit}`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json = await res.json()
-    if (json.success && json.data) {
-      return json.data
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to fetch marketed products:', error)
-    return null
-  }
-})
+import { getAssetsUrl } from '@/lib/api-utils'
+import { tradingService } from '@/lib/api/trading.service'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -94,7 +74,7 @@ export default async function MarketedProductsPage(
   const limit = 20
 
   const [data, dict] = await Promise.all([
-    getMarketedProducts(lang, page, limit),
+    tradingService.getMarketedProducts(lang, page, limit) as Promise<ProductData | null>,
     getDictionary(lang)
   ])
 

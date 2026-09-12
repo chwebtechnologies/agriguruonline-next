@@ -6,7 +6,10 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { Metadata } from 'next'
-import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl } from '@/lib/api-utils'
+import { tradingService } from '@/lib/api/trading.service'
+
+export const revalidate = 60;
 
 interface ProductDetail {
   id: string
@@ -61,51 +64,6 @@ interface SimilarProduct {
   }
 }
 
-const getProduct = cache(async (slug: string, lang: string): Promise<ProductDetail | null> => {
-  const tradingApiUrl = getTradingApiUrl()
-  const url = `${tradingApiUrl}/product/${slug}?lang_code=${lang}&source=web`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json = await res.json()
-    if (json.success && json.data) {
-      return json.data
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to fetch product detail:', error)
-    return null
-  }
-})
-
-const getSimilarProducts = cache(async (categoryId: string, lang: string, currentSlug: string): Promise<SimilarProduct[]> => {
-  const tradingApiUrl = getTradingApiUrl()
-  const url = `${tradingApiUrl}/product?lang_code=${lang}&source=web&limit=10&category=${categoryId}`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) return []
-
-    const json = await res.json()
-    if (json.success && json.data && json.data.products) {
-      return json.data.products.filter((p: SimilarProduct) => p.slug !== currentSlug).slice(0, 5)
-    }
-    return []
-  } catch (error) {
-    console.error('Failed to fetch similar products:', error)
-    return []
-  }
-})
 
 import { getAlternates, getSafeLanguage } from '@/lib/seo'
 
@@ -116,7 +74,7 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang);
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
 
-  const data = await getProduct(slug, lang);
+  const data = await tradingService.getProduct(slug, lang);
 
   const productName = data?.name || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
   const title = `${productName} | AgriGuru Online`
@@ -213,7 +171,7 @@ export default async function ProductDetailPage(
   const slug = params?.slug || ''
 
   const [product, dict] = await Promise.all([
-    getProduct(slug, lang),
+    tradingService.getProduct(slug, lang),
     getDictionary(lang)
   ])
   
@@ -238,7 +196,7 @@ export default async function ProductDetailPage(
     notFound()
   }
 
-  const similarProducts = product.category?.id ? await getSimilarProducts(product.category.id, lang, slug) : []
+  const similarProducts = product.category?.id ? await tradingService.getSimilarProducts(product.category.id, lang, slug) : []
 
   const productName = product.name || 'Product Detail'
   const rawImg = product.image || product.thumbnail;

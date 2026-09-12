@@ -2,9 +2,12 @@ import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
-import { getCmsApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl } from '@/lib/api-utils'
+import { cmsService } from '@/lib/api/cms.service'
 import { cache, Suspense } from 'react'
 import { getDictionary } from '../../dictionaries'
+
+export const revalidate = 60;
 
 interface VideoItem {
   id: string
@@ -33,27 +36,6 @@ interface CollectionData {
   total: number
 }
 
-const getCollectionVideos = cache(async (slug: string, lang: string): Promise<CollectionData | null> => {
-  const cmsApiUrl = getCmsApiUrl()
-  const url = `${cmsApiUrl}/dashboard/videos/${slug}?lang_code=${lang}&source=web&page=1&limit=100`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-    
-    if (!res.ok) return null
-    
-    const json = await res.json()
-    if (json.success && json.data) {
-      return json.data
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to fetch collection videos:', error)
-    return null
-  }
-})
 
 import { getAlternates, getSafeLanguage, getSiteUrl } from '@/lib/seo'
 
@@ -64,7 +46,7 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params.lang)
   const slug = params.slug
 
-  const data = await getCollectionVideos(slug, lang)
+  const data = await cmsService.getCollectionVideos(slug, lang)
   const categoryName = data?.category?.category_name || 'Video Collection'
 
   const descriptions: Record<string, string> = {
@@ -107,7 +89,7 @@ export async function generateMetadata(
 import VideoCollectionClient from '@/components/video-gallery/VideoCollectionClient'
 
 async function VideoGrid({ slug, lang, dict }: { slug: string; lang: string; dict: any }) {
-  const data = await getCollectionVideos(slug, lang)
+  const data = await cmsService.getCollectionVideos(slug, lang)
   
   if (!data || !data.videos || data.videos.length === 0) {
     return (
@@ -126,7 +108,7 @@ async function VideoGrid({ slug, lang, dict }: { slug: string; lang: string; dic
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
-  return <VideoCollectionClient videos={data.videos} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict} />
+  return <VideoCollectionClient videos={data.videos as any} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict} />
 }
 
 export default async function VideoCollectionPage(props: { 
@@ -136,7 +118,7 @@ export default async function VideoCollectionPage(props: {
   const lang = params.lang || 'en'
   const slug = params.slug
   
-  const data = await getCollectionVideos(slug, lang)
+  const data = await cmsService.getCollectionVideos(slug, lang)
   const categoryName = data?.category?.translations?.find(t => t.lang_code === lang)?.category_name 
     || data?.category?.category_name 
     || 'Video Collection'

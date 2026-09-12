@@ -14,6 +14,7 @@ export interface MarketUpdateItem {
   page_description: string
   is_active: boolean
   slug: string
+  created_at?: string
   translations: MarketUpdateTranslation[]
 }
 

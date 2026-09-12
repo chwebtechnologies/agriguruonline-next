@@ -16,6 +16,8 @@ export async function generateMetadata(
   });
 }
 
+export const revalidate = 30;
+
 export default async function LatestOffersPage(props: { 
   params: Promise<{ lang: string }>,
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>

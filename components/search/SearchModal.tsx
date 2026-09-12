@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useTransition, useMemo, useCallback } from
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { SearchProduct, SearchApiResponse, RecentSearchItem } from '@/types/search'
-import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl } from '@/lib/api-utils'
+import { tradingService } from '@/lib/api'
 
 interface SearchModalProps {
   isOpen: boolean
@@ -44,7 +45,6 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
 
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  const tradingApiUrl = getTradingApiUrl()
 
   const isRtl = lang === 'ar'
 
@@ -121,11 +121,8 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
     const fetchTrending = async () => {
       setIsTrendingLoading(true)
       try {
-        const url = `${tradingApiUrl}/product?is_active=true&lang_code=${lang}&source=web`
-        const res = await fetch(url)
-        if (!res.ok) throw new Error('Failed to fetch trending products')
-        const json: SearchApiResponse = await res.json()
-        if (isMounted && json.success && json.data?.products) {
+        const json: SearchApiResponse = await tradingService.searchProducts({ isActive: true, lang })
+        if (isMounted && json?.success && json.data?.products) {
           // Filter products with images and marketed/best_seller if available, or first 6 products
           const items = json.data.products
             .filter((p) => p.is_active !== false)
@@ -144,7 +141,7 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
     return () => {
       isMounted = false
     }
-  }, [isOpen, lang, tradingApiUrl, trendingProducts.length])
+  }, [isOpen, lang, trendingProducts.length])
 
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen)
   if (isOpen !== prevIsOpen) {
@@ -208,12 +205,13 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
     setIsLoading(true)
     const timeoutId = setTimeout(async () => {
       try {
-        const url = `${tradingApiUrl}/product?is_active=true&search=${encodeURIComponent(trimmed)}&lang_code=${lang}&source=web`
-        const res = await fetch(url)
-        if (!res.ok) throw new Error('Search failed')
-        const json: SearchApiResponse = await res.json()
+        const json: SearchApiResponse = await tradingService.searchProducts({
+          isActive: true,
+          query: trimmed,
+          lang,
+        })
 
-        if (json.success && json.data) {
+        if (json?.success && json.data) {
           const prods = json.data.products || []
           const total = json.data.total || prods.length
           cacheRef.current.set(cacheKey, { products: prods, total })
@@ -234,7 +232,7 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [query, lang, tradingApiUrl])
+  }, [query, lang])
 
   // Navigate to product chart/details
   const handleProductSelect = useCallback((product: SearchProduct) => {

@@ -18,6 +18,8 @@ export async function generateMetadata(props: {
   })
 }
 
+export const revalidate = 3600;
+
 export default async function ContactUsPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en'

@@ -4,73 +4,25 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
-import { getCmsApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl } from '@/lib/api-utils'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { EventDetail, EventItem, EventsResponse, EventDetailResponse } from '@/types/events'
 import { cache } from 'react'
 
-const getEventDetail = cache(async (slug: string, lang: string): Promise<EventDetail | null> => {
-  const cmsApiUrl = getCmsApiUrl()
-  const url = `${cmsApiUrl}/latestevents/${slug}?lang_code=${lang}&source=web`
+import { cmsService } from '@/lib/api/cms.service'
 
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return null
-    }
-
-    const json: EventDetailResponse = await res.json()
-    if (json.success && json.data) {
-      return json.data
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to fetch event detail:', error)
-    return null
-  }
-})
-
-const getOtherEvents = cache(async (lang: string, limit = 6): Promise<EventItem[]> => {
-  const cmsApiUrl = getCmsApiUrl()
-  const url = `${cmsApiUrl}/latestevents?is_active=true&lang_code=${lang}&source=web&page=1&limit=${limit}`
-
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: 60 }
-    })
-
-    if (!res.ok) {
-      return []
-    }
-
-    const json: EventsResponse = await res.json()
-    return json?.data?.events || []
-  } catch (error) {
-    console.error('Failed to fetch other events:', error)
-    return []
-  }
-})
+export const revalidate = 60;
 
 export async function generateStaticParams() {
   const languages = ['en', 'ar', 'zh', 'fr']
   const params: Array<{ lang: string; slug: string }> = []
 
   try {
-    const cmsApiUrl = getCmsApiUrl()
-    const res = await fetch(`${cmsApiUrl}/latestevents?is_active=true&source=web&page=1&limit=50`, {
-      next: { revalidate: 60 }
-    })
-    if (res.ok) {
-      const json: EventsResponse = await res.json()
-      const eventsList = json?.data?.events || []
-      for (const lang of languages) {
-        for (const event of eventsList) {
-          if (event.slug) {
-            params.push({ lang, slug: event.slug })
-          }
+    const eventsList = await cmsService.getAllEventsStaticParams(50)
+    for (const lang of languages) {
+      for (const event of eventsList) {
+        if (event.slug) {
+          params.push({ lang, slug: event.slug })
         }
       }
     }
@@ -91,7 +43,7 @@ export async function generateMetadata(
   const slug = params.slug
 
   const decodedSlug = decodeURIComponent(slug)
-  const event = await getEventDetail(decodedSlug, lang)
+  const event = await cmsService.getEventDetail(decodedSlug, lang)
   const alternates = getAlternates(`events/${slug}`, lang)
 
   if (!event) {
@@ -231,8 +183,8 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
   const { lang, slug } = params
 
   const [event, allLatestEvents] = await Promise.all([
-    getEventDetail(slug, lang),
-    getOtherEvents(lang, 6)
+    cmsService.getEventDetail(slug, lang),
+    cmsService.getOtherEvents(lang, undefined, 6)
   ])
 
   if (!event) {
