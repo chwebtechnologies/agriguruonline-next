@@ -78,12 +78,12 @@ export default function VideoCollectionClient({ videos, lang, imageBaseUrl, dict
                   priority={index < 2}
                 />
                 
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 backdrop-blur-[1px] transform-gpu transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center transform scale-90 group-hover:scale-100 transition-transform duration-300 border border-white/30 shadow-lg">
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transform-gpu transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">
+                  <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center transform scale-90 group-hover:scale-100 transition-all duration-300 border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.3)] group-hover:bg-white/30 group-hover:border-white/60">
                     {isYoutube ? (
-                      <i className="fa-brands fa-youtube text-white text-xl"></i>
+                      <i className="fa-brands fa-youtube text-white text-xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"></i>
                     ) : (
-                      <i className="fa-solid fa-play text-white text-lg ml-1"></i>
+                      <i className="fa-solid fa-play text-white text-lg ml-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"></i>
                     )}
                   </div>
                 </div>
