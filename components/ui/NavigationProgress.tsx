@@ -1,16 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 
 export default function NavigationProgress() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [progress, setProgress] = useState(0)
 
-  const [prevPathname, setPrevPathname] = useState(pathname)
+  const currentUrl = `${pathname}?${searchParams.toString()}`
+  const [prevUrl, setPrevUrl] = useState(currentUrl)
 
-  if (pathname !== prevPathname) {
-    setPrevPathname(pathname)
+  if (currentUrl !== prevUrl) {
+    setPrevUrl(currentUrl)
     setProgress(100)
   }
 
