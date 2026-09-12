@@ -45,7 +45,7 @@ export function ChartAddButton({
         disabled={disabled || loading}
         className={`w-[200px] h-12 rounded-lg text-white font-semibold text-[16px] shadow-sm transition-all flex items-center justify-center ${
           disabled || loading
-            ? 'opacity-40 cursor-not-allowed shadow-none bg-zinc-300 dark:bg-zinc-700 text-foreground/60'
+            ? 'opacity-40 cursor-not-allowed shadow-none bg-muted text-muted-foreground'
             : 'bg-primary-gradient hover:opacity-95 active:scale-95 cursor-pointer shadow-md hover:shadow-lg'
         } ${className}`}
       >
@@ -82,7 +82,7 @@ export function ChartAddButton({
         )}
       </button>
       {disabled && tooltipText && (
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-zinc-800 text-white text-xs rounded py-1.5 px-2.5 whitespace-nowrap z-50 shadow-lg after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-zinc-800 pointer-events-none">
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-foreground text-background text-xs rounded py-1.5 px-2.5 whitespace-nowrap z-50 shadow-lg after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-foreground pointer-events-none">
           {tooltipText}
         </div>
       )}

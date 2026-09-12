@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   compress: true,
@@ -26,7 +27,9 @@ const nextConfig: NextConfig = {
       'yet-another-react-lightbox',
     ],
   },
-  turbopack: {},
+  turbopack: {
+    root: __dirname,
+  },
   // Allow mobile devices on local network & cloudflare tunnels to access dev server HMR in development
   allowedDevOrigins: [
     '*.trycloudflare.com',
@@ -93,10 +96,6 @@ const nextConfig: NextConfig = {
             value: 'max-age=63072000; includeSubDomains; preload',
           },
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-          {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
           }
@@ -148,7 +147,6 @@ const nextConfig: NextConfig = {
     ]
   },
   images: {
-    unoptimized: true,
     minimumCacheTTL: 31536000,
     formats: ['image/avif', 'image/webp'],
     qualities: [65, 75, 85, 90],

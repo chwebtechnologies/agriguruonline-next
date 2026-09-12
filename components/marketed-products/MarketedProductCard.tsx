@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
+import { ActionButton } from '@/components/ui/ActionButton'
 
 interface Product {
   id: string
@@ -166,20 +167,17 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
             )}
 
             <div className="space-y-1.5">
-              <button className="w-full bg-brand-blue hover:bg-brand-blue-hover text-white py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1.5">
-                <i className="fa-solid fa-plus text-xs"></i>
+              <ActionButton variant="add" className="w-full py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
                 {common.addProduct}
-              </button>
+              </ActionButton>
 
               <div className="grid grid-cols-2 gap-1.5">
-                <button className="bg-brand-green hover:bg-brand-green-hover text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
-                  <i className="fa-solid fa-cart-shopping text-[10px]"></i>
+                <ActionButton variant="buy" className="py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
                   {common.buy}
-                </button>
-                <button className="bg-brand-red hover:bg-brand-red-hover text-white py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium transition-colors flex items-center justify-center gap-1">
-                  <i className="fa-solid fa-tag text-[10px]"></i>
+                </ActionButton>
+                <ActionButton variant="sell" className="py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
                   {common.sell}
-                </button>
+                </ActionButton>
               </div>
             </div>
           </div>
@@ -314,20 +312,17 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
             {/* Modal Footer */}
             <div className="px-4 py-4 border-t border-border bg-card/50 grid grid-cols-3 gap-2.5">
-              <button className="bg-brand-green hover:bg-brand-green-hover text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
-                <i className="fa-solid fa-cart-shopping text-xs"></i>
+              <ActionButton variant="buy" className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
                 {common.buy}
-              </button>
+              </ActionButton>
 
-              <button className="bg-brand-blue hover:bg-brand-blue-hover text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
-                <i className="fa-solid fa-plus text-xs"></i>
+              <ActionButton variant="add" className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
                 {common.addProduct}
-              </button>
+              </ActionButton>
 
-              <button className="bg-brand-red hover:bg-brand-red-hover text-white py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
-                <i className="fa-solid fa-tag text-xs"></i>
+              <ActionButton variant="sell" className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
                 {common.sell}
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>

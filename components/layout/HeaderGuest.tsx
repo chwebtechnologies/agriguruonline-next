@@ -248,9 +248,7 @@ export function HeaderGuestBase({
               <div className="md:hidden">
                 <AppMenu align="left">
                   <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                    </svg>
+                    <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
                 </AppMenu>
               </div>
@@ -258,9 +256,7 @@ export function HeaderGuestBase({
                 <div className="hidden md:block animate-in fade-in duration-300">
                   <AppMenu align="left">
                     <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                      </svg>
+                      <i className="fa-solid fa-bars text-3xl"></i>
                       <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
                     </div>
                   </AppMenu>
@@ -339,7 +335,7 @@ export function HeaderGuestBase({
               {loading ? (
                 <div className="flex items-center gap-3 animate-pulse">
                   <div className="h-10 w-28 bg-muted rounded-lg border border-border/40" />
-                  <div className="w-12 h-12 rounded-full bg-zinc-850" />
+                  <div className="w-12 h-12 rounded-full bg-muted" />
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
@@ -377,9 +373,7 @@ export function HeaderGuestBase({
             ) : (
               <AppMenu align="left">
                 <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                  </svg>
+                  <i className="fa-solid fa-bars text-3xl"></i>
                   <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
                 </div>
               </AppMenu>

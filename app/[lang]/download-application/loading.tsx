@@ -53,7 +53,7 @@ export default function DownloadAppLoading() {
           </section>
 
           {/* SECTION 3: CORE PROBLEM 2 */}
-          <section className="py-10 sm:py-16 border-t border-border/50 relative overflow-hidden">
+          <section className="pt-3 pb-5 border-t border-border/50 relative overflow-hidden">
             <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-14">
               <div className="flex-[1.5] order-2 lg:order-1 space-y-6">
                 <div className="flex items-center justify-center lg:justify-start gap-3.5">

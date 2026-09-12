@@ -3,7 +3,7 @@ import Image from 'next/image'
 
 const ASSETS_BASE = 'https://assets.agriguruonline.com'
 
-export function resolveImageUrl(src: any): string {
+export function resolveImageUrl(src: unknown): string {
   if (!src || typeof src !== 'string') return '/logo.webp'
   let url = src.trim()
   if (url.startsWith('/logo.') || url.startsWith('data:') || url.startsWith('blob:')) {
@@ -17,7 +17,7 @@ export function resolveImageUrl(src: any): string {
 }
 
 interface ImageWithSkeletonProps {
-  src: any
+  src: unknown
   alt?: string
   title?: string
   fill?: boolean

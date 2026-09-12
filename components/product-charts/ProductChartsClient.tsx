@@ -13,6 +13,7 @@ import {
   getFavoriteProductsAction
 } from '@/app/actions/charts';
 import { toast } from 'sonner';
+import { FlagIcon } from '@/components/ui/FlagIcon';
 
 const MobileCommodityChart = dynamic(() => import('./MobileCommodityChart'), {
   ssr: false,
@@ -745,7 +746,7 @@ export default function ProductChartsClient({
               const sign = isPositive ? '+' : '-';
               return (
                 <div key={i} className="inline-flex items-center px-4 border-r border-border last:border-0 h-10 group/item">
-                  {p.countryFlag && <img src={getFlagUrl(p.countryFlag)!} alt={`${p.country || 'Country'} Flag`} title={`${p.country || 'Country'} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border mr-2" />}
+                  {p.countryFlag && <FlagIcon src={getFlagUrl(p.countryFlag)} alt={`${p.country || 'Country'} Flag`} title={`${p.country || 'Country'} Flag`} className="w-5 h-3.5 shrink-0 border border-border mr-2" />}
                   <span className="font-semibold text-foreground/80 text-[13px]">{p.name}</span>
                   {p.port && <span className="text-foreground/75 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
                   <span className="text-blue-600 dark:text-blue-500 font-bold text-[13px] mx-3">${p.price}</span>
@@ -916,7 +917,7 @@ export default function ProductChartsClient({
                     className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
                       selectedCategory
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/60 text-foreground/70'
+                        : 'bg-foreground/[0.02] border-border hover:border-brand-blue/60 text-foreground/70'
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
@@ -937,7 +938,7 @@ export default function ProductChartsClient({
                     className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
                       selectedCountry
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-zinc-50/80 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800 hover:border-brand-blue/60 text-foreground/70'
+                        : 'bg-foreground/[0.02] border-border hover:border-brand-blue/60 text-foreground/70'
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
@@ -983,7 +984,7 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedProduct 
-                        ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                        ? 'opacity-40 cursor-not-allowed bg-foreground/[0.05] border-border text-muted-foreground'
                         : !selectedShipBy
                           ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
                           : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -1008,7 +1009,7 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedShipBy 
-                        ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                        ? 'opacity-40 cursor-not-allowed bg-foreground/[0.05] border-border text-muted-foreground'
                         : !selectedTerm
                           ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
                           : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -1033,7 +1034,7 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !selectedTerm 
-                        ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                        ? 'opacity-40 cursor-not-allowed bg-foreground/[0.05] border-border text-muted-foreground'
                         : !selectedPOL
                           ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
                           : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -1058,9 +1059,9 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !isPodRequired
-                        ? 'bg-zinc-50/60 dark:bg-zinc-900/40 border-zinc-200/80 dark:border-zinc-800/80 text-zinc-400 dark:text-zinc-600'
+                        ? 'bg-foreground/[0.03] border-border/80 text-muted-foreground'
                         : !selectedPOL 
-                          ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                          ? 'opacity-40 cursor-not-allowed bg-foreground/[0.05] border-border text-muted-foreground'
                           : !selectedPOD
                             ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
                             : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -1079,7 +1080,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 8: Price (PMT) Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Live</span>
@@ -1093,7 +1094,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 9: Change Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Trend</span>
@@ -1107,7 +1108,7 @@ export default function ProductChartsClient({
                   </div>
 
                   {/* Col 10: Chart Preview */}
-                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                  <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-chart-area text-brand-blue/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
@@ -1127,7 +1128,7 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
                       !isAddProductEnabled
-                        ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                        ? 'opacity-40 cursor-not-allowed bg-foreground/[0.05] border-border text-muted-foreground'
                         : 'cursor-pointer bg-primary-gradient text-white border-transparent shadow-md hover:shadow-lg ring-2 ring-emerald-500/40 active:scale-[0.98]'
                     }`}
                   >
@@ -1163,7 +1164,7 @@ export default function ProductChartsClient({
                     </div>
                     
                     {/* Progress pill */}
-                    <div className="flex items-center gap-2 self-start md:self-auto bg-zinc-50 dark:bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                    <div className="flex items-center gap-2 self-start md:self-auto bg-background px-3 py-1.5 rounded-lg border border-border">
                       <i className="fa-solid fa-layer-group text-xs text-brand-blue"></i>
                       <span className="text-xs font-semibold text-foreground/80">
                         {isAddProductEnabled ? 'All options selected! Ready to add 🚀' : !selectedProduct ? 'Step 1: Pick a Product (or filter by Category/Origin)' : !selectedShipBy ? 'Step 2: Select Container' : !selectedTerm ? 'Step 3: Select Incoterm' : 'Step 4: Select Ports'}
@@ -1176,7 +1177,7 @@ export default function ProductChartsClient({
                     {/* Step 1 */}
                     <div 
                       onClick={() => document.getElementById('desktop-product-select')?.click()}
-                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50  cursor-pointer group"
+                      className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-blue-500/10 border border-border hover:border-blue-400/50 cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
@@ -1200,7 +1201,7 @@ export default function ProductChartsClient({
                         if (selectedProduct) document.getElementById('desktop-shipby-select')?.click();
                         else document.getElementById('desktop-product-select')?.click();
                       }}
-                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50  cursor-pointer group"
+                      className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-blue-500/10 border border-border hover:border-blue-400/50 cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
@@ -1223,7 +1224,7 @@ export default function ProductChartsClient({
                       onClick={() => {
                         if (isAddProductEnabled) handleAddProduct();
                       }}
-                      className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-emerald-400/50  cursor-pointer group"
+                      className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-emerald-500/10 border border-border hover:border-emerald-400/50 cursor-pointer group"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
@@ -1261,14 +1262,14 @@ export default function ProductChartsClient({
                       <ChartMobileItemCard
                         row1Left={
                           <>
-                            {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                            {item.countryFlag && <FlagIcon src={getFlagUrl(item.countryFlag)} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-[16px] h-[12px]" />}
                             <span>{item.country}</span>
                           </>
                         }
                         row1Right={
                           <>
                             <span>{item.pod && item.pod !== 'N/A' ? 'POD' : 'POL'}: {item.pod && item.pod !== 'N/A' ? item.pod : item.pol}</span>
-                            {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <img src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)!} alt={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} title={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} className="w-[16px] h-[12px] object-cover rounded-[2px]" />}
+                            {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <FlagIcon src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)} alt={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} title={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} className="w-[16px] h-[12px]" />}
                           </>
                         }
                         title={item.product}
@@ -1285,18 +1286,18 @@ export default function ProductChartsClient({
                     <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-sm font-semibold`}>
                       <div className="truncate text-foreground/90 min-w-0" title={item.category}>{item.category}</div>
                       <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.country}>
-                        {item.countryFlag && <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
+                        {item.countryFlag && <FlagIcon src={getFlagUrl(item.countryFlag)} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}
                         <span className="truncate min-w-0">{item.country}</span>
                       </div>
                       <div className="truncate text-foreground/90 min-w-0 font-bold" title={item.product}>{item.product}</div>
                       <div className="text-center truncate text-foreground/80 min-w-0 font-medium w-full" title={item.shipBy}>{item.shipBy}</div>
                       <div className="text-center truncate text-foreground/80 min-w-0 font-medium w-full" title={item.term}>{item.term}</div>
                       <div className="flex items-center gap-2 pl-[2px] truncate text-foreground/90 min-w-0 font-medium" title={item.pol}>
-                        {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt={`${item.pol} Flag`} title={`${item.pol} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
+                        {item.polFlag && <FlagIcon src={getFlagUrl(item.polFlag)} alt={`${item.pol} Flag`} title={`${item.pol} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}
                         <span className="truncate min-w-0">{item.pol}</span>
                       </div>
                       <div className="flex items-center gap-2 pl-[2px] truncate text-foreground/90 min-w-0 font-medium" title={item.pod}>
-                        {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt={`${item.pod || 'POD'} Flag`} title={`${item.pod || 'POD'} Flag`} className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border" />}
+                        {item.podFlag && <FlagIcon src={getFlagUrl(item.podFlag)} alt={`${item.pod || 'POD'} Flag`} title={`${item.pod || 'POD'} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}
                         <span className="truncate min-w-0">{item.pod || '-'}</span>
                       </div>
                       <div className="w-full flex items-center justify-center text-center font-bold text-foreground text-sm min-w-0" title={`$${item.price}`}>${item.price}</div>

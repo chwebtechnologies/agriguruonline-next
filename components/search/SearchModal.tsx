@@ -54,6 +54,7 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
       try {
         const stored = localStorage.getItem('agriguru_recent_searches')
         if (stored) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setRecentSearches(JSON.parse(stored))
         }
       } catch (err) {
@@ -116,9 +117,9 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
     if (trendingProducts.length > 0) return
 
     let isMounted = true
-    setIsTrendingLoading(true)
 
     const fetchTrending = async () => {
+      setIsTrendingLoading(true)
       try {
         const url = `${tradingApiUrl}/product?is_active=true&lang_code=${lang}&source=web`
         const res = await fetch(url)
@@ -145,7 +146,30 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
     }
   }, [isOpen, lang, tradingApiUrl, trendingProducts.length])
 
-  // Lock body scroll & autofocus input when open
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen)
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen)
+    if (!isOpen) {
+      setQuery('')
+      setResults([])
+      setSelectedIndex(-1)
+      setSelectedSpecsProduct(null)
+    }
+  }
+
+  const [prevQuery, setPrevQuery] = useState(query)
+  if (query !== prevQuery) {
+    setPrevQuery(query)
+    const trimmed = query.trim()
+    if (trimmed.length < 3) {
+      setResults([])
+      setTotalCount(0)
+      setIsLoading(false)
+      setSelectedIndex(-1)
+    }
+  }
+
+  // Handle open state side-effects (focus and body scroll)
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
@@ -158,10 +182,6 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
       }
     } else {
       document.body.style.overflow = ''
-      setQuery('')
-      setResults([])
-      setSelectedIndex(-1)
-      setSelectedSpecsProduct(null)
     }
   }, [isOpen])
 
@@ -171,10 +191,6 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
 
     // Reset results if query is too short
     if (trimmed.length < 3) {
-      setResults([])
-      setTotalCount(0)
-      setIsLoading(false)
-      setSelectedIndex(-1)
       return
     }
 

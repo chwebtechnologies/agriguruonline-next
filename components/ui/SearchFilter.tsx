@@ -1,9 +1,9 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 
-export default function SearchFilter() {
+function SearchFilterContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -66,5 +66,13 @@ export default function SearchFilter() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function SearchFilter() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-md mb-6 h-10 bg-card animate-pulse rounded-xl"></div>}>
+      <SearchFilterContent />
+    </Suspense>
   )
 }

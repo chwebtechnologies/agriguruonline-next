@@ -273,20 +273,7 @@ export function ChartBottomSheetContainer({
               className="absolute bottom-[100%] inset-x-0 flex flex-col items-center justify-center gap-1 cursor-pointer touch-none select-none z-[75] pointer-events-auto pb-2.5 transition-opacity duration-200"
             >
               {/* Curved Chevron */}
-              <svg
-                className="w-14 h-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse"
-                viewBox="0 0 56 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M3 13L28 3L53 13"
-                  stroke="currentColor"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <i className="fa-solid fa-chevron-up text-white text-3xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse"></i>
 
               {/* Centered Text */}
               <span className="text-[13px] font-semibold tracking-normal text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
@@ -323,7 +310,7 @@ export function ChartBottomSheetContainer({
                 window.addEventListener('mouseup', onMouseUp);
               }}
             >
-              <div className="w-10 h-1 bg-zinc-300 dark:bg-zinc-700 rounded-full"></div>
+              <div className="w-10 h-1 bg-border rounded-full"></div>
             </div>
           )}
 

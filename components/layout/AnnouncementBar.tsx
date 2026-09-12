@@ -1,6 +1,7 @@
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import AnnouncementBarClient from './AnnouncementBarClient'
+import { Suspense } from 'react'
 import { getCmsApiUrl } from '@/lib/api-utils';
 
 export default async function AnnouncementBar() {
@@ -55,10 +56,12 @@ export default async function AnnouncementBar() {
   }
 
   return (
-    <AnnouncementBarClient 
-      announcements={announcements} 
-      dict={dict} 
-      activeLang={activeLang} 
-    />
+    <Suspense fallback={null}>
+      <AnnouncementBarClient 
+        announcements={announcements} 
+        dict={dict} 
+        activeLang={activeLang} 
+      />
+    </Suspense>
   )
 }

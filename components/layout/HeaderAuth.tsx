@@ -373,9 +373,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               <div className="md:hidden">
                 <AppMenu align="left" profile={profile}>
                   <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                    </svg>
+                    <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
                 </AppMenu>
               </div>
@@ -383,9 +381,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 <div className="hidden md:block animate-in fade-in duration-300">
                   <AppMenu align="left" profile={profile}>
                     <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                      </svg>
+                      <i className="fa-solid fa-bars text-3xl"></i>
                       <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
                     </div>
                   </AppMenu>
@@ -499,19 +495,19 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                       <div className="flex items-center p-1 bg-muted rounded-lg mb-2">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('notifications'); }}
-                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'notifications' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'notifications' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-background'}`}
                         >
                           {dict.header.notifications || 'Notifications'}
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('alerts'); }}
-                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'alerts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'alerts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-background'}`}
                         >
                           {dict.header.alerts || 'Alerts'}
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('ai_predicts'); }}
-                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'ai_predicts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                          className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'ai_predicts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-background'}`}
                         >
                           {dict.header.ai_predicts || 'AI Predicts'}
                         </button>
@@ -739,7 +735,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
                 <Link href={`/${activeLang}/profile`} prefetch={false}>
                   <div
-                    className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-muted text-foreground hover:bg-zinc-200 dark:hover:bg-zinc-850 transition-all border border-border shadow-lg hover:scale-105 active:scale-95 duration-200"
+                    className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-muted text-foreground hover:opacity-80 transition-all border border-border shadow-lg hover:scale-105 active:scale-95 duration-200"
                   >
                     {profile?.profile_image ? (
                       <Image
@@ -787,9 +783,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           <div className="shrink-0 border-e border-border pe-5 flex items-center">
             <AppMenu align="left" profile={profile}>
               <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-8 w-8">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                </svg>
+                <i className="fa-solid fa-bars text-3xl"></i>
                 <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
               </div>
             </AppMenu>

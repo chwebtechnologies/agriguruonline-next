@@ -51,7 +51,7 @@ function getLocale(request: NextRequest): string {
   return defaultLocale
 }
 
-export default function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const ip = request.headers.get('x-forwarded-for') || 'unknown';
 

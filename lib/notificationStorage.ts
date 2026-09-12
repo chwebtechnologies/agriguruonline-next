@@ -1,6 +1,5 @@
 const DB_NAME = 'ag_notification_db';
 const STORE_NAME = 'unread_state';
-const UNREAD_KEY = 'ag_has_unread_notif';
 
 export async function getUnreadStatusFromIndexedDB(): Promise<boolean> {
   if (typeof window === 'undefined' || !('indexedDB' in window)) {
@@ -9,14 +8,14 @@ export async function getUnreadStatusFromIndexedDB(): Promise<boolean> {
   return new Promise((resolve) => {
     try {
       const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = (e: any) => {
-        const db = e.target.result;
+      req.onupgradeneeded = (e: IDBVersionChangeEvent) => {
+        const db = (e.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         }
       };
-      req.onsuccess = (e: any) => {
-        const db = e.target.result;
+      req.onsuccess = (e: Event) => {
+        const db = (e.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           resolve(false);
           return;
@@ -40,19 +39,19 @@ export async function getUnreadStatusFromIndexedDB(): Promise<boolean> {
   });
 }
 
-export async function setUnreadStatusInIndexedDB(hasUnread: boolean, payload?: any): Promise<void> {
+export async function setUnreadStatusInIndexedDB(hasUnread: boolean, payload?: Record<string, unknown>): Promise<void> {
   if (typeof window === 'undefined' || !('indexedDB' in window)) return;
   return new Promise((resolve) => {
     try {
       const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = (e: any) => {
-        const db = e.target.result;
+      req.onupgradeneeded = (e: IDBVersionChangeEvent) => {
+        const db = (e.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         }
       };
-      req.onsuccess = (e: any) => {
-        const db = e.target.result;
+      req.onsuccess = (e: Event) => {
+        const db = (e.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           resolve();
           return;

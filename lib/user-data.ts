@@ -2,15 +2,20 @@ import { cache } from 'react'
 import { getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils'
 
 export interface UserProfileResult {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   userProfile: any | null
   shouldLogout: boolean
 }
 
 export interface AuthDataResult {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   userProfile: any | null
   shouldLogout: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   alertsData: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   notificationsData: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   aiPredictsData: any[]
 }
 
@@ -59,6 +64,7 @@ export const getUserProfile = cache(async (token: string, lang: string = 'en'): 
 /**
  * Fetch and extract alerts with per-request deduplication.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getUserAlerts = cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
   if (!token) return []
 
@@ -100,6 +106,7 @@ export const getUserAlerts = cache(async (token: string, lang: string = 'en'): P
 /**
  * Fetch and extract custom notifications with per-request deduplication.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getUserNotifications = cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
   if (!token) return []
 
@@ -138,6 +145,7 @@ export const getUserNotifications = cache(async (token: string, lang: string = '
  * Robust extractor for AI price predictions supporting flat arrays, nested structures,
  * and split product/freight arrays ({ product: [...], freight: [...] }).
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractPredicts(data: any): any[] {
   if (!data) return []
   if (Array.isArray(data)) return data
@@ -161,6 +169,7 @@ function extractPredicts(data: any): any[] {
 
   // 4. Any arrays inside data.data object
   if (data?.data && typeof data.data === 'object') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const arrays = Object.values(data.data).filter(v => Array.isArray(v)) as any[][]
     if (arrays.length > 0) {
       return arrays.flat()
@@ -174,6 +183,7 @@ function extractPredicts(data: any): any[] {
 
   // 6. Any arrays at top level
   if (typeof data === 'object') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const arrays = Object.values(data).filter(v => Array.isArray(v)) as any[][]
     if (arrays.length > 0) {
       return arrays.flat()
@@ -186,6 +196,7 @@ function extractPredicts(data: any): any[] {
 /**
  * Fetch and extract AI price predictions with per-request deduplication.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getUserAiPredicts = cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
   if (!token) return []
 

@@ -188,7 +188,7 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
           </section>
 
           {/* SECTION 3: CORE PROBLEM 2 - FREIGHT RATES */}
-          <section className="py-10 sm:py-16 border-t border-border/50 relative overflow-hidden">
+          <section className="pt-3 pb-5 border-t border-border/50 relative overflow-hidden">
             
             <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-14">
               
@@ -251,7 +251,7 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
           </section>
 
           {/* SECTION 4: CORE PROBLEM 3 - SMART DOCS (COMING SOON) */}
-          <section className="py-10 sm:py-16 border-t border-border/50 relative overflow-hidden">
+          <section className="pt-3 pb-5 border-t border-border/50 relative overflow-hidden">
             <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-14">
               
               <div className="flex-1 w-full relative h-[260px] sm:h-[380px] lg:h-[440px] flex justify-center items-center order-2 lg:order-1 mt-2 lg:mt-0">
@@ -299,7 +299,7 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
           </section>
 
           {/* SECTION 5: BOTTOM CTA */}
-          <section className="relative bg-gradient-to-br from-brand-blue via-brand-blue/90 to-brand-green text-white rounded-3xl overflow-hidden py-10 sm:py-12 lg:py-14 px-6 sm:px-12 mt-8 sm:mt-12 mb-4 shadow-xl">
+          <section className="relative bg-gradient-to-br from-brand-blue via-brand-blue/90 to-brand-green text-white rounded-3xl overflow-hidden pt-3 pb-5 px-6 sm:px-12 mt-8 sm:mt-12 mb-4 shadow-xl">
             <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
               <div className="flex-[1.4] text-center lg:text-left w-full">
                 <span className="bg-white/15 border border-white/25 px-3.5 py-1 rounded-full text-white font-bold tracking-wider uppercase text-[10px] sm:text-xs mb-4 inline-block shadow-xs">

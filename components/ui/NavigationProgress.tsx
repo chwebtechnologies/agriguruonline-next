@@ -7,14 +7,21 @@ export default function NavigationProgress() {
   const pathname = usePathname()
   const [progress, setProgress] = useState(0)
 
-  useEffect(() => {
-    // Complete and reset progress bar on route change
+  const [prevPathname, setPrevPathname] = useState(pathname)
+
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
     setProgress(100)
-    const timer = setTimeout(() => {
-      setProgress(0)
-    }, 200)
-    return () => clearTimeout(timer)
-  }, [pathname])
+  }
+
+  useEffect(() => {
+    if (progress === 100) {
+      const timer = setTimeout(() => {
+        setProgress(0)
+      }, 200)
+      return () => clearTimeout(timer)
+    }
+  }, [progress])
 
   useEffect(() => {
     const handleAnchorClick = (e: MouseEvent) => {

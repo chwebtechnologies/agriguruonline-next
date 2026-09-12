@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useId, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useTheme } from '@/components/providers/ThemeProvider'
 
 interface Announcement {
   id: string
@@ -36,8 +37,13 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
+  const { theme, setTheme } = useTheme()
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Keep html dir and lang attribute in sync seamlessly
   useEffect(() => {
@@ -46,17 +52,6 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
       document.documentElement.lang = activeLang
     }
   }, [activeLang])
-
-  // Sync theme state from localStorage
-  useEffect(() => {
-    const syncTheme = () => {
-      const t = localStorage.getItem('theme') as 'light' | 'dark' | 'system' || 'system'
-      setTheme(t)
-    }
-    setTimeout(syncTheme, 0)
-    window.addEventListener('theme-changed', syncTheme)
-    return () => window.removeEventListener('theme-changed', syncTheme)
-  }, [])
 
   // Auto-scroll loop for announcements
   useEffect(() => {
@@ -118,14 +113,6 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   const changeTheme = (newTheme: 'light' | 'dark' | 'system') => {
     setTheme(newTheme)
-    localStorage.setItem('theme', newTheme)
-    const d = document.documentElement
-    if (newTheme === 'dark' || (newTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      d.classList.add('dark')
-    } else {
-      d.classList.remove('dark')
-    }
-    window.dispatchEvent(new Event('theme-changed'))
   }
 
   const languages = [
@@ -137,6 +124,8 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   const activeLanguage = languages.find(l => l.code === activeLang) || languages[0]
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
+
+  const currentTheme = mounted ? theme : 'system'
 
   return (
     <div
@@ -208,7 +197,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
                 <i className={`fa-solid fa-chevron-down text-[10px] ml-0.5 text-emerald-300 transition-transform duration-200 ${langDropdownOpen ? 'rotate-180' : ''}`}></i>
               )}
             </label>
-            <div className={`hidden peer-checked:block absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-2 w-36 rounded-lg bg-zinc-900 border border-zinc-800 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150`}>
+            <div className={`hidden peer-checked:block absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-2 w-36 rounded-lg bg-card border border-border shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150`}>
               <div className="py-1">
                 {languages.map((l) => (
                   <Link
@@ -218,7 +207,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
                     scroll={false}
                     onMouseEnter={() => router.prefetch(getLangUrl(l.code))}
                     onClick={(e) => handleLanguageSelect(e, l.code)}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold hover:bg-zinc-800 transition-colors ${activeLang === l.code ? 'text-emerald-400 bg-zinc-800/40' : 'text-zinc-300'
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold hover:bg-muted transition-colors ${activeLang === l.code ? 'text-emerald-400 bg-muted/40' : 'text-muted-foreground'
                       }`}
                   >
                     <span className="text-[15px]">{l.flag}</span>
@@ -233,7 +222,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
           <div className="hidden md:flex items-center gap-1.5 bg-black/35 p-0.5 rounded-full border border-white/10 shadow-inner select-none">
             <button
               onClick={() => changeTheme('system')}
-              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${theme === 'system' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
+              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${currentTheme === 'system' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
                 }`}
               title="System Mode"
             >
@@ -241,7 +230,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
             </button>
             <button
               onClick={() => changeTheme('light')}
-              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${theme === 'light' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
+              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${currentTheme === 'light' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
                 }`}
               title="Light Mode"
             >
@@ -249,7 +238,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
             </button>
             <button
               onClick={() => changeTheme('dark')}
-              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${theme === 'dark' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
+              className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${currentTheme === 'dark' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'
                 }`}
               title="Dark Mode"
             >

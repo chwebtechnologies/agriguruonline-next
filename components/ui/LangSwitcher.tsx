@@ -40,7 +40,7 @@ export default function LangSwitcher() {
 
   return (
     <div className="relative inline-block text-left" dir="ltr">
-      <div className="flex items-center gap-1.5 rounded-full bg-zinc-200/50 p-1 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800">
+      <div className="flex items-center gap-1.5 rounded-full bg-muted/50 p-1 border border-border">
         {languages.map((lang) => (
           <Link
             key={lang.code}
@@ -52,7 +52,7 @@ export default function LangSwitcher() {
             className={`rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
               activeLang === lang.code
                 ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
             title={lang.name}
           >

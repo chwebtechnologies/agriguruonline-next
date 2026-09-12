@@ -38,13 +38,6 @@ export default function SearchablePhoneInput({
 
   const [country, setCountry] = useState<Country>(initialCountry);
 
-  // Sync country if defaultCountry changes externally and there's no value yet
-  useEffect(() => {
-    if (!value && defaultCountry) {
-      setCountry(defaultCountry);
-    }
-  }, [defaultCountry, value]);
-
   // Extract initial national digits
   const getNationalDigitsFromValue = (val: string, c: Country) => {
     if (!val) return "";
@@ -68,19 +61,28 @@ export default function SearchablePhoneInput({
     getNationalDigitsFromValue(value, initialCountry)
   );
 
-  // Synchronize when value changes externally
-  useEffect(() => {
+  const [prevValue, setPrevValue] = useState(value);
+  const [prevDefaultCountry, setPrevDefaultCountry] = useState(defaultCountry);
+
+  if (value !== prevValue) {
+    setPrevValue(value);
     if (value) {
       try {
         const parsed = parsePhoneNumber(value);
         if (parsed?.country) {
           setCountry(parsed.country as Country);
           setNationalDigits(parsed.nationalNumber);
-          return;
         }
       } catch (e) {}
     }
-  }, [value]);
+  }
+
+  if (defaultCountry !== prevDefaultCountry) {
+    setPrevDefaultCountry(defaultCountry);
+    if (!value && defaultCountry) {
+      setCountry(defaultCountry);
+    }
+  }
 
   // Format national number for display
   const formattedDisplay = useMemo(() => {

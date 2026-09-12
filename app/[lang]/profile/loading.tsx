@@ -7,9 +7,18 @@ export default function ProfileLoading() {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="My Profile" backText="Back" />
 
-          <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start animate-pulse">
-            {/* Left Column (Main Form) */}
-            <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
+          <div className="mt-4 animate-pulse">
+            {/* KYC Alert Banner Skeleton */}
+            <div className="w-full h-14 bg-muted rounded-xl mb-4"></div>
+
+            {/* Mobile-only Membership Card Skeleton */}
+            <div className="block lg:hidden mb-3">
+              <div className="w-full h-32 bg-muted rounded-2xl"></div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
+              {/* Left Column (Main Form) */}
+              <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
               <div className="bg-card rounded-2xl border border-border shadow-xs p-5 sm:p-6">
                 <div className="flex items-center gap-5 mb-8">
                   <div className="w-20 h-20 rounded-full bg-muted shrink-0"></div>
@@ -43,6 +52,7 @@ export default function ProfileLoading() {
                 <div className="h-4 bg-muted rounded w-full mb-2"></div>
                 <div className="h-4 bg-muted rounded w-4/5"></div>
               </div>
+            </div>
             </div>
           </div>
         </div>

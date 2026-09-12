@@ -56,7 +56,7 @@ export function ChartMobileItemCard({
               e.stopPropagation();
               onOptionsClick(e);
             }}
-            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-[#f4f4f5] active:bg-zinc-200 dark:active:bg-zinc-700 rounded-full transition-colors cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground active:bg-muted rounded-full transition-colors cursor-pointer"
             aria-label="Open item options"
           >
             <i className="fa-solid fa-ellipsis-vertical text-[17px]"></i>

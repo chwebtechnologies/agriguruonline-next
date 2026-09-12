@@ -13,40 +13,26 @@ interface MenuItem {
 }
 
 import { useParams } from 'next/navigation'
+import { useTheme } from '@/components/providers/ThemeProvider'
 
 export function AppMenu({ children, align = 'right', profile }: { children?: React.ReactNode, align?: 'left' | 'right', profile?: any }) {
   const params = useParams();
   const lang = (params?.lang as string) || 'en';
   const menuId = useId();
   const [isOpen, setIsOpen] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const { theme, setTheme } = useTheme();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [mounted, setMounted] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
-    const syncTheme = () => {
-      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-    };
-    if (typeof window !== 'undefined') {
-      syncTheme();
-      window.addEventListener('theme-changed', syncTheme);
-      return () => window.removeEventListener('theme-changed', syncTheme);
-    }
   }, []);
 
   const toggleTheme = (e: React.MouseEvent) => {
     e.preventDefault();
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    window.dispatchEvent(new Event('theme-changed'));
   };
 
   useEffect(() => {
@@ -111,8 +97,8 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     ],
     [
       { label: 'Messages', icon: 'fa-solid fa-comment-dots', href: 'https://wa.me/918980131000?text=Hey%2C%20I%20want%20to%20connect%21', iconBg: 'bg-green-500' },
-      { label: 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-zinc-500' },
-      { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${lang}/profile`, iconBg: 'bg-zinc-500' },
+      { label: 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-slate-500' },
+      { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${lang}/profile`, iconBg: 'bg-slate-500' },
     ]
   ];
 

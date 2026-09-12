@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
 import { getPriceHistoryAction, getProductDetailsAction } from '@/app/actions/charts';
+import { ActionButton } from '@/components/ui/ActionButton';
 
 export interface CommodityItemData {
   id: number | string;
@@ -1917,18 +1918,13 @@ export default function MobileCommodityChart({
 
             {/* CTA Buttons */}
             <div className="space-y-2">
-              <button
+              <ActionButton
                 type="button"
-                className={`w-full py-3 font-extrabold text-[14px] tracking-wide rounded-xl shadow-md  flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer ${userType === 'seller'
-                    ? 'bg-brand-red text-white shadow-red-500/20'
-                    : userType === 'buyer'
-                      ? 'bg-brand-green text-white shadow-emerald-500/20'
-                      : 'bg-primary-gradient text-white shadow-blue-500/20'
-                  }`}
+                variant={userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default'}
+                icon={userType === 'seller' ? 'fa-tag' : 'fa-cart-shopping'}
               >
-                <i className={`fa-solid ${userType === 'seller' ? 'fa-tag' : 'fa-cart-shopping'}`}></i>
-                <span>{userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY'}</span>
-              </button>
+                {userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY'}
+              </ActionButton>
 
               {showAlertInput ? (
                 <div className="w-full animate-in slide-in-from-right-4 duration-200">
@@ -2091,17 +2087,13 @@ export default function MobileCommodityChart({
             </button>
 
             {/* 2. Buy / Sell Action Button (Center) */}
-            <button
+            <ActionButton
               type="button"
-              className={`flex-1 py-2 min-[390px]:py-2.5 font-extrabold text-[12px] min-[390px]:text-[14px] tracking-wide rounded-xl shadow-md  flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer ${userType === 'seller'
-                  ? 'bg-brand-red hover:bg-brand-red-hover text-white shadow-red-500/20'
-                  : userType === 'buyer'
-                    ? 'bg-brand-green hover:bg-brand-green-hover text-white shadow-emerald-500/20'
-                    : 'bg-gradient-to-r from-brand-green to-brand-blue hover:opacity-95 text-white shadow-blue-500/20'
-                }`}
+              variant={userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default'}
+              className="flex-1 py-2 min-[390px]:py-2.5 text-[12px] min-[390px]:text-[14px]"
             >
-              <span>{userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'}</span>
-            </button>
+              {userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'}
+            </ActionButton>
 
             {/* 3. AI Predict (Right) */}
             <button

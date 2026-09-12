@@ -12,18 +12,17 @@ interface PaginationProps {
 
 export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   if (totalPages <= 1) return null;
 
   // Calculate page range to show (max 5 pages)
   let startPage = Math.max(1, currentPage - 2);
-  let endPage = Math.min(totalPages, startPage + 4);
+  const endPage = Math.min(totalPages, startPage + 4);
 
   if (endPage - startPage < 4) {
     startPage = Math.max(1, endPage - 4);
   }
-
-  const [isPending, startTransition] = useTransition();
 
   const pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
 

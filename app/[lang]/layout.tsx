@@ -15,6 +15,7 @@ import { getCategories } from '@/lib/category'
 import { getTradingApiUrl } from '@/lib/api-utils'
 import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/lib/seo'
 import { NotificationProvider } from '@/components/providers/NotificationProvider'
+import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import '../globals.css'
 
 export async function generateMetadata(props: {
@@ -179,8 +180,9 @@ export default async function LocalizedRootLayout({
         <ThemeInitializer />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <NotificationProvider>
-          <Suspense fallback={null}>
+        <ThemeProvider>
+          <NotificationProvider>
+            <Suspense fallback={null}>
             <NavigationProgress />
           </Suspense>
           <AnnouncementBar />
@@ -193,7 +195,8 @@ export default async function LocalizedRootLayout({
           <Footer />
           <ServiceWorkerRegister />
           <Toaster position="top-right" richColors closeButton />
-        </NotificationProvider>
+          </NotificationProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

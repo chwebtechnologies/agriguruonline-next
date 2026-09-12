@@ -13,7 +13,7 @@ export default function HomeLoading() {
       </div>
       
       {/* Categories Skeleton */}
-      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto pt-3 pb-5 px-4 sm:px-6 lg:px-8">
         <div className="h-8 bg-muted rounded w-48 mb-8 mx-auto"></div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {[...Array(8)].map((_, i) => (

@@ -132,11 +132,18 @@ export default function SearchableCountrySelect({
     );
   }, [search, allCountries, showDialCode]);
 
-  // Handle focus search input on open
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setSearch("");
       setHighlightedIndex(0);
+    }
+  }
+
+  // Handle focus search input on open
+  useEffect(() => {
+    if (isOpen) {
       const timer = setTimeout(() => {
         searchInputRef.current?.focus();
       }, 50);

@@ -464,7 +464,7 @@ export default function FreightChartClient({
                     </div>
 
                     {/* Col 4: Freight Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                         <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
                         <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Total</span>
@@ -478,7 +478,7 @@ export default function FreightChartClient({
                     </div>
 
                     {/* Col 5: Freight (PMT) Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                         <i className="fa-solid fa-scale-balanced text-emerald-500/80 text-[11px]"></i>
                         <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">PMT</span>
@@ -492,7 +492,7 @@ export default function FreightChartClient({
                     </div>
 
                     {/* Col 6: Change Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                         <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
                         <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Trend</span>
@@ -506,7 +506,7 @@ export default function FreightChartClient({
                     </div>
 
                     {/* Col 7: Chart Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className="fa-solid fa-chart-area text-brand-blue/80 text-[11px]"></i>
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
@@ -562,7 +562,7 @@ export default function FreightChartClient({
                       </div>
 
                       {/* Progress pill */}
-                      <div className="flex items-center gap-2 self-start md:self-auto bg-zinc-50 dark:bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                      <div className="flex items-center gap-2 self-start md:self-auto bg-background px-3 py-1.5 rounded-lg border border-border">
                         <i className="fa-solid fa-layer-group text-xs text-brand-blue"></i>
                         <span className="text-xs font-semibold text-foreground/80">
                           {isAddFreightEnabled
@@ -581,7 +581,7 @@ export default function FreightChartClient({
                       {/* Step 1 */}
                       <div
                         onClick={() => document.getElementById('desktop-shipby-select')?.click()}
-                        className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50  cursor-pointer group"
+                        className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-blue-500/10 border border-border hover:border-blue-400/50 cursor-pointer group"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
@@ -605,7 +605,7 @@ export default function FreightChartClient({
                           if (selectedShipBy) document.getElementById('desktop-pol-select')?.click();
                           else document.getElementById('desktop-shipby-select')?.click();
                         }}
-                        className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-blue-400/50  cursor-pointer group"
+                        className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-blue-500/10 border border-border hover:border-blue-400/50 cursor-pointer group"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
@@ -628,7 +628,7 @@ export default function FreightChartClient({
                         onClick={() => {
                           if (isAddFreightEnabled) handleAddFreight();
                         }}
-                        className="p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-900/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 border border-zinc-200/80 dark:border-zinc-800/80 hover:border-emerald-400/50  cursor-pointer group"
+                        className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-emerald-500/10 border border-border hover:border-emerald-400/50 cursor-pointer group"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
