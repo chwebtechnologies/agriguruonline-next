@@ -894,23 +894,13 @@ export default function MobileCommodityChart({
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-[0.1] dark:opacity-[0.00] z-0 select-none">
                 <img src="/logo.svg" alt="Agriguru Watermark" className="w-[60%] max-w-[200px] grayscale object-contain" />
               </div>
-              {isLoading ? (
-                <div className="w-full h-full flex flex-col justify-end p-3 gap-2">
-                  <div className="w-full h-[80%] bg-muted rounded-xl animate-pulse flex items-center justify-center">
-                    <div className="flex items-center gap-2 text-foreground/50 text-xs font-semibold">
-                      <i className="fa-solid fa-circle-notch fa-spin text-sm"></i>
-                      <span>Loading price history...</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <div className="h-3 w-12 bg-muted rounded animate-pulse"></div>
-                    <div className="h-3 w-12 bg-muted rounded animate-pulse"></div>
-                    <div className="h-3 w-12 bg-muted rounded animate-pulse"></div>
-                    <div className="h-3 w-12 bg-muted rounded animate-pulse"></div>
-                  </div>
+              {isLoading && (
+                <div className="absolute top-2 right-4 z-10 flex items-center gap-1.5 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm border border-border">
+                  <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-[10px]"></i>
+                  <span className="text-[10px] font-semibold text-foreground/70">Updating...</span>
                 </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
+              )}
+              <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={chartData}
                     margin={{ top: 12, right: 25, left: 10, bottom: 0 }}
@@ -1088,7 +1078,6 @@ export default function MobileCommodityChart({
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-              )}
             </div>
 
             {/* Highlighting Blue Blinking Dot Notice */}
