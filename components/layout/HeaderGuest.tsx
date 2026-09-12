@@ -8,6 +8,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { AppMenu } from '@/components/layout/AppMenu'
 import { HeaderSearch } from '@/components/search/HeaderSearch'
 
+import { SearchProduct } from '@/types/search'
+
 interface HeaderGuestProps {
   dict?: {
     navigation: {
@@ -52,6 +54,7 @@ interface HeaderGuestProps {
   activeLang?: string
   categories?: Array<{ name: string; href: string }>
   loading?: boolean
+  initialSearchProducts?: SearchProduct[]
 }
 
 export function AgriGuruLogo({ size = 42 }: { size?: number }) {
@@ -78,6 +81,7 @@ export function HeaderGuestBase({
   categories: apiCategories = [],
   loading = false,
   pathname,
+  initialSearchProducts = [],
 }: HeaderGuestBaseProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
@@ -282,10 +286,11 @@ export function HeaderGuestBase({
                 <div className="w-full h-10 rounded-full bg-muted border border-border animate-pulse" />
               ) : (
                 <HeaderSearch
-                  placeholder={dict.header.search_placeholder}
+                  placeholder={dict.header?.search_placeholder}
                   lang={activeLang}
                   categories={categoriesList}
                   dict={dict.common}
+                  initialSearchProducts={initialSearchProducts}
                 />
               )}
             </div>
@@ -433,7 +438,7 @@ export function HeaderGuestBase({
   )
 }
 
-export function HeaderGuest(props: HeaderGuestProps) {
+export function HeaderGuest(props: Omit<HeaderGuestProps, 'loading'>) {
   const pathname = usePathname() || '/'
   return <HeaderGuestBase {...props} pathname={pathname} />
 }
@@ -445,4 +450,3 @@ export function HeaderGuestStatic(props: HeaderGuestProps) {
 export function HeaderGuestSkeleton(props: Omit<HeaderGuestProps, 'loading'>) {
   return <HeaderGuestBase {...props} pathname="" loading={true} />
 }
-

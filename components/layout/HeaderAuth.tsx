@@ -18,6 +18,8 @@ import { FreightAlertCard } from '@/components/alerts/FreightAlertCard'
 import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard'
 import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard'
 
+import { SearchProduct } from '@/types/search'
+
 interface HeaderAuthProps {
   token: string
   dict: {
@@ -76,9 +78,10 @@ interface HeaderAuthProps {
   alerts?: any[]
   notifications?: any[]
   aiPredicts?: any[]
+  initialSearchProducts?: SearchProduct[]
 }
 
-export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile, alerts: initialAlerts = [], notifications: initialNotifications = [], aiPredicts: initialAiPredicts = [] }: HeaderAuthProps) {
+export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile, alerts: initialAlerts = [], notifications: initialNotifications = [], aiPredicts: initialAiPredicts = [], initialSearchProducts = [] }: HeaderAuthProps) {
   const [profile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -401,10 +404,11 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
             {/* Search bar next to logo */}
             <div className="flex-1 max-w-sm md:max-w-md lg:max-w-lg">
               <HeaderSearch
-                placeholder={dict.header.search_placeholder}
+                placeholder={dict.header?.search_placeholder}
                 lang={activeLang}
                 categories={categoriesList}
                 dict={dict.common}
+                initialSearchProducts={initialSearchProducts}
               />
             </div>
           </div>

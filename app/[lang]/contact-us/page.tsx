@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ContactForm from './ContactForm'
 import { getDictionary } from '@/app/[lang]/dictionaries'
@@ -23,6 +24,9 @@ export const revalidate = 3600;
 export default async function ContactUsPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en'
+  
+  const headersList = await headers()
+  const defaultCountry = headersList.get('x-vercel-ip-country') || 'IN'
   
   const dict = await getDictionary(lang);
   const commonDict = (dict as Record<string, any>).common || {};
@@ -105,7 +109,7 @@ export default async function ContactUsPage(props: { params: Promise<{ lang: str
                   <p className="text-[13px] sm:text-[14px] text-muted-foreground">{contactDict.form_subtitle || "Fill out the form below to get in touch with our team."}</p>
                 </div>
 
-                <ContactForm contactDict={contactDict} />
+                <ContactForm contactDict={contactDict} defaultCountry={defaultCountry} />
               </div>
             </div>
           </div>

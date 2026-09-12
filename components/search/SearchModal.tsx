@@ -10,8 +10,9 @@ import { tradingService } from '@/lib/api'
 interface SearchModalProps {
   isOpen: boolean
   onClose: () => void
-  lang: string
-  categories?: Array<{ name: string; href: string }>
+  lang?: string
+  dict?: any
+  initialSearchProducts?: SearchProduct[]
 }
 
 const POPULAR_CATEGORIES = [
@@ -25,7 +26,7 @@ const POPULAR_CATEGORIES = [
   { name: 'Edible Oil', slug: 'edible-oil', icon: 'fa-solid fa-bottle-droplet' },
 ]
 
-export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: SearchModalProps) {
+export function SearchModal({ isOpen, onClose, lang = 'en', dict = {}, initialSearchProducts = [] }: SearchModalProps) {
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -113,35 +114,10 @@ export function SearchModal({ isOpen, onClose, lang = 'en', categories = [] }: S
 
   // Pre-fetch Trending / Marketed Products on first modal open
   useEffect(() => {
-    if (!isOpen) return
-    if (trendingProducts.length > 0) return
-
-    let isMounted = true
-
-    const fetchTrending = async () => {
-      setIsTrendingLoading(true)
-      try {
-        const json: SearchApiResponse = await tradingService.searchProducts({ isActive: true, lang })
-        if (isMounted && json?.success && json.data?.products) {
-          // Filter products with images and marketed/best_seller if available, or first 6 products
-          const items = json.data.products
-            .filter((p) => p.is_active !== false)
-            .slice(0, 6)
-          setTrendingProducts(items)
-        }
-      } catch (err) {
-        console.error('Failed to load initial trending products:', err)
-      } finally {
-        if (isMounted) setIsTrendingLoading(false)
-      }
+    if (initialSearchProducts.length > 0) {
+      setTrendingProducts(initialSearchProducts.slice(0, 6))
     }
-
-    fetchTrending()
-
-    return () => {
-      isMounted = false
-    }
-  }, [isOpen, lang, trendingProducts.length])
+  }, [initialSearchProducts])
 
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen)
   if (isOpen !== prevIsOpen) {

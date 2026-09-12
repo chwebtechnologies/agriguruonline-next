@@ -15,12 +15,14 @@ interface HeaderSearchProps {
   lang?: string
   categories?: Array<{ name: string; href: string }>
   dict?: any
+  initialSearchProducts?: SearchProduct[]
 }
 
 export function HeaderSearch({
   placeholder = 'Search Product',
   lang = 'en',
   dict = {},
+  initialSearchProducts = [],
 }: HeaderSearchProps) {
   const router = useRouter()
   const searchId = useId()
@@ -60,13 +62,10 @@ export function HeaderSearch({
   }, [])
 
   // Data states
-  const [initialProducts, setInitialProducts] = useState<SearchProduct[]>([])
-  const [isInitialLoading, setIsInitialLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
   const cacheRef = useRef<Map<string, SearchProduct[]>>(new Map())
-  const initialLoadedRef = useRef(false)
 
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
@@ -131,50 +130,14 @@ export function HeaderSearch({
 
   const [fetchError, setFetchError] = useState<string | null>(null)
 
-  // Fetch initial products once (Frequently Searched, Marketed Products, Best Seller)
-  const loadInitialProducts = useCallback(async () => {
-    if (initialLoadedRef.current || isInitialLoading) return
-    initialLoadedRef.current = true
-    setIsInitialLoading(true)
-    setFetchError(null)
-
-    try {
-      const json = await tradingService.searchProducts({ isActive: true, lang, limit: 50 });
-      
-      // More resilient parsing in case API structure changed
-      let productsArray: SearchProduct[] = []
-      if (json?.data?.products && Array.isArray(json.data.products)) {
-        productsArray = json.data.products
-      } else if (json?.data && Array.isArray(json.data)) {
-        productsArray = json.data
-      } else if (Array.isArray(json)) {
-        productsArray = json
-      }
-      
-      if (productsArray.length > 0) {
-        setInitialProducts(productsArray.filter((p: any) => p.is_active !== false))
-      } else {
-        setFetchError('No products received from API')
-      }
-    } catch (err: any) {
-      console.error('Error fetching initial search products:', err)
-      setFetchError(err.message || 'Network or CORS error')
-      initialLoadedRef.current = false
-    } finally {
-      setIsInitialLoading(false)
-    }
-  }, [lang, isInitialLoading])
-
-  // Open desktop dropdown / trigger initial fetch
+  // Open desktop dropdown
   const handleDesktopFocus = () => {
     setIsOpen(true)
-    loadInitialProducts()
   }
 
   // Open mobile full search view
   const handleMobileClick = () => {
     setIsMobileSearchOpen(true)
-    loadInitialProducts()
     setTimeout(() => {
       mobileInputRef.current?.focus()
     }, 50)
@@ -182,19 +145,16 @@ export function HeaderSearch({
 
   // Filtered initial sections
   const frequentlySearchedList = useMemo(() => {
-    const filtered = initialProducts.filter((p) => p.frequently_search)
-    return filtered.length > 0 ? filtered : initialProducts.slice(0, 6)
-  }, [initialProducts])
+    return initialSearchProducts.filter((p) => p.frequently_search)
+  }, [initialSearchProducts])
 
   const marketedProductsList = useMemo(() => {
-    const filtered = initialProducts.filter((p) => p.is_marketed)
-    return filtered.length > 0 ? filtered : initialProducts.slice(0, 8)
-  }, [initialProducts])
+    return initialSearchProducts.filter((p) => p.is_marketed).slice(0, 4)
+  }, [initialSearchProducts])
 
   const bestSellerList = useMemo(() => {
-    const filtered = initialProducts.filter((p) => p.best_seller)
-    return filtered.length > 0 ? filtered.slice(0, 4) : initialProducts.slice(0, 4)
-  }, [initialProducts])
+    return initialSearchProducts.filter((p) => p.best_seller).slice(0, 4)
+  }, [initialSearchProducts])
 
   // Debounced Search API (Starts on 4th keypress / >= 4 chars)
   useEffect(() => {
@@ -315,7 +275,7 @@ export function HeaderSearch({
 
   useEffect(() => {
     updateScrollMetrics()
-  }, [isOpen, query, searchResults, initialProducts, isSearching, updateScrollMetrics])
+  }, [isOpen, query, searchResults, initialSearchProducts, isSearching, updateScrollMetrics])
 
   // Parse HTML quality specification
   const parseSpecifications = (html?: string) => {
@@ -426,7 +386,6 @@ export function HeaderSearch({
           checked={isMobileSearchOpen} 
           onChange={(e) => {
             setIsMobileSearchOpen(e.target.checked)
-            if (e.target.checked) loadInitialProducts()
           }} 
         />
         <label
@@ -516,15 +475,7 @@ export function HeaderSearch({
                       <span>{dict?.frequently_searched || 'Frequently Searched'}</span>
                     </div>
 
-                    {isInitialLoading ? (
-                      <div className="flex flex-wrap gap-1.5 animate-pulse">
-                        {[1, 2, 3, 4].map((n) => (
-                          <div key={n} className="h-7 w-24 bg-muted rounded-xl"></div>
-                        ))}
-                      </div>
-                    ) : fetchError ? (
-                      <div className="text-sm text-red-500 font-bold px-2">API Error: {fetchError}</div>
-                    ) : (
+                    {frequentlySearchedList.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {frequentlySearchedList.map((product) => (
                           <button
@@ -547,18 +498,9 @@ export function HeaderSearch({
                       <span>{dict?.marketed_products || 'Marketed Products'}</span>
                     </div>
 
-                    {isInitialLoading ? (
-                      <div className="grid grid-cols-4 gap-2 animate-pulse">
-                        {[1, 2, 3, 4].map((n) => (
-                          <div key={n} className="space-y-1">
-                            <div className="aspect-square w-full rounded-xl bg-muted"></div>
-                            <div className="h-4 w-3/4 mx-auto bg-muted rounded"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
+                    {marketedProductsList.length > 0 && (
                       <div className="grid grid-cols-4 gap-2">
-                        {marketedProductsList.slice(0, 4).map((product) => {
+                        {marketedProductsList.map((product) => {
                           const imageUrl = getProductImageUrl(product)
                           return (
                             <div
@@ -595,16 +537,7 @@ export function HeaderSearch({
                       <span>{dict?.best_sellers || 'Best Sellers'}</span>
                     </div>
 
-                    {isInitialLoading ? (
-                      <div className="grid grid-cols-4 gap-2 animate-pulse">
-                        {[1, 2, 3, 4].map((n) => (
-                          <div key={n} className="space-y-1">
-                            <div className="aspect-square w-full rounded-xl bg-muted"></div>
-                            <div className="h-4 w-3/4 mx-auto bg-muted rounded"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
+                    {bestSellerList.length > 0 && (
                       <div className="grid grid-cols-4 gap-2">
                         {bestSellerList.map((product) => {
                           const imageUrl = getProductImageUrl(product)

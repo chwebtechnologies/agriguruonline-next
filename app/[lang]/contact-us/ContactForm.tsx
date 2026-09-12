@@ -8,38 +8,21 @@ import { parsePhoneNumber } from 'react-phone-number-input';
 import en from 'react-phone-number-input/locale/en.json';
 import { toast } from 'sonner';
 import ReCAPTCHA from 'react-google-recaptcha';
-import { userService } from '@/lib/api';
+import { submitContactUsAction } from '@/app/actions/contact';
 
 interface ContactFormProps {
   contactDict?: any;
+  defaultCountry?: string;
 }
 
-export default function ContactForm({ contactDict = {} }: ContactFormProps) {
-  const [country, setCountry] = useState<string>('');
+export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }: ContactFormProps) {
+  const [country, setCountry] = useState<string>(defaultCountry);
   const [phone, setPhone] = useState<string>('');
-  const [defaultCountryCode, setDefaultCountryCode] = useState<Country>('IN');
+  const [defaultCountryCode, setDefaultCountryCode] = useState<Country>(defaultCountry as Country);
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = React.useRef<ReCAPTCHA>(null);
 
-  useEffect(() => {
-    const fetchCountry = async () => {
-      try {
-        const response = await fetch('https://get.geojs.io/v1/ip/country.json');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.country) {
-            setCountry(data.country);
-            setDefaultCountryCode(data.country as Country);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch country from IP', error);
-      }
-    };
-    
-    fetchCountry();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -93,17 +76,16 @@ export default function ContactForm({ contactDict = {} }: ContactFormProps) {
         captcha_token: captchaToken
       };
 
-      const res = await userService.submitContactUs(payload);
+      const res = await submitContactUsAction(payload);
 
-      if (res.ok) {
+      if (res.success) {
         toast.success('Your message has been sent successfully!');
         e.currentTarget.reset();
         setPhone('');
         setCaptchaToken(null);
         recaptchaRef.current?.reset();
       } else {
-        const errorData = await res.json().catch(() => null);
-        toast.error(errorData?.message || 'Failed to send message. Please try again.');
+        toast.error(res.message || 'Failed to send message. Please try again.');
       }
     } catch (error) {
       console.error('Submission error:', error);

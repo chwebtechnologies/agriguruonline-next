@@ -99,7 +99,8 @@ export async function addFavoriteProductAction(
 ): Promise<ServerActionResponse> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
     return await tradingService.addFavoriteProduct(payload, token, safeLang);
@@ -118,7 +119,8 @@ export async function deleteFavoriteProductAction(
 ): Promise<ServerActionResponse> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
     return await tradingService.deleteFavoriteProduct(id, token, safeLang);
@@ -136,7 +138,8 @@ export async function getFavoriteProductsAction(
 ): Promise<ServerActionResponse> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
     if (!token) return { success: false, data: [] };
@@ -158,7 +161,8 @@ export async function getPriceHistoryAction(
   try {
     if (!id) return { success: false, data: null };
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
     return await tradingService.getPriceHistory(id, token, safeLang);

@@ -15,14 +15,7 @@ import {
 import { toast } from 'sonner';
 import { FlagIcon } from '@/components/ui/FlagIcon';
 
-const MobileCommodityChart = dynamic(() => import('./MobileCommodityChart'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center w-full h-full min-h-[300px]">
-      <i className="fa-solid fa-circle-notch fa-spin text-2xl text-brand-blue"></i>
-    </div>
-  )
-});
+
 
 interface Category {
   id: string;
@@ -607,17 +600,11 @@ export default function ProductChartsClient({
   };
 
   const confirmDelete = (id: number | string) => {
-    if (!userType || userType === 'guest') {
-      router.push(`/${lang}/login`);
-      return;
-    }
     setDeleteConfirmId(id);
   };
 
   const handleActionClick = () => {
-    if (!userType || userType === 'guest') {
-      router.push(`/${lang}/login`);
-    }
+    // Actions allowed for all users
   };
 
   const handleDelete = async (id: number | string) => {

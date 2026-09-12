@@ -6,6 +6,8 @@ import { lang } from 'next/root-params'
 import { getCategories } from '@/lib/category'
 import { ForceLogout } from '@/components/auth/ForceLogout'
 import { getAuthData } from '@/lib/user-data'
+import { tradingService } from '@/lib/api'
+import { SearchProduct } from '@/types/search'
 
 interface HeaderProps {
   dict?: any
@@ -60,6 +62,23 @@ export default async function Header(props?: HeaderProps) {
       }))
   }
 
+  // Fetch initial search products for SearchModal and HeaderSearch
+  let initialSearchProducts: SearchProduct[] = []
+  try {
+    const searchRes = await tradingService.searchProducts({ isActive: true, lang: activeLang, limit: 50 });
+    let productsArray: SearchProduct[] = []
+    if (searchRes?.data?.products && Array.isArray(searchRes.data.products)) {
+      productsArray = searchRes.data.products
+    } else if (searchRes?.data && Array.isArray(searchRes.data)) {
+      productsArray = searchRes.data
+    } else if (Array.isArray(searchRes)) {
+      productsArray = searchRes
+    }
+    initialSearchProducts = productsArray.filter((p: any) => p.is_active !== false)
+  } catch (error) {
+    console.error('Error fetching initial search products:', error)
+  }
+
   let token: string | undefined = undefined
   try {
     const cookieStore = await cookies()
@@ -67,7 +86,7 @@ export default async function Header(props?: HeaderProps) {
   } catch (_) {}
 
   if (!token) {
-    return <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} />
+    return <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} initialSearchProducts={initialSearchProducts} />
   }
 
   // getAuthData is deduplicated via React cache() — single fetch group per request
@@ -78,7 +97,7 @@ export default async function Header(props?: HeaderProps) {
     return (
       <>
         <ForceLogout lang={activeLang} />
-        <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} />
+        <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} initialSearchProducts={initialSearchProducts} />
       </>
     )
   }
@@ -93,6 +112,7 @@ export default async function Header(props?: HeaderProps) {
       alerts={alertsData}
       notifications={notificationsData}
       aiPredicts={aiPredictsData}
+      initialSearchProducts={initialSearchProducts}
     />
   )
 }
