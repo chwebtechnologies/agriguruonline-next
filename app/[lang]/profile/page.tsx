@@ -73,8 +73,16 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   if (kycResult.status === 'fulfilled') {
     const kycData = kycResult.value;
     if (kycData.success && Array.isArray(kycData.data)) {
-      rawKycDocs = kycData.data;
-      const hasActive = kycData.data.some((item: any) => {
+      rawKycDocs = kycData.data.map((doc: any) => ({
+        document_id: doc.document_id,
+        document_name: doc.document_name,
+        is_uploaded: doc.is_uploaded,
+        url: doc.url,
+        user_document_id: doc.user_document_id,
+        status: doc.status,
+        reject_reason: doc.reject_reason
+      }));
+      const hasActive = rawKycDocs.some((item: any) => {
         if (!item.is_uploaded) return false;
         const status = item.status?.toUpperCase();
         return status !== "REJECTED" && status !== "EXPIRED";
@@ -115,6 +123,31 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     isKycVerified = false;
   }
 
+  const sanitizedProfileData = profileData ? {
+    id: profileData.id || profileData._id || profileData.customer_id,
+    first_name: profileData.first_name,
+    last_name: profileData.last_name,
+    name: profileData.name,
+    email: profileData.email,
+    mobile_no: profileData.mobile_no,
+    phone: profileData.phone,
+    country_code: profileData.country_code,
+    role: profileData.role ? { name: profileData.role.name } : undefined,
+    user_type: typeof profileData.user_type === 'object' && profileData.user_type !== null ? { name: profileData.user_type.name, title: profileData.user_type.title } : profileData.user_type,
+    company_name: profileData.company_name,
+    business_name: profileData.business_name,
+    country: profileData.country ? { iso2: profileData.country.iso2, id: profileData.country.id } : undefined,
+    country_id: profileData.country_id,
+    profile_image: profileData.profile_image,
+    profile_picture: profileData.profile_picture,
+    avatar: profileData.avatar,
+    membership: profileData.membership ? { 
+      plan_name: profileData.membership.plan_name,
+      status: profileData.membership.status
+    } : undefined,
+    is_kyc_verified: profileData.is_kyc_verified
+  } : null;
+
   return (
     <div className="bg-background text-foreground transition-theme">
       <div className="w-full pad-for-badges">
@@ -128,7 +161,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
 
             {/* Mobile-only Membership Card (Shows above the form on smaller screens) */}
             <div className="block lg:hidden mb-3">
-              <MembershipCard profileData={profileData} />
+              <MembershipCard profileData={sanitizedProfileData} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
@@ -136,8 +169,28 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
               {/* Left Column (Main Content) */}
               <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
                 
-                {/* Main Form */}
-                <ProfileForm categories={apiCategories} countries={apiCountries} lang={lang} profileData={profileData} />
+                <ProfileForm 
+                  categories={apiCategories.map((c: any) => ({
+                    id: c.id,
+                    name: c.name,
+                    slug: c.slug,
+                    is_active: c.is_active,
+                    translations: c.translations ? c.translations.map((t: any) => ({
+                      lang_code: t.lang_code,
+                      name: t.name
+                    })) : []
+                  }))} 
+                  countries={apiCountries.map((c: any) => ({
+                    id: c.id,
+                    iso2: c.iso2,
+                    name: c.name,
+                    phonecode: c.phonecode,
+                    emoji: c.emoji,
+                    flag: c.flag
+                  }))} 
+                  lang={lang} 
+                  profileData={sanitizedProfileData} 
+                />
               </div>
 
               {/* Right Column (Sidebar Widgets) */}
@@ -145,11 +198,11 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
                 
                 {/* Desktop-only Membership Card (Shows in sidebar on large screens) */}
                 <div className="hidden lg:block">
-                  <MembershipCard profileData={profileData} />
+                  <MembershipCard profileData={sanitizedProfileData} />
                 </div>
 
                 <div id="kyc-section" className="scroll-mt-24">
-                  <KycSection profileData={profileData} lang={lang} initialKycDocs={rawKycDocs} />
+                  <KycSection profileData={sanitizedProfileData} lang={lang} initialKycDocs={rawKycDocs} />
                 </div>
                 
                 {/* Mobile-only Upgrade Plan Button */}

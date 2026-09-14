@@ -109,7 +109,21 @@ async function VideoGrid({ slug, lang, dict }: { slug: string; lang: string; dic
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
-  return <VideoCollectionClient videos={data.videos as any} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict} />
+  const sanitizedVideos = data.videos.map((v: any) => ({
+    id: v.id,
+    title: v.title,
+    url: v.url,
+    video_type: v.video_type,
+    image: v.image,
+    video_url: v.video_url,
+    video_thumbnail: v.video_thumbnail,
+    translations: v.translations ? v.translations.map((t: any) => ({
+      lang_code: t.lang_code,
+      title: t.title
+    })) : []
+  }))
+
+  return <VideoCollectionClient videos={sanitizedVideos as any} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict} />
 }
 
 export default async function VideoCollectionPage(props: { 

@@ -180,7 +180,17 @@ export default async function ParticipationAlbumPage(props: {
           <PageHeader title={albumTitle} backText="Back" backHref={`/${lang}/participation-gallery`} />
 
           <ParticipationAlbumClient
-            photos={photos}
+            photos={photos.map((p: any) => ({
+              id: p.id,
+              slug: p.slug,
+              image: p.image,
+              thumbnail: p.thumbnail,
+              title: p.title,
+              translations: p.translations ? p.translations.map((t: any) => ({
+                lang_code: t.lang_code,
+                title: t.title
+              })) : []
+            }))}
             albumTitle={albumTitle}
             albumSlug={slug}
             lang={lang}
