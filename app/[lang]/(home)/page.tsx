@@ -1,6 +1,6 @@
 import { getDictionary } from '../dictionaries'
 import { lang } from 'next/root-params'
-import Script from 'next/script'
+
 import type { Metadata } from 'next'
 
 // SEO Organization & WebSite schema component helper
@@ -37,7 +37,7 @@ function OrganizationSchema() {
   }
 
   return (
-    <Script
+    <script
       id="schema-org"
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }}

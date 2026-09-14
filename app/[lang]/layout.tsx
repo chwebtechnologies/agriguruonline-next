@@ -1,6 +1,6 @@
 // @ts-nocheck
 import type { Metadata, Viewport } from 'next'
-import Script from 'next/script'
+
 import { lang } from 'next/root-params'
 import ThemeInitializer from '@/components/ui/ThemeInitializer'
 import Header from '@/components/layout/Header'
@@ -160,7 +160,6 @@ export default async function LocalizedRootLayout({
       suppressHydrationWarning
     >
       <head>
-        <meta charSet="utf-8" />
         <link rel="preconnect" href="https://assets.agriguruonline.com" />
         <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
         <link rel="preconnect" href="https://assets.agriguruonline.cloud" />
@@ -172,7 +171,7 @@ export default async function LocalizedRootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" precedence="default" />
-        <Script
+        <script
           id="trusted-types-policy"
           dangerouslySetInnerHTML={{
             __html: `if(typeof window!=='undefined'&&window.trustedTypes&&window.trustedTypes.createPolicy){try{if(!window.trustedTypes.defaultPolicy){window.trustedTypes.createPolicy('default',{createHTML:function(s){return s},createScript:function(s){return s},createScriptURL:function(s){return s}})}}catch(e){}}`

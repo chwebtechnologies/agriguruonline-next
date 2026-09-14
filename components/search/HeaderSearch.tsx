@@ -143,17 +143,27 @@ export function HeaderSearch({
     }, 50)
   }
 
-  // Filtered initial sections
-  const frequentlySearchedList = useMemo(() => {
-    return initialSearchProducts.filter((p) => p.frequently_search)
-  }, [initialSearchProducts])
+  // Filtered initial sections (ensuring no duplicates and active products only)
+  const { frequentlySearchedList, marketedProductsList, bestSellerList } = useMemo(() => {
+    const activeProducts = initialSearchProducts.filter((p) => p.is_active !== false)
 
-  const marketedProductsList = useMemo(() => {
-    return initialSearchProducts.filter((p) => p.is_marketed).slice(0, 4)
-  }, [initialSearchProducts])
+    const freq = activeProducts.filter((p) => p.frequently_search).slice(0, 4)
+    const freqIds = new Set(freq.map((p) => p.id))
 
-  const bestSellerList = useMemo(() => {
-    return initialSearchProducts.filter((p) => p.best_seller).slice(0, 4)
+    const marketed = activeProducts
+      .filter((p) => p.is_marketed && !freqIds.has(p.id))
+      .slice(0, 4)
+    const marketedIds = new Set(marketed.map((p) => p.id))
+
+    const best = activeProducts
+      .filter((p) => p.best_seller && !freqIds.has(p.id) && !marketedIds.has(p.id))
+      .slice(0, 4)
+
+    return {
+      frequentlySearchedList: freq,
+      marketedProductsList: marketed,
+      bestSellerList: best,
+    }
   }, [initialSearchProducts])
 
   // Debounced Search API (Starts on 4th keypress / >= 4 chars)

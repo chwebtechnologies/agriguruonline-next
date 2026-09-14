@@ -152,17 +152,16 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
       </label>
 
       {/* --- RESPONSIVE UNIFIED DROPDOWN VIEW --- */}
-      <div className={`
-        /* Mobile: Absolute drawer below header */
-        hidden peer-checked:block absolute top-[100%] left-0 right-0 h-[calc(100vh-65px)] bg-background z-[100] border-t border-border overflow-y-auto animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out
-        
-        /* Desktop: Absolute popover */
-        md:block md:absolute md:top-[calc(100%+0.5rem)] ${alignClass} md:w-[260px] md:h-auto md:bottom-auto md:border md:rounded-2xl md:overflow-hidden md:shadow-[0_8px_30px_rgb(0,0,0,0.12)]
-        md:transition-all md:duration-200 md:animate-none md:z-[100]
-        md:scale-95 md:opacity-0 md:invisible md:-translate-y-2
-        md:peer-checked:scale-100 md:peer-checked:opacity-100 md:peer-checked:visible md:peer-checked:translate-y-0
-      `} suppressHydrationWarning>
-        <div className="px-3 min-[390px]:px-4 py-4 md:p-2 space-y-3.5 md:space-y-0 pb-24 md:max-h-[calc(100vh-100px)] md:overflow-y-auto" suppressHydrationWarning>
+      {isOpen && (
+        <div className={`
+          /* Mobile: Absolute drawer below header */
+          absolute top-[100%] left-0 right-0 h-[calc(100vh-65px)] bg-background z-[100] border-t border-border overflow-y-auto animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out
+          
+          /* Desktop: Absolute popover */
+          md:block md:absolute md:top-[calc(100%+0.5rem)] ${alignClass} md:w-[260px] md:h-auto md:bottom-auto md:border md:rounded-2xl md:overflow-hidden md:shadow-[0_8px_30px_rgb(0,0,0,0.12)]
+          md:z-[100] md:animate-in md:fade-in md:zoom-in-95 md:duration-200
+        `} suppressHydrationWarning>
+          <div className="px-3 min-[390px]:px-4 py-4 md:p-2 space-y-3.5 md:space-y-0 pb-24 md:max-h-[calc(100vh-100px)] md:overflow-y-auto" suppressHydrationWarning>
             
             {/* Quick Actions Row (Mobile Only) */}
             <div className="md:hidden grid grid-cols-3 gap-2 min-[390px]:gap-2.5 mb-3.5">
@@ -271,6 +270,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
             
           </div>
         </div>
+      )}
 
       {/* Logout Confirmation Popup */}
       {showLogoutConfirm && (
