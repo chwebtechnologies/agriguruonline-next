@@ -211,9 +211,7 @@ export default async function LocalizedRootLayout({
             <Suspense fallback={null}>
               <NavigationProgress />
             </Suspense>
-            <Suspense fallback={<div className="h-10 bg-brand-blue" />}>
-              <AnnouncementBar />
-            </Suspense>
+            <AnnouncementBar />
             <Header dict={dict} activeLang={activeLang} categories={categories} />
 
           <main className="flex-grow w-full relative">

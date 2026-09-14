@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useId, useTransition } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from '@/components/providers/ThemeProvider'
 
 interface Announcement {
@@ -31,7 +31,6 @@ interface AnnouncementBarClientProps {
 export default function AnnouncementBarClient({ announcements, dict, activeLang }: AnnouncementBarClientProps) {
   const langDropdownId = useId()
   const pathname = usePathname() || '/'
-  const searchParams = useSearchParams()
   const router = useRouter()
   const langDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -40,9 +39,13 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
   const { theme, setTheme } = useTheme()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [mounted, setMounted] = useState(false)
+  const [currentQuery, setCurrentQuery] = useState('')
 
   useEffect(() => {
     setMounted(true)
+    if (typeof window !== 'undefined') {
+      setCurrentQuery(window.location.search)
+    }
   }, [])
 
   // Keep html dir and lang attribute in sync seamlessly
@@ -75,7 +78,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   const getLangUrl = (newLang: string) => {
     const p = pathname || '/'
-    const s = searchParams ? searchParams.toString() : ''
+    const s = currentQuery
     const segments = p.split('/').filter(Boolean)
     const isFirstSegmentLang = ['en', 'ar', 'zh', 'fr'].includes(segments[0])
     
@@ -85,8 +88,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
       segments.unshift(newLang)
     }
     
-    const query = s ? `?${s}` : ''
-    return '/' + segments.join('/') + query
+    return '/' + segments.join('/') + s
   }
 
   const handleDropdownToggle = (open: boolean) => {
