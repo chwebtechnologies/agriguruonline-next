@@ -214,9 +214,7 @@ export default async function LocalizedRootLayout({
             <Suspense fallback={<div className="h-10 bg-brand-blue" />}>
               <AnnouncementBar />
             </Suspense>
-            <Suspense fallback={<HeaderGuestSkeleton dict={dict} activeLang={activeLang} categories={[]} />}>
-              <Header dict={dict} activeLang={activeLang} categories={categories} />
-            </Suspense>
+            <Header dict={dict} activeLang={activeLang} categories={categories} />
 
           <main className="flex-grow w-full relative">
             {children}
