@@ -266,7 +266,6 @@ export default function FreightChartClient({
             message: result.error || 'Limit over', 
             indication: result.response_indication 
           });
-          toast.error(result.error || "Failed to add freight");
         } else {
           toast.error(result.error || 'Failed to add freight');
         }
@@ -845,8 +844,14 @@ export default function FreightChartClient({
       <ActionIndicationModal
         isOpen={actionIndication !== null && actionIndication.isOpen}
         onClose={() => setActionIndication(null)}
-        onConfirm={() => setActionIndication(null)}
-        title="Free Trial Membership"
+        onConfirm={() => {
+          setActionIndication(null);
+          if (userType) {
+            router.push(`/${lang}/pricing`);
+          } else {
+            router.push(`/${lang}/login`);
+          }
+        }}
         description={actionIndication?.message}
         indicationText={actionIndication?.indication}
       />

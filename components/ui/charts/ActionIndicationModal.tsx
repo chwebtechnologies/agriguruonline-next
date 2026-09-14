@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface ActionIndicationModalProps {
   isOpen: boolean;
@@ -19,20 +19,35 @@ export function ActionIndicationModal({
   description = 'An error occurred.',
   indicationText = 'Confirm'
 }: ActionIndicationModalProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu px-4">
+    <div 
+      className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="action-modal-title"
+      aria-describedby="action-modal-desc"
+    >
       <div className="bg-card rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
         <div className="flex gap-4 items-center mb-6">
           <div className="w-12 h-12 bg-brand-red/10 dark:bg-brand-red/20 rounded-full flex items-center justify-center shrink-0 text-brand-red">
             <i className="fa-solid fa-circle-exclamation text-xl"></i>
           </div>
           <div className="flex flex-col justify-center w-full items-center">
-            <h3 className="text-[17px] font-bold text-foreground mb-1 leading-none text-center">
+            <h3 id="action-modal-title" className="text-[17px] font-bold text-foreground mb-1 leading-none text-center">
               {title}
             </h3>
-            <p className="text-foreground/80 text-[14px] leading-snug text-center">
+            <p id="action-modal-desc" className="text-foreground/80 text-[14px] leading-snug text-center">
               {description}
             </p>
           </div>

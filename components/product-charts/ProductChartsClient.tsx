@@ -593,9 +593,6 @@ export default function ProductChartsClient({
             message: result.error || 'Limit over', 
             indication: result.response_indication 
           });
-          toast.error(result.error || "Failed to add product", {
-            style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
-          });
         } else {
           toast.error(result.error || "Failed to add product", {
             style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
@@ -1384,8 +1381,14 @@ export default function ProductChartsClient({
       <ActionIndicationModal
         isOpen={actionIndication !== null && actionIndication.isOpen}
         onClose={() => setActionIndication(null)}
-        onConfirm={() => setActionIndication(null)}
-        title="Free Trial Membership"
+        onConfirm={() => {
+          setActionIndication(null);
+          if (userType) {
+            router.push(`/${lang}/pricing`);
+          } else {
+            router.push(`/${lang}/login`);
+          }
+        }}
         description={actionIndication?.message}
         indicationText={actionIndication?.indication}
       />
