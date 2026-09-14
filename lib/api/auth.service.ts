@@ -1,7 +1,7 @@
 import { getUserApiUrl } from '@/lib/api-utils';
 import { customFetch } from './fetcher';
 
-export interface AuthApiResponse<T = any> {
+export interface AuthApiResponse<T = unknown> {
   success?: number | boolean;
   message?: string;
   data?: T;
@@ -40,7 +40,7 @@ export const authService = {
   /**
    * Register new user.
    */
-  register: async (payload: any, lang: string = 'en'): Promise<Response> => {
+  register: async (payload: Record<string, unknown>, lang: string = 'en'): Promise<Response> => {
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/register`;
     return await customFetch(url, {

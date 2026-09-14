@@ -79,9 +79,18 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
     };
   }
 
+  // Add an explicit timeout to prevent hanging forever
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+  
+  fetchInit.signal = controller.signal;
+
   try {
-    return await fetch(finalUrl, fetchInit);
+    const res = await fetch(finalUrl, fetchInit);
+    clearTimeout(timeoutId);
+    return res;
   } catch (error) {
+    clearTimeout(timeoutId);
     console.error(`[customFetch] Network error for ${finalUrl}:`, error);
     throw error;
   }

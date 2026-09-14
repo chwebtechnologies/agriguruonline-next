@@ -414,17 +414,17 @@ export const cmsService = {
   /**
    * Fetch marketing headers for AnnouncementBar
    */
-  getMarketingHeaders: cache(async (lang: string = 'en'): Promise<any[]> => {
+  getMarketingHeaders: cache(async (lang: string = 'en'): Promise<Record<string, unknown>[]> => {
     const cmsApiUrl = getCmsApiUrl();
     const url = `${cmsApiUrl}/marketingheaders/`;
     try {
-      const json = await customFetchJSON<any>(url, {
+      const json = await customFetchJSON<Record<string, unknown>>(url, {
         params: { page: 1, limit: 25, is_active: 1, source: 'web', lang_code: lang },
       });
-      if (json?.success === 1 && Array.isArray(json.data?.marketing_headers)) {
-        return json.data.marketing_headers.filter((item: any) => {
+      if (json?.success === 1 && json.data && typeof json.data === 'object' && Array.isArray((json.data as Record<string, unknown>).marketing_headers)) {
+        return ((json.data as Record<string, unknown>).marketing_headers as Record<string, unknown>[]).filter((item: Record<string, unknown>) => {
           if (!item.is_active) return false;
-          const type = (item.type || '').toUpperCase();
+          const type = (item.type as string || '').toUpperCase();
           return type === 'WEB' || type === 'ALL';
         });
       }

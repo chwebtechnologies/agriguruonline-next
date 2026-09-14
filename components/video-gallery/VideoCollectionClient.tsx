@@ -35,7 +35,7 @@ function getYoutubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export default function VideoCollectionClient({ videos, lang: _lang, imageBaseUrl, dict = {} }: VideoCollectionClientProps) {
+export default function VideoCollectionClient({ videos, imageBaseUrl, dict = {} }: Omit<VideoCollectionClientProps, 'lang'>) {
   const [lightboxIndex, setLightboxIndex] = useState(-1)
 
   const slides = videos.map(video => {

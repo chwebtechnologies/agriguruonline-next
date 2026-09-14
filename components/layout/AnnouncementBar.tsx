@@ -36,12 +36,10 @@ export default async function AnnouncementBar() {
   }
 
   return (
-    <Suspense fallback={null}>
-      <AnnouncementBarClient 
-        announcements={announcements} 
-        dict={dict} 
-        activeLang={activeLang} 
-      />
-    </Suspense>
+    <AnnouncementBarClient 
+      announcements={announcements as any} 
+      dict={dict} 
+      activeLang={activeLang} 
+    />
   )
 }

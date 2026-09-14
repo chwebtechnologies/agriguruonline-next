@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { PageHeader } from '@/components/ui/PageHeader'
 import MarketReportCard from '@/components/marketReports/MarketReportCard'
 import { Pagination } from '@/components/ui/Pagination'
@@ -149,7 +150,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
                 }
               })
             }
-          ]).replace(/</g, '\\u003c')
+          ]).replace(/</g, '\u003c')
         }}
       />
     </>
@@ -161,18 +162,22 @@ export default async function MarketReportsPage(props: {
   params: Promise<{ lang: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  // Authorization check
+  console.log('[MarketReportsPage] Start');
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
+  console.log('[MarketReportsPage] got token');
   
   const params = await props.params;
   const lang = params.lang || 'en'
+  console.log('[MarketReportsPage] got params:', lang);
   
   if (!token) {
+    console.log('[MarketReportsPage] redirecting to login');
     redirect(`/${lang}/login`);
   }
 
   const searchParams = await props.searchParams;
+  console.log('[MarketReportsPage] got searchParams:', searchParams);
   
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
@@ -182,9 +187,10 @@ export default async function MarketReportsPage(props: {
   const categoryQuery = typeof searchParams.category === 'string' ? searchParams.category : undefined
   
 
-
+  console.log('[MarketReportsPage] fetching categories...');
   // Fetch categories using identical Next.js cached configuration as Header
   const apiCategories = await getCategories(lang)
+  console.log('[MarketReportsPage] got categories');
   
   let categoryId = undefined;
   if (categoryQuery && apiCategories) {

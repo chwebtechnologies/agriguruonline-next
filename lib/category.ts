@@ -23,8 +23,8 @@ export interface CacheConfig {
 }
 
 /**
- * Delegated to centralized tradingService with React cache deduplication.
+ * Delegated to centralized tradingService with Next.js native fetch deduplication.
  */
-export const getCategories = cache(async (lang: string = 'en', _config?: Partial<CacheConfig>): Promise<Category[]> => {
+export const getCategories = async (lang: string = 'en'): Promise<Category[]> => {
   return await tradingService.getCategories(lang);
-});
+};

@@ -2,6 +2,7 @@ import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import DOMPurify from 'isomorphic-dompurify'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
@@ -365,8 +366,8 @@ export default async function ProductDetailPage(
                       </h3>
                       <div className="p-4 bg-background/50 rounded-xl border border-border">
                         <div 
-                          className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: product.description }} 
+                          className="prose prose-sm dark:prose-invert max-w-none text-foreground/80 leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description) }} 
                         />
                       </div>
                     </div>

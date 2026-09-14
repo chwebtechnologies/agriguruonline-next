@@ -241,7 +241,7 @@ export function HeaderGuestBase({
   const dropdownCategories = categoriesList.slice(finalFitCount)
 
   return (
-    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0" dir={dir}>
+    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0 md:top-10" dir={dir}>
 
         {/* 2. Main Header Bar */}
       <header className="relative w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">

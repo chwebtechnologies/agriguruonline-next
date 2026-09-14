@@ -55,7 +55,7 @@ function broadcastToClients(payload) {
       const channel = new BroadcastChannel('fcm_channel');
       channel.postMessage({ type: 'FCM_MESSAGE', payload, timestamp: Date.now() });
     }
-  } catch (err) {}
+  } catch {}
 
   // 3. Direct client postMessage to all open tabs
   try {
@@ -64,7 +64,7 @@ function broadcastToClients(payload) {
         client.postMessage({ type: 'FCM_MESSAGE', payload });
       }
     });
-  } catch (err) {}
+  } catch {}
 }
 
 // Handle background messages (app is in background or closed)
@@ -101,7 +101,7 @@ self.addEventListener('push', (event) => {
     } else {
       broadcastToClients({});
     }
-  } catch (err) {
+  } catch {
     // Non-JSON push payload fallback
     broadcastToClients({});
   }
@@ -125,7 +125,7 @@ self.addEventListener('notificationclick', (event) => {
         timestamp: Date.now()
       });
     }
-  } catch (err) {}
+  } catch {}
 
   event.waitUntil(
     clients

@@ -20,7 +20,7 @@ export default function VideoGalleryCard({ category, lang, priority = false }: V
     return `${imageBaseUrl}${imagePath}`;
   };
 
-  const imageUrl = getImageUrl((category as any).thumbnail || category.image);
+  const imageUrl = getImageUrl(((category as unknown) as Record<string, string>).thumbnail || category.image);
 
   return (
     <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">

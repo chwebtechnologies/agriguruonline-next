@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import DOMPurify from 'isomorphic-dompurify'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { getAssetsUrl } from '@/lib/api-utils'
@@ -255,7 +256,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
           {/* 50-50 Split Layout using CSS Grid Areas */}
           <div className="mt-3 w-full max-w-full overflow-hidden">
             {/* Screen Reader Only H1 to enforce descending heading hierarchy for Accessibility & SEO */}
-            <h1 className="sr-only">{title}</h1>
+
             <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
               
               {/* FEATURED IMAGE & METADATA BAR */}
@@ -410,11 +411,11 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
               <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col overflow-hidden self-start md:h-auto">
                 
                 {/* Title */}
-                <h2 
+                <h1 
                   className="article-title text-xl sm:text-2xl md:text-[25px] font-bold text-foreground mb-3.5 pb-2.5 border-b border-border leading-[1.3] tracking-tight"
                 >
                   {title}
-                </h2>
+                </h1>
 
                 {/* Event Highlights Grid (Clean single-layer cards, no double-nested wrapper) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 mb-5">
@@ -447,9 +448,9 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
 
                 {/* Event Editorial Content */}
                 {formattedContent ? (
-                  <div
-                    className="editorial-body text-foreground flex-1 w-full max-w-full overflow-hidden"
-                    dangerouslySetInnerHTML={{ __html: formattedContent }}
+                  <div 
+                    className="prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-img:rounded-xl prose-img:shadow-sm prose-a:text-brand-blue hover:prose-a:text-blue-500 prose-headings:text-foreground prose-p:text-foreground/80 leading-relaxed tracking-wide"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formattedContent) }}
                   />
                 ) : (
                   <p className="text-foreground/80 text-sm leading-relaxed flex-1">

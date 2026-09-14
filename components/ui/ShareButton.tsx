@@ -48,8 +48,8 @@ export function ShareButton({
           await navigator.share(shareData)
         }
         return
-      } catch (err: any) {
-        if (err.name === 'AbortError') return
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return
         console.warn('Native share failed, showing custom modal:', err)
       }
     }

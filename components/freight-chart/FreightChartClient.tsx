@@ -846,7 +846,7 @@ export default function FreightChartClient({
         onClose={() => setActionIndication(null)}
         onConfirm={() => {
           setActionIndication(null);
-          if (userType) {
+          if (initialUserType) {
             router.push(`/${lang}/pricing`);
           } else {
             router.push(`/${lang}/login`);

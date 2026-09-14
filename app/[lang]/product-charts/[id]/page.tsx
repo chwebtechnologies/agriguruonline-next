@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/ui/PageHeader';

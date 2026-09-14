@@ -176,7 +176,7 @@ const nextConfig: NextConfig = {
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
-  disable: process.env.NODE_ENV === "development",
+  disable: true, // Disabled because Serwist does not support Turbopack in Next.js 16.3.5 and causes infinite skeleton hangs
   reloadOnOnline: true,
 });
 

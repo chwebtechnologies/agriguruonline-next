@@ -28,6 +28,6 @@ export interface MarketReportsResponse {
   data?: {
     market_reports?: MarketReportItem[]
     total?: number
-  } | MarketReportItem[] | any
+  } | MarketReportItem[] | unknown
   response_time?: string
 }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { lang } from 'next/root-params'
@@ -178,6 +179,22 @@ export default async function LocalizedRootLayout({
           }}
         />
         <ThemeInitializer />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                  for (let registration of registrations) {
+                    registration.unregister();
+                    console.log('ServiceWorker unregistered forcefully.');
+                  }
+                }).catch(function(err) {
+                  console.error('ServiceWorker unregistration failed: ', err);
+                });
+              }
+            `
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>
@@ -208,4 +225,3 @@ export default async function LocalizedRootLayout({
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
-

@@ -63,7 +63,7 @@ export interface ProductDetail {
   packing_types?: any[];
   containers?: any[];
   loading_ports?: any[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface SimilarProduct {
@@ -110,7 +110,7 @@ export interface MarketedProductsData {
 }
 
 // Helper to extract array from multiple backend response shapes
-function extractArray(data: any): any[] {
+function extractArray(data: any | null): any[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.data?.inquiries)) return data.data.inquiries;

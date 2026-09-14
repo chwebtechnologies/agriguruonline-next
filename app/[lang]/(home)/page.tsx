@@ -26,6 +26,11 @@ function OrganizationSchema() {
         'name': 'AgriGuru Online',
         'publisher': {
           '@id': 'https://agriguruonline.com/#organization'
+        },
+        'potentialAction': {
+          '@type': 'SearchAction',
+          'target': 'https://agriguruonline.com/en/search?q={search_term_string}',
+          'query-input': 'required name=search_term_string'
         }
       }
     ]

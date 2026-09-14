@@ -3,25 +3,19 @@ import { getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
 import { customFetch, customFetchJSON } from './fetcher';
 
 export interface UserProfileResult {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   userProfile: any | null;
   shouldLogout: boolean;
 }
 
 export interface AuthDataResult {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   userProfile: any | null;
   shouldLogout: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   alertsData: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   notificationsData: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   aiPredictsData: any[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractPredicts(data: any): any[] {
+function extractPredicts(data: any | null): any[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.data)) return data.data;
@@ -38,7 +32,6 @@ function extractPredicts(data: any): any[] {
   }
 
   if (data?.data && typeof data.data === 'object') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const arrays = Object.values(data.data).filter(v => Array.isArray(v)) as any[][];
     if (arrays.length > 0) return arrays.flat();
   }
@@ -48,7 +41,6 @@ function extractPredicts(data: any): any[] {
   if (Array.isArray(data?.predictions)) return data.predictions;
 
   if (typeof data === 'object') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const arrays = Object.values(data).filter(v => Array.isArray(v)) as any[][];
     if (arrays.length > 0) return arrays.flat();
   }
@@ -123,7 +115,6 @@ export const userService = {
   /**
    * Fetch user price alerts.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getUserAlerts: cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
     if (!token) return [];
 
@@ -154,7 +145,6 @@ export const userService = {
   /**
    * Fetch custom notifications.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getUserNotifications: cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
     if (!token) return [];
 
@@ -181,7 +171,6 @@ export const userService = {
   /**
    * Fetch user AI predictions.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getUserAiPredicts: cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
     if (!token) return [];
 
