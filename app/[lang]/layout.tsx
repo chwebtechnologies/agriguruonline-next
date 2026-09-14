@@ -2,6 +2,13 @@
 import type { Metadata, Viewport } from 'next'
 
 import { lang } from 'next/root-params'
+import { Inter } from 'next/font/google'
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 import ThemeInitializer from '@/components/ui/ThemeInitializer'
 import Header from '@/components/layout/Header'
 import { HeaderGuest, HeaderGuestStatic, HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
@@ -156,7 +163,7 @@ export default async function LocalizedRootLayout({
     <html
       lang={activeLang}
       dir={dir}
-      className="h-full antialiased"
+      className={`h-full antialiased ${inter.variable}`}
       suppressHydrationWarning
     >
       <head>
@@ -168,9 +175,12 @@ export default async function LocalizedRootLayout({
         <link rel="dns-prefetch" href="https://trading-api.agriguruonline.cloud" />
         <link rel="preconnect" href="https://cms-api.agriguruonline.cloud" />
         <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" precedence="default" />
+        <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" />
+        <script dangerouslySetInnerHTML={{ __html: `document.querySelectorAll('link[media="print"]').forEach(l=>l.media='all')` }} />
+        <noscript>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+        </noscript>
         <script
           id="trusted-types-policy"
           dangerouslySetInnerHTML={{
