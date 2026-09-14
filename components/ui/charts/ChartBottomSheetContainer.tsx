@@ -265,6 +265,18 @@ export function ChartBottomSheetContainer({
               }}
               onTouchEnd={handleDragEnd}
               onTouchCancel={handleDragEnd}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleDragStart(e.clientY);
+                const onMouseMove = (m: MouseEvent) => handleDragMove(m.clientY);
+                const onMouseUp = () => {
+                  handleDragEnd();
+                  document.removeEventListener('mousemove', onMouseMove);
+                  document.removeEventListener('mouseup', onMouseUp);
+                };
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+              }}
               className="absolute bottom-[100%] inset-x-0 flex flex-col items-center justify-center gap-1 cursor-pointer touch-none select-none z-[75] pointer-events-auto pb-2.5 transition-opacity duration-200"
             >
               {/* Curved Chevron */}

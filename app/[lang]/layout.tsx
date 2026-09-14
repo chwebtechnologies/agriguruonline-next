@@ -204,7 +204,7 @@ export default async function LocalizedRootLayout({
             <Suspense fallback={<div className="h-10 bg-brand-blue" />}>
               <AnnouncementBar />
             </Suspense>
-            <Suspense fallback={<HeaderGuest dict={dict} activeLang={activeLang} categories={categories} />}>
+            <Suspense fallback={<HeaderGuestSkeleton dict={dict} activeLang={activeLang} categories={[]} />}>
               <Header dict={dict} activeLang={activeLang} categories={categories} />
             </Suspense>
 

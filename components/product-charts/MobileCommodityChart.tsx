@@ -723,7 +723,19 @@ export default function MobileCommodityChart({
           if (!isFullScreen && onDragEnd) onDragEnd();
         }}
         onMouseDown={(e) => {
-          if (!isFullScreen && onDragStart) onDragStart(e.clientY);
+          if (!isFullScreen && onDragStart) {
+            onDragStart(e.clientY);
+            const onMouseMove = (m: MouseEvent) => {
+              if (onDragMove) onDragMove(m.clientY);
+            };
+            const onMouseUp = () => {
+              if (onDragEnd) onDragEnd();
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          }
         }}
       >
         {/* Left: Flag, Title, Subtitle */}
@@ -884,6 +896,21 @@ export default function MobileCommodityChart({
               }}
               onTouchEnd={() => {
                 if (!isFullScreen && onDragEnd) onDragEnd();
+              }}
+              onMouseDown={(e) => {
+                if (!isFullScreen && onDragStart) {
+                  onDragStart(e.clientY);
+                  const onMouseMove = (m: MouseEvent) => {
+                    if (onDragMove) onDragMove(m.clientY);
+                  };
+                  const onMouseUp = () => {
+                    if (onDragEnd) onDragEnd();
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                  };
+                  document.addEventListener('mousemove', onMouseMove);
+                  document.addEventListener('mouseup', onMouseUp);
+                }
               }}
             >
               <div className="flex items-center gap-1.5 text-[12px] lg:text-[13px] text-foreground/80 font-medium">

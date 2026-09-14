@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ActionButton } from '@/components/ui/ActionButton'
 
@@ -41,7 +42,19 @@ interface MarketedProductCardProps {
 }
 
 export function MarketedProductCard({ product, lang, common, imageBaseUrl, priority = false }: MarketedProductCardProps) {
+  const router = useRouter()
   const [showSpecs, setShowSpecs] = useState(false)
+
+  const handleActionClick = (e: React.MouseEvent, action: 'buy' | 'sell' | 'add') => {
+    e.preventDefault();
+    e.stopPropagation();
+    const productSlug = product.slug || product.id;
+    if (action === 'buy' || action === 'sell') {
+      router.push(`/${lang}/product/${encodeURIComponent(productSlug)}?action=${action}`)
+    } else {
+      router.push(`/${lang}/product/${encodeURIComponent(productSlug)}`)
+    }
+  }
 
   const imageUrl = product.thumbnail || product.image
     ? ((product.thumbnail || product.image).startsWith('http') ? (product.thumbnail || product.image) : `${imageBaseUrl}${product.thumbnail || product.image}`)
@@ -168,15 +181,15 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
             )}
 
             <div className="space-y-1.5">
-              <ActionButton variant="add" className="w-full py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
+              <ActionButton variant="add" onClick={(e) => handleActionClick(e, 'add')} className="w-full py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
                 {common.addProduct}
               </ActionButton>
 
               <div className="grid grid-cols-2 gap-1.5">
-                <ActionButton variant="buy" className="py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
+                <ActionButton variant="buy" onClick={(e) => handleActionClick(e, 'buy')} className="py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
                   {common.buy}
                 </ActionButton>
-                <ActionButton variant="sell" className="py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
+                <ActionButton variant="sell" onClick={(e) => handleActionClick(e, 'sell')} className="py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium shadow-none">
                   {common.sell}
                 </ActionButton>
               </div>
@@ -313,15 +326,15 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
             {/* Modal Footer */}
             <div className="px-4 py-4 border-t border-border bg-card/50 grid grid-cols-3 gap-2.5">
-              <ActionButton variant="buy" className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
+              <ActionButton variant="buy" onClick={(e) => handleActionClick(e, 'buy')} className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
                 {common.buy}
               </ActionButton>
 
-              <ActionButton variant="add" className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
+              <ActionButton variant="add" onClick={(e) => handleActionClick(e, 'add')} className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
                 {common.addProduct}
               </ActionButton>
 
-              <ActionButton variant="sell" className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
+              <ActionButton variant="sell" onClick={(e) => handleActionClick(e, 'sell')} className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
                 {common.sell}
               </ActionButton>
             </div>

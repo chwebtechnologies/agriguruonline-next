@@ -153,8 +153,9 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
                       target="_blank"
                       rel="noopener noreferrer"
                       className="underline hover:text-emerald-300 transition-colors font-extrabold whitespace-nowrap"
+                      aria-label={`${label} for ${title || 'App'}`}
                     >
-                      {label}
+                      {label} <span className="sr-only">for {title || 'App'}</span>
                     </a>
                   )}
                 </div>

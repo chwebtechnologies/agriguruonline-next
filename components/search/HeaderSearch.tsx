@@ -389,23 +389,14 @@ export function HeaderSearch({
       {/* 2. MOBILE HEADER TRIGGER INPUT (Shown on Screens < lg)                     */}
       {/* ========================================================================= */}
       <div className="lg:hidden w-full">
-        <input 
-          type="checkbox" 
-          id={`mobile-search-${searchId}`} 
-          className="peer sr-only" 
-          checked={isMobileSearchOpen} 
-          onChange={(e) => {
-            setIsMobileSearchOpen(e.target.checked)
-          }} 
-        />
-        <label
-          htmlFor={`mobile-search-${searchId}`}
+        <button
+          type="button"
           onClick={handleMobileClick}
-          className="w-full h-10 rounded-lg border border-border bg-muted/80 px-3 flex items-center gap-2.5 text-xs text-muted-foreground focus:outline-none cursor-pointer block"
+          className="w-full h-10 rounded-lg border border-border bg-muted/80 px-3 flex items-center gap-2.5 text-xs text-muted-foreground focus:outline-none cursor-pointer block select-none"
         >
-          <i className="fa-solid fa-magnifying-glass text-[13px] text-muted-foreground"></i>
-          <span className="truncate">{query || placeholder}</span>
-        </label>
+          <i className="fa-solid fa-magnifying-glass text-[13px] text-muted-foreground pointer-events-none"></i>
+          <span className="truncate pointer-events-none select-none">{query || placeholder}</span>
+        </button>
       </div>
 
       {/* ========================================================================= */}
@@ -605,21 +596,23 @@ export function HeaderSearch({
       {/* ========================================================================= */}
       {/* 4. MOBILE / TABLET FULL-SCREEN SEARCH VIEW (Portaled to document.body)     */}
       {/* ========================================================================= */}
-        <div className="hidden peer-checked:flex lg:hidden fixed inset-0 z-[999999] bg-background text-foreground flex-col animate-in fade-in duration-150">
+      {isMobileSearchOpen && mounted && typeof document !== 'undefined' && createPortal(
+        <div className="lg:hidden fixed inset-0 z-[999999] bg-background text-foreground flex flex-col animate-in fade-in duration-150">
           {/* Mobile Header Bar matching main header bg-card, border-border, text-foreground */}
           <header className="sticky top-0 z-20 w-full bg-card text-foreground border-b border-border py-2.5 px-3 sm:px-4 flex items-center gap-3 shadow-sm">
             {/* Back Button '<' */}
-            <label
-              htmlFor={`mobile-search-${searchId}`}
-              onClick={() => {
-                setIsMobileSearchOpen(false)
-                setQuery('')
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setIsMobileSearchOpen(false);
+                setQuery('');
               }}
-              className="w-10 h-10 rounded-full bg-muted text-foreground hover:text-primary flex items-center justify-center border border-border shrink-0 transition-colors cursor-pointer"
+              className="w-10 h-10 rounded-full bg-muted text-foreground hover:text-primary flex items-center justify-center border border-border shrink-0 transition-colors cursor-pointer select-none"
             >
               <span className="sr-only">Back</span>
               <i className="fa-solid fa-chevron-left text-base" aria-hidden="true"></i>
-            </label>
+            </button>
 
             {/* AgriGuru Logo */}
             <Link
@@ -720,7 +713,9 @@ export function HeaderSearch({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
 
       {/* ========================================================================= */}
       {/* 5. EMBEDDED SPECIFICATIONS MODAL (When tapping Info icon)                 */}
