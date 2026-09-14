@@ -91,6 +91,7 @@ import { ChartAddButton } from '@/components/ui/charts/ChartAddButton';
 import { ChartActionButton } from '@/components/ui/charts/ChartActionButton';
 import { ChartDeleteButton } from '@/components/ui/charts/ChartDeleteButton';
 import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
+import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 import { SwipeableCard } from '@/components/ui/charts/SwipeableCard';
 import { ChartMobileEmptyCard } from '@/components/ui/charts/ChartMobileEmptyCard';
 import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard';
@@ -131,6 +132,7 @@ export default function ProductChartsClient({
   const [isAdding, setIsAdding] = useState(false);
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | string | null>(null);
+  const [actionIndication, setActionIndication] = useState<{ isOpen: boolean; message: string; indication: string } | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [activeBottomSheetId, setActiveBottomSheetId] = useState<number | string | null>(null);
   const [isInitialFullScreen, setIsInitialFullScreen] = useState(false);
@@ -585,9 +587,20 @@ export default function ProductChartsClient({
         }, 100);
       } else {
         console.error('Failed to add product:', result.error);
-        toast.error(result.error || "Failed to add product", {
-          style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
-        });
+        if (result.response_indication) {
+          setActionIndication({ 
+            isOpen: true, 
+            message: result.error || 'Limit over', 
+            indication: result.response_indication 
+          });
+          toast.error(result.error || "Failed to add product", {
+            style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+          });
+        } else {
+          toast.error(result.error || "Failed to add product", {
+            style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
+          });
+        }
       }
     } catch (error) {
       console.error('Error adding product:', error);
@@ -1365,6 +1378,16 @@ export default function ProductChartsClient({
         onConfirm={() => deleteConfirmId && handleDelete(deleteConfirmId)}
         title="Delete Product"
         description="Are you sure you want to delete this product?"
+      />
+
+      {/* Action Indication Popup */}
+      <ActionIndicationModal
+        isOpen={actionIndication !== null && actionIndication.isOpen}
+        onClose={() => setActionIndication(null)}
+        onConfirm={() => setActionIndication(null)}
+        title="Free Trial Membership"
+        description={actionIndication?.message}
+        indicationText={actionIndication?.indication}
       />
 
       {/* Bottom Sheet for Mobile Actions */}

@@ -9,6 +9,7 @@ export interface ServerActionResponse<T = any> {
   message?: string;
   data?: T;
   error?: string;
+  response_indication?: string;
 }
 
 /**
@@ -142,8 +143,7 @@ export async function getFavoriteProductsAction(
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
-    if (!token) return { success: false, data: [] };
-    const rawFavs = await tradingService.getFavoriteProducts(token, safeLang);
+    const rawFavs = await tradingService.getFavoriteProducts(token || '', safeLang);
     return { success: true, data: rawFavs };
   } catch (err: any) {
     console.error("getFavoriteProductsAction error:", err);

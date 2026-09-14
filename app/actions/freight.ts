@@ -66,11 +66,11 @@ export async function getFavoritePortsAction(
 ): Promise<ServerActionResponse> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
-    if (!token) return { success: false, data: [] };
-    const ports = await tradingService.getFavoritePorts(token, safeLang);
+    const ports = await tradingService.getFavoritePorts(token || "", safeLang);
     return { success: true, data: ports };
   } catch (err: any) {
     console.error("getFavoritePortsAction error:", err);
@@ -91,7 +91,8 @@ export async function addFavoritePortAction(
 ): Promise<ServerActionResponse> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
     return await tradingService.addFavoritePort(payload, token, safeLang);
@@ -110,7 +111,8 @@ export async function deleteFavoritePortAction(
 ): Promise<ServerActionResponse> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
     return await tradingService.deleteFavoritePort(id, token, safeLang);

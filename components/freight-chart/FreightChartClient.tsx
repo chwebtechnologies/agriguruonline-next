@@ -8,6 +8,7 @@ import { ChartAddButton } from '@/components/ui/charts/ChartAddButton';
 import { ChartActionButton } from '@/components/ui/charts/ChartActionButton';
 import { ChartDeleteButton } from '@/components/ui/charts/ChartDeleteButton';
 import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
+import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 import { SwipeableCard } from '@/components/ui/charts/SwipeableCard';
 import { ChartMobileEmptyCard } from '@/components/ui/charts/ChartMobileEmptyCard';
 import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard';
@@ -93,6 +94,7 @@ export default function FreightChartClient({
 
   // UI modal states
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [actionIndication, setActionIndication] = useState<{ isOpen: boolean; message: string; indication: string } | null>(null);
   const [activeBottomSheetId, setActiveBottomSheetId] = useState<string | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
@@ -258,7 +260,16 @@ export default function FreightChartClient({
         setLoadingPorts([]);
         setDestinationPorts([]);
       } else {
-        toast.error(result.error || 'Failed to add freight');
+        if (result.response_indication) {
+          setActionIndication({ 
+            isOpen: true, 
+            message: result.error || 'Limit over', 
+            indication: result.response_indication 
+          });
+          toast.error(result.error || "Failed to add freight");
+        } else {
+          toast.error(result.error || 'Failed to add freight');
+        }
       }
     } catch (err: any) {
       console.error('Error adding freight:', err);
@@ -828,6 +839,16 @@ export default function FreightChartClient({
         title="Delete Freight"
         description="Are you sure you want to delete this freight route?"
         isDeleting={isDeleting}
+      />
+
+      {/* Action Indication Popup */}
+      <ActionIndicationModal
+        isOpen={actionIndication !== null && actionIndication.isOpen}
+        onClose={() => setActionIndication(null)}
+        onConfirm={() => setActionIndication(null)}
+        title="Free Trial Membership"
+        description={actionIndication?.message}
+        indicationText={actionIndication?.indication}
       />
 
       {/* Bottom Sheet / Chart Modal for Freight Charts */}

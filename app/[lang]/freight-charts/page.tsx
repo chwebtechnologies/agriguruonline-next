@@ -35,7 +35,7 @@ async function getFreightInitialData(lang: string = 'en') {
   const [containersSettled, profileSettled, favsSettled] = await Promise.allSettled([
     tradingService.getShippingContainers(safeLang),
     token ? getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null) : Promise.resolve(null),
-    token ? tradingService.getFavoritePorts(token, safeLang) : Promise.resolve([])
+    tradingService.getFavoritePorts(token || '', safeLang)
   ])
 
   // 1. Process shipping containers

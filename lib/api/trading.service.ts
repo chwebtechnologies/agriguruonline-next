@@ -323,7 +323,6 @@ export const tradingService = {
    * Fetch favorite products.
    */
   getFavoriteProducts: cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
-    if (!token) return [];
     const tradingApiUrl = getTradingApiUrl();
     const url = `${tradingApiUrl}/favorite-product`;
 
@@ -344,7 +343,6 @@ export const tradingService = {
    * Fetch favorite ports.
    */
   getFavoritePorts: cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
-    if (!token) return [];
     const tradingApiUrl = getTradingApiUrl();
     const url = `${tradingApiUrl}/favourite-port`;
 
@@ -766,10 +764,31 @@ export const tradingService = {
       body: JSON.stringify(payload),
     });
     const json = await res.json().catch(() => ({}));
-    if (json.success === 1 || json.success === true) {
-      return { success: true, data: json.data, message: json.message };
+    
+    // If backend provides a response_indication, it's an error even if HTTP 201
+    const responseIndication = json.response_indication || json.data?.response_indication;
+    if (responseIndication) {
+      return { 
+        success: false, 
+        error: json.message || 'Action failed',
+        response_indication: responseIndication 
+      };
     }
-    return { success: false, error: json.message || 'Failed to add favorite product' };
+
+    // Check if it's genuinely successful (either success=true or status=true, and no status=false)
+    const isSuccess = res.ok && 
+      (json.success === 1 || json.success === true || json.status === true || json.status === 1) && 
+      json.status !== false && 
+      json.success !== false;
+
+    if (isSuccess) {
+      return { success: true, data: json.data, message: json.message || 'Product added successfully!' };
+    }
+    
+    return { 
+      success: false, 
+      error: json.message || json.error || 'Failed to add favorite product. Please check your selection.' 
+    };
   },
 
   /**
@@ -877,10 +896,30 @@ export const tradingService = {
       body: JSON.stringify(payload),
     });
     const json = await res.json().catch(() => ({}));
-    if (json.success === 1 || json.success === true) {
+    
+    // If backend provides a response_indication, it's an error even if HTTP 201
+    const responseIndication = json.response_indication || json.data?.response_indication;
+    if (responseIndication) {
+      return { 
+        success: false, 
+        error: json.message || 'Action failed',
+        response_indication: responseIndication 
+      };
+    }
+
+    const isSuccess = res.ok && 
+      (json.success === 1 || json.success === true || json.status === true || json.status === 1) && 
+      json.status !== false && 
+      json.success !== false;
+
+    if (isSuccess) {
       return { success: true, data: json.data, message: json.message || 'Freight added successfully' };
     }
-    return { success: false, error: json.message || 'Failed to add freight' };
+    
+    return { 
+      success: false, 
+      error: json.message || json.error || 'Failed to add freight. Please check your selection.' 
+    };
   },
 
   /**

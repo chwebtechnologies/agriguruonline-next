@@ -38,7 +38,7 @@ async function getChartsInitialData(lang: string = 'en') {
     tradingService.getAllProducts(safeLang),
     tradingService.getShippingTerms(safeLang),
     token ? getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null) : Promise.resolve(null),
-    token ? tradingService.getFavoriteProducts(token, safeLang) : Promise.resolve([])
+    tradingService.getFavoriteProducts(token || '', safeLang)
   ])
 
   // 1. Process products
