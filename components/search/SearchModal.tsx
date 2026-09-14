@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useTransition, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import React, { useState, useEffect, useCallback, useMemo, useRef, useTransition } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { SearchProduct, SearchApiResponse, RecentSearchItem } from '@/types/search'
 import { getAssetsUrl } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api'
@@ -487,9 +488,8 @@ export function SearchModal({ isOpen, onClose, lang = 'en', dict = {}, initialSe
                               }}
                             />
                             {flagUrl && (
-                              <div className="absolute top-0.5 left-0.5 w-4 h-3 rounded-[1px] overflow-hidden border border-black/10 shadow-2xs bg-white">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={flagUrl} alt={product.country?.name || 'Flag'} className="w-full h-full object-cover" />
+                              <div className="absolute top-0.5 left-0.5 w-4 h-3 rounded-[1px] overflow-hidden border border-black/10 shadow-2xs bg-white relative">
+                                <Image src={flagUrl} alt={product.country?.name || 'Flag'} fill sizes="16px" className="object-cover" />
                               </div>
                             )}
                           </div>
@@ -713,9 +713,8 @@ export function SearchModal({ isOpen, onClose, lang = 'en', dict = {}, initialSe
                                 }}
                               />
                               {flagUrl && (
-                                <div className="absolute top-0.5 left-0.5 w-3.5 h-2.5 rounded-[1px] overflow-hidden border border-black/10 bg-white">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={flagUrl} alt="Flag" className="w-full h-full object-cover" />
+                                <div className="absolute top-0.5 left-0.5 w-3.5 h-2.5 rounded-[1px] overflow-hidden border border-black/10 bg-white relative">
+                                  <Image src={flagUrl} alt="Flag" fill sizes="14px" className="object-cover" />
                                 </div>
                               )}
                             </div>

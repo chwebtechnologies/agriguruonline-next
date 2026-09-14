@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { getSafeLang } from "@/lib/api-utils";
 import { tradingService } from "@/lib/api";
-
+import { encryptData } from "@/lib/crypto-utils";
 export interface ServerActionResponse<T = any> {
   success: boolean;
   message?: string;
@@ -165,7 +165,24 @@ export async function getPriceHistoryAction(
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
-    return await tradingService.getPriceHistory(id, token, safeLang);
+    const res = await tradingService.getPriceHistory(id, token, safeLang);
+    
+    if (res.success && res.data?.price_history && Array.isArray(res.data.price_history)) {
+      // Data Minimization: only keep required fields
+      const filteredHistory = res.data.price_history.map((item: any) => ({
+        date: item.date,
+        price: item.price,
+        product_comment: item.product_comment || item.product_remarks || item.productComment || undefined,
+        freight_comment: item.freight_comment || item.freight_remarks || item.freightComment || undefined,
+        comment: item.comment || item.remarks || item.note || undefined,
+        remarks: item.remarks || undefined,
+      }));
+
+      const encryptedData = encryptData(filteredHistory);
+      return { success: true, data: { ...res.data, price_history: encryptedData, is_encrypted: true } };
+    }
+
+    return res;
   } catch (err: any) {
     console.error("getPriceHistoryAction error:", err);
     return { success: false, error: err.message, data: null };

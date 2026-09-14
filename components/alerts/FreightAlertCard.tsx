@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import Image from 'next/image';
 
 export function FreightAlertCard({ 
   alert, 
@@ -44,7 +45,7 @@ export function FreightAlertCard({
     <div className="flex flex-row items-center gap-1.5 sm:gap-3 text-[12px] sm:text-[15px] font-medium text-muted-foreground min-w-0">
       <span className="flex items-center gap-1 sm:gap-1.5 truncate">
         {polFlag.includes('http') ? (
-          <img src={polFlag} className="w-[20px] h-[15px] sm:w-[22px] sm:h-[16px] object-cover rounded-[2px]" alt="" />
+          <Image src={polFlag} width={22} height={16} className="w-[20px] h-[15px] sm:w-[22px] sm:h-[16px] object-cover rounded-[2px]" alt="" />
         ) : (
           <span className="text-[16px] sm:text-[18px] leading-none">{polFlag}</span>
         )} 
@@ -53,7 +54,7 @@ export function FreightAlertCard({
       <i className="fa-solid fa-arrow-right-long text-muted-foreground text-[11px] sm:text-[14px] shrink-0"></i>
       <span className="flex items-center gap-1 sm:gap-1.5 truncate">
         {podFlag.includes('http') ? (
-          <img src={podFlag} className="w-[20px] h-[15px] sm:w-[22px] sm:h-[16px] object-cover rounded-[2px]" alt="" />
+          <Image src={podFlag} width={22} height={16} className="w-[20px] h-[15px] sm:w-[22px] sm:h-[16px] object-cover rounded-[2px]" alt="" />
         ) : (
           <span className="text-[16px] sm:text-[18px] leading-none">{podFlag}</span>
         )}

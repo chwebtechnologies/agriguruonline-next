@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import React, { useState } from 'react';
+import Image from 'next/image';
 import ProfilePictureUpload from "./ProfilePictureUpload";
 
 type PlanTier = "SILVER" | "GOLD" | "PLATINUM";
@@ -100,7 +100,7 @@ export default function MembershipCard({ profileData = null }: MembershipCardPro
 
       {/* Prominent Logo Watermark at Center */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 opacity-15 pointer-events-none z-0 flex items-center justify-center">
-         <img src="/logo.webp" alt="AgriGuru Online Logo Watermark" title="AgriGuru Online Logo Watermark" className="w-full h-full object-contain grayscale drop-shadow-lg" />
+         <Image src="/logo.webp" alt="AgriGuru Online Logo Watermark" title="AgriGuru Online Logo Watermark" fill sizes="(max-width: 640px) 192px, 256px" className="object-contain grayscale drop-shadow-lg" />
       </div>
 
       <div className="relative z-10 flex flex-col">

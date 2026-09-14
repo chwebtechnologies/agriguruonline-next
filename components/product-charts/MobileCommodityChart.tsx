@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
 import { getPriceHistoryAction, getProductDetailsAction } from '@/app/actions/charts';
+import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
 
 export interface CommodityItemData {
@@ -175,7 +177,11 @@ export default function MobileCommodityChart({
         const res = await getPriceHistoryAction(item.id, lang);
         if (res.success && res.data) {
           if (isMounted) {
-            const rawHistory = Array.isArray(res.data.price_history) ? res.data.price_history : [];
+            let rawHistoryArray = res.data.price_history;
+            if (res.data.is_encrypted && typeof rawHistoryArray === 'string') {
+              rawHistoryArray = decryptData(rawHistoryArray) || [];
+            }
+            const rawHistory = Array.isArray(rawHistoryArray) ? rawHistoryArray : [];
             const curYear = new Date().getFullYear();
 
             // Pre-parse dates and values once to make filtering and rendering 0ms instant
@@ -266,7 +272,11 @@ export default function MobileCommodityChart({
   }, [item.id, lang, cacheKey]);
 
   // Fetch full product details (quality_specification, description, thumbnail) if available
+  // OPTIMIZED: Only fetch when needed (user views specs or opens modal) to prevent N+1 API spam on list load
   useEffect(() => {
+    const shouldFetchDetails = showSpecsModal || activeTab === 'Specifications' || activeTab === 'AI Predict';
+    if (!shouldFetchDetails) return;
+
     const prodId = apiProduct?.product?.id || item.id;
     if (!prodId) return;
 
@@ -289,7 +299,7 @@ export default function MobileCommodityChart({
     };
 
     fetchProduct();
-  }, [apiProduct?.product?.id, item.id, lang]);
+  }, [apiProduct?.product?.id, item.id, lang, showSpecsModal, activeTab]);
 
   // Ultra fast O(N) timeframe filtering using precomputed timestamps (0.1ms execution)
   const filteredData = useMemo<PriceHistoryItem[]>(() => {
@@ -734,10 +744,12 @@ export default function MobileCommodityChart({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0 w-full flex-wrap sm:flex-nowrap">
               {(item.countryFlag || apiProduct?.country?.flag) && (
-                <img
+                <Image
                   src={getFlagUrl(item.countryFlag || apiProduct?.country?.flag)!}
                   alt={`${item.country || 'Country'} Flag`}
                   title={`${item.country || 'Country'} Flag`}
+                  width={20}
+                  height={14}
                   className="w-4 h-3 lg:w-5 lg:h-3.5 object-cover rounded-[2px] border border-border shrink-0"
                 />
               )}
@@ -890,11 +902,28 @@ export default function MobileCommodityChart({
             </div>
 
             {/* Area / Line Chart with Range Slider Brush & Direct Tooltip Comments */}
-            <div className="w-full h-[140px] min-[390px]:h-[175px] sm:h-[210px] lg:h-[270px] xl:h-[300px] relative">
+            <div className="w-full h-[140px] min-[390px]:h-[175px] sm:h-[210px] lg:h-[270px] xl:h-[300px] relative animate-in fade-in duration-1000 ease-in-out">
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-[0.1] dark:opacity-[0.00] z-0 select-none">
-                <img src="/logo.svg" alt="Agriguru Watermark" className="w-[60%] max-w-[200px] grayscale object-contain" />
+                <Image src="/logo.svg" alt="Agriguru Watermark" width={200} height={50} className="w-[60%] max-w-[200px] h-auto grayscale object-contain" />
               </div>
-              {isLoading && (
+              
+              {isLoading && chartData.length === 0 && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm animate-pulse rounded-md">
+                   <div className="w-full h-full flex flex-col justify-end p-4 opacity-30 gap-2">
+                     <div className="h-1/3 border-b border-border w-full flex items-end"><div className="w-full h-[2px] bg-brand-blue/30 scale-x-75 origin-left rounded-full"></div></div>
+                     <div className="h-1/3 border-b border-border w-full flex items-end"><div className="w-full h-[2px] bg-brand-blue/30 scale-x-50 origin-left rounded-full"></div></div>
+                     <div className="h-1/3 w-full flex items-end"><div className="w-full h-[2px] bg-brand-blue/30 scale-x-90 origin-left rounded-full"></div></div>
+                   </div>
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <div className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-full shadow-sm border border-border">
+                        <i className="fa-solid fa-chart-line fa-fade text-brand-blue"></i>
+                        <span className="text-[12px] font-medium text-foreground/70">Loading Chart...</span>
+                     </div>
+                   </div>
+                </div>
+              )}
+
+              {isLoading && chartData.length > 0 && (
                 <div className="absolute top-2 right-4 z-10 flex items-center gap-1.5 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm border border-border">
                   <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-[10px]"></i>
                   <span className="text-[10px] font-semibold text-foreground/70">Updating...</span>
@@ -902,6 +931,7 @@ export default function MobileCommodityChart({
               )}
               <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
+                    key={chartData.length > 0 ? "loaded" : "empty"}
                     data={chartData}
                     margin={{ top: 12, right: 25, left: 10, bottom: 0 }}
                     onMouseMove={(e: any) => {
@@ -1062,8 +1092,8 @@ export default function MobileCommodityChart({
                       activeDot={{ r: 5.5, fill: strokeColor, stroke: "var(--ag-card-bg)", strokeWidth: 2 }}
                       dot={renderCustomDot}
                       isAnimationActive={true}
-                      animationDuration={500}
-                      animationEasing="ease-in-out"
+                      animationDuration={1500}
+                      animationEasing="ease-out"
                       animationBegin={0}
                     />
 
@@ -2128,17 +2158,21 @@ export default function MobileCommodityChart({
                 {(productDetails?.thumbnail || productDetails?.image || item.countryFlag) && (
                   <div className="w-14 h-14 rounded-lg overflow-hidden border border-brand-blue/20 shadow-xs relative flex-shrink-0 bg-card flex items-center justify-center">
                     {productDetails?.thumbnail || productDetails?.image ? (
-                      <img
+                      <Image
                         src={getProductImgUrl(productDetails.thumbnail || productDetails.image)!}
                         alt={item.product || 'Product'}
                         title={item.product || 'Product'}
-                        className="w-full h-full object-cover"
+                        fill
+                        sizes="56px"
+                        className="object-cover"
                       />
                     ) : item.countryFlag ? (
-                      <img
+                      <Image
                         src={getFlagUrl(item.countryFlag)!}
                         alt={`${item.country || 'Country'} Flag`}
                         title={`${item.country || 'Country'} Flag`}
+                        width={32}
+                        height={24}
                         className="w-8 h-6 object-cover rounded"
                       />
                     ) : (
@@ -2162,7 +2196,7 @@ export default function MobileCommodityChart({
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-brand-blue bg-brand-blue/10 px-2 py-0.5 rounded border border-brand-blue/20 whitespace-nowrap">
                       {item.countryFlag && (
-                        <img src={getFlagUrl(item.countryFlag)!} alt={`${item.country || 'Country'} Flag`} title={`${item.country || 'Country'} Flag`} className="w-3.5 h-2.5 object-cover rounded-[1px]" />
+                        <Image src={getFlagUrl(item.countryFlag)!} alt={`${item.country || 'Country'} Flag`} title={`${item.country || 'Country'} Flag`} width={14} height={10} className="w-3.5 h-2.5 object-cover rounded-[1px]" />
                       )}
                       <span>{item.category || 'Commodity'} • {item.country || 'Global'}</span>
                     </div>

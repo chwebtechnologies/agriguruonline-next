@@ -1,7 +1,12 @@
 'use client';
 
 import React from 'react';
-import MobileCommodityChart, { CommodityItemData } from '@/components/product-charts/MobileCommodityChart';
+import { CommodityItemData } from '@/components/product-charts/MobileCommodityChart';
+import dynamic from 'next/dynamic';
+
+const MobileCommodityChart = dynamic(() => import('@/components/product-charts/MobileCommodityChart'), {
+  loading: () => <div className="flex-1 flex items-center justify-center min-h-[300px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
+});
 
 interface DedicatedChartClientProps {
   productId: string;

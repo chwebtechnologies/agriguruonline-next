@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 import path from "path";
 
+// Suppress Serwist warning about Turbopack not being supported
+process.env.SERWIST_SUPPRESS_TURBOPACK_WARNING = "1";
+
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
@@ -176,7 +179,7 @@ const nextConfig: NextConfig = {
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
-  disable: true, // Disabled because Serwist does not support Turbopack in Next.js 16.3.5 and causes infinite skeleton hangs
+  disable: process.env.NODE_ENV !== "production", // Disabled in dev due to Turbopack, enabled in prod for caching
   reloadOnOnline: true,
 });
 
