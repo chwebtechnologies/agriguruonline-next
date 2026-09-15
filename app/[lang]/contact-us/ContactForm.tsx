@@ -22,15 +22,51 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }:
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = React.useRef<ReCAPTCHA>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (!country || !phone) {
-      toast.error('Please complete all required fields.');
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    const source = formData.get('source') as string;
+    const message = formData.get('message') as string;
+
+    let hasErrors = false;
+    const newErrors: Record<string, string> = {};
+
+    if (!name || !name.trim()) {
+      newErrors.name = contactDict.name_required || 'Name is required.';
+      hasErrors = true;
+    }
+    if (!country) {
+      newErrors.country = contactDict.country_required || 'Country is required.';
+      hasErrors = true;
+    }
+    if (!phone) {
+      newErrors.phone = contactDict.phone_required || 'Contact No. is required.';
+      hasErrors = true;
+    }
+    if (!email || !email.trim()) {
+      newErrors.email = contactDict.email_required || 'Email Address is required.';
+      hasErrors = true;
+    } else if (!/^\S+@\S+\.\S+$/.test(email)) {
+      newErrors.email = contactDict.email_invalid || 'Invalid email address.';
+      hasErrors = true;
+    }
+    if (!message || !message.trim()) {
+      newErrors.message = contactDict.message_required || 'Message is required.';
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      setErrors(newErrors);
       return;
     }
+    
+    setErrors({});
 
     if (!captchaToken) {
       toast.error('Please verify that you are not a robot.');
@@ -39,11 +75,6 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }:
 
     setLoading(true);
     try {
-      const formData = new FormData(e.currentTarget);
-      const name = formData.get('name') as string;
-      const email = formData.get('email') as string;
-      const source = formData.get('source') as string;
-      const message = formData.get('message') as string;
 
       // Split name into first and last name
       const nameParts = name.trim().split(' ');
@@ -96,65 +127,78 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }:
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 flex-1 flex flex-col">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4 sm:space-y-5 flex-1 flex flex-col">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         {/* Name */}
         <div className="space-y-1.5">
-          <label htmlFor="name" className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.name || "Name"} <span className="text-brand-red">*</span></label>
+          <label htmlFor="name" className={`text-[13px] sm:text-[14px] font-bold ${errors.name ? 'text-brand-red' : 'text-foreground'}`}>{contactDict.name || "Name"} <span className="text-brand-red">*</span></label>
           <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-brand-blue transition-colors">
+            <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none transition-colors ${errors.name ? 'text-brand-red' : 'text-muted-foreground group-focus-within:text-brand-blue'}`}>
               <i className="fa-regular fa-user text-[14px]"></i>
             </div>
             <input 
               type="text" 
               id="name" 
               name="name" 
-              className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
+              onChange={() => { if (errors.name) setErrors(prev => ({ ...prev, name: '' })) }}
+              className={`w-full h-12 pl-10 pr-4 bg-background border ${errors.name ? 'border-brand-red text-brand-red focus:border-brand-red focus:ring-brand-red/20' : 'border-border/80 hover:border-border focus:ring-brand-blue/20 focus:border-brand-blue'} rounded-xl text-sm font-medium transition-all shadow-sm ${errors.name ? 'placeholder:text-brand-red/50 text-brand-red focus:bg-background' : 'text-foreground focus:bg-background placeholder:text-muted-foreground/50'}`}
               placeholder="John Doe"
-              required
             />
           </div>
+          {errors.name && <p className="text-brand-red text-xs mt-1 ml-1 font-medium">{errors.name}</p>}
         </div>
         {/* Country */}
         <div className="space-y-1.5">
-          <label className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.country || "Country"} <span className="text-brand-red">*</span></label>
-          <SearchableCountrySelect 
-            value={country} 
-            onChange={(val) => setCountry(val || '')} 
-            showDialCode={false}
-            name="country"
-            className="w-full"
-          />
+          <label className={`text-[13px] sm:text-[14px] font-bold ${errors.country ? 'text-brand-red' : 'text-foreground'}`}>{contactDict.country || "Country"} <span className="text-brand-red">*</span></label>
+          <div className={errors.country ? 'border border-brand-red rounded-xl focus-within:ring-2 focus-within:ring-brand-red/20' : ''}>
+            <SearchableCountrySelect 
+              value={country} 
+              onChange={(val) => {
+                setCountry(val || '');
+                if (errors.country) setErrors(prev => ({ ...prev, country: '' }));
+              }} 
+              showDialCode={false}
+              name="country"
+              className="w-full"
+            />
+          </div>
+          {errors.country && <p className="text-brand-red text-xs mt-1 ml-1 font-medium">{errors.country}</p>}
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         {/* Phone */}
         <div className="space-y-1.5">
-          <label className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.contact_no || "Contact No."} <span className="text-brand-red">*</span></label>
-          <SearchablePhoneInput 
-            value={phone} 
-            onChange={setPhone} 
-            defaultCountry={defaultCountryCode}
-            required
-          />
+          <label className={`text-[13px] sm:text-[14px] font-bold ${errors.phone ? 'text-brand-red' : 'text-foreground'}`}>{contactDict.contact_no || "Contact No."} <span className="text-brand-red">*</span></label>
+          <div className={errors.phone ? 'border border-brand-red rounded-xl focus-within:ring-2 focus-within:ring-brand-red/20' : ''}>
+            <SearchablePhoneInput 
+              value={phone} 
+              onChange={(val) => {
+                setPhone(val);
+                if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+              }} 
+              defaultCountry={defaultCountryCode}
+            />
+          </div>
+          {errors.phone && <p className="text-brand-red text-xs mt-1 ml-1 font-medium">{errors.phone}</p>}
         </div>
         {/* Email */}
         <div className="space-y-1.5">
-          <label htmlFor="email" className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.email || "Email Address"} <span className="text-brand-red">*</span></label>
+          <label htmlFor="email" className={`text-[13px] sm:text-[14px] font-bold ${errors.email ? 'text-brand-red' : 'text-foreground'}`}>{contactDict.email || "Email Address"} <span className="text-brand-red">*</span></label>
           <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-brand-blue transition-colors">
+            <div className={`absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none transition-colors ${errors.email ? 'text-brand-red' : 'text-muted-foreground group-focus-within:text-brand-blue'}`}>
               <i className="fa-regular fa-envelope text-[14px]"></i>
             </div>
             <input 
               type="email" 
               id="email" 
               name="email" 
-              className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
+              onChange={() => { if (errors.email) setErrors(prev => ({ ...prev, email: '' })) }}
+              className={`w-full h-12 pl-10 pr-4 bg-background border ${errors.email ? 'border-brand-red text-brand-red focus:border-brand-red focus:ring-brand-red/20' : 'border-border/80 hover:border-border focus:ring-brand-blue/20 focus:border-brand-blue'} rounded-xl text-sm font-medium transition-all shadow-sm ${errors.email ? 'placeholder:text-brand-red/50 text-brand-red focus:bg-background' : 'text-foreground focus:bg-background placeholder:text-muted-foreground/50'}`}
               placeholder="john@example.com"
-              required
             />
           </div>
+          {errors.email && <p className="text-brand-red text-xs mt-1 ml-1 font-medium">{errors.email}</p>}
         </div>
       </div>
 
@@ -177,14 +221,15 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }:
 
       {/* Message */}
       <div className="space-y-1.5 flex-1 flex flex-col">
-        <label htmlFor="message" className="text-[13px] sm:text-[14px] font-bold text-foreground">{contactDict.message || "Message"} <span className="text-brand-red">*</span></label>
+        <label htmlFor="message" className={`text-[13px] sm:text-[14px] font-bold ${errors.message ? 'text-brand-red' : 'text-foreground'}`}>{contactDict.message || "Message"} <span className="text-brand-red">*</span></label>
         <textarea 
           id="message" 
           name="message" 
-          className="w-full flex-1 min-h-[120px] p-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm resize-none placeholder:text-muted-foreground/50"
+          onChange={() => { if (errors.message) setErrors(prev => ({ ...prev, message: '' })) }}
+          className={`w-full flex-1 min-h-[120px] p-4 bg-background border ${errors.message ? 'border-brand-red text-brand-red focus:border-brand-red focus:ring-brand-red/20' : 'border-border/80 hover:border-border focus:ring-brand-blue/20 focus:border-brand-blue'} rounded-xl text-sm font-medium transition-all shadow-sm resize-none ${errors.message ? 'placeholder:text-brand-red/50 text-brand-red focus:bg-background' : 'text-foreground focus:bg-background placeholder:text-muted-foreground/50'}`}
           placeholder="Type your message here..."
-          required
         ></textarea>
+        {errors.message && <p className="text-brand-red text-xs mt-1 ml-1 font-medium">{errors.message}</p>}
       </div>
 
       {/* ReCAPTCHA */}

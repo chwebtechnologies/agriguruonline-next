@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 
 import { lang } from 'next/root-params'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -175,20 +176,16 @@ export default async function LocalizedRootLayout({
         <link rel="dns-prefetch" href="https://trading-api.agriguruonline.cloud" />
         <link rel="preconnect" href="https://cms-api.agriguruonline.cloud" />
         <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
-        <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" />
-        <script dangerouslySetInnerHTML={{ __html: `document.querySelectorAll('link[media="print"]').forEach(l=>l.media='all')` }} />
-        <noscript>
-          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-        </noscript>
-        <script
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+        <Script
           id="trusted-types-policy"
           dangerouslySetInnerHTML={{
             __html: `if(typeof window!=='undefined'&&window.trustedTypes&&window.trustedTypes.createPolicy){try{if(!window.trustedTypes.defaultPolicy){window.trustedTypes.createPolicy('default',{createHTML:function(s){return s},createScript:function(s){return s},createScriptURL:function(s){return s}})}}catch(e){}}`
           }}
         />
         <ThemeInitializer />
-        <script
+        <Script
+          id="sw-unregister"
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {

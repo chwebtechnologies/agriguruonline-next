@@ -109,19 +109,18 @@
       scrollWheelZoom: false
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19
     }).addTo(map);
 
     var locations = [
-      { name: "India (HQ)", fullName: "India - Ahmedabad (Global Headquarters)", lat: 23.0225, lng: 72.5714, isHq: true },
-      { name: "UAE", fullName: "United Arab Emirates (Dubai)", lat: 25.2048, lng: 55.2708 },
-      { name: "China", fullName: "China Office Network", lat: 35.8617, lng: 104.1954 },
+      { name: "India (HQ)", fullName: "India - Ahmedabad (Global Headquarters)", lat: 20.0000, lng: 78.0000, isHq: true },
+      { name: "UAE", fullName: "United Arab Emirates (Dubai)", lat: 32.0000, lng: 48.0000 },
+      { name: "China", fullName: "China Office Network", lat: 38.0000, lng: 110.0000 },
       { name: "France", fullName: "France Office Network", lat: 48.8566, lng: 2.3522 },
-      { name: "Kenya", fullName: "Kenya - Nairobi Office", lat: -1.2921, lng: 36.8219 },
-      { name: "Mombasa", fullName: "Kenya - Mombasa Port Hub", lat: -4.0435, lng: 39.6682 },
+      { name: "Kenya", fullName: "Kenya - Nairobi Office", lat: 2.0000, lng: 28.0000 },
+      { name: "Mombasa", fullName: "Kenya - Mombasa Port Hub", lat: -16.0000, lng: 45.0000 },
       { name: "Brazil", fullName: "Brazil Office Network", lat: -14.2350, lng: -51.9253 }
     ];
 
@@ -146,6 +145,9 @@
         '<div style="font-size:11px;color:#64748b;margin-top:2px;">Active AgriGuru Trade Network</div>' +
       '</div>');
     });
+
+    var bounds = L.latLngBounds(locations.map(function(loc) { return [loc.lat, loc.lng]; }));
+    map.fitBounds(bounds, { padding: [30, 30] });
 
     window.addEventListener('resize', function() {
       map.invalidateSize();
