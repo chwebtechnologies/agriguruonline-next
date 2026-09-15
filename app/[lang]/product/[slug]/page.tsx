@@ -262,16 +262,16 @@ export default async function ProductDetailPage(
 
                 {/* Action Buttons (Desktop) */}
                 <div className="hidden md:flex flex-col gap-2 mt-2">
-                  <button className="w-full bg-brand-blue hover:opacity-90 text-white font-bold py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                  <button className="w-full bg-brand-blue hover:opacity-90 text-white py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
                     <i className="fa-solid fa-plus"></i>
                     <span>{common.addProduct}</span>
                   </button>
                   <div className="grid grid-cols-2 gap-2">
-                    <button className="bg-brand-green hover:opacity-90 text-white font-bold py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                    <button className="bg-brand-green hover:opacity-90 text-white py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
                       <i className="fa-solid fa-cart-shopping"></i>
                       <span>{common.buy}</span>
                     </button>
-                    <button className="bg-brand-red hover:opacity-90 text-white font-bold py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                    <button className="bg-brand-red hover:opacity-90 text-white py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
                       <i className="fa-solid fa-tag"></i>
                       <span>{common.sell}</span>
                     </button>
@@ -432,16 +432,16 @@ export default async function ProductDetailPage(
 
                 {/* Action Buttons (Mobile) */}
                 <div className="flex md:hidden flex-col gap-2 mt-6">
-                  <button className="w-full bg-brand-blue hover:opacity-90 text-white font-bold py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                  <button className="w-full bg-brand-blue hover:opacity-90 text-white py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
                     <i className="fa-solid fa-plus"></i>
                     <span>{common.addProduct}</span>
                   </button>
                   <div className="grid grid-cols-2 gap-2">
-                    <button className="bg-brand-green hover:opacity-90 text-white font-bold py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                    <button className="bg-brand-green hover:opacity-90 text-white py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
                       <i className="fa-solid fa-cart-shopping"></i>
                       <span>{common.buy}</span>
                     </button>
-                    <button className="bg-brand-red hover:opacity-90 text-white font-bold py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                    <button className="bg-brand-red hover:opacity-90 text-white py-2.5 sm:py-3 px-4 rounded-xl text-sm md:text-base transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
                       <i className="fa-solid fa-tag"></i>
                       <span>{common.sell}</span>
                     </button>
@@ -489,17 +489,17 @@ export default async function ProductDetailPage(
                         </h2>
 
                         <div className="mt-auto space-y-1.5">
-                          <button className="w-full bg-brand-blue hover:opacity-90 text-white font-bold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.addProduct} - ${simProduct.name}`}>
+                          <button className="w-full bg-brand-blue hover:opacity-90 text-white py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.addProduct} - ${simProduct.name}`}>
                             <i className="fa-solid fa-plus text-xs"></i>
                             {common.addProduct}
                           </button>
 
                           <div className="grid grid-cols-2 gap-1.5">
-                            <button className="bg-brand-green hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.buy} - ${simProduct.name}`}>
+                            <button className="bg-brand-green hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.buy} - ${simProduct.name}`}>
                               <i className="fa-solid fa-cart-shopping text-[10px]"></i>
                               {common.buy}
                             </button>
-                            <button className="bg-brand-red hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.sell} - ${simProduct.name}`}>
+                            <button className="bg-brand-red hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.sell} - ${simProduct.name}`}>
                               <i className="fa-solid fa-tag text-[10px]"></i>
                               {common.sell}
                             </button>

@@ -48,7 +48,7 @@ export function ActionButton({
   return (
     <button
       {...props}
-      className={`${basePadding} ${baseTextSize} font-extrabold tracking-wide rounded-xl shadow-md flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer transition-all ${bgClass} ${className}`}
+      className={`${basePadding} ${baseTextSize} font-extrabold tracking-wide rounded shadow-md flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer transition-all ${bgClass} ${className}`}
     >
       {finalIcon && <i className={`fa-solid ${finalIcon}`}></i>}
       <span>{children}</span>

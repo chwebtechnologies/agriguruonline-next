@@ -225,17 +225,17 @@ export default async function SubCategoryProductsPage(
                     </h2>
 
                     <div className="mt-auto space-y-1.5">
-                      <button className="w-full bg-brand-blue hover:opacity-90 text-white font-bold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.addProduct} - ${product.name}`}>
+                      <button className="w-full bg-brand-blue hover:opacity-90 text-white py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.addProduct} - ${product.name}`}>
                         <i className="fa-solid fa-plus text-xs"></i>
                         {common.addProduct}
                       </button>
 
                       <div className="grid grid-cols-2 gap-1.5">
-                        <button className="bg-brand-green hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.buy} - ${product.name}`}>
+                        <button className="bg-brand-green hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.buy} - ${product.name}`}>
                           <i className="fa-solid fa-cart-shopping text-[10px]"></i>
                           {common.buy}
                         </button>
-                        <button className="bg-brand-red hover:opacity-90 text-white font-bold py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.sell} - ${product.name}`}>
+                        <button className="bg-brand-red hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.sell} - ${product.name}`}>
                           <i className="fa-solid fa-tag text-[10px]"></i>
                           {common.sell}
                         </button>

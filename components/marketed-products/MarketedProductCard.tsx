@@ -110,7 +110,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
   return (
     <>
-      <div className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs">
+      <div className="group flex flex-col rounded-md bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs">
         <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border">
           <Link href={`/${lang}/product/${product.slug}`} prefetch={true} aria-label={product.name} className="block w-full h-full">
             <ImageWithSkeleton
@@ -155,7 +155,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
         <div className="p-2 flex flex-col flex-1">
           <div className="flex justify-center mb-1">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-[#156cb3] uppercase tracking-wider line-clamp-1 text-center">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider line-clamp-1 text-center">
               {product.category?.name || 'Product'} {product.country?.name ? `• ${product.country.name}` : ''}
             </span>
           </div>
@@ -171,7 +171,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
                 <span className="text-[16px] sm:text-[18px] font-extrabold text-foreground/85 mr-0.5 leading-none tracking-tight">
                   FOB
                 </span>
-                <span className="text-[16px] sm:text-[18px] font-extrabold text-brand-green leading-none tracking-tight">
+                <span className="text-[16px] sm:text-[18px] font-extrabold text-emerald-700 dark:text-brand-green leading-none tracking-tight">
                   ${product.loading_ports[0].price}
                 </span>
                 <span className="text-[10px] sm:text-[11px] text-foreground/80 font-semibold uppercase">
@@ -202,7 +202,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
       {showSpecs && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu p-4 animate-in fade-in duration-200">
           <div
-            className="bg-background text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+            className="bg-background text-foreground rounded-md w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -265,7 +265,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
 
                     {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
                       <div className="flex items-baseline gap-1 whitespace-nowrap pl-2 flex-shrink-0">
-                        <span className="text-[16px] sm:text-[18px] font-black text-brand-green leading-none">
+                        <span className="text-[16px] sm:text-[18px] font-black text-emerald-700 dark:text-brand-green leading-none">
                           ${product.loading_ports[0].price}
                         </span>
                         <span className="text-[9px] font-bold text-foreground/40 uppercase leading-none">/ MT</span>

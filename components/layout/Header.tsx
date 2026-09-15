@@ -76,7 +76,38 @@ export default async function Header(props?: HeaderProps) {
     } else if (Array.isArray(searchRes)) {
       productsArray = searchRes
     }
-    initialSearchProducts = productsArray.filter((p: any) => p.is_active !== false)
+    const activeProducts = productsArray.filter((p: any) => p.is_active !== false)
+    
+    // Select only the items needed by the frontend search menus (max 12 total)
+    const freq = activeProducts.filter((p: any) => p.frequently_search).slice(0, 4)
+    const freqIds = new Set(freq.map((p: any) => p.id))
+    const marketed = activeProducts.filter((p: any) => p.is_marketed && !freqIds.has(p.id)).slice(0, 4)
+    const marketedIds = new Set(marketed.map((p: any) => p.id))
+    const best = activeProducts.filter((p: any) => p.best_seller && !freqIds.has(p.id) && !marketedIds.has(p.id)).slice(0, 4)
+    
+    const selectedProducts = [...freq, ...marketed, ...best]
+
+    initialSearchProducts = selectedProducts.map((p: any) => {
+      const mapped: any = {
+        id: p.id,
+        name: p.name,
+      }
+      if (p.slug) mapped.slug = p.slug;
+      if (p.product_code) mapped.product_code = p.product_code;
+      if (p.image) mapped.image = p.image;
+      if (p.thumbnail) mapped.thumbnail = p.thumbnail;
+      if (p.frequently_search) mapped.frequently_search = true;
+      if (p.is_marketed) mapped.is_marketed = true;
+      if (p.best_seller) mapped.best_seller = true;
+      if (p.quality_specification) mapped.quality_specification = p.quality_specification;
+      if (p.country?.name) {
+        mapped.country = { name: p.country.name };
+        if (p.country.flag) mapped.country.flag = p.country.flag;
+      }
+      if (p.category?.name) mapped.category = { name: p.category.name };
+      
+      return mapped;
+    })
   } catch (error) {
     console.error('Error fetching initial search products:', error)
   }

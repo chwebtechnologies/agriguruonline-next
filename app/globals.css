@@ -59,12 +59,12 @@ body {
   /* ==========================================================================
      AgriGuru Brand Colors & Gradients (100% EXACT / 0% CHANGE)
      ========================================================================== */
-  --brand-blue: #1D92EB;
-  --brand-green: #2AAF85;
-  --brand-red: #DB5F67;
-  --brand-blue-hover: #157dc9;
-  --brand-green-hover: #25A06F;
-  --brand-red-hover: #D9383A;
+  --brand-blue: #127ACD;
+  --brand-green: #20825F;
+  --brand-red: #CD4750;
+  --brand-blue-hover: #0f66ab;
+  --brand-green-hover: #1a684b;
+  --brand-red-hover: #b53d45;
 
   --ag-primary: var(--brand-blue);
   --ag-primary-hover: #1080d0;
@@ -145,6 +145,7 @@ body {
   --ag-announcement-text: #FFFFFF;
 
   --ag-primary: var(--brand-blue);
+  --brand-blue-accessible: var(--brand-blue);
   --ag-primary-hover: #1080d0;
   --ag-accent-cyan: #6cbfff;
   --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);
@@ -208,6 +209,7 @@ body {
     --ag-announcement-text: #FFFFFF;
 
     --ag-primary: var(--brand-blue);
+    --brand-blue-accessible: var(--brand-blue);
     --ag-primary-hover: #1080d0;
     --ag-accent-cyan: #6cbfff;
     --ag-gradient-primary: linear-gradient(90deg, rgb(0, 46, 82) 0%, rgb(42, 175, 133) 100%);

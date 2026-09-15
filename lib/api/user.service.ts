@@ -232,7 +232,7 @@ export const userService = {
       userService.getUserAiPredicts(token, safeLang)
     ]);
 
-    const result: AuthDataResult = {
+    const result: AuthDataResult = JSON.parse(JSON.stringify({
       userProfile: profileRes.userProfile ? {
         id: profileRes.userProfile.id || profileRes.userProfile._id || profileRes.userProfile.customer_id,
         first_name: profileRes.userProfile.first_name,
@@ -336,7 +336,7 @@ export const userService = {
         destination_name: p.destination_name,
         created_at: p.created_at
       }))
-    };
+    }));
 
     if (!profileRes.shouldLogout) {
       authDataMemoryCache.set(cacheKey, { data: result, timestamp: Date.now() });

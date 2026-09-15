@@ -48,7 +48,7 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType }: OfferCardP
   const href = isForBuyer ? `/${lang}/latest-offers-for-buyers` : `/${lang}/latest-inquiries-for-sellers`
 
   return (
-    <div className="group flex flex-col rounded-xl bg-muted/40 border border-border/50 overflow-hidden hover:shadow-sm transition-shadow duration-300">
+    <div className="group flex flex-col rounded-md bg-muted/40 border border-border/50 overflow-hidden hover:shadow-sm transition-shadow duration-300">
       <div className="px-4 py-3 sm:py-4">
         <div className="grid grid-cols-[65px_1fr] sm:grid-cols-[75px_1fr] gap-x-2 gap-y-3">
           {/* Row 1: Country */}

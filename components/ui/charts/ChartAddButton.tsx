@@ -29,7 +29,7 @@ export function ChartAddButton({
         id={id}
         type="button"
         onClick={onClick}
-        className={`w-full max-w-[200px] py-[10px] bg-brand-green hover:bg-brand-green-hover text-white font-medium rounded-md text-[14px] shadow-sm transition-colors cursor-pointer ${className}`}
+        className={`w-full max-w-[200px] py-[10px] bg-brand-green hover:bg-brand-green-hover text-white rounded-md text-[14px] shadow-sm transition-colors cursor-pointer ${className}`}
       >
         {label}
       </button>

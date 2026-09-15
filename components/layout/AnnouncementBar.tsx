@@ -35,9 +35,21 @@ export default async function AnnouncementBar() {
     ]
   }
 
+  const mappedAnnouncements = announcements.map((ann: any) => ({
+    id: ann.id,
+    title: ann.title,
+    label: ann.label,
+    link: ann.link,
+    translations: ann.translations ? ann.translations.map((t: any) => ({
+      lang_code: t.lang_code,
+      title: t.title,
+      label: t.label
+    })) : undefined
+  }));
+
   return (
     <AnnouncementBarClient 
-      announcements={announcements as any} 
+      announcements={mappedAnnouncements as any} 
       dict={dict} 
       activeLang={activeLang} 
     />

@@ -123,7 +123,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     isKycVerified = false;
   }
 
-  const sanitizedProfileData = profileData ? {
+  const sanitizedProfileData = profileData ? JSON.parse(JSON.stringify({
     id: profileData.id || profileData._id || profileData.customer_id,
     first_name: profileData.first_name,
     last_name: profileData.last_name,
@@ -146,7 +146,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
       status: profileData.membership.status
     } : undefined,
     is_kyc_verified: profileData.is_kyc_verified
-  } : null;
+  })) : null;
 
   return (
     <div className="bg-background text-foreground transition-theme">
