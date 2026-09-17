@@ -1,5 +1,6 @@
 'use client'
 import { useEffect } from 'react'
+import { logoutUser } from '@/app/actions/auth'
 
 export function ForceLogout({ lang }: { lang: string }) {
   useEffect(() => {
@@ -11,11 +12,10 @@ export function ForceLogout({ lang }: { lang: string }) {
     localStorage.removeItem('auth_token')
     sessionStorage.clear()
 
-    fetch(`/api/auth/logout?lang=${safeLang}`, { method: 'POST' })
-      .finally(() => {
-        // Force hardware reload to login to guarantee no caching issues
-        window.location.href = `/${safeLang}/login`
-      })
+    logoutUser().finally(() => {
+      // Force hardware reload to login to guarantee no caching issues
+      window.location.href = `/${safeLang}/login`
+    })
   }, [lang])
   
   // Return null to avoid rendering a broken loader and ruining the layout

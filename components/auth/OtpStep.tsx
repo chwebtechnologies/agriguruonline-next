@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import { toast } from "sonner";
-import { createSession } from "@/app/actions/auth";
+import { createSession, serverVerifyOtp } from "@/app/actions/auth";
 import { authService } from "@/lib/api";
 
 interface OtpStepProps {
@@ -81,31 +81,21 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     setError("");
     startTransition(async () => {
       try {
-        const response = await authService.verifyOtp(email, otpString, lang);
-
-        if (!response.ok) {
-          let errorMessage = "Failed to verify OTP. Please try again.";
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorData.error || errorMessage;
-          } catch (e) {}
-          setError(errorMessage);
-          if (errorMessage.toLowerCase().includes("expired")) {
-            setCountdown(0);
-            localStorage.removeItem(`otp_sent_${email}`);
-          }
-          toast.error(errorMessage);
-          return;
-        }
-
+        const result = await serverVerifyOtp(email, otpString, lang);
+        
         let nextStep = null;
         try {
-          const successData = await response.json();
+          if (!result.ok) {
+            throw new Error(result.error);
+          }
+          
+          const successData = result.data;
           nextStep = successData?.data?.next_step || null;
 
           if (nextStep === "LOGGED_IN" && successData.data?.access_token) {
             await createSession(
               successData.data.access_token, 
+              result.backendRefreshToken || successData.data.refresh_token || successData.data.refreshToken || null,
               successData.data.user
             );
           }

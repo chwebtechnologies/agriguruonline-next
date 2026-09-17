@@ -8,6 +8,20 @@ export interface ApiFetchOptions extends RequestInit {
   };
 }
 
+import { refreshTokensAction } from "@/app/actions/auth";
+
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((callback) => callback(token));
+  refreshSubscribers = [];
+}
+
+function addRefreshSubscriber(callback: (token: string) => void) {
+  refreshSubscribers.push(callback);
+}
+
 /**
  * Universal high-performance fetcher for AgriGuru.
  * - Public GET requests default to Next.js Data Cache with Stale-While-Revalidate (default 60s).
@@ -94,8 +108,48 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
   try {
     let res = await fetch(finalUrl, fetchInit);
     
-    // 401 Interceptor token refresh logic has been removed as per user request
+    // 401 Interceptor for client-side fetches
+    if (res.status === 401 && typeof window !== 'undefined' && isAuthRequest && !finalUrl.includes('/auth/refresh-token')) {
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          const result = await refreshTokensAction();
+          if (result.success && result.access_token) {
+            onRefreshed(result.access_token);
+          } else {
+            onRefreshed('');
+            window.location.href = '/en/login';
+          }
+        } catch (error) {
+          onRefreshed('');
+          window.location.href = '/en/login';
+        } finally {
+          isRefreshing = false;
+        }
+      }
 
+      // Wait for the token refresh to finish before retrying
+      const retryPromise = new Promise((resolve) => {
+        addRefreshSubscriber(async (newTokenStatus) => {
+          if (newTokenStatus) {
+            // Note: In client context with HttpOnly cookies, the browser will automatically 
+            // send the new cookie to internal /api/ routes. Since customFetch is mainly 
+            // send the new cookie to internal /api/ routes. For external APIs,
+            // we must update the Authorization header with the new token.
+            if (headers.has('Authorization')) {
+              headers.set('Authorization', `Bearer ${newTokenStatus}`);
+              fetchInit.headers = headers;
+            }
+            resolve(await fetch(finalUrl, fetchInit));
+          } else {
+            resolve(res); // Return original 401 if refresh failed
+          }
+        });
+      });
+      
+      clearTimeout(timeoutId);
+      return (await retryPromise) as Response;
+    }
     
     clearTimeout(timeoutId);
     return res;

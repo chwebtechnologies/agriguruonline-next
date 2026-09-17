@@ -213,6 +213,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     };
   }, [token, activeLang, setHasUnread]);
 
+  // Removed silent heartbeat as the interceptor flow is now working perfectly with web_refresh_token
+
   // Combined: show dot if either context OR local listener has unread
   const showUnreadDot = hasUnread || localUnread
 
