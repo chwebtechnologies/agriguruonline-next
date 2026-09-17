@@ -29,14 +29,12 @@ export default function NavigationProgress() {
     // Forcefully unregister the broken Serwist Service Worker to fix the skeleton hang issue immediately
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for (let registration of registrations) {
+        for (const registration of registrations) {
           registration.unregister().then(() => {
-            console.log('ServiceWorker unregistered forcefully during client transition.');
             window.location.reload();
           });
         }
       }).catch(function(err) {
-        console.error('ServiceWorker unregistration failed: ', err);
       });
     }
 

@@ -10,7 +10,6 @@ const inter = Inter({
   variable: '--font-inter',
   display: 'swap',
 })
-import ThemeInitializer from '@/components/ui/ThemeInitializer'
 import Header from '@/components/layout/Header'
 import { HeaderGuest, HeaderGuestStatic, HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
 import Footer from '@/components/layout/Footer'
@@ -183,7 +182,29 @@ export default async function LocalizedRootLayout({
             __html: `if(typeof window!=='undefined'&&window.trustedTypes&&window.trustedTypes.createPolicy){try{if(!window.trustedTypes.defaultPolicy){window.trustedTypes.createPolicy('default',{createHTML:function(s){return s},createScript:function(s){return s},createScriptURL:function(s){return s}})}}catch(e){}}`
           }}
         />
-        <ThemeInitializer />
+        <script
+          id="theme-initializer"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var t = localStorage.getItem('theme') || 'system';
+                  var d = document.documentElement;
+                  if (t === 'dark') {
+                    d.classList.add('dark');
+                    d.classList.remove('light');
+                  } else if (t === 'light') {
+                    d.classList.remove('dark');
+                    d.classList.add('light');
+                  } else {
+                    d.classList.remove('dark');
+                    d.classList.remove('light');
+                  }
+                } catch(e) {}
+              })()
+            `,
+          }}
+        />
         <Script
           id="sw-unregister"
           dangerouslySetInnerHTML={{
@@ -192,10 +213,8 @@ export default async function LocalizedRootLayout({
                 navigator.serviceWorker.getRegistrations().then(function(registrations) {
                   for (let registration of registrations) {
                     registration.unregister();
-                    console.log('ServiceWorker unregistered forcefully.');
                   }
                 }).catch(function(err) {
-                  console.error('ServiceWorker unregistration failed: ', err);
                 });
               }
             `

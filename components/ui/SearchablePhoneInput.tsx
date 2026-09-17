@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { getCountryCallingCode, parsePhoneNumber, type Country } from "react-phone-number-input";
 import { AsYouType } from "libphonenumber-js";
 import SearchableCountrySelect from "./SearchableCountrySelect";
@@ -31,7 +31,7 @@ export default function SearchablePhoneInput({
         if (parsed?.country) {
           return parsed.country as Country;
         }
-      } catch (e) {}
+      } catch {}
     }
     return defaultCountry;
   }, [value, defaultCountry]);
@@ -46,7 +46,7 @@ export default function SearchablePhoneInput({
       if (parsed) {
         return parsed.nationalNumber;
       }
-    } catch (e) {}
+    } catch {}
 
     // Fallback: remove non-digits and strip country code if present
     const callingCode = getCountryCallingCode(c);
@@ -73,7 +73,7 @@ export default function SearchablePhoneInput({
           setCountry(parsed.country as Country);
           setNationalDigits(parsed.nationalNumber);
         }
-      } catch (e) {}
+      } catch {}
     }
   }
 

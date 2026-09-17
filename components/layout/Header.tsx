@@ -99,7 +99,6 @@ export default async function Header(props?: HeaderProps) {
       if (p.frequently_search) mapped.frequently_search = true;
       if (p.is_marketed) mapped.is_marketed = true;
       if (p.best_seller) mapped.best_seller = true;
-      if (p.quality_specification) mapped.quality_specification = p.quality_specification;
       if (p.country?.name) {
         mapped.country = { name: p.country.name };
         if (p.country.flag) mapped.country.flag = p.country.flag;

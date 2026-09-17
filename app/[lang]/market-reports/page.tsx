@@ -104,10 +104,27 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
     )
   }
 
+  const sanitizeReport = (report: any) => {
+    if (!report) return null;
+    return {
+      id: report.id || report._id,
+      _id: report.id || report._id,
+      title: report.title,
+      slug: report.slug,
+      date: report.date,
+      thumbnail: report.thumbnail,
+      file: report.file,
+      translations: report.translations ? report.translations.map((t: any) => ({
+        lang_code: t.lang_code,
+        title: t.title
+      })) : []
+    };
+  };
+
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
-        {reports.map((report: any, index: number) => (
+        {reports.map(sanitizeReport).filter(Boolean).map((report: any, index: number) => (
           <MarketReportCard priority={index < 4} key={report.id || report._id || Math.random()} report={report} lang={lang} dict={dict} />
         ))}
       </div>
@@ -162,22 +179,17 @@ export default async function MarketReportsPage(props: {
   params: Promise<{ lang: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  console.log('[MarketReportsPage] Start');
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
-  console.log('[MarketReportsPage] got token');
   
   const params = await props.params;
   const lang = params.lang || 'en'
-  console.log('[MarketReportsPage] got params:', lang);
   
   if (!token) {
-    console.log('[MarketReportsPage] redirecting to login');
     redirect(`/${lang}/login`);
   }
 
   const searchParams = await props.searchParams;
-  console.log('[MarketReportsPage] got searchParams:', searchParams);
   
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
@@ -187,10 +199,8 @@ export default async function MarketReportsPage(props: {
   const categoryQuery = typeof searchParams.category === 'string' ? searchParams.category : undefined
   
 
-  console.log('[MarketReportsPage] fetching categories...');
   // Fetch categories using identical Next.js cached configuration as Header
   const apiCategories = await getCategories(lang)
-  console.log('[MarketReportsPage] got categories');
   
   let categoryId = undefined;
   if (categoryQuery && apiCategories) {

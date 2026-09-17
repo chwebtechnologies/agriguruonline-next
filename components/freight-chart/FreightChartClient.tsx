@@ -76,10 +76,81 @@ export default function FreightChartClient({
   
   // List state
   const [addedFreights, setAddedFreights] = useState<FavoriteFreightItem[]>(initialFavorites);
+  const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(true);
 
   useEffect(() => {
-    setAddedFreights(initialFavorites);
-  }, [initialFavorites]);
+    let isMounted = true;
+    const fetchLatestFavorites = async () => {
+      try {
+        setIsFetchingFavorites(true);
+        const favsRes = await getFavoritePortsAction(lang);
+        if (!isMounted) return;
+        if (favsRes.success && Array.isArray(favsRes.data)) {
+          const getTitle = (obj: any, fallback = 'N/A') => {
+            if (!obj) return fallback;
+            if (typeof obj === 'string') return obj;
+            return obj.title || obj.name || obj.label || fallback;
+          };
+          const getFlag = (obj: any) => {
+            if (!obj) return '';
+            if (typeof obj === 'string') return obj;
+            return obj.flag || obj.country?.flag || '';
+          };
+          const mapped: FavoriteFreightItem[] = favsRes.data.map((item: any) => {
+            const shipBy = getTitle(item.shipping_container) !== 'N/A' 
+              ? getTitle(item.shipping_container) 
+              : (getTitle(item.shippingContainer) !== 'N/A' ? getTitle(item.shippingContainer) : (item.ship_by || item.shipBy || 'N/A'));
+            const pol = getTitle(item.loading_port) !== 'N/A' 
+              ? getTitle(item.loading_port) 
+              : (getTitle(item.loadingPort) !== 'N/A' ? getTitle(item.loadingPort) : (item.pol || 'N/A'));
+            const polFlag = getFlag(item.loading_port) || getFlag(item.loadingPort) || item.loading_port?.country?.flag || item.pol_flag || '';
+            const pod = getTitle(item.destination_port) !== 'N/A' 
+              ? getTitle(item.destination_port) 
+              : (getTitle(item.destinationPort) !== 'N/A' ? getTitle(item.destinationPort) : (item.pod || 'N/A'));
+            const podFlag = getFlag(item.destination_port) || getFlag(item.destinationPort) || item.destination_port?.country?.flag || item.pod_flag || '';
+            const freight = (item.freight != null ? Math.round(Number(item.freight)) : (item.current_freight != null ? Math.round(Number(item.current_freight)) : 0)).toString();
+            const freightPmt = (item.freightPMT != null ? Math.round(Number(item.freightPMT)) : (item.freight_pmt != null ? Math.round(Number(item.freight_pmt)) : (item.price != null ? Math.round(Number(item.price)) : 0))).toString();
+            const change = (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString();
+            const isChart = (val: any) => {
+              if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
+              return true;
+            };
+            const chartStatus = isChart(item.chart_status) && isChart(item.chartStatus);
+            const loadCapacity = item.shipping_container?.default_load_capacity || item.load_capacity || 26;
+            const loadUnit = item.shipping_container?.default_unit?.title || item.load_unit || 'MT';
+            return {
+              id: item.id || Date.now(),
+              shipBy,
+              pol,
+              polFlag,
+              pod,
+              podFlag,
+              freight,
+              freightPmt,
+              change,
+              chartStatus,
+              loadCapacity,
+              loadUnit,
+              originalItem: item
+            };
+          });
+          setAddedFreights(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch latest freight favorites", err);
+      } finally {
+        if (isMounted) setIsFetchingFavorites(false);
+      }
+    };
+    fetchLatestFavorites();
+    return () => { isMounted = false; };
+  }, [lang]);
+
+  useEffect(() => {
+    if (!isFetchingFavorites && addedFreights.length === 0 && initialFavorites.length > 0) {
+      setAddedFreights(initialFavorites);
+    }
+  }, [initialFavorites, isFetchingFavorites, addedFreights.length]);
 
   // Loading states
   const [polLoading, setPolLoading] = useState(false);
@@ -203,52 +274,26 @@ export default function FreightChartClient({
       const result = await addFavoritePortAction(payload, lang);
 
       if (result.success) {
-        // Fetch fresh favorite freight ports
-        const freshRes = await getFavoritePortsAction(lang);
-        if (freshRes.success && Array.isArray(freshRes.data) && freshRes.data.length > 0) {
-          const isChart = (val: any) => {
-            if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
-            return true;
-          };
+        // Optimistic item
+        const shipByObj = shippingContainers.find(s => s.id === selectedShipBy);
+        const polObj = loadingPorts.find(p => p.id === selectedPOL);
+        const podObj = destinationPorts.find(p => p.id === selectedPOD);
 
-          const mapped: FavoriteFreightItem[] = freshRes.data.map((item: any) => ({
-            id: item.id || Date.now().toString(),
-            shipBy: item.shipping_container?.title || item.ship_by || '20FT FCL',
-            pol: item.loading_port?.name || item.pol || 'Mundra',
-            polFlag: item.loading_port?.country?.flag || item.loading_port?.flag || '',
-            pod: item.destination_port?.name || item.pod || 'Dammam',
-            podFlag: item.destination_port?.country?.flag || item.destination_port?.flag || '',
-            freight: (item.freight != null ? Math.round(Number(item.freight)) : 2663).toString(),
-            freightPmt: (item.freightPMT != null ? Math.round(Number(item.freightPMT)) : (item.freight_pmt != null ? Math.round(Number(item.freight_pmt)) : 102)).toString(),
-            change: (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : 25)).toString(),
-            chartStatus: isChart(item.chart_status),
-            loadCapacity: item.shipping_container?.default_load_capacity || 26,
-            loadUnit: item.shipping_container?.default_unit?.title || 'MT'
-          }));
-
-          setAddedFreights(mapped);
-        } else {
-          // Fallback optimistic item
-          const shipByObj = shippingContainers.find(s => s.id === selectedShipBy);
-          const polObj = loadingPorts.find(p => p.id === selectedPOL);
-          const podObj = destinationPorts.find(p => p.id === selectedPOD);
-
-          const fallbackItem: FavoriteFreightItem = {
-            id: Date.now().toString(),
-            shipBy: shipByObj?.title || '20FT FCL',
-            pol: polObj?.name || 'Mundra',
-            polFlag: polObj?.country?.flag || polObj?.flag || '',
-            pod: podObj?.name || 'Dammam',
-            podFlag: podObj?.country?.flag || podObj?.flag || '',
-            freight: '2663',
-            freightPmt: '102',
-            change: '25',
-            chartStatus: true,
-            loadCapacity: shipByObj?.default_load_capacity || 26,
-            loadUnit: 'MT'
-          };
-          setAddedFreights(prev => [fallbackItem, ...prev]);
-        }
+        const fallbackItem: FavoriteFreightItem = {
+          id: result.data?.id || Date.now().toString(),
+          shipBy: shipByObj?.title || '20FT FCL',
+          pol: polObj?.name || 'Mundra',
+          polFlag: polObj?.country?.flag || polObj?.flag || '',
+          pod: podObj?.name || 'Dammam',
+          podFlag: podObj?.country?.flag || podObj?.flag || '',
+          freight: (result.data?.freight != null ? Math.round(Number(result.data.freight)) : 2663).toString(),
+          freightPmt: (result.data?.freightPMT != null ? Math.round(Number(result.data.freightPMT)) : (result.data?.freight_pmt != null ? Math.round(Number(result.data.freight_pmt)) : 102)).toString(),
+          change: (result.data?.change != null ? Math.round(Number(result.data.change)) : (result.data?.price_change != null ? Math.round(Number(result.data.price_change)) : 25)).toString(),
+          chartStatus: true,
+          loadCapacity: shipByObj?.default_load_capacity || 26,
+          loadUnit: 'MT'
+        };
+        setAddedFreights(prev => [fallbackItem, ...prev]);
 
         toast.success('Freight added to chart successfully!');
         setShowMobileAddForm(false);
@@ -260,6 +305,7 @@ export default function FreightChartClient({
         setLoadingPorts([]);
         setDestinationPorts([]);
       } else {
+
         if (result.response_indication) {
           setActionIndication({ 
             isOpen: true, 
@@ -380,7 +426,13 @@ export default function FreightChartClient({
 
           {/* Data Rows */}
           <div className={`mt-0 lg:mt-2 ${addedFreights.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
-            {addedFreights.length === 0 ? (
+            {isFetchingFavorites && addedFreights.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 lg:py-16 text-center bg-card border border-border border-dashed rounded-xl h-full lg:min-h-[220px]">
+                <i className="fa-solid fa-spinner fa-spin text-brand-blue text-3xl mb-4"></i>
+                <h3 className="text-lg font-bold text-foreground">Loading Your Charts...</h3>
+                <p className="text-muted-foreground text-sm mt-2">Please wait while we fetch your data</p>
+              </div>
+            ) : addedFreights.length === 0 ? (
               <>
                 {/* Mobile/Tablet Compact Card Empty State */}
                 <ChartMobileEmptyCard
@@ -707,7 +759,7 @@ export default function FreightChartClient({
                       </SwipeableCard>
 
                       {/* Desktop Row Layout (Matching Screenshot 1 Exactly) */}
-                      <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-sm font-semibold`}>
+                      <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-[16px] font-semibold`}>
                         {/* 1. Ship by */}
                         <div className="truncate text-foreground/90 font-bold min-w-0" title={item.shipBy}>
                           {item.shipBy}
@@ -748,7 +800,7 @@ export default function FreightChartClient({
                         </div>
 
                         {/* 6. Change */}
-                        <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-sm ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`} title={`${changeVal}$`}>
+                        <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-[16px] ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`} title={`${changeVal}$`}>
                           <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-xs`}></i>
                           <span className="truncate">{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
                         </div>

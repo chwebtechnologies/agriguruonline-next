@@ -25,7 +25,6 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = response.headers.get('Content-Type');
-    console.log(`PDF Proxy fetched ${url} with Content-Type: ${contentType}`);
     
     // Some storage providers (like S3) might return application/octet-stream or binary/octet-stream for PDFs
     // So we just log the content type and continue instead of strictly blocking it.

@@ -55,12 +55,16 @@ export function ChartBottomSheetContainer({
     isFullScreenRef.current = isFullScreen;
     if (sheetRef.current && !isDraggingRef.current) {
       sheetRef.current.style.transition =
-        'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease';
-      sheetRef.current.style.transform = isFullScreen
-        ? 'translateY(0px)'
-        : 'translateY(calc(100% - 52vh))';
+        'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease';
+      if (isFullScreen) {
+        sheetRef.current.style.height = `calc(100dvh - ${headerHeight}px)`;
+        sheetRef.current.style.transform = 'translateY(0px)';
+      } else {
+        sheetRef.current.style.height = '72vh';
+        sheetRef.current.style.transform = 'translateY(0px)';
+      }
     }
-  }, [isFullScreen]);
+  }, [isFullScreen, headerHeight]);
 
   // Lock document body scroll while bottom sheet is open
   useEffect(() => {
@@ -123,10 +127,14 @@ export function ChartBottomSheetContainer({
 
     if (isFullScreenRef.current) {
       if (diff > 0) {
-        sheetRef.current.style.transform = `translateY(${diff}px)`;
+        sheetRef.current.style.height = `calc(100dvh - ${headerHeight}px - ${diff}px)`;
       }
     } else {
-      sheetRef.current.style.transform = `translateY(calc(100% - 52vh + ${diff}px))`;
+      if (diff < 0) {
+        sheetRef.current.style.height = `calc(72vh + ${-diff}px)`;
+      } else {
+        sheetRef.current.style.transform = `translateY(${diff}px)`;
+      }
     }
   };
 
@@ -161,8 +169,9 @@ export function ChartBottomSheetContainer({
         setTimeout(() => onClose(), 250);
       } else {
         sheetRef.current.style.transition =
-          'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
-        sheetRef.current.style.transform = 'translateY(calc(100% - 52vh))';
+          'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+        sheetRef.current.style.height = '72vh';
+        sheetRef.current.style.transform = 'translateY(0px)';
       }
     } else {
       // Swiping DOWN from fullscreen
@@ -173,7 +182,8 @@ export function ChartBottomSheetContainer({
         setTimeout(() => onClose(), 250);
       } else {
         sheetRef.current.style.transition =
-          'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+          'height 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+        sheetRef.current.style.height = `calc(100dvh - ${headerHeight}px)`;
         sheetRef.current.style.transform = 'translateY(0px)';
       }
     }
@@ -242,13 +252,11 @@ export function ChartBottomSheetContainer({
           }`}
           onClick={(e) => e.stopPropagation()}
           style={{
-            height: maxExpandedHeight,
+            height: isFullScreen ? maxExpandedHeight : '72vh',
             maxHeight: maxExpandedHeight,
-            transform: isFullScreen
-              ? 'translateY(0px)'
-              : 'translateY(calc(100% - 52vh))',
+            transform: 'translateY(0px)',
             transition:
-              'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease',
+              'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.32s ease',
           }}
         >
           {/* Swipe up for Details Indicator */}
@@ -292,7 +300,7 @@ export function ChartBottomSheetContainer({
           {/* Drag Handle Top Bar */}
           {!isFullScreen && (
             <div
-              className="pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none bg-background shrink-0"
+              className="pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing touch-none flex flex-col items-center justify-center w-full select-none bg-background shrink-0 rounded-t-[28px]"
               onTouchStart={(e) => {
                 if (e.cancelable) e.preventDefault();
                 handleDragStart(e.touches[0].clientY);

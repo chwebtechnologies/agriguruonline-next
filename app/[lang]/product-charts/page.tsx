@@ -50,20 +50,7 @@ async function getChartsInitialData(lang: string = 'en') {
         name: p.name || '',
         category: p.category ? { id: p.category.id || '', name: p.category.name || '' } : { id: '', name: '' },
         country: p.country ? { id: p.country.id || '', name: p.country.name || '', flag: p.country.flag || '', iso2: p.country.iso2 || '' } : { id: '', name: '', flag: '', iso2: '' },
-        chart_status: p.chart_status,
-        loading_ports: Array.isArray(p.loading_ports)
-          ? p.loading_ports.map((lp: any) => ({
-              id: lp.port?.id || lp.id || '',
-              name: lp.port?.name || lp.name || 'Port',
-              price: lp.price,
-              destination_ports: Array.isArray(lp.destination_ports)
-                ? lp.destination_ports.map((dp: any) => ({
-                    id: dp.port?.id || dp.id || '',
-                    name: dp.port?.name || dp.name || 'Destination Port'
-                  }))
-                : []
-            }))
-          : []
+        chart_status: p.chart_status
       }))
 
       marketedProducts = rawProducts.filter(p => p.is_marketed).map((p: any) => {

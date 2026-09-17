@@ -256,6 +256,7 @@ export const tradingService = {
     try {
       const json = await customFetchJSON<any>(url, {
         params: { is_active: 'true', lang_code: lang, source: 'web' },
+        cache: 'no-store',
       });
       return json?.data?.products || (Array.isArray(json?.data) ? json.data : []);
     } catch (error) {
@@ -369,7 +370,7 @@ export const tradingService = {
     try {
       const json = await customFetchJSON<any>(url, {
         params: { lang_code: lang, source: 'web' },
-        revalidate: 3600,
+        cache: 'no-store',
       });
       const raw = json?.data?.shipping_container || json?.data?.shipping_containers || (Array.isArray(json?.data) ? json.data : []);
       return Array.isArray(raw) ? raw : [];
@@ -389,7 +390,7 @@ export const tradingService = {
     try {
       const json = await customFetchJSON<any>(url, {
         params: { lang_code: lang, source: 'web' },
-        revalidate: 3600,
+        cache: 'no-store',
       });
       const raw = json?.data?.shipping_term || json?.data?.shipping_terms || (Array.isArray(json?.data) ? json.data : []);
       return Array.isArray(raw) ? raw : [];

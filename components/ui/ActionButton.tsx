@@ -30,8 +30,8 @@ export function ActionButton({
       defaultIcon = 'fa-plus';
       break;
     case 'default':
-      bgClass = 'bg-primary-gradient hover:opacity-90 text-white shadow-blue-500/20';
-      defaultIcon = 'fa-arrow-right';
+      bgClass = 'bg-brand-blue hover:bg-brand-blue/90 text-white shadow-blue-500/20';
+      defaultIcon = '';
       break;
   }
 

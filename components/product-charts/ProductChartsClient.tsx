@@ -98,6 +98,18 @@ import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard'
 import { ChartBottomSheetContainer } from '@/components/ui/charts/ChartBottomSheetContainer';
 
 
+const openNextDropdown = (mobileId: string, desktopId: string) => {
+  setTimeout(() => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth >= 1024) {
+        document.getElementById(desktopId)?.click();
+      } else {
+        document.getElementById(mobileId)?.click();
+      }
+    }
+  }, 100);
+};
+
 interface ChartsClientProps {
   initialProducts?: Product[];
   initialShippingTerms?: ShippingTerm[];
@@ -207,10 +219,77 @@ export default function ProductChartsClient({
   const [selectedPOL, setSelectedPOL] = useState('');
   const [selectedPOD, setSelectedPOD] = useState('');
   const [addedProducts, setAddedProducts] = useState<FavoriteItem[]>(initialFavorites);
+  const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(true);
 
   useEffect(() => {
-    setAddedProducts(initialFavorites);
-  }, [initialFavorites]);
+    let isMounted = true;
+    const fetchLatestFavorites = async () => {
+      try {
+        setIsFetchingFavorites(true);
+        const favsRes = await getFavoriteProductsAction(lang);
+        if (!isMounted) return;
+        if (favsRes.success && Array.isArray(favsRes.data)) {
+          const isChart = (val: any) => {
+            if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
+            return true;
+          };
+          const getTitle = (obj: any, fallback = 'N/A') => {
+            if (!obj) return fallback;
+            if (typeof obj === 'string') return obj;
+            return obj.name || obj.title || obj.label || fallback;
+          };
+          const getFlag = (obj: any) => {
+            if (!obj) return '';
+            if (typeof obj === 'string') return obj;
+            return obj.flag || obj.country?.flag || '';
+          };
+          const mapped: FavoriteItem[] = favsRes.data.map((item: any) => {
+            const prodName = getTitle(item.product) !== 'N/A' ? getTitle(item.product) : (item.product_name || item.name || 'N/A');
+            const catName = getTitle(item.category) !== 'N/A' ? getTitle(item.category) : (item.category_name || 'N/A');
+            const countryName = getTitle(item.country) !== 'N/A' ? getTitle(item.country) : (item.country_name || 'N/A');
+            const countryFlag = getFlag(item.country) || item.country_flag || item.flag || '';
+            const shipBy = getTitle(item.shipping_container) !== 'N/A' ? getTitle(item.shipping_container) : (getTitle(item.shippingContainer) !== 'N/A' ? getTitle(item.shippingContainer) : (item.ship_by || item.shipBy || 'N/A'));
+            const term = getTitle(item.shipping_term) !== 'N/A' ? getTitle(item.shipping_term) : (getTitle(item.shippingTerm) !== 'N/A' ? getTitle(item.shippingTerm) : (item.term || 'N/A'));
+            const pol = getTitle(item.loading_port) !== 'N/A' ? getTitle(item.loading_port) : (getTitle(item.loadingPort) !== 'N/A' ? getTitle(item.loadingPort) : (item.pol || 'N/A'));
+            const polFlag = getFlag(item.loading_port) || getFlag(item.loadingPort) || item.pol_flag || '';
+            const pod = getTitle(item.destination_port) !== 'N/A' ? getTitle(item.destination_port) : (getTitle(item.destinationPort) !== 'N/A' ? getTitle(item.destinationPort) : (item.pod || 'N/A'));
+            const podFlag = getFlag(item.destination_port) || getFlag(item.destinationPort) || item.pod_flag || '';
+            const price = (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString();
+            const change = (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString();
+            return {
+              id: item.id || Date.now(),
+              category: catName,
+              country: countryName,
+              countryFlag,
+              product: prodName,
+              shipBy,
+              term,
+              pol,
+              polFlag,
+              pod,
+              podFlag,
+              price,
+              change,
+              chartStatus: isChart(item.chart_status) && isChart(item.chartStatus) && isChart(item.product?.chart_status)
+            };
+          });
+          setAddedProducts(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch latest favorites on mount", err);
+      } finally {
+        if (isMounted) setIsFetchingFavorites(false);
+      }
+    };
+    fetchLatestFavorites();
+    return () => { isMounted = false; };
+  }, [lang]);
+
+  useEffect(() => {
+    if (!isFetchingFavorites && addedProducts.length === 0 && initialFavorites.length > 0) {
+      setAddedProducts(initialFavorites);
+    }
+  }, [initialFavorites, isFetchingFavorites, addedProducts.length]);
 
   // Compute unique categories
   const categories = useMemo(() => {
@@ -271,11 +350,26 @@ export default function ProductChartsClient({
     setLoadingPorts([]);
     setDestinationPorts([]);
     setFetchedPackingTitle('');
-    if (val) setTimeout(() => document.getElementById('select-country')?.click(), 100);
+    
+    if (val) {
+      const map = new Map<string, Country>();
+      (productsData || []).forEach(p => {
+        if (p.category?.id === val && p.country?.id) {
+          map.set(p.country.id, p.country);
+        }
+      });
+      const availableCountries = Array.from(map.values());
+      
+      if (availableCountries.length === 1) {
+        handleCountrySelect(availableCountries[0].id, val);
+      } else {
+        openNextDropdown('select-country', 'desktop-country-select');
+      }
+    }
   };
 
   // 2. Handle Country Select / Clear: clears Product, Ship by, Term, POL, POD
-  const handleCountrySelect = (val: string) => {
+  const handleCountrySelect = (val: string, currentCategory?: string) => {
     setSelectedCountry(val);
     setSelectedProduct('');
     setSelectedShipBy('');
@@ -286,7 +380,21 @@ export default function ProductChartsClient({
     setLoadingPorts([]);
     setDestinationPorts([]);
     setFetchedPackingTitle('');
-    if (val) setTimeout(() => document.getElementById('select-product')?.click(), 100);
+    
+    if (val) {
+      const categoryToUse = currentCategory || selectedCategory;
+      const availableProducts = (productsData || []).filter(p => {
+        if (categoryToUse && p.category?.id !== categoryToUse) return false;
+        if (p.country?.id !== val) return false;
+        return true;
+      });
+      
+      if (availableProducts.length === 1) {
+        handleProductSelect(availableProducts[0].id);
+      } else {
+        openNextDropdown('select-product', 'desktop-product-select');
+      }
+    }
   };
 
   // 3. Handle Product Select / Clear: fetches all containers from API
@@ -318,9 +426,9 @@ export default function ProductChartsClient({
         setShippingContainers(res.data);
         if (res.data.length === 1) {
           setSelectedShipBy(res.data[0].id);
-          setTimeout(() => document.getElementById('select-term')?.click(), 100);
+          openNextDropdown('select-term', 'desktop-term-select');
         } else {
-          setTimeout(() => document.getElementById('select-shipby')?.click(), 100);
+          openNextDropdown('select-shipby', 'desktop-shipby-select');
         }
       } else {
         setShippingContainers([]);
@@ -356,7 +464,7 @@ export default function ProductChartsClient({
     setSelectedPOD('');
     setLoadingPorts([]);
     setDestinationPorts([]);
-    if (shipById) setTimeout(() => document.getElementById('select-term')?.click(), 100);
+    if (shipById) openNextDropdown('select-term', 'desktop-term-select');
   }, []);
 
   // 5. Handle Term (Incoterm) Select / Clear: fetches all loading ports from API
@@ -387,13 +495,13 @@ export default function ProductChartsClient({
               .then(dRes => {
                 if (dRes.success && Array.isArray(dRes.data)) {
                   setDestinationPorts(dRes.data);
-                  setTimeout(() => document.getElementById('select-pod')?.click(), 100);
+                  openNextDropdown('select-pod', 'desktop-pod-select');
                 }
               })
               .finally(() => setPodLoading(false));
           }
         } else {
-          setTimeout(() => document.getElementById('select-port')?.click(), 100);
+          openNextDropdown('select-port', 'desktop-pol-select');
         }
       } else {
         setLoadingPorts([]);
@@ -422,7 +530,7 @@ export default function ProductChartsClient({
         if (res.data.length === 1) {
           setSelectedPOD(res.data[0].id);
         } else {
-          setTimeout(() => document.getElementById('select-pod')?.click(), 100);
+          openNextDropdown('select-pod', 'desktop-pod-select');
         }
       } else {
         setDestinationPorts([]);
@@ -488,83 +596,54 @@ export default function ProductChartsClient({
       const result = await addFavoriteProductAction(payload, lang);
 
       if (result.success) {
-        // Fetch fresh favorite products list from server immediately so live add matches page refresh 100%
-        const favsRes = await getFavoriteProductsAction(lang);
+        const shipByObj = (shippingContainers || []).find(s => s.id === selectedShipBy);
+        const termObj = (shippingTerms || []).find(t => t.id === selectedTerm);
+        const polObj = (loadingPorts || []).find(p => p.id === selectedPOL);
+        const podObj = (destinationPorts || []).find(p => p.id === selectedPOD);
 
-        if (favsRes.success && Array.isArray(favsRes.data) && favsRes.data.length > 0) {
-          const isChart = (val: any) => {
-            if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
-            return val === true || val === 1 || val === '1' || val === 'on' || val === 'true' || val === 'active' || val === 'enable' || val === 'enabled';
-          };
+        const findFlag = (port: any) => {
+          if (!port) return '';
+          if (port.country?.flag) return port.country.flag;
+          if (port.flag) return port.flag;
+          if (port.keywords) {
+            const kw = (port.keywords || '').toLowerCase();
+            const matched = (countries || []).find(c => kw.includes((c.name || '').toLowerCase()));
+            if (matched) return matched.flag;
+          }
+          return '';
+        };
 
-          const mapped: FavoriteItem[] = favsRes.data.map((item: any) => ({
-            id: item.id || Date.now(),
-            category: item.category?.name || 'N/A',
-            country: item.country?.name || 'N/A',
-            countryFlag: item.country?.flag || '',
-            product: item.product?.name || 'N/A',
-            shipBy: item.shipping_container?.title || 'N/A',
-            term: item.shipping_term?.title || 'N/A',
-            pol: item.loading_port?.name || 'N/A',
-            polFlag: item.loading_port?.flag || item.loading_port?.country?.flag || '',
-            pod: item.destination_port?.name || 'N/A',
-            podFlag: item.destination_port?.flag || item.destination_port?.country?.flag || '',
-            price: (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString(),
-            change: (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString(),
-            chartStatus: isChart(item.chart_status) || isChart(item.chartStatus) || isChart(item.product?.chart_status),
-          }));
+        const isChartStatusActive = (val: any) => {
+          if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false') return false;
+          return true;
+        };
 
-          setAddedProducts(mapped);
-        } else {
-          const shipByObj = (shippingContainers || []).find(s => s.id === selectedShipBy);
-          const termObj = (shippingTerms || []).find(t => t.id === selectedTerm);
-          const polObj = (loadingPorts || []).find(p => p.id === selectedPOL);
-          const podObj = (destinationPorts || []).find(p => p.id === selectedPOD);
+        const finalChartStatus = 
+          isChartStatusActive(result.data?.chart_status) ||
+          isChartStatusActive(result.data?.chartStatus) ||
+          isChartStatusActive(result.data?.product?.chart_status) ||
+          isChartStatusActive(result.data?.is_chart) ||
+          isChartStatusActive(prod.chart_status);
 
-          const findFlag = (port: any) => {
-            if (!port) return '';
-            if (port.country?.flag) return port.country.flag;
-            if (port.flag) return port.flag;
-            if (port.keywords) {
-              const kw = (port.keywords || '').toLowerCase();
-              const matched = (countries || []).find(c => kw.includes((c.name || '').toLowerCase()));
-              if (matched) return matched.flag;
-            }
-            return '';
-          };
-
-          const isChartStatusActive = (val: any) => {
-            if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false') return false;
-            return true;
-          };
-
-          const finalChartStatus = 
-            isChartStatusActive(result.data?.chart_status) ||
-            isChartStatusActive(result.data?.chartStatus) ||
-            isChartStatusActive(result.data?.product?.chart_status) ||
-            isChartStatusActive(result.data?.is_chart) ||
-            isChartStatusActive(prod.chart_status);
-
-          setAddedProducts(prev => [
-            {
-              id: result.data?.id || Date.now(),
-              category: prod.category?.name || 'N/A',
-              country: prod.country?.name || 'N/A',
-              countryFlag: prod.country?.flag || '',
-              product: prod.name,
-              shipBy: shipByObj ? shipByObj.title : 'N/A',
-              term: termObj ? termObj.title : 'N/A',
-              pol: polObj ? polObj.name : 'N/A',
-              polFlag: findFlag(polObj),
-              pod: isPodRequired ? (podObj ? podObj.name : 'N/A') : 'N/A',
-              podFlag: isPodRequired ? findFlag(podObj) : '',
-              price: (result.data?.price != null ? Math.round(Number(result.data.price)) : (result.data?.current_price != null ? Math.round(Number(result.data.current_price)) : 0)).toString(),
-              change: (result.data?.change != null ? Math.round(Number(result.data.change)) : (result.data?.price_change != null ? Math.round(Number(result.data.price_change)) : (result.data?.change_percentage != null ? Math.round(Number(result.data.change_percentage)) : 0))).toString(),
-              chartStatus: finalChartStatus,
-            },
-            ...prev
-          ]);
-        }
+        setAddedProducts(prev => [
+          {
+            id: result.data?.id || Date.now(),
+            category: prod.category?.name || 'N/A',
+            country: prod.country?.name || 'N/A',
+            countryFlag: prod.country?.flag || '',
+            product: prod.name,
+            shipBy: shipByObj ? shipByObj.title : 'N/A',
+            term: termObj ? termObj.title : 'N/A',
+            pol: polObj ? polObj.name : 'N/A',
+            polFlag: findFlag(polObj),
+            pod: isPodRequired ? (podObj ? podObj.name : 'N/A') : 'N/A',
+            podFlag: isPodRequired ? findFlag(podObj) : '',
+            price: (result.data?.price != null ? Math.round(Number(result.data.price)) : (result.data?.current_price != null ? Math.round(Number(result.data.current_price)) : 0)).toString(),
+            change: (result.data?.change != null ? Math.round(Number(result.data.change)) : (result.data?.price_change != null ? Math.round(Number(result.data.price_change)) : (result.data?.change_percentage != null ? Math.round(Number(result.data.change_percentage)) : 0))).toString(),
+            chartStatus: finalChartStatus,
+          },
+          ...prev
+        ]);
         
         // Reset selections cleanly
         setSelectedCategory('');
@@ -891,7 +970,13 @@ export default function ProductChartsClient({
 
         {/* Data Rows */}
         <div className={`mt-0 lg:mt-2 ${addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
-          {addedProducts.length === 0 ? (
+          {isFetchingFavorites && addedProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 lg:py-16 text-center bg-card border border-border border-dashed rounded-xl h-full lg:min-h-[220px]">
+              <i className="fa-solid fa-spinner fa-spin text-brand-blue text-3xl mb-4"></i>
+              <h3 className="text-lg font-bold text-foreground">Loading Your Charts...</h3>
+              <p className="text-muted-foreground text-sm mt-2">Please wait while we fetch your data</p>
+            </div>
+          ) : addedProducts.length === 0 ? (
             <>
               {/* Mobile/Tablet Compact Card Empty State */}
               <ChartMobileEmptyCard
@@ -1280,7 +1365,7 @@ export default function ProductChartsClient({
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
-                    <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-sm font-semibold`}>
+                    <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-[16px] font-semibold`}>
                       <div className="truncate text-foreground/90 min-w-0" title={item.category}>{item.category}</div>
                       <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.country}>
                         {item.countryFlag && <FlagIcon src={getFlagUrl(item.countryFlag)} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}
@@ -1297,8 +1382,8 @@ export default function ProductChartsClient({
                         {item.podFlag && <FlagIcon src={getFlagUrl(item.podFlag)} alt={`${item.pod || 'POD'} Flag`} title={`${item.pod || 'POD'} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}
                         <span className="truncate min-w-0">{item.pod || '-'}</span>
                       </div>
-                      <div className="w-full flex items-center justify-center text-center font-bold text-foreground text-sm min-w-0" title={`$${item.price}`}>${item.price}</div>
-                      <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-sm ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`} title={`${changeVal}$`}>
+                      <div className="w-full flex items-center justify-center text-center font-bold text-foreground text-[16px] min-w-0" title={`$${item.price}`}>${item.price}</div>
+                      <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-[16px] ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`} title={`${changeVal}$`}>
                         <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-xs`}></i>
                         <span className="truncate">{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
                       </div>

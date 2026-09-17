@@ -364,6 +364,9 @@ export default function MobileCommodityChart({
     return filteredData || [];
   }, [filteredData]);
 
+  // Removed custom displayChartData and hasTriggeredInitialAnim hack
+  // to rely on Recharts' native left-to-right mount animation by resetting the AreaChart key.
+
   // Isolated Specifications Parsing (Runs ONLY when product details change)
   const parsedSpecs = useMemo(() => {
     const rawSpecsHtml = productDetails?.quality_specification || apiProduct?.product?.quality_specification;
@@ -958,7 +961,7 @@ export default function MobileCommodityChart({
               )}
               <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
-                    key={chartData.length > 0 ? "loaded" : "empty"}
+                    key={`main-chart-${item.id}-${timeRange}`}
                     data={chartData}
                     margin={{ top: 12, right: 25, left: 10, bottom: 0 }}
                     onMouseMove={(e: any) => {
@@ -1967,7 +1970,7 @@ export default function MobileCommodityChart({
               <ActionButton
                 type="button"
                 variant={userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default'}
-                icon={userType === 'seller' ? 'fa-tag' : 'fa-cart-shopping'}
+                icon={userType === 'seller' ? 'fa-tag' : userType === 'buyer' ? 'fa-cart-shopping' : ''}
               >
                 {userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY'}
               </ActionButton>

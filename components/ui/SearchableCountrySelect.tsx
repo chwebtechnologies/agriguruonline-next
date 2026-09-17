@@ -379,7 +379,7 @@ export default function SearchableCountrySelect({
               ) : (
                 <div className="p-8 text-center flex flex-col items-center justify-center text-foreground/50">
                   <i className="fa-solid fa-globe text-3xl mb-2 text-foreground/20"></i>
-                  <p className="text-xs sm:text-sm font-medium">No countries found for "{search}"</p>
+                  <p className="text-xs sm:text-sm font-medium">No countries found for &quot;{search}&quot;</p>
                   <button
                     type="button"
                     onClick={() => setSearch("")}

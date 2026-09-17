@@ -112,16 +112,42 @@ export default async function MarketedProductsPage(
           <PageHeader title={common.marketedProducts} backText={common.back} />
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
-            {data.products.map((product, index) => (
-              <MarketedProductCard
-                key={product.id}
-                product={product}
-                lang={lang}
-                common={common}
-                imageBaseUrl={imageBaseUrl}
-                priority={index === 0}
-              />
-            ))}
+            {data.products.map((product, index) => {
+              const mappedProduct = {
+                id: product.id,
+                name: product.name,
+                product_code: product.product_code,
+                slug: product.slug,
+                image: product.image,
+                thumbnail: product.thumbnail,
+                quality_specification: product.quality_specification,
+                category: product.category ? {
+                  id: product.category.id,
+                  name: product.category.name
+                } : undefined,
+                country: product.country ? {
+                  id: product.country.id,
+                  name: product.country.name,
+                  flag: product.country.flag,
+                  iso2: product.country.iso2
+                } : undefined,
+                loading_ports: product.loading_ports?.map(lp => ({
+                  price: lp.price,
+                  port: lp.port ? { name: lp.port.name } : undefined
+                }))
+              };
+              
+              return (
+                <MarketedProductCard
+                  key={product.id}
+                  product={mappedProduct as any}
+                  lang={lang}
+                  common={common}
+                  imageBaseUrl={imageBaseUrl}
+                  priority={index === 0}
+                />
+              );
+            })}
           </div>
 
           <Pagination
