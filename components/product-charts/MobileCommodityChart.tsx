@@ -155,6 +155,8 @@ export default function MobileCommodityChart({
   const [productDetails, setProductDetails] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  const [displayChartData, setDisplayChartData] = useState<PriceHistoryItem[]>([]);
+
   const cacheKey = `${item.id}_${lang}`;
 
   // Fetch price history from API
@@ -364,8 +366,19 @@ export default function MobileCommodityChart({
     return filteredData || [];
   }, [filteredData]);
 
-  // Removed custom displayChartData and hasTriggeredInitialAnim hack
-  // to rely on Recharts' native left-to-right mount animation by resetting the AreaChart key.
+  // Hack for left-to-right initial animation
+  useEffect(() => {
+    if (chartData.length === 0) {
+      setDisplayChartData([]);
+      return;
+    }
+    
+    setDisplayChartData([]);
+    const timer = setTimeout(() => {
+      setDisplayChartData(chartData);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [chartData]);
 
   // Isolated Specifications Parsing (Runs ONLY when product details change)
   const parsedSpecs = useMemo(() => {
@@ -961,8 +974,8 @@ export default function MobileCommodityChart({
               )}
               <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
-                    key={`main-chart-${item.id}-${timeRange}`}
-                    data={chartData}
+                    key={displayChartData.length > 0 ? "loaded" : "empty"}
+                    data={displayChartData}
                     margin={{ top: 12, right: 25, left: 10, bottom: 0 }}
                     onMouseMove={(e: any) => {
                       if (e && e.activePayload && e.activePayload.length) {

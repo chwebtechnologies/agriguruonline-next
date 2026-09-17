@@ -62,6 +62,9 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
           </>
         ) : (
           <>
+            <button className="shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-lg border border-border bg-background flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors active:scale-95 shadow-sm">
+              <i className="fa-solid fa-plus text-lg sm:text-xl"></i>
+            </button>
             <div className="flex-1 relative group">
               <div className="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-brand-blue transition-colors">
                 <i className="fa-solid fa-magnifying-glass text-sm sm:text-base"></i>
