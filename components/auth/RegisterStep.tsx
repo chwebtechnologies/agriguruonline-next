@@ -75,7 +75,10 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
         const data = await res.json();
         
         if (data.success === 1 && data.data?.access_token) {
-           await createSession(data.data.access_token, data.data.user);
+           await createSession(
+             data.data.access_token, 
+             data.data.user
+           );
            toast.success("Account created successfully!");
            onComplete();
         } else {

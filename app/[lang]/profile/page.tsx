@@ -51,7 +51,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
 
   // 100% Security: If there is no profile data or we marked for logout, redirect immediately
   if (shouldLogout || !profileData) {
-    return <ForceLogout lang={lang} />;
+    redirect(`/${lang}/login`);
   }
 
   // Parallel Fetching for Categories, Countries, and KYC using Centralized Services

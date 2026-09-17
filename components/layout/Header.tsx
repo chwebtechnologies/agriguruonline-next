@@ -6,7 +6,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import { getCategories } from '@/lib/category'
 import { ForceLogout } from '@/components/auth/ForceLogout'
-import { getAuthData } from '@/lib/user-data'
+import { getAuthData, invalidateUserAuthCache } from '@/lib/user-data'
 import { tradingService } from '@/lib/api'
 import { SearchProduct } from '@/types/search'
 
@@ -126,12 +126,8 @@ export default async function Header(props?: HeaderProps) {
     await getAuthData(token, activeLang)
 
   if (shouldLogout) {
-    return (
-      <>
-        <ForceLogout lang={activeLang} />
-        <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} initialSearchProducts={initialSearchProducts} />
-      </>
-    )
+    invalidateUserAuthCache(token)
+    return <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} initialSearchProducts={initialSearchProducts} />
   }
 
   return (

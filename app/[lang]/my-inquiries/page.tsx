@@ -41,7 +41,7 @@ export default async function MyInquiriesPage(props: { params: Promise<{ lang: s
   const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
   
   if (shouldLogout || !profileData) {
-    return <ForceLogout lang={lang} />;
+    redirect(`/${lang}/login?redirectUrl=/${lang}/my-inquiries`);
   }
 
   const getNormalizedType = (typeData: any) => {

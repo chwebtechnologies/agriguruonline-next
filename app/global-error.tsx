@@ -32,6 +32,11 @@ export default function GlobalError({
               <p className="text-foreground/80 text-sm md:text-base">
                 A critical error occurred while loading the application.
               </p>
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 dark:bg-red-950/60 rounded text-red-800 dark:text-red-200 text-xs font-mono break-all text-left">
+                  {error.message || String(error)}
+                </div>
+              )}
             </div>
             <div className="pt-8 flex justify-center">
               <button

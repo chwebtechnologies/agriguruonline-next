@@ -104,7 +104,10 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
           nextStep = successData?.data?.next_step || null;
 
           if (nextStep === "LOGGED_IN" && successData.data?.access_token) {
-            await createSession(successData.data.access_token, successData.data.user);
+            await createSession(
+              successData.data.access_token, 
+              successData.data.user
+            );
           }
         } catch (e) {
           const errMsg = "Failed to setup session. Please try again.";

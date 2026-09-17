@@ -40,7 +40,7 @@ export default async function MyOffersPage(props: { params: Promise<{ lang: stri
   const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
   
   if (shouldLogout || !profileData) {
-    return <ForceLogout lang={lang} />;
+    redirect(`/${lang}/login?redirectUrl=/${lang}/my-offers`);
   }
 
   const getNormalizedType = (typeData: any) => {

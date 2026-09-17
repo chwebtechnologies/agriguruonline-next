@@ -6,7 +6,7 @@ import Image from 'next/image'
 import CategoryLink from '@/components/category/CategoryLink'
 import { usePathname, useRouter } from 'next/navigation'
 
-import { AgriGuruLogo } from './HeaderGuest'
+import { HeaderGuest, AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/layout/AppMenu'
 import { getAssetsUrl } from '@/lib/api-utils';
 import { authService } from '@/lib/api';
@@ -82,6 +82,9 @@ interface HeaderAuthProps {
 }
 
 export function HeaderAuth({ token, dict, activeLang, categories: apiCategories, profile: initialProfile, alerts: initialAlerts = [], notifications: initialNotifications = [], aiPredicts: initialAiPredicts = [], initialSearchProducts = [] }: HeaderAuthProps) {
+  const currentPath = usePathname()
+  const isGuestPage = currentPath ? (currentPath.includes('/login') || currentPath.includes('/register')) : false
+
   const [profile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -353,6 +356,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const finalFitCount = categoriesList.length > 0 ? Math.max(1, fitCount) : 0
   const displayCategories = categoriesList.slice(0, finalFitCount)
   const dropdownCategories = categoriesList.slice(finalFitCount)
+
+  if (isGuestPage) {
+    return <HeaderGuest dict={dict} activeLang={activeLang} categories={apiCategories} initialSearchProducts={initialSearchProducts} />
+  }
 
   return (
     <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0 md:top-10" dir={dir}>

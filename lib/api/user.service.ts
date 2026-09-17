@@ -60,11 +60,12 @@ const AUTH_CACHE_TTL_MS = 45 * 1000; // 45 seconds
 
 export function invalidateUserAuthCache(token?: string) {
   if (token) {
+    const tokenPrefix = token.slice(0, 16);
     for (const key of userProfileMemoryCache.keys()) {
-      if (key.startsWith(token.slice(0, 16))) userProfileMemoryCache.delete(key);
+      if (key.startsWith(tokenPrefix)) userProfileMemoryCache.delete(key);
     }
     for (const key of authDataMemoryCache.keys()) {
-      if (key.startsWith(token.slice(0, 16))) authDataMemoryCache.delete(key);
+      if (key.startsWith(tokenPrefix)) authDataMemoryCache.delete(key);
     }
   } else {
     userProfileMemoryCache.clear();
@@ -91,18 +92,21 @@ export const userService = {
     const url = `${getUserApiUrl()}/user/my-profile?lang_code=${safeLang}&source=web`;
 
     try {
-      const res = await customFetch(url, { token });
+      let res = await customFetch(url, { token });
+
+
 
       if (res.ok) {
         const json = await res.json();
         if (json.success === false || !json.data) {
-          const result = { userProfile: null, shouldLogout: true };
-          return result;
+          invalidateUserAuthCache();
+          return { userProfile: null, shouldLogout: true };
         }
         const result = { userProfile: json.data, shouldLogout: false };
         userProfileMemoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
         return result;
       } else if (res.status === 401 || res.status === 403) {
+        invalidateUserAuthCache();
         return { userProfile: null, shouldLogout: true };
       }
     } catch (err) {

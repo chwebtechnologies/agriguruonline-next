@@ -25,7 +25,7 @@ export async function createSession(accessToken: string, user: any) {
   // Secure HttpOnly cookie for the access token
   cookieStore.set("auth_token", accessToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https") ?? process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
@@ -43,7 +43,7 @@ export async function createSession(accessToken: string, user: any) {
   // Non-HttpOnly cookie for non-sensitive user info (optional, if client needs it)
   cookieStore.set("user_info", JSON.stringify(safeUser), {
     httpOnly: false, 
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https") ?? process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
@@ -51,9 +51,13 @@ export async function createSession(accessToken: string, user: any) {
 }
 
 export async function destroySession() {
-  const cookieStore = await cookies();
-  cookieStore.delete("auth_token");
-  cookieStore.delete("user_info");
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete("auth_token");
+    cookieStore.delete("user_info");
+  } catch (cookieErr) {
+    console.warn("[destroySession] Cannot modify cookies during RSC rendering:", cookieErr);
+  }
 }
 
 export async function logoutUser() {

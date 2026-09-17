@@ -46,6 +46,12 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
   if (!headers.has('Accept')) {
     headers.set('Accept', 'application/json');
   }
+  if (!headers.has('x-app-source')) {
+    headers.set('x-app-source', 'web');
+  }
+  if (!headers.has('source')) {
+    headers.set('source', 'web');
+  }
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -86,7 +92,11 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
   fetchInit.signal = controller.signal;
 
   try {
-    const res = await fetch(finalUrl, fetchInit);
+    let res = await fetch(finalUrl, fetchInit);
+    
+    // 401 Interceptor token refresh logic has been removed as per user request
+
+    
     clearTimeout(timeoutId);
     return res;
   } catch (error) {

@@ -51,7 +51,7 @@ function getLocale(request: NextRequest): string {
   return defaultLocale
 }
 
-export default function proxy(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const ip = request.headers.get('x-forwarded-for') || 'unknown';
 
@@ -65,7 +65,7 @@ export default function proxy(request: NextRequest) {
   }
 
   // 2. Auth Guards
-  const token = request.cookies.get('auth_token')?.value;
+  let token = request.cookies.get('auth_token')?.value;
   let isTokenValid = false;
 
   if (token) {
@@ -110,7 +110,6 @@ export default function proxy(request: NextRequest) {
   }
 
   // Define protected routes (require auth)
-  // Added: my-offers, alerts-setups, ai-predict, product-charts, etc. based on typical secure pages
   const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|market-reports|my-inquiries|my-offers|alerts-setups)/);
   
   if (isProtectedRoute && (!token || !isTokenValid)) {
@@ -118,11 +117,9 @@ export default function proxy(request: NextRequest) {
     loginUrl.searchParams.set('redirectUrl', pathname);
     const response = NextResponse.redirect(loginUrl);
     
-    if (token && !isTokenValid) {
-      // Clear expired or invalid token
-      response.cookies.delete('auth_token');
-      response.cookies.delete('user_info');
-    }
+    // Clear expired auth token
+    response.cookies.delete('auth_token');
+    response.cookies.delete('user_info');
     
     return response;
   }
@@ -130,12 +127,12 @@ export default function proxy(request: NextRequest) {
   // Define guest-only routes (redirect if logged in)
   const isGuestRoute = pathname.match(/^\/[a-z]{2}\/(login|register)/);
   
-  if (isGuestRoute && token) {
+  if (isGuestRoute && token && isTokenValid) {
     return NextResponse.redirect(new URL(`/${locale}`, request.url));
   }
 
   // 3. Locale Redirect Logic
-  if (pathnameHasLocale) return NextResponse.next()
+  if (pathnameHasLocale) return NextResponse.next();
 
   // Avoid redirecting static files, api endpoints, images, and next internal files
   const isInternalOrStatic = 
@@ -148,7 +145,7 @@ export default function proxy(request: NextRequest) {
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml'
 
-  if (isInternalOrStatic) return NextResponse.next()
+  if (isInternalOrStatic) return NextResponse.next();
 
   // Redirect to correct locale
   request.nextUrl.pathname = `/${locale}${pathname}`
