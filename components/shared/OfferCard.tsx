@@ -84,6 +84,7 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType }: OfferCardP
           <div className="flex items-center justify-between">
             <span className="text-foreground font-bold text-[14px] sm:text-[15px]">{inquiry.market_range}</span>
             <Link 
+              prefetch={false} 
               href={href} 
               className={`${buttonColorClass} px-5 sm:px-6 py-1 sm:py-1.5 rounded text-[13px] sm:text-sm font-bold shadow-sm transition-colors`}
             >

@@ -32,11 +32,10 @@ export default function CategoryLink({
 
   return (
     <Link 
-      href={href} 
+      prefetch={false} href={href} 
       onClick={onClick} 
       onPointerEnter={handleWarmup}
       onTouchStart={handleWarmup}
-      prefetch={true}
       className={`${baseClassName} ${isActive ? activeClassName : inactiveClassName}`}
     >
       {children}

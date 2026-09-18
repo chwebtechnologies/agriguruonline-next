@@ -445,11 +445,11 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   <i className={`fa-solid fa-chevron-down text-[11px] ml-0.5 ${isInsightsActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}></i>
                 </button>
                 <div className={`absolute ${activeLang === 'ar' ? 'right-0' : 'left-0'} mt-5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl transition-all duration-150 z-50 ${hideInsights ? 'hidden' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
-                  <Link href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.news || 'News'}</Link>
-                  <Link href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.events || 'Events'}</Link>
-                  <Link href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.market_updates || 'Market Updates'}</Link>
-                  <Link href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.video_gallery || 'Video Gallery'}</Link>
-                  <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.participation_gallery || 'Participation Gallery'}</Link>
+                  <Link prefetch={false} href={`/${activeLang}/news`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isNewsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.news || 'News'}</Link>
+                  <Link prefetch={false} href={`/${activeLang}/events`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isEventsActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.events || 'Events'}</Link>
+                  <Link prefetch={false} href={`/${activeLang}/market-updates`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isMarketUpdatesActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.market_updates || 'Market Updates'}</Link>
+                  <Link prefetch={false} href={`/${activeLang}/video-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isVideoGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.video_gallery || 'Video Gallery'}</Link>
+                  <Link prefetch={false} href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.participation_gallery || 'Participation Gallery'}</Link>
                 </div>
               </div>
             </nav>
@@ -457,6 +457,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
             <div className="flex items-center gap-4 select-none border-l border-border pl-4 dir-none">
               <div className="flex items-center gap-3">
                 <Link
+                  prefetch={false}
                   href="#"
                   className="h-10 px-5 hidden lg:inline-flex items-center justify-center rounded-lg bg-primary-gradient text-[15px] font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
                 >

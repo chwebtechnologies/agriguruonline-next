@@ -112,7 +112,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
     <>
       <div className="group flex flex-col rounded-md bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs">
         <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border">
-          <Link href={`/${lang}/product/${product.slug}`} prefetch={true} aria-label={product.name} className="block w-full h-full">
+          <Link prefetch={false} href={`/${lang}/product/${product.slug}`} aria-label={product.name} className="block w-full h-full">
             <ImageWithSkeleton
               src={imageUrl}
               alt={product.name}
@@ -159,8 +159,8 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
               {product.category?.name || 'Product'} {product.country?.name ? `• ${product.country.name}` : ''}
             </span>
           </div>
-          <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
-            <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
+          <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" >
+            <Link prefetch={false} href={`/${lang}/product/${product.slug}`} className="hover:text-brand-blue transition-colors">
               {product.name}
             </Link>
           </h2>

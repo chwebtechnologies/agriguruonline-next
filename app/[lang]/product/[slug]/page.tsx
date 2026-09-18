@@ -482,7 +482,7 @@ export default async function ProductDetailPage(
                       </Link>
 
                       <div className="p-2 sm:p-3 flex flex-col flex-1">
-                        <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 line-clamp-2 leading-tight min-h-[34px]" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                        <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 line-clamp-2 leading-tight min-h-[34px]" >
                           <Link href={`/${lang}/product/${simProduct.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
                             {simProduct.name}
                           </Link>

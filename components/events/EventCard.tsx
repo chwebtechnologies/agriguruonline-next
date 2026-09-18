@@ -64,7 +64,7 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
           </span>
         </div>
         
-        <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2 flex-grow" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+        <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2 flex-grow" >
           <FastLink href={`/${lang}/events/${event.slug}`} className="hover:text-brand-blue transition-colors">
             {title}
           </FastLink>

@@ -29,6 +29,122 @@ export async function generateMetadata(
   });
 }
 
+/* ---------- Skeleton Component ---------- */
+function NewsGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+      {[...Array(8)].map((_, i) => (
+        <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
+          <div className="w-full aspect-[4/3] bg-muted rounded-xl"></div>
+          <div className="h-4 bg-muted w-3/4 mt-2 rounded"></div>
+          <div className="h-4 bg-muted w-1/2 rounded"></div>
+          <div className="h-3 bg-muted w-1/4 mt-auto rounded"></div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ---------- News Feed Component ---------- */
+async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, matchedCategory, dict }: any) {
+  const newsData = await cmsService.getLatestNews({ lang, page: currentPage, limit, search: searchQuery, categoryId })
+  const articles = newsData?.data?.news || []
+  const totalItems = newsData?.data?.total || 0
+  const totalPages = Math.ceil(totalItems / limit)
+
+  if (articles.length === 0) {
+    return (
+      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
+          <i className="fa-regular fa-newspaper text-2xl"></i>
+        </div>
+        <h2 className="text-xl font-semibold text-foreground mb-2">{dict.common?.no_search_results_found_for ? dict.common.no_search_results_found_for.replace('for', '').trim() : "No News Found"}</h2>
+        <p className="text-foreground/80 max-w-md mx-auto">
+          We couldn&apos;t find any latest news articles at the moment. Please check back later.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+        {articles.map((article: any, index: number) => (
+          <NewsCard priority={index < 2} key={article.id} article={article} lang={lang} />
+        ))}
+      </div>
+      <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/news`} />
+
+      {/* JSON-LD Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": dict.navigation?.home || "Home",
+                  "item": `https://agriguruonline.com/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": dict.header?.news || "News",
+                  "item": `https://agriguruonline.com/${lang}/news`
+                },
+                ...(matchedCategory ? [{
+                  "@type": "ListItem",
+                  "position": 3,
+                  "name": matchedCategory.name,
+                  "item": `https://agriguruonline.com/${lang}/news?category=${matchedCategory.slug}`
+                }] : [])
+              ]
+            },
+            {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "itemListElement": articles.map((article: any, index: number) => ({
+              "@type": "ListItem",
+              "position": index + 1,
+              "item": {
+                "@type": "NewsArticle",
+                "headline": article.translations?.find((t: any) => t.lang_code === lang)?.title || article.title || article.slug,
+                "description": article.translations?.find((t: any) => t.lang_code === lang)?.description || article.description,
+                "image": [
+                  article.thumbnail?.startsWith('http')
+                    ? article.thumbnail
+                    : article.thumbnail
+                      ? `https://assets.agriguruonline.com/${article.thumbnail}`
+                      : 'https://agriguruonline.com/logo.png'
+                ],
+                "datePublished": article.posting_date || article.created_at,
+                "dateModified": article.posting_date || article.created_at,
+                "author": {
+                  "@type": "Organization",
+                  "name": article.translations?.find((t: any) => t.lang_code === lang)?.source || article.source || "AgriGuru Online"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "AgriGuru Online",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://agriguruonline.com/logo.png"
+                  }
+                },
+                "url": `https://agriguruonline.com/${lang}/news/${article.slug}`
+              }
+            }))
+          }]).replace(/</g, '\\u003c')
+        }}
+      />
+    </>
+  )
+}
+
 /* ---------- Main page component ---------- */
 export default async function LatestNewsPage(props: {
   params: Promise<{ lang: string }>,
@@ -53,11 +169,6 @@ export default async function LatestNewsPage(props: {
     : undefined
   const categoryId = matchedCategory?.id
 
-  const newsData = await cmsService.getLatestNews({ lang, page: currentPage, limit, search: searchQuery, categoryId })
-  const articles = newsData?.data?.news || []
-  const totalItems = newsData?.data?.total || 0
-  const totalPages = Math.ceil(totalItems / limit)
-
   const categoryOptions = apiCategories
     .filter(cat => cat.is_active !== false)
     .map(cat => {
@@ -71,95 +182,20 @@ export default async function LatestNewsPage(props: {
           <PageHeader title={dict.header?.news || "Latest News"} backText={dict.common?.back || "Back"} />
           <ListingFilters categories={categoryOptions} />
 
-          {articles.length === 0 ? (
-            <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
-                <i className="fa-regular fa-newspaper text-2xl"></i>
-              </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">{dict.common?.no_search_results_found_for ? dict.common.no_search_results_found_for.replace('for', '').trim() : "No News Found"}</h2>
-              <p className="text-foreground/80 max-w-md mx-auto">
-                We couldn&apos;t find any latest news articles at the moment. Please check back later.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
-                {articles.map((article, index) => (
-                  <NewsCard priority={index < 2} key={article.id} article={article} lang={lang} />
-                ))}
-              </div>
-              <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/news`} />
-
-              {/* JSON-LD Schema */}
-              <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{
-                  __html: JSON.stringify([
-                    {
-                      "@context": "https://schema.org",
-                      "@type": "BreadcrumbList",
-                      "itemListElement": [
-                        {
-                          "@type": "ListItem",
-                          "position": 1,
-                          "name": dict.navigation?.home || "Home",
-                          "item": `https://agriguruonline.com/${lang}`
-                        },
-                        {
-                          "@type": "ListItem",
-                          "position": 2,
-                          "name": dict.header?.news || "News",
-                          "item": `https://agriguruonline.com/${lang}/news`
-                        },
-                        ...(matchedCategory ? [{
-                          "@type": "ListItem",
-                          "position": 3,
-                          "name": matchedCategory.name,
-                          "item": `https://agriguruonline.com/${lang}/news?category=${matchedCategory.slug}`
-                        }] : [])
-                      ]
-                    },
-                    {
-                    "@context": "https://schema.org",
-                    "@type": "ItemList",
-                    "itemListElement": articles.map((article, index) => ({
-                      "@type": "ListItem",
-                      "position": index + 1,
-                      "item": {
-                        "@type": "NewsArticle",
-                        "headline": article.translations?.find((t: any) => t.lang_code === lang)?.title || article.title || article.slug,
-                        "description": article.translations?.find((t: any) => t.lang_code === lang)?.description || article.description,
-                        "image": [
-                          article.thumbnail?.startsWith('http')
-                            ? article.thumbnail
-                            : article.thumbnail
-                              ? `https://assets.agriguruonline.com/${article.thumbnail}`
-                              : 'https://agriguruonline.com/logo.png'
-                        ],
-                        "datePublished": article.posting_date || article.created_at,
-                        "dateModified": article.posting_date || article.created_at,
-                        "author": {
-                          "@type": "Organization",
-                          "name": article.translations?.find((t: any) => t.lang_code === lang)?.source || article.source || "AgriGuru Online"
-                        },
-                        "publisher": {
-                          "@type": "Organization",
-                          "name": "AgriGuru Online",
-                          "logo": {
-                            "@type": "ImageObject",
-                            "url": "https://agriguruonline.com/logo.png"
-                          }
-                        },
-                        "url": `https://agriguruonline.com/${lang}/news/${article.slug}`
-                      }
-                    }))
-                  }]).replace(/</g, '\\u003c')
-                }}
-              />
-            </>
-          )}
+          <Suspense fallback={<NewsGridSkeleton />}>
+            <NewsFeed 
+              lang={lang} 
+              currentPage={currentPage} 
+              limit={limit} 
+              searchQuery={searchQuery} 
+              categoryId={categoryId} 
+              matchedCategory={matchedCategory} 
+              dict={dict} 
+            />
+          </Suspense>
         </div>
       </div>
     </div>
   )
 }
+

@@ -118,7 +118,7 @@ export default function ParticipationAlbumClient({
                   type="button"
                   onClick={() => setLightboxIndex(globalIndex)}
                   className="text-left font-bold text-xs sm:text-[13px] text-foreground truncate hover:text-primary transition-colors flex-1 mr-2 leading-tight cursor-pointer"
-                  style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
+                  
                 >
                   {title}
                 </button>
@@ -349,7 +349,7 @@ export default function ParticipationAlbumClient({
               <div className="absolute top-0 left-0 right-0 h-[48px] sm:h-[56px] flex items-center justify-center pointer-events-none px-14 sm:px-28 z-[1000]">
                 <h2
                   className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-center truncate max-w-[65vw] sm:max-w-[50vw] leading-none"
-                  style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
+                  
                 >
                   {(albumTitle || '').split(' ').map((word, index, arr) => (
                     <span key={index}>

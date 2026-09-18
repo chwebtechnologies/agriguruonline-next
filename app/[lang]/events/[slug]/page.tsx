@@ -312,7 +312,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                     <div className="flex items-center justify-between pb-2 border-b border-border shrink-0">
                       <h2
                         className="text-[15px] sm:text-lg font-bold text-foreground tracking-tight flex items-center gap-2"
-                        style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
+                        
                       >
                         <span className="flex items-center justify-center w-6 h-6 rounded-md bg-muted text-foreground/80 text-xs border border-border/60">
                           <i className="fa-regular fa-calendar-days"></i>

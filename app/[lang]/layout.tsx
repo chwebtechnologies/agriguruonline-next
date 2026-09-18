@@ -12,7 +12,8 @@ const inter = Inter({
 })
 import Header from '@/components/layout/Header'
 import { HeaderGuest, HeaderGuestStatic, HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
-import Footer from '@/components/layout/Footer'
+import dynamic from 'next/dynamic'
+const Footer = dynamic(() => import('@/components/layout/Footer'))
 import AnnouncementBar from '@/components/layout/AnnouncementBar'
 import NavigationProgress from '@/components/ui/NavigationProgress'
 import { Suspense } from 'react'
@@ -24,6 +25,7 @@ import { getTradingApiUrl } from '@/lib/api-utils'
 import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/lib/seo'
 import { NotificationProvider } from '@/components/providers/NotificationProvider'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
+import '@fortawesome/fontawesome-free/css/all.min.css'
 import '../globals.css'
 
 export async function generateMetadata(props: {
@@ -167,15 +169,15 @@ export default async function LocalizedRootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link rel="preconnect" href="https://assets.agriguruonline.com" />
+        <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
-        <link rel="preconnect" href="https://assets.agriguruonline.cloud" />
+        <link rel="preconnect" href="https://assets.agriguruonline.cloud" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://assets.agriguruonline.cloud" />
-        <link rel="preconnect" href="https://trading-api.agriguruonline.cloud" />
+        <link rel="preconnect" href="https://trading-api.agriguruonline.cloud" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://trading-api.agriguruonline.cloud" />
-        <link rel="preconnect" href="https://cms-api.agriguruonline.cloud" />
+        <link rel="preconnect" href="https://cms-api.agriguruonline.cloud" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
         <Script
           id="trusted-types-policy"
           dangerouslySetInnerHTML={{
@@ -207,6 +209,7 @@ export default async function LocalizedRootLayout({
         />
         <Script
           id="sw-unregister"
+          strategy="lazyOnload"
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {

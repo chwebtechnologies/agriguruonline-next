@@ -173,14 +173,14 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                   <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Logout</span>
                 </button>
               ) : (
-                <Link onClick={() => setIsOpen(false)} href={`/${lang}/login`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
+                <Link prefetch={false} onClick={() => setIsOpen(false)} href={`/${lang}/login`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                   <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-emerald-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                     <i className="fa-solid fa-user text-[10px] min-[390px]:text-[11px] text-white"></i>
                   </div>
                   <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Login</span>
                 </Link>
               )}
-              <Link onClick={() => setIsOpen(false)} href={`/${lang}`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
+              <Link prefetch={false} onClick={() => setIsOpen(false)} href={`/${lang}`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                 <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-blue-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className="fa-solid fa-house text-[10px] min-[390px]:text-[11px] text-white"></i>
                 </div>
@@ -196,7 +196,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
 
             {/* Premium Upgrade Banner (Mobile Only) */}
             <div className="md:hidden flex justify-center my-1.5 mb-3.5">
-              <Link onClick={() => setIsOpen(false)} href="#" className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
+              <Link prefetch={false} onClick={() => setIsOpen(false)} href="#" className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
                 <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[13px] min-[390px]:text-[14px]"></i>
                 <span className="tracking-wider uppercase text-[12px] min-[390px]:text-[13px] relative z-10 drop-shadow-md whitespace-nowrap">
@@ -213,7 +213,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
                   <ul className="contents md:flex md:flex-col">
                     {group.map((item, index) => (
                       <li key={`item-${item.label}-${index}`} className="contents md:block md:relative md:group">
-                        <Link href={item.href} onClick={() => setIsOpen(false)} className="
+                        <Link prefetch={false} href={item.href} onClick={() => setIsOpen(false)} className="
                           flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden
                           md:justify-between md:px-3 md:py-1.5 md:hover:bg-muted md:border-none md:rounded-none md:shadow-none
                         ">

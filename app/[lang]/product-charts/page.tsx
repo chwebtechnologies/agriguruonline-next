@@ -270,7 +270,9 @@ export default async function ChartsPage(props: { params: Promise<{ lang: string
           <PageHeader title="Product Charts" backText="Back" />
 
           <div className="mt-4">
+            <Suspense fallback={<ProductChartsGridSkeleton />}>
               <ChartsContent lang={lang} />
+            </Suspense>
           </div>
         </div>
       </div>

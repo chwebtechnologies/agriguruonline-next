@@ -1,21 +1,15 @@
-import { cookies } from 'next/headers'
-import { Suspense } from 'react'
-import { HeaderGuest } from './HeaderGuest'
-import { HeaderAuth } from './HeaderAuth'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import { getCategories } from '@/lib/category'
-import { ForceLogout } from '@/components/auth/ForceLogout'
-import { getAuthData, invalidateUserAuthCache } from '@/lib/user-data'
 import { tradingService } from '@/lib/api'
 import { SearchProduct } from '@/types/search'
+import { ClientHeaderWrapper } from './ClientHeaderWrapper'
 
 interface HeaderProps {
   dict?: any
   activeLang?: string
   categories?: Array<{ name: string; href: string }>
 }
-
 
 export default async function Header(props?: HeaderProps) {
   const activeLang = props?.activeLang || (await lang()) || 'en'
@@ -111,35 +105,11 @@ export default async function Header(props?: HeaderProps) {
     console.error('Error fetching initial search products:', error)
   }
 
-  let token: string | undefined = undefined
-  try {
-    const cookieStore = await cookies()
-    token = cookieStore.get('auth_token')?.value
-  } catch (_) {}
-
-  if (!token) {
-    return <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} initialSearchProducts={initialSearchProducts} />
-  }
-
-  // getAuthData is deduplicated via React cache() — single fetch group per request
-  const { userProfile, shouldLogout, alertsData, notificationsData, aiPredictsData } =
-    await getAuthData(token, activeLang)
-
-  if (shouldLogout) {
-    invalidateUserAuthCache(token)
-    return <HeaderGuest dict={dict} activeLang={activeLang} categories={categories} initialSearchProducts={initialSearchProducts} />
-  }
-
   return (
-    <HeaderAuth
-      token={token}
+    <ClientHeaderWrapper
       dict={dict}
       activeLang={activeLang}
       categories={categories}
-      profile={userProfile}
-      alerts={alertsData}
-      notifications={notificationsData}
-      aiPredicts={aiPredictsData}
       initialSearchProducts={initialSearchProducts}
     />
   )

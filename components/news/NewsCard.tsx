@@ -48,7 +48,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
           <time dateTime={article.posting_date}>{formattedDate}</time>
         </div>
         
-        <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+        <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2" >
           <FastLink href={`/${lang}/news/${article.slug}`} className="hover:text-brand-blue transition-colors">
             {title}
           </FastLink>

@@ -75,7 +75,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center px-[45px] sm:px-[120px] z-10">
         <h1 
           className="pointer-events-auto text-xl min-[375px]:text-[22px] min-[410px]:text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-extrabold text-center truncate tracking-tight leading-tight w-full"
-          style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
+          
         >
           {(title || '').split(' ').map((word, index, arr) => (
             <span key={index}>

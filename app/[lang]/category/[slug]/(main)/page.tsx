@@ -203,7 +203,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
                     </ProductLink>
 
                     <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
-                      <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}>
+                      <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" >
                         <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors">
                           {subCatName}
                         </ProductLink>

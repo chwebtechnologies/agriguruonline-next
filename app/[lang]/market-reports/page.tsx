@@ -223,8 +223,9 @@ export default async function MarketReportsPage(props: {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title={dict.header?.market_reports || "Market Reports"} backText={dict.common?.back || "Back"} />
           <ListingFilters categories={filterCategories} />
-          
+          <Suspense fallback={<MarketReportsGridSkeleton />}>
             <MarketReportsGrid lang={lang} page={currentPage} apiLimit={apiLimit} displayLimit={displayLimit} search={searchQuery} token={token} categoryId={categoryId} dict={dict.common} />
+          </Suspense>
         </div>
       </div>
     </div>

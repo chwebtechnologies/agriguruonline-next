@@ -62,7 +62,7 @@ export default function ParticipationGalleryCard({
         <div>
           <h2
             className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight"
-            style={{ fontFamily: 'SF Pro Display, -apple-system, sans-serif' }}
+            
           >
             <Link href={albumUrl} prefetch={true} title={category.category_name} className="hover:text-brand-blue transition-colors">
               {category.category_name}
