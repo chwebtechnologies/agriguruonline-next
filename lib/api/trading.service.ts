@@ -835,6 +835,47 @@ export const tradingService = {
     return { success: false, error: json.message || json.error || 'Failed' };
   },
 
+  updatePriceAlert: async (id: string | number, payload: any, token?: string, lang: string = 'en') => {
+    const url = `${getTradingApiUrl()}/price-alert/${encodeURIComponent(String(id))}`;
+    const res = await customFetch(url, {
+      method: 'PATCH',
+      token,
+      headers: { 'Content-Type': 'application/json' },
+      params: { lang_code: lang, source: 'web' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    
+    // FORCE success if backend explicitly returns success flag
+    if (json.success === 1 || json.success === '1' || json.success === true || json.status === 1 || json.status === '1' || json.status === true) {
+      return { success: true, data: json, message: json.message || 'Alert updated successfully' };
+    }
+
+    const responseIndication = json.response_indication || json.data?.response_indication;
+    if (responseIndication) {
+      return { 
+        success: false, 
+        error: json.message || json.error || 'Failed', 
+        response_indication: responseIndication 
+      };
+    }
+
+    const isSuccess = (
+      json.success === 1 || 
+      json.success === '1' ||
+      json.success === true || 
+      json.status === 1 || 
+      json.status === '1' ||
+      json.status === true ||
+      (res.ok && json.success === undefined && json.status === undefined)
+    );
+    
+    if (isSuccess) {
+      return { success: true, data: json, message: json.message || 'Alert updated successfully' };
+    }
+    return { success: false, error: json.message || json.error || 'Failed' };
+  },
+
   addFavoriteProduct: async (payload: any, token?: string, lang: string = 'en') => {
     const url = `${getTradingApiUrl()}/favorite-product`;
     const res = await customFetch(url, {

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
-import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, getAlertSetupsAction } from '@/app/actions/charts';
+import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction } from '@/app/actions/charts';
 import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
@@ -150,6 +150,7 @@ export default function MobileCommodityChart({
   const [alertInputValue, setAlertInputValue] = useState<string>('');
   const [alertError, setAlertError] = useState<string>('');
   const [alertSuccess, setAlertSuccess] = useState<string>('');
+  const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
 
   const [priceHistory, setPriceHistory] = useState<PriceHistoryItem[]>([]);
   const [alertRange, setAlertRange] = useState<{ min: number; max: number } | null>(null);
@@ -613,6 +614,7 @@ export default function MobileCommodityChart({
       router.push(`/${lang || 'en'}/login`);
       return;
     }
+    setEditingAlertId(null);
     setAlertInputValue(String(currentDisplayPrice));
     setShowAlertInput(true);
     setAlertSuccess('');
@@ -648,10 +650,17 @@ export default function MobileCommodityChart({
         alert_price: val
       };
       
-      const res = await savePriceAlertAction(payload, lang);
+      let res;
+      if (editingAlertId) {
+        res = await updatePriceAlertAction(editingAlertId, payload, lang);
+      } else {
+        res = await savePriceAlertAction(payload, lang);
+      }
+      
       if (res.success) {
         setShowAlertInput(false);
         setAlertInputValue('');
+        setEditingAlertId(null);
         setAlertSuccess(res.message || 'Alert saved successfully!');
         toast.success(res.message || 'Price alert saved successfully!');
         setTimeout(() => setAlertSuccess(''), 3000);
@@ -1375,7 +1384,7 @@ export default function MobileCommodityChart({
               <div className="flex items-center gap-2 mt-4">
                 <button
                   type="button"
-                  onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); }}
+                  onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
                   className="flex-1 py-2 bg-muted text-foreground font-bold rounded-xl text-[13px] hover:bg-muted/80 active:scale-95 cursor-pointer"
                 >
                   Cancel
@@ -1386,7 +1395,7 @@ export default function MobileCommodityChart({
                   disabled={!!alertError || !alertInputValue}
                   className={`flex-1 py-2 font-bold rounded-xl text-[13px] shadow-md transition-colors ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
                 >
-                  Save
+                  {editingAlertId ? 'Update' : 'Save'}
                 </button>
               </div>
             </div>
@@ -1565,6 +1574,13 @@ export default function MobileCommodityChart({
                         key={alert.id || idx} 
                         alert={alert} 
                         isDropdownMode={true} 
+                        onSelect={() => {
+                          setEditingAlertId(alert.id);
+                          setAlertInputValue(String(alert.alert_price || alert.price || alert.target_price || currentDisplayPrice));
+                          setShowAlertInput(true);
+                          setAlertSuccess('');
+                          setAlertError('');
+                        }}
                       />
                     ))}
                     <button 

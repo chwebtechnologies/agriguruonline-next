@@ -212,6 +212,29 @@ export async function savePriceAlertAction(
 }
 
 /**
+ * Update price alert on server side
+ */
+export async function updatePriceAlertAction(
+  id: string | number,
+  payload: any,
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    const cookieStore = await cookies();
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    
+    if (!token) return { success: false, error: "Not authenticated" };
+
+    const safeLang = getSafeLang(lang);
+    return await tradingService.updatePriceAlert(id, payload, token, safeLang);
+  } catch (err: any) {
+    console.error("updatePriceAlertAction error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Fetch user alert setups on server side
  */
 export async function getAlertSetupsAction(
