@@ -32,7 +32,7 @@ export function ActionIndicationModal({
 
   return (
     <div 
-      className="fixed inset-0 z-[600] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu px-4"
+      className="fixed inset-0 z-[600] flex items-center justify-center bg-black/80 px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="action-modal-title"

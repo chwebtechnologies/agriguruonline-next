@@ -55,7 +55,10 @@ export function MarketedProductCardClient({
 
       {/* Specifications Modal */}
       {showSpecs && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu p-4 animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setShowSpecs(false)}
+        >
           <div
             className="bg-background text-foreground rounded-md w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}

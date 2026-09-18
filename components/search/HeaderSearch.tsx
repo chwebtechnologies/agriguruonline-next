@@ -722,7 +722,7 @@ export function HeaderSearch({
       {/* ========================================================================= */}
       {selectedSpecsProduct && mounted && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[1000000] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-[1000000] flex items-center justify-center bg-black/80 p-4"
           onClick={(e) => {
             e.stopPropagation()
             setSelectedSpecsProduct(null)

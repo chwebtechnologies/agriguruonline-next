@@ -55,7 +55,7 @@ export function ChartBottomSheetContainer({
     isFullScreenRef.current = isFullScreen;
     if (sheetRef.current && !isDraggingRef.current) {
       sheetRef.current.style.transition =
-        'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease';
+        'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.25s ease';
       if (isFullScreen) {
         sheetRef.current.style.height = `calc(100dvh - ${headerHeight}px)`;
         sheetRef.current.style.transform = 'translateY(0px)';
@@ -162,35 +162,24 @@ export function ChartBottomSheetContainer({
       // Swiping UP -> Must drag at least 30px or quick flick with velocity > 0.3
       if (diff < -30 || (diff < -15 && velocity > 0.3)) {
         expandToFullScreen();
-      } else if (diff > 60 || (diff > 25 && velocity > 0.35)) {
-        sheetRef.current.style.transition =
-          'transform 0.25s cubic-bezier(0.4, 0, 1, 1)';
-        sheetRef.current.style.transform = 'translateY(100%)';
-        setTimeout(() => onClose(), 250);
       } else {
         sheetRef.current.style.transition =
-          'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+          'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
         sheetRef.current.style.height = '72vh';
         sheetRef.current.style.transform = 'translateY(0px)';
       }
     } else {
       // Swiping DOWN from fullscreen
-      if (diff > 70 || (diff > 35 && velocity > 0.4)) {
-        sheetRef.current.style.transition =
-          'transform 0.25s cubic-bezier(0.4, 0, 1, 1)';
-        sheetRef.current.style.transform = 'translateY(100%)';
-        setTimeout(() => onClose(), 250);
-      } else {
-        sheetRef.current.style.transition =
-          'height 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
-        sheetRef.current.style.height = `calc(100dvh - ${headerHeight}px)`;
-        sheetRef.current.style.transform = 'translateY(0px)';
-      }
+      sheetRef.current.style.transition =
+        'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+      sheetRef.current.style.height = `calc(100dvh - ${headerHeight}px)`;
+      sheetRef.current.style.transform = 'translateY(0px)';
     }
   };
 
   // Dynamically measure header
   useEffect(() => {
+    let lastWidth = window.innerWidth;
     const measureHeader = () => {
       const headerEl = document.querySelector('header');
       if (headerEl) {
@@ -198,10 +187,22 @@ export function ChartBottomSheetContainer({
         setHeaderHeight(Math.max(Math.round(rect.bottom), 64));
       }
     };
+    
     measureHeader();
-    window.addEventListener('resize', measureHeader);
+    
+    const handleResize = () => {
+      const currentWidth = window.innerWidth;
+      // Only recalculate on width change (orientation change) to avoid
+      // jitter when mobile address bar hides/shows on scroll.
+      if (currentWidth !== lastWidth) {
+        lastWidth = currentWidth;
+        measureHeader();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
     return () => {
-      window.removeEventListener('resize', measureHeader);
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -212,13 +213,13 @@ export function ChartBottomSheetContainer({
   return (
     <>
       {/* 1. Desktop Modal Popup (>= lg screens) */}
-      <div className="hidden lg:flex fixed inset-0 z-[500] items-center justify-center p-4 xl:p-8 bg-black/60 backdrop-blur-sm transform-gpu animate-in fade-in duration-200 pointer-events-auto select-none">
-        {/* Click-away backdrop */}
-        <div className="absolute inset-0" onClick={onClose} />
+      <div className="hidden lg:flex fixed inset-0 z-[500] items-center justify-center p-4 xl:p-8 pointer-events-auto select-none">
+        {/* Backdrop (backdrop click closing disabled) */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transform-gpu" />
 
         {/* Desktop Popup Card Container */}
         <div
-          className="relative z-10 w-full max-w-6xl xl:max-w-7xl h-[92vh] max-h-[880px] bg-background rounded-2xl xl:rounded-3xl shadow-2xl border border-border flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+          className="relative z-10 w-full max-w-6xl xl:max-w-7xl h-[92vh] max-h-[880px] bg-background rounded-2xl xl:rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] border border-border flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           <MobileCommodityChart
@@ -232,20 +233,18 @@ export function ChartBottomSheetContainer({
       </div>
 
       {/* 2. Mobile/Tablet Bottom Sheet (< lg screens) */}
+      
+      {/* Mobile Backdrop separated from the bottom sheet container to prevent Safari flickering on scroll */}
+      <div className="lg:hidden fixed inset-0 z-[490] bg-black/40 backdrop-blur-sm pointer-events-auto transition-opacity duration-300 transform-gpu" />
+      
       <div
         className="lg:hidden fixed inset-0 z-[500] flex flex-col justify-end pointer-events-none select-none"
         style={{ top: `${headerHeight}px` }}
       >
-        {/* Click-away Backdrop below Header */}
-        <div
-          className="absolute inset-0 bg-black/40 backdrop-blur-[1px] transform-gpu pointer-events-auto transition-opacity duration-300"
-          onClick={onClose}
-        />
-
         {/* Bottom Sheet Modal Container */}
         <div
           ref={sheetRef}
-          className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-background shadow-2xl flex flex-col will-change-transform z-[510] pointer-events-auto ${
+          className={`fixed bottom-0 inset-x-0 w-full max-w-lg mx-auto bg-background shadow-2xl flex flex-col z-[510] pointer-events-auto ${
             isFullScreen
               ? 'rounded-none border-t border-border'
               : 'rounded-t-[28px] border-t border-border'
@@ -256,7 +255,7 @@ export function ChartBottomSheetContainer({
             maxHeight: maxExpandedHeight,
             transform: 'translateY(0px)',
             transition:
-              'height 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.32s ease',
+              'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.32s ease',
           }}
         >
           {/* Swipe up for Details Indicator */}

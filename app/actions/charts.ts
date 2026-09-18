@@ -188,3 +188,48 @@ export async function getPriceHistoryAction(
     return { success: false, error: err.message, data: null };
   }
 }
+
+/**
+ * Save price alert on server side
+ */
+export async function savePriceAlertAction(
+  payload: any,
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    const cookieStore = await cookies();
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    
+    if (!token) return { success: false, error: "Not authenticated" };
+
+    const safeLang = getSafeLang(lang);
+    return await tradingService.savePriceAlert(payload, token, safeLang);
+  } catch (err: any) {
+    console.error("savePriceAlertAction error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Fetch user alert setups on server side
+ */
+export async function getAlertSetupsAction(
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    const cookieStore = await cookies();
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    
+    if (!token) return { success: false, error: "Not authenticated" };
+
+    const safeLang = getSafeLang(lang);
+    const { userService } = await import("@/lib/api/user.service");
+    const alerts = await userService.getUserAlerts(token, safeLang);
+    return { success: true, data: alerts };
+  } catch (err: any) {
+    console.error("getAlertSetupsAction error:", err);
+    return { success: false, error: err.message, data: [] };
+  }
+}

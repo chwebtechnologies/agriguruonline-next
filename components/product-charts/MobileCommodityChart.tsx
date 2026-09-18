@@ -5,9 +5,11 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
-import { getPriceHistoryAction, getProductDetailsAction } from '@/app/actions/charts';
+import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, getAlertSetupsAction } from '@/app/actions/charts';
 import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
+import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
+import { toast } from 'sonner';
 
 export interface CommodityItemData {
   id: number | string;
@@ -157,6 +159,10 @@ export default function MobileCommodityChart({
 
   const [displayChartData, setDisplayChartData] = useState<PriceHistoryItem[]>([]);
 
+  const [chartAlerts, setChartAlerts] = useState<any[]>([]);
+  const [isFetchingAlerts, setIsFetchingAlerts] = useState<boolean>(false);
+  const [refreshAlerts, setRefreshAlerts] = useState<number>(0);
+
   const cacheKey = `${item.id}_${lang}`;
 
   // Fetch price history from API
@@ -272,6 +278,37 @@ export default function MobileCommodityChart({
       isMounted = false;
     };
   }, [item.id, lang, cacheKey]);
+
+  // Fetch alert setups when tab is active
+  useEffect(() => {
+    let isMounted = true;
+    if (activeTab === 'Alert Setups') {
+      const fetchAlerts = async () => {
+        setIsFetchingAlerts(true);
+        try {
+          const res = await getAlertSetupsAction(lang);
+          if (res.success && Array.isArray(res.data) && isMounted) {
+            // Filter by chart's favorite id (item.id)
+            const filtered = res.data.filter((alert: any) => 
+              String(alert.favourite_product_id) === String(item.id) || 
+              String(alert.favourite_product?.id) === String(item.id) ||
+              String(alert.favourite_record_id) === String(item.id) ||
+              String(alert.favourite_record?.id) === String(item.id) ||
+              String(alert.product?.id) === String(item.id) ||
+              String(alert.product_id) === String(item.id)
+            );
+            setChartAlerts(filtered);
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          if (isMounted) setIsFetchingAlerts(false);
+        }
+      };
+      fetchAlerts();
+    }
+    return () => { isMounted = false; };
+  }, [activeTab, item.id, lang, refreshAlerts]);
 
   // Fetch full product details (quality_specification, description, thumbnail) if available
   // OPTIMIZED: Only fetch when needed (user views specs or opens modal) to prevent N+1 API spam on list load
@@ -571,7 +608,17 @@ export default function MobileCommodityChart({
   const currentChangePct = hoveredPoint ? (hoveredPoint.changePct || 0) : (basePrice > 0 && baseChange !== 0 ? (baseChange / basePrice) * 100 : 0);
   const currentIsPositive = currentChangeVal >= 0;
 
-  const handleAlertSubmit = () => {
+    const handleCreateAlertClick = () => {
+    if (typeof document !== 'undefined' && !document.cookie.includes('user_info=')) {
+      router.push(`/${lang || 'en'}/login`);
+      return;
+    }
+    setAlertInputValue(String(currentDisplayPrice));
+    setShowAlertInput(true);
+    setAlertSuccess('');
+  };
+
+      const handleAlertSubmit = async () => {
     const val = Number(alertInputValue);
     if (!val || isNaN(val)) {
       setAlertError('Please enter a valid price.');
@@ -582,15 +629,46 @@ export default function MobileCommodityChart({
     const maxLimit = supportResistance.resistance;
 
     if (val < minLimit || val > maxLimit) {
-      setAlertError(`Price must be between $${minLimit} and $${maxLimit}.`);
+      setAlertError(`Price must be between ${minLimit} and ${maxLimit}.`);
       return;
     }
     setAlertError('');
-    // Hide input on success
-    setShowAlertInput(false);
-    setAlertInputValue('');
-    setAlertSuccess('Alert saved successfully!');
-    setTimeout(() => setAlertSuccess(''), 3000);
+
+    try {
+      const favId = item.id;
+      if (!favId) {
+        toast.error('Product ID not found.');
+        setAlertError('Product ID not found.');
+        return;
+      }
+      
+      const payload = {
+        favourite_record_id: String(favId),
+        type: "PRODUCT",
+        alert_price: val
+      };
+      
+      const res = await savePriceAlertAction(payload, lang);
+      if (res.success) {
+        setShowAlertInput(false);
+        setAlertInputValue('');
+        setAlertSuccess(res.message || 'Alert saved successfully!');
+        toast.success(res.message || 'Price alert saved successfully!');
+        setTimeout(() => setAlertSuccess(''), 3000);
+        
+        if (activeTab !== 'Alert Setups') {
+          setActiveTab('Alert Setups');
+        } else {
+          setRefreshAlerts(prev => prev + 1);
+        }
+      } else {
+        toast.error(res.error || 'Failed to save alert.');
+        setAlertError(res.error || 'Failed to save alert.');
+      }
+    } catch (e: any) {
+      toast.error('Network error. Please try again.');
+      setAlertError('Network error. Please try again.');
+    }
   };
 
   const handleAlertInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -725,7 +803,7 @@ export default function MobileCommodityChart({
     >
       {/* 1. Header (Sticky Top / Shrink-0) - Fully Draggable on Mobile */}
       <div
-        className="shrink-0 px-2.5 min-[390px]:px-4 lg:px-6 py-2 min-[390px]:py-2.5 lg:py-3.5 flex items-center justify-between border-b border-border bg-card/95 z-20 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none gap-2 lg:gap-4"
+        className="shrink-0 px-2.5 min-[390px]:px-4 lg:px-6 py-2 min-[390px]:py-2.5 lg:py-3.5 flex items-center justify-between border-b border-border bg-card z-20 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none gap-2 lg:gap-4"
         onTouchStart={(e) => {
           if (!isFullScreen && onDragStart) onDragStart(e.touches[0].clientY);
         }}
@@ -951,7 +1029,7 @@ export default function MobileCommodityChart({
               </div>
               
               {isLoading && chartData.length === 0 && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm animate-pulse rounded-md">
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80 animate-pulse rounded-md">
                    <div className="w-full h-full flex flex-col justify-end p-4 opacity-30 gap-2">
                      <div className="h-1/3 border-b border-border w-full flex items-end"><div className="w-full h-[2px] bg-brand-blue/30 scale-x-75 origin-left rounded-full"></div></div>
                      <div className="h-1/3 border-b border-border w-full flex items-end"><div className="w-full h-[2px] bg-brand-blue/30 scale-x-50 origin-left rounded-full"></div></div>
@@ -967,7 +1045,7 @@ export default function MobileCommodityChart({
               )}
 
               {isLoading && chartData.length > 0 && (
-                <div className="absolute top-2 right-4 z-10 flex items-center gap-1.5 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-full shadow-sm border border-border">
+                <div className="absolute top-2 right-4 z-10 flex items-center gap-1.5 bg-background/90 px-2 py-1 rounded-full shadow-sm border border-border">
                   <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-[10px]"></i>
                   <span className="text-[10px] font-semibold text-foreground/70">Updating...</span>
                 </div>
@@ -1320,7 +1398,7 @@ export default function MobileCommodityChart({
           >
             {activeTab === 'Specifications' ? (
               /* TAB 3: PRODUCT SPECIFICATIONS VIEW */
-              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 ">
+              <div className="space-y-3.5">
                 {/* Header / Summary Card */}
                 <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs">
                   <div className="flex items-center justify-between pb-3 border-b border-border">
@@ -1457,31 +1535,78 @@ export default function MobileCommodityChart({
                 </div>
               </div>
             ) : activeTab === 'Alert Setups' ? (
-              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 ">
-                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
-                  <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
-                    <i className="fa-regular fa-bell-slash"></i>
-                  </div>
-                  <h2 className="font-extrabold text-[16px] text-foreground">No Alerts Set</h2>
-                  <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't configured any price alerts for this commodity yet.</p>
-                  
-                  {alertSuccess && (
-                    <div className="mt-3 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
-                      <i className="fa-solid fa-circle-check"></i>
-                      {alertSuccess}
+              <div className="space-y-3.5">
+                {isFetchingAlerts && chartAlerts.length === 0 ? (
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-[100px] sm:h-[110px] animate-pulse">
+                      <div className="flex flex-col items-center shrink-0 w-6">
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 bg-muted rounded-full"></div>
+                      </div>
+                      <div className="flex-1 flex flex-col justify-between min-w-0 py-0.5">
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <div className="w-24 h-4 bg-muted rounded"></div>
+                          <div className="w-20 h-4 bg-muted rounded"></div>
+                        </div>
+                        <div className="flex items-center justify-between w-full mt-3 sm:mt-2">
+                          <div className="w-40 h-5 sm:h-6 bg-muted rounded"></div>
+                          <div className="w-24 h-5 sm:h-6 bg-muted rounded"></div>
+                        </div>
+                        <div className="flex items-center justify-between w-full mt-4 sm:mt-3">
+                          <div className="w-32 h-4 bg-muted rounded"></div>
+                          <div className="w-16 h-4 bg-muted rounded"></div>
+                        </div>
+                      </div>
                     </div>
-                  )}
+                  </div>
+                ) : chartAlerts.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                    {chartAlerts.map((alert: any, idx: number) => (
+                      <ProductAlertCard 
+                        key={alert.id || idx} 
+                        alert={alert} 
+                        isDropdownMode={true} 
+                      />
+                    ))}
+                    <button 
+                      onClick={handleCreateAlertClick}
+                      className="mt-2 w-full py-3 bg-brand-blue/10 text-brand-blue text-[13px] font-bold rounded-xl border border-brand-blue/20 shadow-xs hover:bg-brand-blue/20 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <i className="fa-solid fa-plus"></i> Create New Alert
+                    </button>
+                    {alertSuccess && (
+                      <div className="mt-2 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
+                        <i className="fa-solid fa-circle-check"></i>
+                        {alertSuccess}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
+                    <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
+                      <i className="fa-regular fa-bell-slash"></i>
+                    </div>
+                    <h2 className="font-extrabold text-[16px] text-foreground">No Alerts Set</h2>
+                    <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't configured any price alerts for this commodity yet.</p>
+                    
+                    {alertSuccess && (
+                      <div className="mt-3 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
+                        <i className="fa-solid fa-circle-check"></i>
+                        {alertSuccess}
+                      </div>
+                    )}
 
-                  <button 
-                    onClick={() => { setAlertInputValue(String(currentDisplayPrice)); setShowAlertInput(true); setAlertSuccess(''); }}
-                    className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 cursor-pointer flex items-center gap-2"
-                  >
-                    <i className="fa-solid fa-bell"></i> Create Alert
-                  </button>
-                </div>
+                    <button 
+                      onClick={handleCreateAlertClick}
+                      className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 cursor-pointer flex items-center gap-2"
+                    >
+                      <i className="fa-solid fa-bell"></i> Create Alert
+                    </button>
+                  </div>
+                )}
               </div>
+
             ) : activeTab === 'AI Predict' ? (
-              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 ">
+              <div className="space-y-3.5">
                 <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
                   <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
                     <i className="fa-solid fa-microchip"></i>
@@ -1495,7 +1620,7 @@ export default function MobileCommodityChart({
               </div>
             ) : activeTab === 'Historical' ? (
               /* TAB 4: DATE-WISE MARKET COMMENTARY VIEW (ONLY DATES WITH COMMENTS) */
-              <div className="space-y-3.5 animate-in fade-in slide-in-from-bottom-2 ">
+              <div className="space-y-3.5">
                 {/* Header & Commentary Stats */}
                 <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between pb-2.5 border-b border-border">
@@ -2027,7 +2152,7 @@ export default function MobileCommodityChart({
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => { setAlertInputValue(String(currentDisplayPrice)); setShowAlertInput(true); setAlertSuccess(''); }}
+                    onClick={handleCreateAlertClick}
                     className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
                   >
                     <i className="fa-solid fa-bell text-amber-500 text-[16px]"></i>
@@ -2138,10 +2263,7 @@ export default function MobileCommodityChart({
             {/* 1. Create Alert (Left) */}
             <button
               type="button"
-              onClick={() => {
-                setAlertInputValue(String(currentDisplayPrice));
-                setShowAlertInput(true);
-              }}
+              onClick={handleCreateAlertClick}
               className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted border border-border text-foreground hover:bg-muted/80 active:scale-95 font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 shrink-0 shadow-xs cursor-pointer transition-colors"
             >
               <i className="fa-solid fa-bell text-amber-500 text-[12px] min-[390px]:text-[13px]"></i>
@@ -2172,11 +2294,13 @@ export default function MobileCommodityChart({
       {/* 4. Specifications & Description Information Icon Popup Modal */}
       {showSpecsModal && (
         <div
-          className="fixed inset-0 z-[550] flex items-center justify-center bg-black/60 backdrop-blur-sm transform-gpu p-3 sm:p-4 animate-in fade-in "
-          onClick={() => setShowSpecsModal(false)}
+          className="fixed inset-0 z-[550] flex items-center justify-center p-3 sm:p-4"
         >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md transform-gpu" />
+          
           <div
-            className="bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 "
+            className="relative z-10 bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 "
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}

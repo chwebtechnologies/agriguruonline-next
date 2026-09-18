@@ -119,7 +119,7 @@ export function ShareButton({
 
   const shareModal = mounted && showModal ? createPortal(
     <div 
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transform-gpu animate-in fade-in duration-200" 
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80" 
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowModal(false); }}
     >
       <div 
