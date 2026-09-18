@@ -32,16 +32,20 @@ export async function generateMetadata(
 /* ---------- Skeleton Component ---------- */
 function NewsGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
-      {[...Array(8)].map((_, i) => (
-        <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
-          <div className="w-full aspect-[4/3] bg-muted rounded-xl"></div>
-          <div className="h-4 bg-muted w-3/4 mt-2 rounded"></div>
-          <div className="h-4 bg-muted w-1/2 rounded"></div>
-          <div className="h-3 bg-muted w-1/4 mt-auto rounded"></div>
-        </div>
-      ))}
-    </div>
+    <>
+      <PageHeader title="Latest News" backText="Back" />
+      <div className="w-full h-12 bg-muted rounded-xl animate-pulse mt-4 mb-4"></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
+            <div className="w-full aspect-[4/3] bg-muted rounded-xl"></div>
+            <div className="h-4 bg-muted w-3/4 mt-2 rounded"></div>
+            <div className="h-4 bg-muted w-1/2 rounded"></div>
+            <div className="h-3 bg-muted w-1/4 mt-auto rounded"></div>
+          </div>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -145,25 +149,16 @@ async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, mat
   )
 }
 
-/* ---------- Main page component ---------- */
-export default async function LatestNewsPage(props: {
-  params: Promise<{ lang: string }>,
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const params = await props.params;
-  const searchParams = await props.searchParams;
-
-  const lang = params.lang || 'en'
+async function NewsPageContent({ lang, searchParams }: { lang: string, searchParams: { [key: string]: string | string[] | undefined } }) {
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
   const limit = 12
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
+  
   const dict = await getDictionary(lang);
-
   const apiCategories = await getCategories(lang);
 
-  // Resolve slug to ID server-side so ID never leaks to the client
   const matchedCategory = categorySlug
     ? apiCategories.find(cat => cat.slug === categorySlug)
     : undefined
@@ -171,31 +166,43 @@ export default async function LatestNewsPage(props: {
 
   const categoryOptions = apiCategories
     .filter(cat => cat.is_active !== false)
-    .map(cat => {
-      return { slug: cat.slug, name: cat.name }
-    })
+    .map(cat => ({ slug: cat.slug, name: cat.name }))
+
+  return (
+    <>
+      <PageHeader title={dict.header?.news || "Latest News"} backText={dict.common?.back || "Back"} />
+      <ListingFilters categories={categoryOptions} />
+      <NewsFeed 
+        lang={lang} 
+        currentPage={currentPage} 
+        limit={limit} 
+        searchQuery={searchQuery} 
+        categoryId={categoryId} 
+        matchedCategory={matchedCategory} 
+        dict={dict} 
+      />
+    </>
+  )
+}
+
+/* ---------- Main page component ---------- */
+export default async function LatestNewsPage(props: {
+  params: Promise<{ lang: string }>,
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
+  const lang = params.lang || 'en'
 
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={dict.header?.news || "Latest News"} backText={dict.common?.back || "Back"} />
-          <ListingFilters categories={categoryOptions} />
-
           <Suspense fallback={<NewsGridSkeleton />}>
-            <NewsFeed 
-              lang={lang} 
-              currentPage={currentPage} 
-              limit={limit} 
-              searchQuery={searchQuery} 
-              categoryId={categoryId} 
-              matchedCategory={matchedCategory} 
-              dict={dict} 
-            />
+            <NewsPageContent lang={lang} searchParams={searchParams} />
           </Suspense>
         </div>
       </div>
     </div>
   )
 }
-

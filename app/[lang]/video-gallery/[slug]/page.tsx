@@ -87,22 +87,50 @@ export async function generateMetadata(
   }
 }
 
-import VideoCollectionClient from '@/components/video-gallery/VideoCollectionClient'
+import VideoCollection from '@/components/video-gallery/VideoCollection'
 
-async function VideoGrid({ slug, lang, dict }: { slug: string; lang: string; dict: any }) {
-  const data = await cmsService.getCollectionVideos(slug, lang)
+/* ---------- Skeleton shown during Suspense ---------- */
+function VideoGridSkeleton() {
+  return (
+    <>
+      <PageHeader title="Video Collection" backText="Back" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-4">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse">
+            <div className="w-full aspect-video bg-muted border-b border-border"></div>
+            <div className="p-4 space-y-2">
+              <div className="h-4 bg-muted w-3/4 rounded"></div>
+              <div className="h-4 bg-muted w-1/2 rounded"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+async function VideoGrid({ slug, lang }: { slug: string; lang: string }) {
+  const data = await cmsService.getCollectionVideos(slug, lang).catch(() => null)
+  const dict = await getDictionary(lang)
+  
+  const categoryName = data?.category?.translations?.find((t: any) => t.lang_code === lang)?.category_name 
+    || data?.category?.category_name 
+    || 'Video Collection'
   
   if (!data || !data.videos || data.videos.length === 0) {
     return (
-      <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
-          <i className="fa-solid fa-video-slash text-2xl"></i>
+      <>
+        <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
+        <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
+            <i className="fa-solid fa-video-slash text-2xl"></i>
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">No Videos Found</h2>
+          <p className="text-foreground/80 max-w-md mx-auto">
+            We couldn&apos;t find any videos for this collection at the moment.
+          </p>
         </div>
-        <h2 className="text-xl font-semibold text-foreground mb-2">No Videos Found</h2>
-        <p className="text-foreground/80 max-w-md mx-auto">
-          We couldn&apos;t find any videos for this collection at the moment.
-        </p>
-      </div>
+      </>
     )
   }
 
@@ -123,31 +151,10 @@ async function VideoGrid({ slug, lang, dict }: { slug: string; lang: string; dic
     })) : []
   }))
 
-  return <VideoCollectionClient videos={sanitizedVideos as any} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict} />
-}
-
-export default async function VideoCollectionPage(props: { 
-  params: Promise<{ lang: string; slug: string }>
-}) {
-  const params = await props.params
-  const lang = params.lang || 'en'
-  const slug = params.slug
-  
-  const data = await cmsService.getCollectionVideos(slug, lang)
-  const categoryName = data?.category?.translations?.find(t => t.lang_code === lang)?.category_name 
-    || data?.category?.category_name 
-    || 'Video Collection'
-  const dict = await getDictionary(lang)
-  
   return (
-    <div className="bg-background text-foreground">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
-          
-            <VideoGrid slug={slug} lang={lang} dict={dict.common} />
-        </div>
-      </div>
+    <>
+      <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
+      <VideoCollection videos={sanitizedVideos as any} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict.common} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -195,9 +202,29 @@ export default async function VideoCollectionPage(props: {
                 }
               }) || []
             }
-          ]).replace(/</g, '\u003c')
+          ]).replace(/</g, '\\u003c')
         }}
       />
+    </>
+  )
+}
+
+export default async function VideoCollectionPage(props: { 
+  params: Promise<{ lang: string; slug: string }>
+}) {
+  const params = await props.params
+  const lang = params.lang || 'en'
+  const slug = params.slug
+  
+  return (
+    <div className="bg-background text-foreground">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <Suspense fallback={<VideoGridSkeleton />}>
+            <VideoGrid slug={slug} lang={lang} />
+          </Suspense>
+        </div>
+      </div>
     </div>
   )
 }

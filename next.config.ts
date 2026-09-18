@@ -131,6 +131,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: '/(.*).(webp|jpg|png|svg|ico|woff2|woff|ttf|css|js)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
     ];
   },
   async rewrites() {
@@ -150,6 +159,7 @@ const nextConfig: NextConfig = {
     ]
   },
   images: {
+    unoptimized: true,
     minimumCacheTTL: 31536000,
     formats: ['image/avif', 'image/webp'],
     qualities: [65, 75, 85, 90],

@@ -27,6 +27,8 @@ export async function generateMetadata(
 }
 
 
+import { Suspense } from 'react';
+
 export default async function MyInquiriesPage(props: { params: Promise<{ lang: string }> }) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
@@ -38,6 +40,29 @@ export default async function MyInquiriesPage(props: { params: Promise<{ lang: s
     redirect(`/${lang}/login?redirectUrl=/${lang}/my-inquiries`);
   }
 
+  return (
+    <div className="bg-background text-foreground transition-theme">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <Suspense fallback={<MyInquiriesSkeleton />}>
+            <MyInquiriesContent lang={lang} token={token} />
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MyInquiriesSkeleton() {
+  return (
+    <>
+      <PageHeader title="My Offers & Inquiries" backText="Back" />
+      <div className="w-full mt-4 bg-card border border-border rounded-2xl h-[600px] animate-pulse"></div>
+    </>
+  )
+}
+
+async function MyInquiriesContent({ lang, token }: { lang: string, token: string }) {
   const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
   
   if (shouldLogout || !profileData) {
@@ -161,26 +186,21 @@ export default async function MyInquiriesPage(props: { params: Promise<{ lang: s
   const sanitizedFreightInquiries = Array.isArray(freightInquiries) ? freightInquiries.map(sanitizeInquiry).filter(Boolean) : [];
 
   return (
-    <div className="bg-background text-foreground transition-theme">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={pageTitle} backText={common.back} />
-
-          <div>
-            <MyInquiriesClient 
-              lang={lang} 
-              productInquiries={productInquiries} 
-              freightInquiries={sanitizedFreightInquiries}
-              dict={dict}
-              token={token}
-              userProfile={profileData ? {
-                name: profileData.name,
-                profile_image: profileData.profile_image || profileData.profile_picture || profileData.avatar,
-              } : undefined}
-            />
-          </div>
-        </div>
+    <>
+      <PageHeader title={pageTitle} backText={common.back} />
+      <div>
+        <MyInquiriesClient 
+          lang={lang} 
+          productInquiries={productInquiries} 
+          freightInquiries={sanitizedFreightInquiries}
+          dict={dict}
+          token={token}
+          userProfile={profileData ? {
+            name: profileData.name,
+            profile_image: profileData.profile_image || profileData.profile_picture || profileData.avatar,
+          } : undefined}
+        />
       </div>
-    </div>
+    </>
   );
 }

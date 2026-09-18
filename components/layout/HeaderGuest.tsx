@@ -66,8 +66,9 @@ export function AgriGuruLogo({ size = 42 }: { size?: number }) {
       width={size}
       height={size}
       className="h-auto object-contain shrink-0"
-      priority
+      priority={true}
       fetchPriority="high"
+      sizes={`${size}px`}
     />
   )
 }

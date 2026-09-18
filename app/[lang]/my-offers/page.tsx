@@ -26,6 +26,8 @@ export async function generateMetadata(
   });
 }
 
+import { Suspense } from 'react';
+
 export default async function MyOffersPage(props: { params: Promise<{ lang: string }> }) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
@@ -37,6 +39,29 @@ export default async function MyOffersPage(props: { params: Promise<{ lang: stri
     redirect(`/${lang}/login?redirectUrl=/${lang}/my-offers`);
   }
 
+  return (
+    <div className="bg-background text-foreground transition-theme">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <Suspense fallback={<MyOffersSkeleton />}>
+            <MyOffersContent lang={lang} token={token} />
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MyOffersSkeleton() {
+  return (
+    <>
+      <PageHeader title="My Offers & Inquiries" backText="Back" />
+      <div className="w-full mt-4 bg-card border border-border rounded-2xl h-[600px] animate-pulse"></div>
+    </>
+  )
+}
+
+async function MyOffersContent({ lang, token }: { lang: string, token: string }) {
   const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
   
   if (shouldLogout || !profileData) {
@@ -57,7 +82,6 @@ export default async function MyOffersPage(props: { params: Promise<{ lang: stri
 
   const dict = await getDictionary(lang);
   const common = dict.common || { back: 'Back' };
-  
   const pageTitle = (dict as any).my_offers || 'My Offers & Inquiries';
 
   const [buyerProductRes, sellerProductRes, freightInquiries] = await Promise.all([
@@ -160,26 +184,21 @@ export default async function MyOffersPage(props: { params: Promise<{ lang: stri
   const sanitizedFreightInquiries = Array.isArray(freightInquiries) ? freightInquiries.map(sanitizeInquiry).filter(Boolean) : [];
 
   return (
-    <div className="bg-background text-foreground transition-theme">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={pageTitle} backText={common.back} />
-
-          <div>
-            <MyInquiriesClient 
-              lang={lang} 
-              productInquiries={productInquiries} 
-              freightInquiries={sanitizedFreightInquiries}
-              dict={dict}
-              token={token}
-              userProfile={profileData ? {
-                name: profileData.name,
-                profile_image: profileData.profile_image || profileData.profile_picture || profileData.avatar,
-              } : undefined}
-            />
-          </div>
-        </div>
+    <>
+      <PageHeader title={pageTitle} backText={common.back} />
+      <div>
+        <MyInquiriesClient 
+          lang={lang} 
+          productInquiries={productInquiries} 
+          freightInquiries={sanitizedFreightInquiries}
+          dict={dict}
+          token={token}
+          userProfile={profileData ? {
+            name: profileData.name,
+            profile_image: profileData.profile_image || profileData.profile_picture || profileData.avatar,
+          } : undefined}
+        />
       </div>
-    </div>
+    </>
   );
 }

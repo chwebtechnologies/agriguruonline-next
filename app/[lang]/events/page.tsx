@@ -30,22 +30,34 @@ export async function generateMetadata(
   });
 }
 
-/* ---------- Main page component ---------- */
-export default async function LatestEventsPage(props: {
-  params: Promise<{ lang: string }>,
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const params = await props.params;
-  const searchParams = await props.searchParams;
+/* ---------- Skeleton Component ---------- */
+function EventsGridSkeleton() {
+  return (
+    <>
+      <PageHeader title="Latest Events" backText="Back" />
+      <div className="w-full h-12 bg-muted rounded-xl animate-pulse mt-4 mb-4"></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
+            <div className="w-full aspect-[4/3] bg-muted rounded-xl"></div>
+            <div className="h-4 bg-muted w-3/4 mt-2 rounded"></div>
+            <div className="h-4 bg-muted w-1/2 rounded"></div>
+            <div className="h-3 bg-muted w-1/4 mt-auto rounded"></div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
 
-  const lang = params.lang || 'en'
+async function EventsPageContent({ lang, searchParams }: { lang: string, searchParams: { [key: string]: string | string[] | undefined } }) {
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
   const limit = 12
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
+  
   const dict = await getDictionary(lang);
-
   const apiCategories = await getCategories(lang);
 
   // Resolve slug to ID server-side so ID never leaks to the client
@@ -67,97 +79,115 @@ export default async function LatestEventsPage(props: {
     })
 
   return (
+    <>
+      <PageHeader title={dict.header?.events || "Latest Events"} backText={dict.common?.back || "Back"} />
+      <ListingFilters categories={categoryOptions} />
+
+      {eventsList.length === 0 ? (
+        <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
+            <i className="fa-regular fa-calendar-days text-2xl"></i>
+          </div>
+          <h2 className="text-xl font-semibold text-foreground mb-2">{dict.common?.no_search_results_found_for ? dict.common.no_search_results_found_for.replace('for', '').trim() : "No Events Found"}</h2>
+          <p className="text-foreground/80 max-w-md mx-auto">
+            We couldn&apos;t find any events at the moment. Please check back later.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+            {eventsList.map((eventItem, index) => (
+              <EventCard priority={index < 4} key={eventItem.id} event={eventItem} lang={lang} />
+            ))}
+          </div>
+          <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/events`} />
+
+          {/* JSON-LD Schema */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify([
+                {
+                  "@context": "https://schema.org",
+                  "@type": "BreadcrumbList",
+                  "itemListElement": [
+                    {
+                      "@type": "ListItem",
+                      "position": 1,
+                      "name": dict.navigation?.home || "Home",
+                      "item": `https://agriguruonline.com/${lang}`
+                    },
+                    {
+                      "@type": "ListItem",
+                      "position": 2,
+                      "name": dict.header?.events || "Events",
+                      "item": `https://agriguruonline.com/${lang}/events`
+                    },
+                    ...(matchedCategory ? [{
+                      "@type": "ListItem",
+                      "position": 3,
+                      "name": matchedCategory.translations?.find((t: any) => t.lang_code === lang)?.name || matchedCategory.name,
+                      "item": `https://agriguruonline.com/${lang}/events?category=${matchedCategory.slug}`
+                    }] : [])
+                  ]
+                },
+                {
+                "@context": "https://schema.org",
+                "@type": "ItemList",
+                "itemListElement": eventsList.map((eventItem, index) => ({
+                  "@type": "ListItem",
+                  "position": index + 1,
+                  "item": {
+                    "@type": "Event",
+                    "name": eventItem.translations?.find((t: any) => t.lang_code === lang)?.title || eventItem.title,
+                    "description": eventItem.translations?.find((t: any) => t.lang_code === lang)?.description || "",
+                    "startDate": eventItem.start_date,
+                    "endDate": eventItem.end_date,
+                    "eventStatus": `https://schema.org/Event${eventItem.status === 'UPCOMING' ? 'Scheduled' : eventItem.status === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
+                    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+                    "location": {
+                      "@type": "Place",
+                      "name": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "Venue to be announced",
+                      "address": {
+                        "@type": "PostalAddress",
+                        "addressLocality": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "TBA"
+                      }
+                    },
+                    "image": [
+                      eventItem.thumbnail?.startsWith('http')
+                        ? eventItem.thumbnail
+                        : eventItem.thumbnail
+                          ? `https://assets.agriguruonline.com/${eventItem.thumbnail}`
+                          : 'https://agriguruonline.com/logo.png'
+                    ],
+                    "url": `https://agriguruonline.com/${lang}/events/${eventItem.slug}`
+                  }
+                }))
+              }]).replace(/</g, '\\u003c')
+            }}
+          />
+        </>
+      )}
+    </>
+  )
+}
+
+/* ---------- Main page component ---------- */
+export default async function LatestEventsPage(props: {
+  params: Promise<{ lang: string }>,
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
+  const lang = params.lang || 'en'
+
+  return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={dict.header?.events || "Latest Events"} backText={dict.common?.back || "Back"} />
-          <ListingFilters categories={categoryOptions} />
-
-          {eventsList.length === 0 ? (
-            <div className="text-center py-20 bg-background rounded-2xl border border-dashed border-border mt-2">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
-                <i className="fa-regular fa-calendar-days text-2xl"></i>
-              </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">{dict.common?.no_search_results_found_for ? dict.common.no_search_results_found_for.replace('for', '').trim() : "No Events Found"}</h2>
-              <p className="text-foreground/80 max-w-md mx-auto">
-                We couldn&apos;t find any events at the moment. Please check back later.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
-                {eventsList.map((eventItem, index) => (
-                  <EventCard priority={index < 4} key={eventItem.id} event={eventItem} lang={lang} />
-                ))}
-              </div>
-              <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/events`} />
-
-              {/* JSON-LD Schema */}
-              <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{
-                  __html: JSON.stringify([
-                    {
-                      "@context": "https://schema.org",
-                      "@type": "BreadcrumbList",
-                      "itemListElement": [
-                        {
-                          "@type": "ListItem",
-                          "position": 1,
-                          "name": dict.navigation?.home || "Home",
-                          "item": `https://agriguruonline.com/${lang}`
-                        },
-                        {
-                          "@type": "ListItem",
-                          "position": 2,
-                          "name": dict.header?.events || "Events",
-                          "item": `https://agriguruonline.com/${lang}/events`
-                        },
-                        ...(matchedCategory ? [{
-                          "@type": "ListItem",
-                          "position": 3,
-                          "name": matchedCategory.translations?.find((t: any) => t.lang_code === lang)?.name || matchedCategory.name,
-                          "item": `https://agriguruonline.com/${lang}/events?category=${matchedCategory.slug}`
-                        }] : [])
-                      ]
-                    },
-                    {
-                    "@context": "https://schema.org",
-                    "@type": "ItemList",
-                    "itemListElement": eventsList.map((eventItem, index) => ({
-                      "@type": "ListItem",
-                      "position": index + 1,
-                      "item": {
-                        "@type": "Event",
-                        "name": eventItem.translations?.find((t: any) => t.lang_code === lang)?.title || eventItem.title,
-                        "description": eventItem.translations?.find((t: any) => t.lang_code === lang)?.description || "",
-                        "startDate": eventItem.start_date,
-                        "endDate": eventItem.end_date,
-                        "eventStatus": `https://schema.org/Event${eventItem.status === 'UPCOMING' ? 'Scheduled' : eventItem.status === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
-                        "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-                        "location": {
-                          "@type": "Place",
-                          "name": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "Venue to be announced",
-                          "address": {
-                            "@type": "PostalAddress",
-                            "addressLocality": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "TBA"
-                          }
-                        },
-                        "image": [
-                          eventItem.thumbnail?.startsWith('http')
-                            ? eventItem.thumbnail
-                            : eventItem.thumbnail
-                              ? `https://assets.agriguruonline.com/${eventItem.thumbnail}`
-                              : 'https://agriguruonline.com/logo.png'
-                        ],
-                        "url": `https://agriguruonline.com/${lang}/events/${eventItem.slug}`
-                      }
-                    }))
-                  }]).replace(/</g, '\\u003c')
-                }}
-              />
-            </>
-          )}
+          <Suspense fallback={<EventsGridSkeleton />}>
+            <EventsPageContent lang={lang} searchParams={searchParams} />
+          </Suspense>
         </div>
       </div>
     </div>

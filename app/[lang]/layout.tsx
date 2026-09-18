@@ -21,11 +21,11 @@ import { Toaster } from 'sonner'
 import ServiceWorkerRegister from '@/components/ui/ServiceWorkerRegister'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
-import { getTradingApiUrl } from '@/lib/api-utils'
+import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
 import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/lib/seo'
 import { NotificationProvider } from '@/components/providers/NotificationProvider'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
-import '@fortawesome/fontawesome-free/css/all.min.css'
+
 import '../globals.css'
 
 export async function generateMetadata(props: {
@@ -109,6 +109,8 @@ export default async function LocalizedRootLayout({
 
   const rawDict = await getDictionary(activeLang)
   const tradingApiUrl = getTradingApiUrl()
+  const assetsUrl = getAssetsUrl()
+  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl.slice(0, -1) : assetsUrl
   const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
 
   const apiCategories = await getCategories(activeLang, {
@@ -169,17 +171,34 @@ export default async function LocalizedRootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
-        <link rel="preconnect" href="https://assets.agriguruonline.cloud" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://assets.agriguruonline.cloud" />
-        <link rel="preconnect" href="https://trading-api.agriguruonline.cloud" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://trading-api.agriguruonline.cloud" />
-        <link rel="preconnect" href="https://cms-api.agriguruonline.cloud" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://cms-api.agriguruonline.cloud" />
+
+
+        {/* Font Awesome — preload for performance, then swap to all media via inline script */}
+        <link
+          rel="preload"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+          as="style"
+        />
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+          media="print"
+          id="fa-stylesheet"
+        />
+        <noscript>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+        </noscript>
+        {/* Swap Font Awesome from print→all after load so it doesn't block render */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var l=document.getElementById('fa-stylesheet');if(l){l.addEventListener('load',function(){l.media='all'});}else{document.querySelectorAll('link[media="print"]').forEach(function(el){el.addEventListener('load',function(){el.media='all'});})}})();`
+          }}
+        />
+
 
         <Script
           id="trusted-types-policy"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `if(typeof window!=='undefined'&&window.trustedTypes&&window.trustedTypes.createPolicy){try{if(!window.trustedTypes.defaultPolicy){window.trustedTypes.createPolicy('default',{createHTML:function(s){return s},createScript:function(s){return s},createScriptURL:function(s){return s}})}}catch(e){}}`
           }}

@@ -1,5 +1,6 @@
 import { cache } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
@@ -146,6 +147,8 @@ export async function generateMetadata(
   };
 }
 
+import { Suspense } from 'react'
+
 export default async function SubCategoryProductsPage(
   props: { params: Promise<{ lang: string; slug: string; subSlug: string }> }
 ) {
@@ -154,9 +157,51 @@ export default async function SubCategoryProductsPage(
   const slug = params?.slug || ''
   const subSlug = params?.subSlug || ''
 
+  return (
+    <div className="bg-background text-foreground">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <Suspense fallback={<SubCategoryProductsSkeleton subSlug={subSlug} slug={slug} lang={lang} />}>
+            <SubCategoryProductsContent lang={lang} slug={slug} subSlug={subSlug} />
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SubCategoryProductsSkeleton({ subSlug, slug, lang }: { subSlug: string, slug: string, lang: string }) {
+  const pageTitle = subSlug ? subSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') + ' Product List' : 'Product List';
+
+  return (
+    <>
+      <PageHeader title={pageTitle} backText="Back" backHref={`/${lang}/category/${slug}`} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+        {[...Array(10)].map((_, i) => (
+          <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
+            <div className="relative w-full aspect-square bg-muted animate-pulse border-b border-border"></div>
+            <div className="p-2 sm:p-3 flex flex-col flex-1 gap-2">
+              <div className="h-4 bg-muted animate-pulse rounded w-3/4 mx-auto mb-2"></div>
+              <div className="mt-auto space-y-1.5">
+                <div className="h-8 bg-muted animate-pulse rounded-lg w-full"></div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="h-8 bg-muted animate-pulse rounded-lg"></div>
+                  <div className="h-8 bg-muted animate-pulse rounded-lg"></div>
+                </div>
+                <div className="h-8 bg-muted animate-pulse rounded-lg w-full mt-0.5"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: string; slug: string; subSlug: string }) {
   const [data, dict] = await Promise.all([
-    tradingService.getProductsForSubcategory(slug, subSlug, lang),
-    getDictionary(lang)
+    tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null),
+    getDictionary(lang).catch(() => ({}))
   ])
   const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
@@ -186,80 +231,91 @@ export default async function SubCategoryProductsPage(
   const pageTitle = data.sub_category?.name ? `${data.sub_category.name} ${common.productList}` : common.productList;
 
   return (
-    <div className="bg-background text-foreground">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={pageTitle} backText={common.back} backHref={`/${lang}/category/${slug}`} />
+    <>
+      <PageHeader title={pageTitle} backText={common.back} backHref={`/${lang}/category/${slug}`} />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
-            {data.products.map((product: any, index: number) => {
-              const productName = product.name || product.slug || 'Agricultural Commodity';
-              const rawImg = product.thumbnail || product.image;
-              const imageUrl = rawImg
-                ? (rawImg.startsWith('http') ? rawImg : `${imageBaseUrl}${rawImg}`)
-                : 'https://agriguruonline.com/logo.png'
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+        {data.products.map((product: any, index: number) => {
+          const productName = product.name || product.slug || 'Agricultural Commodity';
+          const rawImg = product.thumbnail || product.image;
+          const imageUrl = rawImg
+            ? (rawImg.startsWith('http') ? rawImg : `${imageBaseUrl}${rawImg}`)
+            : 'https://agriguruonline.com/logo.png'
 
-              return (
-                <div
-                  key={product.id}
-                  title={productName}
-                  className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
-                >
-                  <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="relative w-full aspect-square bg-muted overflow-hidden border-b border-border block" title={productName} tabIndex={-1} aria-hidden="true">
-                    <ImageWithSkeleton
-                      src={imageUrl}
-                      alt={productName}
-                      title={productName}
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      priority={index === 0}
-                    />
+          return (
+            <div
+              key={product.id}
+              title={productName}
+              className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
+            >
+              <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="relative w-full aspect-square bg-muted overflow-hidden border-b border-border block" title={productName} tabIndex={-1} aria-hidden="true">
+                {index === 0 ? (
+                  <Image
+                    src={imageUrl}
+                    alt={productName}
+                    title={productName}
+                    fill
+                    sizes="100vw"
+                    className="object-cover"
+                    priority={true}
+                    loading="eager"
+                    fetchPriority="high"
+                  />
+                ) : (
+                  <ImageWithSkeleton
+                    src={imageUrl}
+                    alt={productName}
+                    title={productName}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    priority={false}
+                  />
+                )}
+              </Link>
+
+              <div className="p-2 sm:p-3 flex flex-col flex-1">
+                <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 line-clamp-2 leading-tight min-h-[34px]" >
+                  <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
+                    {product.name}
                   </Link>
+                </h2>
 
-                  <div className="p-2 sm:p-3 flex flex-col flex-1">
-                    <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 line-clamp-2 leading-tight min-h-[34px]" >
-                      <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
-                        {product.name}
-                      </Link>
-                    </h2>
+                <div className="mt-auto space-y-1.5">
+                  <button className="w-full bg-brand-blue hover:opacity-90 text-white py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.addProduct} - ${product.name}`}>
+                    <i className="fa-solid fa-plus text-xs"></i>
+                    {common.addProduct}
+                  </button>
 
-                    <div className="mt-auto space-y-1.5">
-                      <button className="w-full bg-brand-blue hover:opacity-90 text-white py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.addProduct} - ${product.name}`}>
-                        <i className="fa-solid fa-plus text-xs"></i>
-                        {common.addProduct}
-                      </button>
-
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <button className="bg-brand-green hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.buy} - ${product.name}`}>
-                          <i className="fa-solid fa-cart-shopping text-[10px]"></i>
-                          {common.buy}
-                        </button>
-                        <button className="bg-brand-red hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.sell} - ${product.name}`}>
-                          <i className="fa-solid fa-tag text-[10px]"></i>
-                          {common.sell}
-                        </button>
-                      </div>
-
-                      <Link
-                        href={`/${lang}/product/${product.slug}`}
-                        prefetch={true}
-                        title={`${common.viewDetails} - ${product.name}`}
-                        tabIndex={-1}
-                        aria-hidden="true"
-                        className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
-                      >
-                        <span aria-hidden="true">{common.viewDetails}</span>
-                        <span className="sr-only">{common.viewDetails} {product.name}</span>
-                      </Link>
-                    </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button className="bg-brand-green hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.buy} - ${product.name}`}>
+                      <i className="fa-solid fa-cart-shopping text-[10px]"></i>
+                      {common.buy}
+                    </button>
+                    <button className="bg-brand-red hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.sell} - ${product.name}`}>
+                      <i className="fa-solid fa-tag text-[10px]"></i>
+                      {common.sell}
+                    </button>
                   </div>
+
+                  <Link
+                    href={`/${lang}/product/${product.slug}`}
+                    prefetch={true}
+                    title={`${common.viewDetails} - ${product.name}`}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
+                  >
+                    <span aria-hidden="true">{common.viewDetails}</span>
+                    <span className="sr-only">{common.viewDetails} {product.name}</span>
+                  </Link>
                 </div>
-              )
-            })}
-          </div>
-        </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
+
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -308,6 +364,6 @@ export default async function SubCategoryProductsPage(
           ]).replace(/</g, '\\u003c')
         }}
       />
-    </div>
+    </>
   )
 }

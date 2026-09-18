@@ -6,6 +6,7 @@ import DOMPurify from 'isomorphic-dompurify'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { getAssetsUrl } from '@/lib/api-utils'
+import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { cache } from 'react'
 import { MarketUpdateItem, MarketUpdatesResponse } from '@/types/marketUpdates'
@@ -151,13 +152,13 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
   const params = await props.params
   const { lang, slug } = params
   
-  const article = await cmsService.getMarketUpdateDetail(slug, lang)
+  const article = await cmsService.getMarketUpdateDetail(slug, lang).catch(() => null)
   
   if (!article) {
     notFound()
   }
 
-  const allUpdates = await cmsService.getOtherMarketUpdates(lang, 6)
+  const allUpdates = await cmsService.getOtherMarketUpdates(lang, 6).catch(() => [])
   const otherList = allUpdates.filter(item => item.slug !== slug).slice(0, 5)
 
   const translation = article.translations?.find((t: any) => t.lang_code === lang)
@@ -202,12 +203,14 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
               <div className="grid-area-image w-full max-w-full min-w-0 space-y-4">
                 <div className="bg-card rounded-t-2xl rounded-b-none md:rounded-2xl border border-border border-b-0 md:border-b p-2 sm:p-2.5 shadow-xs overflow-hidden">
                   <div className="relative w-full aspect-[1/1.414] rounded-t-xl rounded-b-none overflow-hidden bg-muted/40">
-                    <ImageWithSkeleton
+                    <Image
                       src={imageUrl}
                       alt={title}
                       title={title}
                       fill
-                      priority
+                      priority={true}
+                      loading="eager"
+                      fetchPriority="high"
                       sizes="(max-width: 768px) 100vw, 50vw"
                       style={{ objectFit: 'contain' }}
                       className="!object-contain"

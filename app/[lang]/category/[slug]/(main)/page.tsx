@@ -139,14 +139,55 @@ export async function generateMetadata(
 
 
 
+import { Suspense } from 'react'
+
 export default async function CategoryPage(props: { params: Promise<{ lang: string; slug: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en'
   const slug = params.slug
 
+  return (
+    <div className="bg-background text-foreground">
+      {/* Main Content */}
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <Suspense fallback={<CategorySkeleton slug={slug} />}>
+            <CategoryContent lang={lang} slug={slug} />
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CategorySkeleton({ slug }: { slug: string }) {
+  // Format slug for a temporary title before data loads
+  const categoryName = slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  return (
+    <>
+      <PageHeader title={`${categoryName} (All Country Origins)`} backText="Back" />
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
+            <div className="relative w-full aspect-[16/10] bg-muted animate-pulse border-b border-border"></div>
+            <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-2">
+              <div className="h-4 sm:h-5 bg-muted animate-pulse rounded w-3/4"></div>
+              <div className="flex items-center justify-between mt-1">
+                <div className="h-3 sm:h-4 bg-muted animate-pulse rounded w-1/3"></div>
+                <div className="w-6 h-6 rounded-full bg-muted animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
   const [data, dict] = await Promise.all([
-    tradingService.getSubCategories(slug, lang),
-    getDictionary(lang)
+    tradingService.getSubCategories(slug, lang).catch(() => null),
+    getDictionary(lang).catch(() => ({}))
   ])
   const commonDict = (dict as Record<string, any>).common || {}
   const common = {
@@ -172,77 +213,107 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   const assetsUrl = getAssetsUrl(); const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
   return (
-    <div className="bg-background text-foreground">
-      {/* Main Content */}
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} />
+    <>
+      <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} />
 
-          {data.sub_categories && data.sub_categories.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-              {data.sub_categories.map((subCat, index) => {
-                const subCatName = getTranslatedName(subCat.translations, subCat.name) || subCat.slug || 'Category'
-                const imageUrl = subCat.image ? (subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`) : '/placeholder.png'
+      {data.sub_categories && data.sub_categories.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+          {data.sub_categories.map((subCat, index) => {
+            const subCatName = getTranslatedName(subCat.translations, subCat.name) || subCat.slug || 'Category'
+            const imageUrl = subCat.image ? (subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`) : '/placeholder.png'
 
-                return (
-                  <div
-                    key={subCat.id}
-                    title={subCatName}
-                    className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
-                  >
-                    <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
-                      <ImageWithSkeleton
-                        src={imageUrl}
-                        alt={subCatName}
-                        title={subCatName}
-                        fill
-                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                        priority={index < 2}
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </ProductLink>
+            return (
+              <div
+                key={subCat.id}
+                title={subCatName}
+                className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
+              >
+                {index === 0 ? (
+                  <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
+                    <Image
+                      src={imageUrl}
+                      alt={subCatName}
+                      title={subCatName}
+                      fill
+                      sizes="100vw"
+                      priority={true}
+                      loading="eager"
+                      fetchPriority="high"
+                      className="object-cover"
+                    />
+                  </Link>
+                ) : (
+                  <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
+                    <ImageWithSkeleton
+                      src={imageUrl}
+                      alt={subCatName}
+                      title={subCatName}
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                      priority={false}
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </ProductLink>
+                )}
 
-                    <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
-                      <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" >
-                        <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors">
-                          {subCatName}
-                        </ProductLink>
-                      </h2>
+                <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
+                  <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" >
+                    {index === 0 ? (
+                      <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors">
+                        {subCatName}
+                      </Link>
+                    ) : (
+                      <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors">
+                        {subCatName}
+                      </ProductLink>
+                    )}
+                  </h2>
 
-                      <div className="flex items-center justify-between mt-1">
-                        <ProductLink
-                          href={`/${lang}/category/${slug}/${subCat.slug}`}
-                          aria-label={`${common.explore} ${subCatName}`}
-                          className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
-                        >
-                          <span aria-hidden="true">{common.explore}</span>
-                          <span className="sr-only">{common.explore} {subCatName}</span>
-                          <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
-                        </ProductLink>
+                  <div className="flex items-center justify-between mt-1">
+                    {index === 0 ? (
+                      <Link
+                        href={`/${lang}/category/${slug}/${subCat.slug}`}
+                        aria-label={`${common.explore} ${subCatName}`}
+                        className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
+                      >
+                        <span aria-hidden="true">{common.explore}</span>
+                        <span className="sr-only">{common.explore} {subCatName}</span>
+                        <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
+                      </Link>
+                    ) : (
+                      <ProductLink
+                        href={`/${lang}/category/${slug}/${subCat.slug}`}
+                        aria-label={`${common.explore} ${subCatName}`}
+                        className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
+                      >
+                        <span aria-hidden="true">{common.explore}</span>
+                        <span className="sr-only">{common.explore} {subCatName}</span>
+                        <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
+                      </ProductLink>
+                    )}
 
-                        <ShareButton
-                          title={subCatName}
-                          url={`/${lang}/category/${slug}/${subCat.slug}`}
-                        />
-                      </div>
-                    </div>
+                    <ShareButton
+                      title={subCatName}
+                      url={`/${lang}/category/${slug}/${subCat.slug}`}
+                    />
                   </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center py-12 px-4 bg-card/30 rounded-2xl border border-dashed border-border/50 my-6">
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex items-center justify-center w-14 h-14 rounded-full bg-brand-blue/10 mb-1">
-                  <i className="fa-solid fa-hourglass-half text-2xl text-brand-blue animate-pulse"></i>
                 </div>
-                <h2 className="text-xl font-bold text-foreground">Coming Soon!</h2>
-                <p className="text-sm text-foreground/60">Exciting updates are on the way.</p>
               </div>
-            </div>
-          )}
+            )
+          })}
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center justify-center py-12 px-4 bg-card/30 rounded-2xl border border-dashed border-border/50 my-6">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-brand-blue/10 mb-1">
+              <i className="fa-solid fa-hourglass-half text-2xl text-brand-blue animate-pulse"></i>
+            </div>
+            <h2 className="text-xl font-bold text-foreground">Coming Soon!</h2>
+            <p className="text-sm text-foreground/60">Exciting updates are on the way.</p>
+          </div>
+        </div>
+      )}
+      
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -284,6 +355,7 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
           ]).replace(/</g, '\\u003c')
         }}
       />
-    </div>
+    </>
   )
 }
+

@@ -6,9 +6,10 @@ import DOMPurify from 'isomorphic-dompurify'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { getAssetsUrl } from '@/lib/api-utils'
+import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { EventDetail, EventItem, EventsResponse, EventDetailResponse } from '@/types/events'
-import { cache } from 'react'
+import { cache, Suspense } from 'react'
 
 import { cmsService } from '@/lib/api/cms.service'
 
@@ -179,13 +180,44 @@ function formatEditorialContent(htmlContent: string, dict?: any): string {
   return formatted.trim()
 }
 
-export default async function EventDetailPage(props: { params: Promise<{ lang: string; slug: string }> }) {
-  const params = await props.params
-  const { lang, slug } = params
+/* ---------- Skeleton Component ---------- */
+function EventDetailSkeleton() {
+  return (
+    <>
+      <PageHeader title="Events" backText="Back" />
+      <div className="mt-3 w-full max-w-full overflow-hidden">
+        <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
+          <div className="grid-area-image w-full max-w-full min-w-0 space-y-4">
+            <div className="w-full aspect-[3/2] bg-muted animate-pulse rounded-2xl border border-border"></div>
+          </div>
+          <div className="grid-area-other w-full max-w-full min-w-0 mt-6 md:mt-0 md:h-full md:min-h-[340px]">
+             <div className="w-full h-80 bg-muted animate-pulse rounded-2xl border border-border"></div>
+          </div>
+          <div className="grid-area-content w-full max-w-full min-w-0 mt-6 md:mt-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8">
+             <div className="w-3/4 h-8 bg-muted animate-pulse rounded mb-6"></div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 mb-5">
+               <div className="h-16 bg-muted animate-pulse rounded-xl border border-border"></div>
+               <div className="h-16 bg-muted animate-pulse rounded-xl border border-border"></div>
+             </div>
+             <div className="space-y-4">
+               <div className="w-full h-4 bg-muted animate-pulse rounded"></div>
+               <div className="w-full h-4 bg-muted animate-pulse rounded"></div>
+               <div className="w-5/6 h-4 bg-muted animate-pulse rounded"></div>
+               <div className="w-full h-4 bg-muted animate-pulse rounded mt-4"></div>
+               <div className="w-full h-4 bg-muted animate-pulse rounded"></div>
+               <div className="w-4/6 h-4 bg-muted animate-pulse rounded"></div>
+             </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
 
+async function EventDetailContent({ lang, slug }: { lang: string, slug: string }) {
   const [event, allLatestEvents] = await Promise.all([
-    cmsService.getEventDetail(slug, lang),
-    cmsService.getOtherEvents(lang, undefined, 6)
+    cmsService.getEventDetail(slug, lang).catch(() => null),
+    cmsService.getOtherEvents(lang, undefined, 6).catch(() => [])
   ])
 
   if (!event) {
@@ -247,14 +279,9 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
   const plainText = rawContent.replace(/<[^>]+>/g, '').trim()
 
   return (
-    <div className="bg-background text-foreground">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          {/* Header */}
-          <PageHeader title="Events" backText="Back" backHref={`/${lang}/events`} />
-
-          {/* 50-50 Split Layout using CSS Grid Areas */}
-          <div className="mt-3 w-full max-w-full overflow-hidden">
+    <>
+      <PageHeader title={dict.header?.events || "Events"} backText={dict.common?.back || "Back"} backHref={`/${lang}/events`} />
+      <div className="mt-3 w-full max-w-full overflow-hidden">
             {/* Screen Reader Only H1 to enforce descending heading hierarchy for Accessibility & SEO */}
 
             <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
@@ -263,12 +290,14 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
               <div className="grid-area-image w-full max-w-full min-w-0 space-y-4">
                 <div className="bg-card rounded-t-2xl rounded-b-none md:rounded-2xl border border-border border-b-0 md:border-b p-2 sm:p-2.5 shadow-xs overflow-hidden">
                   <div className="relative w-full aspect-[3/2] rounded-t-xl rounded-b-none overflow-hidden bg-muted/40">
-                    <ImageWithSkeleton
+                    <Image
                       src={imageUrl}
                       alt={title}
                       title={title}
                       fill
-                      priority
+                      priority={true}
+                      loading="eager"
+                      fetchPriority="high"
                       sizes="(max-width: 768px) 100vw, 50vw"
                       className="object-cover"
                     />
@@ -458,140 +487,7 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
                   </p>
                 )}
 
-                {/* Scoped CSS for Fluid Typography & Responsive Grid */}
-                <style dangerouslySetInnerHTML={{ __html: `
-                  .responsive-layout-grid {
-                    display: grid;
-                    grid-template-columns: minmax(0, 1fr);
-                    grid-template-areas: 
-                      "image"
-                      "content"
-                      "other";
-                    width: 100%;
-                    max-width: 100%;
-                  }
-                  @media (min-width: 768px) {
-                    .responsive-layout-grid {
-                      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-                      grid-template-rows: auto 1fr;
-                      grid-template-areas: 
-                        "image content"
-                        "other content";
-                    }
-                  }
-                  .grid-area-image { grid-area: image; min-width: 0; max-width: 100%; }
-                  .grid-area-content { grid-area: content; min-width: 0; max-width: 100%; }
-                  .grid-area-other { grid-area: other; min-width: 0; max-width: 100%; }
-
-                  .custom-scrollbar::-webkit-scrollbar {
-                    width: 4px;
-                  }
-                  .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
-                  }
-                  .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: var(--border);
-                    border-radius: 9999px;
-                  }
-                  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: var(--foreground);
-                    opacity: 0.3;
-                  }
-
-                  .article-title {
-                    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, sans-serif;
-                    text-align: justify !important;
-                    text-justify: inter-word !important;
-                    text-align-last: left !important;
-                    word-break: break-word;
-                    overflow-wrap: break-word;
-                  }
-
-                  .editorial-body {
-                    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, sans-serif;
-                    font-size: 16px;
-                    font-weight: 500;
-                    line-height: 1.85;
-                    color: var(--foreground);
-                    -webkit-font-smoothing: antialiased;
-                    -moz-osx-font-smoothing: grayscale;
-                    word-break: break-word;
-                    overflow-wrap: break-word;
-                    word-wrap: break-word;
-                    max-width: 100%;
-                  }
-
-                  .editorial-body p {
-                    text-align: justify !important;
-                    text-justify: inter-word !important;
-                    text-align-last: left !important;
-                    margin-bottom: 1.25rem;
-                    line-height: 1.85;
-                    font-weight: 500;
-                    color: var(--foreground);
-                    hyphens: auto;
-                    -webkit-hyphens: auto;
-                    word-break: break-word;
-                    overflow-wrap: break-word;
-                  }
-
-                  .editorial-body p:last-child {
-                    margin-bottom: 0 !important;
-                  }
-
-                  .editorial-callout {
-                    margin: 1.3rem 0;
-                    padding: 0.9rem 1.15rem;
-                    border-radius: 0.875rem;
-                    background: var(--muted);
-                    border: 1px solid var(--border);
-                    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-                    word-break: break-word;
-                    overflow-wrap: break-word;
-                    max-width: 100%;
-                  }
-
-                  .editorial-callout .callout-label {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    font-size: 0.875rem;
-                    font-weight: 700;
-                    margin-bottom: 0.35rem;
-                  }
-
-                  .editorial-callout .callout-text {
-                    font-size: 0.925rem !important;
-                    line-height: 1.7 !important;
-                    margin: 0 !important;
-                    text-align: justify !important;
-                    text-justify: inter-word !important;
-                    text-align-last: left !important;
-                    word-break: break-word;
-                    overflow-wrap: break-word;
-                  }
-
-                  .callout-highlights {
-                    border-left: 3.5px solid var(--brand-blue) !important;
-                  }
-                  .callout-highlights .callout-label {
-                    color: var(--brand-blue);
-                  }
-
-                  .callout-attendees {
-                    border-left: 3.5px solid var(--brand-green) !important;
-                  }
-                  .callout-attendees .callout-label {
-                    color: var(--brand-green);
-                  }
-
-                  .callout-focus {
-                    border-left: 3.5px solid #f59e0b !important;
-                  }
-                  .callout-focus .callout-label {
-                    color: #f59e0b;
-                  }
-                `}} />
+                <style dangerouslySetInnerHTML={{ __html: ``}} />
 
                 {/* Tags at Bottom (without icons) */}
                 {event.categories && event.categories.length > 0 && (
@@ -730,6 +626,155 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
               ]).replace(/</g, '\\u003c')
             }}
           />
+    </>
+  )
+}
+
+export default async function EventDetailPage(props: { params: Promise<{ lang: string; slug: string }> }) {
+  const params = await props.params
+  const { lang, slug } = params
+
+  return (
+    <div className="bg-background text-foreground">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          {/* Scoped CSS for Fluid Typography & Responsive Grid */}
+          <style dangerouslySetInnerHTML={{ __html: `
+            .responsive-layout-grid {
+              display: grid;
+              grid-template-columns: minmax(0, 1fr);
+              grid-template-areas: 
+                "image"
+                "content"
+                "other";
+              width: 100%;
+              max-width: 100%;
+            }
+            @media (min-width: 768px) {
+              .responsive-layout-grid {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                grid-template-rows: auto 1fr;
+                grid-template-areas: 
+                  "image content"
+                  "other content";
+              }
+            }
+            .grid-area-image { grid-area: image; min-width: 0; max-width: 100%; }
+            .grid-area-content { grid-area: content; min-width: 0; max-width: 100%; }
+            .grid-area-other { grid-area: other; min-width: 0; max-width: 100%; }
+
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 4px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: var(--border);
+              border-radius: 9999px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: var(--foreground);
+              opacity: 0.3;
+            }
+
+            .article-title {
+              font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, sans-serif;
+              text-align: justify !important;
+              text-justify: inter-word !important;
+              text-align-last: left !important;
+              word-break: break-word;
+              overflow-wrap: break-word;
+            }
+
+            .editorial-body {
+              font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, sans-serif;
+              font-size: 16px;
+              font-weight: 500;
+              line-height: 1.85;
+              color: var(--foreground);
+              -webkit-font-smoothing: antialiased;
+              -moz-osx-font-smoothing: grayscale;
+              word-break: break-word;
+              overflow-wrap: break-word;
+              word-wrap: break-word;
+              max-width: 100%;
+            }
+
+            .editorial-body p {
+              text-align: justify !important;
+              text-justify: inter-word !important;
+              text-align-last: left !important;
+              margin-bottom: 1.25rem;
+              line-height: 1.85;
+              font-weight: 500;
+              color: var(--foreground);
+              hyphens: auto;
+              -webkit-hyphens: auto;
+              word-break: break-word;
+              overflow-wrap: break-word;
+            }
+
+            .editorial-body p:last-child {
+              margin-bottom: 0 !important;
+            }
+
+            .editorial-callout {
+              margin: 1.3rem 0;
+              padding: 0.9rem 1.15rem;
+              border-radius: 0.875rem;
+              background: var(--muted);
+              border: 1px solid var(--border);
+              box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+              word-break: break-word;
+              overflow-wrap: break-word;
+              max-width: 100%;
+            }
+
+            .editorial-callout .callout-label {
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+              font-size: 0.875rem;
+              font-weight: 700;
+              margin-bottom: 0.35rem;
+            }
+
+            .editorial-callout .callout-text {
+              font-size: 0.925rem !important;
+              line-height: 1.7 !important;
+              margin: 0 !important;
+              text-align: justify !important;
+              text-justify: inter-word !important;
+              text-align-last: left !important;
+              word-break: break-word;
+              overflow-wrap: break-word;
+            }
+
+            .callout-highlights {
+              border-left: 3.5px solid var(--brand-blue) !important;
+            }
+            .callout-highlights .callout-label {
+              color: var(--brand-blue);
+            }
+
+            .callout-attendees {
+              border-left: 3.5px solid var(--brand-green) !important;
+            }
+            .callout-attendees .callout-label {
+              color: var(--brand-green);
+            }
+
+            .callout-focus {
+              border-left: 3.5px solid #f59e0b !important;
+            }
+            .callout-focus .callout-label {
+              color: #f59e0b;
+            }
+          `}} />
+          <Suspense fallback={<EventDetailSkeleton />}>
+            <EventDetailContent lang={lang} slug={slug} />
+          </Suspense>
         </div>
       </div>
     </div>

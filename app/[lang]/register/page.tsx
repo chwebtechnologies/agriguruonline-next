@@ -21,23 +21,37 @@ export async function generateMetadata(
   });
 }
 
+import { Suspense } from 'react'
+
 interface RegisterPageProps {
-  params: {
+  params: Promise<{
     lang: string;
-  };
+  }>;
 }
 
-export default async function RegisterPage({ params }: RegisterPageProps) {
-  // We await params if it's a promise, Next 15 requires awaiting it.
-  const lang = (await params).lang;
+export default async function RegisterPage(props: RegisterPageProps) {
+  const params = await props.params;
+  const lang = params.lang || 'en'
 
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <AuthFlow lang={lang} />
+          <Suspense fallback={<RegisterPageSkeleton />}>
+            <RegisterPageContent lang={lang} />
+          </Suspense>
         </div>
       </div>
     </div>
   );
+}
+
+function RegisterPageSkeleton() {
+  return (
+    <div className="w-full max-w-md mx-auto h-[500px] bg-card border border-border rounded-2xl animate-pulse mt-8"></div>
+  )
+}
+
+function RegisterPageContent({ lang }: { lang: string }) {
+  return <AuthFlow lang={lang} />
 }

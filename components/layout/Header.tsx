@@ -3,7 +3,7 @@ import { lang } from 'next/root-params'
 import { getCategories } from '@/lib/category'
 import { tradingService } from '@/lib/api'
 import { SearchProduct } from '@/types/search'
-import { ClientHeaderWrapper } from './ClientHeaderWrapper'
+
 
 interface HeaderProps {
   dict?: any
@@ -61,7 +61,12 @@ export default async function Header(props?: HeaderProps) {
   // Fetch initial search products for SearchModal and HeaderSearch
   let initialSearchProducts: SearchProduct[] = []
   try {
-    const searchRes = await tradingService.searchProducts({ isActive: true, lang: activeLang, limit: 50 });
+    const getCachedProducts = (await import('next/cache')).unstable_cache(
+      async () => tradingService.searchProducts({ isActive: true, lang: activeLang, limit: 50 }),
+      ['header-search-products', activeLang],
+      { revalidate: 3600 }
+    );
+    const searchRes = await getCachedProducts();
     let productsArray: SearchProduct[] = []
     if (searchRes?.data?.products && Array.isArray(searchRes.data.products)) {
       productsArray = searchRes.data.products
@@ -105,8 +110,34 @@ export default async function Header(props?: HeaderProps) {
     console.error('Error fetching initial search products:', error)
   }
 
+  const cookieStore = await import('next/headers').then(m => m.cookies());
+  const userInfoCookie = cookieStore.get("user_info");
+
+  if (userInfoCookie) {
+    const { getClientAuthData } = await import('@/app/actions/authData');
+    const authState = await getClientAuthData(activeLang);
+    
+    if (authState.isAuthenticated) {
+      const HeaderAuth = (await import('./HeaderAuth')).HeaderAuth;
+      return (
+        <HeaderAuth
+          token={authState.token as string}
+          dict={dict}
+          activeLang={activeLang}
+          categories={categories}
+          profile={authState.userProfile}
+          alerts={authState.alertsData}
+          notifications={authState.notificationsData}
+          aiPredicts={authState.aiPredictsData}
+          initialSearchProducts={initialSearchProducts}
+        />
+      );
+    }
+  }
+
+  const HeaderGuest = (await import('./HeaderGuest')).HeaderGuest;
   return (
-    <ClientHeaderWrapper
+    <HeaderGuest
       dict={dict}
       activeLang={activeLang}
       categories={categories}

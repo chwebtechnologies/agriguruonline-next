@@ -3,6 +3,7 @@
 
 
 import { useState } from 'react'
+import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
 import Lightbox from 'yet-another-react-lightbox'
@@ -68,15 +69,29 @@ export default function VideoCollectionClient({ videos, imageBaseUrl, dict = {} 
                 onClick={() => setLightboxIndex(index)}
                 className="w-full aspect-video relative overflow-hidden bg-card/30 block border-b border-border cursor-pointer"
               >
-                <ImageWithSkeleton
-                  src={imageUrl}
-                  alt={title}
-                  title={title}
-                  fill
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                  priority={index < 2}
-                />
+                {index === 0 ? (
+                  <Image
+                    src={imageUrl}
+                    alt={title}
+                    title={title}
+                    fill
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    priority={true}
+                    loading="eager"
+                    fetchPriority="high"
+                  />
+                ) : (
+                  <ImageWithSkeleton
+                    src={imageUrl}
+                    alt={title}
+                    title={title}
+                    fill
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    priority={index < 2}
+                  />
+                )}
                 
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transform-gpu transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">
                   <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center transform scale-90 group-hover:scale-100 transition-all duration-300 border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.3)] group-hover:bg-white/30 group-hover:border-white/60">

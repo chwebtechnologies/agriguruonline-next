@@ -62,6 +62,8 @@ export async function generateMetadata(
   });
 }
 
+import { Suspense } from 'react'
+
 export default async function MarketedProductsPage(
   props: { params: Promise<{ lang: string }>, searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }
 ) {
@@ -71,11 +73,49 @@ export default async function MarketedProductsPage(
 
   const pageStr = searchParams?.page
   const page = typeof pageStr === 'string' ? parseInt(pageStr, 10) : 1
+
+  return (
+    <div className="bg-background text-foreground">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <Suspense fallback={<MarketedProductsSkeleton />}>
+            <MarketedProductsContent lang={lang} page={page} />
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MarketedProductsSkeleton() {
+  return (
+    <>
+      <PageHeader title="Marketed Products" backText="Back" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+        {[...Array(10)].map((_, i) => (
+          <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
+            <div className="relative w-full aspect-[16/10] bg-muted animate-pulse border-b border-border"></div>
+            <div className="p-3 flex flex-col gap-2">
+               <div className="h-4 bg-muted animate-pulse rounded w-3/4 mx-auto mb-2"></div>
+               <div className="flex gap-2">
+                 <div className="h-5 bg-muted animate-pulse rounded-full w-1/3"></div>
+                 <div className="h-5 bg-muted animate-pulse rounded-full w-1/3"></div>
+               </div>
+               <div className="mt-2 h-8 bg-muted animate-pulse rounded-lg w-full"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+async function MarketedProductsContent({ lang, page }: { lang: string; page: number }) {
   const limit = 20
 
   const [data, dict] = await Promise.all([
-    tradingService.getMarketedProducts(lang, page, limit) as Promise<ProductData | null>,
-    getDictionary(lang)
+    (tradingService.getMarketedProducts(lang, page, limit).catch(() => null)) as Promise<ProductData | null>,
+    getDictionary(lang).catch(() => ({}))
   ])
 
   const commonDict = (dict as Record<string, any>).common || {}
@@ -106,57 +146,54 @@ export default async function MarketedProductsPage(
   const totalPages = Math.ceil(data.total / limit)
 
   return (
-    <div className="bg-background text-foreground">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={common.marketedProducts} backText={common.back} />
+    <>
+      <PageHeader title={common.marketedProducts} backText={common.back} />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
-            {data.products.map((product, index) => {
-              const mappedProduct = {
-                id: product.id,
-                name: product.name,
-                product_code: product.product_code,
-                slug: product.slug,
-                image: product.image,
-                thumbnail: product.thumbnail,
-                quality_specification: product.quality_specification,
-                category: product.category ? {
-                  id: product.category.id,
-                  name: product.category.name
-                } : undefined,
-                country: product.country ? {
-                  id: product.country.id,
-                  name: product.country.name,
-                  flag: product.country.flag,
-                  iso2: product.country.iso2
-                } : undefined,
-                loading_ports: product.loading_ports?.map(lp => ({
-                  price: lp.price,
-                  port: lp.port ? { name: lp.port.name } : undefined
-                }))
-              };
-              
-              return (
-                <MarketedProductCard
-                  key={product.id}
-                  product={mappedProduct as any}
-                  lang={lang}
-                  common={common}
-                  imageBaseUrl={imageBaseUrl}
-                  priority={index === 0}
-                />
-              );
-            })}
-          </div>
-
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            baseUrl={`/${lang}/marketed-products`}
-          />
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+        {data.products.map((product, index) => {
+          const mappedProduct = {
+            id: product.id,
+            name: product.name,
+            product_code: product.product_code,
+            slug: product.slug,
+            image: product.image,
+            thumbnail: product.thumbnail,
+            quality_specification: product.quality_specification,
+            category: product.category ? {
+              id: product.category.id,
+              name: product.category.name
+            } : undefined,
+            country: product.country ? {
+              id: product.country.id,
+              name: product.country.name,
+              flag: product.country.flag,
+              iso2: product.country.iso2
+            } : undefined,
+            loading_ports: product.loading_ports?.map(lp => ({
+              price: lp.price,
+              port: lp.port ? { name: lp.port.name } : undefined
+            }))
+          };
+          
+          return (
+            <MarketedProductCard
+              key={product.id}
+              product={mappedProduct as any}
+              lang={lang}
+              common={common}
+              imageBaseUrl={imageBaseUrl}
+              isLCP={index === 0}
+            />
+          );
+        })}
       </div>
+
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        baseUrl={`/${lang}/marketed-products`}
+      />
+      
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -199,6 +236,6 @@ export default async function MarketedProductsPage(
           ]).replace(/</g, '\\u003c')
         }}
       />
-    </div>
+    </>
   )
 }

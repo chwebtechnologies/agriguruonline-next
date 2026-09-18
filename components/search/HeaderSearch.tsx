@@ -700,7 +700,7 @@ export function HeaderSearch({
                         viewDetails: 'View Details',
                       }}
                       imageBaseUrl={imageBaseUrl}
-                      priority={index < 4}
+                      isLCP={index === 0}
                     />
                   ))}
                 </div>

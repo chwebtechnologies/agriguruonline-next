@@ -34,14 +34,34 @@ interface LoginPageProps {
 }
 
 // Since params in Next 15 must be treated as async in some contexts, we use standard page props
+import { Suspense } from 'react'
+
 export default async function LoginPage({ params, searchParams }: LoginPageProps) {
-  // We await params if it's a promise, Next 15 requires awaiting it.
   const lang = (await params).lang;
   
-  // Await searchParams and get redirectUrl
   const resolvedSearchParams = await searchParams;
   const redirectUrl = resolvedSearchParams?.redirectUrl as string | undefined;
 
+  return (
+    <div className="bg-background text-foreground">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <Suspense fallback={<LoginPageSkeleton />}>
+            <LoginPageContent lang={lang} redirectUrl={redirectUrl} />
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoginPageSkeleton() {
+  return (
+    <div className="w-full max-w-md mx-auto h-[500px] bg-card border border-border rounded-2xl animate-pulse mt-8"></div>
+  )
+}
+
+async function LoginPageContent({ lang, redirectUrl }: { lang: string, redirectUrl?: string }) {
   const dict = await getDictionary(lang);
 
   // Check if the user is already logged in
@@ -57,13 +77,5 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
     }
   }
 
-  return (
-    <div className="bg-background text-foreground">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <AuthFlow lang={lang} redirectUrl={redirectUrl} dict={dict.auth} commonDict={dict.common} />
-        </div>
-      </div>
-    </div>
-  );
+  return <AuthFlow lang={lang} redirectUrl={redirectUrl} dict={dict.auth} commonDict={dict.common} />
 }

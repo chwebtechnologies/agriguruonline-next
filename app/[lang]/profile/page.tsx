@@ -32,6 +32,8 @@ export async function generateMetadata(
 
 
 
+import { Suspense } from 'react';
+
 export default async function ProfilePage(props: { params: Promise<{ lang: string }> }) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
@@ -43,6 +45,43 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
     redirect(`/${lang}/login`);
   }
 
+  return (
+    <div className="bg-background text-foreground transition-theme">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <Suspense fallback={<ProfilePageSkeleton />}>
+            <ProfilePageContent lang={lang} token={token} />
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfilePageSkeleton() {
+  return (
+    <>
+      <PageHeader title="My Profile" backText="Back" />
+      <div className="mt-4">
+        {/* Banner Skeleton */}
+        <div className="w-full h-12 bg-muted rounded-xl animate-pulse mb-4"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
+          {/* Left Column (Main Content) */}
+          <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
+            <div className="w-full h-[600px] bg-card border border-border rounded-2xl animate-pulse"></div>
+          </div>
+          {/* Right Column (Sidebar Widgets) */}
+          <div className="lg:col-span-4 flex flex-col gap-2 lg:gap-6">
+            <div className="w-full h-[200px] bg-card border border-border rounded-2xl animate-pulse"></div>
+            <div className="w-full h-[400px] bg-card border border-border rounded-2xl animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+async function ProfilePageContent({ lang, token }: { lang: string, token: string }) {
   const dict = await getDictionary(lang);
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
 
@@ -149,76 +188,72 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   })) : null;
 
   return (
-    <div className="bg-background text-foreground transition-theme">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={(common as any).profile || 'My Profile'} backText={common.back || 'Back'} />
+    <>
+      <PageHeader title={(common as any).profile || 'My Profile'} backText={common.back || 'Back'} />
 
-          <div className="mt-4">
+      <div className="mt-4">
+        
+        {/* Dynamic KYC Alert Banner */}
+        <KycAlertBanner initialIsKycVerified={isKycVerified} initialKycStatus={kycStatus} userId={userId} lang={lang} />
+
+        {/* Mobile-only Membership Card (Shows above the form on smaller screens) */}
+        <div className="block lg:hidden mb-3">
+          <MembershipCard profileData={sanitizedProfileData} />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
+          
+          {/* Left Column (Main Content) */}
+          <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
             
-            {/* Dynamic KYC Alert Banner */}
-            <KycAlertBanner initialIsKycVerified={isKycVerified} initialKycStatus={kycStatus} userId={userId} lang={lang} />
+            <ProfileForm 
+              categories={apiCategories.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                slug: c.slug,
+                is_active: c.is_active,
+                translations: c.translations ? c.translations.map((t: any) => ({
+                  lang_code: t.lang_code,
+                  name: t.name
+                })) : []
+              }))} 
+              countries={apiCountries.map((c: any) => ({
+                id: c.id,
+                iso2: c.iso2,
+                name: c.name,
+                phonecode: c.phonecode,
+                emoji: c.emoji,
+                flag: c.flag
+              }))} 
+              lang={lang} 
+              profileData={sanitizedProfileData} 
+            />
+          </div>
 
-            {/* Mobile-only Membership Card (Shows above the form on smaller screens) */}
-            <div className="block lg:hidden mb-3">
+          {/* Right Column (Sidebar Widgets) */}
+          <div className="lg:col-span-4 flex flex-col gap-2 lg:gap-6">
+            
+            {/* Desktop-only Membership Card (Shows in sidebar on large screens) */}
+            <div className="hidden lg:block">
               <MembershipCard profileData={sanitizedProfileData} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
-              
-              {/* Left Column (Main Content) */}
-              <div className="lg:col-span-8 flex flex-col gap-2 lg:gap-6">
-                
-                <ProfileForm 
-                  categories={apiCategories.map((c: any) => ({
-                    id: c.id,
-                    name: c.name,
-                    slug: c.slug,
-                    is_active: c.is_active,
-                    translations: c.translations ? c.translations.map((t: any) => ({
-                      lang_code: t.lang_code,
-                      name: t.name
-                    })) : []
-                  }))} 
-                  countries={apiCountries.map((c: any) => ({
-                    id: c.id,
-                    iso2: c.iso2,
-                    name: c.name,
-                    phonecode: c.phonecode,
-                    emoji: c.emoji,
-                    flag: c.flag
-                  }))} 
-                  lang={lang} 
-                  profileData={sanitizedProfileData} 
-                />
-              </div>
-
-              {/* Right Column (Sidebar Widgets) */}
-              <div className="lg:col-span-4 flex flex-col gap-2 lg:gap-6">
-                
-                {/* Desktop-only Membership Card (Shows in sidebar on large screens) */}
-                <div className="hidden lg:block">
-                  <MembershipCard profileData={sanitizedProfileData} />
-                </div>
-
-                <div id="kyc-section" className="scroll-mt-24">
-                  <KycSection profileData={sanitizedProfileData} lang={lang} initialKycDocs={rawKycDocs} />
-                </div>
-                
-                {/* Mobile-only Upgrade Plan Button */}
-                <button className="lg:hidden w-[60%] mx-auto mt-2 mb-2 sm:mb-0 bg-plan-platinum p-3.5 sm:p-4 rounded-full text-white font-black flex items-center justify-center gap-2.5 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
-                  <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[15px]"></i>
-                  <span className="tracking-widest uppercase text-sm sm:text-base relative z-10 drop-shadow-md">Upgrade Plan</span>
-                  <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-lg"></i>
-                </button>
-                
-              </div>
-
+            <div id="kyc-section" className="scroll-mt-24">
+              <KycSection profileData={sanitizedProfileData} lang={lang} initialKycDocs={rawKycDocs} />
             </div>
+            
+            {/* Mobile-only Upgrade Plan Button */}
+            <button className="lg:hidden w-[60%] mx-auto mt-2 mb-2 sm:mb-0 bg-plan-platinum p-3.5 sm:p-4 rounded-full text-white font-black flex items-center justify-center gap-2.5 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
+              <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
+              <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[15px]"></i>
+              <span className="tracking-widest uppercase text-sm sm:text-base relative z-10 drop-shadow-md">Upgrade Plan</span>
+              <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-lg"></i>
+            </button>
+            
           </div>
+
         </div>
       </div>
-    </div>
+    </>
   );
 }
