@@ -5,7 +5,7 @@
  * @param data The data to encrypt
  * @returns Encrypted string
  */
-export const encryptData = (data: any): string => {
+export const encryptData = (data: unknown): string => {
   try {
     const jsonString = JSON.stringify(data);
     // Fast base64 encode using Buffer in Node/Next.js edge
@@ -31,7 +31,7 @@ export const encryptData = (data: any): string => {
  * @param encryptedString The encrypted string
  * @returns Parsed JSON data or null if fails
  */
-export const decryptData = (encryptedString: string): any => {
+export const decryptData = (encryptedString: string): unknown => {
   try {
     if (!encryptedString) return null;
     

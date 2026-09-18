@@ -8,7 +8,7 @@ import { ServerActionResponse } from "./charts";
 /**
  * Fetch shipping containers for Freight Chart
  */
-export async function getFreightShippingContainersAction(
+async function getFreightShippingContainersAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {

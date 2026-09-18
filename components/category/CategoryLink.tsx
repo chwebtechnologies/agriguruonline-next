@@ -32,7 +32,7 @@ export default function CategoryLink({
 
   return (
     <Link 
-      prefetch={false} href={href} 
+      prefetch={true} href={href} 
       onClick={onClick} 
       onPointerEnter={handleWarmup}
       onTouchStart={handleWarmup}

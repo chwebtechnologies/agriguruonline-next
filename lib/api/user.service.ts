@@ -92,7 +92,7 @@ export const userService = {
     const url = `${getUserApiUrl()}/user/my-profile?lang_code=${safeLang}&source=web`;
 
     try {
-      let res = await customFetch(url, { token });
+      const res = await customFetch(url, { token });
 
 
 
@@ -119,7 +119,7 @@ export const userService = {
   /**
    * Fetch user price alerts.
    */
-  getUserAlerts: cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
+  getUserAlerts: cache(async (token: string, lang: string = 'en'): Promise<unknown[]> => {
     if (!token) return [];
 
     const safeLang = lang || 'en';
@@ -149,7 +149,7 @@ export const userService = {
   /**
    * Fetch custom notifications.
    */
-  getUserNotifications: cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
+  getUserNotifications: cache(async (token: string, lang: string = 'en'): Promise<unknown[]> => {
     if (!token) return [];
 
     const safeLang = lang || 'en';
@@ -175,7 +175,7 @@ export const userService = {
   /**
    * Fetch user AI predictions.
    */
-  getUserAiPredicts: cache(async (token: string, lang: string = 'en'): Promise<any[]> => {
+  getUserAiPredicts: cache(async (token: string, lang: string = 'en'): Promise<unknown[]> => {
     if (!token) return [];
 
     const safeLang = lang || 'en';

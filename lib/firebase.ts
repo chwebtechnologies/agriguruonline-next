@@ -110,7 +110,7 @@ export const requestForToken = async (): Promise<string | null> => {
 
 // Persistent foreground message listener. Returns unsubscribe fn for cleanup.
 export const subscribeToForegroundMessages = async (
-  callback: (payload: any) => void
+  callback: (payload: unknown) => void
 ): Promise<() => void> => {
   const msg = await getMessagingInstance();
   if (!msg) return () => {};

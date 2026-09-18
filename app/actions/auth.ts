@@ -108,7 +108,7 @@ export async function serverVerifyOtp(email: string, otp: string, lang: string) 
 }
 
 
-export async function destroySession() {
+async function destroySession() {
   try {
     const cookieStore = await cookies();
     cookieStore.delete("auth_token");

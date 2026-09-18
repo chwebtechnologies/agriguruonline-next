@@ -158,7 +158,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
   }
 
   const allUpdates = await cmsService.getOtherMarketUpdates(lang, 6)
-  let otherList = allUpdates.filter(item => item.slug !== slug).slice(0, 5)
+  const otherList = allUpdates.filter(item => item.slug !== slug).slice(0, 5)
 
   const translation = article.translations?.find((t: any) => t.lang_code === lang)
   const title = translation?.title || article.title

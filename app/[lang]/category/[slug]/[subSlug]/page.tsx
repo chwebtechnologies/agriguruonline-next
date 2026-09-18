@@ -71,7 +71,7 @@ export async function generateMetadata(
 
   const data = await tradingService.getProductsForSubcategory(slug, subSlug, lang);
 
-  let formattedName = data?.sub_category?.name || subSlug
+  const formattedName = data?.sub_category?.name || subSlug
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');

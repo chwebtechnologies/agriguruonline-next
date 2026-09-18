@@ -66,7 +66,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, prior
   const parseSpecifications = (html?: string) => {
     if (!html) return { tableData: [], otherData: [] };
 
-    let decoded = html
+    const decoded = html
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')

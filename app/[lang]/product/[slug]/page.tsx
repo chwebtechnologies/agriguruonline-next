@@ -131,7 +131,7 @@ export async function generateMetadata(
 
 function parseSpecifications(html?: string) {
   if (!html) return { tableData: [], otherData: [] }
-  let decoded = html
+  const decoded = html
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')

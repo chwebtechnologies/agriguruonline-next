@@ -106,7 +106,7 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
   fetchInit.signal = controller.signal;
 
   try {
-    let res = await fetch(finalUrl, fetchInit);
+    const res = await fetch(finalUrl, fetchInit);
     
     // 401 Interceptor for client-side fetches
     if (res.status === 401 && typeof window !== 'undefined' && isAuthRequest && !finalUrl.includes('/auth/refresh-token')) {

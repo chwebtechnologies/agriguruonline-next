@@ -558,7 +558,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                   const actionText = getActionText(item.type, notificationType);
                                   
                                   const handleNotificationClick = () => {
-                                    let link = item.url || item.meta_data?.redirect_link;
+                                    const link = item.url || item.meta_data?.redirect_link;
                                     if (link) {
                                       try {
                                         const urlObj = new URL(link);
@@ -649,7 +649,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                   const isFreight = alertType.toLowerCase().includes('freight');
                                   
                                   const handleAlertClick = (id?: string) => {
-                                    let link = item.url || item.redirect_link || item.meta_data?.redirect_link;
+                                    const link = item.url || item.redirect_link || item.meta_data?.redirect_link;
                                     if (link) {
                                       try {
                                         const urlObj = new URL(link);

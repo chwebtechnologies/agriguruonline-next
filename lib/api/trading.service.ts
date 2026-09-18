@@ -3,6 +3,42 @@ import { getTradingApiUrl } from '@/lib/api-utils';
 import { customFetch, customFetchJSON } from './fetcher';
 import type { Category } from '@/lib/category';
 
+
+export interface Country {
+  id: string;
+  name: string;
+  flag?: string;
+  iso2?: string;
+}
+
+export interface Port {
+  id: string;
+  name: string;
+}
+
+export interface ShippingContainer { [key: string]: any; }
+
+export interface ShippingTerm {
+  id: string;
+  name?: string;
+  title?: string;
+}
+
+export interface ProductTranslation {
+  name: string;
+  lang_code: string;
+}
+
+export interface ProductSpecification {
+  id?: string;
+  name?: string;
+  value?: string;
+}
+
+export interface PackingType { [key: string]: any; }
+
+export interface LoadingPort { [key: string]: any; }
+
 export interface SubCategory {
   id: string;
   name: string;
@@ -53,17 +89,17 @@ export interface ProductDetail {
     flag?: string;
     iso2?: string;
   };
-  specifications?: any[];
+  specifications?: ProductSpecification[];
   price?: number;
   current_price?: number;
   chart_status?: boolean;
-  translations?: any[];
+  translations?: ProductTranslation[];
   hsn_sac_code?: string;
   quality_specification?: string;
-  packing_types?: any[];
-  containers?: any[];
-  loading_ports?: any[];
-  [key: string]: unknown;
+  packing_types?: PackingType[];
+  containers?: ShippingContainer[];
+  loading_ports?: LoadingPort[];
+  [key: string]: any;
 }
 
 export interface SimilarProduct {
