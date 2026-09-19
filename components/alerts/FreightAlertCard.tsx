@@ -65,8 +65,7 @@ export function FreightAlertCard({
 
   return (
     <div 
-      onClick={() => onSelect(alert.id)}
-      className={`group bg-card border ${isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30' : 'border-border'} rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer`}
+      className={`group bg-card border ${isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30' : 'border-border'} rounded-xl shadow-sm transition-all duration-300 overflow-hidden`}
     >
       <div className="p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-full relative">
         
@@ -86,9 +85,8 @@ export function FreightAlertCard({
               <input 
                 type="checkbox" 
                 checked={isSelected}
-                onChange={() => {}} // Handle parent click
-                className="w-[18px] h-[18px] sm:w-[22px] sm:h-[22px] accent-brand-blue cursor-pointer rounded border-border bg-background dark:bg-background/20"
-                style={{ colorScheme: 'dark light' }}
+                onChange={() => onSelect(alert.id)}
+                className="w-[18px] h-[18px] sm:w-[22px] sm:h-[22px] accent-brand-blue cursor-pointer dark:scheme-dark"
                 title="Select to delete"
               />
             </div>

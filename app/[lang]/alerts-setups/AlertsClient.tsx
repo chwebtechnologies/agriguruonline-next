@@ -46,8 +46,7 @@ export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], la
                 type="checkbox"
                 checked={selectedIds.size === alerts.length}
                 onChange={toggleSelectAll}
-                className="w-5 h-5 sm:w-6 sm:h-6 accent-brand-blue cursor-pointer rounded border-border bg-background dark:bg-background/20"
-                style={{ colorScheme: 'dark light' }}
+                className="w-5 h-5 sm:w-6 sm:h-6 accent-brand-blue cursor-pointer dark:scheme-dark"
               />
             </div>
             <div className="flex-1 text-[15px] sm:text-[17px] font-bold text-foreground">

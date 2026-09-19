@@ -80,8 +80,7 @@ export function AIPredictFreightCard({
                 type="checkbox" 
                 checked={isSelected}
                 onChange={(e) => { e.stopPropagation(); onSelect(predict.id); }}
-                className="w-[18px] h-[18px] sm:w-[22px] sm:h-[22px] accent-brand-blue cursor-pointer rounded border-border bg-background dark:bg-background/20"
-                style={{ colorScheme: 'dark light' }}
+                className="w-[18px] h-[18px] sm:w-[22px] sm:h-[22px] accent-brand-blue cursor-pointer dark:scheme-dark"
                 title="Select to select"
               />
             </div>
