@@ -159,6 +159,7 @@ export default function MobileCommodityChart({
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const [displayChartData, setDisplayChartData] = useState<PriceHistoryItem[]>([]);
+  const [showDots, setShowDots] = useState<boolean>(false);
 
   const [chartAlerts, setChartAlerts] = useState<any[]>([]);
   const [isFetchingAlerts, setIsFetchingAlerts] = useState<boolean>(false);
@@ -408,14 +409,23 @@ export default function MobileCommodityChart({
   useEffect(() => {
     if (chartData.length === 0) {
       setDisplayChartData([]);
+      setShowDots(false);
       return;
     }
     
     setDisplayChartData([]);
+    setShowDots(false);
+    let dotsTimer: NodeJS.Timeout;
     const timer = setTimeout(() => {
       setDisplayChartData(chartData);
+      dotsTimer = setTimeout(() => {
+        setShowDots(true);
+      }, 1500);
     }, 50);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (dotsTimer) clearTimeout(dotsTimer);
+    };
   }, [chartData]);
 
   // Isolated Specifications Parsing (Runs ONLY when product details change)
@@ -753,6 +763,7 @@ export default function MobileCommodityChart({
 
   // Lightweight 60fps Custom Dot Renderer (Only renders for points with comments)
   const renderCustomDot = useCallback((props: any) => {
+    if (!showDots) return null;
     const { cx, cy, payload } = props;
     if (!payload || cx == null || cy == null) return null;
 
@@ -801,7 +812,7 @@ export default function MobileCommodityChart({
         />
       </g>
     );
-  }, [activeCommentItem?.date]);
+  }, [activeCommentItem?.date, showDots]);
 
   return (
     <div

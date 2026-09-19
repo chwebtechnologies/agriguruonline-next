@@ -164,6 +164,7 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
 
   const sanitizedProfileData = profileData ? JSON.parse(JSON.stringify({
     id: profileData.id || profileData._id || profileData.customer_id,
+    customer_id: profileData.customer_id || profileData.id,
     first_name: profileData.first_name,
     last_name: profileData.last_name,
     name: profileData.name,
@@ -180,9 +181,15 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
     profile_image: profileData.profile_image,
     profile_picture: profileData.profile_picture,
     avatar: profileData.avatar,
+    plan_name: profileData.plan_name,
+    plan_type: profileData.plan_type,
+    created_at: profileData.created_at,
+    membership_expiry_date: profileData.membership_expiry_date,
     membership: profileData.membership ? { 
       plan_name: profileData.membership.plan_name,
-      status: profileData.membership.status
+      status: profileData.membership.status,
+      plan_type: profileData.membership.plan_type,
+      membership_expiry_date: profileData.membership.membership_expiry_date
     } : undefined,
     is_kyc_verified: profileData.is_kyc_verified
   })) : null;

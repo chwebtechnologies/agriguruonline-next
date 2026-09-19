@@ -26,6 +26,7 @@ import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/li
 import { NotificationProvider } from '@/components/providers/NotificationProvider'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 
+import '@fortawesome/fontawesome-free/css/all.min.css'
 import '../globals.css'
 
 export async function generateMetadata(props: {
@@ -173,27 +174,7 @@ export default async function LocalizedRootLayout({
       <head>
 
 
-        {/* Font Awesome — preload for performance, then swap to all media via inline script */}
-        <link
-          rel="preload"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-          as="style"
-        />
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-          media="print"
-          id="fa-stylesheet"
-        />
-        <noscript>
-          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-        </noscript>
-        {/* Swap Font Awesome from print→all after load so it doesn't block render */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){var l=document.getElementById('fa-stylesheet');if(l){l.addEventListener('load',function(){l.media='all'});}else{document.querySelectorAll('link[media="print"]').forEach(function(el){el.addEventListener('load',function(){el.media='all'});})}})();`
-          }}
-        />
+
 
 
         <Script

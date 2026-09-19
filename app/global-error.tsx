@@ -1,4 +1,5 @@
 'use client'
+import '@fortawesome/fontawesome-free/css/all.min.css'
 
 export default function GlobalError({
    
@@ -11,13 +12,7 @@ export default function GlobalError({
   return (
     <html lang="en">
       <head>
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
-          integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA=="
-          crossOrigin="anonymous"
-          referrerPolicy="no-referrer"
-        />
+
       </head>
       <body className="bg-background text-foreground transition-colors duration-200">
         <div className="flex flex-col items-center justify-center min-h-screen px-6 py-24 text-center bg-background text-foreground font-sans">
