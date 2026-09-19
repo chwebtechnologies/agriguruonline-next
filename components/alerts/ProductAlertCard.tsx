@@ -5,12 +5,14 @@ export function ProductAlertCard({
   alert, 
   isSelected = false, 
   onSelect = () => {},
-  isDropdownMode = false
+  isDropdownMode = false,
+  onCardClick = undefined
 }: { 
   alert: any; 
   isSelected?: boolean; 
   onSelect?: (id: string) => void; 
   isDropdownMode?: boolean;
+  onCardClick?: () => void;
 }) {
   const isTriggered = alert.status === 'triggered' || alert.is_triggered === true;
   const dateStr = alert.created_at ? new Date(alert.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently';
@@ -68,7 +70,8 @@ export function ProductAlertCard({
 
   return (
     <div 
-      className={`group bg-card border ${isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30' : 'border-border'} rounded-xl shadow-sm transition-all duration-300 overflow-hidden`}
+      onClick={onCardClick}
+      className={`group bg-card border ${isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30' : 'border-border'} rounded-xl shadow-sm transition-all duration-300 overflow-hidden ${onCardClick ? 'cursor-pointer hover:shadow-md' : ''}`}
     >
       <div className="p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-full relative">
         {/* Left Column: Icon (Top) and Checkbox (Bottom - perfectly aligned with flags row) */}
@@ -87,6 +90,7 @@ export function ProductAlertCard({
               <input 
                 type="checkbox" 
                 checked={isSelected}
+                onClick={(e) => e.stopPropagation()}
                 onChange={() => onSelect(alert.id)}
                 className="w-[18px] h-[18px] sm:w-[22px] sm:h-[22px] accent-brand-blue cursor-pointer dark:scheme-dark"
                 title="Select to delete"

@@ -26,6 +26,8 @@ export interface CommodityItemData {
   price: string | number;
   change: string | number;
   chartStatus?: boolean;
+  alertPrice?: string | number;
+  alertId?: string | number;
 }
 
 interface PriceHistoryItem {
@@ -146,11 +148,11 @@ export default function MobileCommodityChart({
   const [historicalFilter, setHistoricalFilter] = useState<'all' | 'notes_only' | 'product_only' | 'freight_only'>('all');
   const [historicalSearch, setHistoricalSearch] = useState<string>('');
 
-  const [showAlertInput, setShowAlertInput] = useState<boolean>(false);
-  const [alertInputValue, setAlertInputValue] = useState<string>('');
+  const [showAlertInput, setShowAlertInput] = useState<boolean>(!!item.alertPrice);
+  const [alertInputValue, setAlertInputValue] = useState<string>(item.alertPrice ? String(item.alertPrice) : '');
   const [alertError, setAlertError] = useState<string>('');
   const [alertSuccess, setAlertSuccess] = useState<string>('');
-  const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
+  const [editingAlertId, setEditingAlertId] = useState<string | null>(item.alertId ? String(item.alertId) : null);
 
   const [priceHistory, setPriceHistory] = useState<PriceHistoryItem[]>([]);
   const [alertRange, setAlertRange] = useState<{ min: number; max: number } | null>(null);
@@ -614,7 +616,8 @@ export default function MobileCommodityChart({
 
   const basePrice = Number(item.price) || endPrice;
   const currentDisplayPrice = hoveredPoint ? hoveredPoint.price : basePrice;
-  const baseChange = Number(item.change) || 0;
+  const apiChange = apiProduct?.change !== undefined ? Number(apiProduct.change) : (apiProduct?.price_change !== undefined ? Number(apiProduct.price_change) : null);
+  const baseChange = (item.change && Number(item.change) !== 0) ? Number(item.change) : (apiChange !== null ? apiChange : timeframeDiff);
   const currentChangeVal = hoveredPoint ? (hoveredPoint.changeVal || 0) : baseChange;
   const currentChangePct = hoveredPoint ? (hoveredPoint.changePct || 0) : (basePrice > 0 && baseChange !== 0 ? (baseChange / basePrice) * 100 : 0);
   const currentIsPositive = currentChangeVal >= 0;
@@ -1125,7 +1128,7 @@ export default function MobileCommodityChart({
                       tickLine={false}
                       tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 500 }}
                       tickFormatter={(value) => `$${value}`}
-                      width={35}
+                      width={45}
                     />
                     <Tooltip
                       isAnimationActive={false}

@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
+
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',

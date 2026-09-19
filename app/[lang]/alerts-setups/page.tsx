@@ -45,6 +45,11 @@ export default async function AlertsSetupsPage(props: { params: Promise<{ lang: 
           <AlertsClient 
             initialAlerts={alertsList.map((alert: any) => ({
               id: alert.id,
+              favourite_product_id: alert.favourite_product_id,
+              freight_id: alert.freight_id,
+              product_id: alert.product_id,
+              favourite_record_id: alert.favourite_record_id,
+              favorite_product_id: alert.favorite_product_id,
               status: alert.status,
               is_triggered: alert.is_triggered,
               created_at: alert.created_at,

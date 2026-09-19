@@ -4,10 +4,68 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
 import { FreightAlertCard } from '@/components/alerts/FreightAlertCard';
+import { ChartBottomSheetContainer, ChartBottomSheetItem } from '@/components/ui/charts/ChartBottomSheetContainer';
 
 export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], lang: string }) {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeChartData, setActiveChartData] = useState<ChartBottomSheetItem | null>(null);
+
+  const handleOpenChart = (alert: any, isFreight: boolean) => {
+    const getTitle = (obj: any, fallback = 'N/A') => {
+      if (!obj) return fallback;
+      if (typeof obj === 'string') return obj;
+      return obj.name || obj.title || obj.label || fallback;
+    };
+    const getFlag = (obj: any) => {
+      if (!obj) return '';
+      if (typeof obj === 'string') return obj;
+      return obj.flag || obj.country?.flag || '';
+    };
+
+    const targetPrice = alert.alert_price || alert.target_price || alert.target_freight || alert.freight_rate || alert.price || alert.threshold || 0;
+    
+    const prodName = isFreight 
+      ? 'Freight (PMT)' 
+      : getTitle(alert.product) !== 'N/A' ? getTitle(alert.product) : (alert.product_name || alert.commodity?.name || alert.name || alert.title || 'N/A');
+    
+    const catName = getTitle(alert.category) !== 'N/A' ? getTitle(alert.category) : (alert.category_name || 'N/A');
+    
+    const originPortObj = alert.loading_port || alert.origin;
+    const destPortObj = alert.destination_port || alert.destination;
+
+    const pol = getTitle(originPortObj, 'N/A');
+    const polFlag = getFlag(originPortObj);
+    
+    const pod = getTitle(destPortObj, 'N/A');
+    const podFlag = getFlag(destPortObj);
+
+    const shipByStr = alert.shipping_container || alert.container_type || alert.equipment_type || '';
+    const shipBy = shipByStr.split(' ')[0] || '20FT';
+
+    const term = alert.shipping_term || alert.incoterm?.name || alert.incoterm || 'FOB';
+
+    const chartItem: ChartBottomSheetItem = {
+      id: alert.favourite_product_id || alert.favourite_product?.id || alert.favourite_record_id || alert.favourite_record?.id || alert.product?.id || alert.product_id || alert.favorite_product_id || alert.freight_id || alert.id,
+      category: catName,
+      product: prodName,
+      shipBy,
+      term,
+      pol,
+      polFlag,
+      pod,
+      podFlag,
+      price: alert.freight_pmt || alert.pmt_price || alert.current_price || alert.price || 0,
+      change: alert.change || alert.price_change || alert.change_percentage || 0,
+      chartStatus: true,
+      alertPrice: targetPrice,
+      alertId: alert.id,
+      country: originPortObj?.country?.name || 'N/A',
+      countryFlag: getFlag(originPortObj?.country)
+    };
+
+    setActiveChartData(chartItem);
+  };
 
   const toggleSelect = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -101,24 +159,35 @@ export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], la
             if (isFreight) {
               return (
                 <FreightAlertCard 
-                  key={alert.id || idx} 
-                  alert={alert} 
-                  isSelected={selectedIds.has(alert.id)} 
-                  onSelect={toggleSelect} 
-                />
-              );
-            }
-
-            return (
-              <ProductAlertCard 
                 key={alert.id || idx} 
                 alert={alert} 
                 isSelected={selectedIds.has(alert.id)} 
                 onSelect={toggleSelect} 
+                onCardClick={() => handleOpenChart(alert, true)}
               />
             );
+          }
+
+          return (
+            <ProductAlertCard 
+              key={alert.id || idx} 
+              alert={alert} 
+              isSelected={selectedIds.has(alert.id)} 
+              onSelect={toggleSelect} 
+              onCardClick={() => handleOpenChart(alert, false)}
+            />
+          );
           })}
         </div>
+      )}
+
+      {activeChartData && (
+        <ChartBottomSheetContainer 
+          activeItem={activeChartData} 
+          onClose={() => setActiveChartData(null)} 
+          lang={lang}
+          swipeText="Swipe up for Commodity Details"
+        />
       )}
     </div>
   );

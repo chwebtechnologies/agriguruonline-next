@@ -22,6 +22,8 @@ export interface ChartBottomSheetItem {
   price: string | number;
   change: string | number;
   chartStatus?: boolean;
+  alertPrice?: string | number;
+  alertId?: string | number;
 }
 
 interface ChartBottomSheetContainerProps {
