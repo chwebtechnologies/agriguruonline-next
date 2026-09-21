@@ -10,6 +10,10 @@ import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
 import { toast } from 'sonner';
+import { toPng } from 'html-to-image';
+import DOMPurify from 'isomorphic-dompurify';
+import { marked } from 'marked';
+import { tradingService } from '@/lib/api/trading.service';
 
 export interface CommodityItemData {
   id: number | string;
@@ -166,6 +170,341 @@ export default function MobileCommodityChart({
   const [chartAlerts, setChartAlerts] = useState<any[]>([]);
   const [isFetchingAlerts, setIsFetchingAlerts] = useState<boolean>(false);
   const [refreshAlerts, setRefreshAlerts] = useState<number>(0);
+  const [isAnalysing, setIsAnalysing] = useState<boolean>(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string>('');
+  const historicalRef = useRef<HTMLDivElement>(null);
+  const aiScrollRef = useRef<HTMLDivElement>(null);
+  const aiBottomRef = useRef<HTMLDivElement>(null);
+  const isUserScrollingUp = useRef<boolean>(false);
+  const touchStartY = useRef<number>(0);
+
+  const handleUserWheel = (e: React.WheelEvent) => {
+    if (e.deltaY < 0) {
+      isUserScrollingUp.current = true;
+    } else if (aiScrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = aiScrollRef.current;
+      if (scrollHeight - scrollTop - clientHeight < 60) {
+        isUserScrollingUp.current = false;
+      }
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touchY = e.touches[0].clientY;
+    if (touchY - touchStartY.current > 15) {
+      isUserScrollingUp.current = true;
+    } else if (touchStartY.current - touchY > 15 && aiScrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = aiScrollRef.current;
+      if (scrollHeight - scrollTop - clientHeight < 60) {
+        isUserScrollingUp.current = false;
+      }
+    }
+  };
+
+  const scrollToBottom = useCallback((instant = true) => {
+    if (aiScrollRef.current) {
+      aiScrollRef.current.scrollTop = aiScrollRef.current.scrollHeight;
+    }
+    if (aiBottomRef.current) {
+      aiBottomRef.current.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'end' });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAnalysing && !isUserScrollingUp.current) {
+      scrollToBottom(true);
+    }
+  }, [aiAnalysis, isAnalysing, scrollToBottom]);
+
+  const renderMarkdown = (text: string) => {
+    if (!text) return { __html: '' };
+    try {
+      const textToRender = isAnalysing
+        ? text + ' <span class="ai-cursor inline-block w-1.5 h-3.5 ml-0.5 bg-brand-blue rounded-xs animate-pulse align-middle"></span>'
+        : text;
+      let html = marked.parse(textToRender) as string;
+      return { __html: DOMPurify.sanitize(html) };
+    } catch (e) {
+      console.error('Failed to parse markdown', e);
+      return { __html: text };
+    }
+  };
+
+  const handleAIPredictClick = async () => {
+    if (!historicalRef.current || isAnalysing) return;
+    setIsAnalysing(true);
+    setAiAnalysis('');
+    isUserScrollingUp.current = false;
+    const prevTab = activeTab;
+
+    try {
+      if (activeTab !== 'Historical') {
+        setActiveTab('Historical');
+        await new Promise(resolve => setTimeout(resolve, 400));
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      const dataUrl = await toPng(historicalRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 1,
+        filter: (node: any) => !node?.classList?.contains('no-export'),
+        height: historicalRef.current.scrollHeight,
+      });
+      
+      setActiveTab('AI Predict');
+      
+      const arr = dataUrl.split(',');
+      const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while(n--){
+          u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], {type:mime});
+      
+      const type = item.category === 'FREIGHT' ? 'FREIGHT' : 'PRODUCT';
+      const formData = new FormData();
+      formData.append('favourite_record_id', String(item.id));
+      formData.append('type', type);
+      formData.append('chart', blob, 'chart.png');
+      
+      const response = await tradingService.createPriceAnalysis(formData, lang);
+      
+      if (!response.ok) {
+        toast.error('Failed to get AI prediction');
+        setIsAnalysing(false);
+        if (prevTab !== 'AI Predict') setActiveTab(prevTab);
+        return;
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      
+      const handleStreamResponse = async (streamRes: Response) => {
+        if (!streamRes.body) return;
+        const reader = streamRes.body.getReader();
+        const decoder = new TextDecoder();
+        
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('data:')) {
+               const dataStr = trimmedLine.substring(5).trim();
+               if (dataStr === '[DONE]') break;
+               
+               try {
+                 const dataJson = JSON.parse(dataStr);
+                 if (dataJson.data && dataJson.data.details) {
+                    setAiAnalysis(dataJson.data.details);
+                 } else if (dataJson.chunk) {
+                    setAiAnalysis(prev => prev + dataJson.chunk);
+                 } else if (dataJson.details) {
+                    setAiAnalysis(prev => prev + dataJson.details);
+                 } else if (typeof dataJson === 'string') {
+                    setAiAnalysis(prev => prev + dataJson);
+                 }
+               } catch(e) {
+                 setAiAnalysis(prev => prev + dataStr.replace(/\\n/g, '\n'));
+               }
+            }
+          }
+        }
+      };
+
+      if (contentType.includes('application/json')) {
+        const json = await response.json();
+        
+        // Cached response
+        if (json.data && (json.data.is_cached || !json.data.job_id) && json.data.details) {
+          setAiAnalysis(json.data.details);
+          setTimeout(() => scrollToBottom(true), 50);
+          return;
+        } else if (
+            json.message?.includes('Price analysis job created') || 
+            json.data?.response_indication === 'CREATED' || 
+            json.data?.job_id
+        ) {
+          setAiAnalysis('Analysis job queued. Processing data...');
+          const jobId = json.data?.job_id || '';
+          const jobType = json.data?.type || type;
+          
+          let attempts = 0;
+          let isGenerating = false;
+          let isCompleted = false;
+          
+          // Poll for status
+          while (attempts < 15 && !isGenerating && !isCompleted) {
+             await new Promise(resolve => setTimeout(resolve, 1500));
+             attempts++;
+             
+             try {
+                const pollRes = await tradingService.getPriceAnalysisStatus(jobType, jobId, lang);
+                if (pollRes.ok) {
+                   const pollJson = await pollRes.json();
+                   console.log('[PriceAnalysis] poll status response:', pollJson);
+                   
+                   const status = String(
+                     pollJson.data?.phase || 
+                     pollJson.phase || 
+                     pollJson.data?.status || 
+                     pollJson.status || 
+                     pollJson.data?.job_status || 
+                     ''
+                   ).toUpperCase();
+                   
+                   if (status === 'GENERATING' || status === 'IN_PROGRESS' || status === 'PROCESSING') {
+                      isGenerating = true;
+                   } else if (status === 'COMPLETED' || status === 'FINISHED' || pollJson.data?.is_cached) {
+                      isCompleted = true;
+                      if (pollJson.data?.details) {
+                         setAiAnalysis(pollJson.data.details);
+                         setTimeout(() => scrollToBottom(true), 50);
+                         return;
+                      }
+                   } else if (status === 'ERROR' || status === 'FAILED') {
+                      setAiAnalysis('An error occurred during analysis: ' + (pollJson.message || pollJson.data?.error || 'Failed'));
+                      return;
+                   }
+                } else {
+                   console.warn('[PriceAnalysis] poll failed with status:', pollRes.status);
+                }
+             } catch (e) {
+                console.error("[PriceAnalysis] Status polling error:", e);
+             }
+             
+             // After 2 attempts (~3s), if not completed or error, start stream anyway so user is never stuck
+             if (attempts >= 2 && !isCompleted) {
+                isGenerating = true;
+                break;
+             }
+          }
+          
+          // Start SSE
+          setAiAnalysis(''); 
+          const abortController = new AbortController();
+          
+          try {
+             const streamUrl = tradingService.getPriceAnalysisStreamUrl(jobType, jobId, lang);
+             const streamResponse = await fetch(streamUrl, {
+                headers: { 'Accept': 'text/event-stream' },
+                signal: abortController.signal
+             });
+             
+             if (!streamResponse.body) {
+                setAiAnalysis('Failed to open live stream.');
+                return;
+             }
+             
+             const reader = streamResponse.body.getReader();
+             const decoder = new TextDecoder();
+             
+             let buffer = '';
+             let isStreamFinished = false;
+             
+             while (!isStreamFinished) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                buffer = buffer.replace(/\r\n/g, '\n');
+                
+                // Parse complete SSE events separated by \n\n
+                let boundary = buffer.indexOf('\n\n');
+                while (boundary !== -1) {
+                   const chunk = buffer.substring(0, boundary).trim();
+                   buffer = buffer.substring(boundary + 2);
+                   
+                   if (chunk) {
+                      const lines = chunk.split('\n');
+                      let eventType = 'message';
+                      const dataLines: string[] = [];
+                      
+                      for (const line of lines) {
+                         if (line.startsWith('event:')) {
+                            eventType = line.substring(6).trim();
+                         } else if (line.startsWith('data:')) {
+                            dataLines.push(line.substring(5).trim());
+                         }
+                      }
+                      
+                      const eventDataStr = dataLines.join('\n');
+                      
+                      if (eventDataStr) {
+                         if (eventDataStr === '[DONE]') {
+                            isStreamFinished = true;
+                            break;
+                         }
+                         
+                         let chunkContent = '';
+                         try {
+                            const dataObj = JSON.parse(eventDataStr);
+                            const parsedType = dataObj.type || eventType;
+                            
+                            if (parsedType === 'replay') {
+                               const replayText = dataObj.content ?? dataObj.details ?? dataObj.data?.details ?? '';
+                               if (replayText) setAiAnalysis(replayText);
+                               continue;
+                            } else if (parsedType === 'done') {
+                               isStreamFinished = true;
+                               break;
+                            } else if (parsedType === 'error') {
+                               setAiAnalysis(prev => prev + `\n\n**Error:** ${dataObj.message || 'Stream error'}`);
+                               isStreamFinished = true;
+                               break;
+                            }
+                            
+                            chunkContent = dataObj.content ?? dataObj.chunk ?? dataObj.details ?? dataObj.text ?? dataObj.data?.content ?? dataObj.data?.details ?? '';
+                            if (!chunkContent && typeof dataObj === 'string') {
+                               chunkContent = dataObj;
+                            }
+                         } catch (e) {
+                            chunkContent = eventDataStr.replace(/\\n/g, '\n');
+                         }
+                         
+                         if (chunkContent) {
+                            setAiAnalysis(prev => prev + chunkContent);
+                         }
+                      }
+                   }
+                   boundary = buffer.indexOf('\n\n');
+                }
+             }
+          } catch (e: any) {
+             if (e.name !== 'AbortError') {
+                console.error('[PriceAnalysis] SSE Stream Error:', e);
+                setAiAnalysis(prev => prev || 'Stream disconnected.');
+             }
+          }
+        } else {
+          setAiAnalysis(json.message || 'No analysis available.');
+        }
+      } else {
+        await handleStreamResponse(response);
+      }
+    } catch (err: any) {
+      console.error('Failed to analyze chart:', err);
+      toast.error(`Failed to analyze chart: ${err.message || 'Unknown error'}`);
+      if (prevTab !== 'AI Predict') setActiveTab(prevTab);
+    } finally {
+      setIsAnalysing(false);
+      setTimeout(() => scrollToBottom(true), 100);
+    }
+  };
 
   const cacheKey = `${item.id}_${lang}`;
 
@@ -824,6 +1163,15 @@ export default function MobileCommodityChart({
         if (selectedCommentPoint) setSelectedCommentPoint(null);
       }}
     >
+      {/* Full-Screen Loading Overlay during Export/Analysis (Prevents user from seeing tab switch) */}
+      {isAnalysing && activeTab === 'Historical' && !aiAnalysis && (
+        <div className="fixed inset-0 z-[99999] bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center no-export touch-none">
+          <i className="fa-solid fa-circle-notch fa-spin text-4xl text-brand-blue mb-4"></i>
+          <p className="font-bold text-foreground text-[16px]">Preparing AI Analysis...</p>
+          <p className="text-[12px] text-foreground/60 mt-1">Please wait a moment while we process your chart.</p>
+        </div>
+      )}
+
       {/* 1. Header (Sticky Top / Shrink-0) - Fully Draggable on Mobile */}
       <div
         className="shrink-0 px-2.5 min-[390px]:px-4 lg:px-6 py-2 min-[390px]:py-2.5 lg:py-3.5 flex items-center justify-between border-b border-border bg-card z-20 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none gap-2 lg:gap-4"
@@ -999,7 +1347,7 @@ export default function MobileCommodityChart({
           : 'overflow-hidden'
         }`}>
         {/* LEFT COLUMN: Chart + Dynamic Tab Content */}
-        <div className="w-full lg:flex-1 lg:overflow-y-auto lg:pr-2.5 space-y-3.5 scrollbar-thin min-w-0">
+        <div className="w-full lg:flex-1 lg:overflow-y-auto lg:pr-2.5 space-y-3.5 scrollbar-thin min-w-0 bg-background" ref={historicalRef}>
           {/* Chart Card */}
           <div className="w-full bg-card rounded-2xl border border-border p-2.5 min-[390px]:p-3.5 lg:p-4 shadow-xs">
             {/* Over timeframe header with exact date range */}
@@ -1127,7 +1475,7 @@ export default function MobileCommodityChart({
                       axisLine={false}
                       tickLine={false}
                       tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 500 }}
-                      tickFormatter={(value) => `$${value}`}
+                      tickFormatter={(value) => `$${Math.round(value)}`}
                       width={45}
                     />
                     <Tooltip
@@ -1637,76 +1985,84 @@ export default function MobileCommodityChart({
 
             ) : activeTab === 'AI Predict' ? (
               <div className="space-y-3.5">
-                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
-                  <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
-                    <i className="fa-solid fa-microchip"></i>
+                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col min-h-[300px]">
+                  <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
+                     <div className="flex items-center gap-2">
+                       <div className="w-8 h-8 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
+                         <i className="fa-solid fa-microchip"></i>
+                       </div>
+                       <div>
+                         <h2 className="font-extrabold text-[15px] text-foreground">AI Price Analysis</h2>
+                         <p className="text-[11px] text-foreground/60 leading-tight">Powered by Advanced Machine Learning</p>
+                       </div>
+                     </div>
+                     {aiAnalysis && !isAnalysing && (
+                       <button onClick={handleAIPredictClick} className="text-[11px] font-bold bg-muted hover:bg-muted/80 text-foreground px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors">
+                         <i className="fa-solid fa-rotate-right"></i> Refresh
+                       </button>
+                     )}
                   </div>
-                  <h2 className="font-extrabold text-[16px] text-foreground">No Analysis Generated</h2>
-                  <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">Run our advanced machine learning models to forecast future price trends.</p>
-                  <button className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95  flex items-center gap-2">
-                    <i className="fa-solid fa-microchip"></i> Analyse
-                  </button>
+                  
+                  {isAnalysing && !aiAnalysis ? (
+                    <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-70">
+                       <i className="fa-solid fa-circle-notch fa-spin text-3xl text-brand-blue mb-4"></i>
+                       <p className="font-bold text-[14px] text-foreground animate-pulse">Analyzing Market Patterns...</p>
+                       <p className="text-[12px] text-foreground/60 mt-1">This might take a few seconds.</p>
+                    </div>
+                  ) : aiAnalysis ? (
+                    <div className="relative flex-1 flex flex-col min-h-0">
+                      <div 
+                        ref={aiScrollRef} 
+                        onWheel={handleUserWheel}
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        className="flex-1 max-h-[520px] sm:max-h-[620px] overflow-y-auto pr-1.5 text-[13px] leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:text-foreground/80 prose-headings:text-foreground prose-strong:text-foreground prose-a:text-brand-blue"
+                      >
+                        <div dangerouslySetInnerHTML={renderMarkdown(aiAnalysis)} />
+                        {isAnalysing && (
+                          <div className="flex items-center gap-2 mt-3 pt-2 text-xs text-brand-blue font-semibold not-prose">
+                            <span className="relative flex h-2.5 w-2.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-blue"></span>
+                            </span>
+                            <span className="animate-pulse">Thinking & generating analysis...</span>
+                          </div>
+                        )}
+                        <div ref={aiBottomRef} className="h-4" />
+                      </div>
+
+                      {/* Floating scroll to bottom button if user scrolled up during analysis */}
+                      {isAnalysing && isUserScrollingUp.current && (
+                        <button 
+                          onClick={() => {
+                            isUserScrollingUp.current = false;
+                            scrollToBottom(true);
+                          }}
+                          className="absolute bottom-2 right-2 bg-brand-blue text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg hover:bg-brand-blue/90 transition-all flex items-center gap-1.5 z-10 animate-bounce cursor-pointer"
+                        >
+                          <i className="fa-solid fa-arrow-down"></i> Scroll to bottom
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center py-10">
+                      <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
+                        <i className="fa-solid fa-microchip"></i>
+                      </div>
+                      <h2 className="font-extrabold text-[16px] text-foreground">No Analysis Generated</h2>
+                      <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">Run our advanced machine learning models to forecast future price trends.</p>
+                      <button onClick={handleAIPredictClick} className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 flex items-center gap-2 cursor-pointer">
+                        <i className="fa-solid fa-microchip"></i> Analyse
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : activeTab === 'Historical' ? (
               /* TAB 4: DATE-WISE MARKET COMMENTARY VIEW (ONLY DATES WITH COMMENTS) */
               <div className="space-y-3.5">
-                {/* Header & Commentary Stats */}
-                <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-border">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold shadow-xs">
-                        <i className="fa-solid fa-comments"></i>
-                      </div>
-                      <div>
-                        <h2 className="font-extrabold text-[14px] sm:text-[15px] text-foreground leading-snug">
-                          Date-wise Market Commentary & Notes
-                        </h2>
-                        <p className="text-[11px] text-foreground/75">
-                          Product and Freight remarks logged date-wise ({timeRange})
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20">
-                      {filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length} Dates with Notes
-                    </span>
-                  </div>
-
-                  {/* Mini Summary Stats for Comments */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
-                        <span>All Notes</span>
-                        <i className="fa-solid fa-comment-dots text-brand-green"></i>
-                      </div>
-                      <div className="text-[15px] font-black text-brand-green mt-0.5">
-                        {filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length}
-                      </div>
-                    </div>
-
-                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
-                        <span>Product Notes</span>
-                        <i className="fa-solid fa-wheat-awn text-brand-blue"></i>
-                      </div>
-                      <div className="text-[15px] font-black text-brand-blue mt-0.5">
-                        {filteredData.filter(d => Boolean(d.product_comment)).length}
-                      </div>
-                    </div>
-
-                    <div className="bg-background/50 p-2.5 rounded-xl border border-border">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-foreground/50 uppercase">
-                        <span>Freight Notes</span>
-                        <i className="fa-solid fa-ship text-indigo-500"></i>
-                      </div>
-                      <div className="text-[15px] font-black text-indigo-500 mt-0.5">
-                        {filteredData.filter(d => Boolean(d.freight_comment)).length}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Filter Tabs & Search Bar */}
-                  <div className="pt-1 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
+                {/* Filter Tabs & Search Bar & Download */}
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between no-export">
                     {/* Filter Pills */}
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                       <button
@@ -1716,27 +2072,27 @@ export default function MobileCommodityChart({
                             : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                           }`}
                       >
-                        All Notes ({filteredData.filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks)).length})
+                        All Notes
                       </button>
                       <button
                         onClick={() => setHistoricalFilter('product_only')}
                         className={`px-2.5 py-1 rounded-lg text-[11px] font-bold  shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'product_only'
-                            ? 'bg-brand-blue text-white shadow-xs'
+                            ? 'bg-foreground text-background shadow-xs'
                             : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                           }`}
                       >
                         <i className="fa-solid fa-wheat-awn text-[10px]"></i>
-                        Product Remarks ({filteredData.filter(d => Boolean(d.product_comment)).length})
+                        Product Remarks
                       </button>
                       <button
                         onClick={() => setHistoricalFilter('freight_only')}
                         className={`px-2.5 py-1 rounded-lg text-[11px] font-bold  shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'freight_only'
-                            ? 'bg-indigo-600 text-white shadow-xs'
+                            ? 'bg-foreground text-background shadow-xs'
                             : 'bg-card text-foreground/80 border border-border hover:bg-muted'
                           }`}
                       >
                         <i className="fa-solid fa-ship text-[10px]"></i>
-                        Freight Remarks ({filteredData.filter(d => Boolean(d.freight_comment)).length})
+                        Freight Remarks
                       </button>
                     </div>
 
@@ -1759,9 +2115,10 @@ export default function MobileCommodityChart({
                           <i className="fa-solid fa-xmark"></i>
                         </button>
                       )}
+                      </div>
+
+
                     </div>
-                  </div>
-                </div>
 
                 {/* Date-wise Comments List (Strictly dates with comments) */}
                 {(() => {
@@ -1821,7 +2178,7 @@ export default function MobileCommodityChart({
                   }
 
                   return (
-                    <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+                    <div className="space-y-2.5 pr-1">
                       {displayList.map((d, index) => {
                         const hasProductNote = Boolean(d.product_comment);
                         const hasFreightNote = Boolean(d.freight_comment);
@@ -1830,89 +2187,56 @@ export default function MobileCommodityChart({
                         return (
                           <div
                             key={d.date || index}
-                            className="bg-card rounded-2xl border border-border hover:border-brand-blue   p-3.5 shadow-xs"
+                            className="bg-card rounded-2xl border border-border hover:border-brand-blue p-3 shadow-xs"
                           >
-                            <div className="flex items-center justify-between pb-2.5 border-b border-border">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
-                                  <i className="fa-solid fa-calendar-day"></i>
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-black text-[13px] text-foreground">
-                                      {d.formattedDate}
-                                    </span>
-                                    {d.weekday && (
-                                      <span className="text-[10px] font-semibold text-foreground/50">
-                                        • {d.weekday}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-1 mt-0.5">
-                                    {hasProductNote && (
-                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-brand-blue/10 text-brand-blue flex items-center gap-1">
-                                        <i className="fa-solid fa-wheat-awn text-[8px]"></i> Product Note
-                                      </span>
-                                    )}
-                                    {hasFreightNote && (
-                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-500 flex items-center gap-1">
-                                        <i className="fa-solid fa-ship text-[8px]"></i> Freight Note
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+                            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 pb-1.5 border-b border-border">
+                              <div className="flex items-center gap-1.5">
+                                <i className="fa-solid fa-calendar-day text-[10px] text-foreground/50"></i>
+                                <span className="font-black text-[12px] text-foreground">
+                                  {d.formattedDate}
+                                </span>
                               </div>
-
-                              <div className="text-right shrink-0">
-                                <div className="text-[14px] sm:text-[15px] font-black text-foreground">
-                                  ${d.price.toFixed(0)} <span className="text-[10px] font-medium text-foreground/50">PMT</span>
-                                </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[13px] font-black text-foreground">
+                                  ${d.price.toFixed(0)}
+                                </span>
                                 {d.changeVal != null && d.changeVal !== 0 ? (
-                                  <div className={`text-[10px] font-bold flex items-center justify-end gap-1 ${d.changeVal > 0
-                                      ? 'text-brand-green'
-                                      : 'text-brand-red'
-                                    }`}>
-                                    <i className={`fa-solid ${d.changeVal > 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[9px]`}></i>
-                                    <span>{d.changeVal > 0 ? `+$${d.changeVal}` : `-$${Math.abs(d.changeVal)}`} ({d.changePct && d.changePct > 0 ? `+${d.changePct}%` : `${d.changePct}%`})</span>
-                                  </div>
+                                  <span className={`text-[10px] font-bold flex items-center gap-1 ${d.changeVal > 0 ? 'text-brand-green' : 'text-brand-red'}`}>
+                                    <i className={`fa-solid ${d.changeVal > 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down'} text-[8px]`}></i>
+                                    {d.changeVal > 0 ? `+$${d.changeVal}` : `-$${Math.abs(d.changeVal)}`}
+                                  </span>
                                 ) : (
-                                  <span className="text-[10px] text-foreground/50 font-medium">Unchanged</span>
+                                  <span className="text-[10px] text-foreground/50 font-bold">$0 (0%)</span>
                                 )}
                               </div>
                             </div>
 
-                            <div className="mt-2.5 space-y-2">
+                            <div className="mt-2 space-y-1">
                               {hasProductNote && (
-                                <div className="bg-brand-blue/5 border border-brand-blue/20 rounded-xl p-2.5">
-                                  <div className="flex items-center gap-1.5 text-brand-blue font-bold uppercase text-[10px] tracking-wide mb-1">
-                                    <i className="fa-solid fa-wheat-awn text-[10px]"></i>
-                                    <span>Product & Commodity Remark</span>
-                                  </div>
-                                  <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
+                                <div className="flex items-start gap-1.5 text-[12px] font-medium text-foreground/90 leading-tight">
+                                  <i className="fa-solid fa-wheat-awn text-[10px] mt-[3px] text-foreground/50"></i>
+                                  <p>
+                                    <span className="font-bold text-foreground mr-1">Product:</span>
                                     {d.product_comment}
                                   </p>
                                 </div>
                               )}
 
                               {hasFreightNote && (
-                                <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-2.5">
-                                  <div className="flex items-center gap-1.5 text-indigo-500 font-bold uppercase text-[10px] tracking-wide mb-1">
-                                    <i className="fa-solid fa-ship text-[10px]"></i>
-                                    <span>Freight & Shipping Logistics Remark</span>
-                                  </div>
-                                  <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
+                                <div className="flex items-start gap-1.5 text-[12px] font-medium text-foreground/90 leading-tight">
+                                  <i className="fa-solid fa-ship text-[10px] mt-[3px] text-foreground/50"></i>
+                                  <p>
+                                    <span className="font-bold text-foreground mr-1">Freight:</span>
                                     {d.freight_comment}
                                   </p>
                                 </div>
                               )}
 
                               {hasGeneralNote && (
-                                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-2.5">
-                                  <div className="flex items-center gap-1.5 text-amber-500 font-bold uppercase text-[10px] tracking-wide mb-1">
-                                    <i className="fa-solid fa-comment-dots text-[10px]"></i>
-                                    <span>General Market Intelligence</span>
-                                  </div>
-                                  <p className="text-[12px] font-medium text-foreground/90 leading-relaxed">
+                                <div className="flex items-start gap-1.5 text-[12px] font-medium text-foreground/90 leading-tight">
+                                  <i className="fa-solid fa-comment-dots text-[10px] mt-[3px] text-foreground/50"></i>
+                                  <p>
+                                    <span className="font-bold text-foreground mr-1">General:</span>
                                     {d.comment || d.remarks}
                                   </p>
                                 </div>
@@ -2191,9 +2515,15 @@ export default function MobileCommodityChart({
 
                   <button
                     type="button"
-                    className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
+                    onClick={handleAIPredictClick}
+                    disabled={isAnalysing}
+                    className={`w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer ${isAnalysing ? 'opacity-50' : ''}`}
                   >
-                    <i className="fa-solid fa-microchip text-brand-blue text-[16px]"></i>
+                    {isAnalysing ? (
+                      <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-[16px]"></i>
+                    ) : (
+                      <i className="fa-solid fa-microchip text-brand-blue text-[16px]"></i>
+                    )}
                     <span className="whitespace-nowrap">AI Predict</span>
                   </button>
                 </div>
@@ -2312,9 +2642,15 @@ export default function MobileCommodityChart({
             {/* 3. AI Predict (Right) */}
             <button
               type="button"
-              className="px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5  shrink-0 shadow-xs border border-border cursor-pointer"
+              onClick={handleAIPredictClick}
+              disabled={isAnalysing}
+              className={`px-2.5 min-[390px]:px-3.5 py-2 min-[390px]:py-2.5 bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] min-[390px]:text-[13px] rounded-xl flex items-center justify-center gap-1.5 shrink-0 shadow-xs border border-border cursor-pointer ${isAnalysing ? 'opacity-50' : ''}`}
             >
-              <i className="fa-solid fa-microchip text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
+              {isAnalysing ? (
+                <i className="fa-solid fa-circle-notch fa-spin text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
+              ) : (
+                <i className="fa-solid fa-microchip text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
+              )}
               <span className="whitespace-nowrap">AI Predict</span>
             </button>
           </>

@@ -1073,4 +1073,28 @@ export const tradingService = {
     }
     return { success: false, error: json.message || `Failed to delete freight (Status: ${res.status})` };
   },
+
+  /**
+   * AI Price Analysis: Create background job
+   */
+  createPriceAnalysis: async (formData: FormData, lang: string = 'en') => {
+    return await fetch(`/api/price-analysis?lang_code=${lang}`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  /**
+   * AI Price Analysis: Check job status
+   */
+  getPriceAnalysisStatus: async (type: string, jobId: string, lang: string = 'en') => {
+    return await fetch(`/api/price-analysis?action=status&lang_code=${lang}&type=${type}&job_id=${jobId}`);
+  },
+
+  /**
+   * AI Price Analysis: Get SSE streaming URL
+   */
+  getPriceAnalysisStreamUrl: (type: string, jobId: string, lang: string = 'en') => {
+    return `/api/price-analysis?action=stream&lang_code=${lang}&type=${type}&job_id=${jobId}`;
+  },
 };
