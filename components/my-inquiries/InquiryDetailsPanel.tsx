@@ -273,21 +273,45 @@ export default function InquiryDetailsPanel({
 
   // Status calculation
   const rawStatus = String(
+    apiData?.status_text ||
+    details?.status_text ||
+    apiData?.tag ||
+    details?.tag ||
+    apiData?.inquiry_status ||
+    details?.inquiry_status ||
+    apiData?.state ||
+    details?.state ||
     apiData?.status ||
     details?.status ||
     selectedItem?.status ||
     'NEGOTIATION'
   ).toUpperCase();
 
+  const itemType = String(details?.type || details?.inquiry_type || 'Inquiry');
+  const formattedItemType = itemType.charAt(0).toUpperCase() + itemType.slice(1).toLowerCase();
+
   const displayStatus = (() => {
     if (offerStatus === 'confirmed') return 'Confirmed';
     if (offerStatus === 'rejected') return 'Rejected';
-    if (rawStatus === 'DETAILS') return 'Details';
+    if (rawStatus === 'DETAILS') return formattedItemType; // Show 'Inquiry' or 'Offer' instead of Details
     if (rawStatus === 'NEGOTIATION') return 'Negotiation';
     if (rawStatus === 'CONFIRMATION' || rawStatus === 'CONFIRMED') return 'Confirmation';
     if (rawStatus === 'CONTRACT') return 'Contract';
     return rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
   })();
+
+  // 4. Negotiation History from API (apiData.negotiation array)
+  const apiNegotiations: any[] = Array.isArray(apiData?.negotiation)
+    ? apiData.negotiation
+    : Array.isArray(apiData?.negotiations)
+    ? apiData.negotiations
+    : [];
+
+  const combinedHistory = useMemo(() => {
+    return [...apiNegotiations, ...localOffers];
+  }, [apiNegotiations, localOffers]);
+
+  const hasNegotiationData = combinedHistory.length > 0 || (details?.price !== undefined && details?.price !== null && details?.price !== '');
 
   // 2. Stepper Calculation (4 Parts: Details, Negotiation, Confirmation, Contract)
   let currentStep = 1;
@@ -310,15 +334,20 @@ export default function InquiryDetailsPanel({
     rawStatus.includes('OFFER') ||
     rawStatus.includes('REVIEW') ||
     rawStatus.includes('PROGRESS') ||
-    rawStatus.includes('PENDING')
+    rawStatus.includes('PENDING') ||
+    hasNegotiationData
   ) {
     currentStep = 2;
   } else {
     currentStep = 1;
   }
 
+  const firstStepLabel = (rawStatus.includes('FRESH') || rawStatus.includes('ASSIGNED') || rawStatus === 'DETAILS') 
+    ? displayStatus 
+    : formattedItemType;
+
   const steps = [
-    { id: 1, stepNumber: '01', label: 'Details' },
+    { id: 1, stepNumber: '01', label: firstStepLabel },
     { id: 2, stepNumber: '02', label: 'Negotiation' },
     { id: 3, stepNumber: '03', label: 'Confirmation' },
     { id: 4, stepNumber: '04', label: 'Contract' },
@@ -349,24 +378,13 @@ export default function InquiryDetailsPanel({
 
   const quantityVal = (() => {
     const q = details?.quantity ?? details?.qty;
-    const u = details?.quantity_type || details?.quantity_unit || details?.unit || 'MT';
-    return q !== undefined && q !== null && q !== '' ? `${q} ${u}` : '—';
+    return q !== undefined && q !== null && q !== '' ? `${q} MT` : '—';
   })();
 
-  const containerFclVal = resolveStringValue(details?.fcl ?? details?.container_count ?? details?.container_fcl);
+  const containerRaw = resolveStringValue(details?.fcl ?? details?.container_count ?? details?.container_fcl);
+  const containerFclVal = containerRaw !== '—' ? `${containerRaw} FCLs` : '—';
   const paymentTermVal = resolveStringValue(details?.payment_term || details?.payment_terms || details?.payment_type);
   const descriptionVal = resolveStringValue(details?.description || details?.desc || details?.note, '—');
-
-  // 4. Negotiation History from API (apiData.negotiation array)
-  const apiNegotiations: any[] = Array.isArray(apiData?.negotiation)
-    ? apiData.negotiation
-    : Array.isArray(apiData?.negotiations)
-    ? apiData.negotiations
-    : [];
-
-  const combinedHistory = useMemo(() => {
-    return [...apiNegotiations, ...localOffers];
-  }, [apiNegotiations, localOffers]);
 
   // Last User offer
   const lastUser = combinedHistory
@@ -532,43 +550,25 @@ export default function InquiryDetailsPanel({
 
 
 
+  const hasNegotiation = currentStep >= 2;
+
   return (
     <div className="bg-card border border-border rounded-2xl flex flex-col h-full shadow-sm relative overflow-hidden">
 
 
       {/* --- 2. SCROLLABLE MIDDLE: DETAILS & NEGOTIATION --- */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 flex flex-col gap-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 flex flex-col gap-4">
 
         {/* 1. Header Card Top Section */}
-        <div className="border-b border-border pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="border-b border-border pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-brand-blue">
-                {activeTab === 'product' ? 'Product Inquiry' : 'Freight Inquiry'}
-              </span>
-              <span className="text-foreground/30">•</span>
-              <span className="text-xs text-foreground/60">{formattedHeaderDate}</span>
-              {refId && (
-                <>
-                  <span className="text-foreground/30">•</span>
-                  <span className="text-xs font-mono text-foreground/75 bg-foreground/5 px-2 py-0.5 rounded">
-                    ID: {refId}
-                  </span>
-                </>
-              )}
-            </div>
+
             <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight break-words">
               {title}
             </h2>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {isFetching && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-brand-blue bg-brand-blue/10 px-2.5 py-1 rounded-full animate-pulse border border-brand-blue/20 font-medium">
-              <i className="fa-solid fa-circle-notch fa-spin text-[10px]"></i>
-              Syncing
-            </span>
-          )}
           <span
             className={`text-xs px-3 py-1 rounded-full border font-bold uppercase tracking-wider ${
               offerStatus === 'confirmed' || currentStep === 3 || currentStep === 4
@@ -630,7 +630,7 @@ export default function InquiryDetailsPanel({
           <button
             type="button"
             onClick={() => setShowDetails((prev) => !prev)}
-            className="inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold text-foreground/80 bg-foreground/5 hover:bg-foreground/10 border border-border rounded-lg transition-all active:scale-95 shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold text-foreground/80 bg-foreground/5 hover:bg-foreground/10 border border-border rounded-lg transition-all active:scale-95 shadow-2xs cursor-pointer"
           >
             <span>{showDetails ? 'Hide Details' : 'Show Details'}</span>
             <i className={`fa-solid fa-chevron-${showDetails ? 'up' : 'down'} text-[10px]`}></i>
@@ -638,39 +638,54 @@ export default function InquiryDetailsPanel({
         </div>
       </div>
 
-      {/* 3. Collapsible 2-Parts Specifications Card */}
+      {/* 3. Collapsible Specifications Table */}
       {showDetails && (
-        <div className="bg-foreground/[0.03] border border-border/80 rounded-2xl p-4 sm:p-5 mb-6 transition-all animate-in fade-in duration-300">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 md:gap-y-3.5 md:gap-x-6 relative">
-            
-            {/* Desktop Vertical Divider */}
-            <div className="hidden md:block absolute top-1 bottom-1 left-1/2 w-px bg-border/80 -translate-x-1/2" />
-
-            {/* Left Part (6 items) */}
-            <div className="flex flex-col gap-2.5 md:pr-4">
-              <SpecRow icon="fa-wheat-awn" label="Product Name" value={productNameVal} />
-              <SpecRow icon="fa-ship" label="Ship By" value={shipByVal} />
-              <SpecRow icon="fa-anchor" label="Port of Loading" value={portOfLoadingVal} />
-              <SpecRow icon="fa-calendar-days" label="Shipment Period" value={shipmentPeriodVal} />
-              <SpecRow icon="fa-scale-balanced" label="Quantity (MT)" value={quantityVal} highlight />
-              <SpecRow icon="fa-credit-card" label="Payment Term" value={paymentTermVal} />
-            </div>
-
-            {/* Right Part (6 items) */}
-            <div className="flex flex-col gap-2.5 md:pl-4 border-t md:border-t-0 border-border/60 pt-3 md:pt-0">
-              <SpecRow icon="fa-globe" label="Country" value={countryVal} />
-              <SpecRow icon="fa-file-contract" label="Shipping Term" value={shippingTermVal} />
-              <SpecRow icon="fa-location-dot" label="Port of Destination" value={portOfDestinationVal} />
-              <SpecRow icon="fa-boxes-stacked" label="Packing Type" value={packingTypeVal} />
-              <SpecRow icon="fa-dolly" label="Container (FCL)" value={containerFclVal} />
-              <SpecRow icon="fa-circle-info" label="Description" value={descriptionVal} />
-            </div>
-
-          </div>
+        <div className="border border-border rounded-xl mb-6 overflow-x-auto shadow-sm">
+          <table className="w-full text-left text-[13px] sm:text-sm min-w-[600px]">
+            <tbody className="divide-y divide-border">
+              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Product Name</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground w-[30%]">{productNameVal}</td>
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Country</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground w-[30%]">{countryVal}</td>
+              </tr>
+              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Ship By</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{shipByVal}</td>
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipping Term</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{shippingTermVal}</td>
+              </tr>
+              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Loading</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{portOfLoadingVal}</td>
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Dest.</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{portOfDestinationVal}</td>
+              </tr>
+              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipment Period</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{shipmentPeriodVal}</td>
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Packing Type</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{packingTypeVal}</td>
+              </tr>
+              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Quantity (MT)</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{quantityVal}</td>
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Container (FCL)</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{containerFclVal}</td>
+              </tr>
+              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Payment Term</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{paymentTermVal}</td>
+                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Description</td>
+                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{descriptionVal}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* 4. Negotiation Process Section (Compact & Well-Proportioned) */}
+      {hasNegotiation && (
       <div className="w-full max-w-2xl mx-auto mt-1 mb-2">
         <div className="text-center mb-5">
           <h3 className="text-base sm:text-lg font-black text-foreground tracking-tight">
@@ -742,7 +757,7 @@ export default function InquiryDetailsPanel({
                   <div className="bg-foreground/[0.04] dark:bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3 transition-all shadow-2xs">
                     <AdminAvatar className="w-8 h-8 sm:w-9 sm:h-9" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] sm:text-xs font-semibold text-foreground/85 truncate">
+                      <p className="text-[11px] sm:text-xs font-semibold text-foreground/85 truncate" suppressHydrationWarning>
                         {adminTime.full}
                       </p>
                     </div>
@@ -765,7 +780,7 @@ export default function InquiryDetailsPanel({
                       className="w-8 h-8 sm:w-9 sm:h-9"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] sm:text-xs font-semibold text-foreground/85 truncate">
+                      <p className="text-[11px] sm:text-xs font-semibold text-foreground/85 truncate" suppressHydrationWarning>
                         {userTime.full}
                       </p>
                     </div>
@@ -825,10 +840,12 @@ export default function InquiryDetailsPanel({
           </div>
         )}
       </div>
+      )}
       {/* End of SCROLLABLE MIDDLE */}
       </div>
 
       {/* --- 3. STICKY BOTTOM: ACTION BUTTONS BAR --- */}
+      {hasNegotiation && (
       <div className="p-4 sm:p-5 border-t border-border/50 bg-card shrink-0 z-10">
         <div className="flex flex-wrap items-center justify-center gap-3">
           {isRenegotiating ? (
@@ -899,37 +916,9 @@ export default function InquiryDetailsPanel({
           )}
         </div>
       </div>
+      )}
 
     </div>
   );
 }
 
-// Reusable Specification Row Component matching the user image layout
-function SpecRow({
-  icon,
-  label,
-  value,
-  highlight = false,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 text-xs sm:text-sm py-1 border-b border-border/30 last:border-b-0">
-      <div className="flex items-center gap-2 text-foreground/65 shrink-0">
-        <i className={`fa-solid ${icon} text-[11px] text-foreground/45 w-4 text-center`}></i>
-        <span className="font-medium">{label} :</span>
-      </div>
-      <span
-        title={value}
-        className={`font-semibold text-right truncate max-w-[65%] ${
-          highlight ? 'text-brand-blue font-bold' : 'text-foreground'
-        }`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}

@@ -56,7 +56,7 @@ export default async function MyInquiriesPage(props: { params: Promise<{ lang: s
 function MyInquiriesSkeleton() {
   return (
     <>
-      <PageHeader title="My Offers & Inquiries" backText="Back" />
+      <PageHeader title="My Inquiries" backText="Back" />
       <div className="w-full mt-4 bg-card border border-border rounded-2xl h-[600px] animate-pulse"></div>
     </>
   )
@@ -84,7 +84,7 @@ async function MyInquiriesContent({ lang, token }: { lang: string, token: string
   const dict = await getDictionary(lang);
   const common = dict.common || { back: 'Back' };
   
-  const pageTitle = (dict as any).my_inquiries || 'My Offers & Inquiries';
+  const pageTitle = (dict as any).my_inquiries || 'My Inquiries';
 
   const [buyerProductRes, sellerProductRes, freightInquiries] = await Promise.all([
     tradingService.getInquiryList('/trading-inquiry/for-user?type=BUYER', token, lang),
