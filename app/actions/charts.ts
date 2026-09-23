@@ -245,14 +245,75 @@ export async function getAlertSetupsAction(
     let token = cookieStore.get("auth_token")?.value;
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
     
-    if (!token) return { success: false, error: "Not authenticated" };
+    if (!token) return { success: false, error: "Not authenticated", data: [] };
 
     const safeLang = getSafeLang(lang);
     const { userService } = await import("@/lib/api/user.service");
     const alerts = await userService.getUserAlerts(token, safeLang);
-    return { success: true, data: alerts };
+    return { success: true, data: Array.isArray(alerts) ? alerts : [] };
   } catch (err: any) {
     console.error("getAlertSetupsAction error:", err);
     return { success: false, error: err.message, data: [] };
   }
 }
+
+/**
+ * Fetch user AI predictions on server side
+ */
+export async function getAiPredictsAction(
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    const cookieStore = await cookies();
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    
+    if (!token) return { success: false, error: "Not authenticated", data: [] };
+
+    const safeLang = getSafeLang(lang);
+    const { userService } = await import("@/lib/api/user.service");
+    const predicts = await userService.getUserAiPredicts(token, safeLang);
+    return { success: true, data: Array.isArray(predicts) ? predicts : [] };
+  } catch (err: any) {
+    console.error("getAiPredictsAction error:", err);
+    return { success: false, error: err.message, data: [] };
+  }
+}
+
+/**
+ * Fetch price analysis details on server side
+ */
+export async function getPriceAnalysisDetailsAction(
+  type: "product" | "freight",
+  id: string | number,
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    const cookieStore = await cookies();
+    let token = cookieStore.get("auth_token")?.value;
+    if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    
+    if (!token) return { success: false, error: "Not authenticated", data: null };
+
+    const safeLang = getSafeLang(lang);
+    const url = `https://trading-api.agriguruonline.cloud/price-analysis/details/${type}/${id}?lang_code=${safeLang}`;
+    
+    const res = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      return { success: false, error: "Failed to fetch details", data: null };
+    }
+
+    const json = await res.json();
+    return { success: true, data: json.data || json };
+  } catch (err: any) {
+    console.error("getPriceAnalysisDetailsAction error:", err);
+    return { success: false, error: err.message, data: null };
+  }
+}
+

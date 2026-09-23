@@ -45,6 +45,14 @@ export default async function AIPredictPage(props: { params: Promise<{ lang: str
           <AIPredictClient 
             initialPredicts={predictsList.map((predict: any) => ({
               id: predict.id,
+              favourite_product_id: predict.favourite_product_id,
+              favourite_record_id: predict.favourite_record_id,
+              favourite_port_id: predict.favourite_port_id,
+              favorite_product_id: predict.favorite_product_id,
+              favorite_port_id: predict.favorite_port_id,
+              product_id: predict.product_id,
+              freight_id: predict.freight_id,
+              analysis: predict.analysis || predict.ai_analysis || predict.description || predict.content,
               created_at: predict.created_at,
               alert_type: predict.alert_type,
               alert_price: predict.alert_price,

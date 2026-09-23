@@ -5,10 +5,12 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
-import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction } from '@/app/actions/charts';
+import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction, getAiPredictsAction } from '@/app/actions/charts';
 import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
+import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard';
+import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard';
 import { toast } from 'sonner';
 import { toPng } from 'html-to-image';
 import DOMPurify from 'isomorphic-dompurify';
@@ -127,6 +129,8 @@ export default function MobileCommodityChart({
   onDragMove,
   onDragEnd,
   lang = 'en',
+  initialTab = 'Overview',
+  initialExpandedPredictId,
 }: {
   item: CommodityItemData;
   isFullScreen?: boolean;
@@ -136,6 +140,8 @@ export default function MobileCommodityChart({
   onDragMove?: (clientY: number) => void;
   onDragEnd?: () => void;
   lang?: string;
+  initialTab?: string;
+  initialExpandedPredictId?: string;
 }) {
   const router = useRouter();
   // Timeframe filters: 1W, 1M, 6M, 1Y, 5Y, ALL (Default is 1Y)
@@ -145,7 +151,7 @@ export default function MobileCommodityChart({
 
 
   const [timeRange, setTimeRange] = useState<RangeType>('1Y');
-  const [activeTab, setActiveTab] = useState<string>('Overview');
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [hoveredPoint, setHoveredPoint] = useState<PriceHistoryItem | null>(null);
   const [selectedCommentPoint, setSelectedCommentPoint] = useState<PriceHistoryItem | null>(null);
   const [showSpecsModal, setShowSpecsModal] = useState<boolean>(false);
@@ -170,6 +176,9 @@ export default function MobileCommodityChart({
   const [chartAlerts, setChartAlerts] = useState<any[]>([]);
   const [isFetchingAlerts, setIsFetchingAlerts] = useState<boolean>(false);
   const [refreshAlerts, setRefreshAlerts] = useState<number>(0);
+  const [chartAiPredicts, setChartAiPredicts] = useState<any[]>([]);
+  const [isFetchingAiPredicts, setIsFetchingAiPredicts] = useState<boolean>(false);
+  const [refreshAiPredicts, setRefreshAiPredicts] = useState<number>(0);
   const [isAnalysing, setIsAnalysing] = useState<boolean>(false);
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const historicalRef = useRef<HTMLDivElement>(null);
@@ -502,6 +511,7 @@ export default function MobileCommodityChart({
       if (prevTab !== 'AI Predict') setActiveTab(prevTab);
     } finally {
       setIsAnalysing(false);
+      setRefreshAiPredicts(prev => prev + 1);
       setTimeout(() => scrollToBottom(true), 100);
     }
   };
@@ -653,6 +663,73 @@ export default function MobileCommodityChart({
     return () => { isMounted = false; };
   }, [activeTab, item.id, lang, refreshAlerts]);
 
+  // Fetch AI predictions when tab is active
+  useEffect(() => {
+    let isMounted = true;
+    if (activeTab === 'AI Predict') {
+      const fetchAiPredicts = async () => {
+        setIsFetchingAiPredicts(true);
+        try {
+          const res = await getAiPredictsAction(lang);
+          if (res.success && Array.isArray(res.data) && isMounted) {
+            const chartFavId = String(item.id);
+            const apiProdId = apiProduct?.product?.id ? String(apiProduct.product.id) : null;
+
+            // Filter by chart's favorite id (item.id) and related product/route IDs
+            const filtered = res.data.filter((predict: any) => {
+              const ids = [
+                predict.favourite_product_id,
+                predict.favourite_product?.id,
+                predict.favourite_record_id,
+                predict.favourite_record?.id,
+                predict.favourite_port_id,
+                predict.favourite_port?.id,
+                predict.favorite_product_id,
+                predict.favorite_port_id,
+                predict.freight_id,
+                predict.product_id,
+                predict.product?.id,
+              ].filter(Boolean).map(String);
+
+              if (ids.includes(chartFavId)) return true;
+              if (apiProdId && ids.includes(apiProdId)) return true;
+
+              // Fallback match by commodity name & origin port
+              if (
+                item.product &&
+                (predict.product?.name === item.product || predict.product_name === item.product || predict.commodity?.name === item.product || predict.name === item.product) &&
+                (!item.pol || predict.loading_port?.name === item.pol || predict.pol?.name === item.pol || predict.origin?.name === item.pol)
+              ) {
+                return true;
+              }
+
+              return false;
+            });
+            setChartAiPredicts(filtered);
+          }
+        } catch (e) {
+          console.error('[MobileCommodityChart] Error fetching AI predictions:', e);
+        } finally {
+          if (isMounted) setIsFetchingAiPredicts(false);
+        }
+      };
+      fetchAiPredicts();
+    }
+    return () => { isMounted = false; };
+  }, [activeTab, item.id, apiProduct?.product?.id, item.product, item.pol, lang, refreshAiPredicts]);
+
+  // Scroll to initially expanded card
+  useEffect(() => {
+    if (activeTab === 'AI Predict' && initialExpandedPredictId && chartAiPredicts.length > 0) {
+      setTimeout(() => {
+        const el = document.getElementById(`predict-card-${initialExpandedPredictId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 300);
+    }
+  }, [activeTab, initialExpandedPredictId, chartAiPredicts.length]);
+
   // Fetch full product details (quality_specification, description, thumbnail) if available
   // OPTIMIZED: Only fetch when needed (user views specs or opens modal) to prevent N+1 API spam on list load
   useEffect(() => {
@@ -683,8 +760,46 @@ export default function MobileCommodityChart({
     fetchProduct();
   }, [apiProduct?.product?.id, item.id, lang, showSpecsModal, activeTab]);
 
-  // Ultra fast O(N) timeframe filtering using precomputed timestamps (0.1ms execution)
-  const filteredData = useMemo<PriceHistoryItem[]>(() => {
+  const [brushStartIndex, setBrushStartIndex] = useState<number | undefined>(undefined);
+  const [brushEndIndex, setBrushEndIndex] = useState<number | undefined>(undefined);
+
+  // When timeRange changes, calculate the new Brush start index for a smooth zoom transition
+  useEffect(() => {
+    if (!priceHistory || priceHistory.length === 0) return;
+    
+    const lastItem = priceHistory[priceHistory.length - 1];
+    const lastDate = lastItem.timestamp || new Date(lastItem.date).getTime();
+    let cutOffMs = 0;
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+
+    switch (timeRange) {
+      case '1W': cutOffMs = lastDate - 7 * ONE_DAY; break;
+      case '1M': cutOffMs = lastDate - 30 * ONE_DAY; break;
+      case '6M': cutOffMs = lastDate - 182 * ONE_DAY; break;
+      case '1Y': cutOffMs = lastDate - 365 * ONE_DAY; break;
+      case '5Y': cutOffMs = lastDate - 5 * 365 * ONE_DAY; break;
+      case 'ALL': default: cutOffMs = 0; break;
+    }
+
+    if (cutOffMs <= 0) {
+      setBrushStartIndex(0);
+      setBrushEndIndex(priceHistory.length - 1);
+      return;
+    }
+    
+    let startIdx = priceHistory.findIndex(d => (d.timestamp || 0) >= cutOffMs);
+    if (startIdx === -1) startIdx = 0;
+    
+    // Ensure at least 2 points are shown
+    if (priceHistory.length - startIdx < 2 && priceHistory.length >= 2) {
+      startIdx = Math.max(0, priceHistory.length - 7);
+    }
+    
+    setBrushStartIndex(startIdx);
+    setBrushEndIndex(priceHistory.length - 1);
+  }, [timeRange, priceHistory]);
+
+  const chartData = useMemo<PriceHistoryItem[]>(() => {
     if (!priceHistory || priceHistory.length === 0) {
       const base = Number(item.price) || 450;
       return [{
@@ -702,49 +817,8 @@ export default function MobileCommodityChart({
         remarks: null,
       }];
     }
-
-    const lastItem = priceHistory[priceHistory.length - 1];
-    const lastDate = lastItem.timestamp || new Date(lastItem.date).getTime();
-
-    let cutOffMs = 0;
-    const ONE_DAY = 24 * 60 * 60 * 1000;
-
-    switch (timeRange) {
-      case '1W':
-        cutOffMs = lastDate - 7 * ONE_DAY;
-        break;
-      case '1M':
-        cutOffMs = lastDate - 30 * ONE_DAY;
-        break;
-      case '6M':
-        cutOffMs = lastDate - 182 * ONE_DAY;
-        break;
-      case '1Y':
-        cutOffMs = lastDate - 365 * ONE_DAY;
-        break;
-      case '5Y':
-        cutOffMs = lastDate - 5 * 365 * ONE_DAY;
-        break;
-      case 'ALL':
-      default:
-        cutOffMs = 0;
-        break;
-    }
-
-    if (cutOffMs <= 0) return priceHistory;
-
-    const subset = priceHistory.filter(d => (d.timestamp || 0) >= cutOffMs);
-    if (subset.length < 2 && priceHistory.length >= 2) {
-      return priceHistory.slice(-Math.min(priceHistory.length, 7));
-    }
-
-    return subset;
-  }, [priceHistory, timeRange, item.price]);
-
-  // Removed downsampling to show all data points on the chart
-  const chartData = useMemo<PriceHistoryItem[]>(() => {
-    return filteredData || [];
-  }, [filteredData]);
+    return priceHistory;
+  }, [priceHistory, item.price]);
 
   // Hack for left-to-right initial animation
   useEffect(() => {
@@ -795,6 +869,11 @@ export default function MobileCommodityChart({
     const rawDesc = productDetails?.description || apiProduct?.product?.description || '';
     return rawDesc.replace(/<[^>]*>/g, '').trim() || `${item.product || 'High Grade Agricultural Commodity'} sourced directly from prime farming regions, conforming to international export standards.`;
   }, [productDetails?.description, apiProduct?.product?.description, item.product]);
+
+  const filteredData = useMemo(() => {
+    if (brushStartIndex === undefined || brushEndIndex === undefined) return displayChartData;
+    return displayChartData.slice(brushStartIndex, brushEndIndex + 1);
+  }, [displayChartData, brushStartIndex, brushEndIndex]);
 
   // 52-Week Range (Runs ONLY when full priceHistory updates)
   const { low52, high52 } = useMemo(() => {
@@ -1597,6 +1676,14 @@ export default function MobileCommodityChart({
                       fill={isPositive ? 'rgba(42, 175, 133, 0.08)' : 'rgba(219, 95, 103, 0.08)'}
                       travellerWidth={8}
                       tickFormatter={() => ''}
+                      startIndex={brushStartIndex}
+                      endIndex={brushEndIndex}
+                      onChange={(newIndex: any) => {
+                        if (newIndex && newIndex.startIndex !== undefined) {
+                          setBrushStartIndex(newIndex.startIndex);
+                          setBrushEndIndex(newIndex.endIndex);
+                        }
+                      }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -1985,78 +2072,174 @@ export default function MobileCommodityChart({
 
             ) : activeTab === 'AI Predict' ? (
               <div className="space-y-3.5">
-                <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col min-h-[300px]">
-                  <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-                     <div className="flex items-center gap-2">
-                       <div className="w-8 h-8 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
-                         <i className="fa-solid fa-microchip"></i>
+                {/* 1. Live/Active AI Price Analysis Box (when analysing OR analysis is available) */}
+                {(isAnalysing || aiAnalysis) && (
+                  <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col min-h-[300px]">
+                    <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
+                       <div className="flex items-center gap-2">
+                         <div className="w-8 h-8 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
+                           <i className="fa-solid fa-microchip"></i>
+                         </div>
+                         <div>
+                           <h2 className="font-extrabold text-[15px] text-foreground">AI Price Analysis</h2>
+                           <p className="text-[11px] text-foreground/60 leading-tight">Powered by Advanced Machine Learning</p>
+                         </div>
                        </div>
-                       <div>
-                         <h2 className="font-extrabold text-[15px] text-foreground">AI Price Analysis</h2>
-                         <p className="text-[11px] text-foreground/60 leading-tight">Powered by Advanced Machine Learning</p>
+                       <div className="flex items-center gap-2">
+                         {aiAnalysis && !isAnalysing && (
+                           <>
+                             <button 
+                               onClick={() => setAiAnalysis('')} 
+                               className="text-[11px] font-bold bg-muted hover:bg-muted/80 text-foreground px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                               title="Close analysis"
+                             >
+                               <i className="fa-solid fa-xmark"></i>
+                             </button>
+                             <button 
+                               onClick={handleAIPredictClick} 
+                               className="text-[11px] font-bold bg-muted hover:bg-muted/80 text-foreground px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                             >
+                               <i className="fa-solid fa-rotate-right"></i> Refresh
+                             </button>
+                           </>
+                         )}
                        </div>
-                     </div>
-                     {aiAnalysis && !isAnalysing && (
-                       <button onClick={handleAIPredictClick} className="text-[11px] font-bold bg-muted hover:bg-muted/80 text-foreground px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors">
-                         <i className="fa-solid fa-rotate-right"></i> Refresh
-                       </button>
-                     )}
-                  </div>
-                  
-                  {isAnalysing && !aiAnalysis ? (
-                    <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-70">
-                       <i className="fa-solid fa-circle-notch fa-spin text-3xl text-brand-blue mb-4"></i>
-                       <p className="font-bold text-[14px] text-foreground animate-pulse">Analyzing Market Patterns...</p>
-                       <p className="text-[12px] text-foreground/60 mt-1">This might take a few seconds.</p>
                     </div>
-                  ) : aiAnalysis ? (
-                    <div className="relative flex-1 flex flex-col min-h-0">
-                      <div 
-                        ref={aiScrollRef} 
-                        onWheel={handleUserWheel}
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        className="flex-1 max-h-[520px] sm:max-h-[620px] overflow-y-auto pr-1.5 text-[13px] leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:text-foreground/80 prose-headings:text-foreground prose-strong:text-foreground prose-a:text-brand-blue"
-                      >
-                        <div dangerouslySetInnerHTML={renderMarkdown(aiAnalysis)} />
-                        {isAnalysing && (
-                          <div className="flex items-center gap-2 mt-3 pt-2 text-xs text-brand-blue font-semibold not-prose">
-                            <span className="relative flex h-2.5 w-2.5">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-blue"></span>
-                            </span>
-                            <span className="animate-pulse">Thinking & generating analysis...</span>
-                          </div>
-                        )}
-                        <div ref={aiBottomRef} className="h-4" />
+                    
+                    {isAnalysing && !aiAnalysis ? (
+                      <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-70">
+                         <i className="fa-solid fa-circle-notch fa-spin text-3xl text-brand-blue mb-4"></i>
+                         <p className="font-bold text-[14px] text-foreground animate-pulse">Analyzing Market Patterns...</p>
+                         <p className="text-[12px] text-foreground/60 mt-1">This might take a few seconds.</p>
                       </div>
-
-                      {/* Floating scroll to bottom button if user scrolled up during analysis */}
-                      {isAnalysing && isUserScrollingUp.current && (
-                        <button 
-                          onClick={() => {
-                            isUserScrollingUp.current = false;
-                            scrollToBottom(true);
-                          }}
-                          className="absolute bottom-2 right-2 bg-brand-blue text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg hover:bg-brand-blue/90 transition-all flex items-center gap-1.5 z-10 animate-bounce cursor-pointer"
+                    ) : aiAnalysis ? (
+                      <div className="relative flex-1 flex flex-col min-h-0">
+                        <div 
+                          ref={aiScrollRef} 
+                          onWheel={handleUserWheel}
+                          onTouchStart={handleTouchStart}
+                          onTouchMove={handleTouchMove}
+                          className="flex-1 max-h-[520px] sm:max-h-[620px] overflow-y-auto pr-1.5 text-[13px] leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:text-foreground/80 prose-headings:text-foreground prose-strong:text-foreground prose-a:text-brand-blue"
                         >
-                          <i className="fa-solid fa-arrow-down"></i> Scroll to bottom
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center py-10">
-                      <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
-                        <i className="fa-solid fa-microchip"></i>
+                          <div dangerouslySetInnerHTML={renderMarkdown(aiAnalysis)} />
+                          {isAnalysing && (
+                            <div className="flex items-center gap-2 mt-3 pt-2 text-xs text-brand-blue font-semibold not-prose">
+                              <span className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-blue"></span>
+                              </span>
+                              <span className="animate-pulse">Thinking & generating analysis...</span>
+                            </div>
+                          )}
+                          <div ref={aiBottomRef} className="h-4" />
+                        </div>
+
+                        {/* Floating scroll to bottom button if user scrolled up during analysis */}
+                        {isAnalysing && isUserScrollingUp.current && (
+                          <button 
+                            onClick={() => {
+                              isUserScrollingUp.current = false;
+                              scrollToBottom(true);
+                            }}
+                            className="absolute bottom-2 right-2 bg-brand-blue text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg hover:bg-brand-blue/90 transition-all flex items-center gap-1.5 z-10 animate-bounce cursor-pointer"
+                          >
+                            <i className="fa-solid fa-arrow-down"></i> Scroll to bottom
+                          </button>
+                        )}
                       </div>
-                      <h2 className="font-extrabold text-[16px] text-foreground">No Analysis Generated</h2>
-                      <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">Run our advanced machine learning models to forecast future price trends.</p>
-                      <button onClick={handleAIPredictClick} className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 flex items-center gap-2 cursor-pointer">
-                        <i className="fa-solid fa-microchip"></i> Analyse
-                      </button>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* 2. AI Predict Records List (matching Alert Setups pattern) */}
+                {isFetchingAiPredicts && chartAiPredicts.length === 0 ? (
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                    <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-[100px] sm:h-[110px] animate-pulse">
+                      <div className="flex flex-col items-center shrink-0 w-6">
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 bg-muted rounded-full"></div>
+                      </div>
+                      <div className="flex-1 flex flex-col justify-between min-w-0 py-0.5">
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <div className="w-24 h-4 bg-muted rounded"></div>
+                          <div className="w-20 h-4 bg-muted rounded"></div>
+                        </div>
+                        <div className="flex items-center justify-between w-full mt-3 sm:mt-2">
+                          <div className="w-40 h-5 sm:h-6 bg-muted rounded"></div>
+                          <div className="w-24 h-5 sm:h-6 bg-muted rounded"></div>
+                        </div>
+                        <div className="flex items-center justify-between w-full mt-4 sm:mt-3">
+                          <div className="w-32 h-4 bg-muted rounded"></div>
+                          <div className="w-16 h-4 bg-muted rounded"></div>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : chartAiPredicts.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                    {chartAiPredicts.map((predict: any, idx: number) => {
+                      const predictType = predict.predict_type || predict.type || predict.analysis_type || predict.alert_type || (item.category === 'FREIGHT' ? 'Freight' : 'Product');
+                      const isFreight = predictType.toLowerCase().includes('freight') || !!(predict.freight_pmt || predict.target_freight || predict.pmt_price) || (!!predict.loading_port && !!predict.destination_port && !predict.product?.name && !predict.product_name && !predict.commodity?.name);
+
+                      const handleSelectPredict = () => {
+                        const text = predict.analysis || predict.ai_analysis || predict.description || predict.content || predict.analysis_text;
+                        if (text) {
+                          setAiAnalysis(text);
+                          toast.success('Loaded AI prediction analysis');
+                        } else {
+                          toast.info('Viewing prediction details');
+                        }
+                      };
+
+                      if (isFreight) {
+                        return (
+                          <div key={predict.id || idx} id={`predict-card-${predict.id}`}>
+                            <AIPredictFreightCard 
+                              predict={predict} 
+                              isDropdownMode={true} 
+                              onSelect={handleSelectPredict}
+                              onCardClick={handleSelectPredict}
+                              initialExpanded={initialExpandedPredictId === String(predict.id)}
+                            />
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={predict.id || idx} id={`predict-card-${predict.id}`}>
+                          <AIPredictProductCard 
+                            predict={predict} 
+                            isDropdownMode={true} 
+                            onSelect={handleSelectPredict}
+                            onCardClick={handleSelectPredict}
+                            initialExpanded={initialExpandedPredictId === String(predict.id)}
+                          />
+                        </div>
+                      );
+                    })}
+                    <button 
+                      onClick={handleAIPredictClick}
+                      disabled={isAnalysing}
+                      className="mt-2 w-full py-3 bg-brand-blue/10 text-brand-blue text-[13px] font-bold rounded-xl border border-brand-blue/20 shadow-xs hover:bg-brand-blue/20 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <i className="fa-solid fa-microchip"></i> {isAnalysing ? 'Analyzing...' : 'Run New AI Analysis'}
+                    </button>
+                  </div>
+                ) : !aiAnalysis && !isAnalysing ? (
+                  <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
+                    <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
+                      <i className="fa-solid fa-microchip"></i>
+                    </div>
+                    <h2 className="font-extrabold text-[16px] text-foreground">No AI Predictions</h2>
+                    <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't run any AI price predictions for this commodity yet.</p>
+                    <button 
+                      onClick={handleAIPredictClick} 
+                      disabled={isAnalysing}
+                      className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 flex items-center gap-2 cursor-pointer"
+                    >
+                      <i className="fa-solid fa-microchip"></i> {isAnalysing ? 'Analyzing...' : 'Run AI Analysis'}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : activeTab === 'Historical' ? (
               /* TAB 4: DATE-WISE MARKET COMMENTARY VIEW (ONLY DATES WITH COMMENTS) */

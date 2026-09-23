@@ -24,6 +24,7 @@ export interface ChartBottomSheetItem {
   chartStatus?: boolean;
   alertPrice?: string | number;
   alertId?: string | number;
+  predictId?: string;
 }
 
 interface ChartBottomSheetContainerProps {
@@ -33,6 +34,8 @@ interface ChartBottomSheetContainerProps {
   defaultFullScreen?: boolean;
   lang?: string;
   swipeText?: string;
+  initialTab?: string;
+  initialExpandedPredictId?: string;
 }
 
 export function ChartBottomSheetContainer({
@@ -41,7 +44,9 @@ export function ChartBottomSheetContainer({
   userType = null,
   defaultFullScreen = false,
   lang = 'en',
-  swipeText = 'Swipe up for Details'
+  swipeText = 'Swipe up for Details',
+  initialTab,
+  initialExpandedPredictId
 }: ChartBottomSheetContainerProps) {
   const [isFullScreen, setIsFullScreen] = useState(defaultFullScreen);
   const startYRef = useRef<number | null>(null);
@@ -230,6 +235,8 @@ export function ChartBottomSheetContainer({
             onClose={onClose}
             userType={userType}
             lang={lang}
+            initialTab={initialTab}
+            initialExpandedPredictId={initialExpandedPredictId}
           />
         </div>
       </div>
@@ -341,6 +348,8 @@ export function ChartBottomSheetContainer({
               onDragMove={handleDragMove}
               onDragEnd={handleDragEnd}
               lang={lang}
+              initialTab={initialTab}
+              initialExpandedPredictId={initialExpandedPredictId}
             />
           </div>
         </div>

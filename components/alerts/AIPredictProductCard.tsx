@@ -1,17 +1,48 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { getPriceAnalysisDetailsAction } from '@/app/actions/charts';
+import { marked } from 'marked';
 
 export function AIPredictProductCard({ 
   predict, 
   isSelected = false, 
   onSelect = () => {},
-  isDropdownMode = false
+  isDropdownMode = false,
+  onCardClick = undefined,
+  initialExpanded = false
 }: { 
   predict: any; 
   isSelected?: boolean; 
   onSelect?: (id: string) => void; 
   isDropdownMode?: boolean;
+  onCardClick?: () => void;
+  initialExpanded?: boolean;
 }) {
+  const [isExpanded, setIsExpanded] = useState(initialExpanded || false);
+  const [details, setDetails] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(initialExpanded || false);
+
+  useEffect(() => {
+    if (initialExpanded && !details) {
+      const fetchDetails = async () => {
+        try {
+          const type = (predict.alert_type || '').toLowerCase() === 'freight' ? 'freight' : 'product';
+          const res = await getPriceAnalysisDetailsAction(type, predict.id);
+          if (res.success && res.data) {
+            setDetails(res.data);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchDetails();
+    }
+  }, [initialExpanded, predict.id, predict.alert_type]);
+
   const dateStr = predict.created_at ? new Date(predict.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently';
 
   const title = predict.product?.name || predict.product_name || predict.commodity?.name || predict.category?.name || predict.commodity_name || predict.name || predict.title || 'Unknown Commodity';
@@ -37,6 +68,61 @@ export function AIPredictProductCard({
   const destFlag = rawDestFlag.endsWith('.png') && !rawDestFlag.startsWith('http') ? `${base}${rawDestFlag}` : rawDestFlag;
 
   const showDest = incoterm === 'CNF' || incoterm === 'CIF' || incoterm === 'CFR' || !!(predict.destination_port || predict.destination);
+
+  const handleToggleExpand = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isExpanded) {
+      setIsExpanded(false);
+      return;
+    }
+    
+    setIsExpanded(true);
+    if (!details) {
+      setIsLoading(true);
+      try {
+        const type = (predict.alert_type || '').toLowerCase() === 'freight' ? 'freight' : 'product';
+        const res = await getPriceAnalysisDetailsAction(type, predict.id);
+        if (res.success && res.data) {
+          setDetails(res.data);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      setIsLoading(false);
+    }
+  };
+
+  const extractMarkdownContent = (obj: any): string => {
+    if (!obj) return '';
+    if (typeof obj === 'string') return obj;
+    
+    // Check common keys for the result
+    const keys = ['analysis', 'result', 'content', 'description', 'message', 'report', 'ai_analysis', 'details', 'ai_predict_result', 'analysis_result'];
+    for (const key of keys) {
+      if (obj[key] && typeof obj[key] === 'string') return obj[key];
+      if (obj.data && obj.data[key] && typeof obj.data[key] === 'string') return obj.data[key];
+    }
+    
+    // If not found, find the longest string in the object assuming it's the markdown content
+    let longestString = '';
+    const traverse = (current: any) => {
+      if (!current) return;
+      if (typeof current === 'string') {
+        if (current.length > longestString.length) {
+          longestString = current;
+        }
+        return;
+      }
+      if (typeof current === 'object') {
+        for (const key in current) {
+          traverse(current[key]);
+        }
+      }
+    };
+    traverse(obj);
+    
+    return longestString || JSON.stringify(obj, null, 2);
+  };
 
   const routeDisplay = (
     <div className="flex flex-row items-center gap-1.5 sm:gap-3 text-[12px] sm:text-[15px] font-medium text-muted-foreground min-w-0">
@@ -66,10 +152,10 @@ export function AIPredictProductCard({
 
   return (
     <div 
-      onClick={() => onSelect(predict.id)}
-      className={`group bg-card border ${isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30' : 'border-border'} rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer`}
+      onClick={onCardClick || (() => onSelect(predict.id))}
+      className={`group bg-card border ${isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30' : 'border-border'} rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer flex flex-col`}
     >
-      <div className="p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-full relative">
+      <div className="p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 relative">
         {/* Left Column: Icon (Top) and Checkbox (Bottom) */}
         <div className="flex flex-col items-center shrink-0 w-6">
           <div className="h-6 sm:h-7 flex items-center justify-center">
@@ -81,7 +167,8 @@ export function AIPredictProductCard({
               <input 
                 type="checkbox" 
                 checked={isSelected}
-                onChange={(e) => { e.stopPropagation(); onSelect(predict.id); }}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => onSelect(predict.id)}
                 className="w-[18px] h-[18px] sm:w-[22px] sm:h-[22px] accent-brand-blue cursor-pointer dark:scheme-dark"
                 title="Select to select"
               />
@@ -117,11 +204,15 @@ export function AIPredictProductCard({
                   {rightTargetLabel} : {rightTargetPrice}
                 </div>
               ) : null}
-              <div className="flex items-center gap-1.5 sm:gap-2 ml-1 sm:ml-2">
-                <span className="text-[13px] sm:text-[16px] font-semibold text-foreground">
+              <div 
+                className="flex items-center gap-1.5 sm:gap-2 ml-1 sm:ml-2 hover:bg-muted/50 p-1 rounded-md transition-colors"
+                onClick={handleToggleExpand}
+                title="Click to view analysis details"
+              >
+                <span className="text-[13px] sm:text-[16px] font-semibold text-brand-blue">
                   AI Predict
                 </span>
-                <i className="fa-solid fa-chevron-right text-muted-foreground/40 group-hover:text-foreground transition-colors text-[14px] sm:text-[18px]"></i>
+                <i className={`fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-brand-blue transition-transform text-[14px] sm:text-[18px]`}></i>
               </div>
             </div>
           </div>
@@ -137,6 +228,42 @@ export function AIPredictProductCard({
           </div>
         </div>
       </div>
+      
+      {/* Expanded Analysis Details */}
+      {isExpanded && (
+        <div 
+          className="border-t border-border p-4 sm:p-5 bg-muted/20"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {isLoading ? (
+            <div className="flex items-center justify-center p-4">
+              <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-2xl"></i>
+            </div>
+          ) : details ? (
+            <div className="text-sm sm:text-[15px] text-foreground leading-snug">
+              <div 
+                className="prose prose-sm sm:prose-base dark:prose-invert max-w-none 
+                           [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-[18px] sm:[&_h1]:text-[20px] [&_h1]:font-bold [&_h1]:leading-tight
+                           [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-[17px] sm:[&_h2]:text-[19px] [&_h2]:font-bold [&_h2]:leading-tight
+                           [&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-[16px] sm:[&_h3]:text-[18px] [&_h3]:font-bold [&_h3]:leading-tight
+                           [&_h4]:mt-2 [&_h4]:mb-1 [&_h4]:text-[15px] sm:[&_h4]:text-[16px] [&_h4]:font-bold [&_h4]:leading-tight
+                           [&_p]:mt-0 [&_p]:mb-2
+                           [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_li>p]:my-0
+                           [&_table]:mt-2 [&_table]:mb-4 [&_th]:py-1.5 [&_td]:py-1.5 [&_th]:px-2 [&_td]:px-2
+                           [&_hr]:my-4 [&_blockquote]:my-2 [&_blockquote]:py-1"
+                dangerouslySetInnerHTML={{ 
+                  __html: marked.parse(extractMarkdownContent(details)) as string
+                }} 
+              />
+            </div>
+          ) : (
+            <div className="text-sm sm:text-[15px] text-muted-foreground text-center p-4">
+              <i className="fa-solid fa-circle-exclamation mr-2"></i>
+              No analysis details available.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

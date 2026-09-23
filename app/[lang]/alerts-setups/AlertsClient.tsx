@@ -187,6 +187,7 @@ export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], la
           onClose={() => setActiveChartData(null)} 
           lang={lang}
           swipeText="Swipe up for Commodity Details"
+          initialTab="Alert Setups"
         />
       )}
     </div>

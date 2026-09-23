@@ -4,10 +4,69 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard';
 import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard';
+import { ChartBottomSheetContainer, ChartBottomSheetItem } from '@/components/ui/charts/ChartBottomSheetContainer';
 
 export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: any[], lang: string }) {
   const [predicts, setPredicts] = useState(initialPredicts);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeChartData, setActiveChartData] = useState<ChartBottomSheetItem | null>(null);
+
+  const handleOpenChart = (predict: any, isFreight: boolean) => {
+    const getTitle = (obj: any, fallback = 'N/A') => {
+      if (!obj) return fallback;
+      if (typeof obj === 'string') return obj;
+      return obj.name || obj.title || obj.label || fallback;
+    };
+    const getFlag = (obj: any) => {
+      if (!obj) return '';
+      if (typeof obj === 'string') return obj;
+      return obj.flag || obj.country?.flag || '';
+    };
+
+    const targetPrice = predict.alert_price || predict.target_price || predict.target_freight || predict.freight_rate || predict.price || predict.threshold || 0;
+    
+    const prodName = isFreight 
+      ? 'Freight (PMT)' 
+      : getTitle(predict.product) !== 'N/A' ? getTitle(predict.product) : (predict.product_name || predict.commodity?.name || predict.name || predict.title || 'N/A');
+    
+    const catName = getTitle(predict.category) !== 'N/A' ? getTitle(predict.category) : (predict.category_name || 'N/A');
+    
+    const originPortObj = predict.loading_port || predict.origin;
+    const destPortObj = predict.destination_port || predict.destination;
+
+    const pol = getTitle(originPortObj, 'N/A');
+    const polFlag = getFlag(originPortObj);
+    
+    const pod = getTitle(destPortObj, 'N/A');
+    const podFlag = getFlag(destPortObj);
+
+    const shipByStr = predict.shipping_container || predict.container_type || predict.equipment_type || '';
+    const shipBy = shipByStr.split(' ')[0] || '20FT';
+
+    const term = predict.shipping_term || predict.incoterm?.name || predict.incoterm || 'FOB';
+
+    const chartItem: ChartBottomSheetItem = {
+      id: predict.favourite_product_id || predict.favourite_product?.id || predict.favourite_record_id || predict.favourite_record?.id || predict.product?.id || predict.product_id || predict.favorite_product_id || predict.freight_id || predict.id,
+      category: catName,
+      product: prodName,
+      shipBy,
+      term,
+      pol,
+      polFlag,
+      pod,
+      podFlag,
+      price: predict.freight_pmt || predict.pmt_price || predict.current_price || predict.price || 0,
+      change: predict.change || predict.price_change || predict.change_percentage || 0,
+      chartStatus: true,
+      alertPrice: targetPrice,
+      alertId: predict.id,
+      country: originPortObj?.country?.name || 'N/A',
+      countryFlag: getFlag(originPortObj?.country),
+      predictId: predict.id
+    };
+
+    setActiveChartData(chartItem);
+  };
 
   const toggleSelect = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -103,6 +162,7 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
                   predict={predict} 
                   isSelected={selectedIds.has(predict.id)} 
                   onSelect={toggleSelect} 
+                  onCardClick={() => handleOpenChart(predict, true)}
                 />
               );
             }
@@ -113,10 +173,22 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
                 predict={predict} 
                 isSelected={selectedIds.has(predict.id)} 
                 onSelect={toggleSelect} 
+                onCardClick={() => handleOpenChart(predict, false)}
               />
             );
           })}
         </div>
+      )}
+
+      {activeChartData && (
+        <ChartBottomSheetContainer 
+          activeItem={activeChartData} 
+          onClose={() => setActiveChartData(null)} 
+          lang={lang}
+          swipeText="Swipe up for Commodity Details"
+          initialTab="AI Predict"
+          initialExpandedPredictId={activeChartData.predictId}
+        />
       )}
     </div>
   );
