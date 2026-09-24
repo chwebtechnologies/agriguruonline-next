@@ -34,3 +34,10 @@ export function getAssetsUrl(): string {
 }
 
 
+
+export const getNormalizedUserType = (typeData: any): string => {
+  if (!typeData) return '';
+  if (typeof typeData === 'string') return typeData.toLowerCase();
+  if (typeof typeData === 'object') return String(typeData.name || typeData.title || typeData.type || '').toLowerCase();
+  return String(typeData).toLowerCase();
+};

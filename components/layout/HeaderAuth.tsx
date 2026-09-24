@@ -8,7 +8,7 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { HeaderGuest, AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/layout/AppMenu'
-import { getAssetsUrl } from '@/lib/api-utils';
+import { getAssetsUrl, getNormalizedUserType } from '@/lib/api-utils';
 import { authService } from '@/lib/api';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
 import { useNotification } from '@/components/providers/NotificationProvider'
@@ -418,6 +418,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 categories={categoriesList}
                 dict={dict.common}
                 initialSearchProducts={initialSearchProducts}
+                userType={getNormalizedUserType(profile?.user_type)}
               />
             </div>
           </div>

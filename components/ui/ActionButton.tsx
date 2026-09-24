@@ -1,9 +1,11 @@
 import React from 'react';
+import Link from 'next/link';
 
 interface ActionButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'buy' | 'sell' | 'add' | 'default';
   icon?: string;
   children: React.ReactNode;
+  href?: string;
 }
 
 export function ActionButton({
@@ -11,6 +13,7 @@ export function ActionButton({
   icon,
   children,
   className = '',
+  href,
   ...props
 }: ActionButtonProps) {
   let bgClass = 'bg-primary-gradient text-white shadow-blue-500/20';
@@ -45,13 +48,37 @@ export function ActionButton({
   const hasTextSize = className.includes('text-');
   const baseTextSize = hasTextSize ? '' : 'text-[14px]';
 
+  const combinedClassName = `${basePadding} ${baseTextSize} font-extrabold tracking-wide rounded shadow-md flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer transition-all ${bgClass} ${className}`;
+  
+  const content = (
+    <>
+      {finalIcon && <i className={`fa-solid ${finalIcon}`}></i>}
+      <span>{children}</span>
+    </>
+  );
+
+  if (href && !props.disabled) {
+    return (
+      <Link href={href} className={combinedClassName}>
+        {content}
+      </Link>
+    );
+  }
+
+  if (href && props.disabled) {
+    return (
+      <div title={props.title} className={`${combinedClassName} cursor-not-allowed opacity-50 active:scale-100`} aria-disabled="true">
+         {content}
+      </div>
+    )
+  }
+
   return (
     <button
       {...props}
-      className={`${basePadding} ${baseTextSize} font-extrabold tracking-wide rounded shadow-md flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer transition-all ${bgClass} ${className}`}
+      className={combinedClassName}
     >
-      {finalIcon && <i className={`fa-solid ${finalIcon}`}></i>}
-      <span>{children}</span>
+      {content}
     </button>
   );
 }

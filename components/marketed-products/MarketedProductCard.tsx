@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ActionButton } from '@/components/ui/ActionButton'
+import { ProductActionButtons } from './ProductActionButtons'
 import { MarketedProductCardClient } from './MarketedProductCardClient'
 
 interface Product {
@@ -37,9 +38,13 @@ interface MarketedProductCardProps {
   common: any
   imageBaseUrl: string
   isLCP?: boolean
+  userType?: string | null
+  hideInfoIcon?: boolean
+  hideFlag?: boolean
+  showViewDetails?: boolean
 }
 
-export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP = false }: MarketedProductCardProps) {
+export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP = false, userType, hideInfoIcon = false, hideFlag = false, showViewDetails = false }: MarketedProductCardProps) {
   const imageUrl = product.thumbnail || product.image
     ? ((product.thumbnail || product.image).startsWith('http') ? (product.thumbnail || product.image) : `${imageBaseUrl}${product.thumbnail || product.image}`)
     : 'https://agriguruonline.com/logo.png'
@@ -122,7 +127,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
         </Link>
 
         {/* Flag on top-left with solid background */}
-        {flagUrl && (
+        {!hideFlag && flagUrl && (
           <div className="absolute top-2 left-2 flex items-center justify-center p-0.5 sm:p-1 bg-white/90 shadow-sm rounded border border-black/10 z-10 pointer-events-none">
             <div className="relative w-5 h-3.5 sm:w-6 sm:h-4 overflow-hidden rounded-[1px]">
               <ImageWithSkeleton
@@ -145,6 +150,8 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
           flagUrl={flagUrl}
           tableData={tableData}
           otherData={otherData}
+          userType={userType}
+          hideInfoIcon={hideInfoIcon}
         />
       </div>
 
@@ -176,18 +183,29 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
           )}
 
           <div className="space-y-1.5">
-            <Link href={`/${lang}/product/${encodeURIComponent(product.slug || product.id)}`} className="w-full py-1 sm:py-1.5 px-2 rounded text-[13px] sm:text-[15px] font-medium shadow-none bg-brand-blue text-white hover:opacity-90 transition-opacity flex justify-center items-center">
-              {common.addProduct}
-            </Link>
+            <ProductActionButtons 
+              productSlugOrId={product.slug || product.id}
+              lang={lang}
+              common={common}
+              userType={userType}
+              layout="stacked"
+              className="gap-1.5"
+              size="sm"
+            />
 
-            <div className="grid grid-cols-2 gap-1.5">
-              <Link href={`/${lang}/product/${encodeURIComponent(product.slug || product.id)}?action=buy`} className="py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium shadow-none bg-brand-green text-white hover:opacity-90 transition-opacity flex justify-center items-center">
-                {common.buy}
+            {showViewDetails && (
+              <Link
+                href={`/${lang}/product/${encodeURIComponent(product.slug || product.id)}`}
+                prefetch={true}
+                title={`${common.viewDetails} - ${product.name}`}
+                tabIndex={-1}
+                aria-hidden="true"
+                className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
+              >
+                <span aria-hidden="true">{common.viewDetails}</span>
+                <span className="sr-only">{common.viewDetails} {product.name}</span>
               </Link>
-              <Link href={`/${lang}/product/${encodeURIComponent(product.slug || product.id)}?action=sell`} className="py-1 sm:py-1.5 px-1 rounded text-[13px] sm:text-[15px] font-medium shadow-none bg-brand-red text-white hover:opacity-90 transition-opacity flex justify-center items-center">
-                {common.sell}
-              </Link>
-            </div>
+            )}
           </div>
         </div>
       </div>

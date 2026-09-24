@@ -5,6 +5,7 @@ import { OfferCard } from '@/components/shared/OfferCard'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { tradingService } from '@/lib/api'
 import { getAssetsUrl } from '@/lib/api-utils'
+import { getClientAuthData } from '@/app/actions/authData'
 
 interface Inquiry {
   id: string
@@ -103,10 +104,13 @@ async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: O
   const matchedCategory = categoryStr ? apiCategories.find(cat => cat.slug === categoryStr) : undefined
   const categoryId = matchedCategory?.id
 
-  const [data, dict] = await Promise.all([
+  const [data, dict, authData] = await Promise.all([
     getLatestOffers(lang, offerType, { search: searchStr, categoryId: categoryId }),
-    getDictionary(lang)
+    getDictionary(lang),
+    getClientAuthData(lang).catch(() => ({ userProfile: null }))
   ])
+  
+  const userType = authData.userProfile?.user_type ? (typeof authData.userProfile.user_type === 'string' ? authData.userProfile.user_type.toLowerCase() : String(authData.userProfile.user_type.name || '').toLowerCase()) : null;
 
   const categoryOptions = apiCategories
     .filter(cat => cat.is_active !== false)
@@ -143,6 +147,7 @@ async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: O
                 lang={lang} 
                 imageBaseUrl={imageBaseUrl} 
                 offerType={offerType}
+                userType={userType}
               />
             ))}
           </div>

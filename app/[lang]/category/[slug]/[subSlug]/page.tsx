@@ -5,9 +5,10 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { Metadata } from 'next'
-import { getAssetsUrl } from '@/lib/api-utils';
+import { getAssetsUrl, getNormalizedUserType } from '@/lib/api-utils';
 import { tradingService } from '@/lib/api/trading.service';
-
+import { getClientAuthData } from '@/app/actions/authData';
+import { MarketedProductCard } from '@/components/marketed-products/MarketedProductCard';
 export const revalidate = 60;
 
 interface Product {
@@ -199,10 +200,12 @@ function SubCategoryProductsSkeleton({ subSlug, slug, lang }: { subSlug: string,
 }
 
 async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: string; slug: string; subSlug: string }) {
-  const [data, dict] = await Promise.all([
+  const [data, dict, authData] = await Promise.all([
     tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null),
-    getDictionary(lang).catch(() => ({}))
+    getDictionary(lang).catch(() => ({})),
+    getClientAuthData(lang).catch(() => ({ userProfile: null }))
   ])
+  const userType = getNormalizedUserType(authData.userProfile?.user_type);
   const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
     back: commonDict.back || "Back",
@@ -236,82 +239,43 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
         {data.products.map((product: any, index: number) => {
-          const productName = product.name || product.slug || 'Agricultural Commodity';
-          const rawImg = product.thumbnail || product.image;
-          const imageUrl = rawImg
-            ? (rawImg.startsWith('http') ? rawImg : `${imageBaseUrl}${rawImg}`)
-            : 'https://agriguruonline.com/logo.png'
+          const mappedProduct = {
+            id: product.id,
+            name: product.name || product.slug || 'Agricultural Commodity',
+            product_code: product.product_code || '',
+            slug: product.slug,
+            image: product.image,
+            thumbnail: product.thumbnail,
+            quality_specification: product.quality_specification,
+            category: product.category ? {
+              id: product.category.id || '',
+              name: product.category.name || ''
+            } : undefined,
+            country: product.country ? {
+              id: product.country.id || '',
+              name: product.country.name || '',
+              flag: product.country.flag || '',
+              iso2: product.country.iso2 || ''
+            } : undefined,
+            loading_ports: product.loading_ports?.map((lp: any) => ({
+              price: lp.price,
+              port: lp.port ? { name: lp.port.name } : undefined
+            }))
+          };
 
           return (
-            <div
+            <MarketedProductCard
               key={product.id}
-              title={productName}
-              className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
-            >
-              <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="relative w-full aspect-square bg-muted overflow-hidden border-b border-border block" title={productName} tabIndex={-1} aria-hidden="true">
-                {index === 0 ? (
-                  <Image
-                    src={imageUrl}
-                    alt={productName}
-                    title={productName}
-                    fill
-                    sizes="100vw"
-                    className="object-cover"
-                    priority={true}
-                    loading="eager"
-                    fetchPriority="high"
-                  />
-                ) : (
-                  <ImageWithSkeleton
-                    src={imageUrl}
-                    alt={productName}
-                    title={productName}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    priority={false}
-                  />
-                )}
-              </Link>
-
-              <div className="p-2 sm:p-3 flex flex-col flex-1">
-                <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 line-clamp-2 leading-tight min-h-[34px]" >
-                  <Link href={`/${lang}/product/${product.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
-                    {product.name}
-                  </Link>
-                </h2>
-
-                <div className="mt-auto space-y-1.5">
-                  <button className="w-full bg-brand-blue hover:opacity-90 text-white py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.addProduct} - ${product.name}`}>
-                    <i className="fa-solid fa-plus text-xs"></i>
-                    {common.addProduct}
-                  </button>
-
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button className="bg-brand-green hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.buy} - ${product.name}`}>
-                      <i className="fa-solid fa-cart-shopping text-[10px]"></i>
-                      {common.buy}
-                    </button>
-                    <button className="bg-brand-red hover:opacity-90 text-white py-1.5 px-1 rounded-lg text-[13px] sm:text-[15px] transition-all flex items-center justify-center gap-1 shadow-xs active:scale-[0.98] cursor-pointer" title={`${common.sell} - ${product.name}`}>
-                      <i className="fa-solid fa-tag text-[10px]"></i>
-                      {common.sell}
-                    </button>
-                  </div>
-
-                  <Link
-                    href={`/${lang}/product/${product.slug}`}
-                    prefetch={true}
-                    title={`${common.viewDetails} - ${product.name}`}
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
-                  >
-                    <span aria-hidden="true">{common.viewDetails}</span>
-                    <span className="sr-only">{common.viewDetails} {product.name}</span>
-                  </Link>
-                </div>
-              </div>
-            </div>
+              product={mappedProduct as any}
+              lang={lang}
+              common={common}
+              imageBaseUrl={imageBaseUrl}
+              isLCP={index === 0}
+              userType={userType}
+              hideInfoIcon={true}
+              hideFlag={true}
+              showViewDetails={true}
+            />
           )
         })}
       </div>

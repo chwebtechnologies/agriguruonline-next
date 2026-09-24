@@ -21,9 +21,10 @@ interface OfferCardProps {
   lang: string
   imageBaseUrl: string
   offerType: 'BUYER' | 'SELLER'
+  userType?: string | null
 }
 
-export function OfferCard({ inquiry, lang, imageBaseUrl, offerType }: OfferCardProps) {
+export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType }: OfferCardProps) {
   const flagUrl = inquiry.product.country.flag.startsWith('http') 
     ? inquiry.product.country.flag 
     : `${imageBaseUrl}${inquiry.product.country.flag}`
@@ -46,6 +47,8 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType }: OfferCardP
 
   // Adjust href based on mode if needed, for now we keep it generic or point to the inquiry details
   const href = isForBuyer ? `/${lang}/latest-offers-for-buyers` : `/${lang}/latest-inquiries-for-sellers`
+
+  const isDisabled = (buttonText === 'Buy' && userType === 'seller') || (buttonText === 'Sell' && userType === 'buyer');
 
   return (
     <div className="group flex flex-col rounded-md bg-muted/40 border border-border/50 overflow-hidden hover:shadow-sm transition-shadow duration-300">
@@ -83,13 +86,19 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType }: OfferCardP
           <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">Price:</div>
           <div className="flex items-center justify-between">
             <span className="text-foreground font-bold text-[14px] sm:text-[15px]">{inquiry.market_range}</span>
-            <Link 
-              prefetch={false} 
-              href={href} 
-              className={`${buttonColorClass} px-5 sm:px-6 py-1 sm:py-1.5 rounded text-[13px] sm:text-sm font-bold shadow-sm transition-colors`}
-            >
-              {buttonText}
-            </Link>
+            {isDisabled ? (
+              <div title={userType === 'seller' ? "Only Buyer accounts can purchase products." : "Only Seller accounts can offer products for sale."} className={`${buttonColorClass} px-5 sm:px-6 py-1 sm:py-1.5 rounded text-[13px] sm:text-sm font-bold shadow-sm transition-colors opacity-50 cursor-not-allowed text-center`}>
+                {buttonText}
+              </div>
+            ) : (
+              <Link 
+                prefetch={false} 
+                href={href} 
+                className={`${buttonColorClass} px-5 sm:px-6 py-1 sm:py-1.5 rounded text-[13px] sm:text-sm font-bold shadow-sm transition-colors`}
+              >
+                {buttonText}
+              </Link>
+            )}
           </div>
         </div>
       </div>

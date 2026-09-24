@@ -16,6 +16,7 @@ interface HeaderSearchProps {
   categories?: Array<{ name: string; href: string }>
   dict?: any
   initialSearchProducts?: SearchProduct[]
+  userType?: string | null
 }
 
 export function HeaderSearch({
@@ -23,6 +24,7 @@ export function HeaderSearch({
   lang = 'en',
   dict = {},
   initialSearchProducts = [],
+  userType,
 }: HeaderSearchProps) {
   const router = useRouter()
   const searchId = useId()
@@ -701,6 +703,7 @@ export function HeaderSearch({
                       }}
                       imageBaseUrl={imageBaseUrl}
                       isLCP={index === 0}
+                      userType={userType}
                     />
                   ))}
                 </div>

@@ -135,7 +135,7 @@ export default function MyInquiriesClient({
                 onClick={handleCheckAll}
               >
                 <div className={`w-[18px] h-[18px] rounded-sm border flex items-center justify-center transition-colors ${
-                  checkedItems.length === filteredList.length ? 'bg-brand-blue border-brand-blue' : 'border-brand-blue/50 bg-background/50'
+                  checkedItems.length === filteredList.length ? 'bg-brand-blue border-brand-blue' : 'border-brand-blue opacity-50 bg-background/50'
                 }`}>
                   {checkedItems.length === filteredList.length && <i className="fa-solid fa-check text-[11px] text-white"></i>}
                 </div>

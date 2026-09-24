@@ -91,7 +91,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
           className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border transition-colors duration-200 font-bold text-sm shadow-2xs cursor-pointer ${disabledClassName} ${
             currentPage === page
               ? 'bg-brand-blue text-white border-brand-blue shadow-sm pointer-events-none'
-              : 'border-border bg-card text-foreground hover:bg-brand-blue/10 hover:border-brand-blue/50'
+              : 'border-border bg-card text-foreground hover:bg-brand-blue hover:bg-opacity-10 hover:border-brand-blue hover:border-opacity-50'
           }`}
           aria-current={currentPage === page ? 'page' : undefined}
         >

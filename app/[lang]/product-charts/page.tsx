@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import ProductChartsClient from '@/components/product-charts/ProductChartsClient'
 import { cookies } from 'next/headers'
 import { getSafeLang } from '@/lib/api-utils'
+import { getNormalizedUserType } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api/trading.service'
 import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
@@ -79,13 +80,10 @@ async function getChartsInitialData(lang: string = 'en') {
     }
   }
 
-  // 3. Process profile
   if (profileSettled.status === 'fulfilled' && profileSettled.value) {
     const uJson = profileSettled.value
     if (uJson.data?.user_type) {
-      userType = typeof uJson.data.user_type === 'string'
-        ? uJson.data.user_type.toLowerCase()
-        : String(uJson.data.user_type.name || '').toLowerCase()
+      userType = getNormalizedUserType(uJson.data.user_type);
     }
   }
 

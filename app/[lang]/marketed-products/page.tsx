@@ -42,6 +42,7 @@ interface ProductData {
 
 import { getAssetsUrl } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api/trading.service'
+import { getClientAuthData } from '@/app/actions/authData'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -113,10 +114,13 @@ function MarketedProductsSkeleton() {
 async function MarketedProductsContent({ lang, page }: { lang: string; page: number }) {
   const limit = 20
 
-  const [data, dict] = await Promise.all([
+  const [data, dict, authData] = await Promise.all([
     (tradingService.getMarketedProducts(lang, page, limit).catch(() => null)) as Promise<ProductData | null>,
-    getDictionary(lang).catch(() => ({}))
+    getDictionary(lang).catch(() => ({})),
+    getClientAuthData(lang).catch(() => ({ userProfile: null }))
   ])
+
+  const userType = authData.userProfile?.user_type ? (typeof authData.userProfile.user_type === 'string' ? authData.userProfile.user_type.toLowerCase() : String(authData.userProfile.user_type.name || '').toLowerCase()) : null;
 
   const commonDict = (dict as Record<string, any>).common || {}
   const common = {
@@ -183,6 +187,7 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
               common={common}
               imageBaseUrl={imageBaseUrl}
               isLCP={index === 0}
+              userType={userType}
             />
           );
         })}

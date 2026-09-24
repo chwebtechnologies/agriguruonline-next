@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ActionButton } from '@/components/ui/ActionButton'
+import { ProductActionButtons } from './ProductActionButtons'
 
 interface MarketedProductCardClientProps {
   product: any
@@ -15,6 +16,8 @@ interface MarketedProductCardClientProps {
   flagUrl: string | null
   tableData: { key: string, value: string }[]
   otherData: string[]
+  userType?: string | null
+  hideInfoIcon?: boolean
 }
 
 export function MarketedProductCardClient({ 
@@ -24,34 +27,28 @@ export function MarketedProductCardClient({
   imageUrl, 
   flagUrl, 
   tableData, 
-  otherData 
+  otherData,
+  userType,
+  hideInfoIcon = false
 }: MarketedProductCardClientProps) {
   const router = useRouter()
   const [showSpecs, setShowSpecs] = useState(false)
 
-  const handleActionClick = (e: React.MouseEvent, action: 'buy' | 'sell' | 'add') => {
-    e.preventDefault();
-    e.stopPropagation();
-    const productSlug = product.slug || product.id;
-    if (action === 'buy' || action === 'sell') {
-      router.push(`/${lang}/product/${encodeURIComponent(productSlug)}?action=${action}`)
-    } else {
-      router.push(`/${lang}/product/${encodeURIComponent(productSlug)}`)
-    }
-  }
 
   return (
     <>
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          setShowSpecs(true);
-        }}
-        className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 shadow-sm border border-black/10 text-brand-blue hover:scale-110 hover:bg-white transition-all z-10 focus:outline-none"
-        aria-label="View Specifications"
-      >
-        <i className="fa-solid fa-info text-[10px] sm:text-xs"></i>
-      </button>
+      {!hideInfoIcon && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            setShowSpecs(true);
+          }}
+          className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 shadow-sm border border-black/10 text-brand-blue hover:scale-110 hover:bg-white transition-all z-10 focus:outline-none"
+          aria-label="View Specifications"
+        >
+          <i className="fa-solid fa-info text-[10px] sm:text-xs"></i>
+        </button>
+      )}
 
       {/* Specifications Modal */}
       {showSpecs && (
@@ -183,18 +180,15 @@ export function MarketedProductCardClient({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-4 py-4 border-t border-border bg-card/50 grid grid-cols-3 gap-2.5">
-              <ActionButton variant="buy" onClick={(e) => handleActionClick(e, 'buy')} className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
-                {common.buy}
-              </ActionButton>
-
-              <ActionButton variant="add" onClick={(e) => handleActionClick(e, 'add')} className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
-                {common.addProduct}
-              </ActionButton>
-
-              <ActionButton variant="sell" onClick={(e) => handleActionClick(e, 'sell')} className="py-2 sm:py-2.5 px-2 rounded-lg text-[13px] sm:text-sm shadow-sm">
-                {common.sell}
-              </ActionButton>
+            <div className="px-4 py-4 border-t border-border bg-card/50">
+              <ProductActionButtons 
+                productSlugOrId={product.slug || product.id}
+                lang={lang}
+                common={common}
+                userType={userType}
+                layout="grid"
+                size="md"
+              />
             </div>
           </div>
         </div>
