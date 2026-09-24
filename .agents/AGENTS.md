@@ -18,3 +18,13 @@
 - **Profile Page Security**: The profile page MUST strictly require the user to be logged in. Always verify the authentication token (e.g. `auth_token` or `__Secure-uid`) from `cookies()`. If no token exists, immediately redirect the user to the login page (e.g. `/[lang]/login`).
 - **Profile Data Fetching**: Profile data must be fetched using the provided API `https://user-api.agriguruonline.cloud/user/my-profile?lang_code=en&source=web` using the `Authorization: Bearer <token>` header to ensure 100% security with no compromise.
 </RULE[AGENTS.md]>
+
+<RULE[AGENTS.md]>
+# Architecture and Reusability Rules
+- **Component Reusability**: Extract repeating UI elements (like Action Buttons, Modals, Forms) into standalone reusable components (e.g., `components/marketed-products/ProductActionButtons.tsx`). Avoid duplicating logic across pages or views.
+- **Server and Client Boundaries**: Clearly separate Server Components (data fetching, SEO) from Client Components (interactivity, hooks). When passing data from Server Components to Client Components, pass ONLY the required scalar values or serializable props (like `userType`, `productId`, `isBuy`) instead of entire complex objects to optimize performance and prevent serialization errors.
+- **API Implementation & Data Flow**: 
+  - Fetch data primarily in Server Components where possible to reduce client-side requests.
+  - For client-side mutations (creating inquiries, updating state), use optimized Server Actions or dedicated API endpoints, passing only essential payload data.
+  - Manage state locally in Client Components to ensure immediate UI feedback (optimistic updates), falling back gracefully on API errors.
+</RULE[AGENTS.md]>

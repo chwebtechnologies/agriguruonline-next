@@ -836,7 +836,7 @@ export default function InquiryDetailsPanel({
         {isLastOfferFromUser && offerStatus === 'normal' && !isRenegotiating && (
           <div className="mb-2 flex items-center justify-center gap-2 p-2.5 rounded-xl bg-brand-blue/10 border border-brand-blue/20 text-xs text-foreground text-center">
             <i className="fa-solid fa-clock text-brand-blue text-xs"></i>
-            <span>Waiting for AgriGuru Desk to respond before you can counter again.</span>
+            <span>Waiting for AgriGuru Online Admin to respond before you can negotiate again.</span>
           </div>
         )}
       </div>

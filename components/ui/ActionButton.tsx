@@ -14,6 +14,8 @@ export function ActionButton({
   children,
   className = '',
   href,
+  disabled,
+  title,
   ...props
 }: ActionButtonProps) {
   let bgClass = 'bg-primary-gradient text-white shadow-blue-500/20';
@@ -57,17 +59,17 @@ export function ActionButton({
     </>
   );
 
-  if (href && !props.disabled) {
+  if (href && !disabled) {
     return (
-      <Link href={href} className={combinedClassName}>
+      <Link href={href} className={combinedClassName} title={title} {...(props as any)}>
         {content}
       </Link>
     );
   }
 
-  if (href && props.disabled) {
+  if (href && disabled) {
     return (
-      <div title={props.title} className={`${combinedClassName} cursor-not-allowed opacity-50 active:scale-100`} aria-disabled="true">
+      <div title={title} className={`${combinedClassName} cursor-not-allowed opacity-50 active:scale-100`} aria-disabled="true" {...(props as any)}>
          {content}
       </div>
     )
@@ -75,6 +77,8 @@ export function ActionButton({
 
   return (
     <button
+      disabled={disabled}
+      title={title}
       {...props}
       className={combinedClassName}
     >

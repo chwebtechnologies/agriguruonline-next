@@ -333,6 +333,9 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
               layout="stacked"
               className="hidden md:flex mt-2"
               size="md"
+              productName={productName}
+              countryName={product.country?.name || 'Unknown'}
+              price={product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 ? product.loading_ports[0].price : '0.00'}
             />
           </div>
 
@@ -496,6 +499,9 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
               layout="stacked"
               className="flex md:hidden mt-6"
               size="md"
+              productName={productName}
+              countryName={product.country?.name || 'Unknown'}
+              price={product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 ? product.loading_ports[0].price : '0.00'}
             />
 
           </div>
@@ -547,6 +553,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
                         layout="stacked"
                         className="gap-1.5"
                         size="sm"
+                        productName={simProductName}
                       />
                     </div>
                   </div>

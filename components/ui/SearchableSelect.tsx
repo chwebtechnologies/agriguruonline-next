@@ -21,6 +21,9 @@ interface SearchableSelectProps {
   id?: string;
   variant?: 'desktop' | 'mobile';
   className?: string;
+  triggerClassName?: string;
+  customTriggerClass?: string;
+  tabIndex?: number;
 }
 
 export function SearchableSelect({
@@ -33,10 +36,15 @@ export function SearchableSelect({
   menuPosition = 'bottom',
   id,
   variant = 'desktop',
-  className = ''
+  className = '',
+  triggerClassName = '',
+  customTriggerClass,
+  tabIndex = 0
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [computedMenuPosition, setComputedMenuPosition] = useState<'top' | 'bottom'>(menuPosition);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +56,23 @@ export function SearchableSelect({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      if (spaceBelow < 280 && spaceAbove > spaceBelow) {
+        setComputedMenuPosition('top');
+      } else {
+        setComputedMenuPosition(menuPosition);
+        if (spaceBelow < 280) {
+          wrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    }
+  }, [isOpen, menuPosition]);
 
   const safeOptions = Array.isArray(options) ? options : [];
   const selectedOption = safeOptions.find(o => String(o.id) === String(value));
@@ -63,6 +88,27 @@ export function SearchableSelect({
     return label.toLowerCase().includes((search || '').toLowerCase());
   });
 
+  useEffect(() => {
+    setFocusedIndex(-1);
+  }, [search, isOpen]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex(prev => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (focusedIndex >= 0 && focusedIndex < filteredOptions.length) {
+        onChange(filteredOptions[focusedIndex].id);
+        setIsOpen(false);
+        setSearch('');
+      }
+    }
+  };
+
   const isInteractive = !disabled && !loading;
   const isMobile = variant === 'mobile';
 
@@ -74,22 +120,32 @@ export function SearchableSelect({
     >
       <div
         id={id}
+        tabIndex={disabled ? -1 : tabIndex}
+        onKeyDown={(e) => {
+          if (!disabled && !loading && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+            if (!isOpen) setSearch('');
+          }
+        }}
         className={`w-full min-w-0 transition-all flex items-center justify-between ${
-          isMobile
-            ? `h-[46px] rounded-xl px-3.5 text-sm ${
-                !isInteractive
-                  ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-medium select-none cursor-not-allowed shadow-xs'
-                  : isSelected
-                    ? 'bg-brand-blue text-white border border-brand-blue shadow-sm font-medium cursor-pointer'
-                    : 'bg-card border-2 border-border hover:border-brand-blue dark:hover:border-brand-blue text-foreground shadow-sm font-medium cursor-pointer active:scale-[0.99]'
-              }`
-            : `h-[45px] rounded-lg px-2 lg:px-2.5 text-xs lg:text-[13px] xl:text-sm ${
-                !isInteractive
-                  ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-medium select-none cursor-not-allowed shadow-xs'
-                  : isSelected
-                    ? 'bg-brand-blue text-white border border-brand-blue shadow-xs font-bold cursor-pointer'
-                    : 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold hover:border-brand-blue dark:hover:border-brand-blue shadow-xs cursor-pointer'
-              }`
+          customTriggerClass || (
+            isMobile
+              ? `py-2.5 px-4 text-sm ${triggerClassName || 'rounded-xl'} ${
+                  !isInteractive
+                    ? (isSelected ? 'bg-brand-blue border-brand-blue text-white font-semibold cursor-not-allowed shadow-sm' : 'bg-muted border border-border text-muted-foreground font-medium select-none cursor-not-allowed opacity-60')
+                    : isSelected
+                      ? 'bg-brand-blue border-brand-blue text-white font-semibold cursor-pointer shadow-sm outline-none focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue'
+                      : 'bg-card border border-border hover:border-brand-blue/50 focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none focus:outline-none dark:hover:border-brand-blue/50 text-foreground font-medium cursor-pointer active:scale-[0.99]'
+                }`
+              : `h-[45px] px-2 lg:px-2.5 text-xs lg:text-[13px] xl:text-sm ${triggerClassName || 'rounded-lg'} ${
+                  !isInteractive
+                    ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-medium select-none cursor-not-allowed shadow-xs opacity-60'
+                    : isSelected
+                      ? 'bg-brand-blue text-white border-brand-blue shadow-xs font-bold cursor-pointer focus:ring-1 focus:ring-brand-blue focus:border-brand-blue outline-none focus:outline-none'
+                      : 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold hover:border-brand-blue dark:hover:border-brand-blue shadow-xs cursor-pointer focus:ring-1 focus:ring-brand-blue focus:border-brand-blue outline-none focus:outline-none'
+                }`
+          )
         }`}
         onClick={() => {
           if (isInteractive) {
@@ -104,13 +160,17 @@ export function SearchableSelect({
           )}
           <span
             className={`truncate min-w-0 ${
-              !isSelected && !isInteractive
-                ? 'text-zinc-400 dark:text-zinc-500 font-medium'
-                : !isSelected
-                  ? isMobile
-                    ? 'text-foreground'
-                    : 'text-zinc-900 dark:text-zinc-100 font-bold'
-                  : 'text-white font-bold'
+              customTriggerClass 
+                ? '' 
+                : !isSelected && !isInteractive
+                  ? 'text-muted-foreground font-medium'
+                  : !isSelected
+                    ? isMobile
+                      ? 'text-muted-foreground font-medium'
+                      : 'text-zinc-400 dark:text-zinc-500 font-medium'
+                    : isMobile
+                      ? 'text-white font-semibold'
+                      : 'text-white font-bold'
             }`}
           >
             {displayValue}
@@ -120,7 +180,7 @@ export function SearchableSelect({
         {loading ? null : isSelected && isInteractive ? (
           <button
             type="button"
-            className="shrink-0 ml-0.5 text-white hover:text-white/80 transition-colors flex items-center justify-center p-0.5"
+            className={`shrink-0 ml-0.5 transition-colors flex items-center justify-center p-0.5 ${isSelected ? 'text-white/80 hover:text-white' : 'text-muted-foreground hover:text-foreground'}`}
             onClick={(e) => {
               e.stopPropagation();
               onChange('');
@@ -133,11 +193,15 @@ export function SearchableSelect({
         ) : (
           <i
             className={`fa-solid ${
-              isOpen ? 'fa-chevron-down text-brand-blue' : 'fa-chevron-right'
+              isOpen ? 'fa-chevron-down' : 'fa-chevron-right'
             } text-[10px] shrink-0 ml-0.5 transition-transform ${
-              !isInteractive
-                ? 'text-zinc-300 dark:text-zinc-600'
-                : 'text-zinc-600 dark:text-zinc-400'
+              customTriggerClass
+                ? ''
+                : !isInteractive
+                  ? 'text-muted-foreground/50'
+                  : isSelected
+                    ? 'text-white/90'
+                    : 'text-muted-foreground'
             }`}
           ></i>
         )}
@@ -146,7 +210,7 @@ export function SearchableSelect({
       {isOpen && isInteractive && (
         <div
           className={`absolute z-50 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-2xl max-h-[300px] flex flex-col left-0 ${
-            menuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+            computedMenuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >
           <div className="p-2 shrink-0 border-b border-border bg-muted/50 rounded-t-xl">
@@ -160,6 +224,7 @@ export function SearchableSelect({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={handleKeyDown}
                 autoFocus
               />
             </div>
@@ -170,16 +235,19 @@ export function SearchableSelect({
                 No results found
               </div>
             ) : (
-              filteredOptions.map((opt) => {
+              filteredOptions.map((opt, idx) => {
                 const label = opt.name || opt.title || '';
                 const active = String(value) === String(opt.id);
+                const isFocused = idx === focusedIndex;
                 return (
                   <div
                     key={opt.id}
                     className={`px-3 py-2.5 text-sm rounded-lg cursor-pointer transition-colors truncate flex items-center justify-between ${
                       active
                         ? 'bg-brand-blue text-white font-semibold'
-                        : 'hover:bg-muted text-foreground'
+                        : isFocused 
+                          ? 'bg-muted/80 text-foreground ring-1 ring-border/50' 
+                          : 'hover:bg-muted text-foreground'
                     }`}
                     onClick={() => {
                       onChange(opt.id);

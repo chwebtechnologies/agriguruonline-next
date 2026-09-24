@@ -12,6 +12,7 @@
     "@fortawesome/fontawesome-free": "^7.3.1",
     "@serwist/next": "^9.4.1",
     "@tailwindcss/typography": "^0.5.20",
+    "date-fns": "^4.4.0",
     "disposable-email-domains": "^1.0.62",
     "firebase": "^12.18.0",
     "html-to-image": "^1.11.13",

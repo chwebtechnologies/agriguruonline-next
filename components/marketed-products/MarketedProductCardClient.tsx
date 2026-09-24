@@ -188,6 +188,9 @@ export function MarketedProductCardClient({
                 userType={userType}
                 layout="grid"
                 size="md"
+                productName={product.name}
+                countryName={product.country?.name || 'Unknown'}
+                price={product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 ? product.loading_ports[0].price : '0.00'}
               />
             </div>
           </div>
