@@ -43,7 +43,7 @@ export function ProductInquiryModal({
     portOfDestination: '',
     packingType: '',
     quantity: '',
-    quantityUnit: 'MT',
+    quantityUnit: '',
     paymentTerm: '',
     offerPrice: '',
     comments: ''
@@ -53,6 +53,9 @@ export function ProductInquiryModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [dateRange, setDateRange] = useState<{start: Date | null, end: Date | null}>({ start: null, end: null });
+  const [kycErrorMsg, setKycErrorMsg] = useState<string>('');
+  const [autoOpenNext, setAutoOpenNext] = useState<string | null>(null);
+
 
   const [dynamicLoadingPorts, setDynamicLoadingPorts] = useState<any[]>([]);
   const [isLoadingPorts, setIsLoadingPorts] = useState(false);
@@ -78,7 +81,10 @@ export function ProductInquiryModal({
   const isFobSelected = selectedShippingTermObj?.name?.toUpperCase() === 'FOB';
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setKycErrorMsg('');
+      return;
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -240,7 +246,7 @@ export function ProductInquiryModal({
     : isPortOfDestEnabled && !!formData.portOfDestination;
   const isShipmentPeriodEnabled = isPackingTypeEnabled && !!formData.packingType;
   const isQuantityEnabled = isShipmentPeriodEnabled && !!dateRange.start && !!dateRange.end;
-  const isPaymentTermEnabled = isQuantityEnabled && !!formData.quantity;
+  const isPaymentTermEnabled = isQuantityEnabled && !!formData.quantity && !!formData.quantityUnit;
   const isOfferPriceEnabled = isPaymentTermEnabled && !!formData.paymentTerm;
   const isCommentsEnabled = isOfferPriceEnabled && !!formData.offerPrice;
 
@@ -249,20 +255,31 @@ export function ProductInquiryModal({
       const next = { ...prev, [field]: value };
       if (field === 'shipBy') {
         next.shippingTerm = ''; next.portOfLoading = ''; next.portOfDestination = ''; next.packingType = ''; next.quantity = ''; next.paymentTerm = ''; next.offerPrice = ''; next.comments = '';
+        setAutoOpenNext('shippingTerm');
       } else if (field === 'shippingTerm') {
         next.portOfLoading = ''; next.portOfDestination = ''; next.packingType = ''; next.quantity = ''; next.paymentTerm = ''; next.offerPrice = ''; next.comments = '';
+        setAutoOpenNext('portOfLoading');
       } else if (field === 'portOfLoading') {
         next.portOfDestination = ''; next.packingType = ''; next.quantity = ''; next.paymentTerm = ''; next.offerPrice = ''; next.comments = '';
+        const selectedTermObj = shippingTermOptions.find(t => t.id === next.shippingTerm);
+        const fobSelected = selectedTermObj?.name?.toUpperCase() === 'FOB';
+        setAutoOpenNext(fobSelected ? 'packingType' : 'portOfDestination');
       } else if (field === 'portOfDestination') {
         next.packingType = ''; next.quantity = ''; next.paymentTerm = ''; next.offerPrice = ''; next.comments = '';
+        setAutoOpenNext('packingType');
       } else if (field === 'packingType') {
         next.quantity = ''; next.paymentTerm = ''; next.offerPrice = ''; next.comments = '';
-      } else if (field === 'quantity') {
+        setAutoOpenNext(null);
+      } else if (field === 'quantity' || field === 'quantityUnit') {
         next.paymentTerm = ''; next.offerPrice = ''; next.comments = '';
+        if (field === 'quantityUnit' && next.quantity) setAutoOpenNext('paymentTerm');
+        else setAutoOpenNext(null);
       } else if (field === 'paymentTerm') {
         next.offerPrice = ''; next.comments = '';
+        setAutoOpenNext(null);
       } else if (field === 'offerPrice') {
         next.comments = '';
+        setAutoOpenNext(null);
       }
       return next;
     });
@@ -381,7 +398,11 @@ export function ProductInquiryModal({
         onClose();
         router.push(`/${lang}/${actionType === 'sell' ? 'my-offers' : 'my-inquiries'}`);
       } else {
-        toast.error(res?.message || "Failed to submit. Please try again.");
+        const errorMsg = res?.message || "Failed to submit. Please try again.";
+        toast.error(errorMsg);
+        if (errorMsg.toLowerCase().includes('kyc')) {
+          setKycErrorMsg(errorMsg);
+        }
       }
     } catch (error) {
       toast.error("An error occurred. Please try again.");
@@ -425,6 +446,27 @@ export function ProductInquiryModal({
 
         {/* Body */}
         <div className="px-5 sm:px-6 pt-3 pb-5 sm:pb-6 overflow-y-auto custom-scrollbar flex-1">
+          {kycErrorMsg && (
+            <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/50 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start gap-3">
+                <div className="text-orange-500 mt-0.5 shrink-0">
+                  <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+                </div>
+                <p className="text-sm text-orange-800 dark:text-orange-200 font-medium leading-relaxed">
+                  {kycErrorMsg}
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  onClose();
+                  router.push(`/${lang}/profile`);
+                }}
+                className="shrink-0 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 w-full sm:w-auto"
+              >
+                Verify KYC
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
             
             {/* 1. Product Name */}
@@ -473,6 +515,7 @@ export function ProductInquiryModal({
                 placeholder="Select Term"
                 variant="mobile"
                 disabled={!isShippingTermEnabled}
+                autoOpen={autoOpenNext === 'shippingTerm' && shippingTermOptions.length > 1}
               />
             </div>
 
@@ -486,6 +529,7 @@ export function ProductInquiryModal({
                 placeholder={isLoadingPorts ? "Loading..." : (dynamicLoadingPorts.length > 0 ? "Select Port" : "No ports available")}
                 variant="mobile"
                 disabled={!isPortOfLoadingEnabled || isLoadingPorts}
+                autoOpen={autoOpenNext === 'portOfLoading' && dynamicLoadingPorts.length > 1}
               />
             </div>
             
@@ -499,6 +543,7 @@ export function ProductInquiryModal({
                 placeholder={isFobSelected ? "Not Applicable (FOB)" : isLoadingDestPorts ? "Loading..." : (dynamicDestinationPorts.length > 0 ? "Select Port" : "No ports available")}
                 variant="mobile"
                 disabled={isFobSelected || !isPortOfDestEnabled || isLoadingDestPorts}
+                autoOpen={autoOpenNext === 'portOfDestination' && dynamicDestinationPorts.length > 1}
                 customTriggerClass={
                   isFobSelected
                     ? (isPortOfLoadingEnabled && !!formData.portOfLoading)
@@ -535,6 +580,7 @@ export function ProductInquiryModal({
                 placeholder="Select Packing"
                 variant="mobile"
                 disabled={!isPackingTypeEnabled}
+                autoOpen={autoOpenNext === 'packingType' && packingTypes.length > 1}
               />
             </div>
             
@@ -558,7 +604,7 @@ export function ProductInquiryModal({
               <div className="flex justify-between items-center">
                 <label className={`text-sm font-semibold ${isQuantityEnabled ? 'text-foreground' : 'text-muted-foreground/60'}`}>Quantity <span className="text-red-500 ml-0.5">*</span></label>
                 {(() => {
-                  if (!formData.quantity || isNaN(Number(formData.quantity))) return null;
+                  if (!formData.quantity || isNaN(Number(formData.quantity)) || !formData.quantityUnit) return null;
                   const qty = Number(formData.quantity);
                   if (qty <= 0) return null;
                   const selectedContainer = containers.find(c => String(c.shipping_container?.id || c.id) === String(formData.shipBy));
@@ -625,6 +671,7 @@ export function ProductInquiryModal({
                 placeholder="Select Payment Term"
                 variant="mobile"
                 disabled={!isPaymentTermEnabled}
+                autoOpen={autoOpenNext === 'paymentTerm' && paymentTermOptions.length > 1}
               />
             </div>
 

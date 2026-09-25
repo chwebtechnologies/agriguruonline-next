@@ -461,27 +461,6 @@ export const tradingService = {
       console.error(`[tradingService.getInquiryList] Error fetching primary ${primaryUrl}:`, err);
     }
 
-    // Fallback domain
-    const alternateHost = primaryUrl.includes('.com')
-      ? 'https://trading-api.agriguruonline.cloud'
-      : 'https://trading-api.agriguruonline.com';
-    const fallbackUrl = `${alternateHost}${cleanEndpoint}`;
-
-    try {
-      const fallbackRes = await customFetch(fallbackUrl, {
-        token,
-        params: { lang_code: lang, source: 'web' },
-      });
-
-      if (fallbackRes.ok) {
-        const fallbackJson = await fallbackRes.json().catch(() => null);
-        const fallbackList = extractArray(fallbackJson);
-        if (fallbackList.length > 0) return fallbackList;
-      }
-    } catch (err) {
-      console.error(`[tradingService.getInquiryList] Error fetching fallback ${fallbackUrl}:`, err);
-    }
-
     return [];
   }),
 
@@ -548,8 +527,6 @@ export const tradingService = {
     const cleanId = encodeURIComponent(id.trim());
     const baseUrls = [
       getTradingApiUrl(),
-      'https://trading-api.agriguruonline.com',
-      'https://trading-api.agriguruonline.cloud',
     ].filter((v, idx, arr) => arr.indexOf(v) === idx);
 
     const endpointsToTry: string[] = [];
@@ -613,8 +590,6 @@ export const tradingService = {
   ) => {
     const cleanId = encodeURIComponent(inquiryId.trim());
     const baseUrls = [
-      'https://trading-api.agriguruonline.com',
-      'https://trading-api.agriguruonline.cloud',
       getTradingApiUrl(),
     ].filter((v, idx, arr) => arr.indexOf(v) === idx);
 
@@ -673,8 +648,6 @@ export const tradingService = {
   ) => {
     const cleanId = encodeURIComponent(inquiryId.trim());
     const baseUrls = [
-      'https://trading-api.agriguruonline.com',
-      'https://trading-api.agriguruonline.cloud',
       getTradingApiUrl(),
     ].filter((v, idx, arr) => arr.indexOf(v) === idx);
 

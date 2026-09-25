@@ -16,7 +16,7 @@
 <RULE[AGENTS.md]>
 # Security and Authentication Rules
 - **Profile Page Security**: The profile page MUST strictly require the user to be logged in. Always verify the authentication token (e.g. `auth_token` or `__Secure-uid`) from `cookies()`. If no token exists, immediately redirect the user to the login page (e.g. `/[lang]/login`).
-- **Profile Data Fetching**: Profile data must be fetched using the provided API `https://user-api.agriguruonline.cloud/user/my-profile?lang_code=en&source=web` using the `Authorization: Bearer <token>` header to ensure 100% security with no compromise.
+- **Profile Data Fetching**: Profile data must be fetched securely. DO NOT hardcode URLs. Instead, construct URLs dynamically using `process.env.NEXT_PUBLIC_USER_API_URL` or utility functions like `getUserApiUrl()`, and attach the `Authorization: Bearer <token>` header to ensure 100% security with no compromise.
 </RULE[AGENTS.md]>
 
 <RULE[AGENTS.md]>
@@ -27,4 +27,10 @@
   - Fetch data primarily in Server Components where possible to reduce client-side requests.
   - For client-side mutations (creating inquiries, updating state), use optimized Server Actions or dedicated API endpoints, passing only essential payload data.
   - Manage state locally in Client Components to ensure immediate UI feedback (optimistic updates), falling back gracefully on API errors.
+</RULE[AGENTS.md]>
+
+<RULE[AGENTS.md]>
+# API Configuration Rules
+- **NO Hardcoded APIs**: NEVER hardcode API base URLs (like `https://trading-api.agriguruonline.cloud` or `https://user-api.agriguruonline.com`) anywhere in the code.
+- **Use Environment Variables / Utility Functions**: Always rely on environment variables (e.g., `process.env.NEXT_PUBLIC_TRADING_API_URL`) or predefined utility functions (like `getTradingApiUrl()` and `getUserApiUrl()` from `@/lib/api-utils`) for constructing any API URLs to support dynamic environments (Dev/Staging/Prod).
 </RULE[AGENTS.md]>

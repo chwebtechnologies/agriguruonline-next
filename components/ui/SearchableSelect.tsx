@@ -24,6 +24,7 @@ interface SearchableSelectProps {
   triggerClassName?: string;
   customTriggerClass?: string;
   tabIndex?: number;
+  autoOpen?: boolean;
 }
 
 export function SearchableSelect({
@@ -39,7 +40,8 @@ export function SearchableSelect({
   className = '',
   triggerClassName = '',
   customTriggerClass,
-  tabIndex = 0
+  tabIndex = 0,
+  autoOpen = false
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -56,6 +58,14 @@ export function SearchableSelect({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (autoOpen && !disabled && !loading) {
+      setIsOpen(true);
+    } else if (disabled) {
+      setIsOpen(false);
+    }
+  }, [autoOpen, disabled, loading]);
 
   useEffect(() => {
     if (isOpen && wrapperRef.current) {

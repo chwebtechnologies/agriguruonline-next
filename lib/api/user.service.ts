@@ -188,19 +188,6 @@ export const userService = {
         const extracted = extractPredicts(data);
         if (extracted.length > 0) return extracted;
       }
-
-      // Alternate host fallback (.cloud vs .com)
-      const alternateHost = primaryUrl.includes('.com')
-        ? 'https://trading-api.agriguruonline.cloud'
-        : 'https://trading-api.agriguruonline.com';
-      const fallbackUrl = `${alternateHost}/price-analysis?lang_code=${safeLang}&source=web`;
-
-      const fallbackRes = await customFetch(fallbackUrl, { token });
-      if (fallbackRes.ok) {
-        const fallbackData = await fallbackRes.json();
-        const fallbackExtracted = extractPredicts(fallbackData);
-        if (fallbackExtracted.length > 0) return fallbackExtracted;
-      }
     } catch (err) {
       console.error('[userService.getUserAiPredicts] Fetch error:', err);
     }
