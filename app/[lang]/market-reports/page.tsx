@@ -107,16 +107,28 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
   const sanitizeReport = (report: any) => {
     if (!report) return null;
     return {
+      ...report,
       id: report.id || report._id,
       _id: report.id || report._id,
-      title: report.title,
-      slug: report.slug,
-      date: report.date,
-      thumbnail: report.thumbnail,
-      file: report.file,
-      translations: report.translations ? report.translations.map((t: any) => ({
+      title: report.title || report.subject_title,
+      subject_title: report.subject_title || report.title,
+      description: report.description || report.page_description,
+      page_description: report.page_description || report.description,
+      category: report.category || report.categories?.[0] || report.category_name,
+      category_name: report.category_name || (typeof report.category === 'string' ? report.category : report.category?.name),
+      publish_date: report.publish_date || report.created_at || report.report_date || report.date,
+      created_at: report.created_at || report.publish_date || report.date,
+      date: report.date || report.publish_date || report.created_at,
+      id_no: report.id_no || report.report_no,
+      thumbnail: report.thumbnail || report.image,
+      image: report.image || report.thumbnail,
+      file: report.file || report.file_url || report.pdf_file,
+      file_url: report.file_url || report.file || report.pdf_file,
+      translations: Array.isArray(report.translations) ? report.translations.map((t: any) => ({
         lang_code: t.lang_code,
-        title: t.title
+        title: t.title || t.subject_title,
+        subject_title: t.subject_title || t.title,
+        description: t.description
       })) : []
     };
   };
@@ -155,7 +167,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
               "@context": "https://schema.org",
               "@type": "ItemList",
               "itemListElement": reports.map((report: any, index: number) => {
-                const title = report.translations?.find((t: any) => t.lang_code === lang)?.title || report.title || "Report"
+                const title = report.translations?.find((t: any) => t.lang_code === lang)?.title || report.translations?.find((t: any) => t.lang_code === lang)?.subject_title || report.subject_title || report.title || "Report"
                 return {
                   "@type": "ListItem",
                   "position": index + 1,

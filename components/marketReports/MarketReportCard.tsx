@@ -21,38 +21,41 @@ export default function MarketReportCard({ report, lang, priority = false, dict 
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const assetsUrl = getAssetsUrl();
-  const imageUrl = report.thumbnail
-    ? report.thumbnail.startsWith('http')
-      ? report.thumbnail
-      : `${assetsUrl}/${report.thumbnail}`
+  const thumb = report.thumbnail || report.image;
+  const imageUrl = thumb
+    ? thumb.startsWith('http')
+      ? thumb
+      : `${assetsUrl}/${thumb.startsWith('/') ? thumb.slice(1) : thumb}`
     : '/logo.webp'
 
-  // Use title directly since translations object is removed from API
-  const title = report.subject_title || report.title || 'Market Report'
+  // Extract localized or fallback title
+  const translation = report.translations?.find((t: any) => t.lang_code === lang)
+  const title = translation?.subject_title || translation?.title || report.subject_title || report.title || 'Market Report'
 
   // Strip HTML from description for the summary
-  const rawDesc = report.description || ''
+  const rawDesc = translation?.description || report.description || report.page_description || ''
   const cleanDesc = rawDesc.replace(/<[^>]*>?/gm, '')
   const description = cleanDesc.length > 100 ? `${cleanDesc.substring(0, 100)}...` : cleanDesc
 
   // Extract category name dynamically
-  const cat: any = (report as any).category
-  const categoryName = (cat && typeof cat === 'object' && cat.name) 
-    ? cat.name 
-    : (typeof cat === 'string' ? cat : 'Report')
+  const cat: any = report.category || (report.categories && report.categories[0]) || report.category_name
+  const categoryName = (cat && typeof cat === 'object') 
+    ? (cat.name || cat.category_name || cat.title || 'Report') 
+    : (typeof cat === 'string' && cat.trim() ? cat : 'Report')
 
   // Extract and format date
-  const rawDate = (report as any).publish_date || (report as any).created_at || (report as any).report_date
+  const rawDate = report.publish_date || report.created_at || report.report_date || report.posting_date || report.date
   const publishDate = rawDate 
     ? new Date(rawDate).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })
     : null
 
   // Format an ID for display using id_no if available, falling back to id
-  const displayId = report.id_no ? `${report.id_no}` : (
+  const rawIdNo = report.id_no || report.report_no
+  const displayId = rawIdNo ? `${rawIdNo}` : (
     report.id ? (report.id.length > 8 ? `${report.id.substring(report.id.length - 6).toUpperCase()}` : `ID: ${report.id}`) : ''
   )
 
-  const rawFileUrl = report.file_url || report.file || ''
+  const rawFileUrl = report.file_url || report.file || report.pdf_file || ''
   const fileUrl = rawFileUrl.startsWith('http') 
     ? rawFileUrl 
     : rawFileUrl 
