@@ -15,9 +15,10 @@ interface MarketReportCardProps {
   lang: string
   priority?: boolean;
   dict?: any;
+  isLoggedIn?: boolean;
 }
 
-export default function MarketReportCard({ report, lang, priority = false, dict = {} }: MarketReportCardProps) {
+export default function MarketReportCard({ report, lang, priority = false, dict = {}, isLoggedIn = false }: MarketReportCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const assetsUrl = getAssetsUrl();
@@ -66,8 +67,8 @@ export default function MarketReportCard({ report, lang, priority = false, dict 
 
   const handleOpenReport = (e: React.MouseEvent) => {
     e.preventDefault()
-    if (!fileUrl) {
-      alert(dict?.report_unavailable || "This report file is currently unavailable.")
+    if (!isLoggedIn || !fileUrl) {
+      window.location.href = `/${lang}/login?callbackUrl=/${lang}/market-reports`
       return
     }
     
@@ -91,7 +92,7 @@ export default function MarketReportCard({ report, lang, priority = false, dict 
         className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg hover:border-primary/40 transition-all duration-300 relative text-left w-full focus:outline-none cursor-pointer"
       >
         {/* Label Badge */}
-        <div className="absolute top-3 right-3 z-10 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center">
+        <div className="absolute top-3 left-3 z-10 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm flex items-center">
           <span>{categoryName}</span>
         </div>
 

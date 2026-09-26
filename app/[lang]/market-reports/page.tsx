@@ -72,7 +72,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
   apiLimit: number
   displayLimit: number
   search?: string
-  token: string
+  token?: string
   categoryId?: string
   dict: any
 }) {
@@ -137,7 +137,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
         {reports.map(sanitizeReport).filter(Boolean).map((report: any, index: number) => (
-          <MarketReportCard priority={index < 4} key={report.id || report._id || Math.random()} report={report} lang={lang} dict={dict} />
+          <MarketReportCard priority={index < 4} key={report.id || report._id || Math.random()} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
         ))}
       </div>
       <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/market-reports`} />
@@ -196,10 +196,6 @@ export default async function MarketReportsPage(props: {
   
   const params = await props.params;
   const lang = params.lang || 'en'
-  
-  if (!token) {
-    redirect(`/${lang}/login`);
-  }
 
   const searchParams = await props.searchParams;
   
