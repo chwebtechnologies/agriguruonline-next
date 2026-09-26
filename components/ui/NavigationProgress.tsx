@@ -26,17 +26,7 @@ export default function NavigationProgress() {
   }, [progress])
 
   useEffect(() => {
-    // Forcefully unregister the broken Serwist Service Worker to fix the skeleton hang issue immediately
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for (const registration of registrations) {
-          registration.unregister().then(() => {
-            window.location.reload();
-          });
-        }
-      }).catch(function(err) {
-      });
-    }
+
 
     const handleAnchorClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('a')

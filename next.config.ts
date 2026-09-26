@@ -23,8 +23,8 @@ const nextConfig: NextConfig = {
     },
     // optimizeCss: true,  // DISABLED: critters defers page-unique CSS (IPhoneFrame, gradients) — never re-injected on client-nav
     staleTimes: {
-      dynamic: 30,   // Keep short: prevents stale RSC cache from bypassing CSS chunk loading
-      static: 1800,  // 30 minutes for fully static routes
+      dynamic: 300,  // 5 minutes for dynamic pages (prevents RSC refetch on GPRS)
+      static: 3600,  // 1 hour for fully static routes
     },
     optimizePackageImports: [
       '@fortawesome/fontawesome-free',

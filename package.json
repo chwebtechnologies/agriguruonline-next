@@ -29,6 +29,7 @@
     "react-pdf": "^10.5.0",
     "react-phone-number-input": "^3.4.17",
     "recharts": "^3.10.1",
+    "serwist": "^9.5.12",
     "sonner": "^2.0.7",
     "yet-another-react-lightbox": "^3.32.2"
   },

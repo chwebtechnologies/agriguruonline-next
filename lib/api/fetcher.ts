@@ -99,65 +99,86 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
     };
   }
 
-  // Add an explicit timeout to prevent hanging forever
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-  
-  fetchInit.signal = controller.signal;
+  const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-  try {
-    const res = await fetch(finalUrl, fetchInit);
+  let attempt = 0;
+  const maxRetries = 2; // Total 3 attempts (1 initial + 2 retries)
+
+  while (attempt <= maxRetries) {
+    // Add an explicit timeout to prevent hanging forever
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
     
-    // 401 Interceptor for client-side fetches
-    if (res.status === 401 && typeof window !== 'undefined' && isAuthRequest && !finalUrl.includes('/auth/refresh-token')) {
-      if (!isRefreshing) {
-        isRefreshing = true;
-        try {
-          const result = await refreshTokensAction();
-          if (result.success && result.access_token) {
-            onRefreshed(result.access_token);
-          } else {
-            onRefreshed('');
-            window.location.href = '/en/login';
-          }
-        } catch (error) {
-          onRefreshed('');
-          window.location.href = '/en/login';
-        } finally {
-          isRefreshing = false;
-        }
+    fetchInit.signal = controller.signal;
+
+    try {
+      const res = await fetch(finalUrl, fetchInit);
+      
+      // Retry for 5xx Server Errors (Temporary backend issues)
+      if (res.status >= 500 && res.status <= 599 && attempt < maxRetries) {
+        clearTimeout(timeoutId);
+        attempt++;
+        await delay(attempt * 1500); // 1.5s, 3s
+        continue;
       }
 
-      // Wait for the token refresh to finish before retrying
-      const retryPromise = new Promise((resolve) => {
-        addRefreshSubscriber(async (newTokenStatus) => {
-          if (newTokenStatus) {
-            // Note: In client context with HttpOnly cookies, the browser will automatically 
-            // send the new cookie to internal /api/ routes. Since customFetch is mainly 
-            // send the new cookie to internal /api/ routes. For external APIs,
-            // we must update the Authorization header with the new token.
-            if (headers.has('Authorization')) {
-              headers.set('Authorization', `Bearer ${newTokenStatus}`);
-              fetchInit.headers = headers;
+      // 401 Interceptor for client-side fetches
+      if (res.status === 401 && typeof window !== 'undefined' && isAuthRequest && !finalUrl.includes('/auth/refresh-token')) {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          try {
+            const result = await refreshTokensAction();
+            if (result.success && result.access_token) {
+              onRefreshed(result.access_token);
+            } else {
+              onRefreshed('');
+              window.location.href = '/en/login';
             }
-            resolve(await fetch(finalUrl, fetchInit));
-          } else {
-            resolve(res); // Return original 401 if refresh failed
+          } catch (error) {
+            onRefreshed('');
+            window.location.href = '/en/login';
+          } finally {
+            isRefreshing = false;
           }
+        }
+
+        // Wait for the token refresh to finish before retrying
+        const retryPromise = new Promise((resolve) => {
+          addRefreshSubscriber(async (newTokenStatus) => {
+            if (newTokenStatus) {
+              if (headers.has('Authorization')) {
+                headers.set('Authorization', `Bearer ${newTokenStatus}`);
+                fetchInit.headers = headers;
+              }
+              resolve(await fetch(finalUrl, fetchInit));
+            } else {
+              resolve(res); // Return original 401 if refresh failed
+            }
+          });
         });
-      });
+        
+        clearTimeout(timeoutId);
+        return (await retryPromise) as Response;
+      }
       
       clearTimeout(timeoutId);
-      return (await retryPromise) as Response;
+      return res;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      // Retry on network failures / timeouts
+      if (attempt < maxRetries && (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('network'))) {
+        attempt++;
+        await delay(attempt * 1500);
+        continue;
+      }
+      
+      console.error(`[customFetch] Network error for ${finalUrl} after ${attempt + 1} attempts:`, error);
+      throw error;
     }
-    
-    clearTimeout(timeoutId);
-    return res;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    console.error(`[customFetch] Network error for ${finalUrl}:`, error);
-    throw error;
   }
+
+  throw new Error('Network error: Max retries exceeded');
 }
 
 /**
