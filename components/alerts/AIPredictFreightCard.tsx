@@ -24,25 +24,47 @@ export function AIPredictFreightCard({
 
   useEffect(() => {
     if (initialExpanded && !details) {
-      const fetchDetails = async () => {
-        try {
-          const type = (predict.alert_type || '').toLowerCase() === 'freight' ? 'freight' : 'product';
-          const res = await getPriceAnalysisDetailsAction(type, predict.id);
-          if (res.success && res.data) {
-            setDetails(res.data);
+      if (predict.analysis || predict.ai_analysis || predict.content || predict.description) {
+        setDetails(predict);
+        setIsLoading(false);
+      } else {
+        const fetchDetails = async () => {
+          try {
+            const type = (predict.alert_type || '').toLowerCase() === 'freight' ? 'freight' : 'product';
+            const res = await getPriceAnalysisDetailsAction(type, predict.id);
+            if (res.success && res.data) {
+              setDetails(res.data);
+            } else if (predict.analysis || predict.ai_analysis || predict.content) {
+              setDetails(predict);
+            }
+          } catch (err) {
+            console.error(err);
+            if (predict.analysis || predict.ai_analysis || predict.content) {
+              setDetails(predict);
+            }
+          } finally {
+            setIsLoading(false);
           }
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchDetails();
+        };
+        fetchDetails();
+      }
     }
   }, [initialExpanded, predict.id, predict.alert_type]);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (onCardClick) {
+      onCardClick();
+    } else {
+      handleToggleExpand(e);
+    }
+  };
+
   const handleToggleExpand = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (onCardClick) {
+      onCardClick();
+      return;
+    }
     if (isExpanded) {
       setIsExpanded(false);
       return;
@@ -50,17 +72,27 @@ export function AIPredictFreightCard({
     
     setIsExpanded(true);
     if (!details) {
-      setIsLoading(true);
-      try {
-        const type = (predict.alert_type || '').toLowerCase() === 'freight' ? 'freight' : 'product';
-        const res = await getPriceAnalysisDetailsAction(type, predict.id);
-        if (res.success && res.data) {
-          setDetails(res.data);
+      if (predict.analysis || predict.ai_analysis || predict.content || predict.description) {
+        setDetails(predict);
+      } else {
+        setIsLoading(true);
+        try {
+          const type = (predict.alert_type || '').toLowerCase() === 'freight' ? 'freight' : 'product';
+          const res = await getPriceAnalysisDetailsAction(type, predict.id);
+          if (res.success && res.data) {
+            setDetails(res.data);
+          } else if (predict.analysis || predict.ai_analysis || predict.content) {
+            setDetails(predict);
+          }
+        } catch (err) {
+          console.error(err);
+          if (predict.analysis || predict.ai_analysis || predict.content) {
+            setDetails(predict);
+          }
+        } finally {
+          setIsLoading(false);
         }
-      } catch (err) {
-        console.error(err);
       }
-      setIsLoading(false);
     }
   };
 
@@ -68,7 +100,11 @@ export function AIPredictFreightCard({
     if (!obj) return '';
     if (typeof obj === 'string') return obj;
     
-    const keys = ['analysis', 'result', 'content', 'description', 'message', 'report', 'ai_analysis', 'details', 'ai_predict_result', 'analysis_result'];
+    const keys = [
+      'analysis', 'result', 'content', 'description', 'message', 'report', 
+      'ai_analysis', 'details', 'ai_predict_result', 'analysis_result',
+      'result_text', 'analysis_text', 'prediction', 'ai_prediction', 'markdown'
+    ];
     for (const key of keys) {
       if (obj[key] && typeof obj[key] === 'string') return obj[key];
       if (obj.data && obj.data[key] && typeof obj.data[key] === 'string') return obj.data[key];
@@ -85,13 +121,19 @@ export function AIPredictFreightCard({
       }
       if (typeof current === 'object') {
         for (const key in current) {
-          traverse(current[key]);
+          if (key !== 'predict' && key !== 'product') {
+            traverse(current[key]);
+          }
         }
       }
     };
     traverse(obj);
     
-    return longestString || JSON.stringify(obj, null, 2);
+    if (longestString && longestString.length > 20) {
+      return longestString;
+    }
+
+    return typeof obj === 'object' && obj !== null ? (obj.analysis || obj.result || obj.message || JSON.stringify(obj, null, 2)) : String(obj);
   };
 
   const dateStr = predict.created_at ? new Date(predict.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently';
@@ -146,7 +188,7 @@ export function AIPredictFreightCard({
 
   return (
     <div 
-      onClick={onCardClick || (() => onSelect(predict.id))}
+      onClick={handleCardClick}
       className={`group bg-card border ${isSelected ? 'border-brand-blue ring-1 ring-brand-blue/30' : 'border-border'} rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer flex flex-col`}
     >
       <div className="p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 relative">
@@ -200,7 +242,7 @@ export function AIPredictFreightCard({
               ) : null}
               <div 
                 className="flex items-center gap-1.5 sm:gap-2 ml-1 sm:ml-2 hover:bg-muted/50 p-1 rounded-md transition-colors"
-                onClick={handleToggleExpand}
+                onClick={handleCardClick}
                 title="Click to view analysis details"
               >
                 <span className="text-[13px] sm:text-[16px] font-semibold text-brand-blue">

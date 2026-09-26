@@ -17,6 +17,7 @@ import { ProductAlertCard } from '@/components/alerts/ProductAlertCard'
 import { FreightAlertCard } from '@/components/alerts/FreightAlertCard'
 import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard'
 import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard'
+import { ChartBottomSheetContainer, ChartBottomSheetItem } from '@/components/ui/charts/ChartBottomSheetContainer'
 
 import { SearchProduct } from '@/types/search'
 
@@ -96,6 +97,139 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [alertsData] = useState<any[]>(initialAlerts)
 
   const [aiPredictsData] = useState<any[]>(initialAiPredicts)
+
+  const [activeChartData, setActiveChartData] = useState<ChartBottomSheetItem | null>(null)
+  const [activeChartInitialTab, setActiveChartInitialTab] = useState<string>('Alert Setups')
+  const [initialExpandedPredictId, setInitialExpandedPredictId] = useState<string | undefined>(undefined)
+
+  const handleOpenChartForAlert = (alert: any, isFreight: boolean) => {
+    const getTitle = (obj: any, fallback = 'N/A') => {
+      if (!obj) return fallback;
+      if (typeof obj === 'string') return obj;
+      return obj.name || obj.title || obj.label || fallback;
+    };
+    const getFlag = (obj: any) => {
+      if (!obj) return '';
+      if (typeof obj === 'string') return obj;
+      return obj.flag || obj.country?.flag || '';
+    };
+
+    const targetPrice = alert.alert_price || alert.target_price || alert.target_freight || alert.freight_rate || alert.price || alert.threshold || 0;
+    
+    const prodName = isFreight 
+      ? 'Freight (PMT)' 
+      : getTitle(alert.product) !== 'N/A' ? getTitle(alert.product) : (alert.product_name || alert.commodity?.name || alert.name || alert.title || 'N/A');
+    
+    const catName = getTitle(alert.category) !== 'N/A' ? getTitle(alert.category) : (alert.category_name || 'N/A');
+    
+    const originPortObj = alert.loading_port || alert.origin;
+    const destPortObj = alert.destination_port || alert.destination;
+
+    const pol = getTitle(originPortObj, 'N/A');
+    const polFlag = getFlag(originPortObj);
+    
+    const pod = getTitle(destPortObj, 'N/A');
+    const podFlag = getFlag(destPortObj);
+
+    const shipByStr = alert.shipping_container || alert.container_type || alert.equipment_type || '';
+    const shipBy = shipByStr.split(' ')[0] || '20FT';
+
+    const term = alert.shipping_term || alert.incoterm?.name || alert.incoterm || 'FOB';
+
+    const favId = alert.favourite_product_id || alert.favourite_product?.id || alert.favourite_record_id || alert.favourite_record?.id || alert.favorite_product_id;
+    const prodId = alert.product_id || alert.product?.id;
+
+    const chartItem: ChartBottomSheetItem = {
+      id: favId || prodId || alert.freight_id || alert.id,
+      productId: prodId,
+      favoriteProductId: favId,
+      category: catName,
+      product: prodName,
+      shipBy,
+      term,
+      pol,
+      polFlag,
+      pod,
+      podFlag,
+      price: alert.freight_pmt || alert.pmt_price || alert.current_price || alert.price || 0,
+      change: alert.change || alert.price_change || alert.change_percentage || 0,
+      chartStatus: true,
+      alertPrice: targetPrice,
+      alertId: alert.id,
+      country: originPortObj?.country?.name || 'N/A',
+      countryFlag: getFlag(originPortObj?.country)
+    };
+
+    setActiveChartData(chartItem);
+    setActiveChartInitialTab("Alert Setups");
+    setInitialExpandedPredictId(undefined);
+    setIsNotificationsOpen(false);
+  };
+
+  const handleOpenChartForPredict = (predict: any, isFreight: boolean) => {
+    const getTitle = (obj: any, fallback = 'N/A') => {
+      if (!obj) return fallback;
+      if (typeof obj === 'string') return obj;
+      return obj.name || obj.title || obj.label || fallback;
+    };
+    const getFlag = (obj: any) => {
+      if (!obj) return '';
+      if (typeof obj === 'string') return obj;
+      return obj.flag || obj.country?.flag || '';
+    };
+
+    const targetPrice = predict.alert_price || predict.target_price || predict.target_freight || predict.freight_rate || predict.price || predict.threshold || 0;
+    
+    const prodName = isFreight 
+      ? 'Freight (PMT)' 
+      : getTitle(predict.product) !== 'N/A' ? getTitle(predict.product) : (predict.product_name || predict.commodity?.name || predict.name || predict.title || 'N/A');
+    
+    const catName = getTitle(predict.category) !== 'N/A' ? getTitle(predict.category) : (predict.category_name || 'N/A');
+    
+    const originPortObj = predict.loading_port || predict.origin;
+    const destPortObj = predict.destination_port || predict.destination;
+
+    const pol = getTitle(originPortObj, 'N/A');
+    const polFlag = getFlag(originPortObj);
+    
+    const pod = getTitle(destPortObj, 'N/A');
+    const podFlag = getFlag(destPortObj);
+
+    const shipByStr = predict.shipping_container || predict.container_type || predict.equipment_type || '';
+    const shipBy = shipByStr.split(' ')[0] || '20FT';
+
+    const term = predict.shipping_term || predict.incoterm?.name || predict.incoterm || 'FOB';
+
+    const favId = predict.favourite_product_id || predict.favourite_product?.id || predict.favourite_record_id || predict.favourite_record?.id || predict.favorite_product_id;
+    const prodId = predict.product_id || predict.product?.id;
+
+    const chartItem: ChartBottomSheetItem = {
+      id: favId || prodId || predict.freight_id || predict.id,
+      productId: prodId,
+      favoriteProductId: favId,
+      category: catName,
+      product: prodName,
+      shipBy,
+      term,
+      pol,
+      polFlag,
+      pod,
+      podFlag,
+      price: predict.freight_pmt || predict.pmt_price || predict.current_price || predict.price || 0,
+      change: predict.change || predict.price_change || predict.change_percentage || 0,
+      chartStatus: true,
+      alertPrice: targetPrice,
+      alertId: predict.id,
+      country: originPortObj?.country?.name || 'N/A',
+      countryFlag: getFlag(originPortObj?.country),
+      predictId: predict.id
+    };
+
+    setActiveChartData(chartItem);
+    setActiveChartInitialTab("AI Predict");
+    setInitialExpandedPredictId(String(predict.id));
+    setIsNotificationsOpen(false);
+  };
 
   const { hasUnread, setHasUnread, fcmToken } = useNotification()
 
@@ -648,25 +782,6 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
                                   const alertType = item.alert_type || item.type || 'Price Alert';
                                   const isFreight = alertType.toLowerCase().includes('freight');
-                                  
-                                  const handleAlertClick = (id?: string) => {
-                                    const link = item.url || item.redirect_link || item.meta_data?.redirect_link;
-                                    if (link) {
-                                      try {
-                                        const urlObj = new URL(link);
-                                        if (urlObj.hostname.includes('agriguruonline.cloud') || urlObj.hostname.includes('agriguruonline.com')) {
-                                          router.push(`/${activeLang}${urlObj.pathname}${urlObj.search}`);
-                                        } else {
-                                          window.location.href = link;
-                                        }
-                                      } catch (e) {
-                                        router.push(`/${activeLang}${link.startsWith('/') ? link : '/' + link}`);
-                                      }
-                                    } else {
-                                      router.push(`/${activeLang}/alerts-setups`);
-                                    }
-                                    setIsNotificationsOpen(false);
-                                  };
 
                                   return (
                                     <div key={item.id || idx} style={{ zoom: 0.85 }} className="w-full">
@@ -674,13 +789,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                         <FreightAlertCard 
                                           alert={item} 
                                           isDropdownMode={true} 
-                                          onSelect={handleAlertClick} 
+                                          onCardClick={() => handleOpenChartForAlert(item, true)}
                                         />
                                       ) : (
                                         <ProductAlertCard 
                                           alert={item} 
                                           isDropdownMode={true} 
-                                          onSelect={handleAlertClick} 
+                                          onCardClick={() => handleOpenChartForAlert(item, false)}
                                         />
                                       )}
                                     </div>
@@ -702,11 +817,6 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                 {aiPredictsData.map((item, idx) => {
                                   if (!item || typeof item !== 'object') return null;
 
-                                  const handlePredictClick = (id?: string) => {
-                                    router.push(`/${activeLang}/ai-predict`);
-                                    setIsNotificationsOpen(false);
-                                  };
-
                                   const predictType = item.predict_type || item.type || item.analysis_type || item.alert_type || 'Product';
                                   const isFreight = predictType.toLowerCase().includes('freight') || !!(item.freight_pmt || item.target_freight || item.pmt_price) || (!!item.loading_port && !!item.destination_port && !item.product?.name && !item.product_name && !item.commodity?.name);
 
@@ -716,13 +826,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                         <AIPredictFreightCard 
                                           predict={item} 
                                           isDropdownMode={true} 
-                                          onSelect={handlePredictClick} 
+                                          onCardClick={() => handleOpenChartForPredict(item, true)}
                                         />
                                       ) : (
                                         <AIPredictProductCard 
                                           predict={item} 
                                           isDropdownMode={true} 
-                                          onSelect={handlePredictClick} 
+                                          onCardClick={() => handleOpenChartForPredict(item, false)}
                                         />
                                       )}
                                     </div>
@@ -841,6 +951,17 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           </div>
         </div>
       </div>
+
+      {activeChartData && (
+        <ChartBottomSheetContainer 
+          activeItem={activeChartData} 
+          onClose={() => setActiveChartData(null)} 
+          lang={activeLang}
+          swipeText="Swipe up for Commodity Details"
+          initialTab={activeChartInitialTab}
+          initialExpandedPredictId={initialExpandedPredictId}
+        />
+      )}
     </div>
   )
 }

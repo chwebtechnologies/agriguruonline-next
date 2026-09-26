@@ -2468,8 +2468,6 @@ export default function MobileCommodityChart({
                             <AIPredictFreightCard 
                               predict={predict} 
                               isDropdownMode={true} 
-                              onSelect={handleSelectPredict}
-                              onCardClick={handleSelectPredict}
                               initialExpanded={initialExpandedPredictId === String(predict.id)}
                             />
                           </div>
@@ -2481,8 +2479,6 @@ export default function MobileCommodityChart({
                           <AIPredictProductCard 
                             predict={predict} 
                             isDropdownMode={true} 
-                            onSelect={handleSelectPredict}
-                            onCardClick={handleSelectPredict}
                             initialExpanded={initialExpandedPredictId === String(predict.id)}
                           />
                         </div>
