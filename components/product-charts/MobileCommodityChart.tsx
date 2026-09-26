@@ -5,10 +5,11 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
-import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction, getAiPredictsAction } from '@/app/actions/charts';
+import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction, getAiPredictsAction, getFavoriteProductsAction, getPriceAnalysisDetailsAction } from '@/app/actions/charts';
 import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
+import { FreightAlertCard } from '@/components/alerts/FreightAlertCard';
 import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard';
 import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard';
 import { toast } from 'sonner';
@@ -19,6 +20,8 @@ import { tradingService } from '@/lib/api/trading.service';
 
 export interface CommodityItemData {
   id: number | string;
+  productId?: number | string;
+  favoriteProductId?: number | string;
   category?: string;
   country?: string;
   countryFlag?: string;
@@ -34,6 +37,7 @@ export interface CommodityItemData {
   chartStatus?: boolean;
   alertPrice?: string | number;
   alertId?: string | number;
+  predictId?: string | number;
 }
 
 interface PriceHistoryItem {
@@ -120,6 +124,16 @@ export const parseSpecifications = (html?: string) => {
   return { tableData, otherData };
 };
 
+export const normalizeStr = (str?: string | null): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .replace(/\bport\b/gi, '')
+    .replace(/\bterminal\b/gi, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .trim();
+};
+
 export default function MobileCommodityChart({
   item,
   isFullScreen = false,
@@ -158,11 +172,24 @@ export default function MobileCommodityChart({
   const [historicalFilter, setHistoricalFilter] = useState<'all' | 'notes_only' | 'product_only' | 'freight_only'>('all');
   const [historicalSearch, setHistoricalSearch] = useState<string>('');
 
-  const [showAlertInput, setShowAlertInput] = useState<boolean>(!!item.alertPrice);
+  const [showAlertInput, setShowAlertInput] = useState<boolean>(item.alertId ? true : false);
   const [alertInputValue, setAlertInputValue] = useState<string>(item.alertPrice ? String(item.alertPrice) : '');
   const [alertError, setAlertError] = useState<string>('');
   const [alertSuccess, setAlertSuccess] = useState<string>('');
   const [editingAlertId, setEditingAlertId] = useState<string | null>(item.alertId ? String(item.alertId) : null);
+
+  // Automatically reset alert edit/create input form when user changes active tab unless item.alertId is present on Alert Setups tab
+  useEffect(() => {
+    if (activeTab === 'Alert Setups' && item.alertId) {
+      setEditingAlertId(String(item.alertId));
+      setShowAlertInput(true);
+      if (item.alertPrice) setAlertInputValue(String(item.alertPrice));
+    } else {
+      setShowAlertInput(false);
+      setEditingAlertId(null);
+    }
+    setAlertError('');
+  }, [activeTab, item.alertId, item.alertPrice]);
 
   const [priceHistory, setPriceHistory] = useState<PriceHistoryItem[]>([]);
   const [alertRange, setAlertRange] = useState<{ min: number; max: number } | null>(null);
@@ -184,6 +211,7 @@ export default function MobileCommodityChart({
   const historicalRef = useRef<HTMLDivElement>(null);
   const aiScrollRef = useRef<HTMLDivElement>(null);
   const aiBottomRef = useRef<HTMLDivElement>(null);
+  const tabContentRef = useRef<HTMLDivElement>(null);
   const isUserScrollingUp = useRef<boolean>(false);
   const touchStartY = useRef<number>(0);
 
@@ -516,6 +544,21 @@ export default function MobileCommodityChart({
     }
   };
 
+  const targetIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (item.id) ids.add(String(item.id));
+    if (item.productId) ids.add(String(item.productId));
+    if (item.favoriteProductId) ids.add(String(item.favoriteProductId));
+    if (item.alertId) ids.add(String(item.alertId));
+    if (item.predictId) ids.add(String(item.predictId));
+    if (apiProduct?.id) ids.add(String(apiProduct.id));
+    if (apiProduct?.product?.id) ids.add(String(apiProduct.product.id));
+    if (apiProduct?.product_id) ids.add(String(apiProduct.product_id));
+    if (apiProduct?.favourite_product_id) ids.add(String(apiProduct.favourite_product_id));
+    if (apiProduct?.favorite_product_id) ids.add(String(apiProduct.favorite_product_id));
+    return ids;
+  }, [item.id, item.productId, item.favoriteProductId, item.alertId, item.predictId, apiProduct]);
+
   const cacheKey = `${item.id}_${lang}`;
 
   // Fetch price history from API
@@ -535,7 +578,39 @@ export default function MobileCommodityChart({
 
       setIsLoading(true);
       try {
-        const res = await getPriceHistoryAction(item.id, lang);
+        let res = await getPriceHistoryAction(item.id, lang);
+
+        // Fallback if initial fetch failed or returned empty history (e.g. when item.id is a predict/alert/product ID instead of favorite_product_id)
+        if (!res?.success || !res?.data || !Array.isArray(res.data.price_history) || res.data.price_history.length === 0) {
+          try {
+            const favsRes = await getFavoriteProductsAction(lang);
+            if (favsRes?.success && Array.isArray(favsRes.data)) {
+              const normItemProd = normalizeStr(item.product);
+              const matchedFav = favsRes.data.find((fav: any) => {
+                const favId = String(fav.id || fav.favourite_product_id);
+                const favProdId = String(fav.product_id || fav.product?.id);
+                if (favId === String(item.id) || favProdId === String(item.id)) return true;
+                if (item.productId && favProdId === String(item.productId)) return true;
+                if (item.favoriteProductId && favId === String(item.favoriteProductId)) return true;
+                const normFavName = normalizeStr(fav.product?.name || fav.name || fav.product_name);
+                return normItemProd && normFavName && (normItemProd === normFavName || normItemProd.includes(normFavName) || normFavName.includes(normItemProd));
+              });
+
+              if (matchedFav) {
+                const realFavId = matchedFav.id || matchedFav.favourite_product_id;
+                if (realFavId) {
+                  const retryRes = await getPriceHistoryAction(realFavId, lang);
+                  if (retryRes?.success && retryRes?.data) {
+                    res = retryRes;
+                  }
+                }
+              }
+            }
+          } catch (fallbackErr) {
+            console.error('Fallback favorite lookup error:', fallbackErr);
+          }
+        }
+
         if (res.success && res.data) {
           if (isMounted) {
             let rawHistoryArray = res.data.price_history;
@@ -630,7 +705,7 @@ export default function MobileCommodityChart({
     return () => {
       isMounted = false;
     };
-  }, [item.id, lang, cacheKey]);
+  }, [item.id, item.productId, item.favoriteProductId, item.product, lang, cacheKey]);
 
   // Fetch alert setups when tab is active
   useEffect(() => {
@@ -641,16 +716,53 @@ export default function MobileCommodityChart({
         try {
           const res = await getAlertSetupsAction(lang);
           if (res.success && Array.isArray(res.data) && isMounted) {
-            // Filter by chart's favorite id (item.id)
-            const filtered = res.data.filter((alert: any) => 
-              String(alert.favourite_product_id) === String(item.id) || 
-              String(alert.favourite_product?.id) === String(item.id) ||
-              String(alert.favourite_record_id) === String(item.id) ||
-              String(alert.favourite_record?.id) === String(item.id) ||
-              String(alert.product?.id) === String(item.id) ||
-              String(alert.product_id) === String(item.id)
-            );
+            const filtered = res.data.filter((alert: any) => {
+              const alertIds = [
+                alert.id,
+                alert.favourite_product_id,
+                alert.favourite_product?.id,
+                alert.favorite_product_id,
+                alert.favorite_product?.id,
+                alert.favourite_record_id,
+                alert.favourite_record?.id,
+                alert.favorite_record_id,
+                alert.favorite_record?.id,
+                alert.product_id,
+                alert.product?.id,
+              ].filter(Boolean).map(String);
+
+              if (alertIds.some(id => targetIds.has(id))) {
+                return true;
+              }
+
+              const targetProdName = normalizeStr(item.product || apiProduct?.product?.name || apiProduct?.name);
+              const alertProdName = normalizeStr(
+                alert.product?.name || alert.product_name || alert.commodity?.name || alert.name || alert.title
+              );
+
+              if (targetProdName && alertProdName && (targetProdName === alertProdName || targetProdName.includes(alertProdName) || alertProdName.includes(targetProdName))) {
+                const targetPol = normalizeStr(item.pol || apiProduct?.loading_port?.name || apiProduct?.pol?.name);
+                const alertPol = normalizeStr(
+                  alert.loading_port?.name || alert.pol?.name || alert.origin?.name || alert.loading_port_name
+                );
+
+                if (!targetPol || !alertPol || targetPol === alertPol || targetPol.includes(alertPol) || alertPol.includes(targetPol)) {
+                  return true;
+                }
+              }
+
+              return false;
+            });
             setChartAlerts(filtered);
+            if (item.alertId) {
+              const match = filtered.find((a: any) => String(a.id) === String(item.alertId));
+              if (match) {
+                const priceVal = match.alert_price || match.target_freight || match.freight_rate || match.target_price || match.price || match.threshold || item.alertPrice;
+                if (priceVal) setAlertInputValue(String(priceVal));
+                setEditingAlertId(String(match.id));
+                setShowAlertInput(true);
+              }
+            }
           }
         } catch (e) {
           console.error(e);
@@ -661,7 +773,7 @@ export default function MobileCommodityChart({
       fetchAlerts();
     }
     return () => { isMounted = false; };
-  }, [activeTab, item.id, lang, refreshAlerts]);
+  }, [activeTab, item.id, item.product, item.pol, lang, refreshAlerts, targetIds, apiProduct]);
 
   // Fetch AI predictions when tab is active
   useEffect(() => {
@@ -672,35 +784,44 @@ export default function MobileCommodityChart({
         try {
           const res = await getAiPredictsAction(lang);
           if (res.success && Array.isArray(res.data) && isMounted) {
-            const chartFavId = String(item.id);
-            const apiProdId = apiProduct?.product?.id ? String(apiProduct.product.id) : null;
-
-            // Filter by chart's favorite id (item.id) and related product/route IDs
             const filtered = res.data.filter((predict: any) => {
-              const ids = [
+              const predictIds = [
+                predict.id,
                 predict.favourite_product_id,
                 predict.favourite_product?.id,
+                predict.favorite_product_id,
+                predict.favorite_product?.id,
                 predict.favourite_record_id,
                 predict.favourite_record?.id,
+                predict.favorite_record_id,
+                predict.favorite_record?.id,
                 predict.favourite_port_id,
                 predict.favourite_port?.id,
-                predict.favorite_product_id,
                 predict.favorite_port_id,
+                predict.favorite_port?.id,
                 predict.freight_id,
                 predict.product_id,
                 predict.product?.id,
               ].filter(Boolean).map(String);
 
-              if (ids.includes(chartFavId)) return true;
-              if (apiProdId && ids.includes(apiProdId)) return true;
-
-              // Fallback match by commodity name & origin port
-              if (
-                item.product &&
-                (predict.product?.name === item.product || predict.product_name === item.product || predict.commodity?.name === item.product || predict.name === item.product) &&
-                (!item.pol || predict.loading_port?.name === item.pol || predict.pol?.name === item.pol || predict.origin?.name === item.pol)
-              ) {
+              if (predictIds.some(id => targetIds.has(id))) {
                 return true;
+              }
+
+              const targetProdName = normalizeStr(item.product || apiProduct?.product?.name || apiProduct?.name);
+              const predictProdName = normalizeStr(
+                predict.product?.name || predict.product_name || predict.commodity?.name || predict.name || predict.title
+              );
+
+              if (targetProdName && predictProdName && (targetProdName === predictProdName || targetProdName.includes(predictProdName) || predictProdName.includes(targetProdName))) {
+                const targetPol = normalizeStr(item.pol || apiProduct?.loading_port?.name || apiProduct?.pol?.name);
+                const predictPol = normalizeStr(
+                  predict.loading_port?.name || predict.pol?.name || predict.origin?.name || predict.loading_port_name
+                );
+
+                if (!targetPol || !predictPol || targetPol === predictPol || targetPol.includes(predictPol) || predictPol.includes(targetPol)) {
+                  return true;
+                }
               }
 
               return false;
@@ -716,7 +837,7 @@ export default function MobileCommodityChart({
       fetchAiPredicts();
     }
     return () => { isMounted = false; };
-  }, [activeTab, item.id, apiProduct?.product?.id, item.product, item.pol, lang, refreshAiPredicts]);
+  }, [activeTab, item.id, item.product, item.pol, lang, refreshAiPredicts, targetIds, apiProduct]);
 
   // Scroll to initially expanded card
   useEffect(() => {
@@ -729,6 +850,19 @@ export default function MobileCommodityChart({
       }, 300);
     }
   }, [activeTab, initialExpandedPredictId, chartAiPredicts.length]);
+
+  // Scroll to active alert card when alert edit mode is active in Alert Setups tab (Mobile only)
+  useEffect(() => {
+    if (activeTab === 'Alert Setups' && showAlertInput && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      const timer = setTimeout(() => {
+        const activeCard = editingAlertId ? document.getElementById(`alert-card-${editingAlertId}`) : tabContentRef.current;
+        if (activeCard) {
+          activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, editingAlertId, showAlertInput]);
 
   // Fetch full product details (quality_specification, description, thumbnail) if available
   // OPTIMIZED: Only fetch when needed (user views specs or opens modal) to prevent N+1 API spam on list load
@@ -1051,24 +1185,30 @@ export default function MobileCommodityChart({
     setAlertSuccess('');
   };
 
-      const handleAlertSubmit = async () => {
+  const handleAlertSubmit = async () => {
     const val = Number(alertInputValue);
-    if (!val || isNaN(val)) {
+    if (!val || isNaN(val) || val <= 0) {
       setAlertError('Please enter a valid price.');
       return;
     }
     
-    const minLimit = supportResistance.support;
-    const maxLimit = supportResistance.resistance;
+    if (!editingAlertId && supportResistance?.support && supportResistance?.resistance) {
+      const minLimit = supportResistance.support;
+      const maxLimit = supportResistance.resistance;
 
-    if (val < minLimit || val > maxLimit) {
-      setAlertError(`Price must be between ${minLimit} and ${maxLimit}.`);
-      return;
+      if (val < minLimit || val > maxLimit) {
+        setAlertError(`Price must be between ${minLimit} and ${maxLimit}.`);
+        return;
+      }
     }
     setAlertError('');
 
     try {
-      const favId = item.id;
+      const editingAlert = chartAlerts.find(a => String(a.id) === String(editingAlertId));
+      const favId = editingAlert 
+        ? (editingAlert.favourite_record_id || editingAlert.favourite_product_id || editingAlert.favorite_product_id || editingAlert.product_id || item.id)
+        : item.id;
+
       if (!favId) {
         toast.error('Product ID not found.');
         setAlertError('Product ID not found.');
@@ -1077,7 +1217,7 @@ export default function MobileCommodityChart({
       
       const payload = {
         favourite_record_id: String(favId),
-        type: "PRODUCT",
+        type: editingAlert?.type || editingAlert?.alert_type || "PRODUCT",
         alert_price: val
       };
       
@@ -1092,8 +1232,8 @@ export default function MobileCommodityChart({
         setShowAlertInput(false);
         setAlertInputValue('');
         setEditingAlertId(null);
-        setAlertSuccess(res.message || 'Alert saved successfully!');
-        toast.success(res.message || 'Price alert saved successfully!');
+        setAlertSuccess(res.message || (editingAlertId ? 'Alert updated successfully!' : 'Alert saved successfully!'));
+        toast.success(res.message || (editingAlertId ? 'Price alert updated successfully!' : 'Price alert saved successfully!'));
         setTimeout(() => setAlertSuccess(''), 3000);
         
         if (activeTab !== 'Alert Setups') {
@@ -1121,13 +1261,21 @@ export default function MobileCommodityChart({
     }
     
     const val = Number(valStr);
-    const minLimit = supportResistance.support;
-    const maxLimit = supportResistance.resistance;
-    
-    if (val < minLimit || val > maxLimit) {
-      setAlertError(`Alert limit reached! Allowed range: $${minLimit} - $${maxLimit}`);
+    if (!editingAlertId && supportResistance?.support && supportResistance?.resistance) {
+      const minLimit = supportResistance.support;
+      const maxLimit = supportResistance.resistance;
+      
+      if (val < minLimit || val > maxLimit) {
+        setAlertError(`Alert limit reached! Allowed range: $${minLimit} - $${maxLimit}`);
+      } else {
+        setAlertError('');
+      }
     } else {
-      setAlertError('');
+      if (val <= 0) {
+        setAlertError('Please enter a valid price.');
+      } else {
+        setAlertError('');
+      }
     }
   };
 
@@ -1409,8 +1557,13 @@ export default function MobileCommodityChart({
         {tabs.map(tab => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`py-2 px-2.5 min-[390px]:px-4 text-[12px] min-[390px]:text-[14px] font-bold whitespace-nowrap  border-b-2 cursor-pointer ${activeTab === tab
+            onClick={() => {
+              setActiveTab(tab);
+              if (typeof window !== 'undefined' && window.innerWidth < 1024 && tabContentRef.current) {
+                tabContentRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }
+            }}
+            className={`py-2 px-2.5 min-[390px]:px-4 text-[12px] min-[390px]:text-[14px] font-bold whitespace-nowrap border-b-2 cursor-pointer ${activeTab === tab
                 ? 'border-brand-blue text-brand-blue'
                 : 'border-transparent text-foreground/75 hover:text-foreground'
               }`}
@@ -1428,7 +1581,11 @@ export default function MobileCommodityChart({
         {/* LEFT COLUMN: Chart + Dynamic Tab Content */}
         <div className="w-full lg:flex-1 lg:overflow-y-auto lg:pr-2.5 space-y-3.5 scrollbar-thin min-w-0 bg-background" ref={historicalRef}>
           {/* Chart Card */}
-          <div className="w-full bg-card rounded-2xl border border-border p-2.5 min-[390px]:p-3.5 lg:p-4 shadow-xs">
+          <div className={`w-full bg-card rounded-2xl border border-border p-2.5 min-[390px]:p-3.5 lg:p-4 shadow-xs ${
+            activeTab === 'Alert Setups'
+              ? 'sticky top-0 z-20 bg-background/95 backdrop-blur-xs lg:static lg:top-auto'
+              : ''
+          }`}>
             {/* Over timeframe header with exact date range */}
             <div
               className="flex flex-col items-center justify-center text-center pb-2 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none"
@@ -1504,7 +1661,7 @@ export default function MobileCommodityChart({
                   <AreaChart
                     key={displayChartData.length > 0 ? "loaded" : "empty"}
                     data={displayChartData}
-                    margin={{ top: 12, right: 25, left: 10, bottom: 0 }}
+                    margin={{ top: 12, right: 6, left: 0, bottom: 0 }}
                     onMouseMove={(e: any) => {
                       if (e && e.activePayload && e.activePayload.length) {
                         const d = e.activePayload[0].payload;
@@ -1555,7 +1712,7 @@ export default function MobileCommodityChart({
                       tickLine={false}
                       tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontWeight: 500 }}
                       tickFormatter={(value) => `$${Math.round(value)}`}
-                      width={45}
+                      width={42}
                     />
                     <Tooltip
                       isAnimationActive={false}
@@ -1691,7 +1848,7 @@ export default function MobileCommodityChart({
 
             {/* Highlighting Blue Blinking Dot Notice */}
             {commentPointsCount > 0 && (
-              <div className="flex items-center justify-between text-[11px] text-brand-blue font-semibold pt-2 pb-0.5 px-1">
+              <div className="flex items-center justify-between text-[11px] text-brand-blue font-semibold pt-2 pb-0.5 px-1.5">
                 <div className="flex items-center gap-1.5">
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>
@@ -1773,8 +1930,8 @@ export default function MobileCommodityChart({
             )}
 
             {/* Timeline Selector: 1W, 1M, 6M, 1Y, 5Y, ALL + AI Predict */}
-            <div className="flex items-center justify-between border-t border-border pt-2.5 mt-2 px-1">
-              <div className="flex items-center justify-around flex-1 gap-1">
+            <div className="flex items-center justify-between border-t border-border pt-2.5 mt-2 px-0.5">
+              <div className="grid grid-cols-6 gap-1 min-[390px]:gap-1.5 w-full">
                 {ranges.map(range => (
                   <button
                     key={range}
@@ -1783,7 +1940,7 @@ export default function MobileCommodityChart({
                       setHoveredPoint(null);
                       setSelectedCommentPoint(null);
                     }}
-                    className={`text-[12px] font-bold px-2.5 py-1  rounded-lg cursor-pointer ${timeRange === range
+                    className={`text-[12px] font-bold py-1.5 rounded-lg cursor-pointer text-center transition-colors ${timeRange === range
                         ? 'text-white bg-brand-blue shadow-xs font-extrabold'
                         : 'text-foreground/75 hover:text-foreground hover:bg-muted'
                       }`}
@@ -1810,49 +1967,12 @@ export default function MobileCommodityChart({
             )}
           </div>
 
-          {showAlertInput && (
-            <div className="bg-card rounded-2xl border border-border p-4 shadow-xs mt-3 animate-in fade-in lg:hidden">
-              <div className="text-center mb-4">
-                <h2 className="font-extrabold text-[15px] text-foreground">Set Target Price</h2>
-                <p className="text-[11px] text-foreground/60 mt-0.5">Enter your desired rate for the alert.</p>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
-                <input
-                  type="number"
-                  min={supportResistance.support}
-                  max={supportResistance.resistance}
-                  value={alertInputValue}
-                  onChange={handleAlertInputChange}
-                  className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
-                  placeholder="Target Price..."
-                  autoFocus
-                />
-              </div>
-              {alertError && <div className="text-brand-red text-[11px] font-medium mt-1 text-center">{alertError}</div>}
-              <div className="flex items-center gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
-                  className="flex-1 py-2 bg-muted text-foreground font-bold rounded-xl text-[13px] hover:bg-muted/80 active:scale-95 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAlertSubmit}
-                  disabled={!!alertError || !alertInputValue}
-                  className={`flex-1 py-2 font-bold rounded-xl text-[13px] shadow-md transition-colors ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
-                >
-                  {editingAlertId ? 'Update' : 'Save'}
-                </button>
-              </div>
-            </div>
-          )}
+
 
           {/* Dynamic Content Below Chart (Visible on FullScreen or Desktop) */}
           <div
-            className={`transition-opacity ${isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'} ${showAlertInput ? 'hidden lg:block' : ''}`}
+            ref={tabContentRef}
+            className={`transition-opacity ${isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'}`}
           >
             {activeTab === 'Specifications' ? (
               /* TAB 3: PRODUCT SPECIFICATIONS VIEW */
@@ -2018,20 +2138,159 @@ export default function MobileCommodityChart({
                   </div>
                 ) : chartAlerts.length > 0 ? (
                   <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                    {chartAlerts.map((alert: any, idx: number) => (
-                      <ProductAlertCard 
-                        key={alert.id || idx} 
-                        alert={alert} 
-                        isDropdownMode={true} 
-                        onSelect={() => {
-                          setEditingAlertId(alert.id);
-                          setAlertInputValue(String(alert.alert_price || alert.price || alert.target_price || currentDisplayPrice));
-                          setShowAlertInput(true);
-                          setAlertSuccess('');
-                          setAlertError('');
-                        }}
-                      />
-                    ))}
+                    {chartAlerts.map((alert: any, idx: number) => {
+                      const alertType = alert.alert_type || alert.type || 'Price Alert';
+                      const isFreight = String(alertType).toLowerCase().includes('freight');
+                      const alertPriceVal = alert.alert_price || alert.target_freight || alert.freight_rate || alert.target_price || alert.price || alert.threshold || currentDisplayPrice;
+                      const isEditingThisCard = showAlertInput && String(editingAlertId) === String(alert.id);
+                      
+                      return (
+                        <div key={alert.id || idx} id={`alert-card-${alert.id}`} className="space-y-2">
+                          {isFreight ? (
+                            <FreightAlertCard 
+                              alert={alert} 
+                              isDropdownMode={true} 
+                              onCardClick={() => {
+                                if (isEditingThisCard) {
+                                  setShowAlertInput(false);
+                                  setEditingAlertId(null);
+                                } else {
+                                  setEditingAlertId(alert.id);
+                                  setAlertInputValue(String(alertPriceVal));
+                                  setShowAlertInput(true);
+                                  setAlertSuccess('');
+                                  setAlertError('');
+                                }
+                              }}
+                            />
+                          ) : (
+                            <ProductAlertCard 
+                              alert={alert} 
+                              isDropdownMode={true} 
+                              onCardClick={() => {
+                                if (isEditingThisCard) {
+                                  setShowAlertInput(false);
+                                  setEditingAlertId(null);
+                                } else {
+                                  setEditingAlertId(alert.id);
+                                  setAlertInputValue(String(alertPriceVal));
+                                  setShowAlertInput(true);
+                                  setAlertSuccess('');
+                                  setAlertError('');
+                                }
+                              }}
+                            />
+                          )}
+
+                          {/* Inline Edit Input Form directly under the clicked card (Mobile only) */}
+                          {isEditingThisCard && (
+                            <div id="active-alert-edit-form" className="lg:hidden bg-card rounded-2xl border border-brand-blue/50 p-4 shadow-md mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                              <div className="flex items-center justify-between mb-3 border-b border-border pb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xs font-bold">
+                                    <i className="fa-solid fa-pen"></i>
+                                  </div>
+                                  <h4 className="font-extrabold text-[14px] text-foreground">Set Target Price</h4>
+                                </div>
+                                <button 
+                                  type="button" 
+                                  onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
+                                  className="text-foreground/50 hover:text-foreground text-xs font-bold cursor-pointer"
+                                >
+                                  <i className="fa-solid fa-xmark text-sm"></i>
+                                </button>
+                              </div>
+
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
+                                <input
+                                  type="number"
+                                  value={alertInputValue}
+                                  onChange={handleAlertInputChange}
+                                  className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
+                                  placeholder="Target Price..."
+                                  autoFocus
+                                />
+                              </div>
+                              {alertError && <div className="text-brand-red text-[11px] font-medium mt-1 text-center">{alertError}</div>}
+
+                              <div className="flex items-center gap-2 mt-3.5">
+                                <button
+                                  type="button"
+                                  onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
+                                  className="flex-1 py-2 bg-muted text-foreground font-bold rounded-xl text-[13px] hover:bg-muted/80 active:scale-95 cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleAlertSubmit}
+                                  disabled={!!alertError || !alertInputValue}
+                                  className={`flex-1 py-2 font-bold rounded-xl text-[13px] shadow-md transition-colors ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
+                                >
+                                  Update
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Create New Alert Input Form if adding a new alert (Mobile only) */}
+                    {showAlertInput && !editingAlertId && (
+                      <div className="lg:hidden bg-card rounded-2xl border border-brand-blue/50 p-4 shadow-md mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between mb-3 border-b border-border pb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xs font-bold">
+                              <i className="fa-solid fa-bell"></i>
+                            </div>
+                            <h4 className="font-extrabold text-[14px] text-foreground">Create Price Alert</h4>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
+                            className="text-foreground/50 hover:text-foreground text-xs font-bold cursor-pointer"
+                          >
+                            <i className="fa-solid fa-xmark text-sm"></i>
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
+                          <input
+                            type="number"
+                            min={supportResistance.support}
+                            max={supportResistance.resistance}
+                            value={alertInputValue}
+                            onChange={handleAlertInputChange}
+                            className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
+                            placeholder="Target Price..."
+                            autoFocus
+                          />
+                        </div>
+                        {alertError && <div className="text-brand-red text-[11px] font-medium mt-1 text-center">{alertError}</div>}
+
+                        <div className="flex items-center gap-2 mt-3.5">
+                          <button
+                            type="button"
+                            onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
+                            className="flex-1 py-2 bg-muted text-foreground font-bold rounded-xl text-[13px] hover:bg-muted/80 active:scale-95 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleAlertSubmit}
+                            disabled={!!alertError || !alertInputValue}
+                            className={`flex-1 py-2 font-bold rounded-xl text-[13px] shadow-md transition-colors ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
+                          >
+                            Save Alert
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <button 
                       onClick={handleCreateAlertClick}
                       className="mt-2 w-full py-3 bg-brand-blue/10 text-brand-blue text-[13px] font-bold rounded-xl border border-brand-blue/20 shadow-xs hover:bg-brand-blue/20 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
@@ -2180,13 +2439,26 @@ export default function MobileCommodityChart({
                       const predictType = predict.predict_type || predict.type || predict.analysis_type || predict.alert_type || (item.category === 'FREIGHT' ? 'Freight' : 'Product');
                       const isFreight = predictType.toLowerCase().includes('freight') || !!(predict.freight_pmt || predict.target_freight || predict.pmt_price) || (!!predict.loading_port && !!predict.destination_port && !predict.product?.name && !predict.product_name && !predict.commodity?.name);
 
-                      const handleSelectPredict = () => {
+                      const handleSelectPredict = async () => {
                         const text = predict.analysis || predict.ai_analysis || predict.description || predict.content || predict.analysis_text;
                         if (text) {
                           setAiAnalysis(text);
                           toast.success('Loaded AI prediction analysis');
-                        } else {
-                          toast.info('Viewing prediction details');
+                        } else if (predict.id) {
+                          setIsAnalysing(true);
+                          try {
+                            const type = (predict.alert_type || predict.predict_type || '').toLowerCase().includes('freight') ? 'freight' : 'product';
+                            const res = await getPriceAnalysisDetailsAction(type, predict.id, lang);
+                            if (res.success && res.data) {
+                              const fetchedText = typeof res.data === 'string' ? res.data : (res.data.analysis || res.data.content || res.data.description || res.data.result || res.data.ai_analysis || JSON.stringify(res.data, null, 2));
+                              setAiAnalysis(fetchedText);
+                              toast.success('Loaded AI prediction analysis');
+                            }
+                          } catch (err) {
+                            console.error(err);
+                          } finally {
+                            setIsAnalysing(false);
+                          }
                         }
                       };
 
@@ -2305,7 +2577,8 @@ export default function MobileCommodityChart({
 
                 {/* Date-wise Comments List (Strictly dates with comments) */}
                 {(() => {
-                  const commentedDates = [...filteredData]
+                  const allPoints = priceHistory.length > 0 ? priceHistory : filteredData;
+                  const commentedDates = [...allPoints]
                     .filter(d => Boolean(d.product_comment || d.freight_comment || d.comment || d.remarks))
                     .reverse();
 
@@ -2655,7 +2928,7 @@ export default function MobileCommodityChart({
                   <div className="flex w-full items-center gap-2">
                     <button 
                       type="button"
-                      onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); }}
+                      onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
                       className="w-10 h-10 shrink-0 bg-muted border border-border text-foreground hover:bg-muted/80 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition-colors"
                       aria-label="Cancel"
                     >
@@ -2665,8 +2938,6 @@ export default function MobileCommodityChart({
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
                       <input
                         type="number"
-                        min={supportResistance.support}
-                        max={supportResistance.resistance}
                         value={alertInputValue}
                         onChange={handleAlertInputChange}
                         className={`w-full pl-6 pr-2 py-2 min-[390px]:py-2.5 bg-background border rounded-xl text-[13px] min-[390px]:text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
@@ -2680,7 +2951,7 @@ export default function MobileCommodityChart({
                       disabled={!!alertError || !alertInputValue}
                       className={`px-4 min-[390px]:px-5 py-2 min-[390px]:py-2.5 rounded-xl font-bold text-[13px] min-[390px]:text-[14px] shadow-md transition-all ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
                     >
-                      Save
+                      {editingAlertId ? 'Update' : 'Save'}
                     </button>
                   </div>
                   {alertError && <div className="text-brand-red text-[11px] font-medium mt-1.5 text-center">{alertError}</div>}

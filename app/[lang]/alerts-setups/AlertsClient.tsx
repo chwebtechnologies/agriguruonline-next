@@ -45,8 +45,13 @@ export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], la
 
     const term = alert.shipping_term || alert.incoterm?.name || alert.incoterm || 'FOB';
 
+    const favId = alert.favourite_product_id || alert.favourite_product?.id || alert.favourite_record_id || alert.favourite_record?.id || alert.favorite_product_id;
+    const prodId = alert.product_id || alert.product?.id;
+
     const chartItem: ChartBottomSheetItem = {
-      id: alert.favourite_product_id || alert.favourite_product?.id || alert.favourite_record_id || alert.favourite_record?.id || alert.product?.id || alert.product_id || alert.favorite_product_id || alert.freight_id || alert.id,
+      id: favId || prodId || alert.freight_id || alert.id,
+      productId: prodId,
+      favoriteProductId: favId,
       category: catName,
       product: prodName,
       shipBy,

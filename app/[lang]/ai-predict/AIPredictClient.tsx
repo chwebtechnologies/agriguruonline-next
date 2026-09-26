@@ -45,8 +45,13 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
 
     const term = predict.shipping_term || predict.incoterm?.name || predict.incoterm || 'FOB';
 
+    const favId = predict.favourite_product_id || predict.favourite_product?.id || predict.favourite_record_id || predict.favourite_record?.id || predict.favorite_product_id;
+    const prodId = predict.product_id || predict.product?.id;
+
     const chartItem: ChartBottomSheetItem = {
-      id: predict.favourite_product_id || predict.favourite_product?.id || predict.favourite_record_id || predict.favourite_record?.id || predict.product?.id || predict.product_id || predict.favorite_product_id || predict.freight_id || predict.id,
+      id: favId || prodId || predict.freight_id || predict.id,
+      productId: prodId,
+      favoriteProductId: favId,
       category: catName,
       product: prodName,
       shipBy,
@@ -187,7 +192,7 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
           lang={lang}
           swipeText="Swipe up for Commodity Details"
           initialTab="AI Predict"
-          initialExpandedPredictId={activeChartData.predictId}
+          initialExpandedPredictId={activeChartData.predictId ? String(activeChartData.predictId) : undefined}
         />
       )}
     </div>
