@@ -349,6 +349,8 @@ export function ProductInquiryModal({
 
     let finalFcl = 0;
     let unitId = "";
+    let finalQuantity = Number(formData.quantity);
+    let finalQuantityType = formData.quantityUnit;
     
     if (formData.quantity && !isNaN(Number(formData.quantity))) {
       const qty = Number(formData.quantity);
@@ -364,6 +366,10 @@ export function ProductInquiryModal({
         
         if (formData.quantityUnit === 'FCL') {
           finalFcl = qty;
+          if (!isNaN(capacity) && capacity > 0) {
+            finalQuantity = Number((qty * capacity).toFixed(2));
+            finalQuantityType = 'FCL'; // Keep it as FCL for backend, but send calculated MT in quantity
+          }
         } else if (!isNaN(capacity) && capacity > 0) {
           finalFcl = Math.ceil(qty / capacity);
         }
@@ -374,14 +380,14 @@ export function ProductInquiryModal({
       type: actionType === 'sell' ? 'SELLER' : 'BUYER',
       product_id: productId,
       description: formData.comments,
-      fcl: finalFcl || undefined, 
+      fcl: finalFcl ? Number(finalFcl) : undefined, 
       fob_price: isFobSelected ? formData.offerPrice : "", 
       loading_port_id: formData.portOfLoading,
       packing_type_id: formData.packingType,
       payment_term_id: formData.paymentTerm,
       price_bid: Number(formData.offerPrice),
-      quantity: Number(formData.quantity),
-      quantity_type: formData.quantityUnit,
+      quantity: finalQuantity,
+      quantity_type: finalQuantityType,
       shipment_end_date: dateRange.end ? formatDate(dateRange.end) : "",
       shipment_start_date: dateRange.start ? formatDate(dateRange.start) : "",
       shipping_container_id: formData.shipBy,

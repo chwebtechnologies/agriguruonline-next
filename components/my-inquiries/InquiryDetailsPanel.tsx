@@ -12,6 +12,7 @@ interface InquiryDetailsPanelProps {
   token?: string;
   userProfile?: any;
   dict?: any;
+  onBack?: () => void;
 }
 
 /**
@@ -180,6 +181,7 @@ export default function InquiryDetailsPanel({
   token,
   userProfile,
   dict,
+  onBack,
 }: InquiryDetailsPanelProps) {
   const [apiData, setApiData] = useState<any>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -553,17 +555,24 @@ export default function InquiryDetailsPanel({
   const hasNegotiation = currentStep >= 2;
 
   return (
-    <div className="bg-card border border-border rounded-2xl flex flex-col h-full shadow-sm relative overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl flex flex-col min-h-full shadow-sm relative">
 
 
-      {/* --- 2. SCROLLABLE MIDDLE: DETAILS & NEGOTIATION --- */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 flex flex-col gap-4">
+      {/* --- 2. DETAILS & NEGOTIATION --- */}
+      <div className="p-3 sm:p-4 flex flex-col gap-4">
 
         {/* 1. Header Card Top Section */}
-        <div className="border-b border-border pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="min-w-0 flex-1">
-
-            <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight break-words">
+        <div className="border-b border-border pb-3 flex flex-row justify-between items-center gap-3">
+          <div className="min-w-0 flex-1 flex items-center gap-3">
+            {onBack && (
+              <button 
+                onClick={onBack}
+                className="lg:hidden flex items-center justify-center w-8 h-8 rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground/80 transition-colors shrink-0"
+              >
+                <i className="fa-solid fa-arrow-left"></i>
+              </button>
+            )}
+            <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight break-words truncate">
               {title}
             </h2>
           </div>
@@ -640,54 +649,84 @@ export default function InquiryDetailsPanel({
 
       {/* 3. Collapsible Specifications Table */}
       {showDetails && (
-        <div className="border border-border rounded-xl mb-6 overflow-x-auto shadow-sm">
-          <table className="w-full text-left text-[13px] sm:text-sm min-w-[600px]">
-            <tbody className="divide-y divide-border">
-              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Product Name</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground w-[30%]">{productNameVal}</td>
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Country</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground w-[30%]">{countryVal}</td>
-              </tr>
-              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Ship By</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{shipByVal}</td>
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipping Term</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{shippingTermVal}</td>
-              </tr>
-              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Loading</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{portOfLoadingVal}</td>
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Dest.</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{portOfDestinationVal}</td>
-              </tr>
-              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipment Period</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{shipmentPeriodVal}</td>
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Packing Type</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{packingTypeVal}</td>
-              </tr>
-              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Quantity (MT)</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{quantityVal}</td>
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Container (FCL)</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{containerFclVal}</td>
-              </tr>
-              <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Payment Term</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{paymentTermVal}</td>
-                <td className="px-3 sm:px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Description</td>
-                <td className="px-3 sm:px-4 py-2.5 font-semibold text-foreground">{descriptionVal}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* Mobile View: 2 columns (1 Key, 1 Value) per row */}
+          <div className="block sm:hidden border border-border rounded-xl mb-3 shadow-sm overflow-hidden">
+            <table className="w-full text-left text-[13px]">
+              <tbody className="divide-y divide-border">
+                {[
+                  { label: 'Product Name', value: productNameVal },
+                  { label: 'Country', value: countryVal },
+                  { label: 'Ship By', value: shipByVal },
+                  { label: 'Shipping Term', value: shippingTermVal },
+                  { label: 'Port of Loading', value: portOfLoadingVal },
+                  { label: 'Port of Dest.', value: portOfDestinationVal },
+                  { label: 'Shipment Period', value: shipmentPeriodVal },
+                  { label: 'Packing Type', value: packingTypeVal },
+                  { label: 'Quantity (MT)', value: quantityVal },
+                  { label: 'Container (FCL)', value: containerFclVal },
+                  { label: 'Payment Term', value: paymentTermVal },
+                  { label: 'Description', value: descriptionVal },
+                ].map((item, idx) => (
+                  <tr key={idx} className="divide-x divide-border hover:bg-foreground/[0.01]">
+                    <td className="px-3 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[40%]">{item.label}</td>
+                    <td className="px-3 py-2.5 font-semibold text-foreground w-[60%]">{item.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Desktop View: Original 4 columns (2 Keys, 2 Values) per row */}
+          <div className="hidden sm:block border border-border rounded-xl mb-3 overflow-x-auto shadow-sm">
+            <table className="w-full text-left text-sm min-w-[600px]">
+              <tbody className="divide-y divide-border">
+                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Product Name</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground w-[30%]">{productNameVal}</td>
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Country</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground w-[30%]">{countryVal}</td>
+                </tr>
+                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Ship By</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{shipByVal}</td>
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipping Term</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{shippingTermVal}</td>
+                </tr>
+                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Loading</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{portOfLoadingVal}</td>
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Dest.</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{portOfDestinationVal}</td>
+                </tr>
+                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipment Period</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{shipmentPeriodVal}</td>
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Packing Type</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{packingTypeVal}</td>
+                </tr>
+                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Quantity (MT)</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{quantityVal}</td>
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Container (FCL)</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{containerFclVal}</td>
+                </tr>
+                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Payment Term</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{paymentTermVal}</td>
+                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Description</td>
+                  <td className="px-4 py-2.5 font-semibold text-foreground">{descriptionVal}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* 4. Negotiation Process Section (Compact & Well-Proportioned) */}
       {hasNegotiation && (
       <div className="w-full max-w-2xl mx-auto mt-1 mb-2">
-        <div className="text-center mb-5">
+        <div className="text-center mb-3">
           <h3 className="text-base sm:text-lg font-black text-foreground tracking-tight">
             Negotiation Process
           </h3>
@@ -724,7 +763,7 @@ export default function InquiryDetailsPanel({
         )}
 
         {/* Two-Column Titles: Admin (AgriGuru) vs User */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-2.5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-2.5">
           {/* Admin Header */}
           <div className="flex items-center gap-1.5 px-1">
             <span className="text-xs sm:text-[13px] font-bold text-foreground">
@@ -733,8 +772,8 @@ export default function InquiryDetailsPanel({
           </div>
 
           {/* User Header */}
-          <div className="flex items-center gap-1.5 px-1">
-            <span className="text-xs sm:text-[13px] font-bold text-foreground">
+          <div className="flex items-center justify-end sm:justify-start gap-1.5 px-1">
+            <span className="text-xs sm:text-[13px] font-bold text-foreground text-right sm:text-left">
               Your Asking Price
             </span>
           </div>
@@ -750,41 +789,41 @@ export default function InquiryDetailsPanel({
             const userTime = formatDateTimeDisplay(userOffer?.created_at || userOffer?.timestamp);
 
             return (
-              <div key={round.roundNumber} className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div key={round.roundNumber} className="grid grid-cols-2 gap-3 sm:gap-4">
                 
                 {/* Left Column: AgriGuru Price Offer */}
                 {adminOffer ? (
-                  <div className="bg-foreground/[0.04] dark:bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3 transition-all shadow-2xs">
-                    <AdminAvatar className="w-8 h-8 sm:w-9 sm:h-9" />
+                  <div className="bg-foreground/[0.04] dark:bg-card border border-border/80 rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 transition-all shadow-2xs">
+                    <AdminAvatar className="w-6 h-6 sm:w-9 sm:h-9 hidden sm:flex" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] sm:text-xs font-semibold text-foreground/85 truncate" suppressHydrationWarning>
+                      <p className="text-[10px] sm:text-xs font-semibold text-foreground/85 truncate" suppressHydrationWarning>
                         {adminTime.full}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-left sm:text-right shrink-0">
                       <span className="text-sm sm:text-base font-black text-foreground tracking-tight">
                         {currencySymbol}{formatPrice(adminOffer.price)}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="hidden sm:block" />
+                  <div className="block" />
                 )}
 
                 {/* Right Column: User Asking Price */}
                 {userOffer ? (
-                  <div className="bg-foreground/[0.04] dark:bg-card border border-border/80 rounded-2xl p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3 transition-all shadow-2xs">
+                  <div className="bg-foreground/[0.04] dark:bg-card border border-border/80 rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row sm:items-center items-end sm:items-start text-right sm:text-left gap-1 sm:gap-3 transition-all shadow-2xs">
                     <UserAvatar
                       src={resolvedUserAvatar}
                       name={userCounterName}
-                      className="w-8 h-8 sm:w-9 sm:h-9"
+                      className="w-6 h-6 sm:w-9 sm:h-9 hidden sm:flex"
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] sm:text-xs font-semibold text-foreground/85 truncate" suppressHydrationWarning>
+                    <div className="flex-1 min-w-0 w-full">
+                      <p className="text-[10px] sm:text-xs font-semibold text-foreground/85 truncate" suppressHydrationWarning>
                         {userTime.full}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right sm:text-left shrink-0">
                       <span className="text-sm sm:text-base font-black text-brand-blue tracking-tight">
                         {currencySymbol}{formatPrice(userOffer.price)}
                       </span>

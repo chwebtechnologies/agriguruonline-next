@@ -51,6 +51,7 @@ export default function MyInquiriesClient({
   }, [activeList, searchQuery]);
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [isMobileDetailView, setIsMobileDetailView] = useState(false);
 
   // Derive current selected item or fallback to first item
   const selectedItem = useMemo(() => {
@@ -66,6 +67,7 @@ export default function MyInquiriesClient({
     setSearchQuery('');
     setSelectedItemId(null);
     setCheckedItems([]);
+    setIsMobileDetailView(false);
   };
 
   const handleCheckItem = (itemId: string) => {
@@ -103,10 +105,10 @@ export default function MyInquiriesClient({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 xl:gap-6 items-stretch">
         
         {/* Left Column: Search, Tabs & List */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-3.5 bg-card/60 p-3.5 sm:p-4 rounded-2xl border border-border h-full">
+        <div className={`lg:col-span-5 xl:col-span-4 flex flex-col gap-3.5 bg-card/60 p-3.5 sm:p-4 rounded-2xl border border-border h-full overflow-hidden ${isMobileDetailView ? 'hidden lg:flex' : ''}`}>
           
           {/* Search Bar matching mockup */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
               <i className="fa-solid fa-magnifying-glass text-foreground/40 text-sm"></i>
             </div>
@@ -120,7 +122,7 @@ export default function MyInquiriesClient({
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-foreground/40 hover:text-foreground"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-foreground/40 hover:text-foreground shrink-0"
               >
                 <i className="fa-solid fa-xmark text-sm"></i>
               </button>
@@ -129,7 +131,7 @@ export default function MyInquiriesClient({
 
           {/* Segmented Two Tabs OR Action Bar */}
           {checkedItems.length > 0 ? (
-            <div className="flex items-center justify-between bg-brand-blue/10 p-2 sm:p-2.5 rounded-xl border border-brand-blue/20">
+            <div className="flex items-center justify-between bg-brand-blue/10 p-2 sm:p-2.5 rounded-xl border border-brand-blue/20 shrink-0">
               <div 
                 className="flex items-center gap-2.5 cursor-pointer select-none pl-1"
                 onClick={handleCheckAll}
@@ -152,7 +154,7 @@ export default function MyInquiriesClient({
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 bg-background/50 p-1 rounded-xl border border-border/80">
+            <div className="grid grid-cols-2 gap-2 bg-background/50 p-1 rounded-xl border border-border/80 shrink-0">
               <button
                 onClick={() => handleTabChange('product')}
                 className={`py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${
@@ -187,7 +189,8 @@ export default function MyInquiriesClient({
           )}
 
           {/* List Items Container */}
-          <div className="mt-1 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="mt-1 flex-1 relative min-h-[400px]">
+            <div className="absolute inset-0 overflow-y-auto pr-1 custom-scrollbar">
             {filteredList.length > 0 ? (
               filteredList.map((item, index) => {
                 const itemId = item?.id || item?._id || `inquiry-${index}`;
@@ -199,7 +202,10 @@ export default function MyInquiriesClient({
                     type={activeTab}
                     isActive={isActive}
                     isChecked={checkedItems.includes(itemId)}
-                    onClick={() => setSelectedItemId(itemId)}
+                    onClick={() => {
+                      setSelectedItemId(itemId);
+                      setIsMobileDetailView(true);
+                    }}
                     onCheck={(e) => {
                       e.stopPropagation();
                       handleCheckItem(itemId);
@@ -222,11 +228,12 @@ export default function MyInquiriesClient({
                 </p>
               </div>
             )}
+            </div>
           </div>
         </div>
 
         {/* Right Column: Complete Details & Negotiation Panel */}
-        <div className="lg:col-span-7 xl:col-span-8 h-full">
+        <div className={`lg:col-span-7 xl:col-span-8 ${isMobileDetailView ? 'fixed inset-0 z-[100] bg-background overflow-y-auto p-3 sm:p-4 block lg:static lg:z-auto lg:bg-transparent lg:p-0 lg:overflow-visible lg:h-full' : 'hidden lg:block h-full'}`}>
           <InquiryDetailsPanel
             selectedItem={selectedItem}
             selectedItemId={selectedItemId || (selectedItem?.id || selectedItem?._id || null)}
@@ -235,6 +242,7 @@ export default function MyInquiriesClient({
             token={token}
             userProfile={userProfile}
             dict={dict}
+            onBack={() => setIsMobileDetailView(false)}
           />
         </div>
       </div>
