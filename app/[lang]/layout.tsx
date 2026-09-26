@@ -25,6 +25,7 @@ import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
 import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/lib/seo'
 import { NotificationProvider } from '@/components/providers/NotificationProvider'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
+import OfflineNotification from '@/components/layout/OfflineNotification'
 
 import '@fortawesome/fontawesome-free/css/all.min.css'
 import '../globals.css'
@@ -230,6 +231,7 @@ export default async function LocalizedRootLayout({
             <Suspense fallback={null}>
               <NavigationProgress />
             </Suspense>
+            <OfflineNotification />
             <AnnouncementBar />
             <Header dict={dict} activeLang={activeLang} categories={categories} />
 

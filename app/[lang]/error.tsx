@@ -22,10 +22,10 @@ export default function Error({
           <i className="fa-solid fa-triangle-exclamation text-2xl text-red-600 dark:text-red-400" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
             Something went wrong!
           </h2>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
+          <p className="text-foreground/80 text-sm md:text-base">
             We apologize for the inconvenience. An unexpected error has occurred on this page.
           </p>
         </div>
@@ -39,7 +39,7 @@ export default function Error({
           </button>
           <Link
             href="/"
-            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
+            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full border border-border bg-card text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2"
           >
             <i className="fa-solid fa-home mr-2" />
             Go Home
