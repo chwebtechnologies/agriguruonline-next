@@ -9,6 +9,7 @@ interface ActionIndicationModalProps {
   title?: string;
   description?: string;
   indicationText?: string;
+  type?: 'error' | 'warning' | 'info' | 'success';
 }
 
 export function ActionIndicationModal({
@@ -17,7 +18,8 @@ export function ActionIndicationModal({
   onConfirm,
   title = 'Action Required',
   description = 'An error occurred.',
-  indicationText = 'Confirm'
+  indicationText = 'Confirm',
+  type = 'error'
 }: ActionIndicationModalProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -30,28 +32,58 @@ export function ActionIndicationModal({
 
   if (!isOpen) return null;
 
+  const getTypeStyles = () => {
+    switch (type) {
+      case 'warning':
+        return {
+          bgClass: 'bg-yellow-500/10 dark:bg-yellow-500/20',
+          textClass: 'text-yellow-500 dark:text-yellow-400',
+          iconClass: 'fa-solid fa-triangle-exclamation'
+        };
+      case 'info':
+        return {
+          bgClass: 'bg-brand-blue/10 dark:bg-brand-blue/20',
+          textClass: 'text-brand-blue',
+          iconClass: 'fa-solid fa-circle-info'
+        };
+      case 'success':
+        return {
+          bgClass: 'bg-brand-green/10 dark:bg-brand-green/20',
+          textClass: 'text-brand-green',
+          iconClass: 'fa-solid fa-circle-check'
+        };
+      case 'error':
+      default:
+        return {
+          bgClass: 'bg-brand-red/10 dark:bg-brand-red/20',
+          textClass: 'text-brand-red',
+          iconClass: 'fa-solid fa-circle-exclamation'
+        };
+    }
+  };
+
+  const { bgClass, textClass, iconClass } = getTypeStyles();
+
   return (
     <div 
-      className="fixed inset-0 z-[600] flex items-center justify-center bg-black/80 px-4"
+      className="fixed inset-0 z-[600] flex items-center justify-center bg-background/60 backdrop-blur-sm px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="action-modal-title"
       aria-describedby="action-modal-desc"
     >
-      <div className="bg-card rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex gap-4 items-center mb-6">
-          <div className="w-12 h-12 bg-brand-red/10 dark:bg-brand-red/20 rounded-full flex items-center justify-center shrink-0 text-brand-red">
-            <i className="fa-solid fa-circle-exclamation text-xl"></i>
-          </div>
-          <div className="flex flex-col justify-center w-full items-center">
-            <h3 id="action-modal-title" className="text-[17px] font-bold text-foreground mb-1 leading-none text-center">
-              {title}
-            </h3>
-            <p id="action-modal-desc" className="text-foreground/80 text-[14px] leading-snug text-center">
-              {description}
-            </p>
-          </div>
+      <div className="bg-card rounded-3xl p-6 sm:p-7 w-[92vw] sm:w-[420px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 mx-auto flex flex-col items-center text-center">
+        <div className={`w-16 h-16 ${bgClass} rounded-full flex items-center justify-center shrink-0 ${textClass} mb-4`}>
+          <i className={`${iconClass} text-3xl`}></i>
         </div>
+        
+        <h3 id="action-modal-title" className="text-[19px] font-bold text-foreground mb-2 leading-none">
+          {title}
+        </h3>
+        
+        <p id="action-modal-desc" className="text-foreground/70 text-[14.5px] leading-relaxed break-words mb-6 w-full">
+          {description}
+        </p>
 
         <div className="flex w-full gap-3">
           <button

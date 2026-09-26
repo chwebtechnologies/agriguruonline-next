@@ -296,7 +296,8 @@ export async function getPriceAnalysisDetailsAction(
     if (!token) return { success: false, error: "Not authenticated", data: null };
 
     const safeLang = getSafeLang(lang);
-    const url = `https://trading-api.agriguruonline.cloud/price-analysis/details/${type}/${id}?lang_code=${safeLang}`;
+    const { getTradingApiUrl } = await import("@/lib/api-utils");
+    const url = `${getTradingApiUrl()}/price-analysis/details/${type}/${id}?lang_code=${safeLang}&source=web`;
     
     const res = await fetch(url, {
       headers: {

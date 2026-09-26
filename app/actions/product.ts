@@ -1,6 +1,6 @@
 "use server";
 
-import { customFetchJSON } from "@/lib/api/fetcher";
+import { customFetch, customFetchJSON } from "@/lib/api/fetcher";
 import { cookies } from "next/headers";
 import fs from "fs";
 
@@ -236,5 +236,61 @@ export async function submitTradingInquiry(payload: any) {
   } catch (error) {
     console.error("Error submitting trading inquiry:", error);
     return { success: false, message: "Failed to submit inquiry", data: null };
+  }
+}
+
+export async function checkKYCStatus(langCode: string, type: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+
+  if (!token) {
+    return { success: false, message: "Unauthorized", data: null };
+  }
+
+  let user_id = '';
+  try {
+    const userApiUrl = process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud';
+    const profileUrl = `${userApiUrl}/user/my-profile?lang_code=${langCode}&source=web`;
+    const profileRes = await customFetchJSON<any>(profileUrl, { token });
+    if (profileRes && profileRes.data && profileRes.data.id) {
+       user_id = profileRes.data.id;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  const url = `${tradingApiUrl}/trading-inquiry/next-button?lang_code=${langCode}&source=web`;
+  
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-source': 'web',
+        'source': 'web',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        type: type,
+        user_id: user_id
+      })
+    });
+    
+    const data = await res.json().catch(() => null);
+    console.log("KYC API Response:", data, "Status:", res.status);
+    
+    if (data) {
+       return data;
+    }
+    
+    if (!res.ok) {
+       return { success: false, message: "Failed", data: null };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error("Error checking KYC status:", error);
+    return { success: false, message: "Failed to check KYC status", data: null };
   }
 }

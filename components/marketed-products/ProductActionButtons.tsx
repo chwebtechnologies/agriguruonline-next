@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { ProductInquiryModal } from './ProductInquiryModal';
 import { useRouter } from 'next/navigation';
-import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms } from '@/app/actions/product';
+import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
+import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
 
 interface ProductActionButtonsProps {
   productSlugOrId: string;
@@ -36,6 +37,10 @@ export function ProductActionButtons({
   const [modalAction, setModalAction] = useState<'buy' | 'sell'>('buy');
   const [isLoading, setIsLoading] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
+  const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [kycMessage, setKycMessage] = useState('');
+  const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
+  const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
 
   const addProductHref = `/${lang}/product/${encodeURIComponent(productSlugOrId)}`;
   const buyHref = `/${lang}/product/${encodeURIComponent(productSlugOrId)}?action=buy`;
@@ -63,6 +68,33 @@ export function ProductActionButtons({
     setIsLoading(true);
     
     try {
+      const type = action === 'buy' ? 'BUYER' : 'SELLER';
+      const kycResponse = await checkKYCStatus(lang, type);
+      
+      const isErrorOrNotVerified = 
+        (kycResponse && kycResponse.data && kycResponse.data.can_create === false) ||
+        (kycResponse && kycResponse.response_indication === 'NOT_VERIFIED') ||
+        (kycResponse && kycResponse.data?.response_indication === 'NOT_VERIFIED') ||
+        (kycResponse && (kycResponse.success === 0 || kycResponse.success === false) && (kycResponse.response_indication || kycResponse.data?.response_indication || kycResponse.message));
+
+      if (isErrorOrNotVerified) {
+        setKycMessage(kycResponse.message || "You cannot proceed with this action.");
+        
+        const indication = kycResponse.response_indication || kycResponse.data?.response_indication;
+        
+        if (indication === 'NOT_VERIFIED') {
+          setKycIndicationText('Submit Documents');
+          setKycRedirectUrl(`/${lang}/profile`);
+        } else {
+          setKycIndicationText('Upgrade Plan');
+          setKycRedirectUrl(`/${lang}/profile`); // Modify this to pricing page if available
+        }
+        
+        setIsKYCModalOpen(true);
+        setIsLoading(false);
+        return;
+      }
+      
       const [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
         fetchProductDetails(productSlugOrId, lang),
         fetchShippingTerms(lang),
@@ -82,11 +114,11 @@ export function ProductActionButtons({
       }
       
       setModalData(combinedData);
+      setIsModalOpen(true);
     } catch (error) {
       console.error("Failed to fetch product details", error);
     } finally {
       setIsLoading(false);
-      setIsModalOpen(true);
     }
   };
 
@@ -192,6 +224,19 @@ export function ProductActionButtons({
         packingTypes={modalData?.product?.packing_types || []}
         containers={modalData?.product?.containers || []}
         paymentTerms={modalData?.paymentTerms || []}
+      />
+
+      <ActionIndicationModal
+        isOpen={isKYCModalOpen}
+        onClose={() => setIsKYCModalOpen(false)}
+        onConfirm={() => {
+          setIsKYCModalOpen(false);
+          router.push(kycRedirectUrl);
+        }}
+        title="Action Required"
+        description={kycMessage}
+        indicationText={kycIndicationText}
+        type="warning"
       />
     </>
   );
