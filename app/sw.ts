@@ -13,10 +13,23 @@ declare global {
 declare const self: ServiceWorkerGlobalScope;
 
 const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
+  precacheEntries: [
+    ...(self.__SW_MANIFEST || []),
+    { url: "/~offline", revision: "offline-fallback-v1" }
+  ],
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
+  fallbacks: {
+    entries: [
+      {
+        url: "/~offline",
+        matcher({ request }) {
+          return request.destination === "document";
+        },
+      },
+    ],
+  },
   runtimeCaching: [
     // Aggressively cache Next.js RSC payloads (the data fetched during client-side navigation)
     // StaleWhileRevalidate will serve the page INSTANTLY from cache, then update in background.

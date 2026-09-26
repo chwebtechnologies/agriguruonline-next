@@ -208,22 +208,7 @@ export default async function LocalizedRootLayout({
             `,
           }}
         />
-        <Script
-          id="sw-unregister"
-          strategy="lazyOnload"
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                  for (let registration of registrations) {
-                    registration.unregister();
-                  }
-                }).catch(function(err) {
-                });
-              }
-            `
-          }}
-        />
+
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>
