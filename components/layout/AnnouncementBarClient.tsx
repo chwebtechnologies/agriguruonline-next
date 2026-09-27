@@ -131,7 +131,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   return (
     <div
-      className="w-full bg-primary-gradient text-white px-4 text-sm font-semibold shadow-sm flex items-center relative md:sticky top-0 z-[60] h-10 py-2 border-b border-emerald-950/20"
+      className="w-full bg-primary-gradient text-white px-4 text-sm font-semibold shadow-sm flex items-center relative z-20 border-b border-emerald-950/20 max-h-[40px] h-10 py-2 overflow-visible"
       dir={dir}
     >
       <div className="mx-auto w-full max-w-7xl flex justify-between items-center gap-6">

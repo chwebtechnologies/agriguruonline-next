@@ -12,14 +12,39 @@ interface MenuItem {
   textColor?: string;
 }
 
+interface AppMenuProps {
+  children?: React.ReactNode;
+  align?: 'left' | 'right';
+  profile?: any;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
 import { useParams } from 'next/navigation'
 import { useTheme } from '@/components/providers/ThemeProvider'
 
-export function AppMenu({ children, align = 'right', profile }: { children?: React.ReactNode, align?: 'left' | 'right', profile?: any }) {
+export function AppMenu({ 
+  children, 
+  align = 'right', 
+  profile,
+  isOpen: controlledIsOpen,
+  onOpenChange
+}: AppMenuProps) {
   const params = useParams();
   const lang = (params?.lang as string) || 'en';
   const menuId = useId();
-  const [isOpen, setIsOpen] = useState(false);
+  const isControlled = controlledIsOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = isControlled ? controlledIsOpen : internalOpen;
+
+  const setIsOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const nextValue = typeof value === 'function' ? value(isOpen) : value;
+    if (!isControlled) {
+      setInternalOpen(nextValue);
+    }
+    onOpenChange?.(nextValue);
+  };
+
   const { theme, setTheme } = useTheme();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -37,9 +62,15 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+      const target = event.target as Node | null;
+      if (menuRef.current && menuRef.current.contains(target)) {
+        return;
       }
+      const el = target instanceof Element ? target : target?.parentElement;
+      if (el && el.closest('[data-app-menu="true"]')) {
+        return;
+      }
+      setIsOpen(false);
     }
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
@@ -102,18 +133,6 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
     ]
   ];
 
-  // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
   const isRtl = lang === 'ar';
   let alignClass = '';
   if (align === 'left') {
@@ -123,25 +142,19 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
   }
 
   return (
-    <div className="md:relative" ref={menuRef} suppressHydrationWarning>
-      <input 
-        type="checkbox" 
-        id={menuId} 
-        className="peer sr-only" 
-        checked={isOpen} 
-        onChange={(e) => setIsOpen(e.target.checked)} 
-        aria-label="Toggle menu"
-      />
+    <div className="md:relative" ref={menuRef} data-app-menu="true" suppressHydrationWarning>
       {/* Trigger */}
-      <label
-        htmlFor={menuId}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setIsOpen(!isOpen);
-          }
+      <button
+        type="button"
+        id={menuId}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(!isOpen);
         }}
-        className="block cursor-pointer bg-transparent border-0 p-0 m-0 appearance-none outline-none"
+        aria-expanded={isOpen}
+        aria-label="Toggle menu"
+        className="block cursor-pointer bg-transparent border-0 p-0 m-0 appearance-none outline-none text-left"
       >
         {children || (
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background border border-border shadow-sm hover:shadow text-foreground transition-all">
@@ -149,7 +162,7 @@ export function AppMenu({ children, align = 'right', profile }: { children?: Rea
             <i className="fa-solid fa-bars text-xl" aria-hidden="true"></i>
           </div>
         )}
-      </label>
+      </button>
 
       {/* --- RESPONSIVE UNIFIED DROPDOWN VIEW --- */}
       {isOpen && (

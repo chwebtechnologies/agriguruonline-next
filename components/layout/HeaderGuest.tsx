@@ -86,7 +86,12 @@ export function HeaderGuestBase({
   initialSearchProducts = [],
 }: HeaderGuestBaseProps) {
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setIsMenuOpen(false)
+  }, [pathname])
 
 
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
@@ -159,19 +164,14 @@ export function HeaderGuestBase({
       const sy = window.scrollY
 
       if (scrolled) {
-        if (sy < 20) {
+        if (sy < 15) {
           scrolled = false
           setIsScrolled(false)
         }
       } else {
-        // Protect against Mac rubber-banding collapsing the bar on short pages
-        if (document.documentElement.scrollHeight > window.innerHeight + 150) {
-          // Use a threshold gap (120px vs 20px) that exceeds the header shrink amount (~80px).
-          // This prevents the browser's scroll anchoring from forcing an infinite loop.
-          if (sy > 120) {
-            scrolled = true
-            setIsScrolled(true)
-          }
+        if (sy > 45) {
+          scrolled = true
+          setIsScrolled(true)
         }
       }
     }
@@ -243,7 +243,7 @@ export function HeaderGuestBase({
   const dropdownCategories = categoriesList.slice(finalFitCount)
 
   return (
-    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0 md:top-10" dir={dir}>
+    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar */}
       <header className="relative w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
@@ -252,16 +252,16 @@ export function HeaderGuestBase({
           <div className="flex items-center flex-1 gap-3 md:gap-4">
             <div className="flex items-center shrink-0 md:w-[110px] rtl:md:w-[130px] w-auto">
               <div className="md:hidden">
-                <AppMenu align="left">
-                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
+                <AppMenu align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
                 </AppMenu>
               </div>
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
-                  <AppMenu align="left">
-                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
+                  <AppMenu align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <i className="fa-solid fa-bars text-3xl"></i>
                       <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
                     </div>
@@ -378,7 +378,7 @@ export function HeaderGuestBase({
             {loading ? (
               <div className="h-5 w-16 bg-muted animate-pulse rounded" />
             ) : (
-              <AppMenu align="left">
+              <AppMenu align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                 <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                   <i className="fa-solid fa-bars text-3xl"></i>
                   <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>

@@ -88,6 +88,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
   const [profile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [activeNotificationTab, setActiveNotificationTab] = useState<'notifications' | 'alerts' | 'ai_predicts'>('notifications')
 
@@ -372,6 +373,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
+  useEffect(() => {
+    setIsMenuOpen(false)
+  }, [pathname])
+
   // SSR props are used directly for state initialization above.
   // No useEffect needed to sync them — they are passed once at mount time from the Server Component.
 
@@ -382,19 +387,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
       const sy = window.scrollY
 
       if (scrolled) {
-        if (sy < 20) {
+        if (sy < 15) {
           scrolled = false
           setIsScrolled(false)
         }
       } else {
-        // Protect against Mac rubber-banding collapsing the bar on short pages
-        if (document.documentElement.scrollHeight > window.innerHeight + 150) {
-          // Use a threshold gap (120px vs 20px) that exceeds the header shrink amount (~80px).
-          // This prevents the browser's scroll anchoring from forcing an infinite loop.
-          if (sy > 120) {
-            scrolled = true
-            setIsScrolled(true)
-          }
+        if (sy > 45) {
+          scrolled = true
+          setIsScrolled(true)
         }
       }
     }
@@ -498,7 +498,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   }
 
   return (
-    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-theme sticky top-0 md:top-10" dir={dir}>
+    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar (Always sticky) */}
       <header className="relative w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
@@ -511,16 +511,16 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               {/* On Mobile: Always show Hamburger Menu.
                   On Desktop (md+): Only show Hamburger Menu when scrolled (replacing Logo). */}
               <div className="md:hidden">
-                <AppMenu align="left" profile={profile}>
-                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
+                <AppMenu align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
                 </AppMenu>
               </div>
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
-                  <AppMenu align="left" profile={profile}>
-                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
+                  <AppMenu align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                    <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <i className="fa-solid fa-bars text-3xl"></i>
                       <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
                     </div>
@@ -900,8 +900,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           {/* Left-aligned Menu Trigger */}
           <div className="shrink-0 border-e border-border pe-5 flex items-center">
-            <AppMenu align="left" profile={profile}>
-              <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors pointer-events-none">
+            <AppMenu align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+              <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                 <i className="fa-solid fa-bars text-3xl"></i>
                 <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
               </div>

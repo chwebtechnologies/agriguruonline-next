@@ -5,13 +5,18 @@ import { useState, useEffect } from 'react'
 
 export function PageHeader({ title, backText = "Back", hideBack = false, backHref, onBackClick }: { title: string, backText?: string, hideBack?: boolean, backHref?: string, onBackClick?: () => void }) {
   const router = useRouter()
-  const [headerHeight, setHeaderHeight] = useState<number>(0)
+  const [headerHeight, setHeaderHeight] = useState<number>(65)
 
   useEffect(() => {
     const updateHeaderHeight = () => {
       const header = document.getElementById('site-header')
       if (header) {
-        setHeaderHeight(header.offsetHeight)
+        const mainHeader = header.querySelector('header')
+        if (mainHeader && mainHeader.offsetHeight > 0) {
+          setHeaderHeight(mainHeader.offsetHeight)
+        } else if (header.offsetHeight > 0) {
+          setHeaderHeight(header.offsetHeight)
+        }
       }
     }
 
@@ -27,12 +32,10 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
     }
 
     window.addEventListener('resize', updateHeaderHeight)
-    window.addEventListener('scroll', updateHeaderHeight, { passive: true })
 
     return () => {
       if (observer) observer.disconnect()
       window.removeEventListener('resize', updateHeaderHeight)
-      window.removeEventListener('scroll', updateHeaderHeight)
     }
   }, [])
 
@@ -48,11 +51,11 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
 
   return (
     <div
-      style={{ top: headerHeight ? `${headerHeight}px` : undefined }}
-      className="sticky top-[69px] md:top-[122px] z-40 -mt-3 py-1.5 sm:py-2 flex items-center justify-between w-full mb-1 sm:mb-2 bg-background relative"
+      style={{ top: `${headerHeight}px` }}
+      className="sticky top-[63px] z-40 py-2 sm:py-2.5 flex items-center justify-between w-full mb-2 bg-background relative"
     >
-      {/* Full-width background bleed */}
-      <div className="absolute inset-y-0 w-[100vw] left-1/2 -translate-x-1/2 bg-background z-0 pointer-events-none" />
+      {/* Full-width background bleed to hide scrolling content behind PageHeader */}
+      <div className="absolute inset-y-0 w-screen left-1/2 -translate-x-1/2 bg-background z-0 pointer-events-none border-b border-border/40 shadow-xs" />
       
       {/* Left Column: Back Button */}
       <div className="flex-none flex items-center justify-start relative z-20">
@@ -75,7 +78,6 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center px-[45px] sm:px-[120px] z-10">
         <h1 
           className="pointer-events-auto text-xl min-[375px]:text-[22px] min-[410px]:text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-extrabold text-center truncate tracking-tight leading-tight w-full"
-          
         >
           {(title || '').split(' ').map((word, index, arr) => (
             <span key={index}>
