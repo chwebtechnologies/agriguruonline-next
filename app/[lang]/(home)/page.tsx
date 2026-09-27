@@ -72,7 +72,8 @@ export const revalidate = 60;
 import { Suspense } from 'react'
 
 export default async function LocalizedHomePage() {
-  const activeLang = (await lang()) || 'en'
+  const rawLang = await lang()
+  const activeLang = getSafeLanguage(rawLang)
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
   return (
@@ -154,7 +155,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
 
   return (
     <>
-      <section className="w-full pt-8 pb-0">
+      <section className="w-full pt-4 pb-2">
         <div className="max-w-3xl mx-auto text-center px-4">
           
           {/* Premium Section Title Feel */}
@@ -167,7 +168,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           </div>
           
           {/* SEO Description for News only */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
             Explore daily breaking headlines, international trade policies, and crucial market updates shaping the global agricultural commodity sector for B2B traders.
           </p>
           
@@ -193,7 +194,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           </div>
           
           {/* SEO Description for Events */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
             Discover upcoming international agricultural exhibitions, trade shows, and B2B conferences tailored for commodity traders and industry leaders.
           </p>
           
@@ -218,7 +219,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           </div>
           
           {/* SEO Description for Products */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
             Source premium agricultural commodities for global trade. Explore top-tier B2B products from trusted international suppliers at AgriGuru Online.
           </p>
         </div>

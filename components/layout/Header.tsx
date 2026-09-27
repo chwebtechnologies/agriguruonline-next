@@ -3,6 +3,7 @@ import { lang } from 'next/root-params'
 import { getCategories } from '@/lib/category'
 import { tradingService } from '@/lib/api'
 import { SearchProduct } from '@/types/search'
+import { getSafeLanguage } from '@/lib/seo'
 
 
 interface HeaderProps {
@@ -12,7 +13,7 @@ interface HeaderProps {
 }
 
 export default async function Header(props?: HeaderProps) {
-  const activeLang = props?.activeLang || (await lang()) || 'en'
+  const activeLang = props?.activeLang || getSafeLanguage(await lang())
 
   let dict = props?.dict
   if (!dict) {

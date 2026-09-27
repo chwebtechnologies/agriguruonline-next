@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useId, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from '@/components/providers/ThemeProvider'
@@ -29,12 +29,9 @@ interface AnnouncementBarClientProps {
 }
 
 export default function AnnouncementBarClient({ announcements, dict, activeLang }: AnnouncementBarClientProps) {
-  const langDropdownId = useId()
   const pathname = usePathname() || '/'
   const router = useRouter()
-  const langDropdownRef = useRef<HTMLDivElement>(null)
 
-  const [langDropdownOpen, setLangDropdownOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const { theme, setTheme } = useTheme()
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -65,17 +62,6 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
     return () => clearInterval(interval)
   }, [announcements.length])
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
-        setLangDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   const getLangUrl = (newLang: string) => {
     const p = pathname || '/'
     const s = currentQuery
@@ -91,20 +77,8 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
     return '/' + segments.join('/') + s
   }
 
-  const handleDropdownToggle = (open: boolean) => {
-    setLangDropdownOpen(open)
-    if (open) {
-      languages.forEach((l) => {
-        if (l.code !== activeLang) {
-          router.prefetch(getLangUrl(l.code))
-        }
-      })
-    }
-  }
-
   const handleLanguageSelect = (e: React.MouseEvent, targetLang: string) => {
     e.preventDefault()
-    setLangDropdownOpen(false)
     if (targetLang === activeLang) return
 
     const targetUrl = getLangUrl(targetLang)
@@ -131,7 +105,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   return (
     <div
-      className="w-full bg-primary-gradient text-white px-4 text-sm font-semibold shadow-sm flex items-center relative z-20 border-b border-emerald-950/20 max-h-[40px] h-10 py-2 overflow-visible"
+      className="w-full bg-primary-gradient text-white px-4 text-sm font-semibold shadow-sm flex items-center relative z-[60] border-b border-emerald-950/20 max-h-[40px] h-10 py-2 overflow-visible"
       dir={dir}
     >
       <div className="mx-auto w-full max-w-7xl flex justify-between items-center gap-6">
@@ -179,44 +153,45 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
           </Link>
 
           {/* Language Dropdown */}
-          <div className="relative inline-block text-left" ref={langDropdownRef}>
-            <input 
-              type="checkbox" 
-              id={langDropdownId} 
-              className="peer sr-only" 
-              checked={langDropdownOpen} 
-              onChange={(e) => handleDropdownToggle(e.target.checked)} 
+          <div className="relative inline-block text-left group">
+            <button
+              className="flex items-center gap-2 text-white hover:text-emerald-300 transition-colors focus:outline-none cursor-pointer select-none py-1"
               aria-label="Select Language"
-            />
-            <label
-              htmlFor={langDropdownId}
-              className="flex items-center gap-2 text-white hover:text-emerald-300 transition-colors focus:outline-none cursor-pointer select-none"
+              onMouseEnter={() => {
+                languages.forEach((l) => {
+                  if (l.code !== activeLang) {
+                    router.prefetch(getLangUrl(l.code))
+                  }
+                })
+              }}
             >
               <span className="text-[15.5px] leading-none">{activeLanguage.flag}</span>
               <span>{activeLanguage.name}</span>
               {isPending ? (
                 <i className="fa-solid fa-circle-notch fa-spin text-[11px] text-emerald-300"></i>
               ) : (
-                <i className={`fa-solid fa-chevron-down text-[10px] ml-0.5 text-emerald-300 transition-transform duration-200 ${langDropdownOpen ? 'rotate-180' : ''}`}></i>
+                <i className="fa-solid fa-chevron-down text-[10px] ml-0.5 text-emerald-300 transition-transform duration-200 group-hover:rotate-180"></i>
               )}
-            </label>
-            <div className={`hidden peer-checked:block absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-2 w-36 rounded-lg bg-card border border-border shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150`}>
-              <div className="py-1">
-                {languages.map((l) => (
-                  <Link
-                    key={l.code}
-                    href={getLangUrl(l.code)}
-                    prefetch={true}
-                    scroll={false}
-                    onMouseEnter={() => router.prefetch(getLangUrl(l.code))}
-                    onClick={(e) => handleLanguageSelect(e, l.code)}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold hover:bg-muted transition-colors ${activeLang === l.code ? 'text-emerald-400 bg-muted/40' : 'text-muted-foreground'
-                      }`}
-                  >
-                    <span className="text-[15px]">{l.flag}</span>
-                    <span>{l.name}</span>
-                  </Link>
-                ))}
+            </button>
+            <div className={`invisible opacity-0 group-hover:visible group-hover:opacity-100 absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} top-full mt-0 pt-2 w-36 transition-all duration-150 z-50`}>
+              <div className="rounded-lg bg-card border border-border shadow-xl overflow-hidden">
+                <div className="py-1">
+                  {languages.map((l) => (
+                    <Link
+                      key={l.code}
+                      href={getLangUrl(l.code)}
+                      prefetch={true}
+                      scroll={false}
+                      onMouseEnter={() => router.prefetch(getLangUrl(l.code))}
+                      onClick={(e) => handleLanguageSelect(e, l.code)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[13px] hover:bg-muted transition-colors ${activeLang === l.code ? 'text-primary bg-primary/10 font-bold' : 'text-muted-foreground font-semibold'
+                        }`}
+                    >
+                      <span className="text-[16px]">{l.flag}</span>
+                      <span>{l.name}</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

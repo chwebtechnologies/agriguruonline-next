@@ -54,7 +54,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
           </FastLink>
         </h2>
         
-        <p className="text-[13px] text-foreground/80 mb-4 line-clamp-3 flex-grow">
+        <p className="text-[13px] text-foreground/80 mb-4 line-clamp-2 flex-grow">
           {excerpt}
         </p>
         

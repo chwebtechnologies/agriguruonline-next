@@ -93,7 +93,7 @@ export default function InfiniteEventsCarousel({ events, lang }: { events: any[]
 
   return (
     <div 
-      className="mt-8 relative w-full group"
+      className="mt-5 relative w-full group"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -106,7 +106,7 @@ export default function InfiniteEventsCarousel({ events, lang }: { events: any[]
           {items.map((eventItem: any, index: number) => (
             <div 
               key={eventItem._uniqueId} 
-              className="shrink-0 w-[85vw] sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(25%-15px)]"
+              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(25%-15px)]"
             >
               <EventCard event={eventItem} lang={lang} priority={index < 4} />
             </div>

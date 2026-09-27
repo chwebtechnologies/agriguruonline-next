@@ -101,7 +101,7 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
 
   return (
     <div 
-      className="mt-8 relative w-full group"
+      className="mt-5 relative w-full group"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -114,7 +114,7 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
           {items.map((productItem: any, index: number) => (
             <div 
               key={productItem._uniqueId} 
-              className="shrink-0 w-[85vw] sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(20%-16px)]"
+              className="shrink-0 w-[calc(50%-8px)] sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(20%-16px)]"
             >
               <MarketedProductCard
                 product={productItem}

@@ -3,9 +3,11 @@ import { lang } from 'next/root-params'
 import AnnouncementBarClient from './AnnouncementBarClient'
 import { Suspense } from 'react'
 import { cmsService } from '@/lib/api';
+import { getSafeLanguage } from '@/lib/seo';
 
 export default async function AnnouncementBar() {
-  const activeLang = (await lang()) || 'en'
+  const rawLang = await lang()
+  const activeLang = getSafeLanguage(rawLang)
   const rawDict = await getDictionary()
 
   const defaultHeader = {

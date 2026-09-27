@@ -2,9 +2,11 @@ import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import FooterClient from './FooterClient'
 import { Suspense } from 'react'
+import { getSafeLanguage } from '@/lib/seo'
 
 export default async function Footer() {
-  const activeLang = (await lang()) || 'en'
+  const rawLang = await lang()
+  const activeLang = getSafeLanguage(rawLang)
   const rawDict = await getDictionary()
 
   const defaultFooter = {
