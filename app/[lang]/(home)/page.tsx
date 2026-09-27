@@ -1,5 +1,6 @@
 import { getDictionary } from '../dictionaries'
 import { lang } from 'next/root-params'
+import HeroCarousel from '@/components/home/HeroCarousel'
 
 import type { Metadata } from 'next'
 
@@ -65,16 +66,22 @@ export const revalidate = 60;
 import { Suspense } from 'react'
 
 export default async function LocalizedHomePage() {
-  const activeLang = await lang()
+  const activeLang = (await lang()) || 'en'
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
   return (
     <>
       <OrganizationSchema />
-      <div className="flex flex-col items-center justify-center py-32 sm:py-48 bg-background text-foreground transition-theme" dir={dir}>
-        <Suspense fallback={<HomePageSkeleton />}>
-          <LocalizedHomePageContent activeLang={activeLang} />
-        </Suspense>
+      <div className="bg-background text-foreground transition-theme" dir={dir}>
+        <div className="w-full pad-for-badges">
+          <div className="max-w-7xl mx-auto pt-3 pb-5 px-2 sm:px-0">
+            <HeroCarousel lang={activeLang} />
+            
+            <Suspense fallback={<HomePageSkeleton />}>
+              <LocalizedHomePageContent activeLang={activeLang} />
+            </Suspense>
+          </div>
+        </div>
       </div>
     </>
   )
@@ -82,7 +89,9 @@ export default async function LocalizedHomePage() {
 
 function HomePageSkeleton() {
   return (
-    <div className="h-12 sm:h-16 w-3/4 sm:w-1/2 bg-muted animate-pulse rounded-2xl"></div>
+    <div className="flex flex-col items-center justify-center py-20">
+      <div className="h-12 sm:h-16 w-3/4 sm:w-1/2 bg-muted animate-pulse rounded-2xl"></div>
+    </div>
   )
 }
 
@@ -101,8 +110,13 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
   }
 
   return (
-    <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-center">
-      {dict.home.title}
-    </h1>
+    <div className="flex flex-col items-center justify-center py-12">
+      <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-center mb-6">
+        {dict.home.title}
+      </h1>
+      <p className="text-muted-foreground text-center max-w-2xl">
+        The premium B2B SaaS platform for global agricultural trade. Start exploring our market updates, latest products, and global network today.
+      </p>
+    </div>
   )
 }
