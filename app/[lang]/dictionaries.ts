@@ -15,6 +15,6 @@ const hasLocale = (locale: string): locale is Locale =>
 
 export const getDictionary = async (langOverride?: string) => {
   const locale = langOverride || await lang()
-  if (!hasLocale(locale)) return dictionaries['en']()
+  if (!locale || !hasLocale(locale)) return dictionaries['en']()
   return dictionaries[locale]()
 }
