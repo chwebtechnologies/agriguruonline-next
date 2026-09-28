@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import CategoryLink from '@/components/category/CategoryLink'
@@ -8,8 +8,9 @@ import { usePathname, useRouter } from 'next/navigation'
 
 import { HeaderGuest, AgriGuruLogo } from './HeaderGuest'
 import { AppMenu } from '@/components/layout/AppMenu'
-import { getAssetsUrl, getNormalizedUserType } from '@/lib/api-utils';
-import { authService } from '@/lib/api';
+import { getAssetsUrl, getNormalizedUserType, getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
+import { authService, customFetch } from '@/lib/api';
+import { extractPredicts } from '@/lib/api/user.service';
 import { HeaderSearch } from '@/components/search/HeaderSearch'
 import { useNotification } from '@/components/providers/NotificationProvider'
 import { getUnreadStatusFromIndexedDB, setUnreadStatusInIndexedDB } from '@/lib/notificationStorage'
@@ -92,12 +93,105 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [activeNotificationTab, setActiveNotificationTab] = useState<'notifications' | 'alerts' | 'ai_predicts'>('notifications')
 
-  // All data is initialized from SSR props — no client-side fetching
-  const [notificationsData] = useState<any[]>(initialNotifications)
+  // Notification and alert state initialized from SSR props with client-side refresh capability
+  const [notificationsData, setNotificationsData] = useState<any[]>(initialNotifications)
+  const [alertsData, setAlertsData] = useState<any[]>(initialAlerts)
+  const [aiPredictsData, setAiPredictsData] = useState<any[]>(initialAiPredicts)
 
-  const [alertsData] = useState<any[]>(initialAlerts)
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
+  const [isLoadingAlerts, setIsLoadingAlerts] = useState(false)
+  const [isLoadingAiPredicts, setIsLoadingAiPredicts] = useState(false)
 
-  const [aiPredictsData] = useState<any[]>(initialAiPredicts)
+  // Keep state synced if SSR props change
+  useEffect(() => {
+    if (initialNotifications && initialNotifications.length > 0) {
+      setNotificationsData(initialNotifications);
+    }
+  }, [initialNotifications]);
+
+  useEffect(() => {
+    if (initialAlerts && initialAlerts.length > 0) {
+      setAlertsData(initialAlerts);
+    }
+  }, [initialAlerts]);
+
+  useEffect(() => {
+    if (initialAiPredicts && initialAiPredicts.length > 0) {
+      setAiPredictsData(initialAiPredicts);
+    }
+  }, [initialAiPredicts]);
+
+  const fetchNotifications = useCallback(async (showLoading = false) => {
+    if (!token) return;
+    if (showLoading) setIsLoadingNotifications(true);
+    try {
+      const url = `${getUserApiUrl()}/custom-notification?lang_code=${activeLang}&source=web`;
+      const res = await customFetch(url, { token });
+      if (res.ok) {
+        const data = await res.json();
+        const extractedItems = Array.isArray(data) ? data : 
+          (Array.isArray(data?.data?.notifications) ? data.data.notifications : 
+          (Array.isArray(data?.data?.data) ? data.data.data : 
+          (Array.isArray(data?.data) ? data.data : 
+          (Array.isArray(data?.notifications) ? data.notifications : []))));
+        setNotificationsData(extractedItems);
+        if (extractedItems.length > 0 && extractedItems[0]?.id && typeof window !== 'undefined') {
+          localStorage.setItem('ag_last_seen_notif_id', String(extractedItems[0].id));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    } finally {
+      if (showLoading) setIsLoadingNotifications(false);
+    }
+  }, [token, activeLang]);
+
+  const fetchAlerts = useCallback(async (showLoading = false) => {
+    if (!token) return;
+    if (showLoading) setIsLoadingAlerts(true);
+    try {
+      const url = `${getTradingApiUrl()}/price-alert?lang_code=${activeLang}&source=web`;
+      const res = await customFetch(url, { token });
+      if (res.ok) {
+        const data = await res.json();
+        const extracted = Array.isArray(data) ? data :
+          (Array.isArray(data?.data?.alerts) ? data.data.alerts :
+          (Array.isArray(data?.data?.notifications) ? data.data.notifications :
+          (Array.isArray(data?.data?.data) ? data.data.data :
+          (Array.isArray(data?.data?.results) ? data.data.results :
+          (Array.isArray(data?.results) ? data.results :
+          (Array.isArray(data?.data) ? data.data :
+          (Array.isArray(data?.alerts) ? data.alerts :
+          (Array.isArray(data?.notifications) ? data.notifications : []))))))));
+        setAlertsData(extracted);
+      }
+    } catch (error) {
+      console.error("Failed to fetch alerts:", error);
+    } finally {
+      if (showLoading) setIsLoadingAlerts(false);
+    }
+  }, [token, activeLang]);
+
+  const fetchAiPredicts = useCallback(async (showLoading = false) => {
+    if (!token) return;
+    if (showLoading) setIsLoadingAiPredicts(true);
+    try {
+      const url = `${getTradingApiUrl()}/price-analysis?lang_code=${activeLang}&source=web`;
+      const res = await customFetch(url, { token });
+      if (res.ok) {
+        const data = await res.json();
+        const extracted = extractPredicts(data);
+        setAiPredictsData(extracted);
+      }
+    } catch (error) {
+      console.error("Failed to fetch AI predicts:", error);
+    } finally {
+      if (showLoading) setIsLoadingAiPredicts(false);
+    }
+  }, [token, activeLang]);
+
+  const fetchNotificationsRef = useRef(fetchNotifications);
+  fetchNotificationsRef.current = fetchNotifications;
 
   const [activeChartData, setActiveChartData] = useState<ChartBottomSheetItem | null>(null)
   const [activeChartInitialTab, setActiveChartInitialTab] = useState<string>('Alert Setups')
@@ -252,7 +346,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
     syncUnreadState();
 
-    // Trigger unread blinking ONLY when a real push notification arrives
+    // Trigger unread blinking and refetch notifications when a real push notification arrives
     const triggerUnread = () => {
       setLocalUnread(true);
       setHasUnread(true);
@@ -260,6 +354,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
         localStorage.setItem('ag_has_unread_notif', '1');
       }
       setUnreadStatusInIndexedDB(true);
+      // Immediately fetch fresh notifications in background
+      fetchNotificationsRef.current?.(false);
     };
 
     const onStorage = (e: StorageEvent) => {
@@ -361,8 +457,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // All notification data is provided by SSR. No client-side fetching needed.
-  // The refs hasFetchedNotificationsRef, hasFetchedAlertsRef, hasFetchedAiPredictsRef are always true.
+  // Notifications, alerts, and AI predicts are loaded from SSR props and refreshed on demand on bell click
 
   // Sync FCM Token with backend reliably
   const fcmSyncedRef = useRef<string | null>(null);
@@ -539,8 +634,9 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setIsNotificationsOpen(prev => !prev);
-                      if (!isNotificationsOpen) {
+                      const willOpen = !isNotificationsOpen;
+                      setIsNotificationsOpen(willOpen);
+                      if (willOpen) {
                         setHasUnread(false);
                         setLocalUnread(false);
                         if (typeof window !== 'undefined') {
@@ -553,6 +649,15 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                           }
                         }
                         setUnreadStatusInIndexedDB(false);
+
+                        // Trigger API call immediately on bell click for active tab
+                        if (activeNotificationTab === 'notifications') {
+                          fetchNotifications(notificationsData.length === 0);
+                        } else if (activeNotificationTab === 'alerts') {
+                          fetchAlerts(alertsData.length === 0);
+                        } else if (activeNotificationTab === 'ai_predicts') {
+                          fetchAiPredicts(aiPredictsData.length === 0);
+                        }
                       }
                     }}
                     className="relative flex items-center justify-center p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200 cursor-pointer"
@@ -571,19 +676,31 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
                       <div className="flex items-center p-1 bg-muted rounded-lg mb-2">
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('notifications'); }}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setActiveNotificationTab('notifications'); 
+                            fetchNotifications(notificationsData.length === 0);
+                          }}
                           className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'notifications' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-background'}`}
                         >
                           {dict.header.notifications || 'Notifications'}
                         </button>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('alerts'); }}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setActiveNotificationTab('alerts'); 
+                            fetchAlerts(alertsData.length === 0);
+                          }}
                           className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'alerts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-background'}`}
                         >
                           {dict.header.alerts || 'Alerts'}
                         </button>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); setActiveNotificationTab('ai_predicts'); }}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setActiveNotificationTab('ai_predicts'); 
+                            fetchAiPredicts(aiPredictsData.length === 0);
+                          }}
                           className={`flex-1 py-1.5 text-[13px] font-bold rounded-md transition-all ${activeNotificationTab === 'ai_predicts' ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-background'}`}
                         >
                           {dict.header.ai_predicts || 'AI Predicts'}
@@ -593,8 +710,17 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                       <div className="mt-2 min-h-[120px] flex flex-col justify-center">
                         {activeNotificationTab === 'notifications' && (
                           <div className="flex flex-col w-full max-h-[350px] overflow-y-auto custom-scrollbar animate-in fade-in duration-200 mt-2">
-                            {notificationsData.length > 0 ? (
-                              <div className="flex flex-col w-full space-y-2">
+                            {isLoadingNotifications && notificationsData.length === 0 ? (
+                              <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary"></div>
+                              </div>
+                            ) : notificationsData.length > 0 ? (
+                              <div className="flex flex-col w-full space-y-2 relative">
+                                {isLoadingNotifications && (
+                                  <div className="flex items-center justify-center py-1">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                                  </div>
+                                )}
                                 {notificationsData.map((item, idx) => {
                                   // If the API structure is completely unexpected, this item might be the raw JSON
                                   if (!item || typeof item !== 'object') return null;
@@ -709,8 +835,17 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         )}
                         {activeNotificationTab === 'alerts' && (
                           <div className="flex flex-col w-full max-h-[350px] overflow-y-auto custom-scrollbar animate-in fade-in duration-200 mt-2">
-                            {alertsData.length > 0 ? (
-                              <div className="flex flex-col w-full space-y-2">
+                            {isLoadingAlerts && alertsData.length === 0 ? (
+                              <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary"></div>
+                              </div>
+                            ) : alertsData.length > 0 ? (
+                              <div className="flex flex-col w-full space-y-2 relative">
+                                {isLoadingAlerts && (
+                                  <div className="flex items-center justify-center py-1">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                                  </div>
+                                )}
                                 {alertsData.map((item, idx) => {
                                   if (!item || typeof item !== 'object') return null;
 
@@ -746,8 +881,17 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         )}
                         {activeNotificationTab === 'ai_predicts' && (
                           <div className="flex flex-col w-full max-h-[350px] overflow-y-auto custom-scrollbar animate-in fade-in duration-200 mt-2">
-                            {aiPredictsData.length > 0 ? (
-                              <div className="flex flex-col w-full space-y-2">
+                            {isLoadingAiPredicts && aiPredictsData.length === 0 ? (
+                              <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary"></div>
+                              </div>
+                            ) : aiPredictsData.length > 0 ? (
+                              <div className="flex flex-col w-full space-y-2 relative">
+                                {isLoadingAiPredicts && (
+                                  <div className="flex items-center justify-center py-1">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                                  </div>
+                                )}
                                 {aiPredictsData.map((item, idx) => {
                                   if (!item || typeof item !== 'object') return null;
 

@@ -15,7 +15,7 @@ export interface AuthDataResult {
   aiPredictsData: any[];
 }
 
-function extractPredicts(data: any | null): any[] {
+export function extractPredicts(data: any | null): any[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.data)) return data.data;
