@@ -11,6 +11,7 @@ import type {
   ParticipationAlbumResponse,
   ParticipationCategory,
 } from '@/types/participationGallery';
+import type { AssociatePartnersResponse } from '@/types/associatePartners';
 
 export interface CollectionVideoData {
   category: {
@@ -432,6 +433,21 @@ export const cmsService = {
     } catch (err) {
       console.error('[cmsService.getMarketingHeaders] error:', err);
       return [];
+    }
+  }),
+  /**
+   * Associate Partners (Logos)
+   */
+  getAssociatePartners: cache(async (page: number = 1, limit: number = 25): Promise<AssociatePartnersResponse | null> => {
+    const cmsApiUrl = getCmsApiUrl();
+    const url = `${cmsApiUrl}/logo/`;
+    try {
+      return await customFetchJSON<AssociatePartnersResponse>(url, {
+        params: { page, limit, is_active: 'true', source: 'web' },
+      });
+    } catch (err) {
+      console.error('[cmsService.getAssociatePartners] error:', err);
+      return null;
     }
   }),
 };

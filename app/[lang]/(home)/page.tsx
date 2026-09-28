@@ -9,6 +9,9 @@ import InfiniteMarketedProductsCarousel from '@/components/home/InfiniteMarketed
 import InfiniteVideoGalleryCarousel from '@/components/home/InfiniteVideoGalleryCarousel'
 import InfiniteMarketUpdatesCarousel from '@/components/home/InfiniteMarketUpdatesCarousel'
 import InfiniteParticipationCarousel from '@/components/home/InfiniteParticipationCarousel'
+import AssociatePartnersCarousel from '@/components/home/AssociatePartnersCarousel'
+import LatestOffersForBuyerSection from '@/components/home/LatestOffersForBuyerSection'
+import LatestInquiriesForSellerSection from '@/components/home/LatestInquiriesForSellerSection'
 import { getClientAuthData } from '@/app/actions/authData'
 import { getAssetsUrl } from '@/lib/api-utils'
 import type { Metadata } from 'next'
@@ -112,20 +115,26 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
   let videoCategories: any[] = [];
   let marketUpdates: any[] = [];
   let participationCategories: any[] = [];
+  let associatePartners: any[] = [];
+  let buyerOffers: any[] = [];
+  let sellerInquiries: any[] = [];
   
   let userType: string | null = null;
   let commonDict: any = {};
   
   try {
-    const [newsData, eventsData, productsData, videoData, marketUpdatesData, participationData, dict, authData] = await Promise.all([
+    const [newsData, eventsData, productsData, videoData, marketUpdatesData, participationData, associatePartnersData, dict, authData, buyerOffersData, sellerInquiriesData] = await Promise.all([
       cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 10 }).catch(() => null),
       cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 10 }).catch(() => null),
       tradingService.getMarketedProducts(activeLang, 1, 10).catch(() => null),
       cmsService.getVideoCategories().catch(() => null),
       cmsService.getMarketUpdates(activeLang, 1, 10).catch(() => null),
       cmsService.getParticipationCategories(activeLang, 1, 10).catch(() => null),
+      cmsService.getAssociatePartners(1, 25).catch(() => null),
       getDictionary(activeLang as any).catch(() => ({})),
-      getClientAuthData(activeLang).catch(() => ({ userProfile: null }))
+      getClientAuthData(activeLang).catch(() => ({ userProfile: null })),
+      tradingService.getLatestTradingInquiries({ type: 'SELLER', page: 1, limit: 10, lang: activeLang }).catch(() => null),
+      tradingService.getLatestTradingInquiries({ type: 'BUYER', page: 1, limit: 10, lang: activeLang }).catch(() => null)
     ]);
     
     articles = newsData?.data?.news || [];
@@ -134,6 +143,9 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
     videoCategories = videoData?.data?.categories || [];
     marketUpdates = marketUpdatesData?.data?.flyers || [];
     participationCategories = participationData?.data?.categories || [];
+    associatePartners = associatePartnersData?.data?.logo || [];
+    buyerOffers = buyerOffersData?.data?.inquiries || [];
+    sellerInquiries = sellerInquiriesData?.data?.inquiries || [];
     
     commonDict = (dict as any).common || {};
     userType = authData?.userProfile?.user_type ? 
@@ -248,6 +260,22 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
         )}
       </section>
 
+      {/* Latest Offers for Buyer Section */}
+      <LatestOffersForBuyerSection 
+        offers={buyerOffers} 
+        lang={activeLang} 
+        imageBaseUrl={imageBaseUrl}
+        userType={userType}
+      />
+
+      {/* Latest Inquiries for Seller Section */}
+      <LatestInquiriesForSellerSection
+        inquiries={sellerInquiries}
+        lang={activeLang}
+        imageBaseUrl={imageBaseUrl}
+        userType={userType}
+      />
+
       {/* Video Gallery Section */}
       <section className="w-full pt-6 pb-8">
         <div className="max-w-3xl mx-auto text-center px-4">
@@ -319,6 +347,29 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           <InfiniteParticipationCarousel categories={participationCategories} lang={activeLang} />
         )}
       </section>
+
+      {/* Associate Partners Section */}
+      {associatePartners.length > 0 && (
+        <section className="w-full pt-6 pb-8 border-t border-border/40">
+          <div className="max-w-3xl mx-auto text-center px-4 mb-4">
+            {/* Premium Section Title Feel */}
+            <div className="inline-block">
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground relative pb-3">
+                Associate Partners
+                {/* Decorative beautiful underline */}
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+              </h2>
+            </div>
+            
+            {/* SEO Description for Associate Partners */}
+            <p className="text-sm sm:text-base text-muted-foreground mt-4 leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+              AgriGuru Online partners with global organizations and industry leaders to build a trusted, highly efficient B2B agricultural trade ecosystem worldwide.
+            </p>
+          </div>
+          
+          <AssociatePartnersCarousel partners={associatePartners} />
+        </section>
+      )}
     </>
   )
 }

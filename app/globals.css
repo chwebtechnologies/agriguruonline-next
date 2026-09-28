@@ -336,6 +336,27 @@ a, button, input, select, textarea, label, [role="button"] {
   animation-play-state: paused;
 }
 
+/* Custom vertical scrolling animation for offers */
+@keyframes scrollTickerVertical {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+.animate-marquee-vertical {
+  display: flex;
+  flex-direction: column;
+  animation: scrollTickerVertical 25s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-vertical:hover {
+  animation-play-state: paused;
+}
+
 /* Periodic vibrant color shine sweep animation for high-converting CTA buttons */
 @keyframes buttonShine {
   0%, 100% {
