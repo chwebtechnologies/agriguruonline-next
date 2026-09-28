@@ -28,13 +28,13 @@ const getSlides = (lang: string): CarouselSlide[] => [
     gradientDark: 'linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%)',
   },
   {
-    id: 'features-1',
-    title: 'The Ultimate Trading Toolkit',
-    subtitle: '3 Core Solutions + Powerful Add-ons',
-    description: 'Solve your biggest bottlenecks with Live Product Pricing (FOB, CNF, CIF), instant Ocean Freight Rates, and automated Smart Export Docs. Plus, stay ahead with AI predictions, price alerts, global news, and quick inquiry negotiations.',
-    tag: 'Platform Features',
+    id: 'trust-1',
+    title: 'Trusted by Global Traders',
+    subtitle: '90+ Countries | 20+ Years Experience | 10K+ Clients',
+    description: 'Backed by over two decades of practical market experience, AgriGuru Online is the reliable partner for your trading needs. Join our growing network of over 10,000 trusted clients across 90+ countries worldwide.',
+    tag: 'Global Trust & Network',
     link: `/${lang}/about`,
-    linkText: 'See All Features',
+    linkText: 'Read Our Story',
     gradientLight: 'linear-gradient(135deg, #14b8a6 0%, #0369a1 100%)',
     gradientDark: 'linear-gradient(135deg, #0f766e 0%, #075985 100%)',
   },
@@ -177,85 +177,72 @@ export default function HeroCarousel({ lang }: { lang: string }) {
                       </div>
 
                       {/* Floating Badges */}
-                      <div className="absolute -right-4 lg:-right-6 top-8 bg-emerald-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow">
+                      <div className="absolute -right-4 lg:-right-6 top-2 lg:top-4 bg-emerald-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow">
                         <i className="fa-solid fa-tags text-yellow-300"></i> Product Price
                       </div>
-                      <div className="absolute -left-6 lg:-left-8 top-10 bg-purple-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5">
+                      <div className="absolute -left-6 lg:-left-8 top-4 lg:top-6 bg-purple-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5">
                         <i className="fa-solid fa-file-contract text-pink-300"></i> Smart Docs
                       </div>
-                      <div className="absolute -right-2 lg:-right-4 bottom-20 lg:bottom-24 bg-blue-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1s' }}>
+                      <div className="absolute -right-2 lg:-right-4 bottom-4 lg:bottom-6 bg-blue-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1s' }}>
                         <i className="fa-solid fa-ship text-cyan-200"></i> Live Freight
                       </div>
                       <div className="absolute -left-4 lg:-left-6 bottom-6 lg:bottom-8 bg-indigo-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5">
                         <i className="fa-solid fa-earth-americas text-cyan-200"></i> Global Agri Trade
                       </div>
+                      <div className="absolute -right-6 lg:-right-10 top-16 lg:top-20 bg-teal-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '0.5s' }}>
+                        <i className="fa-solid fa-robot text-yellow-300"></i> AI Predict
+                      </div>
+                      <div className="absolute -left-8 lg:-left-12 top-16 lg:top-20 bg-blue-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.5s' }}>
+                        <i className="fa-solid fa-chart-pie text-cyan-200"></i> Market Reports
+                      </div>
+                      <div className="absolute -right-6 lg:-right-10 bottom-16 lg:bottom-20 bg-purple-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '0.8s' }}>
+                        <i className="fa-solid fa-handshake text-emerald-300"></i> Negotiation
+                      </div>
+                      <div className="absolute -left-6 lg:-left-10 bottom-16 lg:bottom-20 bg-orange-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.2s' }}>
+                        <i className="fa-solid fa-bolt text-yellow-300"></i> Daily Updates
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {slide.id === 'features-1' && (
+                {slide.id === 'trust-1' && (
                   <div className="hidden md:flex justify-end pl-4 lg:pl-8 relative h-full items-center">
-                    {/* Glassmorphic Solutions Mockup */}
-                    <div className="relative w-48 lg:w-60 h-[240px] lg:h-[290px] bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl p-3 lg:p-4 flex flex-col justify-between transform rotate-2 hover:rotate-0 transition-transform duration-700 ease-out mt-2 lg:mt-4">
-                      {/* Card Header */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 lg:w-7 lg:h-7 rounded-full bg-gradient-to-tr from-teal-400 to-cyan-500 shadow-inner flex items-center justify-center">
-                            <i className="fa-solid fa-layer-group text-[8px] lg:text-[10px] text-white"></i>
-                          </div>
-                          <span className="text-[8px] lg:text-[10px] font-bold text-white tracking-wider">CORE SOLUTIONS</span>
-                        </div>
-                        <div className="w-4 h-4 lg:w-5 lg:h-5 rounded-full bg-white/20 flex items-center justify-center">
-                          <i className="fa-solid fa-check-double text-[8px] text-white"></i>
-                        </div>
-                      </div>
+                    {/* Glassmorphic Trust Mockup */}
+                    <div className="relative w-48 lg:w-60 h-[240px] lg:h-[290px] bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl p-4 lg:p-5 flex flex-col gap-3 lg:gap-4 justify-center transform rotate-2 hover:rotate-0 transition-transform duration-700 ease-out mt-2 lg:mt-4">
                       
-                      {/* 3 Main Solutions List */}
-                      <div className="flex flex-col gap-2 lg:gap-2.5 my-auto">
-                        <div className="w-full bg-white/10 border border-white/10 rounded-xl p-1.5 lg:p-2 flex items-center gap-2">
-                          <div className="w-6 h-6 lg:w-7 lg:h-7 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-                            <i className="fa-solid fa-tags text-cyan-200 text-[8px] lg:text-[10px]"></i>
-                          </div>
-                          <div className="overflow-hidden">
-                            <div className="text-[9px] lg:text-[10px] font-bold text-white truncate">Live Product Prices</div>
-                            <div className="text-[8px] lg:text-[9px] text-white/70 truncate">FOB, CNF/CFR & CIF</div>
-                          </div>
+                      {/* 90+ Countries */}
+                      <div className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 flex items-center gap-3 transform hover:-translate-y-1 transition-transform">
+                        <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shrink-0">
+                          <i className="fa-solid fa-earth-americas text-white text-lg lg:text-xl"></i>
                         </div>
-
-                        <div className="w-full bg-white/10 border border-white/10 rounded-xl p-1.5 lg:p-2 flex items-center gap-2">
-                          <div className="w-6 h-6 lg:w-7 lg:h-7 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-                            <i className="fa-solid fa-ship text-blue-200 text-[8px] lg:text-[10px]"></i>
-                          </div>
-                          <div className="overflow-hidden">
-                            <div className="text-[9px] lg:text-[10px] font-bold text-white truncate">Ocean Freight Rates</div>
-                            <div className="text-[8px] lg:text-[9px] text-white/70 truncate">Instant Port-to-Port</div>
-                          </div>
-                        </div>
-
-                        <div className="w-full bg-white/10 border border-white/10 rounded-xl p-1.5 lg:p-2 flex items-center gap-2">
-                          <div className="w-6 h-6 lg:w-7 lg:h-7 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-                            <i className="fa-solid fa-file-signature text-purple-200 text-[8px] lg:text-[10px]"></i>
-                          </div>
-                          <div className="overflow-hidden">
-                            <div className="text-[9px] lg:text-[10px] font-bold text-white truncate">Smart Documentation</div>
-                            <div className="text-[8px] lg:text-[9px] text-white/70 truncate">Agri Export Automation</div>
-                          </div>
+                        <div>
+                          <div className="text-lg lg:text-xl font-black text-white">90+</div>
+                          <div className="text-[10px] lg:text-xs font-bold text-white/80 uppercase tracking-wider">Countries</div>
                         </div>
                       </div>
 
-                      {/* Floating Badges matching Card 1 style */}
-                      <div className="absolute -right-4 lg:-right-6 top-6 bg-teal-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow">
-                        <i className="fa-solid fa-robot text-yellow-300"></i> AI Predict
+                      {/* 20+ Years */}
+                      <div className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 flex items-center gap-3 transform hover:-translate-y-1 transition-transform">
+                        <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-tr from-purple-400 to-pink-500 flex items-center justify-center shadow-lg shrink-0">
+                          <i className="fa-solid fa-award text-white text-lg lg:text-xl"></i>
+                        </div>
+                        <div>
+                          <div className="text-lg lg:text-xl font-black text-white">20+</div>
+                          <div className="text-[10px] lg:text-xs font-bold text-white/80 uppercase tracking-wider">Years Exp.</div>
+                        </div>
                       </div>
-                      <div className="absolute -left-6 lg:-left-8 top-10 bg-blue-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5">
-                        <i className="fa-solid fa-chart-pie text-cyan-200"></i> Market Reports
+
+                      {/* 10K+ Clients */}
+                      <div className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 flex items-center gap-3 transform hover:-translate-y-1 transition-transform">
+                        <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shrink-0">
+                          <i className="fa-solid fa-users text-white text-lg lg:text-xl"></i>
+                        </div>
+                        <div>
+                          <div className="text-lg lg:text-xl font-black text-white">10K+</div>
+                          <div className="text-[10px] lg:text-xs font-bold text-white/80 uppercase tracking-wider">Trusted Clients</div>
+                        </div>
                       </div>
-                      <div className="absolute -right-2 lg:-right-4 bottom-12 lg:bottom-16 bg-purple-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1s' }}>
-                        <i className="fa-solid fa-handshake text-emerald-300"></i> Negotiation
-                      </div>
-                      <div className="absolute -left-4 lg:-left-6 bottom-4 bg-indigo-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5">
-                        <i className="fa-solid fa-bolt text-yellow-300"></i> Daily Updates
-                      </div>
+
                     </div>
                   </div>
                 )}
