@@ -105,7 +105,7 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="overflow-hidden pb-4">
+      <div className="overflow-hidden pb-1">
         <div 
           ref={trackRef}
           className="flex gap-4 sm:gap-5 w-full"
@@ -131,7 +131,7 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
       </div>
 
       {/* Navigation Controls */}
-      <div className="flex items-center justify-between mt-4">
+      <div className="flex items-center justify-between mt-2">
         {/* SEO friendly View All link formatted as a normal button */}
         <Link 
           href={`/${lang}/marketed-products`} 
