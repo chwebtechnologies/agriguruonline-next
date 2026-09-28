@@ -6,6 +6,9 @@ import { tradingService } from '@/lib/api/trading.service'
 import InfiniteNewsCarousel from '@/components/home/InfiniteNewsCarousel'
 import InfiniteEventsCarousel from '@/components/home/InfiniteEventsCarousel'
 import InfiniteMarketedProductsCarousel from '@/components/home/InfiniteMarketedProductsCarousel'
+import InfiniteVideoGalleryCarousel from '@/components/home/InfiniteVideoGalleryCarousel'
+import InfiniteMarketUpdatesCarousel from '@/components/home/InfiniteMarketUpdatesCarousel'
+import InfiniteParticipationCarousel from '@/components/home/InfiniteParticipationCarousel'
 import { getClientAuthData } from '@/app/actions/authData'
 import { getAssetsUrl } from '@/lib/api-utils'
 import type { Metadata } from 'next'
@@ -106,15 +109,21 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
   let articles: any[] = [];
   let events: any[] = [];
   let products: any[] = [];
+  let videoCategories: any[] = [];
+  let marketUpdates: any[] = [];
+  let participationCategories: any[] = [];
   
   let userType: string | null = null;
   let commonDict: any = {};
   
   try {
-    const [newsData, eventsData, productsData, dict, authData] = await Promise.all([
+    const [newsData, eventsData, productsData, videoData, marketUpdatesData, participationData, dict, authData] = await Promise.all([
       cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 10 }).catch(() => null),
       cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 10 }).catch(() => null),
       tradingService.getMarketedProducts(activeLang, 1, 10).catch(() => null),
+      cmsService.getVideoCategories().catch(() => null),
+      cmsService.getMarketUpdates(activeLang, 1, 10).catch(() => null),
+      cmsService.getParticipationCategories(activeLang, 1, 10).catch(() => null),
       getDictionary(activeLang as any).catch(() => ({})),
       getClientAuthData(activeLang).catch(() => ({ userProfile: null }))
     ]);
@@ -122,6 +131,9 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
     articles = newsData?.data?.news || [];
     events = eventsData?.data?.events || [];
     products = productsData?.products || [];
+    videoCategories = videoData?.data?.categories || [];
+    marketUpdates = marketUpdatesData?.data?.flyers || [];
+    participationCategories = participationData?.data?.categories || [];
     
     commonDict = (dict as any).common || {};
     userType = authData?.userProfile?.user_type ? 
@@ -163,7 +175,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
               Global Agri Commodity Trading News
               {/* Decorative beautiful underline */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"></span>
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
             </h2>
           </div>
           
@@ -189,7 +201,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
               Global Agri Events & Conferences
               {/* Decorative beautiful underline */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-gradient-to-r from-blue-500 to-sky-400 rounded-full"></span>
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
             </h2>
           </div>
           
@@ -233,6 +245,78 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
             imageBaseUrl={imageBaseUrl} 
             userType={userType} 
           />
+        )}
+      </section>
+
+      {/* Video Gallery Section */}
+      <section className="w-full pt-6 pb-8">
+        <div className="max-w-3xl mx-auto text-center px-4">
+          {/* Premium Section Title Feel */}
+          <div className="inline-block mb-4">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+              Agri Video Gallery & Insights
+              {/* Decorative beautiful underline */}
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+            </h2>
+          </div>
+          
+          {/* SEO Description for Video Gallery */}
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+            Watch expert agricultural market analysis, video commodity updates, tutorial guides, and industry event coverage.
+          </p>
+        </div>
+        
+        {/* The Video Gallery Carousel */}
+        {videoCategories.length > 0 && (
+          <InfiniteVideoGalleryCarousel videoCategories={videoCategories} lang={activeLang} imageBaseUrl={imageBaseUrl} />
+        )}
+      </section>
+
+      {/* Market Updates Section */}
+      <section className="w-full pt-6 pb-8">
+        <div className="max-w-3xl mx-auto text-center px-4">
+          {/* Premium Section Title Feel */}
+          <div className="inline-block mb-4">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+              Daily Market Updates
+              {/* Decorative beautiful underline */}
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+            </h2>
+          </div>
+          
+          {/* SEO Description for Market Updates */}
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+            Stay informed with our latest market updates, flyers, and daily price trends in the global agricultural sector.
+          </p>
+        </div>
+        
+        {/* The Market Updates Carousel */}
+        {marketUpdates.length > 0 && (
+          <InfiniteMarketUpdatesCarousel updates={marketUpdates} lang={activeLang} />
+        )}
+      </section>
+
+      {/* Participation Gallery Section */}
+      <section className="w-full pt-6 pb-8">
+        <div className="max-w-3xl mx-auto text-center px-4">
+          {/* Premium Section Title Feel */}
+          <div className="inline-block mb-4">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+              Participation Gallery
+              {/* Decorative beautiful underline */}
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+            </h2>
+          </div>
+          
+          {/* SEO Description for Participation Gallery */}
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+            Explore our participation in global agricultural events and exhibitions, showcasing our commitment to the international trade community.
+          </p>
+        </div>
+        
+        {/* The Participation Carousel */}
+        {participationCategories.length > 0 && (
+          <InfiniteParticipationCarousel categories={participationCategories} lang={activeLang} />
         )}
       </section>
     </>

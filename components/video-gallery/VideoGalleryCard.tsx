@@ -8,16 +8,18 @@ interface VideoGalleryCardProps {
   category: VideoCategory;
   lang: string;
   priority?: boolean;
+  imageBaseUrl?: string;
 }
 
-export default function VideoGalleryCard({ category, lang, priority = false }: VideoGalleryCardProps) {
+export default function VideoGalleryCard({ category, lang, priority = false, imageBaseUrl }: VideoGalleryCardProps) {
   // Determine full image URL
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return '/logo.webp';
     if (imagePath.startsWith('http')) return imagePath;
+    if (imageBaseUrl) return `${imageBaseUrl}${imagePath}`;
     const assetsUrl = getAssetsUrl();
-    const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
-    return `${imageBaseUrl}${imagePath}`;
+    const defaultBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
+    return `${defaultBaseUrl}${imagePath}`;
   };
 
   const imageUrl = getImageUrl(((category as unknown) as Record<string, string>).thumbnail || category.image);
