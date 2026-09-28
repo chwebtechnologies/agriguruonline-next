@@ -240,54 +240,19 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Sync from both localStorage and IndexedDB
+    // 1. Sync from both localStorage and IndexedDB (on mount)
     const syncUnreadState = async () => {
       if (!isMounted) return;
       const isIdbUnread = await getUnreadStatusFromIndexedDB();
       const isLocalUnread = typeof window !== 'undefined' && localStorage.getItem('ag_has_unread_notif') === '1';
-      if (isIdbUnread || isLocalUnread) {
-        setLocalUnread(true);
-        setHasUnread(true);
-      }
+      const isUnread = isIdbUnread || isLocalUnread;
+      setLocalUnread(isUnread);
+      setHasUnread(isUnread);
     };
 
     syncUnreadState();
 
-    // 2. Check SSR notifications for unread status on mount
-    const checkInitialUnread = () => {
-      if (initialNotifications && initialNotifications.length > 0) {
-        const isItemRead = (item: any) => {
-          if (!item || typeof item !== 'object') return true;
-          return item.is_read === true || item.is_read === 1 || item.is_read === '1' ||
-                 item.read === true || item.read === 1 || item.read === '1';
-        };
-        
-        let hasUnreadItem = false;
-        const lastSeenId = typeof window !== 'undefined' ? localStorage.getItem('ag_last_seen_notif_id') : null;
-
-        for (const item of initialNotifications) {
-          if (lastSeenId && item.id && item.id.toString() === lastSeenId) {
-            break;
-          }
-          if (!isItemRead(item)) {
-            hasUnreadItem = true;
-            break;
-          }
-        }
-
-        if (hasUnreadItem) {
-          setLocalUnread(true);
-          setHasUnread(true);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('ag_has_unread_notif', '1');
-          }
-          setUnreadStatusInIndexedDB(true);
-        }
-      }
-    };
-
-    checkInitialUnread();
-
+    // Trigger unread blinking ONLY when a real push notification arrives
     const triggerUnread = () => {
       setLocalUnread(true);
       setHasUnread(true);
@@ -295,18 +260,6 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
         localStorage.setItem('ag_has_unread_notif', '1');
       }
       setUnreadStatusInIndexedDB(true);
-    };
-
-    const onKycUpdate = (e: any) => {
-      const docs = e.detail?.docs;
-      if (Array.isArray(docs)) {
-        const hasRejected = docs.some((d: any) => d.status?.toUpperCase() === 'REJECTED');
-        if (hasRejected) {
-          triggerUnread();
-        }
-      } else {
-        triggerUnread();
-      }
     };
 
     const onStorage = (e: StorageEvent) => {
@@ -317,34 +270,17 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
       }
     };
 
-    const onFocusOrVis = () => {
-      syncUnreadState();
-      // checkBackendUnread(); // Removed to prevent multiple API calls on window focus
-    };
-
     window.addEventListener('fcm-message', triggerUnread);
     window.addEventListener('new-notification', triggerUnread);
     window.addEventListener('notification-received', triggerUnread);
-    window.addEventListener('kyc-notification', triggerUnread);
-    window.addEventListener('kyc-docs-updated', onKycUpdate);
     window.addEventListener('storage', onStorage);
-    window.addEventListener('focus', onFocusOrVis);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        onFocusOrVis();
-      }
-    });
 
     return () => {
       isMounted = false;
       window.removeEventListener('fcm-message', triggerUnread);
       window.removeEventListener('new-notification', triggerUnread);
       window.removeEventListener('notification-received', triggerUnread);
-      window.removeEventListener('kyc-notification', triggerUnread);
-      window.removeEventListener('kyc-docs-updated', onKycUpdate);
       window.removeEventListener('storage', onStorage);
-      window.removeEventListener('focus', onFocusOrVis);
-      document.removeEventListener('visibilitychange', onFocusOrVis);
     };
   }, [token, activeLang, setHasUnread]);
 
@@ -428,27 +364,25 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   // All notification data is provided by SSR. No client-side fetching needed.
   // The refs hasFetchedNotificationsRef, hasFetchedAlertsRef, hasFetchedAiPredictsRef are always true.
 
-  // Sync FCM Token with backend reliably (at most once per session)
+  // Sync FCM Token with backend reliably
   const fcmSyncedRef = useRef<string | null>(null);
   useEffect(() => {
     if (fcmToken && token) {
-      if (typeof window !== 'undefined' && sessionStorage.getItem('ag_fcm_synced') === fcmToken) {
-        return;
-      }
       if (fcmSyncedRef.current === fcmToken) return;
       fcmSyncedRef.current = fcmToken;
 
       authService.setFcmToken(fcmToken, token)
       .then(res => {
         if (res.ok) {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('ag_fcm_synced', fcmToken);
-          }
-          console.log('[FCM] Token synced with backend successfully.');
+          console.log('[FCM] Token synced with backend successfully:', fcmToken);
+        } else {
+          console.warn('[FCM] Token sync responded with status:', res.status);
+          fcmSyncedRef.current = null; // Allow retry if backend temporarily failed
         }
       })
       .catch(err => {
         console.error("Failed to sync FCM token to backend:", err);
+        fcmSyncedRef.current = null; // Allow retry on failure
       });
     }
   }, [fcmToken, token]);

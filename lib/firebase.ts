@@ -55,26 +55,36 @@ const waitForSWActive = (reg: ServiceWorkerRegistration): Promise<void> => {
 };
 
 // Explicitly registers and returns the firebase-messaging-sw.js registration.
-// This avoids conflicts with Serwist's /sw.js and makes the SW scope unambiguous.
 const getFirebaseSWRegistration = async (): Promise<ServiceWorkerRegistration | undefined> => {
   if (!('serviceWorker' in navigator)) return undefined;
   try {
-    // Check if already registered and active
     const registrations = await navigator.serviceWorker.getRegistrations();
-    const existing = registrations.find(r =>
-      (r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '').includes('firebase-messaging-sw')
+
+    // 1. Unregister any old, broken push-scope worker
+    for (const r of registrations) {
+      if (r.scope.includes('firebase-cloud-messaging-push-scope')) {
+        console.log('[FCM] Unregistering obsolete push-scope worker:', r.scope);
+        await r.unregister();
+      }
+    }
+
+    // 2. Check if already registered at root scope
+    const updatedRegs = await navigator.serviceWorker.getRegistrations();
+    const existing = updatedRegs.find(r =>
+      (r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '').includes('firebase-messaging-sw') &&
+      !r.scope.includes('firebase-cloud-messaging-push-scope')
     );
     if (existing) {
       await waitForSWActive(existing);
       return existing;
     }
 
-    // Register fresh with Firebase's dedicated push scope to avoid clashing with Serwist /sw.js
+    // 3. Register with standard root scope '/' so it controls all pages in the app
     const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-      scope: '/firebase-cloud-messaging-push-scope',
+      scope: '/',
       updateViaCache: 'none',
     });
-    console.log('[FCM] firebase-messaging-sw.js registered:', reg);
+    console.log('[FCM] firebase-messaging-sw.js registered successfully with root scope:', reg);
     await waitForSWActive(reg);
     return reg;
   } catch (err) {

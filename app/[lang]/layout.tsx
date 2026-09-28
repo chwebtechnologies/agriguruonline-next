@@ -24,6 +24,7 @@ import { getCategories } from '@/lib/category'
 import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
 import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/lib/seo'
 import { NotificationProvider } from '@/components/providers/NotificationProvider'
+import { NotificationPermissionPopup } from '@/components/modals/NotificationPermissionPopup'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import OfflineNotification from '@/components/layout/OfflineNotification'
 
@@ -227,6 +228,7 @@ export default async function LocalizedRootLayout({
           <Footer />
           <ServiceWorkerRegister />
           <Toaster position="top-right" richColors closeButton />
+          <NotificationPermissionPopup />
           </NotificationProvider>
         </ThemeProvider>
       </body>

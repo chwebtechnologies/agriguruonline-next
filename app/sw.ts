@@ -12,6 +12,13 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+// Import Firebase Messaging into the main worker for full background push coverage in production
+try {
+  self.importScripts('/firebase-messaging-sw.js');
+} catch (e) {
+  // Ignored if file is loaded separately
+}
+
 const serwist = new Serwist({
   precacheEntries: [
     ...(self.__SW_MANIFEST || []),

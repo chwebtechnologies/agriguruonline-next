@@ -55,11 +55,6 @@ export default function KycAlertBanner({ initialIsKycVerified, initialKycStatus,
       if (res.success && Array.isArray(res.data)) {
         const { kycStatus: newStatus, isKycVerified: newVerified } = computeStatusFromDocs(res.data);
         setKycStatus(newStatus);
-        setIsKycVerified(newVerified);
-        if (newStatus === 'REJECTED') {
-          setUnreadStatusInIndexedDB(true);
-          window.dispatchEvent(new CustomEvent('new-notification', { detail: { type: 'kyc', status: 'REJECTED' } }));
-        }
       }
     } catch (e) {
       console.error('[KycAlertBanner] Failed to refresh KYC status:', e);
@@ -101,8 +96,6 @@ export default function KycAlertBanner({ initialIsKycVerified, initialKycStatus,
         (title + body).toLowerCase().includes('expir');
 
       if (isKycRelated) {
-        setUnreadStatusInIndexedDB(true);
-        window.dispatchEvent(new CustomEvent('new-notification', { detail: payload }));
         // Immediately set optimistic UI based on notification text
         if (body.toLowerCase().includes('reject') || title.toLowerCase().includes('reject')) {
           setKycStatus('REJECTED');

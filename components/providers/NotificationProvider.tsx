@@ -9,12 +9,14 @@ interface NotificationContextType {
   hasUnread: boolean;
   setHasUnread: (value: boolean) => void;
   fcmToken: string | null;
+  setFcmToken: (token: string | null) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType>({
   hasUnread: false,
   setHasUnread: () => {},
   fcmToken: null,
+  setFcmToken: () => {},
 });
 
 export const useNotification = () => useContext(NotificationContext);
@@ -51,9 +53,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       if (!isMounted) return;
       const isIdbUnread = await getUnreadStatusFromIndexedDB();
       const isLocalUnread = typeof window !== 'undefined' && localStorage.getItem(UNREAD_KEY) === '1';
-      if ((isIdbUnread || isLocalUnread) && !hasUnreadRef.current) {
-        setHasUnread(true);
-      }
+      setHasUnreadState(isIdbUnread || isLocalUnread);
     };
 
     const handlePayload = (payload: any) => {
@@ -95,6 +95,36 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       } else {
         toast.info(toastTitle, { description: toastDesc, duration: 6000 });
       }
+
+      // Display native desktop/browser notification banner
+      if (typeof window !== 'undefined' && Notification.permission === 'granted') {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification(title || 'Agriguru Online', {
+              body: body,
+              icon: '/logo.png',
+              badge: '/logo.png',
+              tag: messageId,
+            });
+          }).catch(() => {
+            try {
+              new Notification(title || 'Agriguru Online', {
+                body: body,
+                icon: '/logo.png',
+                tag: messageId,
+              });
+            } catch (e) {}
+          });
+        } else {
+          try {
+            new Notification(title || 'Agriguru Online', {
+              body: body,
+              icon: '/logo.png',
+              tag: messageId,
+            });
+          } catch (e) {}
+        }
+      }
     };
 
     // 1. Initial sync from IndexedDB
@@ -124,15 +154,6 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleSwMessage);
     }
-
-    // 4. Focus & Visibility Sync + Periodic Heartbeat (1.5s) to guarantee instantaneous dot appearance
-    const handleFocusSync = () => {
-      syncUnreadFromStorage();
-    };
-
-    window.addEventListener('focus', handleFocusSync);
-    document.addEventListener('visibilitychange', handleFocusSync);
-    const intervalId = setInterval(syncUnreadFromStorage, 1500);
 
     const init = async () => {
       if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -180,9 +201,6 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
     return () => {
       isMounted = false;
-      clearInterval(intervalId);
-      window.removeEventListener('focus', handleFocusSync);
-      document.removeEventListener('visibilitychange', handleFocusSync);
       if (channel) channel.close();
       if (unsubscribeFn) unsubscribeFn();
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
@@ -192,7 +210,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   }, [setHasUnread]);
 
   return (
-    <NotificationContext.Provider value={{ hasUnread, setHasUnread, fcmToken }}>
+    <NotificationContext.Provider value={{ hasUnread, setHasUnread, fcmToken, setFcmToken }}>
       {children}
     </NotificationContext.Provider>
   );

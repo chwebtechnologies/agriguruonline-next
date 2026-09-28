@@ -190,10 +190,40 @@ export default function KycSection({ profileData, lang = "en", initialKycDocs = 
                            (title + body).toLowerCase().includes('expir');
 
       if (isKycRelated) {
+        const fullText = (title + ' ' + body + ' ' + type).toLowerCase();
+
+        // 1. INSTANT OPTIMISTIC UPDATE (0ms) - Updates screen right before user's eyes!
+        if (fullText.includes('reject')) {
+          setUserDocs((prev) =>
+            prev.map((doc) => ({
+              ...doc,
+              status: 'Rejected' as KycStatus,
+              rejection_reason: doc.rejection_reason || body || 'Document rejected',
+            }))
+          );
+        } else if (fullText.includes('approv') || fullText.includes('verif') || fullText.includes('success')) {
+          setUserDocs((prev) =>
+            prev.map((doc) => ({
+              ...doc,
+              status: 'Approved' as KycStatus,
+            }))
+          );
+        } else if (fullText.includes('expir')) {
+          setUserDocs((prev) =>
+            prev.map((doc) => ({
+              ...doc,
+              status: 'Expired' as KycStatus,
+            }))
+          );
+        }
+
+        // 2. Background confirmation from API
+        refreshKycStatus();
+        router.refresh();
         setTimeout(async () => {
           await refreshKycStatus();
           router.refresh();
-        }, 1200);
+        }, 1500);
       }
     };
 
