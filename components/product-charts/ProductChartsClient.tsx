@@ -14,6 +14,9 @@ import {
 } from '@/app/actions/charts';
 import { toast } from 'sonner';
 import { FlagIcon } from '@/components/ui/FlagIcon';
+import { ProductInquiryModal } from '@/components/marketed-products/ProductInquiryModal';
+import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
+import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
 
 
 
@@ -84,6 +87,11 @@ interface FavoriteItem {
   price: string;
   change: string;
   chartStatus: boolean;
+  productId?: string;
+  polId?: string;
+  podId?: string;
+  termId?: string;
+  shipById?: string;
 }
 
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -149,6 +157,92 @@ export default function ProductChartsClient({
   const [activeBottomSheetId, setActiveBottomSheetId] = useState<number | string | null>(null);
   const [isInitialFullScreen, setIsInitialFullScreen] = useState(false);
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
+
+  // Buy/Sell Action States
+  const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
+  const [inquiryAction, setInquiryAction] = useState<'buy' | 'sell'>('buy');
+  const [inquiryData, setInquiryData] = useState<any>(null);
+  const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [kycMessage, setKycMessage] = useState('');
+  const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
+  const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [actionItemId, setActionItemId] = useState<number | string | null>(null);
+  const [actionItem, setActionItem] = useState<FavoriteItem | null>(null);
+
+  const handleBuySellClick = async (item: FavoriteItem, e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!userType) {
+      router.push(`/${lang}/login`);
+      return;
+    }
+    if (isActionLoading) return;
+    
+    const action = userType === 'seller' ? 'sell' : 'buy';
+    setInquiryAction(action);
+    setIsActionLoading(true);
+    setActionItemId(item.id);
+    setActionItem(item);
+
+    try {
+      const type = action === 'buy' ? 'BUYER' : 'SELLER';
+      const kycResponse = await checkKYCStatus(lang, type);
+      
+      const isErrorOrNotVerified = 
+        (kycResponse && kycResponse.data && kycResponse.data.can_create === false) ||
+        (kycResponse && kycResponse.response_indication === 'NOT_VERIFIED') ||
+        (kycResponse && kycResponse.data?.response_indication === 'NOT_VERIFIED') ||
+        (kycResponse && (kycResponse.success === 0 || kycResponse.success === false) && (kycResponse.response_indication || kycResponse.data?.response_indication || kycResponse.message));
+
+      if (isErrorOrNotVerified) {
+        setKycMessage(kycResponse.message || "You cannot proceed with this action.");
+        const indication = kycResponse.response_indication || kycResponse.data?.response_indication;
+        if (indication === 'NOT_VERIFIED') {
+          setKycIndicationText('Submit Documents');
+          setKycRedirectUrl(`/${lang}/profile`);
+        } else {
+          setKycIndicationText('Upgrade Plan');
+          setKycRedirectUrl(`/${lang}/profile`);
+        }
+        setIsKYCModalOpen(true);
+        setIsActionLoading(false);
+        setActionItemId(null);
+        return;
+      }
+      
+      const productId = item.productId || '';
+      const [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
+        fetchProductDetails(String(productId), lang),
+        fetchShippingTerms(lang),
+        fetchPaymentTerms(lang)
+      ]);
+      
+      const combinedData: any = {
+        itemPrice: item.price
+      };
+      
+      if (productResponse && productResponse.success) {
+        combinedData.product = productResponse.data;
+      } else {
+        combinedData.product = { id: productId, name: item.product, country: { name: item.country } };
+      }
+      if (termsResponse && termsResponse.success) {
+        combinedData.shippingTerms = termsResponse.data?.shipping_term || [];
+      }
+      if (paymentTermsResponse && paymentTermsResponse.success) {
+        combinedData.paymentTerms = paymentTermsResponse.data?.payment_term || [];
+      }
+      
+      setInquiryData(combinedData);
+      setIsInquiryModalOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch product details", error);
+      toast.error("Failed to process your request");
+    } finally {
+      setIsActionLoading(false);
+      setActionItemId(null);
+    }
+  };
 
   // Open / Close bottom sheet
   const openBottomSheet = (id: number | string) => {
@@ -262,11 +356,16 @@ export default function ProductChartsClient({
               country: countryName,
               countryFlag,
               product: prodName,
+              productId: item.product?.id || item.product_id || '',
               shipBy,
+              shipById: item.shipping_container?.id || item.shippingContainer?.id || item.shipping_container_id || '',
               term,
+              termId: item.shipping_term?.id || item.shippingTerm?.id || item.shipping_term_id || '',
               pol,
+              polId: item.loading_port?.id || item.loadingPort?.id || item.loading_port_id || '',
               polFlag,
               pod,
+              podId: item.destination_port?.id || item.destinationPort?.id || item.destination_port_id || '',
               podFlag,
               price,
               change,
@@ -632,6 +731,7 @@ export default function ProductChartsClient({
             country: prod.country?.name || 'N/A',
             countryFlag: prod.country?.flag || '',
             product: prod.name,
+            productId: prod.id || '',
             shipBy: shipByObj ? shipByObj.title : 'N/A',
             term: termObj ? termObj.title : 'N/A',
             pol: polObj ? polObj.name : 'N/A',
@@ -693,7 +793,7 @@ export default function ProductChartsClient({
   };
 
   const handleActionClick = () => {
-    // Actions allowed for all users
+    // Legacy action for other parts if needed
   };
 
   const handleDelete = async (id: number | string) => {
@@ -750,6 +850,7 @@ export default function ProductChartsClient({
               country: countryName,
               countryFlag,
               product: prodName,
+              productId: item.product?.id || item.product_id || '',
               shipBy,
               term,
               pol,
@@ -1396,9 +1497,10 @@ export default function ProductChartsClient({
                       </div>
                       <div className="flex items-center justify-end gap-2.5 min-w-0">
                         <ChartActionButton
-                          onClick={handleActionClick}
+                          onClick={(e) => handleBuySellClick(item, e)}
                           userType={userType}
                           mode="product"
+                          isLoading={isActionLoading && actionItemId === item.id}
                         />
                         <ChartDeleteButton
                           onClick={() => confirmDelete(item.id)}
@@ -1681,6 +1783,31 @@ export default function ProductChartsClient({
           `}} />
         </div>
       )}
+
+      {/* Inquiry Modal */}
+      <ChartProductInquiryModal 
+        isOpen={isInquiryModalOpen}
+        onClose={() => setIsInquiryModalOpen(false)}
+        item={actionItem}
+        lang={lang}
+        actionType={inquiryAction}
+        packingTypes={inquiryData?.product?.packing_types || []}
+        containers={inquiryData?.product?.containers || []}
+        paymentTerms={inquiryData?.paymentTerms || []}
+      />
+
+      <ActionIndicationModal
+        isOpen={isKYCModalOpen}
+        onClose={() => setIsKYCModalOpen(false)}
+        onConfirm={() => {
+          setIsKYCModalOpen(false);
+          router.push(kycRedirectUrl);
+        }}
+        title="Action Required"
+        description={kycMessage}
+        indicationText={kycIndicationText}
+        type="warning"
+      />
     </>
   );
 }

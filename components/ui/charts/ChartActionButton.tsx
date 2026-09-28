@@ -8,6 +8,7 @@ interface ChartActionButtonProps {
   userType?: string | null;
   mode?: 'product' | 'freight' | 'custom';
   className?: string;
+  isLoading?: boolean;
 }
 
 export function ChartActionButton({
@@ -15,7 +16,8 @@ export function ChartActionButton({
   label,
   userType,
   mode = 'custom',
-  className = ''
+  className = '',
+  isLoading = false
 }: ChartActionButtonProps) {
   let displayLabel = label;
 
@@ -39,9 +41,10 @@ export function ChartActionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap cursor-pointer ${className}`}
+      className={`px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap cursor-pointer ${className} ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}
+      disabled={isLoading}
     >
-      {displayLabel}
+      {isLoading ? 'Wait...' : displayLabel}
     </button>
   );
 }

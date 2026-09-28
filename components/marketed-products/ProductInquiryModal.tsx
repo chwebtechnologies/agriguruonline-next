@@ -7,7 +7,7 @@ import { fetchLoadingPorts, fetchDestinationPorts, fetchTradingPrice, submitTrad
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
-interface ProductInquiryModalProps {
+export interface ProductInquiryModalProps {
   isOpen: boolean;
   onClose: () => void;
   productName: string;
@@ -20,6 +20,22 @@ interface ProductInquiryModalProps {
   containers?: any[];
   paymentTerms?: any[];
   actionType?: 'buy' | 'sell';
+  initialValues?: {
+    shipBy?: string;
+    shippingTerm?: string;
+    portOfLoading?: string;
+    portOfDestination?: string;
+    shipByName?: string;
+    shippingTermName?: string;
+    portOfLoadingName?: string;
+    portOfDestinationName?: string;
+  };
+  readOnlyFields?: {
+    shipBy?: boolean;
+    shippingTerm?: boolean;
+    portOfLoading?: boolean;
+    portOfDestination?: boolean;
+  };
 }
 
 export function ProductInquiryModal({
@@ -34,13 +50,15 @@ export function ProductInquiryModal({
   packingTypes = [],
   containers = [],
   paymentTerms = [],
-  actionType = 'buy'
+  actionType = 'buy',
+  initialValues,
+  readOnlyFields
 }: ProductInquiryModalProps) {
   const [formData, setFormData] = useState({
-    shipBy: '',
-    shippingTerm: '',
-    portOfLoading: '',
-    portOfDestination: '',
+    shipBy: initialValues?.shipBy || '',
+    shippingTerm: initialValues?.shippingTerm || '',
+    portOfLoading: initialValues?.portOfLoading || '',
+    portOfDestination: initialValues?.portOfDestination || '',
     packingType: '',
     quantity: '',
     quantityUnit: '',
@@ -502,62 +520,102 @@ export function ProductInquiryModal({
             {/* 3. Ship By */}
             <div className="space-y-1">
               <label className="text-sm font-semibold text-foreground">Ship By <span className="text-red-500 ml-0.5">*</span></label>
-              <SearchableSelect 
-                value={formData.shipBy}
-                onChange={(val) => handleInputChange('shipBy', val)}
-                options={shipByOptions}
-                placeholder="Select Container"
-                variant="mobile"
-              />
+              {readOnlyFields?.shipBy ? (
+                <input 
+                  type="text" 
+                  value={initialValues?.shipByName || shipByOptions.find(o => String(o.id) === String(formData.shipBy))?.name || formData.shipBy} 
+                  readOnly 
+                  tabIndex={-1}
+                  className="w-full border border-brand-blue rounded-xl px-4 py-2.5 text-sm font-semibold cursor-not-allowed bg-brand-blue text-white shadow-sm"
+                />
+              ) : (
+                <SearchableSelect 
+                  value={formData.shipBy}
+                  onChange={(val) => handleInputChange('shipBy', val)}
+                  options={shipByOptions}
+                  placeholder="Select Container"
+                  variant="mobile"
+                />
+              )}
             </div>
             
             {/* 4. Shipping Term */}
             <div className="space-y-1">
               <label className={`text-sm font-semibold ${isShippingTermEnabled ? 'text-foreground' : 'text-muted-foreground/60'}`}>Shipping Term <span className="text-red-500 ml-0.5">*</span></label>
-              <SearchableSelect 
-                value={formData.shippingTerm}
-                onChange={(val) => handleInputChange('shippingTerm', val)}
-                options={shippingTermOptions}
-                placeholder="Select Term"
-                variant="mobile"
-                disabled={!isShippingTermEnabled}
-                autoOpen={autoOpenNext === 'shippingTerm' && shippingTermOptions.length > 1}
-              />
+              {readOnlyFields?.shippingTerm ? (
+                <input 
+                  type="text" 
+                  value={initialValues?.shippingTermName || shippingTermOptions.find(o => String(o.id) === String(formData.shippingTerm))?.name || formData.shippingTerm} 
+                  readOnly 
+                  tabIndex={-1}
+                  className="w-full border border-brand-blue rounded-xl px-4 py-2.5 text-sm font-semibold cursor-not-allowed bg-brand-blue text-white shadow-sm"
+                />
+              ) : (
+                <SearchableSelect 
+                  value={formData.shippingTerm}
+                  onChange={(val) => handleInputChange('shippingTerm', val)}
+                  options={shippingTermOptions}
+                  placeholder="Select Term"
+                  variant="mobile"
+                  disabled={!isShippingTermEnabled}
+                  autoOpen={autoOpenNext === 'shippingTerm' && shippingTermOptions.length > 1}
+                />
+              )}
             </div>
 
             {/* 5. Port of Loading */}
             <div className="space-y-1">
               <label className={`text-sm font-semibold ${isPortOfLoadingEnabled ? 'text-foreground' : 'text-muted-foreground/60'}`}>Port of Loading <span className="text-red-500 ml-0.5">*</span></label>
-              <SearchableSelect 
-                value={formData.portOfLoading}
-                onChange={(val) => handleInputChange('portOfLoading', val)}
-                options={dynamicLoadingPorts.length > 0 ? dynamicLoadingPorts.map((p: any) => ({ id: p.id, name: p.name })) : []}
-                placeholder={isLoadingPorts ? "Loading..." : (dynamicLoadingPorts.length > 0 ? "Select Port" : "No ports available")}
-                variant="mobile"
-                disabled={!isPortOfLoadingEnabled || isLoadingPorts}
-                autoOpen={autoOpenNext === 'portOfLoading' && dynamicLoadingPorts.length > 1}
-              />
+              {readOnlyFields?.portOfLoading ? (
+                <input 
+                  type="text" 
+                  value={initialValues?.portOfLoadingName || dynamicLoadingPorts.find(o => String(o.id) === String(formData.portOfLoading))?.name || formData.portOfLoading} 
+                  readOnly 
+                  tabIndex={-1}
+                  className="w-full border border-brand-blue rounded-xl px-4 py-2.5 text-sm font-semibold cursor-not-allowed bg-brand-blue text-white shadow-sm"
+                />
+              ) : (
+                <SearchableSelect 
+                  value={formData.portOfLoading}
+                  onChange={(val) => handleInputChange('portOfLoading', val)}
+                  options={dynamicLoadingPorts.length > 0 ? dynamicLoadingPorts.map((p: any) => ({ id: p.id, name: p.name })) : []}
+                  placeholder={isLoadingPorts ? "Loading..." : (dynamicLoadingPorts.length > 0 ? "Select Port" : "No ports available")}
+                  variant="mobile"
+                  disabled={!isPortOfLoadingEnabled || isLoadingPorts}
+                  autoOpen={autoOpenNext === 'portOfLoading' && dynamicLoadingPorts.length > 1}
+                />
+              )}
             </div>
             
             {/* 6. Port of Destination */}
             <div className="space-y-1">
               <label className={`text-sm font-semibold ${isFobSelected || isPortOfDestEnabled ? 'text-foreground' : 'text-muted-foreground/60'}`}>Port of Destination <span className="text-red-500 ml-0.5">*</span></label>
-              <SearchableSelect 
-                value={isFobSelected ? 'N/A' : formData.portOfDestination}
-                onChange={(val) => handleInputChange('portOfDestination', val)}
-                options={isFobSelected ? [{ id: 'N/A', name: 'Not Applicable (FOB)' }] : (dynamicDestinationPorts.length > 0 ? dynamicDestinationPorts.map((p: any) => ({ id: p.id, name: p.name })) : [])}
-                placeholder={isFobSelected ? "Not Applicable (FOB)" : isLoadingDestPorts ? "Loading..." : (dynamicDestinationPorts.length > 0 ? "Select Port" : "No ports available")}
-                variant="mobile"
-                disabled={isFobSelected || !isPortOfDestEnabled || isLoadingDestPorts}
-                autoOpen={autoOpenNext === 'portOfDestination' && dynamicDestinationPorts.length > 1}
-                customTriggerClass={
-                  isFobSelected
-                    ? (isPortOfLoadingEnabled && !!formData.portOfLoading)
-                        ? "py-2.5 px-4 text-sm rounded-xl bg-brand-blue border border-brand-blue text-white font-semibold select-none cursor-not-allowed shadow-sm"
-                        : "py-2.5 px-4 text-sm rounded-xl bg-muted border border-border text-muted-foreground font-medium select-none cursor-not-allowed opacity-60"
-                    : undefined
-                }
-              />
+              {readOnlyFields?.portOfDestination ? (
+                <input 
+                  type="text" 
+                  value={isFobSelected ? 'Not Applicable (FOB)' : (initialValues?.portOfDestinationName || dynamicDestinationPorts.find(o => String(o.id) === String(formData.portOfDestination))?.name || formData.portOfDestination || 'N/A')} 
+                  readOnly 
+                  tabIndex={-1}
+                  className="w-full border border-brand-blue rounded-xl px-4 py-2.5 text-sm font-semibold cursor-not-allowed bg-brand-blue text-white shadow-sm"
+                />
+              ) : (
+                <SearchableSelect 
+                  value={isFobSelected ? 'N/A' : formData.portOfDestination}
+                  onChange={(val) => handleInputChange('portOfDestination', val)}
+                  options={isFobSelected ? [{ id: 'N/A', name: 'Not Applicable (FOB)' }] : (dynamicDestinationPorts.length > 0 ? dynamicDestinationPorts.map((p: any) => ({ id: p.id, name: p.name })) : [])}
+                  placeholder={isFobSelected ? "Not Applicable (FOB)" : isLoadingDestPorts ? "Loading..." : (dynamicDestinationPorts.length > 0 ? "Select Port" : "No ports available")}
+                  variant="mobile"
+                  disabled={isFobSelected || !isPortOfDestEnabled || isLoadingDestPorts}
+                  autoOpen={autoOpenNext === 'portOfDestination' && dynamicDestinationPorts.length > 1}
+                  customTriggerClass={
+                    isFobSelected
+                      ? (isPortOfLoadingEnabled && !!formData.portOfLoading)
+                          ? "py-2.5 px-4 text-sm rounded-xl bg-brand-blue border border-brand-blue text-white font-semibold select-none cursor-not-allowed shadow-sm"
+                          : "py-2.5 px-4 text-sm rounded-xl bg-muted border border-border text-muted-foreground font-medium select-none cursor-not-allowed opacity-60"
+                      : undefined
+                  }
+                />
+              )}
             </div>
 
             {/* 7. Price ($) */}
@@ -565,14 +623,16 @@ export function ProductInquiryModal({
               <label className="text-sm font-semibold text-foreground">Price ($) <span className="text-red-500 ml-0.5">*</span></label>
               <input 
                 type="text" 
-                value={currentPrice ? `$${Math.round(Number(currentPrice))}/PMT${selectedShippingTermObj?.name ? ` - ${selectedShippingTermObj.name}` : ''}` : '$0'} 
+                value={
+                  currentPrice 
+                    ? `$${Math.round(Number(currentPrice))}/PMT${(initialValues?.shippingTermName || selectedShippingTermObj?.name) ? ` - ${initialValues?.shippingTermName || selectedShippingTermObj?.name}` : ''}` 
+                    : price 
+                      ? `$${Math.round(Number(price))}/PMT${initialValues?.shippingTermName ? ` - ${initialValues.shippingTermName}` : ''}` 
+                      : '$0'
+                } 
                 readOnly 
                 tabIndex={-1}
-                className={`w-full border rounded-xl px-4 py-2.5 text-sm font-semibold cursor-not-allowed shadow-sm transition-colors ${
-                  isPackingTypeEnabled 
-                    ? 'border-brand-blue bg-brand-blue text-white' 
-                    : 'bg-muted border-border text-muted-foreground opacity-60'
-                }`}
+                className="w-full border border-brand-blue bg-brand-blue text-white rounded-xl px-4 py-2.5 text-sm font-semibold cursor-not-allowed shadow-sm transition-colors"
               />
             </div>
 

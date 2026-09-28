@@ -8,6 +8,9 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, Car
 import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction, getAiPredictsAction, getFavoriteProductsAction, getPriceAnalysisDetailsAction } from '@/app/actions/charts';
 import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
+import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
+import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
+import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
 import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
 import { FreightAlertCard } from '@/components/alerts/FreightAlertCard';
 import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard';
@@ -38,6 +41,10 @@ export interface CommodityItemData {
   alertPrice?: string | number;
   alertId?: string | number;
   predictId?: string | number;
+  polId?: string;
+  podId?: string;
+  termId?: string;
+  shipById?: string;
 }
 
 interface PriceHistoryItem {
@@ -177,6 +184,86 @@ export default function MobileCommodityChart({
   const [alertError, setAlertError] = useState<string>('');
   const [alertSuccess, setAlertSuccess] = useState<string>('');
   const [editingAlertId, setEditingAlertId] = useState<string | null>(item.alertId ? String(item.alertId) : null);
+
+  // Buy/Sell Action States
+  const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
+  const [inquiryAction, setInquiryAction] = useState<'buy' | 'sell'>('buy');
+  const [inquiryData, setInquiryData] = useState<any>(null);
+  const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [kycMessage, setKycMessage] = useState('');
+  const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
+  const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  const handleBuySellClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!userType) {
+      router.push(`/${lang}/login`);
+      return;
+    }
+    if (isActionLoading) return;
+    
+    const action = userType === 'seller' ? 'sell' : 'buy';
+    setInquiryAction(action);
+    setIsActionLoading(true);
+
+    try {
+      const type = action === 'buy' ? 'BUYER' : 'SELLER';
+      const kycResponse = await checkKYCStatus(lang, type);
+      
+      const isErrorOrNotVerified = 
+        (kycResponse && kycResponse.data && kycResponse.data.can_create === false) ||
+        (kycResponse && kycResponse.response_indication === 'NOT_VERIFIED') ||
+        (kycResponse && kycResponse.data?.response_indication === 'NOT_VERIFIED') ||
+        (kycResponse && (kycResponse.success === 0 || kycResponse.success === false) && (kycResponse.response_indication || kycResponse.data?.response_indication || kycResponse.message));
+
+      if (isErrorOrNotVerified) {
+        setKycMessage(kycResponse.message || "You cannot proceed with this action.");
+        const indication = kycResponse.response_indication || kycResponse.data?.response_indication;
+        if (indication === 'NOT_VERIFIED') {
+          setKycIndicationText('Submit Documents');
+          setKycRedirectUrl(`/${lang}/profile`);
+        } else {
+          setKycIndicationText('Upgrade Plan');
+          setKycRedirectUrl(`/${lang}/profile`);
+        }
+        setIsKYCModalOpen(true);
+        setIsActionLoading(false);
+        return;
+      }
+      
+      const productId = apiProduct?.product?.id || apiProduct?.product_id || item.productId || item.favoriteProductId || item.id;
+      const [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
+        fetchProductDetails(String(productId), lang),
+        fetchShippingTerms(lang),
+        fetchPaymentTerms(lang)
+      ]);
+      
+      const combinedData: any = {
+        itemPrice: item.price
+      };
+      
+      if (productResponse && productResponse.success) {
+        combinedData.product = productResponse.data;
+      } else {
+        combinedData.product = { id: productId, name: item.product, country: { name: item.country } };
+      }
+      if (termsResponse && termsResponse.success) {
+        combinedData.shippingTerms = termsResponse.data?.shipping_term || [];
+      }
+      if (paymentTermsResponse && paymentTermsResponse.success) {
+        combinedData.paymentTerms = paymentTermsResponse.data?.payment_term || [];
+      }
+      
+      setInquiryData(combinedData);
+      setIsInquiryModalOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch product details", error);
+      toast.error("Failed to process your request");
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
 
   // Automatically reset alert edit/create input form when user changes active tab unless item.alertId is present on Alert Setups tab
   useEffect(() => {
@@ -2913,10 +3000,12 @@ export default function MobileCommodityChart({
             <div className="space-y-2">
               <ActionButton
                 type="button"
+                onClick={handleBuySellClick}
+                disabled={isActionLoading}
                 variant={userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default'}
                 icon={userType === 'seller' ? 'fa-tag' : userType === 'buyer' ? 'fa-cart-shopping' : ''}
               >
-                {userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY'}
+                {isActionLoading ? 'WAIT...' : (userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY')}
               </ActionButton>
 
               {showAlertInput ? (
@@ -3083,10 +3172,12 @@ export default function MobileCommodityChart({
             {/* 2. Buy / Sell Action Button (Center) */}
             <ActionButton
               type="button"
+              onClick={handleBuySellClick}
+              disabled={isActionLoading}
               variant={userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default'}
               className="flex-1 py-2 min-[390px]:py-2.5 text-[12px] min-[390px]:text-[14px]"
             >
-              {userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'}
+              {isActionLoading ? 'WAIT...' : (userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL')}
             </ActionButton>
 
             {/* 3. AI Predict (Right) */}
@@ -3277,6 +3368,41 @@ export default function MobileCommodityChart({
           </div>
         </div>
       )}
+
+      {/* Inquiry Modal */}
+      <ChartProductInquiryModal 
+        isOpen={isInquiryModalOpen}
+        onClose={() => setIsInquiryModalOpen(false)}
+        item={{
+          ...item,
+          productId: inquiryData?.product?.id || item.productId || item.id,
+          product: item.product || inquiryData?.product?.name,
+          country: item.country || inquiryData?.product?.country?.name,
+          price: inquiryData?.itemPrice || item.price,
+          polId: item.polId || apiProduct?.loading_port?.id,
+          podId: item.podId || apiProduct?.destination_port?.id,
+          termId: item.termId || apiProduct?.shipping_term?.id,
+          shipById: item.shipById || apiProduct?.shipping_container?.id
+        }}
+        lang={lang}
+        actionType={inquiryAction}
+        packingTypes={inquiryData?.product?.packing_types || []}
+        containers={inquiryData?.product?.containers || []}
+        paymentTerms={inquiryData?.paymentTerms || []}
+      />
+
+      <ActionIndicationModal
+        isOpen={isKYCModalOpen}
+        onClose={() => setIsKYCModalOpen(false)}
+        onConfirm={() => {
+          setIsKYCModalOpen(false);
+          router.push(kycRedirectUrl);
+        }}
+        title="Action Required"
+        description={kycMessage}
+        indicationText={kycIndicationText}
+        type="warning"
+      />
     </div>
   );
 }
