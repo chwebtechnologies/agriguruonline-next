@@ -31,7 +31,7 @@ export default async function AIPredictPage(props: { params: Promise<{ lang: str
   const lang = params.lang || 'en';
 
   if (!token) {
-    redirect(`/${lang}/login`);
+    redirect(`/${lang}/login?redirectUrl=/${lang}/ai-predict`);
   }
 
   const predictsList = await getUserAiPredicts(token, lang);

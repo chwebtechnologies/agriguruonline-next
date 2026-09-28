@@ -31,6 +31,11 @@ export default function LoginRequiredBanner({ redirectUrl }: LoginRequiredBanner
 
       if (!segment) return "this page";
 
+      // Handle special casing for AI Predict
+      if (segment.toLowerCase() === 'ai-predict') {
+        return "AI Predict";
+      }
+
       // Capitalize and replace dashes with spaces (e.g., market-reports -> Market Reports)
       return segment
         .split('-')

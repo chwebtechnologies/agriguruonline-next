@@ -42,7 +42,7 @@ export default async function ProfilePage(props: { params: Promise<{ lang: strin
   const lang = params.lang || 'en';
 
   if (!token) {
-    redirect(`/${lang}/login`);
+    redirect(`/${lang}/login?redirectUrl=/${lang}/profile`);
   }
 
   return (

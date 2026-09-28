@@ -177,29 +177,23 @@ export default function HeroCarousel({ lang }: { lang: string }) {
                       </div>
 
                       {/* Floating Badges */}
-                      <div className="absolute -right-4 lg:-right-6 top-2 lg:top-4 bg-emerald-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow">
-                        <i className="fa-solid fa-tags text-yellow-300"></i> Product Price
-                      </div>
-                      <div className="absolute -left-6 lg:-left-8 top-4 lg:top-6 bg-purple-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5">
-                        <i className="fa-solid fa-file-contract text-pink-300"></i> Smart Docs
-                      </div>
-                      <div className="absolute -right-2 lg:-right-4 bottom-4 lg:bottom-6 bg-blue-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1s' }}>
-                        <i className="fa-solid fa-ship text-cyan-200"></i> Live Freight
-                      </div>
-                      <div className="absolute -left-4 lg:-left-6 bottom-6 lg:bottom-8 bg-indigo-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5">
-                        <i className="fa-solid fa-earth-americas text-cyan-200"></i> Global Agri Trade
-                      </div>
-                      <div className="absolute -right-6 lg:-right-10 top-16 lg:top-20 bg-teal-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '0.5s' }}>
-                        <i className="fa-solid fa-robot text-yellow-300"></i> AI Predict
-                      </div>
-                      <div className="absolute -left-8 lg:-left-12 top-16 lg:top-20 bg-blue-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.5s' }}>
+                      <div className="absolute -left-6 lg:-left-10 top-4 lg:top-8 bg-blue-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.5s' }}>
                         <i className="fa-solid fa-chart-pie text-cyan-200"></i> Market Reports
                       </div>
-                      <div className="absolute -right-6 lg:-right-10 bottom-16 lg:bottom-20 bg-purple-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '0.8s' }}>
-                        <i className="fa-solid fa-handshake text-emerald-300"></i> Negotiation
+                      <div className="absolute -right-6 lg:-right-10 top-4 lg:top-8 bg-teal-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '0.5s' }}>
+                        <i className="fa-solid fa-robot text-yellow-300"></i> AI Predict
                       </div>
-                      <div className="absolute -left-6 lg:-left-10 bottom-16 lg:bottom-20 bg-orange-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.2s' }}>
+                      <div className="absolute -left-10 lg:-left-14 top-1/2 -translate-y-1/2 bg-indigo-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.0s' }}>
+                        <i className="fa-solid fa-earth-americas text-cyan-200"></i> Global Agri Trade
+                      </div>
+                      <div className="absolute -right-10 lg:-right-14 top-1/2 -translate-y-1/2 bg-rose-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.8s' }}>
+                        <i className="fa-solid fa-bell text-yellow-300"></i> Alert Setups
+                      </div>
+                      <div className="absolute -left-6 lg:-left-10 bottom-4 lg:bottom-8 bg-orange-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.2s' }}>
                         <i className="fa-solid fa-bolt text-yellow-300"></i> Daily Updates
+                      </div>
+                      <div className="absolute -right-6 lg:-right-10 bottom-4 lg:bottom-8 bg-purple-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '0.8s' }}>
+                        <i className="fa-solid fa-handshake text-emerald-300"></i> Negotiation
                       </div>
                     </div>
                   </div>

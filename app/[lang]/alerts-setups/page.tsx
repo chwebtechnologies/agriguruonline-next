@@ -31,7 +31,7 @@ export default async function AlertsSetupsPage(props: { params: Promise<{ lang: 
   const lang = params.lang || 'en';
 
   if (!token) {
-    redirect(`/${lang}/login`);
+    redirect(`/${lang}/login?redirectUrl=/${lang}/alerts-setups`);
   }
 
   const alertsList = await getUserAlerts(token, lang);
