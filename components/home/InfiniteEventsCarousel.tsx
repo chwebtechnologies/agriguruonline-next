@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 type AnimationState = 'idle' | 'forward' | 'prep-backward' | 'backward';
 
-export default function InfiniteEventsCarousel({ events, lang }: { events: any[], lang: string }) {
+export default function InfiniteEventsCarousel({ events, lang, dict = {} }: { events: any[], lang: string, dict?: any }) {
   const [items, setItems] = useState(() => {
     // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
     return [...events, ...events].map((e, i) => ({
@@ -121,21 +121,21 @@ export default function InfiniteEventsCarousel({ events, lang }: { events: any[]
           href={`/${lang}/events`} 
           className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-card border border-border text-foreground hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
         >
-          View All Events <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+          {dict?.home?.view_all_events || 'View All Events'} <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
         </Link>
         
         {/* Next/Prev Buttons */}
         <div className="flex items-center gap-2 sm:gap-3">
           <button 
             onClick={movePrev}
-            aria-label="Previous Event"
+            aria-label={dict?.home?.previous_event || 'Previous Event'}
             className="w-10 h-10 rounded-full bg-card border border-border text-foreground flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <i className="fa-solid fa-chevron-left text-sm"></i>
           </button>
           <button 
             onClick={moveNext}
-            aria-label="Next Event"
+            aria-label={dict?.home?.next_event || 'Next Event'}
             className="w-10 h-10 rounded-full bg-card border border-border text-foreground flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <i className="fa-solid fa-chevron-right text-sm"></i>

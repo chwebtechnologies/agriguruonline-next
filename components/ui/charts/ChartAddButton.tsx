@@ -11,6 +11,7 @@ interface ChartAddButtonProps {
   id?: string;
   variant?: 'desktop' | 'mobile-sticky' | 'mobile-overlay';
   className?: string;
+  common?: any;
 }
 
 export function ChartAddButton({
@@ -21,7 +22,8 @@ export function ChartAddButton({
   tooltipText = 'Please select all required options',
   id,
   variant = 'desktop',
-  className = ''
+  className = '',
+  common = {}
 }: ChartAddButtonProps) {
   if (variant === 'mobile-sticky') {
     return (
@@ -51,7 +53,7 @@ export function ChartAddButton({
       >
         {loading ? (
           <>
-            <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> Adding...
+            <i className="fa-solid fa-circle-notch fa-spin mr-2"></i> {common?.adding || 'Adding...'}
           </>
         ) : (
           label
@@ -75,7 +77,7 @@ export function ChartAddButton({
       >
         {loading ? (
           <>
-            <i className="fa-solid fa-circle-notch fa-spin"></i> Adding...
+            <i className="fa-solid fa-circle-notch fa-spin"></i> {common?.adding || 'Adding...'}
           </>
         ) : (
           label

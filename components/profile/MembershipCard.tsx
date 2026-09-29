@@ -41,9 +41,10 @@ const PLANS: MembershipPlan[] = [
 
 interface MembershipCardProps {
   profileData?: any;
+  dict?: any;
 }
 
-export default function MembershipCard({ profileData = null }: MembershipCardProps) {
+export default function MembershipCard({ profileData = null, dict = {} }: MembershipCardProps) {
   // Determine tier from profileData using specific API keys
   let currentTier = "SILVER";
   const planName = String(profileData?.membership?.plan_name || profileData?.plan_name || "SILVER").toUpperCase();
@@ -70,10 +71,10 @@ export default function MembershipCard({ profileData = null }: MembershipCardPro
     : profileData?.name || "N/A";
     
   // Account ID key in api is customer_id
-  const accountId = profileData?.customer_id || "N/A";
+  const accountId = profileData?.customer_id || dict?.common?.not_available || "N/A";
   
   // Expiry date key in api is membership_expiry_date (either inside membership object or root)
-  let validThru = "N/A";
+  let validThru = dict?.common?.not_available || "N/A";
   const expiry = profileData?.membership?.membership_expiry_date || profileData?.membership_expiry_date;
   
   if (expiry) {
@@ -111,7 +112,7 @@ export default function MembershipCard({ profileData = null }: MembershipCardPro
               {plan.tier} <i className={`fa-solid ${plan.icon} text-xl sm:text-2xl ${plan.iconColor} drop-shadow-md`}></i>
             </h3>
             <p className="text-white text-xs uppercase tracking-[0.2em] font-extrabold drop-shadow-md flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span> {plan.duration} MEMBERSHIP
+              <span className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span> {dict?.profile?.[plan.duration.toLowerCase()] || plan.duration} {dict?.profile?.membership || "MEMBERSHIP"}
             </p>
           </div>
           
@@ -122,19 +123,18 @@ export default function MembershipCard({ profileData = null }: MembershipCardPro
 
         {/* Account ID */}
         <div className="mt-3 sm:mt-4 mb-3 sm:mb-4">
-          <p className="text-white/80 text-[10px] uppercase tracking-widest font-bold mb-1 drop-shadow-sm">Account ID</p>
+          <p className="text-white/80 text-[10px] uppercase tracking-widest font-bold mb-1 drop-shadow-sm">{dict?.profile?.account_id || "Account ID"}</p>
           <p className="font-mono text-xl sm:text-2xl tracking-[0.2em] drop-shadow-lg font-bold text-white">{accountId}</p>
         </div>
       </div>
 
-      {/* Footer Section */}
       <div className="flex justify-between items-end pt-3 border-t border-white/20 relative z-10">
         <div>
-          <p className="text-white/80 text-[10px] uppercase tracking-[0.15em] font-bold mb-0.5 drop-shadow-sm">Member Name</p>
+          <p className="text-white/80 text-[10px] uppercase tracking-[0.15em] font-bold mb-0.5 drop-shadow-sm">{dict?.profile?.member_name || "Member Name"}</p>
           <p className="font-bold tracking-widest drop-shadow-lg text-sm sm:text-base text-white uppercase truncate max-w-[150px] sm:max-w-[180px]">{memberName}</p>
         </div>
         <div className="text-right">
-          <p className="text-white/80 text-[10px] uppercase tracking-[0.15em] font-bold mb-0.5 drop-shadow-sm">Valid Thru</p>
+          <p className="text-white/80 text-[10px] uppercase tracking-[0.15em] font-bold mb-0.5 drop-shadow-sm">{dict?.profile?.valid_thru || "Valid Thru"}</p>
           <p className="font-bold tracking-wider drop-shadow-lg text-sm sm:text-base text-white">{validThru}</p>
         </div>
       </div>

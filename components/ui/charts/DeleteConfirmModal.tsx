@@ -7,17 +7,20 @@ interface DeleteConfirmModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title?: string;
+  title?: string;
   description?: string;
   isDeleting?: boolean;
+  common?: any;
 }
 
 export function DeleteConfirmModal({
   isOpen,
   onClose,
   onConfirm,
-  title = 'Delete Item',
-  description = 'Are you sure you want to delete this item?',
-  isDeleting = false
+  title,
+  description,
+  isDeleting = false,
+  common = {}
 }: DeleteConfirmModalProps) {
   if (!isOpen) return null;
 
@@ -30,10 +33,10 @@ export function DeleteConfirmModal({
           </div>
           <div className="flex flex-col justify-center w-full items-center">
             <h3 className="text-[17px] font-bold text-brand-red mb-1 leading-none text-center">
-              {title}
+              {title || common?.delete_item || 'Delete Item'}
             </h3>
             <p className="text-foreground/80 text-[14px] leading-snug whitespace-nowrap text-center">
-              {description}
+              {description || common?.delete_confirm_desc || 'Are you sure you want to delete this item?'}
             </p>
           </div>
         </div>
@@ -45,7 +48,7 @@ export function DeleteConfirmModal({
             disabled={isDeleting}
             className="flex-1 py-2.5 rounded-xl bg-brand-red text-white font-semibold text-[15px] shadow-sm hover:bg-brand-red-hover active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
           >
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            {isDeleting ? (common?.deleting || 'Deleting...') : (common?.delete || 'Delete')}
           </button>
           <button
             type="button"
@@ -53,7 +56,7 @@ export function DeleteConfirmModal({
             disabled={isDeleting}
             className="flex-1 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all cursor-pointer"
           >
-            Cancel
+            {common?.cancel || 'Cancel'}
           </button>
         </div>
       </div>

@@ -11,6 +11,7 @@ import { cache } from 'react'
 import { getAssetsUrl } from '@/lib/api-utils'
 import { cmsService } from '@/lib/api/cms.service'
 import Link from 'next/link'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 
 export const revalidate = 60;
 
@@ -173,11 +174,13 @@ export default async function ParticipationAlbumPage(props: {
     notFound()
   }
 
+  const dict = await getDictionary(lang);
+
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title={albumTitle} backText="Back" backHref={`/${lang}/participation-gallery`} />
+          <PageHeader title={albumTitle} backText={dict.common?.back || "Back"} backHref={`/${lang}/participation-gallery`} />
 
           <ParticipationAlbumClient
             photos={photos.map((p: any) => ({

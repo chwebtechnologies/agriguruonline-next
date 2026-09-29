@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ForceLogout } from '@/components/auth/ForceLogout';
 import { AIPredictClient } from '@/app/[lang]/ai-predict/AIPredictClient';
+import { getDictionary } from '@/app/[lang]/dictionaries';
 
 import { getUserAiPredicts } from '@/lib/user-data';
 
@@ -35,14 +36,16 @@ export default async function AIPredictPage(props: { params: Promise<{ lang: str
   }
 
   const predictsList = await getUserAiPredicts(token, lang);
+  const dict = await getDictionary(lang);
 
   return (
     <div className="bg-background text-foreground transition-theme pb-5">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="AI Predict" backText="Back" />
+          <PageHeader title={dict.common?.ai_predict || "AI Predict"} backText={dict.common?.back || "Back"} />
 
           <AIPredictClient 
+            dict={dict.common}
             initialPredicts={predictsList.map((predict: any) => ({
               id: predict.id,
               favourite_product_id: predict.favourite_product_id,

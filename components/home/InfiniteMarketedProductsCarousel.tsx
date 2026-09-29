@@ -12,9 +12,10 @@ interface InfiniteMarketedProductsCarouselProps {
   common: any;
   imageBaseUrl: string;
   userType?: string | null;
+  dict?: any;
 }
 
-export default function InfiniteMarketedProductsCarousel({ products, lang, common, imageBaseUrl, userType }: InfiniteMarketedProductsCarouselProps) {
+export default function InfiniteMarketedProductsCarousel({ products, lang, common, imageBaseUrl, userType, dict = {} }: InfiniteMarketedProductsCarouselProps) {
   const [items, setItems] = useState(() => {
     // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
     return [...products, ...products].map((p, i) => ({
@@ -144,14 +145,14 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
         <div className="flex items-center gap-2 sm:gap-3">
           <button 
             onClick={movePrev}
-            aria-label="Previous Product"
+            aria-label={dict?.home?.previous_product || 'Previous Product'}
             className="w-10 h-10 rounded-full bg-card border border-border text-foreground flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <i className="fa-solid fa-chevron-left text-sm"></i>
           </button>
           <button 
             onClick={moveNext}
-            aria-label="Next Product"
+            aria-label={dict?.home?.next_product || 'Next Product'}
             className="w-10 h-10 rounded-full bg-card border border-border text-foreground flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <i className="fa-solid fa-chevron-right text-sm"></i>

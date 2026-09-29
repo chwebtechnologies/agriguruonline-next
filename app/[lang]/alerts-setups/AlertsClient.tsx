@@ -6,7 +6,7 @@ import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
 import { FreightAlertCard } from '@/components/alerts/FreightAlertCard';
 import { ChartBottomSheetContainer, ChartBottomSheetItem } from '@/components/ui/charts/ChartBottomSheetContainer';
 
-export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], lang: string }) {
+export function AlertsClient({ initialAlerts, lang, dict }: { initialAlerts: any[], lang: string, dict?: any }) {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeChartData, setActiveChartData] = useState<ChartBottomSheetItem | null>(null);
@@ -113,7 +113,7 @@ export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], la
               />
             </div>
             <div className="flex-1 text-[15px] sm:text-[17px] font-bold text-foreground">
-              Select all
+              {dict?.select_all || "Select all"}
             </div>
             <button 
               onClick={handleDelete}
@@ -133,7 +133,7 @@ export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], la
               </div>
               <input 
                 type="text" 
-                placeholder="Search" 
+                placeholder={dict?.search || "Search"} 
                 className="w-full h-11 sm:h-12 pl-10 sm:pl-12 pr-4 bg-muted/40 hover:bg-muted/70 border border-border rounded-lg text-[14px] sm:text-[15px] text-foreground focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all placeholder:text-muted-foreground font-medium"
               />
             </div>
@@ -147,12 +147,12 @@ export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], la
           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
             <i className="fa-solid fa-bell-slash text-3xl sm:text-4xl text-blue-500"></i>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2">No active alerts</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2">{dict?.no_active_alerts || "No active alerts"}</h3>
           <p className="text-sm sm:text-base text-muted-foreground max-w-md">
-            You haven't set up any alerts yet. Stay ahead of the market by creating your first alert.
+            {dict?.no_alerts_desc || "You haven't set up any alerts yet. Stay ahead of the market by creating your first alert."}
           </p>
           <button className="mt-6 bg-brand-blue hover:bg-brand-blue-hover text-white px-6 py-2.5 rounded-xl font-bold shadow-md transition-all active:scale-95 flex items-center gap-2 text-sm sm:text-base">
-            <i className="fa-solid fa-plus"></i> Create Alert
+            <i className="fa-solid fa-plus"></i> {dict?.create_alert || "Create Alert"}
           </button>
         </div>
       ) : (
@@ -191,8 +191,8 @@ export function AlertsClient({ initialAlerts, lang }: { initialAlerts: any[], la
           activeItem={activeChartData} 
           onClose={() => setActiveChartData(null)} 
           lang={lang}
-          swipeText="Swipe up for Commodity Details"
-          initialTab="Alert Setups"
+          swipeText={dict?.swipe_up_details || "Swipe up for Commodity Details"}
+          initialTab={dict?.alerts_setups || "Alert Setups"}
         />
       )}
     </div>

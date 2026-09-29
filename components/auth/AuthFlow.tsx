@@ -110,7 +110,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         onBackClick={handlePageHeaderBack}
       />
       <div className="w-full flex flex-col items-center px-4 sm:px-0">
-        <LoginRequiredBanner redirectUrl={redirectUrl} />
+        <LoginRequiredBanner redirectUrl={redirectUrl} dict={dict} />
         {step === "EMAIL" && (
           <EmailStep onNext={handleEmailNext} lang={lang} dict={dict} />
         )}

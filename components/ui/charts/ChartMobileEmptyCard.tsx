@@ -10,7 +10,9 @@ interface ChartMobileEmptyCardProps {
   title: string;
   actionText: string;
   description: string;
+  description: string;
   className?: string;
+  common?: any;
 }
 
 export function ChartMobileEmptyCard({
@@ -21,7 +23,8 @@ export function ChartMobileEmptyCard({
   title,
   actionText,
   description,
-  className = ''
+  className = '',
+  common = {}
 }: ChartMobileEmptyCardProps) {
   return (
     <div
@@ -38,10 +41,10 @@ export function ChartMobileEmptyCard({
         <div className="flex justify-between items-center text-[12px] text-foreground/75">
           <div className="flex items-center gap-1.5 font-medium">
             <i className={`${icon} text-brand-green text-[11px]`}></i>
-            <span>{badgeLabel}</span>
+            <span>{badgeLabel === 'Watchlist' && common?.watchlist ? common.watchlist : badgeLabel}</span>
           </div>
           <div className="flex items-center gap-1.5 font-medium">
-            <span>{countLabel}</span>
+            <span>{countLabel === '0 Items' && common?.zero_items ? common.zero_items : countLabel}</span>
           </div>
         </div>
 

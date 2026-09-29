@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { OffersPageTemplate } from '@/components/shared/OffersPageTemplate'
+import { getDictionary } from '@/app/[lang]/dictionaries';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -29,12 +30,14 @@ export default async function LatestOffersPage(props: {
   const searchStr = typeof searchParams.search === 'string' ? searchParams.search : undefined;
   const categoryStr = typeof searchParams.category === 'string' ? searchParams.category : undefined;
 
+  const dict = await getDictionary(lang);
+
   return (
     <OffersPageTemplate 
       lang={lang} 
       searchParams={{ search: searchStr, category: categoryStr }}
       offerType="BUYER"
-      pageTitle="Latest Offers for Buyer"
+      pageTitle={dict.common?.latest_offers_for_buyer || "Latest Offers for Buyer"}
     />
   )
 }

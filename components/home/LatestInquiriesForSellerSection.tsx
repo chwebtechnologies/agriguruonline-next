@@ -6,10 +6,11 @@ interface LatestInquiriesForSellerSectionProps {
   lang: string;
   imageBaseUrl: string;
   userType?: string | null;
+  dict?: any;
 }
 
 export default function LatestInquiriesForSellerSection({ 
-  inquiries, lang, imageBaseUrl, userType 
+  inquiries, lang, imageBaseUrl, userType, dict = {} 
 }: LatestInquiriesForSellerSectionProps) {
   if (!inquiries || inquiries.length === 0) return null;
 
@@ -34,6 +35,7 @@ export default function LatestInquiriesForSellerSection({
                     imageBaseUrl={imageBaseUrl} 
                     offerType="SELLER"
                     userType={userType}
+                    dict={dict}
                   />
                 ))}
               </div>
@@ -47,13 +49,13 @@ export default function LatestInquiriesForSellerSection({
           <div className="w-full lg:w-1/2 p-5 sm:p-8 flex flex-col space-y-6">
             <div className="inline-block">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-                Latest Inquiries for Seller
+                {dict?.common?.latest_inquiries_for_seller || 'Latest Inquiries for Seller'}
                 <span className="absolute bottom-0 left-0 w-16 h-1.5 bg-primary rounded-full"></span>
               </h2>
             </div>
             
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed flex-1">
-              Explore the latest buying inquiries from verified global buyers. Review their requirements, match them with your premium commodities, and start trading today. Connect securely through our platform and expand your business globally.
+              {dict?.common?.latest_inquiries_desc || 'Explore the latest buying inquiries from verified global buyers. Review their requirements, match them with your premium commodities, and start trading today. Connect securely through our platform and expand your business globally.'}
             </p>
             
             <div className="flex justify-end">
@@ -61,7 +63,7 @@ export default function LatestInquiriesForSellerSection({
                 href={`/${lang}/latest-inquiries-for-sellers`}
                 className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary-hover transition-colors shadow-sm hover:shadow-md hover:-translate-y-0.5"
               >
-                View All Inquiries <i className="fa-solid fa-arrow-right ml-2"></i>
+                {dict?.common?.view_all_inquiries || 'View All Inquiries'} <i className="fa-solid fa-arrow-right ml-2"></i>
               </Link>
             </div>
             
@@ -70,7 +72,7 @@ export default function LatestInquiriesForSellerSection({
               <iframe 
                 className="absolute inset-0 w-full h-full"
                 src="https://www.youtube.com/embed/neEQrat8yuU" 
-                title="AgriGuru Online Tutorial" 
+                title={dict?.common?.agriguru_online_tutorial || "AgriGuru Online Tutorial"} 
                 frameBorder="0" 
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                 allowFullScreen

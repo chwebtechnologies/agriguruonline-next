@@ -205,7 +205,7 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
 
         {/* Mobile-only Membership Card (Shows above the form on smaller screens) */}
         <div className="block lg:hidden mb-3">
-          <MembershipCard profileData={sanitizedProfileData} />
+          <MembershipCard profileData={sanitizedProfileData} dict={dict} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
@@ -243,7 +243,7 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
             
             {/* Desktop-only Membership Card (Shows in sidebar on large screens) */}
             <div className="hidden lg:block">
-              <MembershipCard profileData={sanitizedProfileData} />
+              <MembershipCard profileData={sanitizedProfileData} dict={dict} />
             </div>
 
             <div id="kyc-section" className="scroll-mt-24">

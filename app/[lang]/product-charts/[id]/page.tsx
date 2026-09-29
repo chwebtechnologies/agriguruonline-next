@@ -98,7 +98,7 @@ export async function generateMetadata(
   };
 }
 
-async function getChartProductData(id: string, lang: string = 'en') {
+async function getChartProductData(id: string, lang: string = 'en', dict: any = {}) {
   let token = '';
   try {
     const cookieStore = await cookies();
@@ -134,15 +134,15 @@ async function getChartProductData(id: string, lang: string = 'en') {
         if (match) {
           itemData = {
             id: match.id,
-            category: match.category?.name || 'N/A',
-            country: match.country?.name || 'N/A',
+            category: match.category?.name || dict.common?.not_available || 'N/A',
+            country: match.country?.name || dict.common?.not_available || 'N/A',
             countryFlag: match.country?.flag || '',
-            product: match.product?.name || 'N/A',
-            shipBy: match.shipping_container?.title || 'N/A',
-            term: match.shipping_term?.title || 'N/A',
-            pol: match.loading_port?.name || 'N/A',
+            product: match.product?.name || dict.common?.not_available || 'N/A',
+            shipBy: match.shipping_container?.title || dict.common?.not_available || 'N/A',
+            term: match.shipping_term?.title || dict.common?.not_available || 'N/A',
+            pol: match.loading_port?.name || dict.common?.not_available || 'N/A',
             polFlag: match.loading_port?.flag || match.loading_port?.country?.flag || '',
-            pod: match.destination_port?.name || 'N/A',
+            pod: match.destination_port?.name || dict.common?.not_available || 'N/A',
             podFlag: match.destination_port?.flag || match.destination_port?.country?.flag || '',
             price: (match.price != null ? Math.round(Number(match.price)) : (match.current_price != null ? Math.round(Number(match.current_price)) : 0)).toString(),
             chartStatus: (
@@ -165,15 +165,15 @@ async function getChartProductData(id: string, lang: string = 'en') {
       if (pData) {
         itemData = {
           id: pData.id || id,
-            category: pData.category?.name || 'N/A',
-            country: pData.country?.name || 'N/A',
+            category: pData.category?.name || dict.common?.not_available || 'N/A',
+            country: pData.country?.name || dict.common?.not_available || 'N/A',
             countryFlag: pData.country?.flag || '',
-            product: pData.name || 'Product Chart',
+            product: pData.name || dict.common?.product_chart || 'Product Chart',
             shipBy: pData.shipping_containers?.[0]?.title || '20 FT',
             term: 'FOB',
-            pol: pData.loading_ports?.[0]?.port?.name || 'Port',
+            pol: pData.loading_ports?.[0]?.port?.name || dict.common?.port || 'Port',
             polFlag: pData.country?.flag || '',
-            pod: 'N/A',
+            pod: dict.common?.not_available || 'N/A',
             podFlag: '',
             price: (pData.loading_ports?.[0]?.price != null ? Math.round(Number(pData.loading_ports[0].price)) : 0).toString(),
             change: (pData.change != null ? Math.round(Number(pData.change)) : 0).toString(),
@@ -192,7 +192,7 @@ export default async function DedicatedChartPage(props: { params: Promise<{ lang
   const params = await props.params;
   const lang = params.lang || 'en';
   const dict = await getDictionary(lang as any);
-  const { itemData, userType } = await getChartProductData(params.id, lang);
+  const { itemData, userType } = await getChartProductData(params.id, lang, dict);
   
   return (
     <main className="bg-background text-foreground min-h-[100dvh] w-full flex flex-col items-center">

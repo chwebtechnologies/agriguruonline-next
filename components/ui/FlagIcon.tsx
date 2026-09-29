@@ -12,7 +12,7 @@ interface FlagIconProps {
 
 export function FlagIcon({ 
   src, 
-  alt = "Flag", 
+  alt = "", 
   title, 
   className = "w-5 h-3.5 rounded-[2px]", 
   width = 24, 

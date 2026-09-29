@@ -121,9 +121,10 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
   
   let userType: string | null = null;
   let commonDict: any = {};
+  let pageDict: any = {};
   
   try {
-    const [newsData, eventsData, productsData, videoData, marketUpdatesData, participationData, associatePartnersData, dict, authData, buyerOffersData, sellerInquiriesData] = await Promise.all([
+    const [newsData, eventsData, productsData, videoData, marketUpdatesData, participationData, associatePartnersData, fetchedDict, authData, buyerOffersData, sellerInquiriesData] = await Promise.all([
       cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 12 }).catch(() => null),
       cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 12 }).catch(() => null),
       tradingService.getMarketedProducts(activeLang, 1, 12).catch(() => null),
@@ -147,7 +148,8 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
     buyerOffers = buyerOffersData?.data?.inquiries || [];
     sellerInquiries = sellerInquiriesData?.data?.inquiries || [];
     
-    commonDict = (dict as any).common || {};
+    pageDict = fetchedDict || {};
+    commonDict = (fetchedDict as any).common || {};
     userType = authData?.userProfile?.user_type ? 
       (typeof authData.userProfile.user_type === 'string' 
         ? authData.userProfile.user_type.toLowerCase() 
@@ -185,7 +187,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           {/* Premium Section Title Feel */}
           <div className="inline-block mb-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              Global Agri Commodity Trading News
+              {pageDict?.home?.news_title || 'Global Agri Commodity Trading News'}
               {/* Decorative beautiful underline */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
             </h2>
@@ -193,14 +195,14 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           
           {/* SEO Description for News only */}
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            Explore daily breaking headlines, international trade policies, and crucial market updates shaping the global agricultural commodity sector for B2B traders.
+            {pageDict?.home?.news_desc || 'Explore daily breaking headlines, international trade policies, and crucial market updates shaping the global agricultural commodity sector for B2B traders.'}
           </p>
           
         </div>
         
         {/* The News Carousel */}
         {articles.length > 0 && (
-          <InfiniteNewsCarousel articles={articles} lang={activeLang} />
+          <InfiniteNewsCarousel articles={articles} lang={activeLang} dict={pageDict} />
         )}
       </section>
 
@@ -211,7 +213,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           {/* Premium Section Title Feel */}
           <div className="inline-block mb-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              Global Agri Events & Conferences
+              {pageDict?.home?.events_title || 'Global Agri Events & Conferences'}
               {/* Decorative beautiful underline */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
             </h2>
@@ -219,14 +221,14 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           
           {/* SEO Description for Events */}
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            Discover upcoming international agricultural exhibitions, trade shows, and B2B conferences tailored for commodity traders and industry leaders.
+            {pageDict?.home?.events_desc || 'Discover upcoming international agricultural exhibitions, trade shows, and B2B conferences tailored for commodity traders and industry leaders.'}
           </p>
           
         </div>
         
         {/* The Events Carousel */}
         {events.length > 0 && (
-          <InfiniteEventsCarousel events={events} lang={activeLang} />
+          <InfiniteEventsCarousel events={events} lang={activeLang} dict={pageDict} />
         )}
       </section>
 
@@ -236,7 +238,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           {/* Premium Section Title Feel */}
           <div className="inline-block mb-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              Premium Marketed Products
+              {pageDict?.home?.products_title || 'Premium Marketed Products'}
               {/* Decorative beautiful underline */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
             </h2>
@@ -244,7 +246,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           
           {/* SEO Description for Products */}
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            Source premium agricultural commodities for global trade. Explore top-tier B2B products from trusted international suppliers at AgriGuru Online.
+            {pageDict?.home?.products_desc || 'Source premium agricultural commodities for global trade. Explore top-tier B2B products from trusted international suppliers at AgriGuru Online.'}
           </p>
         </div>
         
@@ -256,6 +258,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
             common={common} 
             imageBaseUrl={imageBaseUrl} 
             userType={userType} 
+            dict={pageDict}
           />
         )}
       </section>
@@ -266,6 +269,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
         lang={activeLang} 
         imageBaseUrl={imageBaseUrl}
         userType={userType}
+        dict={pageDict}
       />
 
       {/* Latest Inquiries for Seller Section */}
@@ -274,6 +278,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
         lang={activeLang}
         imageBaseUrl={imageBaseUrl}
         userType={userType}
+        dict={pageDict}
       />
 
       {/* Video Gallery Section */}
@@ -282,7 +287,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           {/* Premium Section Title Feel */}
           <div className="inline-block mb-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              Agri Video Gallery & Insights
+              {pageDict?.home?.video_title || 'Agri Video Gallery & Insights'}
               {/* Decorative beautiful underline */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
             </h2>
@@ -290,13 +295,13 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           
           {/* SEO Description for Video Gallery */}
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            Watch expert agricultural market analysis, video commodity updates, tutorial guides, and industry event coverage.
+            {pageDict?.home?.video_desc || 'Watch expert agricultural market analysis, video commodity updates, tutorial guides, and industry event coverage.'}
           </p>
         </div>
         
         {/* The Video Gallery Carousel */}
         {videoCategories.length > 0 && (
-          <InfiniteVideoGalleryCarousel videoCategories={videoCategories} lang={activeLang} imageBaseUrl={imageBaseUrl} />
+          <InfiniteVideoGalleryCarousel videoCategories={videoCategories} lang={activeLang} imageBaseUrl={imageBaseUrl} dict={pageDict} />
         )}
       </section>
 
@@ -306,7 +311,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           {/* Premium Section Title Feel */}
           <div className="inline-block mb-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              Daily Market Updates
+              {pageDict?.home?.updates_title || 'Daily Market Updates'}
               {/* Decorative beautiful underline */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
             </h2>
@@ -314,13 +319,13 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           
           {/* SEO Description for Market Updates */}
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            Stay informed with our latest market updates, flyers, and daily price trends in the global agricultural sector.
+            {pageDict?.home?.updates_desc || 'Stay informed with our latest market updates, flyers, and daily price trends in the global agricultural sector.'}
           </p>
         </div>
         
         {/* The Market Updates Carousel */}
         {marketUpdates.length > 0 && (
-          <InfiniteMarketUpdatesCarousel updates={marketUpdates} lang={activeLang} />
+          <InfiniteMarketUpdatesCarousel updates={marketUpdates} lang={activeLang} dict={pageDict} />
         )}
       </section>
 
@@ -330,7 +335,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           {/* Premium Section Title Feel */}
           <div className="inline-block mb-4">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              Participation Gallery
+              {pageDict?.home?.participation_title || 'Participation Gallery'}
               {/* Decorative beautiful underline */}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
             </h2>
@@ -338,13 +343,13 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
           
           {/* SEO Description for Participation Gallery */}
           <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            Explore our participation in global agricultural events and exhibitions, showcasing our commitment to the international trade community.
+            {pageDict?.home?.participation_desc || 'Explore our participation in global agricultural events and exhibitions, showcasing our commitment to the international trade community.'}
           </p>
         </div>
         
         {/* The Participation Carousel */}
         {participationCategories.length > 0 && (
-          <InfiniteParticipationCarousel categories={participationCategories} lang={activeLang} />
+          <InfiniteParticipationCarousel categories={participationCategories} lang={activeLang} dict={pageDict} />
         )}
       </section>
 
@@ -355,7 +360,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
             {/* Premium Section Title Feel */}
             <div className="inline-block">
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground relative pb-3">
-                Associate Partners
+                {pageDict?.home?.partners_title || 'Associate Partners'}
                 {/* Decorative beautiful underline */}
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
               </h2>
@@ -363,7 +368,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
             
             {/* SEO Description for Associate Partners */}
             <p className="text-sm sm:text-base text-muted-foreground mt-4 leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-              AgriGuru Online partners with global organizations and industry leaders to build a trusted, highly efficient B2B agricultural trade ecosystem worldwide.
+              {pageDict?.home?.partners_desc || 'AgriGuru Online partners with global organizations and industry leaders to build a trusted, highly efficient B2B agricultural trade ecosystem worldwide.'}
             </p>
           </div>
           

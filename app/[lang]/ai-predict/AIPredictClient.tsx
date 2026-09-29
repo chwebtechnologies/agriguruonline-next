@@ -6,7 +6,7 @@ import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard';
 import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard';
 import { ChartBottomSheetContainer, ChartBottomSheetItem } from '@/components/ui/charts/ChartBottomSheetContainer';
 
-export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: any[], lang: string }) {
+export function AIPredictClient({ initialPredicts, lang, dict }: { initialPredicts: any[], lang: string, dict?: any }) {
   const [predicts, setPredicts] = useState(initialPredicts);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeChartData, setActiveChartData] = useState<ChartBottomSheetItem | null>(null);
@@ -115,7 +115,7 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
               />
             </div>
             <div className="flex-1 text-[15px] sm:text-[17px] font-bold text-foreground">
-              Select all
+              {dict?.select_all || "Select all"}
             </div>
             <button 
               onClick={handleDelete}
@@ -135,7 +135,7 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
               </div>
               <input 
                 type="text" 
-                placeholder="Search" 
+                placeholder={dict?.search || "Search"} 
                 className="w-full h-11 sm:h-12 pl-10 sm:pl-12 pr-4 bg-muted/40 hover:bg-muted/70 border border-border rounded-lg text-[14px] sm:text-[15px] text-foreground focus:outline-none focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue transition-all placeholder:text-muted-foreground font-medium"
               />
             </div>
@@ -149,9 +149,9 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
             <i className="fa-solid fa-microchip text-3xl sm:text-4xl text-blue-500"></i>
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2">No AI Predictions</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2">{dict?.no_ai_predictions || "No AI Predictions"}</h3>
           <p className="text-sm sm:text-base text-muted-foreground max-w-md">
-            You don't have any AI price predictions available at the moment.
+            {dict?.no_ai_predictions_desc || "You don't have any AI price predictions available at the moment."}
           </p>
         </div>
       ) : (
@@ -190,8 +190,8 @@ export function AIPredictClient({ initialPredicts, lang }: { initialPredicts: an
           activeItem={activeChartData} 
           onClose={() => setActiveChartData(null)} 
           lang={lang}
-          swipeText="Swipe up for Commodity Details"
-          initialTab="AI Predict"
+          swipeText={dict?.swipe_up_details || "Swipe up for Commodity Details"}
+          initialTab={dict?.ai_predict || "AI Predict"}
           initialExpandedPredictId={activeChartData.predictId ? String(activeChartData.predictId) : undefined}
         />
       )}

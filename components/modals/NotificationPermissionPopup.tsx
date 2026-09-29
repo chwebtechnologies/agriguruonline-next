@@ -13,6 +13,44 @@ interface DismissData {
 export const NotificationPermissionPopup = () => {
   const [show, setShow] = useState(false);
   const { setFcmToken } = useNotification();
+  const [lang, setLang] = useState<'en'|'ar'|'fr'|'zh'>('en');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const currentLang = window.location.pathname.split('/')[1] as any;
+      if (['en', 'ar', 'fr', 'zh'].includes(currentLang)) {
+        setLang(currentLang);
+      }
+    }
+  }, []);
+
+  const dict = {
+    en: {
+      title: "Stay updated!",
+      desc: "Enable notifications to receive instant updates on your orders and messages.",
+      allow: "Allow",
+      not_now: "Not now"
+    },
+    ar: {
+      title: "ابق على اطلاع!",
+      desc: "قم بتمكين الإشعارات لتلقي تحديثات فورية حول طلباتك ورسائلك.",
+      allow: "سماح",
+      not_now: "ليس الآن"
+    },
+    fr: {
+      title: "Restez informé(e) !",
+      desc: "Activez les notifications pour recevoir des mises à jour instantanées sur vos commandes et messages.",
+      allow: "Autoriser",
+      not_now: "Pas maintenant"
+    },
+    zh: {
+      title: "保持更新！",
+      desc: "启用通知以接收有关您的订单和消息的即时更新。",
+      allow: "允许",
+      not_now: "以后再说"
+    }
+  };
+  const t = dict[lang];
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -106,22 +144,22 @@ export const NotificationPermissionPopup = () => {
           </div>
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-foreground mb-1">Stay updated!</h3>
+          <h3 className="font-semibold text-foreground mb-1">{t.title}</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Enable notifications to receive instant updates on your orders and messages.
+            {t.desc}
           </p>
           <div className="flex gap-2">
             <button
               onClick={handleAllow}
               className="flex-1 bg-primary text-white hover:bg-primary/90 text-sm font-medium py-2 rounded-lg transition-colors"
             >
-              Allow
+              {t.allow}
             </button>
             <button
               onClick={handleDismiss}
               className="flex-1 bg-secondary text-secondary-foreground hover:bg-secondary/80 text-sm font-medium py-2 rounded-lg transition-colors"
             >
-              Not now
+              {t.not_now}
             </button>
           </div>
         </div>

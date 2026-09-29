@@ -22,6 +22,7 @@ export async function generateMetadata(
 }
 
 import { Suspense } from 'react'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 
 interface RegisterPageProps {
   params: Promise<{
@@ -52,6 +53,7 @@ function RegisterPageSkeleton() {
   )
 }
 
-function RegisterPageContent({ lang }: { lang: string }) {
-  return <AuthFlow lang={lang} />
+async function RegisterPageContent({ lang }: { lang: string }) {
+  const dict = await getDictionary(lang);
+  return <AuthFlow lang={lang} dict={dict.auth} commonDict={dict.common} />
 }

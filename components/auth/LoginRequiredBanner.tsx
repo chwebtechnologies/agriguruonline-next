@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 
 interface LoginRequiredBannerProps {
   redirectUrl: string | undefined;
+  dict?: any;
 }
 
-export default function LoginRequiredBanner({ redirectUrl }: LoginRequiredBannerProps) {
+export default function LoginRequiredBanner({ redirectUrl, dict = {} }: LoginRequiredBannerProps) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -57,14 +58,14 @@ export default function LoginRequiredBanner({ redirectUrl }: LoginRequiredBanner
         
         <div className="flex-1 min-w-0">
           <p className="text-xs sm:text-sm text-foreground">
-            Please Sign In / Register  to access <span className="font-semibold text-primary">{pageName}</span>
+            {dict?.please_sign_in_register || 'Please Sign In / Register to access'} <span className="font-semibold text-primary">{pageName}</span>
           </p>
         </div>
         
         <button 
           onClick={() => setIsVisible(false)}
           className="flex-shrink-0 text-foreground opacity-40 hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-foreground/5"
-          aria-label="Dismiss banner"
+          aria-label={dict?.dismiss_banner || 'Dismiss banner'}
         >
           <i className="fa-solid fa-xmark text-sm"></i>
         </button>

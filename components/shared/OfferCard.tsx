@@ -22,9 +22,10 @@ interface OfferCardProps {
   imageBaseUrl: string
   offerType: 'BUYER' | 'SELLER'
   userType?: string | null
+  dict?: any
 }
 
-export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType }: OfferCardProps) {
+export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType, dict = {} }: OfferCardProps) {
   const flagUrl = inquiry.product.country.flag.startsWith('http') 
     ? inquiry.product.country.flag 
     : `${imageBaseUrl}${inquiry.product.country.flag}`
@@ -40,7 +41,7 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType }: 
   // If this page is "Latest Offers for BUYER", the button should be "Buy"
   // If this page is "Latest Offers for SELLER", the button should be "Sell"
   const isForBuyer = offerType === 'BUYER'
-  const buttonText = isForBuyer ? 'Buy' : 'Sell'
+  const buttonText = isForBuyer ? (dict?.common?.buy || 'Buy') : (dict?.common?.sell || 'Sell')
   const buttonColorClass = isForBuyer 
     ? 'bg-[var(--brand-green)] hover:bg-[var(--brand-green-hover)] text-white'
     : 'bg-[var(--brand-red)] hover:bg-[var(--brand-red-hover)] text-white'
@@ -55,7 +56,7 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType }: 
       <div className="px-4 py-3 sm:py-4">
         <div className="grid grid-cols-[65px_1fr] sm:grid-cols-[75px_1fr] gap-x-2 gap-y-3">
           {/* Row 1: Country */}
-          <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">Country:</div>
+          <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">{dict?.common?.country || 'Country'}:</div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <span className="text-foreground font-bold text-[14px] sm:text-[15px]">{inquiry.product.country.name}</span>
@@ -71,23 +72,23 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType }: 
               )}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground text-[12px] sm:text-[13px] font-medium">Date:</span>
+              <span className="text-muted-foreground text-[12px] sm:text-[13px] font-medium">{dict?.common?.date || 'Date'}:</span>
               <span className="text-foreground font-bold text-[14px] sm:text-[15px]">{formatDate(inquiry.created_at)}</span>
             </div>
           </div>
           
           {/* Row 2: Product */}
-          <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">Product:</div>
+          <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">{dict?.common?.product || 'Product'}:</div>
           <h2 className="text-foreground font-bold text-[14px] sm:text-[15px] line-clamp-1">
             {inquiry.product.name}
           </h2>
           
           {/* Row 3: Price & Action */}
-          <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">Price:</div>
+          <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">{dict?.common?.price || 'Price'}:</div>
           <div className="flex items-center justify-between">
             <span className="text-foreground font-bold text-[14px] sm:text-[15px]">{inquiry.market_range}</span>
             {isDisabled ? (
-              <div title={userType === 'seller' ? "Only Buyer accounts can purchase products." : "Only Seller accounts can offer products for sale."} className={`${buttonColorClass} px-5 sm:px-6 py-1 sm:py-1.5 rounded text-[13px] sm:text-sm font-bold shadow-sm transition-colors opacity-50 cursor-not-allowed text-center`}>
+              <div title={userType === 'seller' ? (dict?.common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : (dict?.common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.")} className={`${buttonColorClass} px-5 sm:px-6 py-1 sm:py-1.5 rounded text-[13px] sm:text-sm font-bold shadow-sm transition-colors opacity-50 cursor-not-allowed text-center`}>
                 {buttonText}
               </div>
             ) : (

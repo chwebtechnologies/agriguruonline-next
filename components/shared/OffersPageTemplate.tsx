@@ -148,6 +148,7 @@ async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: O
                 imageBaseUrl={imageBaseUrl} 
                 offerType={offerType}
                 userType={userType}
+                dict={dict}
               />
             ))}
           </div>
@@ -157,10 +158,14 @@ async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: O
               <i className="fa-solid fa-box-open text-2xl"></i>
             </div>
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              {offerType === 'SELLER' ? 'No Inquiries Found' : 'No Offers Found'}
+              {offerType === 'SELLER' 
+                ? (commonDict.no_inquiries || 'No Inquiries Found') 
+                : (commonDict.no_offers || 'No Offers Found')}
             </h2>
             <p className="text-foreground/80 max-w-md mx-auto">
-              We couldn&apos;t find any active {offerType === 'SELLER' ? 'inquiries' : 'offers'} for {offerType.toLowerCase()}s at the moment. Please check back later.
+              {offerType === 'SELLER' 
+                ? (commonDict.no_inquiries_desc || 'We couldn\'t find any active inquiries for sellers at the moment. Please check back later.') 
+                : (commonDict.no_offers_desc || 'We couldn\'t find any active offers for buyers at the moment. Please check back later.')}
             </p>
           </div>
         )}

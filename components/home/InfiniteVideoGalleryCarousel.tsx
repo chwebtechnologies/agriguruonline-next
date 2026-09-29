@@ -10,11 +10,13 @@ type AnimationState = 'idle' | 'forward' | 'prep-backward' | 'backward';
 export default function InfiniteVideoGalleryCarousel({ 
   videoCategories, 
   lang,
-  imageBaseUrl 
+  imageBaseUrl,
+  dict = {} 
 }: { 
   videoCategories: VideoCategory[], 
   lang: string,
-  imageBaseUrl?: string
+  imageBaseUrl?: string,
+  dict?: any
 }) {
   const [items, setItems] = useState(() => {
     // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
@@ -137,14 +139,14 @@ export default function InfiniteVideoGalleryCarousel({
         <div className="flex items-center gap-2 sm:gap-3">
           <button 
             onClick={movePrev}
-            aria-label="Previous Video Category"
+            aria-label={dict?.home?.previous_video_category || 'Previous Video Category'}
             className="w-10 h-10 rounded-full bg-card border border-border text-foreground flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <i className="fa-solid fa-chevron-left text-sm"></i>
           </button>
           <button 
             onClick={moveNext}
-            aria-label="Next Video Category"
+            aria-label={dict?.home?.next_video_category || 'Next Video Category'}
             className="w-10 h-10 rounded-full bg-card border border-border text-foreground flex items-center justify-center hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <i className="fa-solid fa-chevron-right text-sm"></i>

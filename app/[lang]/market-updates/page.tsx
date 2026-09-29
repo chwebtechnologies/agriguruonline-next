@@ -7,6 +7,7 @@ import type { MarketUpdatesResponse } from '@/types/marketUpdates'
 import { cache, Suspense } from 'react'
 import { getAssetsUrl } from '@/lib/api-utils';
 import { cmsService } from '@/lib/api/cms.service';
+import { getDictionary } from '@/app/[lang]/dictionaries';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -49,11 +50,13 @@ export default async function MarketUpdatesPage(props: {
   const totalPages = Math.ceil(totalItems / limit)
   const assetsUrl = getAssetsUrl()
 
+  const dict = await getDictionary(lang);
+
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Market Updates" backText="Back" />
+          <PageHeader title={dict.header?.market_updates || "Market Updates"} backText={dict.common?.back || "Back"} />
           <ListingFilters categories={[]} />
 
           {flyers.length === 0 ? (
@@ -61,9 +64,9 @@ export default async function MarketUpdatesPage(props: {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background border border-border mb-4 text-foreground/75">
                 <i className="fa-solid fa-chart-line text-2xl"></i>
               </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">No Market Updates Found</h2>
+              <h2 className="text-xl font-semibold text-foreground mb-2">{dict.common?.no_market_updates || "No Market Updates Found"}</h2>
               <p className="text-foreground/80 max-w-md mx-auto">
-                We couldn&apos;t find any market updates at the moment. Please check back later.
+                {dict.common?.no_market_updates_desc || "We couldn't find any market updates at the moment. Please check back later."}
               </p>
             </div>
           ) : (

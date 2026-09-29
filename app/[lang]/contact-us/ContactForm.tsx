@@ -70,7 +70,7 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN', c
     setErrors({});
 
     if (!captchaToken) {
-      toast.error('Please verify that you are not a robot.');
+      toast.error(contactDict.verify_robot || 'Please verify that you are not a robot.');
       return;
     }
 
@@ -111,17 +111,17 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN', c
       const res = await submitContactUsAction(payload);
 
       if (res.success) {
-        toast.success('Your message has been sent successfully!');
+        toast.success(contactDict.success_msg || 'Your message has been sent successfully!');
         e.currentTarget.reset();
         setPhone('');
         setCaptchaToken(null);
         recaptchaRef.current?.reset();
       } else {
-        toast.error(res.message || 'Failed to send message. Please try again.');
+        toast.error(res.message || contactDict.failed_msg || 'Failed to send message. Please try again.');
       }
     } catch (error) {
       console.error('Submission error:', error);
-      toast.error('An unexpected error occurred. Please try again.');
+      toast.error(contactDict.error_msg || 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }

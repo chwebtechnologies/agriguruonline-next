@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ForceLogout } from '@/components/auth/ForceLogout';
 import { AlertsClient } from './AlertsClient';
+import { getDictionary } from '@/app/[lang]/dictionaries';
 
 import { getUserAlerts } from '@/lib/user-data';
 
@@ -35,14 +36,16 @@ export default async function AlertsSetupsPage(props: { params: Promise<{ lang: 
   }
 
   const alertsList = await getUserAlerts(token, lang);
+  const dict = await getDictionary(lang);
 
   return (
     <div className="bg-background text-foreground transition-theme pb-5">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <PageHeader title="Alerts Setups" backText="Back" />
+          <PageHeader title={dict.common?.alerts_setups || "Alerts Setups"} backText={dict.common?.back || "Back"} />
 
           <AlertsClient 
+            dict={dict.common}
             initialAlerts={alertsList.map((alert: any) => ({
               id: alert.id,
               favourite_product_id: alert.favourite_product_id,
