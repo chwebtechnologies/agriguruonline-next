@@ -536,18 +536,18 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           {/* Left side group containing Logo/Menu and Search bar with short spacing */}
           <div className="flex items-center flex-1 gap-3 md:gap-4">
             {/* Mobile & Desktop Menu Trigger and Logo inline */}
-            <div className="flex items-center shrink-0 md:w-[110px] rtl:md:w-[130px] w-auto">
-              {/* On Mobile: Always show Hamburger Menu.
-                  On Desktop (md+): Only show Hamburger Menu when scrolled (replacing Logo). */}
-              <div className="md:hidden">
+            <div className="flex items-center shrink-0 lg:w-[110px] rtl:lg:w-[130px] w-auto">
+              {/* On Mobile & Tablet (< 1024px): Always show Hamburger Menu */}
+              <div className="lg:hidden">
                 <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                   <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
                 </AppMenu>
               </div>
+              {/* On Desktop / Laptop (>= 1024px): Only show Hamburger Menu when scrolled (replacing Logo) */}
               {isScrolled && (
-                <div className="hidden md:block animate-in fade-in duration-300">
+                <div className="hidden lg:block animate-in fade-in duration-300">
                   <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                     <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <i className="fa-solid fa-bars text-3xl"></i>
@@ -558,14 +558,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               )}
 
               {/* Logo:
-                  On Mobile: Always show.
-                  On Desktop (md+): Show ONLY when NOT scrolled (replaced by Hamburger Menu when scrolled). */}
+                  On Desktop / Laptop (>= 1024px): Show only when NOT scrolled.
+                  On Mobile & Tablet (< 1024px): Always show. */}
               {!isScrolled ? (
                 <Link href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
                   <AgriGuruLogo size={42} />
                 </Link>
               ) : (
-                <div className="md:hidden">
+                <div className="lg:hidden">
                   <Link href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
                     <AgriGuruLogo size={42} />
                   </Link>
@@ -971,7 +971,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-card text-muted-foreground px-4 transition-all duration-300 ease-in-out border-b border-border ${
+        className={`hidden lg:block w-full bg-card text-muted-foreground px-4 transition-all duration-300 ease-in-out border-b border-border ${
           isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
       >

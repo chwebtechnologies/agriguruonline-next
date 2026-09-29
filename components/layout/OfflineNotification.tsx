@@ -65,7 +65,7 @@ export default function OfflineNotification() {
   if (status === 'online') return null
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-300">
+    <div className="fixed bottom-20 lg:bottom-4 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-300">
       {status === 'offline' ? (
         <div className="bg-background border border-border shadow-2xl rounded-full px-5 py-3 flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">

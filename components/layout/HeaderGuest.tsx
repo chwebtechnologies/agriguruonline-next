@@ -250,16 +250,18 @@ export function HeaderGuestBase({
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
           
           <div className="flex items-center flex-1 gap-3 md:gap-4">
-            <div className="flex items-center shrink-0 md:w-[110px] rtl:md:w-[130px] w-auto">
-              <div className="md:hidden">
+            <div className="flex items-center shrink-0 lg:w-[110px] rtl:lg:w-[130px] w-auto">
+              {/* On Mobile & Tablet (< 1024px): Always show Hamburger Menu */}
+              <div className="lg:hidden">
                 <AppMenu dict={dict} align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                   <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
                 </AppMenu>
               </div>
+              {/* On Desktop / Laptop (>= 1024px): Only show Hamburger Menu when scrolled */}
               {isScrolled && (
-                <div className="hidden md:block animate-in fade-in duration-300">
+                <div className="hidden lg:block animate-in fade-in duration-300">
                   <AppMenu dict={dict} align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                     <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <i className="fa-solid fa-bars text-3xl"></i>
@@ -269,12 +271,15 @@ export function HeaderGuestBase({
                 </div>
               )}
 
+              {/* Logo:
+                  On Desktop / Laptop (>= 1024px): Show only when NOT scrolled.
+                  On Mobile & Tablet (< 1024px): Always show. */}
               {!isScrolled ? (
                 <Link prefetch={false} href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
                   <AgriGuruLogo size={42} />
                 </Link>
               ) : (
-                <div className="md:hidden">
+                <div className="lg:hidden">
                   <Link prefetch={false} href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
                     <AgriGuruLogo size={42} />
                   </Link>
@@ -369,7 +374,7 @@ export function HeaderGuestBase({
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden md:block w-full bg-card text-muted-foreground px-4 transition-all duration-300 ease-in-out border-b border-border ${
+        className={`hidden lg:block w-full bg-card text-muted-foreground px-4 transition-all duration-300 ease-in-out border-b border-border ${
           isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
       >

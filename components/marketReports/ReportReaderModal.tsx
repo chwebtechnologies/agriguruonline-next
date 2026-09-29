@@ -14,6 +14,7 @@ interface ReportReaderModalProps {
   title: string
   isOpen: boolean
   onClose: () => void
+  dict?: any
 }
 
 const PageContent = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(({ children }, ref) => {
@@ -25,7 +26,7 @@ const PageContent = React.forwardRef<HTMLDivElement, { children: React.ReactNode
 });
 PageContent.displayName = 'PageContent';
 
-export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: ReportReaderModalProps) {
+export default function ReportReaderModal({ fileUrl, title, isOpen, onClose, dict }: ReportReaderModalProps) {
   const [numPages, setNumPages] = useState<number | null>(null)
   const [pageNumber, setPageNumber] = useState(1)
   const [isLoading, setIsLoading] = useState(true)

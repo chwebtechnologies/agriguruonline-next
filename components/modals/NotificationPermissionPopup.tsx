@@ -136,7 +136,7 @@ export const NotificationPermissionPopup = () => {
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 p-4 max-w-sm w-[calc(100%-2rem)] bg-background border border-border rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300">
+    <div className="fixed bottom-20 lg:bottom-4 left-4 z-50 p-4 max-w-sm w-[calc(100%-2rem)] bg-background border border-border rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0 mt-1">
           <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center">

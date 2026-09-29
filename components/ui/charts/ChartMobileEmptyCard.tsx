@@ -10,7 +10,6 @@ interface ChartMobileEmptyCardProps {
   title: string;
   actionText: string;
   description: string;
-  description: string;
   className?: string;
   common?: any;
 }

@@ -119,8 +119,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
 
-        {/* Desktop View (md:grid) */}
-        <div className="hidden md:grid grid-cols-5 gap-6 text-sm font-bold tracking-wide">
+        {/* Desktop & Tablet View */}
+        <div className="hidden md:grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 text-sm font-bold tracking-wide">
           {/* Column 1: Company Details */}
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.company_details}</h2>
@@ -235,7 +235,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       </div>
 
       {/* Copyright Bar */}
-      <div className="w-full py-3.5 text-center text-[13px] border-t border-border bg-muted text-muted-foreground font-semibold transition-theme">
+      <div className="w-full py-3.5 pb-20 lg:pb-3.5 text-center text-[13px] border-t border-border bg-muted text-muted-foreground font-semibold transition-theme">
         <div className="mx-auto max-w-7xl px-4 flex items-center justify-center">
           <span>{dict.footer.copyright}</span>
         </div>
@@ -268,12 +268,12 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
 
       {/* Bottom Left: Email Mail Floater */}
-      <a href="mailto:support@agriguru.online" className="fixed bottom-18 md:bottom-6 left-6 z-45 flex h-11 w-11 items-center justify-center rounded-full bg-brand-blue text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-blue-400/20" aria-label="Mail Support">
+      <a href="mailto:support@agriguru.online" className="fixed bottom-20 lg:bottom-6 left-6 z-45 flex h-11 w-11 items-center justify-center rounded-full bg-brand-blue text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-blue-400/20" aria-label="Mail Support">
         <i className="fa-solid fa-envelope text-lg"></i>
       </a>
 
       {/* Bottom Right Float Group */}
-      <div className="fixed bottom-18 md:bottom-6 right-6 z-45 flex flex-col gap-2.5">
+      <div className="fixed bottom-20 lg:bottom-6 right-6 z-45 flex flex-col gap-2.5">
         {/* Scroll To Top button */}
         {showScrollTop && (
           <button
@@ -294,7 +294,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
       {/* 6. Mobile Bottom Navigation Bar (Pixel Perfect)            */}
       {/* ======================================================== */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl px-1 py-1 transition-all duration-200 flex justify-between items-center h-[64px] min-[390px]:h-[68px]">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl transition-all duration-200 h-[64px] min-[390px]:h-[68px]">
+        <div className="w-full max-w-2xl mx-auto h-full px-2 py-1 flex justify-between items-center">
         {tabs.map((tab, idx) => (
           <Link
             key={idx}
@@ -321,6 +322,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
             </span>
           </Link>
         ))}
+        </div>
       </div>
 
     </footer>

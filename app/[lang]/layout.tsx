@@ -204,6 +204,45 @@ export default async function LocalizedRootLayout(props: {
             `,
           }}
         />
+        <script
+          id="responsive-scaler"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                function updateScale() {
+                  try {
+                    var w = window.innerWidth || document.documentElement.clientWidth || screen.width;
+                    if (!w) return;
+                    var scale = 1;
+                    if (w >= 1440) {
+                      // Desktop >= 1440px: Scaled up proportionally based on 1440px laptop baseline
+                      scale = w / 1440;
+                    } else if (w >= 1024) {
+                      // Laptop / Desktop (1024px - 1439px): Exact baseline
+                      scale = 1;
+                    } else if (w >= 768) {
+                      // Tablet (768px - 1023px): Proportional to iPad Air (820px)
+                      scale = w / 820;
+                    } else {
+                      // Mobile (< 768px): Proportional to iPhone 17 Pro Max (430px)
+                      if (w < 430) {
+                        scale = w / 430;
+                      } else {
+                        scale = Math.min(1.15, w / 430);
+                      }
+                    }
+                    if ('zoom' in document.documentElement.style) {
+                      document.documentElement.style.zoom = scale;
+                    }
+                  } catch(e) {}
+                }
+                updateScale();
+                window.addEventListener('resize', updateScale, { passive: true });
+                window.addEventListener('orientationchange', updateScale, { passive: true });
+              })();
+            `,
+          }}
+        />
 
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
