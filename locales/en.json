@@ -262,7 +262,11 @@
     "view_collection": "View Collection",
     "coming_soon": "Coming Soon!",
     "exciting_updates": "Exciting updates are on the way.",
-    "all_country_origins": "All Country Origins"
+    "all_country_origins": "All Country Origins",
+    "view_video_gallery": "View Video Gallery",
+    "view_market_updates": "View Market Updates",
+    "view_all_products": "View All Products",
+    "view_participation_gallery": "View Participation Gallery"
   },
   "contact": {
     "contact_no": "Contact No.",
@@ -394,7 +398,22 @@
     "register_here": "Register Here",
     "search_placeholder": "Search Product",
     "upgrade_plan": "Upgrade Plan",
-    "video_gallery": "Video Gallery"
+    "video_gallery": "Video Gallery",
+    "login": "Login",
+    "logout": "Logout",
+    "home_menu": "Home",
+    "light_mode": "Light Mode",
+    "dark_mode": "Dark Mode",
+    "dashboard": "Dashboard",
+    "my_inquiries": "My Inquiries",
+    "my_offers": "My Offers",
+    "product_charts": "Product Charts",
+    "freight_charts": "Freight Charts",
+    "smart_docs": "Smart Docs",
+    "instructions": "Instructions",
+    "messages": "Messages",
+    "my_settings": "My Settings",
+    "my_profile": "My Profile"
   },
   "home": {
     "cta_primary": "Get Started",

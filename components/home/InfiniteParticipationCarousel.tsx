@@ -130,7 +130,7 @@ export default function InfiniteParticipationCarousel({
           href={`/${lang}/participation-gallery`} 
           className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-card border border-border text-foreground hover:bg-primary hover:border-primary hover:text-white transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
         >
-          View Participation Gallery <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+          {dict?.common?.view_participation_gallery || 'View Participation Gallery'} <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
         </Link>
         
         {/* Next/Prev Buttons */}

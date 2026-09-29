@@ -252,7 +252,7 @@ export function HeaderGuestBase({
           <div className="flex items-center flex-1 gap-3 md:gap-4">
             <div className="flex items-center shrink-0 md:w-[110px] rtl:md:w-[130px] w-auto">
               <div className="md:hidden">
-                <AppMenu align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                <AppMenu dict={dict} align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                   <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
@@ -260,7 +260,7 @@ export function HeaderGuestBase({
               </div>
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
-                  <AppMenu align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                  <AppMenu dict={dict} align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                     <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <i className="fa-solid fa-bars text-3xl"></i>
                       <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
@@ -378,7 +378,7 @@ export function HeaderGuestBase({
             {loading ? (
               <div className="h-5 w-16 bg-muted animate-pulse rounded" />
             ) : (
-              <AppMenu align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+              <AppMenu dict={dict} align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                 <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                   <i className="fa-solid fa-bars text-3xl"></i>
                   <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>

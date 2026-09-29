@@ -16,6 +16,7 @@ interface AppMenuProps {
   children?: React.ReactNode;
   align?: 'left' | 'right';
   profile?: any;
+  dict?: any;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
@@ -29,7 +30,7 @@ export function AppMenu({
   profile,
   isOpen: controlledIsOpen,
   onOpenChange
-}: AppMenuProps) {
+, dict }: AppMenuProps) {
   const params = useParams();
   const lang = (params?.lang as string) || 'en';
   const menuId = useId();
@@ -110,26 +111,26 @@ export function AppMenu({
   // Grouped like Agriguru Online Settings
   const MENU_GROUPS: MenuItem[][] = [
     [
-      { label: 'Dashboard', icon: 'fa-solid fa-table-cells-large', href: '#', iconBg: 'bg-blue-500' },      
+      { label: dict?.header?.dashboard || 'Dashboard', icon: 'fa-solid fa-table-cells-large', href: '#', iconBg: 'bg-blue-500' },      
     ],
     [
       { label: inquiriesLabel, icon: 'fa-solid fa-comments', href: inquiriesHref, iconBg: 'bg-indigo-500' },
-      { label: 'Product Charts', icon: 'fa-solid fa-chart-line', href: `/${lang}/product-charts`, iconBg: 'bg-orange-500' },
-      { label: 'Freight Charts', icon: 'fa-solid fa-chart-area', href: `/${lang}/freight-charts`, iconBg: 'bg-amber-500' },
+      { label: dict?.header?.product_charts || 'Product Charts', icon: 'fa-solid fa-chart-line', href: `/${lang}/product-charts`, iconBg: 'bg-orange-500' },
+      { label: dict?.header?.freight_charts || 'Freight Charts', icon: 'fa-solid fa-chart-area', href: `/${lang}/freight-charts`, iconBg: 'bg-amber-500' },
     ],
     [
-      { label: 'Alerts Setups', icon: 'fa-solid fa-bell', href: `/${lang}/alerts-setups`, iconBg: 'bg-rose-500' },
-      { label: 'AI Predicts', icon: 'fa-solid fa-microchip', href: `/${lang}/ai-predict`, iconBg: 'bg-purple-500' },
+      { label: dict?.header?.alerts || 'Alerts Setups', icon: 'fa-solid fa-bell', href: `/${lang}/alerts-setups`, iconBg: 'bg-rose-500' },
+      { label: dict?.header?.ai_predicts || 'AI Predicts', icon: 'fa-solid fa-microchip', href: `/${lang}/ai-predict`, iconBg: 'bg-purple-500' },
     ],
     [
-      { label: 'Smart Docs', icon: 'fa-solid fa-file-pen', href: '#', iconBg: 'bg-cyan-500' },
-      { label: 'Instructions', icon: 'fa-solid fa-person-chalkboard', href: '#', iconBg: 'bg-teal-500' },
-      { label: 'Market Reports', icon: 'fa-solid fa-file-contract', href: `/${lang}/market-reports`, iconBg: 'bg-sky-500' },
+      { label: dict?.header?.smart_docs || 'Smart Docs', icon: 'fa-solid fa-file-pen', href: '#', iconBg: 'bg-cyan-500' },
+      { label: dict?.header?.instructions || 'Instructions', icon: 'fa-solid fa-person-chalkboard', href: '#', iconBg: 'bg-teal-500' },
+      { label: dict?.header?.market_reports || 'Market Reports', icon: 'fa-solid fa-file-contract', href: `/${lang}/market-reports`, iconBg: 'bg-sky-500' },
     ],
     [
-      { label: 'Messages', icon: 'fa-solid fa-comment-dots', href: 'https://wa.me/918980131000?text=Hey%2C%20I%20want%20to%20connect%21', iconBg: 'bg-green-500' },
-      { label: 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-slate-500' },
-      { label: 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${lang}/profile`, iconBg: 'bg-slate-500' },
+      { label: dict?.header?.messages || 'Messages', icon: 'fa-solid fa-comment-dots', href: 'https://wa.me/918980131000?text=Hey%2C%20I%20want%20to%20connect%21', iconBg: 'bg-green-500' },
+      { label: dict?.header?.my_settings || 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-slate-500' },
+      { label: dict?.header?.my_profile || 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${lang}/profile`, iconBg: 'bg-slate-500' },
     ]
   ];
 
@@ -183,21 +184,21 @@ export function AppMenu({
                   <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-brand-red shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                     <i className="fa-solid fa-power-off text-[10px] min-[390px]:text-[11px] text-white"></i>
                   </div>
-                  <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Logout</span>
+                  <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">{dict?.header?.logout || 'Logout'}</span>
                 </button>
               ) : (
                 <Link prefetch={false} onClick={() => setIsOpen(false)} href={`/${lang}/login`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                   <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-emerald-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                     <i className="fa-solid fa-user text-[10px] min-[390px]:text-[11px] text-white"></i>
                   </div>
-                  <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Login</span>
+                  <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">{dict?.header?.login || 'Login'}</span>
                 </Link>
               )}
               <Link prefetch={false} onClick={() => setIsOpen(false)} href={`/${lang}`} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden">
                 <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-blue-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className="fa-solid fa-house text-[10px] min-[390px]:text-[11px] text-white"></i>
                 </div>
-                <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">Home</span>
+                <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">{dict?.header?.home_menu || 'Home'}</span>
               </Link>
               <button onClick={toggleTheme} className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden w-full">
                 <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-purple-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
@@ -300,7 +301,7 @@ export function AppMenu({
                 <i className="fa-solid fa-triangle-exclamation text-xl"></i>
               </div>
               <div className="flex flex-col justify-center w-full items-center">
-                <h2 className="text-[17px] font-bold text-brand-red mb-1 leading-none text-center">Logout</h2>
+                <h2 className="text-[17px] font-bold text-brand-red mb-1 leading-none text-center">{dict?.header?.logout || 'Logout'}</h2>
                 <p className="text-foreground/80 text-[14px] leading-snug whitespace-nowrap text-center">Are you sure you want to log out of your account?</p>
               </div>
             </div>

@@ -540,7 +540,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               {/* On Mobile: Always show Hamburger Menu.
                   On Desktop (md+): Only show Hamburger Menu when scrolled (replacing Logo). */}
               <div className="md:hidden">
-                <AppMenu align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                   <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
@@ -548,7 +548,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               </div>
               {isScrolled && (
                 <div className="hidden md:block animate-in fade-in duration-300">
-                  <AppMenu align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                  <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
                     <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <i className="fa-solid fa-bars text-3xl"></i>
                       <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
@@ -978,7 +978,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           {/* Left-aligned Menu Trigger */}
           <div className="shrink-0 border-e border-border pe-5 flex items-center">
-            <AppMenu align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                 <i className="fa-solid fa-bars text-3xl"></i>
                 <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
