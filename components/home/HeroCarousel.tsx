@@ -19,7 +19,7 @@ const getSlides = (lang: string, dict: any): CarouselSlide[] => [
   {
     id: 'marketing-1',
     title: dict?.home?.hero_slide1_title || 'World’s 1st Smart AI Powered B2B Trade Platform',
-    subtitle: dict?.home?.hero_slide1_subtitle || 'Live 24/7 Commodity Prices | OCEAN FREIGHTS | {dict?.header?.ai_predicts || 'AI Predict'}',
+    subtitle: dict?.home?.hero_slide1_subtitle || 'Live 24/7 Commodity Prices | OCEAN FREIGHTS | AI Predict',
     description: dict?.home?.hero_slide1_desc || 'Discover global agri-commodity trade intelligence with FOB, CNF and CIF prices, freight rates, historical price charts, AI-powered price predictions, market reports, price alerts, trade opportunities, smart export documentation and many more powerful features in one platform.',
     tag: dict?.home?.hero_slide1_tag || 'Platform Feature',
     link: `/${lang}/about`,
