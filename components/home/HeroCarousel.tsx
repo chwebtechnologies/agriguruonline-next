@@ -15,57 +15,57 @@ interface CarouselSlide {
   gradientDark: string;
 }
 
-const getSlides = (lang: string): CarouselSlide[] => [
+const getSlides = (lang: string, dict: any): CarouselSlide[] => [
   {
     id: 'marketing-1',
-    title: 'World’s 1st Smart AI Powered B2B Trade Platform',
-    subtitle: 'Live 24/7 Commodity Prices | OCEAN FREIGHTS | AI Predict',
-    description: 'Discover global agri-commodity trade intelligence with FOB, CNF and CIF prices, freight rates, historical price charts, AI-powered price predictions, market reports, price alerts, trade opportunities, smart export documentation and many more powerful features in one platform.',
-    tag: 'Platform Feature',
+    title: dict?.home?.hero_slide1_title || 'World’s 1st Smart AI Powered B2B Trade Platform',
+    subtitle: dict?.home?.hero_slide1_subtitle || 'Live 24/7 Commodity Prices | OCEAN FREIGHTS | {dict?.header?.ai_predicts || 'AI Predict'}',
+    description: dict?.home?.hero_slide1_desc || 'Discover global agri-commodity trade intelligence with FOB, CNF and CIF prices, freight rates, historical price charts, AI-powered price predictions, market reports, price alerts, trade opportunities, smart export documentation and many more powerful features in one platform.',
+    tag: dict?.home?.hero_slide1_tag || 'Platform Feature',
     link: `/${lang}/about`,
-    linkText: 'Explore Features',
+    linkText: dict?.home?.hero_slide1_btn || 'Explore Features',
     gradientLight: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
     gradientDark: 'linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%)',
   },
   {
     id: 'trust-1',
-    title: 'Trusted by Global Traders',
-    subtitle: '90+ Countries | 20+ Years Experience | 10K+ Clients',
-    description: 'Backed by over two decades of practical market experience, AgriGuru Online is the reliable partner for your trading needs. Join our growing network of over 10,000 trusted clients across 90+ countries worldwide.',
-    tag: 'Global Trust & Network',
+    title: dict?.home?.hero_slide2_title || 'Trusted by Global Traders',
+    subtitle: dict?.home?.hero_slide2_subtitle || '90+ Countries | 20+ Years Experience | 10K+ Clients',
+    description: dict?.home?.hero_slide2_desc || 'Backed by over two decades of practical market experience, AgriGuru Online is the reliable partner for your trading needs. Join our growing network of over 10,000 trusted clients across 90+ countries worldwide.',
+    tag: dict?.home?.hero_slide2_tag || 'Global Trust & Network',
     link: `/${lang}/about`,
-    linkText: 'Read Our Story',
+    linkText: dict?.home?.hero_slide2_btn || 'Read Our Story',
     gradientLight: 'linear-gradient(135deg, #14b8a6 0%, #0369a1 100%)',
     gradientDark: 'linear-gradient(135deg, #0f766e 0%, #075985 100%)',
   },
   {
     id: 'membership-1',
-    title: 'Try It Risk-Free for 90 Days',
-    subtitle: 'Silver Plan Trial - Completely Free',
-    description: 'The Silver Plan trial costs nothing. No credit card, no banking details, no catch. Just sign up and explore all premium features for yourself for a full 90 days.',
-    tag: 'Membership Plan',
+    title: dict?.home?.hero_slide3_title || 'Try It Risk-Free for 90 Days',
+    subtitle: dict?.home?.hero_slide3_subtitle || 'Silver Plan Trial - Completely Free',
+    description: dict?.home?.hero_slide3_desc || 'The Silver Plan trial costs nothing. No credit card, no banking details, no catch. Just sign up and explore all premium features for yourself for a full 90 days.',
+    tag: dict?.home?.hero_slide3_tag || 'Membership Plan',
     link: `/${lang}/register`,
-    linkText: 'Start Free Trial Now',
+    linkText: dict?.home?.hero_slide3_btn || 'Start Free Trial Now',
     gradientLight: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
     gradientDark: 'linear-gradient(135deg, #9333ea 0%, #6b21a8 100%)',
   },
   {
     id: 'app-1',
-    title: 'Download AgriGuru Online App',
-    subtitle: 'Global market access right in your pocket',
-    description: 'Get live market prices, instant freight rates, custom alerts, and AI insights on the go. Available for both iOS and Android. Scan the QR code or download directly from the App Store or Google Play.',
-    tag: 'Mobile App',
+    title: dict?.home?.hero_slide4_title || 'Download AgriGuru Online App',
+    subtitle: dict?.home?.hero_slide4_subtitle || 'Global market access right in your pocket',
+    description: dict?.home?.hero_slide4_desc || 'Get live market prices, instant freight rates, custom alerts, and AI insights on the go. Available for both iOS and Android. Scan the QR code or download directly from the App Store or Google Play.',
+    tag: dict?.home?.hero_slide4_tag || 'Mobile App',
     link: `/${lang}/download-application`,
-    linkText: 'Download Now',
+    linkText: dict?.home?.hero_slide4_btn || 'Download Now',
     gradientLight: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
     gradientDark: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
   }
 ];
 
-export default function HeroCarousel({ lang }: { lang: string }) {
+export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any }) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const slides = getSlides(lang);
+  const slides = getSlides(lang, dict);
 
   useEffect(() => {
     if (isPaused) return;
@@ -178,7 +178,7 @@ export default function HeroCarousel({ lang }: { lang: string }) {
 
                       {/* Floating Badges */}
                       <div className="absolute -left-6 lg:-left-10 top-4 lg:top-8 bg-blue-600/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.5s' }}>
-                        <i className="fa-solid fa-chart-pie text-cyan-200"></i> Market Reports
+                        <i className="fa-solid fa-chart-pie text-cyan-200"></i> {dict?.header?.market_reports || 'Market Reports'}
                       </div>
                       <div className="absolute -right-6 lg:-right-10 top-4 lg:top-8 bg-teal-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '0.5s' }}>
                         <i className="fa-solid fa-robot text-yellow-300"></i> AI Predict
@@ -187,7 +187,7 @@ export default function HeroCarousel({ lang }: { lang: string }) {
                         <i className="fa-solid fa-earth-americas text-cyan-200"></i> Global Agri Trade
                       </div>
                       <div className="absolute -right-10 lg:-right-14 top-1/2 -translate-y-1/2 bg-rose-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.8s' }}>
-                        <i className="fa-solid fa-bell text-yellow-300"></i> Alert Setups
+                        <i className="fa-solid fa-bell text-yellow-300"></i> {dict?.header?.alerts || 'Alert Setups'}
                       </div>
                       <div className="absolute -left-6 lg:-left-10 bottom-4 lg:bottom-8 bg-orange-500/90 backdrop-blur-md text-white text-[8px] lg:text-[9px] font-bold px-2 py-1.5 lg:px-3 lg:py-2 rounded-lg shadow-xl border border-white/20 flex items-center gap-1.5 animate-bounce-slow" style={{ animationDelay: '1.2s' }}>
                         <i className="fa-solid fa-bolt text-yellow-300"></i> Daily Updates

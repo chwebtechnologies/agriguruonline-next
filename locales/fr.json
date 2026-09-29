@@ -259,7 +259,9 @@
     "all_categories": "Toutes les catégories",
     "share_this_article": "Partager cet article",
     "delete": "Supprimer",
-    "view_collection": "Voir la collection"
+    "view_collection": "Voir la collection",
+    "coming_soon": "Bientôt disponible!",
+    "exciting_updates": "Des mises à jour passionnantes sont en route."
   },
   "contact": {
     "contact_no": "Numéro de Contact",
@@ -431,7 +433,27 @@
     "next_market_update": "Mise à Jour du Marché Suivante",
     "view_all_participation": "Voir Toutes les Participations",
     "previous_category": "Catégorie Précédente",
-    "next_category": "Catégorie Suivante"
+    "next_category": "Catégorie Suivante",
+    "hero_slide1_title": "La première plateforme commerciale B2B intelligente propulsée par l'IA",
+    "hero_slide1_subtitle": "Prix des matières premières en direct 24/7 | FRETS MARITIMES | Prédictions IA",
+    "hero_slide1_desc": "Découvrez l'intelligence du commerce mondial des matières premières agricoles avec des prix FOB, CNF et CIF, etc.",
+    "hero_slide1_tag": "Fonctionnalité de la plateforme",
+    "hero_slide1_btn": "Explorer les fonctionnalités",
+    "hero_slide2_title": "Approuvé par les traders mondiaux",
+    "hero_slide2_subtitle": "90+ Pays | 20+ Ans d'expérience | 10K+ Clients",
+    "hero_slide2_desc": "Soutenu par plus de deux décennies d'expérience pratique sur le marché, AgriGuru Online est le partenaire fiable pour vos besoins de trading.",
+    "hero_slide2_tag": "Confiance mondiale et réseau",
+    "hero_slide2_btn": "Lisez notre histoire",
+    "hero_slide3_title": "Essayez-le sans risque pendant 90 jours",
+    "hero_slide3_subtitle": "Essai du plan Silver - Totalement gratuit",
+    "hero_slide3_desc": "L'essai du plan Silver ne coûte rien. Pas de carte de crédit, pas de coordonnées bancaires, pas de piège.",
+    "hero_slide3_tag": "Plan d'adhésion",
+    "hero_slide3_btn": "Commencer l'essai gratuit maintenant",
+    "hero_slide4_title": "Téléchargez l'application AgriGuru Online",
+    "hero_slide4_subtitle": "Accès au marché mondial directement dans votre poche",
+    "hero_slide4_desc": "Obtenez les prix du marché en direct, les taux de fret instantanés, les alertes personnalisées et les informations de l'IA en déplacement.",
+    "hero_slide4_tag": "Application mobile",
+    "hero_slide4_btn": "Télécharger maintenant"
   },
   "navigation": {
     "chart": "Graphique",

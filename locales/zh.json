@@ -259,7 +259,9 @@
     "all_categories": "所有类别",
     "share_this_article": "分享这篇文章",
     "delete": "删除",
-    "view_collection": "查看收藏"
+    "view_collection": "查看收藏",
+    "coming_soon": "敬请期待！",
+    "exciting_updates": "令人兴奋的更新即将到来。"
   },
   "contact": {
     "contact_no": "联系电话",
@@ -431,7 +433,27 @@
     "next_market_update": "下一条市场更新",
     "view_all_participation": "查看所有参展",
     "previous_category": "上一个类别",
-    "next_category": "下一个类别"
+    "next_category": "下一个类别",
+    "hero_slide1_title": "全球首个智能AI驱动的B2B贸易平台",
+    "hero_slide1_subtitle": "全天候实时商品价格 | 海运费 | AI 预测",
+    "hero_slide1_desc": "在一个平台上发现包含FOB、CNF和CIF价格、运费、历史价格图表、AI驱动的价格预测等全球农产品贸易情报。",
+    "hero_slide1_tag": "平台特色",
+    "hero_slide1_btn": "探索功能",
+    "hero_slide2_title": "深受全球贸易商信任",
+    "hero_slide2_subtitle": "90+ 个国家 | 20+ 年经验 | 10K+ 客户",
+    "hero_slide2_desc": "凭借二十多年的实际市场经验，AgriGuru Online 是您可靠的交易合作伙伴。",
+    "hero_slide2_tag": "全球信任与网络",
+    "hero_slide2_btn": "阅读我们的故事",
+    "hero_slide3_title": "免费试用 90 天，零风险",
+    "hero_slide3_subtitle": "白银计划试用 - 完全免费",
+    "hero_slide3_desc": "白银计划试用不花一分钱。无需信用卡，无需银行信息，没有任何隐性条款。",
+    "hero_slide3_tag": "会员计划",
+    "hero_slide3_btn": "立即开始免费试用",
+    "hero_slide4_title": "下载 AgriGuru Online 应用程序",
+    "hero_slide4_subtitle": "将全球市场尽在掌握",
+    "hero_slide4_desc": "随时随地获取实时市场价格、即时运费、自定义提醒和 AI 见解。",
+    "hero_slide4_tag": "移动应用",
+    "hero_slide4_btn": "立即下载"
   },
   "navigation": {
     "chart": "图表",

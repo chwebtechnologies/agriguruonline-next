@@ -208,6 +208,7 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
   const userType = getNormalizedUserType(authData.userProfile?.user_type);
   const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
+    no_products_found: commonDict.no_products_found || "No products found",
     back: commonDict.back || "Back",
     addProduct: commonDict.add_product || "Add Product",
     buy: commonDict.buy || "Buy",
@@ -222,7 +223,7 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
     return (
       <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">No products found</h1>
+          <h1 className="text-2xl font-bold mb-4">{common.no_products_found}</h1>
           <Link href={`/${lang}/category/${slug}`} className="text-sky-700 dark:text-sky-400 hover:underline">
             Return to Category
           </Link>

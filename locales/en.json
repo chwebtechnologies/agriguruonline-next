@@ -259,7 +259,9 @@
     "all_categories": "All Categories",
     "share_this_article": "Share this article",
     "delete": "Delete",
-    "view_collection": "View Collection"
+    "view_collection": "View Collection",
+    "coming_soon": "Coming Soon!",
+    "exciting_updates": "Exciting updates are on the way."
   },
   "contact": {
     "contact_no": "Contact No.",
@@ -431,7 +433,27 @@
     "next_market_update": "Next Market Update",
     "view_all_participation": "View All Participation",
     "previous_category": "Previous Category",
-    "next_category": "Next Category"
+    "next_category": "Next Category",
+    "hero_slide1_title": "World’s 1st Smart AI Powered B2B Trade Platform",
+    "hero_slide1_subtitle": "Live 24/7 Commodity Prices | OCEAN FREIGHTS | AI Predict",
+    "hero_slide1_desc": "Discover global agri-commodity trade intelligence with FOB, CNF and CIF prices, freight rates, historical price charts, AI-powered price predictions, market reports, price alerts, trade opportunities, smart export documentation and many more powerful features in one platform.",
+    "hero_slide1_tag": "Platform Feature",
+    "hero_slide1_btn": "Explore Features",
+    "hero_slide2_title": "Trusted by Global Traders",
+    "hero_slide2_subtitle": "90+ Countries | 20+ Years Experience | 10K+ Clients",
+    "hero_slide2_desc": "Backed by over two decades of practical market experience, AgriGuru Online is the reliable partner for your trading needs. Join our growing network of over 10,000 trusted clients across 90+ countries worldwide.",
+    "hero_slide2_tag": "Global Trust & Network",
+    "hero_slide2_btn": "Read Our Story",
+    "hero_slide3_title": "Try It Risk-Free for 90 Days",
+    "hero_slide3_subtitle": "Silver Plan Trial - Completely Free",
+    "hero_slide3_desc": "The Silver Plan trial costs nothing. No credit card, no banking details, no catch. Just sign up and explore all premium features for yourself for a full 90 days.",
+    "hero_slide3_tag": "Membership Plan",
+    "hero_slide3_btn": "Start Free Trial Now",
+    "hero_slide4_title": "Download AgriGuru Online App",
+    "hero_slide4_subtitle": "Global market access right in your pocket",
+    "hero_slide4_desc": "Get live market prices, instant freight rates, custom alerts, and AI insights on the go. Available for both iOS and Android. Scan the QR code or download directly from the App Store or Google Play.",
+    "hero_slide4_tag": "Mobile App",
+    "hero_slide4_btn": "Download Now"
   },
   "navigation": {
     "chart": "Chart",

@@ -191,6 +191,8 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
   ])
   const commonDict = (dict as Record<string, any>).common || {}
   const common = {
+    coming_soon: commonDict.coming_soon || "Coming Soon!",
+    exciting_updates: commonDict.exciting_updates || "Exciting updates are on the way.",
     back: commonDict.back || "Back",
     all_country_origins: commonDict.all_country_origins || "All Country Origins",
     explore: commonDict.explore || "Explore"
@@ -308,8 +310,8 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
             <div className="flex items-center justify-center w-14 h-14 rounded-full bg-brand-blue/10 mb-1">
               <i className="fa-solid fa-hourglass-half text-2xl text-brand-blue animate-pulse"></i>
             </div>
-            <h2 className="text-xl font-bold text-foreground">Coming Soon!</h2>
-            <p className="text-sm text-foreground/60">Exciting updates are on the way.</p>
+            <h2 className="text-xl font-bold text-foreground">{common.coming_soon}</h2>
+            <p className="text-sm text-foreground/60">{common.exciting_updates}</p>
           </div>
         </div>
       )}
