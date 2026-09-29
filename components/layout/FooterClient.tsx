@@ -117,7 +117,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
       {/* 3. Links Section (Reduced height, tight padding)           */}
       {/* ======================================================== */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+      <div className="mx-auto max-w-7xl px-4 py-6">
 
         {/* Desktop & Tablet View */}
         <div className="hidden md:grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 text-sm font-bold tracking-wide">

@@ -29,6 +29,10 @@ export default function AssociatePartnersCarousel({
           animation-play-state: paused;
         }
       `}} />
+      {/* Left & Right Smooth Edge Fade Masks */}
+      <div className="absolute top-0 left-0 w-8 sm:w-16 h-full z-10 pointer-events-none bg-gradient-to-r from-background to-transparent" />
+      <div className="absolute top-0 right-0 w-8 sm:w-16 h-full z-10 pointer-events-none bg-gradient-to-l from-background to-transparent" />
+
       {/* We need width max-content and double the elements to scroll 50% seamlessly */}
       <div 
         ref={trackRef}

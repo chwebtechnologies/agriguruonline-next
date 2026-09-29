@@ -15,7 +15,7 @@ export default function LatestInquiriesForSellerSection({
   if (!inquiries || inquiries.length === 0) return null;
 
   return (
-    <section className="w-full pt-6 pb-8 px-2 sm:px-0">
+    <section className="w-full pt-6 pb-8">
       <div className="w-full bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
         <div className="flex flex-col lg:flex-row w-full">
           

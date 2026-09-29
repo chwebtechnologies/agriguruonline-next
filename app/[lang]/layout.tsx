@@ -209,10 +209,20 @@ export default async function LocalizedRootLayout(props: {
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                var isUpdating = false;
                 function updateScale() {
+                  if (isUpdating) return;
                   try {
-                    var w = window.innerWidth || document.documentElement.clientWidth || screen.width;
-                    if (!w) return;
+                    if (!('zoom' in document.documentElement.style)) return;
+                    
+                    var currentZoom = parseFloat(document.documentElement.style.zoom) || 1;
+                    var rawW = window.innerWidth || document.documentElement.clientWidth || screen.width;
+                    if (!rawW || rawW <= 0) return;
+                    
+                    // Derive true unzoomed display width
+                    var w = Math.round(rawW * currentZoom);
+                    if (!w || w <= 0) return;
+
                     var scale = 1;
                     if (w >= 1440) {
                       // Desktop >= 1440px: Scaled up proportionally based on 1440px laptop baseline
@@ -231,14 +241,37 @@ export default async function LocalizedRootLayout(props: {
                         scale = Math.min(1.15, w / 430);
                       }
                     }
-                    if ('zoom' in document.documentElement.style) {
-                      document.documentElement.style.zoom = scale;
+
+                    // Round to 3 decimal places to avoid subpixel calculation noise
+                    scale = Math.round(scale * 1000) / 1000;
+
+                    // If scale is virtually identical to current zoom, DO NOT update (breaks infinite resize jitter loop)
+                    if (Math.abs(scale - currentZoom) < 0.005) {
+                      return;
                     }
-                  } catch(e) {}
+
+                    isUpdating = true;
+                    document.documentElement.style.zoom = scale;
+                    setTimeout(function() {
+                      isUpdating = false;
+                    }, 50);
+                  } catch(e) {
+                    isUpdating = false;
+                  }
                 }
+
+                // Initial immediate synchronous run before paint
                 updateScale();
-                window.addEventListener('resize', updateScale, { passive: true });
-                window.addEventListener('orientationchange', updateScale, { passive: true });
+
+                // Smooth debounced resize using requestAnimationFrame
+                var rAF = null;
+                function scheduleUpdate() {
+                  if (rAF) cancelAnimationFrame(rAF);
+                  rAF = requestAnimationFrame(updateScale);
+                }
+
+                window.addEventListener('resize', scheduleUpdate, { passive: true });
+                window.addEventListener('orientationchange', scheduleUpdate, { passive: true });
               })();
             `,
           }}
