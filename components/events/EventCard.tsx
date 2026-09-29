@@ -7,10 +7,11 @@ import { getAssetsUrl } from '@/lib/api-utils';
 interface EventCardProps {
   event: EventItem
   lang: string
+  dict?: any
   priority?: boolean;
 }
 
-export default function EventCard({ event, lang, priority = false }: EventCardProps) {
+export default function EventCard({ event, lang, dict = {}, priority = false }: EventCardProps) {
   const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   const imageUrl = event.thumbnail.startsWith('http') ? event.thumbnail : `${imageBaseUrl}${event.thumbnail}`
   
@@ -81,7 +82,7 @@ export default function EventCard({ event, lang, priority = false }: EventCardPr
             aria-label={`View details: ${title}`}
             className="text-[12px] uppercase tracking-wide font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1.5 group/link"
           >
-            <span>View Details<span className="sr-only">: {title}</span></span>
+            <span>{dict?.common?.view_details || 'View Details'}<span className="sr-only">: {title}</span></span>
             <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
           </FastLink>
           

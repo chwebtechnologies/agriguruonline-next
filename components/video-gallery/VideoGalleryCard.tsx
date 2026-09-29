@@ -6,12 +6,13 @@ import { getAssetsUrl } from '@/lib/api-utils';
 
 interface VideoGalleryCardProps {
   category: VideoCategory;
-  lang: string;
+  lang: string
+  dict?: any;
   priority?: boolean;
   imageBaseUrl?: string;
 }
 
-export default function VideoGalleryCard({ category, lang, priority = false, imageBaseUrl }: VideoGalleryCardProps) {
+export default function VideoGalleryCard({ category, lang, dict = {}, priority = false, imageBaseUrl }: VideoGalleryCardProps) {
   // Determine full image URL
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return '/logo.webp';
@@ -72,7 +73,7 @@ export default function VideoGalleryCard({ category, lang, priority = false, ima
             aria-label={`View collection: ${category.category_name}`}
             className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
           >
-            <span>View Collection</span>
+            <span>{dict?.common?.view_collection || 'View Collection'}</span>
             <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>
           </Link>
 

@@ -7,10 +7,11 @@ import { getAssetsUrl } from '@/lib/api-utils';
 interface NewsCardProps {
   article: NewsArticle
   lang: string
+  dict?: any
   priority?: boolean;
 }
 
-export default function NewsCard({ article, lang, priority = false }: NewsCardProps) {
+export default function NewsCard({ article, lang, dict = {}, priority = false }: NewsCardProps) {
   const translation = article.translations?.find(t => t.lang_code === lang)
   const title = translation?.title || article.title || ''
   const description = translation?.description || article.description || ''
@@ -64,7 +65,7 @@ export default function NewsCard({ article, lang, priority = false }: NewsCardPr
             aria-label={`Read more: ${title}`}
             className="text-[12px] uppercase tracking-wide font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1.5 group/link"
           >
-            <span>Read More<span className="sr-only">: {title}</span></span>
+            <span>{dict?.common?.read_more || 'Read More'}<span className="sr-only">: {title}</span></span>
             <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
           </FastLink>
           

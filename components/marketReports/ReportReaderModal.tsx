@@ -285,7 +285,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             className="flex items-center gap-1.5 sm:gap-2 bg-white/10 hover:bg-white/20 px-2.5 sm:px-3 py-1.5 rounded-full text-white/70 hover:text-white text-xs sm:text-sm font-medium transition-colors cursor-pointer shrink-0"
           >
             <i className="fa-solid fa-file-pdf text-red-400 text-xs sm:text-sm"></i>
-            <span>Download Report</span>
+            <span>{dict?.common?.download_report || 'Download Report'}</span>
           </a>
 
           {numPages && (
@@ -316,7 +316,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             className={`hidden sm:flex fixed left-4 sm:left-6 top-1/2 -translate-y-1/2 z-40 sm:w-auto sm:px-5 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer ${isPrevDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
           >
             <i className="fa-solid fa-chevron-left text-lg"></i>
-            <span className="font-medium text-sm pr-1">Prev</span>
+            <span className="font-medium text-sm pr-1">{dict?.common?.prev || 'Prev'}</span>
           </button>
         )}
 
@@ -328,7 +328,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             aria-label="Next Page"
             className={`hidden sm:flex fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 z-40 sm:w-auto sm:px-5 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white items-center justify-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer ${isNextDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100'}`}
           >
-            <span className="font-medium text-sm pl-1">Next</span>
+            <span className="font-medium text-sm pl-1">{dict?.common?.next || 'Next'}</span>
             <i className="fa-solid fa-chevron-right text-lg"></i>
           </button>
         )}
@@ -415,7 +415,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all ${isPrevDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100 active:scale-95'}`}
           >
             <i className="fa-solid fa-chevron-left text-xs"></i>
-            <span>Previous</span>
+            <span>{dict?.common?.previous || 'Previous'}</span>
           </button>
 
           <div className="text-white/60 text-xs font-mono bg-white/10 px-3 py-1 rounded-full">
@@ -428,7 +428,7 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose }: R
             aria-label="Next Page"
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all ${isNextDisabled ? 'opacity-20 cursor-not-allowed pointer-events-none' : 'opacity-100 active:scale-95'}`}
           >
-            <span>Next</span>
+            <span>{dict?.common?.next || 'Next'}</span>
             <i className="fa-solid fa-chevron-right text-xs"></i>
           </button>
         </div>

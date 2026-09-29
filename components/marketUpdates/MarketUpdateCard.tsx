@@ -6,10 +6,11 @@ import { getAssetsUrl } from '@/lib/api-utils';
 interface MarketUpdateCardProps {
   update: MarketUpdateItem
   lang: string
+  dict?: any
   priority?: boolean;
 }
 
-export default function MarketUpdateCard({ update, lang, priority = false }: MarketUpdateCardProps) {
+export default function MarketUpdateCard({ update, lang, dict = {}, priority = false }: MarketUpdateCardProps) {
   const assetsUrl = getAssetsUrl();const imageUrl = update.thumbnail?.startsWith('http') 
     ? update.thumbnail 
     : update.thumbnail 
@@ -51,7 +52,7 @@ export default function MarketUpdateCard({ update, lang, priority = false }: Mar
         </p>
         
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
-          <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Read More</span>
+          <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">{dict?.common?.read_more || 'Read More'}</span>
           <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sky-700 dark:text-sky-400 group-hover:bg-primary group-hover:text-white transition-colors">
             <i className="fa-solid fa-arrow-right text-[10px]"></i>
           </div>
