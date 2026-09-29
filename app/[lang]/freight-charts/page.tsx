@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getDictionary } from '@/app/[lang]/dictionaries'
 import { PageHeader } from '@/components/ui/PageHeader'
 import FreightChartClient from '@/components/freight-chart/FreightChartClient'
 import { cookies } from 'next/headers'
@@ -205,7 +206,7 @@ function FreightChartGridSkeleton() {
 }
 
 /* ---------- Async component that fetches charts data ---------- */
-async function FreightChartContent({ lang }: { lang: string }) {
+async function FreightChartContent({ lang, common }: { lang: string, common: any }) {
   const initialData = await getFreightInitialData(lang)
 
   return (
@@ -214,6 +215,7 @@ async function FreightChartContent({ lang }: { lang: string }) {
       initialFavorites={initialData.favoritePorts}
       initialUserType={initialData.userType}
       lang={lang}
+      common={common}
     />
   )
 }
@@ -221,6 +223,7 @@ async function FreightChartContent({ lang }: { lang: string }) {
 export default async function FreightChartsPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params
   const lang = params.lang || 'en'
+  const dict = await getDictionary(lang as any)
 
   return (
     <div className="bg-background text-foreground">
@@ -230,7 +233,7 @@ export default async function FreightChartsPage(props: { params: Promise<{ lang:
           <PageHeader title="Freight Charts" backText="Back" />
 
           <div className="mt-4">
-              <FreightChartContent lang={lang} />
+              <FreightChartContent lang={lang} common={dict?.common} />
           </div>
         </div>
       </div>

@@ -59,13 +59,15 @@ interface FreightChartClientProps {
   initialFavorites?: FavoriteFreightItem[];
   initialUserType?: string | null;
   lang?: string;
+  common?: any;
 }
 
 export default function FreightChartClient({
   initialShippingContainers = [],
   initialFavorites = [],
   initialUserType = null,
-  lang = 'en'
+  lang = 'en',
+  common = {}
 }: FreightChartClientProps) {
   const router = useRouter();
 
@@ -362,7 +364,7 @@ export default function FreightChartClient({
                 value={selectedShipBy}
                 onChange={handleShipBySelect}
                 options={shippingContainers}
-                placeholder="Ship by"
+                placeholder={common.ship_by || "Ship by"}
                 disabled={shippingContainers.length === 0}
                 loading={false}
               />
@@ -375,7 +377,7 @@ export default function FreightChartClient({
                 value={selectedPOL}
                 onChange={handlePOLSelect}
                 options={loadingPorts}
-                placeholder="Port"
+                placeholder={common.port || "Port"}
                 disabled={!selectedShipBy || polLoading}
                 loading={polLoading}
               />
@@ -388,7 +390,7 @@ export default function FreightChartClient({
                 value={selectedPOD}
                 onChange={handlePODSelect}
                 options={destinationPorts}
-                placeholder="Destination Port"
+                placeholder={common.destination_port || "Destination Port"}
                 disabled={!selectedPOL || podLoading}
                 loading={podLoading}
               />
@@ -976,7 +978,7 @@ export default function FreightChartClient({
                     value={selectedShipBy}
                     onChange={handleShipBySelect}
                     options={shippingContainers}
-                    placeholder="Select Ship By"
+                    placeholder={common.select_ship_by || "Select Ship By"}
                     variant="mobile"
                   />
                 </div>

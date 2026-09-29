@@ -152,6 +152,7 @@ export default function MobileCommodityChart({
   lang = 'en',
   initialTab = 'Overview',
   initialExpandedPredictId,
+  common = {},
 }: {
   item: CommodityItemData;
   isFullScreen?: boolean;
@@ -163,6 +164,7 @@ export default function MobileCommodityChart({
   lang?: string;
   initialTab?: string;
   initialExpandedPredictId?: string;
+  common?: any;
 }) {
   const router = useRouter();
   // Timeframe filters: 1W, 1M, 6M, 1Y, 5Y, ALL (Default is 1Y)
@@ -2295,7 +2297,7 @@ export default function MobileCommodityChart({
                                   value={alertInputValue}
                                   onChange={handleAlertInputChange}
                                   className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
-                                  placeholder="Target Price..."
+                                  placeholder={common.target_price || "Target Price..."}
                                   autoFocus
                                 />
                               </div>
@@ -2352,7 +2354,7 @@ export default function MobileCommodityChart({
                             value={alertInputValue}
                             onChange={handleAlertInputChange}
                             className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
-                            placeholder="Target Price..."
+                            placeholder={common.target_price || "Target Price..."}
                             autoFocus
                           />
                         </div>
@@ -2584,8 +2586,8 @@ export default function MobileCommodityChart({
                     <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
                       <i className="fa-solid fa-microchip"></i>
                     </div>
-                    <h2 className="font-extrabold text-[16px] text-foreground">No AI Predictions</h2>
-                    <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't run any AI price predictions for this commodity yet.</p>
+                    <h2 className="font-extrabold text-[16px] text-foreground">{common.no_ai_predictions || "No AI Predictions"}</h2>
+                    <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">{common.no_ai_predictions_desc || "You haven't run any AI price predictions for this commodity yet."}</p>
                     <button 
                       onClick={handleAIPredictClick} 
                       disabled={isAnalysing}
@@ -2642,7 +2644,7 @@ export default function MobileCommodityChart({
                         aria-label="Search remark or date"
                         value={historicalSearch}
                         onChange={(e) => setHistoricalSearch(e.target.value)}
-                        placeholder="Search remark or date..."
+                        placeholder={common.search_remark_date || "Search remark or date..."}
                         className="w-full bg-background text-foreground pl-7 pr-7 py-1 text-[11px] rounded-lg border border-border focus:outline-hidden focus:border-brand-blue"
                       />
                       {historicalSearch && (
@@ -3026,7 +3028,7 @@ export default function MobileCommodityChart({
                         value={alertInputValue}
                         onChange={handleAlertInputChange}
                         className={`w-full pl-6 pr-2 py-2 min-[390px]:py-2.5 bg-background border rounded-xl text-[13px] min-[390px]:text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
-                        placeholder="Target Price..."
+                        placeholder={common.target_price || "Target Price..."}
                         autoFocus
                       />
                     </div>
@@ -3063,7 +3065,7 @@ export default function MobileCommodityChart({
                     ) : (
                       <i className="fa-solid fa-microchip text-brand-blue text-[16px]"></i>
                     )}
-                    <span className="whitespace-nowrap">AI Predict</span>
+                    <span className="whitespace-nowrap">{common.ai_predict || "AI Predict"}</span>
                   </button>
                 </div>
               )}
@@ -3192,7 +3194,7 @@ export default function MobileCommodityChart({
               ) : (
                 <i className="fa-solid fa-microchip text-blue-500 text-[12px] min-[390px]:text-[13px]"></i>
               )}
-              <span className="whitespace-nowrap">AI Predict</span>
+              <span className="whitespace-nowrap">{common.ai_predict || "AI Predict"}</span>
             </button>
           </>
         </div>

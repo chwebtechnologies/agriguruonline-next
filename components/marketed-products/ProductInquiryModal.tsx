@@ -15,6 +15,7 @@ export interface ProductInquiryModalProps {
   price: number | string;
   productId?: string;
   lang?: string;
+  common?: any;
   shippingTerms?: any[];
   packingTypes?: any[];
   containers?: any[];
@@ -46,6 +47,7 @@ export function ProductInquiryModal({
   price,
   productId = '',
   lang = 'en',
+  common = {},
   shippingTerms = [],
   packingTypes = [],
   containers = [],
@@ -533,7 +535,7 @@ export function ProductInquiryModal({
                   value={formData.shipBy}
                   onChange={(val) => handleInputChange('shipBy', val)}
                   options={shipByOptions}
-                  placeholder="Select Container"
+                  placeholder={common.select_container || "Select Container"}
                   variant="mobile"
                 />
               )}
@@ -555,7 +557,7 @@ export function ProductInquiryModal({
                   value={formData.shippingTerm}
                   onChange={(val) => handleInputChange('shippingTerm', val)}
                   options={shippingTermOptions}
-                  placeholder="Select Term"
+                  placeholder={common.select_term || "Select Term"}
                   variant="mobile"
                   disabled={!isShippingTermEnabled}
                   autoOpen={autoOpenNext === 'shippingTerm' && shippingTermOptions.length > 1}
@@ -643,7 +645,7 @@ export function ProductInquiryModal({
                 value={formData.packingType}
                 onChange={(val) => handleInputChange('packingType', val)}
                 options={packingTypes.length ? packingTypes.map((p: any) => ({ id: p.id, name: p.title || p.name })) : [{ id: '1', name: 'Bags' }]}
-                placeholder="Select Packing"
+                placeholder={common.select_packing || "Select Packing"}
                 variant="mobile"
                 disabled={!isPackingTypeEnabled}
                 autoOpen={autoOpenNext === 'packingType' && packingTypes.length > 1}
@@ -660,7 +662,7 @@ export function ProductInquiryModal({
                   setDateRange({ start, end });
                   setFormData(prev => ({ ...prev, quantity: '', paymentTerm: '', offerPrice: '', comments: '' }));
                 }}
-                placeholder="Select Shipment Period"
+                placeholder={common.select_shipment_period || "Select Shipment Period"}
                 disabled={!isShipmentPeriodEnabled}
               />
             </div>
@@ -700,7 +702,7 @@ export function ProductInquiryModal({
                       { id: 'MT', name: 'MT' },
                       { id: 'FCL', name: 'FCL' }
                     ]}
-                    placeholder="Unit"
+                    placeholder={common.unit || "Unit"}
                     variant="mobile"
                     disabled={!isQuantityEnabled}
                     customTriggerClass={`py-2.5 px-3 text-sm font-semibold rounded-l-xl border border-r-0 ${!isQuantityEnabled ? 'border-border opacity-60 cursor-not-allowed bg-muted text-muted-foreground' : formData.quantityUnit && formData.quantity ? 'bg-brand-blue border-brand-blue text-white shadow-sm' : 'bg-card text-foreground border-border'}`}
@@ -734,7 +736,7 @@ export function ProductInquiryModal({
                 value={formData.paymentTerm}
                 onChange={(val) => handleInputChange('paymentTerm', val)}
                 options={paymentTermOptions}
-                placeholder="Select Payment Term"
+                placeholder={common.select_payment_term || "Select Payment Term"}
                 variant="mobile"
                 disabled={!isPaymentTermEnabled}
                 autoOpen={autoOpenNext === 'paymentTerm' && paymentTermOptions.length > 1}
@@ -789,7 +791,7 @@ export function ProductInquiryModal({
             <div className="space-y-1 md:col-span-2">
               <label className={`text-sm font-semibold ${isCommentsEnabled ? 'text-foreground' : 'text-muted-foreground/60'}`}>Additional Comment</label>
               <textarea 
-                placeholder="Write your comments or specific requirements here..."
+                placeholder={common.write_comments || "Write your comments or specific requirements here..."}
                 rows={3}
                 value={formData.comments}
                 onChange={(e) => handleInputChange('comments', e.target.value)}

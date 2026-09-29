@@ -13,13 +13,15 @@ interface DedicatedChartClientProps {
   lang: string;
   initialItemData?: CommodityItemData;
   initialUserType?: string | null;
+  common?: any;
 }
 
 export default function DedicatedChartClient({ 
   productId, 
   lang, 
   initialItemData, 
-  initialUserType 
+  initialUserType,
+  common = {}
 }: DedicatedChartClientProps) {
   const item = initialItemData || {
     id: productId,
@@ -45,6 +47,7 @@ export default function DedicatedChartClient({
         isFullScreen={true} 
         userType={initialUserType} 
         lang={lang}
+        common={common}
       />
     </div>
   );

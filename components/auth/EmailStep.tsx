@@ -119,7 +119,7 @@ export default function EmailStep({ onNext, lang, dict }: EmailStepProps) {
                 ? "border-red-500 focus:ring-red-500/50"
                 : "border-foreground/20 focus:ring-brand-blue/50"
             }`}
-            placeholder="your@email.com"
+            placeholder={dict?.common?.email_example || "your@email.com"}
           />
           {error && (
             <p className="text-red-500 text-sm mt-1.5 font-medium animate-in fade-in slide-in-from-top-1">

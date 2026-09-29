@@ -1,4 +1,5 @@
 import React from 'react';
+import { getDictionary } from '@/app/[lang]/dictionaries';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/ui/PageHeader';
 import DedicatedChartClient from './DedicatedChartClient';
@@ -190,6 +191,7 @@ async function getChartProductData(id: string, lang: string = 'en') {
 export default async function DedicatedChartPage(props: { params: Promise<{ lang: string, id: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en';
+  const dict = await getDictionary(lang as any);
   const { itemData, userType } = await getChartProductData(params.id, lang);
   
   return (
@@ -198,6 +200,7 @@ export default async function DedicatedChartPage(props: { params: Promise<{ lang
         <DedicatedChartClient 
           productId={params.id} 
           lang={lang} 
+          common={dict?.common}
           initialItemData={itemData} 
           initialUserType={userType} 
         />

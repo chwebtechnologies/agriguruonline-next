@@ -233,6 +233,7 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
                 flag: c.flag
               }))} 
               lang={lang} 
+              common={common}
               profileData={sanitizedProfileData} 
             />
           </div>

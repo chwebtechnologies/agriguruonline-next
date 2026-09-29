@@ -117,7 +117,7 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
-              placeholder="John Doe"
+              placeholder={dict?.common?.john_doe || "John Doe"}
               required
             />
           </div>
@@ -137,7 +137,7 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
-              placeholder="Your Company LLC"
+              placeholder={dict?.common?.company_llc || "Your Company LLC"}
               required
             />
           </div>

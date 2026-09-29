@@ -142,7 +142,7 @@ async function ContactUsContent({ lang }: { lang: string }) {
               <p className="text-[13px] sm:text-[14px] text-muted-foreground">{contactDict.form_subtitle || "Fill out the form below to get in touch with our team."}</p>
             </div>
 
-            <ContactForm contactDict={contactDict} defaultCountry={defaultCountry} />
+            <ContactForm contactDict={contactDict} defaultCountry={defaultCountry} common={commonDict} />
           </div>
         </div>
       </div>

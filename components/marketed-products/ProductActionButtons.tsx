@@ -216,6 +216,7 @@ export function ProductActionButtons({
         onClose={() => setIsModalOpen(false)}
         productId={modalData?.product?.id || productSlugOrId}
         lang={lang}
+        common={common}
         productName={modalData?.product?.name || productName}
         countryName={modalData?.product?.country?.name || countryName}
         price={price}

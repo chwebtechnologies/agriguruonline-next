@@ -13,9 +13,10 @@ import { submitContactUsAction } from '@/app/actions/contact';
 interface ContactFormProps {
   contactDict?: any;
   defaultCountry?: string;
+  common?: any;
 }
 
-export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }: ContactFormProps) {
+export default function ContactForm({ contactDict = {}, defaultCountry = 'IN', common = {} }: ContactFormProps) {
   const [country, setCountry] = useState<string>(defaultCountry);
   const [phone, setPhone] = useState<string>('');
   const [defaultCountryCode, setDefaultCountryCode] = useState<Country>(defaultCountry as Country);
@@ -142,7 +143,7 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }:
               name="name" 
               onChange={() => { if (errors.name) setErrors(prev => ({ ...prev, name: '' })) }}
               className={`w-full h-12 pl-10 pr-4 bg-background border ${errors.name ? 'border-brand-red text-brand-red focus:border-brand-red focus:ring-brand-red/20' : 'border-border/80 hover:border-border focus:ring-brand-blue/20 focus:border-brand-blue'} rounded-xl text-sm font-medium transition-all shadow-sm ${errors.name ? 'placeholder:text-brand-red/50 text-brand-red focus:bg-background' : 'text-foreground focus:bg-background placeholder:text-muted-foreground/50'}`}
-              placeholder="John Doe"
+              placeholder={common.john_doe || "John Doe"}
             />
           </div>
           {errors.name && <p className="text-brand-red text-xs mt-1 ml-1 font-medium">{errors.name}</p>}
@@ -195,7 +196,7 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }:
               name="email" 
               onChange={() => { if (errors.email) setErrors(prev => ({ ...prev, email: '' })) }}
               className={`w-full h-12 pl-10 pr-4 bg-background border ${errors.email ? 'border-brand-red text-brand-red focus:border-brand-red focus:ring-brand-red/20' : 'border-border/80 hover:border-border focus:ring-brand-blue/20 focus:border-brand-blue'} rounded-xl text-sm font-medium transition-all shadow-sm ${errors.email ? 'placeholder:text-brand-red/50 text-brand-red focus:bg-background' : 'text-foreground focus:bg-background placeholder:text-muted-foreground/50'}`}
-              placeholder="john@example.com"
+              placeholder={common.email_example || "john@example.com"}
             />
           </div>
           {errors.email && <p className="text-brand-red text-xs mt-1 ml-1 font-medium">{errors.email}</p>}
@@ -214,7 +215,7 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }:
             id="source" 
             name="source" 
             className="w-full h-12 pl-10 pr-4 bg-background border border-border/80 hover:border-border rounded-xl text-sm font-medium text-foreground focus:bg-background focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all shadow-sm placeholder:text-muted-foreground/50"
-            placeholder="e.g. Google, Social Media, etc."
+            placeholder={common.source_example || "e.g. Google, Social Media, etc."}
           />
         </div>
       </div>
@@ -227,7 +228,7 @@ export default function ContactForm({ contactDict = {}, defaultCountry = 'IN' }:
           name="message" 
           onChange={() => { if (errors.message) setErrors(prev => ({ ...prev, message: '' })) }}
           className={`w-full flex-1 min-h-[120px] p-4 bg-background border ${errors.message ? 'border-brand-red text-brand-red focus:border-brand-red focus:ring-brand-red/20' : 'border-border/80 hover:border-border focus:ring-brand-blue/20 focus:border-brand-blue'} rounded-xl text-sm font-medium transition-all shadow-sm resize-none ${errors.message ? 'placeholder:text-brand-red/50 text-brand-red focus:bg-background' : 'text-foreground focus:bg-background placeholder:text-muted-foreground/50'}`}
-          placeholder="Type your message here..."
+          placeholder={common.type_message || "Type your message here..."}
         ></textarea>
         {errors.message && <p className="text-brand-red text-xs mt-1 ml-1 font-medium">{errors.message}</p>}
       </div>

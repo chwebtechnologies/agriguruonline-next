@@ -126,6 +126,7 @@ interface ChartsClientProps {
   lang?: string;
   initialDestinationPorts?: DestinationPortInfo[];
   initialMarketedProducts?: any[];
+  common?: any;
 }
 
 export default function ProductChartsClient({ 
@@ -135,7 +136,8 @@ export default function ProductChartsClient({
   initialUserType,
   initialDestinationPorts = [],
   initialMarketedProducts = [],
-  lang = 'en'
+  lang = 'en',
+  common = {}
 }: ChartsClientProps) {
   const router = useRouter();
   const [productsData] = useState<Product[]>(initialProducts);
@@ -961,7 +963,7 @@ export default function ProductChartsClient({
               value={selectedCategory}
               onChange={handleCategorySelect}
               options={categories}
-              placeholder="Category"
+              placeholder={common.category || "Category"}
               disabled={false}
               loading={false}
             />
@@ -974,7 +976,7 @@ export default function ProductChartsClient({
               value={selectedCountry}
               onChange={handleCountrySelect}
               options={countries}
-              placeholder="Country"
+              placeholder={common.country || "Country"}
               disabled={countries.length === 0}
               loading={false}
             />
@@ -987,7 +989,7 @@ export default function ProductChartsClient({
               value={selectedProduct}
               onChange={handleProductSelect}
               options={filteredProducts}
-              placeholder="Product Name"
+              placeholder={common.product_name || "Product Name"}
               disabled={filteredProducts.length === 0}
               loading={false}
             />
@@ -1013,7 +1015,7 @@ export default function ProductChartsClient({
               value={selectedTerm}
               onChange={handleTermSelect}
               options={shippingTerms}
-              placeholder="Term"
+              placeholder={common.term || "Term"}
               disabled={!selectedProduct || !selectedShipBy || shippingTerms.length === 0}
               loading={false}
             />
@@ -1633,7 +1635,7 @@ export default function ProductChartsClient({
                     <SearchableSelect 
                       id="select-category"
                       value={selectedCategory} onChange={handleCategorySelect} options={categories}
-                      placeholder="Select Category" disabled={false} loading={false}
+                      placeholder={common.select_category || "Select Category"} disabled={false} loading={false}
                       variant="mobile"
                     />
                   </div>
@@ -1646,7 +1648,7 @@ export default function ProductChartsClient({
                     <SearchableSelect 
                       id="select-country"
                       value={selectedCountry} onChange={handleCountrySelect} options={countries}
-                      placeholder="Select Country" disabled={countries.length === 0} loading={false}
+                      placeholder={common.select_country || "Select Country"} disabled={countries.length === 0} loading={false}
                       variant="mobile"
                     />
                   </div>
@@ -1659,7 +1661,7 @@ export default function ProductChartsClient({
                     <SearchableSelect 
                       id="select-product"
                       value={selectedProduct} onChange={handleProductSelect} options={filteredProducts}
-                      placeholder="Select Product" disabled={filteredProducts.length === 0} loading={false}
+                      placeholder={common.select_product || "Select Product"} disabled={filteredProducts.length === 0} loading={false}
                       variant="mobile"
                     />
                   </div>
@@ -1686,7 +1688,7 @@ export default function ProductChartsClient({
                     <SearchableSelect 
                       id="select-term"
                       value={selectedTerm} onChange={handleTermSelect} options={shippingTerms}
-                      placeholder="Select Incoterm" disabled={!selectedProduct || !selectedShipBy || shippingTerms.length === 0} loading={false}
+                      placeholder={common.select_incoterm || "Select Incoterm"} disabled={!selectedProduct || !selectedShipBy || shippingTerms.length === 0} loading={false}
                       menuPosition="top"
                       variant="mobile"
                     />

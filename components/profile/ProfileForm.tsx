@@ -17,9 +17,10 @@ interface ProfileFormProps {
   lang?: string;
   profileData?: any;
   token?: string;
+  common?: any;
 }
 
-export default function ProfileForm({ categories = [], countries = [], lang = "en", profileData = null }: ProfileFormProps) {
+export default function ProfileForm({ categories = [], countries = [], lang = "en", profileData = null, common = {} }: ProfileFormProps) {
   const router = useRouter();
   const availableCategories = categories
     .filter(cat => cat.is_active !== false)
@@ -406,7 +407,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                       if (errors.altEmail) setErrors(prev => ({ ...prev, altEmail: "" }));
                     }}
                     className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.altEmail ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.altEmail ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
-                    placeholder="alternate@example.com"
+                    placeholder={common.alternate_email || "alternate@example.com"}
                   />
                 </div>
                 {errors.altEmail && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.altEmail}</p>}
@@ -504,7 +505,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                   <div className="p-2 border-b border-foreground/5 shrink-0">
                     <input 
                       type="text" 
-                      placeholder="Search categories..." 
+                      placeholder={common.search_categories || "Search categories..."} 
                       value={categorySearch}
                       onChange={(e) => setCategorySearch(e.target.value)}
                       className="w-full px-3 py-2 bg-foreground/5 border border-transparent rounded-lg text-sm focus:outline-none focus:border-brand-blue/30 focus:bg-background transition-colors"
@@ -537,7 +538,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                   value={businessAddress}
                   onChange={(e) => setBusinessAddress(e.target.value)}
                   className="w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border border-foreground/15 rounded-xl focus:bg-background focus:outline-none focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue transition-all font-medium text-sm text-foreground"
-                  placeholder="Building, Street, City"
+                  placeholder={common.address_placeholder || "Building, Street, City"}
                 />
               </div>
             </div>
@@ -569,7 +570,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                     if (errors.website) setErrors(prev => ({ ...prev, website: "" }));
                   }}
                   className={`w-full pl-10 pr-3.5 h-[46px] bg-foreground/[0.02] hover:bg-foreground/[0.04] border ${errors.website ? 'border-red-500 text-red-500 focus:border-red-500 focus:ring-red-500/20' : 'border-foreground/15 focus:border-brand-blue focus:ring-brand-blue/50'} rounded-xl focus:bg-background focus:outline-none focus:ring-2 transition-all font-medium text-sm ${errors.website ? 'text-red-500 placeholder-red-300' : 'text-foreground'}`}
-                  placeholder="https://www.example.com"
+                  placeholder={common.website_placeholder || "https://www.example.com"}
                 />
               </div>
               {errors.website && <p className="text-red-500 text-xs mt-1 ml-1 font-medium">{errors.website}</p>}

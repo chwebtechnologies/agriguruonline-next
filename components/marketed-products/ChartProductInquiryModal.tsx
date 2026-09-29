@@ -9,6 +9,7 @@ interface ChartProductInquiryModalProps {
   item: any; // The favorite/chart item containing fixed details
   actionType?: 'buy' | 'sell';
   lang?: string;
+  common?: any;
   shippingTerms?: any[];
   packingTypes?: any[];
   containers?: any[];
@@ -21,6 +22,7 @@ export function ChartProductInquiryModal({
   item,
   actionType = 'buy',
   lang = 'en',
+  common = {},
   shippingTerms = [],
   packingTypes = [],
   containers = [],
@@ -30,6 +32,7 @@ export function ChartProductInquiryModal({
 
   return (
     <ProductInquiryModal
+      common={common}
       isOpen={isOpen}
       onClose={onClose}
       productName={item.product || item.productName || ''}

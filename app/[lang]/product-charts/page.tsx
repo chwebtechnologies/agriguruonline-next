@@ -1,3 +1,4 @@
+import { getDictionary } from '@/app/[lang]/dictionaries';
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ProductChartsClient from '@/components/product-charts/ProductChartsClient'
@@ -241,11 +242,11 @@ function ProductChartsGridSkeleton() {
 }
 
 /* ---------- Async component that fetches charts data ---------- */
-async function ChartsContent({ lang }: { lang: string }) {
+async function ChartsContent({ lang, common }: { lang: string, common: any }) {
   const initialData = await getChartsInitialData(lang)
 
   return (
-    <ProductChartsClient
+    <ProductChartsClient common={common}
       initialProducts={initialData.products}
       initialShippingTerms={initialData.shippingTerms}
       initialFavorites={initialData.favoriteProducts}
@@ -259,6 +260,7 @@ async function ChartsContent({ lang }: { lang: string }) {
 export default async function ChartsPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params
   const lang = params.lang || 'en'
+  const dict = await getDictionary(lang as any)
 
   return (
     <div className="bg-background text-foreground">
@@ -269,7 +271,7 @@ export default async function ChartsPage(props: { params: Promise<{ lang: string
 
           <div className="mt-4">
             <Suspense fallback={<ProductChartsGridSkeleton />}>
-              <ChartsContent lang={lang} />
+              <ChartsContent lang={lang} common={dict?.common} />
             </Suspense>
           </div>
         </div>
