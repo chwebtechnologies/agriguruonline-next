@@ -88,8 +88,6 @@ export default async function LocalizedHomePage() {
       <div className="bg-background text-foreground transition-theme" dir={dir}>
         <div className="w-full pad-for-badges">
           <div className="max-w-7xl mx-auto pt-3 pb-5 px-2 sm:px-0">
-            <HeroCarousel lang={activeLang} dict={pageDict} />
-            
             <Suspense fallback={<HomePageSkeleton />}>
               <LocalizedHomePageContent activeLang={activeLang} />
             </Suspense>
@@ -181,6 +179,7 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
 
   return (
     <>
+      <HeroCarousel lang={activeLang} dict={pageDict} />
       <section className="w-full pt-4 pb-2">
         <div className="max-w-3xl mx-auto text-center px-4">
           
