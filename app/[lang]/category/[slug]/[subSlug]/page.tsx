@@ -157,12 +157,14 @@ export default async function SubCategoryProductsPage(
   const lang = params?.lang || 'en'
   const slug = params?.slug || ''
   const subSlug = params?.subSlug || ''
+  const dict = await getDictionary(lang as any).catch(() => ({}))
+  const common = (dict as any)?.common || {}
 
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<SubCategoryProductsSkeleton subSlug={subSlug} slug={slug} lang={lang} />}>
+          <Suspense fallback={<SubCategoryProductsSkeleton subSlug={subSlug} slug={slug} lang={lang} dict={common} />}>
             <SubCategoryProductsContent lang={lang} slug={slug} subSlug={subSlug} />
           </Suspense>
         </div>
@@ -171,12 +173,13 @@ export default async function SubCategoryProductsPage(
   )
 }
 
-function SubCategoryProductsSkeleton({ subSlug, slug, lang }: { subSlug: string, slug: string, lang: string }) {
-  const pageTitle = subSlug ? subSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') + ' Product List' : 'Product List';
+function SubCategoryProductsSkeleton({ subSlug, slug, lang, dict }: { subSlug: string, slug: string, lang: string, dict?: any }) {
+  const productListText = dict?.product_list || 'Product List';
+  const pageTitle = subSlug ? `${subSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} ${productListText}` : productListText;
 
   return (
     <>
-      <PageHeader title={pageTitle} backText="Back" backHref={`/${lang}/category/${slug}`} />
+      <PageHeader title={pageTitle} backText={dict?.back || "Back"} backHref={`/${lang}/category/${slug}`} />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
         {[...Array(10)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">

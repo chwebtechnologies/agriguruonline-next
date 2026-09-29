@@ -145,13 +145,15 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   const params = await props.params;
   const lang = params.lang || 'en'
   const slug = params.slug
+  const dict = await getDictionary(lang as any).catch(() => ({}))
+  const common = (dict as any)?.common || {}
 
   return (
     <div className="bg-background text-foreground">
       {/* Main Content */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<CategorySkeleton slug={slug} />}>
+          <Suspense fallback={<CategorySkeleton slug={slug} dict={common} />}>
             <CategoryContent lang={lang} slug={slug} />
           </Suspense>
         </div>
@@ -160,12 +162,13 @@ export default async function CategoryPage(props: { params: Promise<{ lang: stri
   )
 }
 
-function CategorySkeleton({ slug }: { slug: string }) {
+function CategorySkeleton({ slug, dict }: { slug: string, dict?: any }) {
   // Format slug for a temporary title before data loads
   const categoryName = slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  const title = `${categoryName} (${dict?.all_country_origins || 'All Country Origins'})`;
   return (
     <>
-      <PageHeader title={`${categoryName} (All Country Origins)`} backText="Back" />
+      <PageHeader title={title} backText={dict?.back || "Back"} />
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">

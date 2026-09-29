@@ -92,7 +92,7 @@
     "official_event_website": "Site Web Officiel de l'Événement",
     "organizer_source": "Organisateur / Source :",
     "port": "Port",
-    "product_list": "Liste des Produits",
+    "product_list": "Liste de produits",
     "product_name": "Nom du Produit",
     "read_report": "Lire le Rapport",
     "report_unavailable": "Ce fichier de rapport est actuellement indisponible.",
@@ -261,7 +261,8 @@
     "delete": "Supprimer",
     "view_collection": "Voir la collection",
     "coming_soon": "Bientôt disponible!",
-    "exciting_updates": "Des mises à jour passionnantes sont en route."
+    "exciting_updates": "Des mises à jour passionnantes sont en route.",
+    "all_country_origins": "Toutes les origines"
   },
   "contact": {
     "contact_no": "Numéro de Contact",
