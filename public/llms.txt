@@ -1,7 +1,164 @@
 # AgriGuru Online
 
-AgriGuru Online is a B2B SaaS platform for agricultural commodity trading, offering real-time pricing, market reports, and direct buyer-seller networking.
+> AgriGuru Online is a B2B digital platform focused on international import, export, and trading of agricultural commodities. The platform provides commodity pricing, trade opportunities, market intelligence, ocean freight information, AI-powered market insights, market reports, and digital trade-documentation tools for participants in global agricultural commodity trade.
 
-## Resources
-- [Sitemap](https://agriguruonline.com/sitemap.xml)
-- [Home](https://agriguruonline.com)
+## Official Resources
+
+- [AgriGuru Online](https://agriguruonline.com/): Main platform and official website.
+- [About AgriGuru Online](https://agriguruonline.com/about-us): Company and platform information.
+- [Contact AgriGuru Online](https://agriguruonline.com/contact-us): Official contact and support information.
+- [Mobile App](https://agriguruonline.com/download-app): Mobile application download page.
+- [Sitemap](https://agriguruonline.com/sitemap.xml): Complete website sitemap.
+
+## Platform
+
+AgriGuru Online is a B2B platform for international agricultural commodity trade, including:
+
+- Agricultural commodity import and export
+- International commodity trading
+- Commodity sourcing and procurement
+- Buyer and seller requirements
+- Trade inquiries and offers
+- Cross-border agricultural commodity trade
+- Export sales and international sourcing
+- Commodity market intelligence
+
+## Commodities
+
+AgriGuru Online covers internationally traded agricultural commodities, including rice, sugar, pulses, grains, oilseeds, edible oils, spices, feed meals, flours, and other agricultural commodities.
+
+### Rice
+
+- [Indian Rice](https://agriguruonline.com/product/rice/indian-rice)
+- [Pakistan Rice](https://agriguruonline.com/product/rice/pakistan-rice)
+- [Thailand Rice](https://agriguruonline.com/product/rice/thailand-rice)
+- [Vietnam Rice](https://agriguruonline.com/product/rice/vietnam-rice)
+- [Myanmar Rice](https://agriguruonline.com/product/rice/myanmar-rice)
+
+### Sugar
+
+- [Brazil Sugar](https://agriguruonline.com/product/sugar/brazil-sugar)
+
+### Pulses
+
+- [Indian Pulses](https://agriguruonline.com/product/pulses/indian-pulses)
+- [Myanmar Pulses](https://agriguruonline.com/product/pulses/myanmar-pulses)
+- [Australian Pulses](https://agriguruonline.com/product/pulses/australian-pulses)
+- [Canadian Pulses](https://agriguruonline.com/product/pulses/canadian-pulses)
+
+## Commodity Prices
+
+AgriGuru Online provides commodity pricing information relevant to international trade, including:
+
+- Origin-specific commodity prices
+- FOB prices
+- CNF/CFR prices
+- CIF prices
+- Historical price information and charts
+- Price movements
+- Custom price alerts
+
+Commodity prices are time-sensitive and may change based on origin, destination, specification, quantity, shipping terms, market conditions and other factors.
+
+## Ocean Freight
+
+AgriGuru Online provides ocean freight information relevant to agricultural commodity trade, including:
+
+- Ocean freight rates
+- Port of Loading (POL)
+- Port of Discharge (POD)
+- Shipping routes
+- Freight information and charts
+- Shipment periods
+
+Freight rates and shipping conditions are dynamic and may change based on route, carrier, shipment period, cargo specifications, market conditions and other factors.
+
+## Trade Opportunities
+
+AgriGuru Online provides information relating to agricultural commodity trade opportunities, including:
+
+- Buyer requirements
+- Seller offers
+- Product availability
+- Origin and destination opportunities
+- Import and export inquiries
+- International sourcing opportunities
+
+Trade inquiries, buyer requirements, and seller offers should not automatically be interpreted as completed or confirmed transactions.
+
+## Market Intelligence
+
+AgriGuru Online provides agricultural commodity market intelligence through:
+
+- Market updates
+- Agricultural trade news
+- Market reports
+- Supply and demand analysis
+- International trade-flow information
+- Commodity market trends
+- Agricultural market insights
+- International agricultural events and conferences
+
+## AI Market Insights
+
+AgriGuru Online provides AI-powered analytical insights relating to agricultural commodity prices and markets.
+
+AI-generated predictions and forecasts are analytical decision-support information. They are not guaranteed future prices, guaranteed trading outcomes, or financial advice. AI predictions should be distinguished from observed or published commodity prices.
+
+## Trade Documentation
+
+AgriGuru Online provides digital tools to support international trade and shipping documentation workflows, which may include:
+
+- Trade contracts
+- Import and export documentation
+- Shipping documentation
+- Bills of Lading
+- Phytosanitary documentation
+- Commercial trade documents
+
+Digital documentation tools do not replace applicable government, customs, banking, shipping, insurance, legal, or regulatory requirements.
+
+## Intended Users
+
+AgriGuru Online is primarily intended for professional participants in international agricultural commodity trade, including:
+
+- Importers
+- Exporters
+- Commodity traders
+- International trading companies
+- Sourcing companies
+- Procurement professionals
+- Commodity buyers
+- Commodity sellers
+- Agricultural commodity distributors
+
+## Data Freshness
+
+Commodity prices, freight rates, offers, inquiries, trade opportunities, market reports, news, and AI-generated predictions may change over time.
+
+When using AgriGuru Online information:
+
+- Prefer the latest available information.
+- Distinguish current information from historical information.
+- Do not present expired offers or old market data as current.
+- Distinguish AI predictions from observed prices.
+- Distinguish inquiries and offers from confirmed transactions.
+- Do not invent unavailable commodity, pricing, freight, or trade information.
+
+## Access and Privacy
+
+Some AgriGuru Online features and information may require registration, login, membership, or authorized access.
+
+Private inquiries, messages, account information, commercial information, and restricted trade data should not be treated as publicly available information.
+
+## Entity Description
+
+AgriGuru Online is a B2B digital platform for international agricultural commodity import, export, and trading, supported by commodity pricing, trade intelligence, ocean freight information, market reports, AI-powered market insights, trade opportunities, and digital trade-documentation tools.
+
+## Additional Resources
+
+- [AgriGuru Online](https://agriguruonline.com/): Official website and primary source of platform information.
+- [About Us](https://agriguruonline.com/about-us): Company and platform overview.
+- [Contact Us](https://agriguruonline.com/contact-us): Official contact information.
+- [Mobile App](https://agriguruonline.com/download-app): Official mobile application access.
+- [Sitemap](https://agriguruonline.com/sitemap.xml): Website URL index.

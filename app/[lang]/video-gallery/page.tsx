@@ -5,6 +5,7 @@ import type { VideoGalleryResponse } from '@/types/videoGallery'
 import { cache, Suspense } from 'react'
 import { cmsService } from '@/lib/api/cms.service';
 import { getDictionary } from '../dictionaries'
+import { Pagination } from '@/components/ui/Pagination'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -28,7 +29,7 @@ export async function generateMetadata(
 }
 
 /* ---------- Async component that fetches and renders video grid ---------- */
-async function VideoGalleryGrid({ lang }: { lang: string }) {
+async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPage: number }) {
   const data = await cmsService.getVideoCategories()
   const categories = data?.data?.categories || []
 
@@ -46,13 +47,27 @@ async function VideoGalleryGrid({ lang }: { lang: string }) {
     )
   }
 
+  const ITEMS_PER_PAGE = 12;
+  const totalPages = Math.ceil(categories.length / ITEMS_PER_PAGE);
+  const validPage = isNaN(currentPage) || currentPage < 1 ? 1 : currentPage > totalPages && totalPages > 0 ? totalPages : currentPage;
+  const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
+  const currentCategories = categories.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
-        {categories.map((category, index) => (
+        {currentCategories.map((category, index) => (
           <VideoGalleryCard priority={index < 2} key={category.category_id} category={category} lang={lang} />
         ))}
       </div>
+      
+      {totalPages > 1 && (
+        <Pagination 
+          currentPage={validPage} 
+          totalPages={totalPages} 
+          baseUrl={`/${lang}/video-gallery`} 
+        />
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -101,9 +116,13 @@ async function VideoGalleryGrid({ lang }: { lang: string }) {
 /* ---------- Main page component ---------- */
 export default async function VideoGalleryPage(props: { 
   params: Promise<{ lang: string }>
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const params = await props.params
+  const searchParams = props.searchParams ? await props.searchParams : {}
   const lang = params.lang || 'en'
+  const pageStr = searchParams.page as string | undefined;
+  const currentPage = pageStr ? parseInt(pageStr, 10) : 1;
   const dict = await getDictionary(lang)
   
   return (
@@ -113,7 +132,7 @@ export default async function VideoGalleryPage(props: {
           <PageHeader title={dict.header?.video_gallery || "Video Gallery"} backText={dict.common?.back || "Back"} />
                     
           <Suspense fallback={<VideoGalleryGridSkeleton />}>
-            <VideoGalleryGrid lang={lang} />
+            <VideoGalleryGrid lang={lang} currentPage={currentPage} />
           </Suspense>
         </div>
       </div>

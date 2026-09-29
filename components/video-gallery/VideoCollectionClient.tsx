@@ -105,8 +105,8 @@ export default function VideoCollectionClient({ videos, imageBaseUrl, dict = {} 
               </div>
 
               <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
-                <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" >
-                  <button onClick={() => setLightboxIndex(index)} className="hover:text-brand-blue transition-colors text-left truncate w-full cursor-pointer">
+                <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-2 tracking-tight min-h-[44px] sm:min-h-[52px]" >
+                  <button onClick={() => setLightboxIndex(index)} className="hover:text-brand-blue transition-colors text-left line-clamp-2 w-full cursor-pointer">
                     {title}
                   </button>
                 </h2>

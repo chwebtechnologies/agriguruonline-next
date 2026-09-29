@@ -50,7 +50,7 @@ export default function AssociatePartnersCarousel({
                 href={partner.url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 flex items-center justify-center bg-white dark:bg-card border border-border/50 rounded-2xl w-[120px] h-[120px] sm:w-[150px] sm:h-[150px] p-4 shadow-sm hover:shadow-md hover:border-primary/50 hover:-translate-y-1 transition-all duration-300"
+                className="shrink-0 flex items-center justify-center bg-white border border-border/50 rounded-2xl w-[120px] h-[120px] sm:w-[150px] sm:h-[150px] p-4 shadow-sm hover:shadow-md hover:border-primary/50 hover:-translate-y-1 transition-all duration-300"
               >
                 {partner.image ? (
                   <div className="relative w-full h-full grayscale hover:grayscale-0 transition-all duration-300">

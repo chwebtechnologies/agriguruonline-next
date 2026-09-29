@@ -124,23 +124,23 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
   
   try {
     const [newsData, eventsData, productsData, videoData, marketUpdatesData, participationData, associatePartnersData, dict, authData, buyerOffersData, sellerInquiriesData] = await Promise.all([
-      cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 10 }).catch(() => null),
-      cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 10 }).catch(() => null),
-      tradingService.getMarketedProducts(activeLang, 1, 10).catch(() => null),
+      cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 12 }).catch(() => null),
+      cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 12 }).catch(() => null),
+      tradingService.getMarketedProducts(activeLang, 1, 12).catch(() => null),
       cmsService.getVideoCategories().catch(() => null),
-      cmsService.getMarketUpdates(activeLang, 1, 10).catch(() => null),
-      cmsService.getParticipationCategories(activeLang, 1, 10).catch(() => null),
+      cmsService.getMarketUpdates(activeLang, 1, 12).catch(() => null),
+      cmsService.getParticipationCategories(activeLang, 1, 12).catch(() => null),
       cmsService.getAssociatePartners(1, 25).catch(() => null),
       getDictionary(activeLang as any).catch(() => ({})),
       getClientAuthData(activeLang).catch(() => ({ userProfile: null })),
-      tradingService.getLatestTradingInquiries({ type: 'SELLER', page: 1, limit: 10, lang: activeLang }).catch(() => null),
-      tradingService.getLatestTradingInquiries({ type: 'BUYER', page: 1, limit: 10, lang: activeLang }).catch(() => null)
+      tradingService.getLatestTradingInquiries({ type: 'SELLER', page: 1, limit: 12, lang: activeLang }).catch(() => null),
+      tradingService.getLatestTradingInquiries({ type: 'BUYER', page: 1, limit: 12, lang: activeLang }).catch(() => null)
     ]);
     
     articles = newsData?.data?.news || [];
     events = eventsData?.data?.events || [];
     products = productsData?.products || [];
-    videoCategories = videoData?.data?.categories || [];
+    videoCategories = (videoData?.data?.categories || []).slice(0, 12);
     marketUpdates = marketUpdatesData?.data?.flyers || [];
     participationCategories = participationData?.data?.categories || [];
     associatePartners = associatePartnersData?.data?.logo || [];

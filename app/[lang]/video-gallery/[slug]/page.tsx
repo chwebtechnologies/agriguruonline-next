@@ -88,6 +88,7 @@ export async function generateMetadata(
 }
 
 import VideoCollection from '@/components/video-gallery/VideoCollection'
+import { Pagination } from '@/components/ui/Pagination'
 
 /* ---------- Skeleton shown during Suspense ---------- */
 function VideoGridSkeleton() {
@@ -109,7 +110,7 @@ function VideoGridSkeleton() {
   )
 }
 
-async function VideoGrid({ slug, lang }: { slug: string; lang: string }) {
+async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: string; currentPage: number }) {
   const data = await cmsService.getCollectionVideos(slug, lang).catch(() => null)
   const dict = await getDictionary(lang)
   
@@ -137,7 +138,14 @@ async function VideoGrid({ slug, lang }: { slug: string; lang: string }) {
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
-  const sanitizedVideos = data.videos.map((v: any) => ({
+  const ITEMS_PER_PAGE = 12;
+  const videosList = data.videos;
+  const totalPages = Math.ceil(videosList.length / ITEMS_PER_PAGE);
+  const validPage = isNaN(currentPage) || currentPage < 1 ? 1 : currentPage > totalPages && totalPages > 0 ? totalPages : currentPage;
+  const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
+  const currentVideos = videosList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const sanitizedVideos = currentVideos.map((v: any) => ({
     id: v.id,
     title: v.title,
     url: v.url,
@@ -155,6 +163,13 @@ async function VideoGrid({ slug, lang }: { slug: string; lang: string }) {
     <>
       <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
       <VideoCollection videos={sanitizedVideos as any} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict.common} />
+      {totalPages > 1 && (
+        <Pagination 
+          currentPage={validPage} 
+          totalPages={totalPages} 
+          baseUrl={`/${lang}/video-gallery/${slug}`} 
+        />
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -211,17 +226,21 @@ async function VideoGrid({ slug, lang }: { slug: string; lang: string }) {
 
 export default async function VideoCollectionPage(props: { 
   params: Promise<{ lang: string; slug: string }>
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const params = await props.params
+  const searchParams = props.searchParams ? await props.searchParams : {}
   const lang = params.lang || 'en'
   const slug = params.slug
+  const pageStr = searchParams.page as string | undefined;
+  const currentPage = pageStr ? parseInt(pageStr, 10) : 1;
   
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <Suspense fallback={<VideoGridSkeleton />}>
-            <VideoGrid slug={slug} lang={lang} />
+            <VideoGrid slug={slug} lang={lang} currentPage={currentPage} />
           </Suspense>
         </div>
       </div>
