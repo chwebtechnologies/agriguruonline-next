@@ -350,7 +350,7 @@ export default function MobileCommodityChart({
       const textToRender = isAnalysing
         ? text + ' <span class="ai-cursor inline-block w-1.5 h-3.5 ml-0.5 bg-brand-blue rounded-xs animate-pulse align-middle"></span>'
         : text;
-      let html = marked.parse(textToRender) as string;
+      const html = marked.parse(textToRender) as string;
       return { __html: DOMPurify.sanitize(html) };
     } catch (e) {
       console.error('Failed to parse markdown', e);
@@ -1025,7 +1025,7 @@ export default function MobileCommodityChart({
       const base = Number(item.price) || 450;
       return [{
         date: new Date().toISOString(),
-        timestamp: Date.now(),
+        timestamp: 0,
         formattedDate: 'Today',
         shortDate: 'Today',
         weekday: 'Today',
@@ -1083,13 +1083,13 @@ export default function MobileCommodityChart({
       };
     }
     return parsed;
-  }, [productDetails?.quality_specification, apiProduct?.product?.quality_specification]);
+  }, [productDetails, apiProduct]);
 
   // Clean description
   const productDescClean = useMemo(() => {
     const rawDesc = productDetails?.description || apiProduct?.product?.description || '';
     return rawDesc.replace(/<[^>]*>/g, '').trim() || `${item.product || 'High Grade Agricultural Commodity'} sourced directly from prime farming regions, conforming to international export standards.`;
-  }, [productDetails?.description, apiProduct?.product?.description, item.product]);
+  }, [productDetails, apiProduct, item.product]);
 
   const filteredData = useMemo(() => {
     if (brushStartIndex === undefined || brushEndIndex === undefined) return displayChartData;

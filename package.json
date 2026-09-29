@@ -16,7 +16,6 @@
     "disposable-email-domains": "^1.0.62",
     "firebase": "^12.18.0",
     "html-to-image": "^1.11.13",
-    "html2canvas": "^1.4.1",
     "isomorphic-dompurify": "^3.19.0",
     "libphonenumber-js": "^1.13.10",
     "marked": "^18.0.13",

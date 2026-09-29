@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
@@ -162,7 +161,7 @@ async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: stri
   return (
     <>
       <PageHeader title={categoryName} backText={dict.common?.back || "Back"} />
-      <VideoCollection videos={sanitizedVideos as any} lang={lang} imageBaseUrl={imageBaseUrl} dict={dict.common} />
+      <VideoCollection videos={sanitizedVideos as any} imageBaseUrl={imageBaseUrl} dict={dict.common} />
       {totalPages > 1 && (
         <Pagination 
           currentPage={validPage} 

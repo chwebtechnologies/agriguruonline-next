@@ -242,20 +242,6 @@ export default function InquiryDetailsPanel({
     };
   }, [selectedItem, apiData]);
 
-  if (!selectedItem && !selectedItemId && !apiData) {
-    return (
-      <div className="bg-card border border-border rounded-2xl p-8 min-h-[420px] shadow-sm flex flex-col items-center justify-center text-center">
-        <div className="w-16 h-16 rounded-full bg-foreground/5 flex items-center justify-center mb-4 border border-border text-foreground/40 text-2xl">
-          <i className="fa-solid fa-hand-pointer"></i>
-        </div>
-        <h3 className="text-lg font-bold text-foreground">Select an Inquiry</h3>
-        <p className="text-xs text-foreground/60 mt-1 max-w-sm leading-relaxed">
-          Choose an inquiry or offer from the list to view its complete specifications, progress, and negotiate pricing.
-        </p>
-      </div>
-    );
-  }
-
   // Currency symbol (e.g. "$" or "USD")
   const currencySymbol = details?.currency?.symbol || (typeof details?.currency === 'string' ? details.currency : '$');
 
@@ -553,6 +539,20 @@ export default function InquiryDetailsPanel({
 
 
   const hasNegotiation = currentStep >= 2;
+
+  if (!selectedItem && !selectedItemId && !apiData) {
+    return (
+      <div className="bg-card border border-border rounded-2xl p-8 min-h-[420px] shadow-sm flex flex-col items-center justify-center text-center">
+        <div className="w-16 h-16 rounded-full bg-foreground/5 flex items-center justify-center mb-4 border border-border text-foreground/40 text-2xl">
+          <i className="fa-solid fa-hand-pointer"></i>
+        </div>
+        <h3 className="text-lg font-bold text-foreground">Select an Inquiry</h3>
+        <p className="text-xs text-foreground/60 mt-1 max-w-sm leading-relaxed">
+          Choose an inquiry or offer from the list to view its complete specifications, progress, and negotiate pricing.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card border border-border rounded-2xl flex flex-col min-h-full shadow-sm relative">

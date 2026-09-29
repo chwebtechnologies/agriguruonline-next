@@ -1,7 +1,4 @@
-// @ts-nocheck
 import type { Metadata, Viewport } from 'next'
-
-import { lang } from 'next/root-params'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
 
@@ -104,10 +101,13 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-export default async function LocalizedRootLayout({
-  children,
-}: LayoutProps<'/[lang]'>) {
-  const activeLang = (await lang()) || 'en'
+export default async function LocalizedRootLayout(props: {
+  children: React.ReactNode,
+  params: Promise<{ lang: string }>
+}) {
+  const { children } = props;
+  const params = await props.params;
+  const activeLang = params.lang || 'en'
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
   const rawDict = await getDictionary(activeLang)
@@ -116,12 +116,7 @@ export default async function LocalizedRootLayout({
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl.slice(0, -1) : assetsUrl
   const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
 
-  const apiCategories = await getCategories(activeLang, {
-    apiUrl: categoriesApiUrl,
-    stale: 300,
-    revalidate: 3600,
-    expire: 86400
-  })
+  const apiCategories = await getCategories(activeLang)
 
   const categories = apiCategories
     .filter(cat => cat.is_active !== false)

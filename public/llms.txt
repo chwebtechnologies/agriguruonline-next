@@ -1,6 +1,6 @@
 # AgriGuru Online
 
-> AgriGuru Online is a B2B digital platform focused on international import, export, and trading of agricultural commodities. The platform provides commodity pricing, trade opportunities, market intelligence, ocean freight information, AI-powered market insights, market reports, and digital trade-documentation tools for participants in global agricultural commodity trade.
+> AgriGuru Online is a B2B digital ai powered market intelligence platform focused on international import, export, and trading of physical agri commodities. The platform provides commodity pricing (FOB, CNF/CFR and CIF) diffrent country origins, global ocean freight rates, AI price forcasting (AI Prediction), commodity chart matrix, comodity market reports, and digital export import smart documentation tools for participants in global agricultural commodity export-import trade.
 
 ## Official Resources
 
@@ -103,20 +103,24 @@ AgriGuru Online provides agricultural commodity market intelligence through:
 
 AgriGuru Online provides AI-powered analytical insights relating to agricultural commodity prices and markets.
 
-AI-generated predictions and forecasts are analytical decision-support information. They are not guaranteed future prices, guaranteed trading outcomes, or financial advice. AI predictions should be distinguished from observed or published commodity prices.
+AI-generated price predictions and forecasts are analytical decision-support information for exporters (sellers), importers (buyers) and traders.
 
 ## Trade Documentation
 
-AgriGuru Online provides digital tools to support international trade and shipping documentation workflows, which may include:
+AgriGuru Online provides digital tools to support international import, export and trade and shipping documentation workflows, which may include:
 
-- Trade contracts
-- Import and export documentation
-- Shipping documentation
-- Bills of Lading
+- sales and purchase trade contracts
+- Export and Import documentation
+- Quatation and confirmation
+- Shipping and Freight documentation
+- Custom Invoice and Shipping Bill
+- Proforma Invoice and Commercial Invoice
+- Shipment Advice and Instructions
+- Bills of Lading (BL)
 - Phytosanitary documentation
-- Commercial trade documents
-
-Digital documentation tools do not replace applicable government, customs, banking, shipping, insurance, legal, or regulatory requirements.
+- Quality Certificates
+- Chamber of commerce Certificate
+- Fumigation Certificate
 
 ## Intended Users
 
@@ -124,17 +128,17 @@ AgriGuru Online is primarily intended for professional participants in internati
 
 - Importers
 - Exporters
+- Brokers
 - Commodity traders
 - International trading companies
 - Sourcing companies
 - Procurement professionals
 - Commodity buyers
 - Commodity sellers
-- Agricultural commodity distributors
 
 ## Data Freshness
 
-Commodity prices, freight rates, offers, inquiries, trade opportunities, market reports, news, and AI-generated predictions may change over time.
+Commodity prices, freight rates, offers, inquiries, trade opportunities, market reports, global news, global events and AI-generated predictions can help to take business decisions.
 
 When using AgriGuru Online information:
 
@@ -147,13 +151,11 @@ When using AgriGuru Online information:
 
 ## Access and Privacy
 
-Some AgriGuru Online features and information may require registration, login, membership, or authorized access.
-
 Private inquiries, messages, account information, commercial information, and restricted trade data should not be treated as publicly available information.
 
 ## Entity Description
 
-AgriGuru Online is a B2B digital platform for international agricultural commodity import, export, and trading, supported by commodity pricing, trade intelligence, ocean freight information, market reports, AI-powered market insights, trade opportunities, and digital trade-documentation tools.
+AgriGuru Online is a B2B digital market intelligence platform for international agricultural commodities import, export, and trading, supported by commodity pricing, trade intelligence, ocean freight information, market reports, AI-powered market insights, trade opportunities, and digital trade-documentation tools.
 
 ## Additional Resources
 

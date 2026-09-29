@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { PageHeader } from '@/components/ui/PageHeader'
 import MarketReportCard from '@/components/marketReports/MarketReportCard'
 import { Pagination } from '@/components/ui/Pagination'
@@ -79,12 +79,12 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
   const reportsData = await cmsService.getMarketReports({ lang, page, limit: apiLimit, search, token, categoryId })
   
   // Try to safely extract array of reports and total
-  let reports = reportsData?.data?.market_reports || reportsData?.data || []
+  let reports = (reportsData?.data as any)?.market_reports || (reportsData?.data as any) || []
   if (!Array.isArray(reports)) {
     reports = []
   }
   
-  const totalItems = reportsData?.data?.total || reports.length || 0
+  const totalItems = (reportsData?.data as any)?.total || reports.length || 0
   const totalPages = Math.ceil(totalItems / displayLimit)
 
   // Slice the array to display exactly 20 (displayLimit) records
@@ -137,7 +137,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
         {reports.map(sanitizeReport).filter(Boolean).map((report: any, index: number) => (
-          <MarketReportCard priority={index < 4} key={report.id || report._id || Math.random()} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
+          <MarketReportCard priority={index < 4} key={report.id || report._id || `report-${index}`} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
         ))}
       </div>
       <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/market-reports`} />
