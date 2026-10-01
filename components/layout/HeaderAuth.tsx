@@ -498,7 +498,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
   // Calculate dynamic fit based on estimated text width to keep items within bounds
   // Available width is screen width minus spacing for logo, dropdowns, and margins
-  const availableWidth = mounted ? Math.max(200, width - 220) : 950
+  const layoutWidth = Math.min(width, 1280)
+  const horizontalPadding = width >= 1280 ? 160 : (width >= 1024 ? 112 : 32)
+  const otherElementsWidth = 220
+  const availableWidth = mounted ? Math.max(200, layoutWidth - horizontalPadding - otherElementsWidth) : 700
   let accumulatedWidth = 0
   let fitCount = 0
   const othersWidth = 100
@@ -530,7 +533,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar (Always sticky) */}
-      <header className="relative w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
+      <header className="relative w-full bg-card text-foreground py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
 
           {/* Left side group containing Logo/Menu and Search bar with short spacing */}
@@ -971,9 +974,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden lg:block w-full bg-card text-muted-foreground px-4 transition-all duration-300 ease-in-out border-b border-border ${
+        className={`hidden lg:block w-full bg-card text-muted-foreground transition-all duration-300 ease-in-out border-b border-border ${
           isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
+        style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}
       >
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           {/* Left-aligned Menu Trigger */}
@@ -989,24 +993,32 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           {/* Right-aligned container containing all categories with Others at the very last */}
           <div ref={categoriesRef} className="flex-1 flex justify-end items-center gap-6 overflow-visible">
             <nav className="flex items-center gap-5 text-[16px] font-bold tracking-wide whitespace-nowrap">
-              {displayCategories.map((category, index) => {
-                const isActive = pathname === category.href
-                return (
-                  <CategoryLink
-                    key={index}
-                    href={category.href}
-                    isActive={isActive}
-                    baseClassName="transition-colors border-y-2 border-t-transparent pt-1 pb-1"
-                    activeClassName="text-primary border-b-primary font-extrabold"
-                    inactiveClassName="text-muted-foreground border-b-transparent hover:text-foreground hover:border-b-primary font-bold"
-                  >
-                    {category.name}
-                  </CategoryLink>
-                )
-              })}
+              {!mounted ? (
+                <>
+                  <div className="h-4 w-12 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-14 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-10 bg-muted animate-pulse rounded" />
+                </>
+              ) : (
+                displayCategories.map((category, index) => {
+                  const isActive = pathname === category.href
+                  return (
+                    <CategoryLink
+                      key={index}
+                      href={category.href}
+                      isActive={isActive}
+                      baseClassName="transition-colors border-y-2 border-t-transparent pt-1 pb-1"
+                      activeClassName="text-primary border-b-primary font-extrabold"
+                      inactiveClassName="text-muted-foreground border-b-transparent hover:text-foreground hover:border-b-primary font-bold"
+                    >
+                      {category.name}
+                    </CategoryLink>
+                  )
+                })
+              )}
 
               {/* "Others" Dropdown inside the same row, at the very last (on the right) */}
-              {dropdownCategories.length > 0 && (
+              {dropdownCategories.length > 0 && mounted && (
                 <div className="relative group">
                   <button className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground font-bold text-[16px] focus:outline-none border-y-2 border-t-transparent border-b-transparent hover:border-b-primary pt-1 pb-1">
                     <span>{dict.header.categories.others}</span>

@@ -115,7 +115,7 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
           {items.map((productItem: any, index: number) => (
             <div 
               key={productItem._uniqueId} 
-              className="shrink-0 w-[calc(50%-8px)] sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(20%-16px)]"
+              className="shrink-0 w-[calc(50%-8px)] sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(25%-15px)] xl:w-[calc(20%-16px)]"
             >
               <MarketedProductCard
                 product={productItem}

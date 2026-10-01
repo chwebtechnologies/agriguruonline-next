@@ -73,11 +73,25 @@ export function AppMenu({
       }
       setIsOpen(false);
     }
+    
+    function updateHeaderBottom() {
+      const header = document.getElementById('site-header');
+      if (header && menuRef.current) {
+        const bottom = header.getBoundingClientRect().bottom;
+        menuRef.current.style.setProperty('--header-bottom', `${bottom}px`);
+      }
+    }
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      updateHeaderBottom();
+      window.addEventListener('scroll', updateHeaderBottom, { passive: true });
+      window.addEventListener('resize', updateHeaderBottom, { passive: true });
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', updateHeaderBottom);
+      window.removeEventListener('resize', updateHeaderBottom);
     };
   }, [isOpen]);
 
@@ -169,9 +183,9 @@ export function AppMenu({
       {isOpen && (
         <div className={`
           /* Mobile & Tablet: Fixed drawer below header */
-          fixed top-[62px] min-[390px]:top-[66px] md:top-[68px] lg:top-[calc(100%+0.5rem)]
+          fixed lg:absolute top-[var(--header-bottom,62px)] lg:top-[calc(100%+0.5rem)]
           left-0 right-0 lg:left-auto lg:right-auto ${alignClass}
-          w-full lg:w-[260px] h-[calc(100dvh-62px)] min-[390px]:h-[calc(100dvh-66px)] md:h-[calc(100dvh-68px)] lg:h-auto
+          w-full lg:w-[260px] h-[calc(100dvh-var(--header-bottom,62px))] lg:h-auto
           bg-background z-[100] border-t lg:border border-border lg:rounded-2xl
           overflow-y-auto lg:overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)]
           animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out lg:zoom-in-95 lg:duration-200

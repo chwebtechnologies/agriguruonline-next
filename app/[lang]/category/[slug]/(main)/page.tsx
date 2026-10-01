@@ -169,7 +169,7 @@ function CategorySkeleton({ slug, dict }: { slug: string, dict?: any }) {
   return (
     <>
       <PageHeader title={title} backText={dict?.back || "Back"} />
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
             <div className="relative w-full aspect-[16/10] bg-muted animate-pulse border-b border-border"></div>
@@ -222,7 +222,7 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
       <PageHeader title={`${categoryName} (${common.all_country_origins})`} backText={common.back} />
 
       {data.sub_categories && data.sub_categories.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
           {data.sub_categories.map((subCat, index) => {
             const subCatName = getTranslatedName(subCat.translations, subCat.name) || subCat.slug || 'Category'
             const imageUrl = subCat.image ? (subCat.image.startsWith('http') ? subCat.image : `${imageBaseUrl}${subCat.image}`) : '/placeholder.png'

@@ -117,7 +117,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
       {/* 3. Links Section (Reduced height, tight padding)           */}
       {/* ======================================================== */}
-      <div className="mx-auto max-w-7xl px-4 py-6">
+      <div className="mx-auto max-w-7xl py-6" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
 
         {/* Desktop & Tablet View */}
         <div className="hidden md:grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 text-sm font-bold tracking-wide">
@@ -236,7 +236,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
 
       {/* Copyright Bar */}
       <div className="w-full py-3.5 pb-20 lg:pb-3.5 text-center text-[13px] border-t border-border bg-muted text-muted-foreground font-semibold transition-theme">
-        <div className="mx-auto max-w-7xl px-4 flex items-center justify-center">
+        <div className="mx-auto max-w-7xl flex items-center justify-center" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
           <span>{dict.footer.copyright}</span>
         </div>
       </div>
@@ -248,19 +248,19 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* Left side tab - Crown at the top pointing right, text goes top-to-bottom (facing right/inwards) */}
       <Link
         href={`/${activeLang}/membership`}
-        className="group hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-r border-blue-500/30 text-white rounded-r-xl shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 cursor-pointer lg:py-3.5 lg:px-1.5 xl:py-5 xl:px-2 select-none flex-col items-center gap-2.5 xl:gap-3 w-[32px] xl:w-[38px] hover:scale-105 active:scale-95 origin-left duration-200 transition-all"
+        className="group hidden xl:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-r border-blue-500/30 text-white rounded-r-xl shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 cursor-pointer py-5 px-2 select-none flex-col items-center gap-3 w-[38px] hover:scale-105 active:scale-95 origin-left duration-200 transition-all"
       >
-        <i className="fa-solid fa-crown text-white/90 text-[12px] xl:text-[14px] shrink-0 rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
-        <span className="[writing-mode:vertical-lr] text-[11px] xl:text-sm font-black uppercase tracking-widest leading-none">Membership</span>
+        <i className="fa-solid fa-crown text-white/90 text-[14px] shrink-0 rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
+        <span className="[writing-mode:vertical-lr] text-sm font-black uppercase tracking-widest leading-none">Membership</span>
       </Link>
 
       {/* Right side tab - Crown at the top pointing left, text goes bottom-to-top (facing left/inwards) */}
       <Link
         href={`/${activeLang}/membership`}
-        className="group hidden lg:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-l border-blue-500/30 text-white rounded-l-xl shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 cursor-pointer lg:py-3.5 lg:px-1.5 xl:py-5 xl:px-2 select-none flex-col items-center gap-2.5 xl:gap-3 w-[32px] xl:w-[38px] hover:scale-105 active:scale-95 origin-right duration-200 transition-all"
+        className="group hidden xl:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-primary-gradient border-y border-l border-blue-500/30 text-white rounded-l-xl shadow-lg shadow-blue-500/10 hover:shadow-xl hover:shadow-blue-500/20 cursor-pointer py-5 px-2 select-none flex-col items-center gap-3 w-[38px] hover:scale-105 active:scale-95 origin-right duration-200 transition-all"
       >
-        <i className="fa-solid fa-crown text-white/90 text-[12px] xl:text-[14px] shrink-0 -rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
-        <span className="[writing-mode:vertical-lr] rotate-180 text-[11px] xl:text-sm font-black uppercase tracking-widest leading-none">Membership</span>
+        <i className="fa-solid fa-crown text-white/90 text-[14px] shrink-0 -rotate-90 transition-transform duration-200 group-hover:scale-115"></i>
+        <span className="[writing-mode:vertical-lr] rotate-180 text-sm font-black uppercase tracking-widest leading-none">Membership</span>
       </Link>
 
       {/* ======================================================== */}

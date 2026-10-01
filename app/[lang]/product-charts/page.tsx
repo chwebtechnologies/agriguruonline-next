@@ -165,7 +165,7 @@ function ProductChartsGridSkeleton() {
       </div>
 
       {/* Desktop Filter Row Skeleton (Visible on Desktop) */}
-      <div className="hidden lg:grid grid-cols-[0.92fr_0.98fr_1.85fr_1.0fr_0.78fr_1.22fr_1.27fr_0.68fr_0.72fr_0.5fr_1.08fr] gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0 animate-pulse">
+      <div className="hidden xl:grid grid-cols-[0.92fr_0.98fr_1.85fr_1.0fr_0.78fr_1.22fr_1.27fr_0.68fr_0.72fr_0.5fr_1.08fr] gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0 animate-pulse">
         <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
         <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
         <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
@@ -179,8 +179,8 @@ function ProductChartsGridSkeleton() {
         <div className="w-full h-[45px] rounded-lg bg-muted"></div>
       </div>
 
-      {/* Mobile/Tablet List Skeleton (lg:hidden) */}
-      <div className="flex flex-col gap-[7px] lg:hidden">
+      {/* Mobile/Tablet List Skeleton (xl:hidden) */}
+      <div className="flex flex-col gap-[7px] xl:hidden">
         {[...Array(4)].map((_, i) => (
           <div
             key={`mob-${i}`}
@@ -207,8 +207,8 @@ function ProductChartsGridSkeleton() {
         ))}
       </div>
 
-      {/* Desktop Table Rows Skeleton (hidden lg:flex) */}
-      <div className="hidden lg:flex flex-col gap-[7px] lg:gap-2 mt-0.5 lg:mt-1">
+      {/* Desktop Table Rows Skeleton (hidden xl:flex) */}
+      <div className="hidden xl:flex flex-col gap-[7px] xl:gap-2 mt-0.5 xl:mt-1">
         {[...Array(4)].map((_, i) => (
           <div
             key={`desk-${i}`}

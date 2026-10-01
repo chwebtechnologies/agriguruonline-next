@@ -38,7 +38,7 @@ import { cmsService } from '@/lib/api/cms.service'
 /* ---------- Skeleton shown during Suspense ---------- */
 function MarketReportsGridSkeleton() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
       {[...Array(10)].map((_, i) => (
         <div 
           key={i} 
@@ -135,7 +135,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
         {reports.map(sanitizeReport).filter(Boolean).map((report: any, index: number) => (
           <MarketReportCard priority={index < 4} key={report.id || report._id || `report-${index}`} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
         ))}

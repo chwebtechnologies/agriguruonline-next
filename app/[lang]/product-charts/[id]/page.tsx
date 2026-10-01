@@ -195,16 +195,18 @@ export default async function DedicatedChartPage(props: { params: Promise<{ lang
   const { itemData, userType } = await getChartProductData(params.id, lang, dict);
   
   return (
-    <main className="bg-background text-foreground min-h-[100dvh] w-full flex flex-col items-center">
-      <div className="w-full max-w-lg min-h-[100dvh] flex flex-col bg-background border-x border-border shadow-sm">
-        <DedicatedChartClient 
-          productId={params.id} 
-          lang={lang} 
-          common={dict?.common}
-          initialItemData={itemData} 
-          initialUserType={userType} 
-        />
+    <div className="bg-background text-foreground">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <DedicatedChartClient 
+            productId={params.id} 
+            lang={lang} 
+            common={dict?.common}
+            initialItemData={itemData} 
+            initialUserType={userType} 
+          />
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

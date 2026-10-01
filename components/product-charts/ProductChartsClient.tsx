@@ -955,7 +955,7 @@ export default function ProductChartsClient({
 
       <div className="w-full relative">
         {/* Header / Input Row */}
-        <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0`}>
+        <div className={`hidden xl:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0`}>
           {/* 1. Category */}
           <div className="w-full min-w-0">
             <SearchableSelect 
@@ -1048,14 +1048,14 @@ export default function ProductChartsClient({
           </div>
           
           {/* Static Column Headers - Hidden on Mobile */}
-          <div className="hidden lg:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
+          <div className="hidden xl:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
             <span>Price</span>
             <span className="text-[12px] text-zinc-400 dark:text-zinc-500 leading-none mt-0.5">(PMT)</span>
           </div>
-          <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+          <div className="hidden xl:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
             Change
           </div>
-          <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+          <div className="hidden xl:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
             Chart
           </div>
           
@@ -1072,9 +1072,9 @@ export default function ProductChartsClient({
         </div>
 
         {/* Data Rows */}
-        <div className={`mt-0 lg:mt-2 ${addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
+        <div className={`mt-0 xl:mt-2 ${addedProducts.length === 0 ? 'xl:min-h-[220px]' : ''}`}>
           {isFetchingFavorites && addedProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 lg:py-16 text-center bg-card border border-border border-dashed rounded-xl h-full lg:min-h-[220px]">
+            <div className="flex flex-col items-center justify-center py-10 xl:py-16 text-center bg-card border border-border border-dashed rounded-xl h-full xl:min-h-[220px]">
               <i className="fa-solid fa-spinner fa-spin text-brand-blue text-3xl mb-4"></i>
               <h3 className="text-lg font-bold text-foreground">Loading Your Charts...</h3>
               <p className="text-muted-foreground text-sm mt-2">Please wait while we fetch your data</p>
@@ -1093,7 +1093,7 @@ export default function ProductChartsClient({
               />
 
               {/* Desktop Empty State with Interactive Step Pointers & Tutorial */}
-              <div className="hidden lg:flex flex-col gap-3">
+              <div className="hidden xl:flex flex-col gap-3">
                 {/* Step-by-Step Pointers Grid matching input columns with 100% exact alignment */}
                 <div className={`grid ${gridCols} gap-2 px-2 -mx-2`}>
                   {/* Col 1: Category (Optional Filter) */}
@@ -1431,7 +1431,7 @@ export default function ProductChartsClient({
               </div>
             </>
           ) : (
-            <div className="flex flex-col gap-[7px] lg:gap-2 mt-0.5 lg:mt-1">
+            <div className="flex flex-col gap-[7px] xl:gap-2 mt-0.5 xl:mt-1">
               {addedProducts.map((item, index) => {
                 const changeVal = Number(item.change) || 0;
                 const isPositive = changeVal >= 0;
@@ -1468,7 +1468,7 @@ export default function ProductChartsClient({
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
-                    <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-[16px] font-semibold`}>
+                    <div className={`hidden xl:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-[16px] font-semibold`}>
                       <div className="truncate text-foreground/90 min-w-0" title={item.category}>{item.category}</div>
                       <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.country}>
                         {item.countryFlag && <FlagIcon src={getFlagUrl(item.countryFlag)} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}
@@ -1519,41 +1519,46 @@ export default function ProductChartsClient({
       </div>
 
         {/* Global Actions Bar for Mobile/Tablet - Sticky when products overflow */}
-        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto">
-          <button className="px-5 py-[9px] bg-card hover:bg-muted border border-border text-foreground font-semibold rounded-md text-[14px] shadow-sm ">
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 xl:hidden items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto">
+          
+          {/* Left Action (Inquiry/Offer) */}
+          <button className="w-full h-[42px] bg-card hover:bg-muted border border-border text-foreground font-semibold rounded-lg text-[13px] sm:text-[14px] shadow-sm whitespace-nowrap">
              Inquiry / Offer
           </button>
-          <div className="relative flex items-center justify-center">
-            <button onClick={() => setShowDisclaimer(true)} className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100  flex items-center justify-center">
+
+          {/* Center Action (Disclaimer Icon) */}
+          <div className="flex items-center justify-center relative px-2">
+            <button onClick={() => setShowDisclaimer(true)} className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100 flex items-center justify-center transition-colors">
               <i className="fa-solid fa-triangle-exclamation text-[22px]"></i>
             </button>
 
             {showDisclaimer && (
-              <>
-                <div className="absolute top-full mt-4 z-50 w-[300px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 ">
-                  {/* Triangle pointer at top center */}
-                  <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card border-t border-l border-brand-blue transform rotate-45"></div>
-                  
-                  <h3 className="text-foreground text-center font-semibold text-[16px] mb-3">Standard Market Rate</h3>
-                  <p className="text-zinc-600 text-foreground/80 text-[13px] leading-relaxed text-justify mb-4">
-                    The displayed prices/rates reflect standard market rates between buyers and sellers which may or may not buy or sell at. They are subject to reconfirmation as per AgriGuru’s Terms, conditions.
-                  </p>
-                  <div className="border-t border-border pt-3 text-center">
-                    <button 
-                      onClick={() => setShowDisclaimer(false)}
-                      className="text-brand-blue font-bold text-[15px] hover:text-blue-500 "
-                    >
-                      Got it
-                    </button>
-                  </div>
+              <div className="absolute bottom-[calc(100%+12px)] z-50 w-[280px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95">
+                {/* Triangle pointer at bottom center */}
+                <div className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card border-b border-r border-brand-blue transform rotate-45"></div>
+                
+                <h3 className="text-foreground text-center font-semibold text-[16px] mb-3">Standard Market Rate</h3>
+                <p className="text-zinc-600 text-foreground/80 text-[13px] leading-relaxed text-justify mb-4">
+                  The displayed prices/rates reflect standard market rates between buyers and sellers which may or may not buy or sell at. They are subject to reconfirmation as per AgriGuru’s Terms, conditions.
+                </p>
+                <div className="border-t border-border pt-3 text-center">
+                  <button 
+                    onClick={() => setShowDisclaimer(false)}
+                    className="text-brand-blue font-bold text-[15px] hover:text-blue-500"
+                  >
+                    Got it
+                  </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
+
+          {/* Right Action (Add Product) */}
           <ChartAddButton
             onClick={() => setShowMobileAddForm(true)}
             label="Add Product"
             variant="mobile-sticky"
+            className="!max-w-none !w-full h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
           />
         </div>
       </div>

@@ -34,7 +34,7 @@ export default function LatestOffersForBuyerSection({
             <div>
               <Link 
                 href={`/${lang}/latest-offers-for-buyers`}
-                className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary-hover transition-colors shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                className="inline-flex items-center justify-center px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 text-sm md:text-base rounded-xl bg-primary text-white font-bold hover:bg-primary-hover transition-colors shadow-sm hover:shadow-md hover:-translate-y-0.5"
               >
                 {dict?.common?.view_all_offers || 'View All Offers'} <i className="fa-solid fa-arrow-right ml-2"></i>
               </Link>

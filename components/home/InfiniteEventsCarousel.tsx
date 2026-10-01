@@ -106,7 +106,7 @@ export default function InfiniteEventsCarousel({ events, lang, dict = {} }: { ev
           {items.map((eventItem: any, index: number) => (
             <div 
               key={eventItem._uniqueId} 
-              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(25%-15px)]"
+              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] xl:w-[calc(25%-15px)]"
             >
               <EventCard event={eventItem} lang={lang} priority={index < 4} dict={dict} />
             </div>

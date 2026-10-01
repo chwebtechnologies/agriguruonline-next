@@ -105,7 +105,8 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   return (
     <div
-      className="w-full bg-primary-gradient text-white px-4 text-sm font-semibold shadow-sm flex items-center relative z-[60] border-b border-emerald-950/20 max-h-[40px] h-10 py-2 overflow-visible"
+      className="w-full bg-primary-gradient text-white text-sm font-semibold shadow-sm flex items-center relative z-[60] border-b border-emerald-950/20 max-h-[40px] h-10 py-2 overflow-visible"
+      style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}
       dir={dir}
     >
       <div className="mx-auto w-full max-w-7xl flex justify-between items-center gap-6">
@@ -121,14 +122,14 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
               const label = ann.label
 
               return (
-                <div key={ann.id || idx} className="h-6 flex items-center gap-2 truncate">
-                  <span className="tracking-wide">{title}</span>
+                <div key={ann.id || idx} className="h-6 flex items-center gap-2 overflow-hidden w-full">
+                  <span className="tracking-wide truncate flex-1 min-w-0">{title}</span>
                   {label && ann.link && (
                     <a
                       href={ann.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline hover:text-emerald-300 transition-colors font-extrabold whitespace-nowrap"
+                      className="underline hover:text-emerald-300 transition-colors font-extrabold whitespace-nowrap shrink-0"
                       aria-label={`${label} for ${title || 'App'}`}
                     >
                       {label} <span className="sr-only">for {title || 'App'}</span>
@@ -141,13 +142,13 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
         </div>
 
         {/* Right: Sub actions */}
-        <div className="flex items-center gap-5 text-[13.5px] shrink-0 font-bold">
-          <Link href={`/${activeLang}/download-application`} className="hidden sm:flex items-center gap-2 hover:text-emerald-300 transition-colors">
+        <div className="flex items-center gap-4 text-[13.5px] shrink-0 font-bold">
+          <Link href={`/${activeLang}/download-application`} className="hidden lg:flex items-center gap-2 hover:text-emerald-300 transition-colors">
             <i className="fa-solid fa-mobile-screen-button text-[14px]"></i>
             <span>{dict.header.download_app}</span>
           </Link>
 
-          <Link href={`/${activeLang}/contact-us`} className="hidden sm:flex items-center gap-2 hover:text-emerald-300 transition-colors">
+          <Link href={`/${activeLang}/contact-us`} className="hidden lg:flex items-center gap-2 hover:text-emerald-300 transition-colors">
             <i className="fa-solid fa-headset text-[14px]"></i>
             <span>{dict.header.contact_us}</span>
           </Link>

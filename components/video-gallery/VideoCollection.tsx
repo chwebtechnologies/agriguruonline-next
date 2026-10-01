@@ -48,7 +48,7 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {videos.map((video, index) => {
           const title = video.title
           const thumbnailPath = video.video_thumbnail || video.image

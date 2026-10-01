@@ -94,7 +94,7 @@ function VideoGridSkeleton() {
   return (
     <>
       <PageHeader title="Video Collection" backText="Back" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-4">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse">
             <div className="w-full aspect-video bg-muted border-b border-border"></div>

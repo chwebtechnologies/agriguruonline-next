@@ -210,68 +210,121 @@ export default async function LocalizedRootLayout(props: {
             __html: `
               (function() {
                 var isUpdating = false;
+                var lastAppliedScale = -1;
+                var lastViewportContent = '';
+
                 function updateScale() {
                   if (isUpdating) return;
+                  isUpdating = true;
+
                   try {
-                    if (!('zoom' in document.documentElement.style)) return;
+                    var screenW = window.screen.width;
+                    var screenH = window.screen.height;
+                    var isLandscape = window.matchMedia && window.matchMedia("(orientation: landscape)").matches;
                     
-                    var currentZoom = parseFloat(document.documentElement.style.zoom) || 1;
-                    var rawW = window.innerWidth || document.documentElement.clientWidth || screen.width;
-                    if (!rawW || rawW <= 0) return;
-                    
-                    // Derive true unzoomed display width
-                    var w = Math.round(rawW * currentZoom);
-                    if (!w || w <= 0) return;
-
-                    var scale = 1;
-                    if (w >= 1440) {
-                      // Desktop >= 1440px: Scaled up proportionally based on 1440px laptop baseline
-                      scale = w / 1440;
-                    } else if (w >= 1024) {
-                      // Laptop / Desktop (1024px - 1439px): Exact baseline
-                      scale = 1;
-                    } else if (w >= 768) {
-                      // Tablet (768px - 1023px): Proportional to iPad Air (820px)
-                      scale = w / 820;
-                    } else {
-                      // Mobile (< 768px): Proportional to iPhone 17 Pro Max (430px)
-                      if (w < 430) {
-                        scale = w / 430;
-                      } else {
-                        scale = Math.min(1.15, w / 430);
-                      }
+                    // Fallback to basic dimension check if matchMedia fails
+                    if (typeof isLandscape === 'undefined') {
+                      isLandscape = window.innerWidth > window.innerHeight;
                     }
+                    
+                    var logicalWidth = isLandscape ? Math.max(screenW, screenH) : Math.min(screenW, screenH);
+                    
+                    // On desktop, logicalWidth might be very large, use window.innerWidth
+                    var w = (logicalWidth && logicalWidth < 1024) ? logicalWidth : (window.innerWidth || document.documentElement.clientWidth || screenW);
 
-                    // Round to 3 decimal places to avoid subpixel calculation noise
-                    scale = Math.round(scale * 1000) / 1000;
-
-                    // If scale is virtually identical to current zoom, DO NOT update (breaks infinite resize jitter loop)
-                    if (Math.abs(scale - currentZoom) < 0.005) {
+                    if (!w || w <= 0) {
+                      isUpdating = false;
                       return;
                     }
 
-                    isUpdating = true;
-                    document.documentElement.style.zoom = scale;
-                    setTimeout(function() {
+                    if (w < 1024) {
+                      document.documentElement.style.zoom = '1';
+                      
+                      var viewportMeta = document.querySelector('meta[name="viewport"]');
+                      if (!viewportMeta) {
+                        viewportMeta = document.createElement('meta');
+                        viewportMeta.name = 'viewport';
+                        document.head.appendChild(viewportMeta);
+                      }
+
+                      var targetWidth = 'device-width';
+                      var scale = 1;
+                      var newContent = '';
+                      
+                      if (w < 430) {
+                        // Force 430px width (iPhone 14/15/16/17 Pro Max) and scale it down to fit perfectly on smaller screens
+                        targetWidth = '430';
+                        scale = w / 430;
+                        scale = Math.floor(scale * 1000) / 1000;
+                        newContent = 'width=' + targetWidth + ', initial-scale=' + scale + ', maximum-scale=' + scale + ', minimum-scale=' + scale + ', user-scalable=no';
+                      } else if (w >= 768 && w < 820) {
+                        // iPad Mini scaling
+                        targetWidth = '820';
+                        scale = w / 820;
+                        scale = Math.floor(scale * 1000) / 1000;
+                        newContent = 'width=' + targetWidth + ', initial-scale=' + scale + ', maximum-scale=' + scale + ', minimum-scale=' + scale + ', user-scalable=no';
+                      } else {
+                        newContent = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+                      }
+                      
+                      if (viewportMeta.getAttribute('content') !== newContent && lastViewportContent !== newContent) {
+                        viewportMeta.setAttribute('content', newContent);
+                        lastViewportContent = newContent;
+                      }
+                      
                       isUpdating = false;
-                    }, 50);
+                      return;
+                    }
+
+                    // Desktop CSS Zoom
+                    var wDesktop = window.innerWidth || document.documentElement.clientWidth;
+                    var scaleDesktop = 1;
+                    if (wDesktop >= 1440) {
+                      scaleDesktop = wDesktop / 1440;
+                    }
+                    scaleDesktop = Math.round(scaleDesktop * 1000) / 1000;
+
+                    if (lastAppliedScale > 0 && Math.abs(scaleDesktop - lastAppliedScale) < 0.005) {
+                      isUpdating = false;
+                      return;
+                    }
+
+                    lastAppliedScale = scaleDesktop;
+                    document.documentElement.style.zoom = scaleDesktop;
+
+                    setTimeout(function() { isUpdating = false; }, 50);
                   } catch(e) {
                     isUpdating = false;
                   }
                 }
 
-                // Initial immediate synchronous run before paint
+                // Initial synchronous run before first paint
                 updateScale();
 
-                // Smooth debounced resize using requestAnimationFrame
-                var rAF = null;
-                function scheduleUpdate() {
-                  if (rAF) cancelAnimationFrame(rAF);
-                  rAF = requestAnimationFrame(updateScale);
-                }
+                // Observe if Next.js tries to overwrite our viewport meta tag during hydration
+                try {
+                  var headObserver = new MutationObserver(function(mutations) {
+                    for (var i = 0; i < mutations.length; i++) {
+                      var m = mutations[i];
+                      if (m.type === 'attributes' && m.target.name === 'viewport') {
+                        if (m.target.getAttribute('content') !== lastViewportContent && lastViewportContent !== '') {
+                          // Next.js changed it, change it back immediately!
+                          m.target.setAttribute('content', lastViewportContent);
+                        }
+                      }
+                    }
+                  });
+                  var existingMeta = document.querySelector('meta[name="viewport"]');
+                  if (existingMeta) {
+                    headObserver.observe(existingMeta, { attributes: true, attributeFilter: ['content'] });
+                  } else {
+                    headObserver.observe(document.head, { childList: true, subtree: true });
+                  }
+                } catch(e) {}
 
-                window.addEventListener('resize', scheduleUpdate, { passive: true });
-                window.addEventListener('orientationchange', scheduleUpdate, { passive: true });
+                // On resize: run synchronously so zoom + layout paint in a SINGLE frame
+                window.addEventListener('resize', updateScale, { passive: true });
+                window.addEventListener('orientationchange', updateScale, { passive: true });
               })();
             `,
           }}
@@ -288,14 +341,14 @@ export default async function LocalizedRootLayout(props: {
             <AnnouncementBar />
             <Header dict={dict} activeLang={activeLang} categories={categories} />
 
-          <main className="flex-grow w-full relative">
-            {children}
-          </main>
+            <main className="flex-grow w-full relative">
+              {children}
+            </main>
 
-          <Footer />
-          <ServiceWorkerRegister />
-          <Toaster position="top-right" richColors closeButton />
-          <NotificationPermissionPopup />
+            <Footer />
+            <ServiceWorkerRegister />
+            <Toaster position="top-right" richColors closeButton />
+            <NotificationPermissionPopup />
           </NotificationProvider>
         </ThemeProvider>
       </body>

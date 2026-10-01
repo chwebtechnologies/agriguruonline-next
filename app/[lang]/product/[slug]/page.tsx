@@ -512,7 +512,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
       {similarProducts.length > 0 && (
         <div className="mt-8">
           <h2 className="text-xl font-bold text-foreground mb-4">{common.relatedProducts}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
             {similarProducts.map((simProduct, index) => {
               const simProductName = simProduct.name || simProduct.slug || 'Agricultural Commodity';
               const simRawImg = simProduct.thumbnail || simProduct.image;

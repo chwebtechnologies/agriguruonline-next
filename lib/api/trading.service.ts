@@ -860,29 +860,39 @@ export const tradingService = {
     });
     const json = await res.json().catch(() => ({}));
     
-    // If backend provides a response_indication, it's an error even if HTTP 201
+    // Sometimes the backend sends a response_indication even when it is successful.
+    // If the message indicates success, we shouldn't show the error popup.
     const responseIndication = json.response_indication || json.data?.response_indication;
-    if (responseIndication) {
+    const msg = json.message || '';
+    
+    const isSuccessMessage = msg.toLowerCase().includes('successfully') || msg.toLowerCase().includes('added');
+    const isErrorIndication = responseIndication && responseIndication !== 'CREATED' && !isSuccessMessage;
+
+    if (isErrorIndication) {
       return { 
         success: false, 
-        error: json.message || 'Action failed',
+        error: msg || 'Action failed',
         response_indication: responseIndication 
       };
     }
 
     // Check if it's genuinely successful (either success=true or status=true, and no status=false)
-    const isSuccess = res.ok && 
-      (json.success === 1 || json.success === true || json.status === true || json.status === 1) && 
-      json.status !== false && 
-      json.success !== false;
+    const isSuccess = res.ok && (
+      json.success === 1 || 
+      json.success === true || 
+      json.status === true || 
+      json.status === 1 || 
+      isSuccessMessage || 
+      responseIndication === 'CREATED'
+    ) && !isErrorIndication;
 
     if (isSuccess) {
-      return { success: true, data: json.data, message: json.message || 'Product added successfully!' };
+      return { success: true, data: json.data || json, message: msg || 'Product added successfully!' };
     }
     
     return { 
       success: false, 
-      error: json.message || json.error || 'Failed to add favorite product. Please check your selection.' 
+      error: msg || json.error || 'Failed to add favorite product. Please check your selection.' 
     };
   },
 
@@ -992,28 +1002,38 @@ export const tradingService = {
     });
     const json = await res.json().catch(() => ({}));
     
-    // If backend provides a response_indication, it's an error even if HTTP 201
+    // Sometimes the backend sends a response_indication even when it is successful.
+    // If the message indicates success, we shouldn't show the error popup.
     const responseIndication = json.response_indication || json.data?.response_indication;
-    if (responseIndication) {
+    const msg = json.message || '';
+    
+    const isSuccessMessage = msg.toLowerCase().includes('successfully') || msg.toLowerCase().includes('added');
+    const isErrorIndication = responseIndication && responseIndication !== 'CREATED' && !isSuccessMessage;
+
+    if (isErrorIndication) {
       return { 
         success: false, 
-        error: json.message || 'Action failed',
+        error: msg || 'Action failed',
         response_indication: responseIndication 
       };
     }
 
-    const isSuccess = res.ok && 
-      (json.success === 1 || json.success === true || json.status === true || json.status === 1) && 
-      json.status !== false && 
-      json.success !== false;
+    const isSuccess = res.ok && (
+      json.success === 1 || 
+      json.success === true || 
+      json.status === true || 
+      json.status === 1 || 
+      isSuccessMessage || 
+      responseIndication === 'CREATED'
+    ) && !isErrorIndication;
 
     if (isSuccess) {
-      return { success: true, data: json.data, message: json.message || 'Freight added successfully' };
+      return { success: true, data: json.data || json, message: msg || 'Freight added successfully' };
     }
     
     return { 
       success: false, 
-      error: json.message || json.error || 'Failed to add freight. Please check your selection.' 
+      error: msg || json.error || 'Failed to add freight. Please check your selection.' 
     };
   },
 

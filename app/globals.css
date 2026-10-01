@@ -27,6 +27,25 @@ body {
 
 :root {
   /* ==========================================================================
+     Agriguru Online Unified Layout Container Token
+     Used by BOTH header and page content to guarantee pixel-perfect alignment.
+     ========================================================================== */
+  --ag-container-px: 1rem; /* 16px */
+  }
+  @media (min-width: 1024px) {
+    :root {
+      --ag-container-px: 3.5rem; /* 56px padding on laptops */
+    }
+  }
+  @media (min-width: 1280px) {
+    :root {
+      --ag-container-px: 5rem; /* 80px padding on larger screens */
+    }
+  }
+  /* Restore the root selector for subsequent variables if needed */
+  :root {
+
+  /* ==========================================================================
      Agriguru Online Standard System Colors
      Reference: Agriguru Online Design System
      ========================================================================== */
@@ -293,10 +312,15 @@ body {
   --breakpoint-4xl: 150rem; /* 2400px */
 }
 
+html {
+  overflow-x: hidden; /* Prevent horizontal scroll from zoomed/overflowing content */
+}
+
 body {
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
   background-color: var(--background);
   color: var(--foreground);
+  overflow-x: hidden; /* Belt-and-suspenders: no horizontal scroll on body either */
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
@@ -411,10 +435,11 @@ a, button, input, select, textarea, label, [role="button"] {
   background: var(--ag-gradient-primary) !important;
 }
 
-/* Custom padding to prevent Membership badges from overlapping content on specific tight screen widths */
+/* Unified page content container padding — uses the SAME token as the header's px-4
+   to guarantee pixel-perfect left/right alignment across all screen sizes. */
 .pad-for-badges {
-  padding-left: 1rem;
-  padding-right: 1rem;
+  padding-left: var(--ag-container-px);
+  padding-right: var(--ag-container-px);
 }
 
 /* Premium Membership Plan Gradients */

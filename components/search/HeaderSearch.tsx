@@ -405,7 +405,7 @@ export function HeaderSearch({
       {/* 3. DESKTOP DROPDOWN WINDOW (Anchored under search bar on lg+)              */}
       {/* ========================================================================= */}
       {isOpen && (
-        <div className="hidden lg:block absolute top-full left-0 right-0 mt-1.5 z-50 w-full bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 transition-theme">
+        <div className="hidden lg:block absolute top-full left-0 rtl:left-auto rtl:right-0 mt-1.5 z-50 w-full lg:w-[420px] xl:w-full bg-card border border-border rounded-2xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 transition-theme">
           <div className="relative">
             {/* Scrollable Container with Native Scrollbar Hidden and Custom DOM Scrollbar */}
             <div

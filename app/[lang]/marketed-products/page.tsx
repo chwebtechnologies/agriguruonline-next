@@ -92,7 +92,7 @@ function MarketedProductsSkeleton() {
   return (
     <>
       <PageHeader title="Marketed Products" backText="Back" />
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
         {[...Array(10)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
             <div className="relative w-full aspect-[16/10] bg-muted animate-pulse border-b border-border"></div>
@@ -153,7 +153,7 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
     <>
       <PageHeader title={common.marketedProducts} backText={common.back} />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
         {data.products.map((product, index) => {
           const mappedProduct = {
             id: product.id,

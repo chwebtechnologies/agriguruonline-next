@@ -99,7 +99,7 @@ export function SwipeableCard({
   }, [onChart, onDelete]);
 
   return (
-    <div className={`relative overflow-hidden rounded-xl lg:hidden bg-muted touch-pan-y ${className}`} ref={containerRef}>
+    <div className={`relative overflow-hidden rounded-xl xl:hidden bg-muted touch-pan-y ${className}`} ref={containerRef}>
       <div className="absolute inset-0 flex justify-between items-center z-0 pointer-events-none">
         <div className="bg-sky-400 w-1/2 h-full flex items-center pl-6 text-white font-bold rounded-l-xl">
           <i className="fa-solid fa-chart-area text-xl"></i>

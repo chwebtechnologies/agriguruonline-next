@@ -2204,7 +2204,7 @@ export default function MobileCommodityChart({
             ) : activeTab === 'Alert Setups' ? (
               <div className="space-y-3.5">
                 {isFetchingAlerts && chartAlerts.length === 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-[100px] sm:h-[110px] animate-pulse">
                       <div className="flex flex-col items-center shrink-0 w-6">
                         <div className="w-6 h-6 sm:w-7 sm:h-7 bg-muted rounded-full"></div>
@@ -2226,7 +2226,7 @@ export default function MobileCommodityChart({
                     </div>
                   </div>
                 ) : chartAlerts.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                     {chartAlerts.map((alert: any, idx: number) => {
                       const alertType = alert.alert_type || alert.type || 'Price Alert';
                       const isFreight = String(alertType).toLowerCase().includes('freight');
@@ -2501,7 +2501,7 @@ export default function MobileCommodityChart({
 
                 {/* 2. AI Predict Records List (matching Alert Setups pattern) */}
                 {isFetchingAiPredicts && chartAiPredicts.length === 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-[100px] sm:h-[110px] animate-pulse">
                       <div className="flex flex-col items-center shrink-0 w-6">
                         <div className="w-6 h-6 sm:w-7 sm:h-7 bg-muted rounded-full"></div>
@@ -2523,7 +2523,7 @@ export default function MobileCommodityChart({
                     </div>
                   </div>
                 ) : chartAiPredicts.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                     {chartAiPredicts.map((predict: any, idx: number) => {
                       const predictType = predict.predict_type || predict.type || predict.analysis_type || predict.alert_type || (item.category === 'FREIGHT' ? 'Freight' : 'Product');
                       const isFreight = predictType.toLowerCase().includes('freight') || !!(predict.freight_pmt || predict.target_freight || predict.pmt_price) || (!!predict.loading_port && !!predict.destination_port && !predict.product?.name && !predict.product_name && !predict.commodity?.name);

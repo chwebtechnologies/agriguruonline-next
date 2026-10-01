@@ -219,8 +219,11 @@ export function HeaderGuestBase({
 
   const categoriesList = apiCategories || []
 
-  // Calculate dynamic fit based on estimated text width
-  const availableWidth = mounted ? Math.max(200, width - 220) : 950
+  // Calculate dynamic fit based on estimated text width and max layout width
+  const layoutWidth = Math.min(width, 1280)
+  const horizontalPadding = width >= 1280 ? 160 : (width >= 1024 ? 112 : 32)
+  const otherElementsWidth = 220
+  const availableWidth = mounted ? Math.max(200, layoutWidth - horizontalPadding - otherElementsWidth) : 700
   let accumulatedWidth = 0
   let fitCount = 0
   const othersWidth = 100
@@ -246,7 +249,7 @@ export function HeaderGuestBase({
     <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar */}
-      <header className="relative w-full bg-card text-foreground py-2.5 px-4 border-b border-border shadow-sm transition-all duration-300">
+      <header className="relative w-full bg-card text-foreground py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
           
           <div className="flex items-center flex-1 gap-3 md:gap-4">
@@ -374,9 +377,10 @@ export function HeaderGuestBase({
 
       {/* 3. Categories Subheader Bar */}
       <div
-        className={`hidden lg:block w-full bg-card text-muted-foreground px-4 transition-all duration-300 ease-in-out border-b border-border ${
+        className={`hidden lg:block w-full bg-card text-muted-foreground transition-all duration-300 ease-in-out border-b border-border ${
           isScrolled ? 'max-h-0 py-0 border-b-0 opacity-0 overflow-hidden' : 'max-h-[100px] py-1 opacity-100 overflow-visible'
         }`}
+        style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}
       >
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           <div className="shrink-0 border-e border-border pe-5 flex items-center">
@@ -394,7 +398,7 @@ export function HeaderGuestBase({
 
           <div ref={categoriesRef} className="flex-1 flex justify-end items-center gap-6 overflow-visible">
             <nav className="flex items-center gap-5 text-[16px] font-bold tracking-wide whitespace-nowrap">
-              {loading ? (
+              {loading || !mounted ? (
                 <>
                   <div className="h-4 w-12 bg-muted animate-pulse rounded" />
                   <div className="h-4 w-14 bg-muted animate-pulse rounded" />
@@ -418,7 +422,7 @@ export function HeaderGuestBase({
                 })
               )}
 
-              {dropdownCategories.length > 0 && !loading && (
+              {dropdownCategories.length > 0 && !loading && mounted && (
                 <div className="relative group">
                   <button className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground font-bold text-[16px] focus:outline-none border-y-2 border-t-transparent border-b-transparent hover:border-b-primary pt-1 pb-1">
                     <span>{dict.header.categories.others}</span>

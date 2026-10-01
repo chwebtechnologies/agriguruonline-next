@@ -88,14 +88,14 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType, di
           <div className="flex items-center justify-between">
             <span className="text-foreground font-bold text-[14px] sm:text-[15px]">{inquiry.market_range}</span>
             {isDisabled ? (
-              <div title={userType === 'seller' ? (dict?.common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : (dict?.common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.")} className={`${buttonColorClass} px-5 sm:px-6 py-1 sm:py-1.5 rounded text-[13px] sm:text-sm font-bold shadow-sm transition-colors opacity-50 cursor-not-allowed text-center`}>
+              <div title={userType === 'seller' ? (dict?.common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : (dict?.common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.")} className={`${buttonColorClass} px-3 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded text-[11px] sm:text-[12px] md:text-[13px] font-bold shadow-sm transition-colors opacity-50 cursor-not-allowed text-center`}>
                 {buttonText}
               </div>
             ) : (
               <Link 
                 prefetch={false} 
                 href={href} 
-                className={`${buttonColorClass} px-5 sm:px-6 py-1 sm:py-1.5 rounded text-[13px] sm:text-sm font-bold shadow-sm transition-colors`}
+                className={`${buttonColorClass} px-3 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded text-[11px] sm:text-[12px] md:text-[13px] font-bold shadow-sm transition-colors`}
               >
                 {buttonText}
               </Link>

@@ -117,7 +117,7 @@ export default function InfiniteVideoGalleryCarousel({
           {items.map((category: any, index: number) => (
             <div 
               key={category._uniqueId} 
-              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(25%-15px)]"
+              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] xl:w-[calc(25%-15px)]"
             >
               <VideoGalleryCard category={category} lang={lang} priority={index < 4} imageBaseUrl={imageBaseUrl} dict={dict} />
             </div>

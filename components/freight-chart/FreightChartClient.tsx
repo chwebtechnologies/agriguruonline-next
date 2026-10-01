@@ -837,16 +837,16 @@ export default function FreightChartClient({
         </div>
 
         {/* Global Actions Bar for Mobile/Tablet - Sticky matching Product Charts */}
-        <div className="flex lg:hidden justify-between items-center py-4 px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto">
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 lg:hidden items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto">
           <button
             type="button"
             onClick={handleBooking}
-            className="px-5 py-[9px] bg-card hover:bg-muted border border-border text-foreground font-semibold rounded-md text-[14px] shadow-sm  cursor-pointer"
+            className="w-full h-[42px] bg-card hover:bg-muted border border-border text-foreground font-semibold rounded-lg text-[13px] sm:text-[14px] shadow-sm whitespace-nowrap"
           >
             Inquiry / Booking
           </button>
           
-          <div className="relative flex items-center justify-center">
+          <div className="relative flex items-center justify-center px-2">
             <button
               type="button"
               onClick={() => setShowDisclaimer(true)}
@@ -857,7 +857,7 @@ export default function FreightChartClient({
             </button>
 
             {showDisclaimer && (
-              <div className="absolute bottom-full mb-4 z-50 w-[300px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 ">
+              <div className="absolute bottom-[calc(100%+12px)] z-50 w-[280px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 ">
                 <div className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card border-b border-r border-brand-blue transform rotate-45"></div>
                 <h3 className="text-foreground text-center font-semibold text-[16px] mb-2">Standard Market Freight</h3>
                 <p className="text-foreground/80 text-[13px] leading-relaxed text-justify mb-3">
@@ -880,6 +880,7 @@ export default function FreightChartClient({
             onClick={() => setShowMobileAddForm(true)}
             label="Add Freight"
             variant="mobile-sticky"
+            className="!max-w-none !w-full h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
           />
         </div>
       </div>

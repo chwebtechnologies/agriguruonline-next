@@ -36,7 +36,7 @@ function EventsGridSkeleton() {
     <>
       <PageHeader title="Latest Events" backText="Back" />
       <div className="w-full h-12 bg-muted rounded-xl animate-pulse mt-4 mb-4"></div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
             <div className="w-full aspect-[4/3] bg-muted rounded-xl"></div>
@@ -95,7 +95,7 @@ async function EventsPageContent({ lang, searchParams }: { lang: string, searchP
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
             {eventsList.map((eventItem, index) => (
               <EventCard priority={index < 4} key={eventItem.id} event={eventItem} lang={lang} />
             ))}

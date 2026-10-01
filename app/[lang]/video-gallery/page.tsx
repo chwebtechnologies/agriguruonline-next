@@ -55,7 +55,7 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {currentCategories.map((category, index) => (
           <VideoGalleryCard priority={index < 2} key={category.category_id} category={category} lang={lang} />
         ))}
@@ -143,7 +143,7 @@ export default async function VideoGalleryPage(props: {
 /* ---------- Skeleton shown during Suspense ---------- */
 function VideoGalleryGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 mt-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
       {[...Array(8)].map((_, i) => (
         <div 
           key={i} 

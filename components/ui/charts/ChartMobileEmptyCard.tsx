@@ -33,7 +33,7 @@ export function ChartMobileEmptyCard({
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onClick();
       }}
-      className={`lg:hidden relative overflow-hidden bg-card rounded-xl shadow-sm border border-dashed border-border hover:border-brand-green dark:hover:border-brand-green active:scale-[0.99] transition-all cursor-pointer group ${className}`}
+      className={`xl:hidden relative overflow-hidden bg-card rounded-xl shadow-sm border border-dashed border-border hover:border-brand-green dark:hover:border-brand-green active:scale-[0.99] transition-all cursor-pointer group ${className}`}
     >
       <div className="flex flex-col p-2">
         {/* Row 1: Header & Count */}

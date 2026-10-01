@@ -106,7 +106,7 @@ export default function InfiniteNewsCarousel({ articles, lang, dict = {} }: { ar
           {items.map((article: any, index: number) => (
             <div 
               key={article._uniqueId} 
-              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(25%-15px)]"
+              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] xl:w-[calc(25%-15px)]"
             >
               <NewsCard article={article} lang={lang} priority={index < 4} dict={dict} />
             </div>
