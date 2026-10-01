@@ -1,7 +1,13 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/messaging';
+/**
+ * Firebase is lazily initialized — NO module-level imports or execution.
+ * This prevents Firebase SDK (~300KB) from blocking the main thread on page load (TBT).
+ * All functions are async and dynamically import firebase/* only when first called.
+ */
 
-const firebaseConfig = {
+let appInstance: any = null;
+let messagingInstance: any = null;
+
+const getFirebaseConfig = () => ({
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -9,22 +15,26 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+});
+
+const getApp = async (): Promise<any> => {
+  if (appInstance) return appInstance;
+  const { initializeApp, getApps, getApp: _getApp } = await import('firebase/app');
+  appInstance = !getApps().length ? initializeApp(getFirebaseConfig()) : _getApp();
+  return appInstance;
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
-let messagingInstance: Messaging | null = null;
-
-const getMessagingInstance = async (): Promise<Messaging | null> => {
+const getMessagingInstance = async (): Promise<any | null> => {
   if (typeof window === 'undefined') return null;
   if (messagingInstance) return messagingInstance;
   try {
-    const { isSupported } = await import('firebase/messaging');
+    const { isSupported, getMessaging } = await import('firebase/messaging');
     const supported = await isSupported();
     if (!supported) {
       console.warn('[FCM] Not supported in this browser.');
       return null;
     }
+    const app = await getApp();
     messagingInstance = getMessaging(app);
     return messagingInstance;
   } catch (err) {
@@ -33,18 +43,12 @@ const getMessagingInstance = async (): Promise<Messaging | null> => {
   }
 };
 
-// Wait for a SW registration to become active (handles installing → activated transition)
+// Wait for a SW registration to become active
 const waitForSWActive = (reg: ServiceWorkerRegistration): Promise<void> => {
   return new Promise((resolve) => {
-    if (reg.active) {
-      resolve();
-      return;
-    }
+    if (reg.active) { resolve(); return; }
     const sw = reg.installing || reg.waiting;
-    if (!sw) {
-      resolve();
-      return;
-    }
+    if (!sw) { resolve(); return; }
     sw.addEventListener('statechange', function handler() {
       if (sw.state === 'activated') {
         sw.removeEventListener('statechange', handler);
@@ -54,21 +58,15 @@ const waitForSWActive = (reg: ServiceWorkerRegistration): Promise<void> => {
   });
 };
 
-// Explicitly registers and returns the firebase-messaging-sw.js registration.
 const getFirebaseSWRegistration = async (): Promise<ServiceWorkerRegistration | undefined> => {
   if (!('serviceWorker' in navigator)) return undefined;
   try {
     const registrations = await navigator.serviceWorker.getRegistrations();
-
-    // 1. Unregister any old, broken push-scope worker
     for (const r of registrations) {
       if (r.scope.includes('firebase-cloud-messaging-push-scope')) {
-        console.log('[FCM] Unregistering obsolete push-scope worker:', r.scope);
         await r.unregister();
       }
     }
-
-    // 2. Check if already registered at root scope
     const updatedRegs = await navigator.serviceWorker.getRegistrations();
     const existing = updatedRegs.find(r =>
       (r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '').includes('firebase-messaging-sw') &&
@@ -78,13 +76,10 @@ const getFirebaseSWRegistration = async (): Promise<ServiceWorkerRegistration | 
       await waitForSWActive(existing);
       return existing;
     }
-
-    // 3. Register with standard root scope '/' so it controls all pages in the app
     const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
       scope: '/',
       updateViaCache: 'none',
     });
-    console.log('[FCM] firebase-messaging-sw.js registered successfully with root scope:', reg);
     await waitForSWActive(reg);
     return reg;
   } catch (err) {
@@ -97,38 +92,33 @@ export const requestForToken = async (): Promise<string | null> => {
   try {
     const msg = await getMessagingInstance();
     if (!msg) return null;
-
     const swRegistration = await getFirebaseSWRegistration();
-
+    const { getToken } = await import('firebase/messaging');
     const currentToken = await getToken(msg, {
       vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
       serviceWorkerRegistration: swRegistration,
     });
-
     if (currentToken) {
       console.log('[FCM] Token generated:', currentToken);
       return currentToken;
-    } else {
-      console.warn('[FCM] No token. Ensure notification permission is granted and VAPID key is correct.');
-      return null;
     }
+    return null;
   } catch (err) {
     console.error('[FCM] Error retrieving token:', err);
     return null;
   }
 };
 
-// Persistent foreground message listener. Returns unsubscribe fn for cleanup.
 export const subscribeToForegroundMessages = async (
   callback: (payload: unknown) => void
 ): Promise<() => void> => {
   const msg = await getMessagingInstance();
   if (!msg) return () => {};
+  const { onMessage } = await import('firebase/messaging');
   const unsubscribe = onMessage(msg, (payload) => {
-    console.log('[FCM] Foreground message:', payload);
     callback(payload);
   });
   return unsubscribe;
 };
 
-export { app };
+export { appInstance as app };

@@ -181,7 +181,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
                     <Link
                       key={l.code}
                       href={getLangUrl(l.code)}
-                      prefetch={true}
+                      prefetch={false}
                       scroll={false}
                       onMouseEnter={() => router.prefetch(getLangUrl(l.code))}
                       onClick={(e) => handleLanguageSelect(e, l.code)}

@@ -79,11 +79,52 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
     });
   }, [animState]);
 
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (isHovered) return;
-    const interval = setInterval(moveNext, 3500);
+    const handleInteraction = () => {
+      setHasInteracted(true);
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+      window.removeEventListener('mousemove', handleInteraction);
+    };
+
+    window.addEventListener('scroll', handleInteraction, { passive: true });
+    window.addEventListener('touchstart', handleInteraction, { passive: true });
+    window.addEventListener('mousemove', handleInteraction, { passive: true, once: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+      window.removeEventListener('mousemove', handleInteraction);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setIsInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!hasInteracted || !isInView || isHovered) return;
+    const interval = setInterval(moveNext, 4500);
     return () => clearInterval(interval);
-  }, [isHovered, moveNext]);
+  }, [hasInteracted, isInView, isHovered, moveNext]);
 
   // Determine styles based on state
   let transform = 'translate3d(0, 0, 0)';
@@ -102,6 +143,7 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
 
   return (
     <div 
+      ref={containerRef}
       className="mt-5 relative w-full group"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -116,13 +158,14 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
             <div 
               key={productItem._uniqueId} 
               className="shrink-0 w-[calc(50%-8px)] sm:w-[calc(50%-10px)] md:w-[calc(33.333%-13.33px)] lg:w-[calc(25%-15px)] xl:w-[calc(20%-16px)]"
+              style={index >= 5 ? { contentVisibility: 'auto' } : undefined}
             >
               <MarketedProductCard
                 product={productItem}
                 lang={lang}
                 common={common}
                 imageBaseUrl={imageBaseUrl}
-                isLCP={index < 5}
+                isLCP={false}
                 userType={userType}
                 showViewDetails={false}
               />

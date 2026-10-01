@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { requestForToken } from '@/lib/firebase';
 import { useNotification } from '@/components/providers/NotificationProvider';
 import { toast } from 'sonner';
 
@@ -107,6 +106,8 @@ export const NotificationPermissionPopup = () => {
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
+        // Dynamic import — Firebase only loads when user actually clicks Allow
+        const { requestForToken } = await import('@/lib/firebase');
         const token = await requestForToken();
         if (token) {
           setFcmToken(token);

@@ -15,8 +15,8 @@ import LatestInquiriesForSellerSection from '@/components/home/LatestInquiriesFo
 import { getClientAuthData } from '@/app/actions/authData'
 import { getAssetsUrl } from '@/lib/api-utils'
 import type { Metadata } from 'next'
+import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
 
-// SEO Organization & WebSite schema component helper
 function OrganizationSchema() {
   const schema = {
     '@context': 'https://schema.org',
@@ -58,8 +58,6 @@ function OrganizationSchema() {
   )
 }
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
-
 export async function generateMetadata(
   props: { params?: Promise<{ lang: string }> }
 ): Promise<Metadata> {
@@ -73,91 +71,66 @@ export async function generateMetadata(
   })
 }
 
-export const revalidate = 60;
-
-import { Suspense } from 'react'
+// Helper to create a timeout promise so slow APIs don't block the FCP infinitely
+const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([
+    promise.finally(() => clearTimeout(timeoutId)),
+    timeoutPromise
+  ]);
+};
 
 export default async function LocalizedHomePage() {
   const rawLang = await lang()
   const activeLang = getSafeLanguage(rawLang)
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
-
-  return (
-    <>
-      <OrganizationSchema />
-      <div className="bg-background text-foreground transition-theme" dir={dir}>
-        <div className="w-full pad-for-badges">
-          <div className="max-w-7xl mx-auto pt-3 pb-5">
-            <Suspense fallback={<HomePageSkeleton />}>
-              <LocalizedHomePageContent activeLang={activeLang} />
-            </Suspense>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
-
-function HomePageSkeleton() {
-  return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <div className="h-12 sm:h-16 w-3/4 sm:w-1/2 bg-muted animate-pulse rounded-2xl"></div>
-    </div>
-  )
-}
-
-async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) {
-  let articles: any[] = [];
-  let events: any[] = [];
-  let products: any[] = [];
-  let videoCategories: any[] = [];
-  let marketUpdates: any[] = [];
-  let participationCategories: any[] = [];
-  let associatePartners: any[] = [];
-  let buyerOffers: any[] = [];
-  let sellerInquiries: any[] = [];
   
-  let userType: string | null = null;
-  let commonDict: any = {};
-  let pageDict: any = {};
-  
-  try {
-    const [newsData, eventsData, productsData, videoData, marketUpdatesData, participationData, associatePartnersData, fetchedDict, authData, buyerOffersData, sellerInquiriesData] = await Promise.all([
-      cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 12 }).catch(() => null),
-      cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 12 }).catch(() => null),
-      tradingService.getMarketedProducts(activeLang, 1, 12).catch(() => null),
-      cmsService.getVideoCategories().catch(() => null),
-      cmsService.getMarketUpdates(activeLang, 1, 12).catch(() => null),
-      cmsService.getParticipationCategories(activeLang, 1, 12).catch(() => null),
-      cmsService.getAssociatePartners(1, 25).catch(() => null),
-      getDictionary(activeLang as any).catch(() => ({})),
-      getClientAuthData(activeLang).catch(() => ({ userProfile: null })),
-      tradingService.getLatestTradingInquiries({ type: 'SELLER', page: 1, limit: 12, lang: activeLang }).catch(() => null),
-      tradingService.getLatestTradingInquiries({ type: 'BUYER', page: 1, limit: 12, lang: activeLang }).catch(() => null)
-    ]);
-    
-    articles = newsData?.data?.news || [];
-    events = eventsData?.data?.events || [];
-    products = productsData?.products || [];
-    videoCategories = (videoData?.data?.categories || []).slice(0, 12);
-    marketUpdates = marketUpdatesData?.data?.flyers || [];
-    participationCategories = participationData?.data?.categories || [];
-    associatePartners = associatePartnersData?.data?.logo || [];
-    buyerOffers = buyerOffersData?.data?.inquiries || [];
-    sellerInquiries = sellerInquiriesData?.data?.inquiries || [];
-    
-    pageDict = fetchedDict || {};
-    commonDict = (fetchedDict as any).common || {};
-    userType = authData?.userProfile?.user_type ? 
-      (typeof authData.userProfile.user_type === 'string' 
-        ? authData.userProfile.user_type.toLowerCase() 
-        : String(authData.userProfile.user_type.name || '').toLowerCase()) 
-      : null;
-      
-  } catch (error) {
-    console.error("Failed to fetch data for homepage:", error);
-  }
+  // dict is a LOCAL JSON file read — takes ~5ms, no need to wrap in timeout
+  const dict = await getDictionary(activeLang as any).catch(() => ({}) as any)
 
+  // Set a 2s timeout. The fetcher.ts itself has a 4s AbortController,
+  // so worst-case per-API = 4s, but Promise.all total = max(slowest API, 4s).
+  // With withTimeout(2s), we guarantee page renders in ≤2s regardless of API speed.
+  const API_TIMEOUT = 2000;
+
+  const [
+    newsData,
+    eventsData,
+    productsData,
+    videoData,
+    marketUpdatesData,
+    participationData,
+    associatePartnersData,
+    buyerOffersData,
+    sellerInquiriesData,
+    authData
+  ] = await Promise.all([
+    withTimeout(cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 12 }).catch(() => null), API_TIMEOUT, null),
+    withTimeout(cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 12 }).catch(() => null), API_TIMEOUT, null),
+    withTimeout(tradingService.getMarketedProducts(activeLang, 1, 12).catch(() => null), API_TIMEOUT, null),
+    withTimeout(cmsService.getVideoCategories().catch(() => null), API_TIMEOUT, null),
+    withTimeout(cmsService.getMarketUpdates(activeLang, 1, 12).catch(() => null), API_TIMEOUT, null),
+    withTimeout(cmsService.getParticipationCategories(activeLang, 1, 12).catch(() => null), API_TIMEOUT, null),
+    withTimeout(cmsService.getAssociatePartners(1, 25).catch(() => null), API_TIMEOUT, null),
+    withTimeout(tradingService.getLatestTradingInquiries({ type: 'BUYER', page: 1, limit: 12, lang: activeLang }).catch(() => null), API_TIMEOUT, null),
+    withTimeout(tradingService.getLatestTradingInquiries({ type: 'SELLER', page: 1, limit: 12, lang: activeLang }).catch(() => null), API_TIMEOUT, null),
+    getClientAuthData(activeLang).catch(() => ({ userProfile: null }))
+  ]);
+
+  const articles = newsData?.data?.news || [];
+  const events = eventsData?.data?.events || [];
+  const products = productsData?.products || [];
+  const videoCategories = (videoData?.data?.categories || []).slice(0, 12);
+  const marketUpdates = marketUpdatesData?.data?.flyers || [];
+  const participationCategories = participationData?.data?.categories || [];
+  const associatePartners = associatePartnersData?.data?.logo || [];
+  const buyerOffers = buyerOffersData?.data?.inquiries || [];
+  const sellerInquiries = sellerInquiriesData?.data?.inquiries || [];
+
+  const commonDict = (dict as any)?.common || {};
   const common = {
     back: commonDict.back || "Back",
     addProduct: commonDict.add_product || "Add Product",
@@ -176,206 +149,169 @@ async function LocalizedHomePageContent({ activeLang }: { activeLang: string }) 
 
   const assetsUrl = getAssetsUrl();
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
+  
+  const userType = authData?.userProfile?.user_type ? 
+    (typeof authData.userProfile.user_type === 'string' ? authData.userProfile.user_type.toLowerCase() : String(authData.userProfile.user_type.name || '').toLowerCase()) : null;
 
   return (
     <>
-      <HeroCarousel lang={activeLang} dict={pageDict} />
-      <section className="w-full pt-4 pb-2">
-        <div className="max-w-3xl mx-auto text-center px-4">
-          
-          {/* Premium Section Title Feel */}
-          <div className="inline-block mb-4">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              {pageDict?.home?.news_title || 'Global Agri Commodity Trading News'}
-              {/* Decorative beautiful underline */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
-            </h2>
-          </div>
-          
-          {/* SEO Description for News only */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            {pageDict?.home?.news_desc || 'Explore daily breaking headlines, international trade policies, and crucial market updates shaping the global agricultural commodity sector for B2B traders.'}
-          </p>
-          
-        </div>
-        
-        {/* The News Carousel */}
-        {articles.length > 0 && (
-          <InfiniteNewsCarousel articles={articles} lang={activeLang} dict={pageDict} />
-        )}
-      </section>
+      <OrganizationSchema />
+      {/* Hero carousel first slide title is LCP — no image to preload, text renders with SSR */}
 
-      {/* Events Section */}
-      <section className="w-full pt-6 pb-2">
-        <div className="max-w-3xl mx-auto text-center px-4">
-          
-          {/* Premium Section Title Feel */}
-          <div className="inline-block mb-4">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              {pageDict?.home?.events_title || 'Global Agri Events & Conferences'}
-              {/* Decorative beautiful underline */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
-            </h2>
-          </div>
-          
-          {/* SEO Description for Events */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            {pageDict?.home?.events_desc || 'Discover upcoming international agricultural exhibitions, trade shows, and B2B conferences tailored for commodity traders and industry leaders.'}
-          </p>
-          
-        </div>
-        
-        {/* The Events Carousel */}
-        {events.length > 0 && (
-          <InfiniteEventsCarousel events={events} lang={activeLang} dict={pageDict} />
-        )}
-      </section>
-
-      {/* Marketed Products Section */}
-      <section className="w-full pt-6 pb-8">
-        <div className="max-w-3xl mx-auto text-center px-4">
-          {/* Premium Section Title Feel */}
-          <div className="inline-block mb-4">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              {pageDict?.home?.products_title || 'Premium Marketed Products'}
-              {/* Decorative beautiful underline */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
-            </h2>
-          </div>
-          
-          {/* SEO Description for Products */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            {pageDict?.home?.products_desc || 'Source premium agricultural commodities for global trade. Explore top-tier B2B products from trusted international suppliers at AgriGuru Online.'}
-          </p>
-        </div>
-        
-        {/* The Products Carousel */}
-        {products.length > 0 && (
-          <InfiniteMarketedProductsCarousel 
-            products={products} 
-            lang={activeLang} 
-            common={common} 
-            imageBaseUrl={imageBaseUrl} 
-            userType={userType} 
-            dict={pageDict}
-          />
-        )}
-      </section>
-
-      {/* Latest Offers for Buyer Section */}
-      <LatestOffersForBuyerSection 
-        offers={buyerOffers} 
-        lang={activeLang} 
-        imageBaseUrl={imageBaseUrl}
-        userType={userType}
-        dict={pageDict}
-      />
-
-      {/* Latest Inquiries for Seller Section */}
-      <LatestInquiriesForSellerSection
-        inquiries={sellerInquiries}
-        lang={activeLang}
-        imageBaseUrl={imageBaseUrl}
-        userType={userType}
-        dict={pageDict}
-      />
-
-      {/* Video Gallery Section */}
-      <section className="w-full pt-6 pb-8">
-        <div className="max-w-3xl mx-auto text-center px-4">
-          {/* Premium Section Title Feel */}
-          <div className="inline-block mb-4">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              {pageDict?.home?.video_title || 'Agri Video Gallery & Insights'}
-              {/* Decorative beautiful underline */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
-            </h2>
-          </div>
-          
-          {/* SEO Description for Video Gallery */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            {pageDict?.home?.video_desc || 'Watch expert agricultural market analysis, video commodity updates, tutorial guides, and industry event coverage.'}
-          </p>
-        </div>
-        
-        {/* The Video Gallery Carousel */}
-        {videoCategories.length > 0 && (
-          <InfiniteVideoGalleryCarousel videoCategories={videoCategories} lang={activeLang} imageBaseUrl={imageBaseUrl} dict={pageDict} />
-        )}
-      </section>
-
-      {/* Market Updates Section */}
-      <section className="w-full pt-6 pb-8">
-        <div className="max-w-3xl mx-auto text-center px-4">
-          {/* Premium Section Title Feel */}
-          <div className="inline-block mb-4">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              {pageDict?.home?.updates_title || 'Daily Market Updates'}
-              {/* Decorative beautiful underline */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
-            </h2>
-          </div>
-          
-          {/* SEO Description for Market Updates */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            {pageDict?.home?.updates_desc || 'Stay informed with our latest market updates, flyers, and daily price trends in the global agricultural sector.'}
-          </p>
-        </div>
-        
-        {/* The Market Updates Carousel */}
-        {marketUpdates.length > 0 && (
-          <InfiniteMarketUpdatesCarousel updates={marketUpdates} lang={activeLang} dict={pageDict} />
-        )}
-      </section>
-
-      {/* Participation Gallery Section */}
-      <section className="w-full pt-6 pb-8">
-        <div className="max-w-3xl mx-auto text-center px-4">
-          {/* Premium Section Title Feel */}
-          <div className="inline-block mb-4">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
-              {pageDict?.home?.participation_title || 'Participation Gallery'}
-              {/* Decorative beautiful underline */}
-              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
-            </h2>
-          </div>
-          
-          {/* SEO Description for Participation Gallery */}
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-            {pageDict?.home?.participation_desc || 'Explore our participation in global agricultural events and exhibitions, showcasing our commitment to the international trade community.'}
-          </p>
-        </div>
-        
-        {/* The Participation Carousel */}
-        {participationCategories.length > 0 && (
-          <InfiniteParticipationCarousel categories={participationCategories} lang={activeLang} dict={pageDict} />
-        )}
-      </section>
-
-      {/* Associate Partners Section */}
-      {associatePartners.length > 0 && (
-        <section className="w-full pt-6 pb-8 border-t border-border/40">
-          <div className="max-w-3xl mx-auto text-center px-4 mb-4">
-            {/* Premium Section Title Feel */}
-            <div className="inline-block">
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground relative pb-3">
-                {pageDict?.home?.partners_title || 'Associate Partners'}
-                {/* Decorative beautiful underline */}
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
-              </h2>
-            </div>
+      <div className="bg-background text-foreground transition-theme" dir={dir}>
+        <div className="w-full pad-for-badges">
+          <div className="max-w-7xl mx-auto pt-3 pb-5">
+            <HeroCarousel lang={activeLang} dict={dict} />
             
-            {/* SEO Description for Associate Partners */}
-            <p className="text-sm sm:text-base text-muted-foreground mt-4 leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
-              {pageDict?.home?.partners_desc || 'AgriGuru Online partners with global organizations and industry leaders to build a trusted, highly efficient B2B agricultural trade ecosystem worldwide.'}
-            </p>
+            {articles.length > 0 && (
+              <section className="w-full pt-4 pb-2">
+                <div className="max-w-3xl mx-auto text-center px-4">
+                  <div className="inline-block mb-4">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+                      {dict?.home?.news_title || 'Global Agri Commodity Trading News'}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+                    </h2>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+                    {dict?.home?.news_desc || 'Explore daily breaking headlines, international trade policies, and crucial market updates shaping the global agricultural commodity sector for B2B traders.'}
+                  </p>
+                </div>
+                <InfiniteNewsCarousel articles={articles} lang={activeLang} dict={dict} />
+              </section>
+            )}
+
+            {events.length > 0 && (
+              <section className="w-full pt-6 pb-2">
+                <div className="max-w-3xl mx-auto text-center px-4">
+                  <div className="inline-block mb-4">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+                      {dict?.home?.events_title || 'Global Agri Events & Conferences'}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+                    </h2>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+                    {dict?.home?.events_desc || 'Discover upcoming international agricultural exhibitions, trade shows, and B2B conferences tailored for commodity traders and industry leaders.'}
+                  </p>
+                </div>
+                <InfiniteEventsCarousel events={events} lang={activeLang} dict={dict} />
+              </section>
+            )}
+
+            {products.length > 0 && (
+              <section className="w-full pt-6 pb-8">
+                <div className="max-w-3xl mx-auto text-center px-4">
+                  <div className="inline-block mb-4">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+                      {dict?.home?.products_title || 'Premium Marketed Products'}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+                    </h2>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+                    {dict?.home?.products_desc || 'Source premium agricultural commodities for global trade. Explore top-tier B2B products from trusted international suppliers at AgriGuru Online.'}
+                  </p>
+                </div>
+                <InfiniteMarketedProductsCarousel 
+                  products={products} 
+                  lang={activeLang} 
+                  common={common} 
+                  imageBaseUrl={imageBaseUrl} 
+                  userType={userType} 
+                  dict={dict}
+                />
+              </section>
+            )}
+
+            {buyerOffers.length > 0 && (
+              <LatestOffersForBuyerSection 
+                offers={buyerOffers} 
+                lang={activeLang} 
+                imageBaseUrl={imageBaseUrl}
+                userType={userType}
+                dict={dict}
+              />
+            )}
+
+            {sellerInquiries.length > 0 && (
+              <LatestInquiriesForSellerSection
+                inquiries={sellerInquiries}
+                lang={activeLang}
+                imageBaseUrl={imageBaseUrl}
+                userType={userType}
+                dict={dict}
+              />
+            )}
+
+            {videoCategories.length > 0 && (
+              <section className="w-full pt-6 pb-8">
+                <div className="max-w-3xl mx-auto text-center px-4">
+                  <div className="inline-block mb-4">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+                      {dict?.home?.video_title || 'Agri Video Gallery & Insights'}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+                    </h2>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+                    {dict?.home?.video_desc || 'Watch expert agricultural market analysis, video commodity updates, tutorial guides, and industry event coverage.'}
+                  </p>
+                </div>
+                <InfiniteVideoGalleryCarousel videoCategories={videoCategories} lang={activeLang} imageBaseUrl={imageBaseUrl} dict={dict} />
+              </section>
+            )}
+
+            {marketUpdates.length > 0 && (
+              <section className="w-full pt-6 pb-8">
+                <div className="max-w-3xl mx-auto text-center px-4">
+                  <div className="inline-block mb-4">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+                      {dict?.home?.updates_title || 'Daily Market Updates'}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+                    </h2>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+                    {dict?.home?.updates_desc || 'Stay informed with our latest market updates, flyers, and daily price trends in the global agricultural sector.'}
+                  </p>
+                </div>
+                <InfiniteMarketUpdatesCarousel updates={marketUpdates} lang={activeLang} dict={dict} />
+              </section>
+            )}
+
+            {participationCategories.length > 0 && (
+              <section className="w-full pt-6 pb-8">
+                <div className="max-w-3xl mx-auto text-center px-4">
+                  <div className="inline-block mb-4">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+                      {dict?.home?.participation_title || 'Participation Gallery'}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+                    </h2>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+                    {dict?.home?.participation_desc || 'Explore our participation in global agricultural events and exhibitions, showcasing our commitment to the international trade community.'}
+                  </p>
+                </div>
+                <InfiniteParticipationCarousel categories={participationCategories} lang={activeLang} dict={dict} />
+              </section>
+            )}
+
+            {associatePartners.length > 0 && (
+              <section className="w-full pt-6 pb-8 border-t border-border/40">
+                <div className="max-w-3xl mx-auto text-center px-4 mb-4">
+                  <div className="inline-block">
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground relative pb-3">
+                      {dict?.home?.partners_title || 'Associate Partners'}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+                    </h2>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground mt-4 leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+                    {dict?.home?.partners_desc || 'AgriGuru Online partners with global organizations and industry leaders to build a trusted, highly efficient B2B agricultural trade ecosystem worldwide.'}
+                  </p>
+                </div>
+                <AssociatePartnersCarousel partners={associatePartners} />
+              </section>
+            )}
+
           </div>
-          
-          <AssociatePartnersCarousel partners={associatePartners} />
-        </section>
-      )}
+        </div>
+      </div>
     </>
   )
 }
-
-

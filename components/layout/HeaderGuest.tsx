@@ -195,35 +195,35 @@ export function HeaderGuestBase({
     return () => el.removeEventListener('wheel', handleWheel)
   }, [])
 
-  const [isMac, setIsMac] = useState(false)
-
-  useEffect(() => {
-    setTimeout(() => setIsMac(navigator.userAgent.toUpperCase().indexOf('MAC') >= 0), 0)
-  }, [])
 
 
 
-  const [mounted, setMounted] = useState(false)
+
+
   const [width, setWidth] = useState(1280)
 
   useEffect(() => {
-    setTimeout(() => {
-      setMounted(true)
-      setWidth(window.innerWidth)
-    }, 0)
     const handleResize = () => setWidth(window.innerWidth)
+    // Defer to after first paint to avoid blocking main thread (TBT)
+    const raf = requestAnimationFrame(() => {
+      setWidth(window.innerWidth)
+    })
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', handleResize)
+    }
   }, [])
 
 
   const categoriesList = apiCategories || []
 
   // Calculate dynamic fit based on estimated text width and max layout width
+  // width defaults to 1280 (SSR-safe), so initial render = after-hydration render → no CLS
   const layoutWidth = Math.min(width, 1280)
   const horizontalPadding = width >= 1280 ? 160 : (width >= 1024 ? 112 : 32)
   const otherElementsWidth = 220
-  const availableWidth = mounted ? Math.max(200, layoutWidth - horizontalPadding - otherElementsWidth) : 700
+  const availableWidth = Math.max(200, layoutWidth - horizontalPadding - otherElementsWidth)
   let accumulatedWidth = 0
   let fitCount = 0
   const othersWidth = 100
@@ -398,7 +398,7 @@ export function HeaderGuestBase({
 
           <div ref={categoriesRef} className="flex-1 flex justify-end items-center gap-6 overflow-visible">
             <nav className="flex items-center gap-5 text-[16px] font-bold tracking-wide whitespace-nowrap">
-              {loading || !mounted ? (
+              {loading ? (
                 <>
                   <div className="h-4 w-12 bg-muted animate-pulse rounded" />
                   <div className="h-4 w-14 bg-muted animate-pulse rounded" />
@@ -422,7 +422,7 @@ export function HeaderGuestBase({
                 })
               )}
 
-              {dropdownCategories.length > 0 && !loading && mounted && (
+              {dropdownCategories.length > 0 && !loading && (
                 <div className="relative group">
                   <button className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground font-bold text-[16px] focus:outline-none border-y-2 border-t-transparent border-b-transparent hover:border-b-primary pt-1 pb-1">
                     <span>{dict.header.categories.others}</span>

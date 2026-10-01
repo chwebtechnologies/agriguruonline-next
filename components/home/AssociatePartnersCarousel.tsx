@@ -64,7 +64,7 @@ export default function AssociatePartnersCarousel({
                       fill
                       className="object-contain"
                       sizes="(max-width: 640px) 120px, 150px"
-                      priority={index < 6}
+                      priority={false}
                     />
                   </div>
                 ) : (

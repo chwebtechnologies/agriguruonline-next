@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { OfferCard } from '@/components/shared/OfferCard';
+import YouTubeFacade from '@/components/ui/YouTubeFacade';
 
 interface LatestInquiriesForSellerSectionProps {
   inquiries: any[];
@@ -42,15 +43,11 @@ export default function LatestInquiriesForSellerSection({
             </div>
             
             {/* YouTube Video Tutorial */}
-            <div className="relative aspect-video rounded-xl overflow-hidden shadow-lg border border-border mt-auto">
-              <iframe 
-                className="absolute inset-0 w-full h-full"
-                src="https://www.youtube.com/embed/neEQrat8yuU" 
-                title={dict?.common?.agriguru_online_tutorial || "AgriGuru Online Tutorial"} 
-                frameBorder="0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowFullScreen
-              ></iframe>
+            <div className="mt-auto">
+              <YouTubeFacade
+                videoId="neEQrat8yuU"
+                title={dict?.common?.agriguru_online_tutorial || "AgriGuru Online Tutorial"}
+              />
             </div>
           </div>
 

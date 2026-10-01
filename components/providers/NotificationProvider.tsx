@@ -1,7 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { requestForToken, subscribeToForegroundMessages } from '@/lib/firebase';
 import { getUnreadStatusFromIndexedDB, setUnreadStatusInIndexedDB } from '@/lib/notificationStorage';
 import { toast } from 'sonner';
 
@@ -157,6 +156,21 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
     const init = async () => {
       if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+      // Defer Firebase initialization until browser is idle (TBT reduction)
+      // Falls back to setTimeout(4000) if requestIdleCallback not supported
+      await new Promise<void>(resolve => {
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => resolve(), { timeout: 5000 });
+        } else {
+          setTimeout(resolve, 4000);
+        }
+      });
+
+      if (!isMounted) return;
+
+      // Dynamically import firebase functions — only now, after idle time
+      const { requestForToken, subscribeToForegroundMessages } = await import('@/lib/firebase');
 
       // 5. Subscribe to foreground messages directly via Firebase SDK
       try {

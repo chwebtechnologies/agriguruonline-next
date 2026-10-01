@@ -25,6 +25,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Zero CLS baseline sizing for all FontAwesome icons */
+i[class*="fa-"] {
+  display: inline-block;
+  font-style: normal;
+  font-variant: normal;
+  line-height: 1;
+  text-rendering: auto;
+  box-sizing: content-box;
+}
+
 :root {
   /* ==========================================================================
      Agriguru Online Unified Layout Container Token
@@ -79,7 +89,7 @@ body {
   /* ==========================================================================
      AgriGuru Brand Colors & Gradients (100% EXACT / 0% CHANGE)
      ========================================================================== */
-  --brand-blue: #127ACD;
+  --brand-blue: #0f62a6;
   --brand-green: #20825F;
   --brand-red: #CD4750;
   --brand-blue-hover: #0f66ab;

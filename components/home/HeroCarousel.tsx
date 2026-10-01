@@ -30,8 +30,8 @@ const getSlides = (lang: string, dict: any): CarouselSlide[] => [
   {
     id: 'trust-1',
     title: dict?.home?.hero_slide2_title || 'Trusted by Global Traders',
-    subtitle: dict?.home?.hero_slide2_subtitle || '90+ Countries | 20+ Years Experience | 10K+ Clients',
-    description: dict?.home?.hero_slide2_desc || 'Backed by over two decades of practical market experience, AgriGuru Online is the reliable partner for your trading needs. Join our growing network of over 10,000 trusted clients across 90+ countries worldwide.',
+    subtitle: dict?.home?.hero_slide2_subtitle || '90+ Global Countries | 20+ Years Experience | 10K+ Clients',
+    description: dict?.home?.hero_slide2_desc || 'Backed by over two decades of practical market experience, AgriGuru Online is the reliable partner for your international trading needs. Join our rapidly growing network of over 10,000 trusted clients and industry experts actively trading across 90+ countries worldwide today.',
     tag: dict?.home?.hero_slide2_tag || 'Global Trust & Network',
     link: `/${lang}/about`,
     linkText: dict?.home?.hero_slide2_btn || 'Read Our Story',
@@ -41,8 +41,8 @@ const getSlides = (lang: string, dict: any): CarouselSlide[] => [
   {
     id: 'membership-1',
     title: dict?.home?.hero_slide3_title || 'Try It Risk-Free for 90 Days',
-    subtitle: dict?.home?.hero_slide3_subtitle || 'Silver Plan Trial - Completely Free',
-    description: dict?.home?.hero_slide3_desc || 'The Silver Plan trial costs nothing. No credit card, no banking details, no catch. Just sign up and explore all premium features for yourself for a full 90 days.',
+    subtitle: dict?.home?.hero_slide3_subtitle || 'Exclusive Silver Plan Trial | Completely Free To Access',
+    description: dict?.home?.hero_slide3_desc || 'The Silver Plan trial costs absolutely nothing. No credit card required, no banking details, and no catch. Just sign up today and gain instant access to explore all our powerful premium features, advanced market insights, and exclusive global trade tools for yourself for a full 90 days.',
     tag: dict?.home?.hero_slide3_tag || 'Membership Plan',
     link: `/${lang}/register`,
     linkText: dict?.home?.hero_slide3_btn || 'Start Free Trial Now',
@@ -52,8 +52,8 @@ const getSlides = (lang: string, dict: any): CarouselSlide[] => [
   {
     id: 'app-1',
     title: dict?.home?.hero_slide4_title || 'Download AgriGuru Online App',
-    subtitle: dict?.home?.hero_slide4_subtitle || 'Global market access right in your pocket',
-    description: dict?.home?.hero_slide4_desc || 'Get live market prices, instant freight rates, custom alerts, and AI insights on the go. Available for both iOS and Android. Scan the QR code or download directly from the App Store or Google Play.',
+    subtitle: dict?.home?.hero_slide4_subtitle || 'Seamless Global Market Access | Trade Right In Your Pocket',
+    description: dict?.home?.hero_slide4_desc || 'Get live market prices, instant ocean freight rates, custom price alerts, and powerful AI-driven insights on the go. Our mobile application is available for both iOS and Android. Simply scan the QR code or download directly from the App Store or Google Play to start trading from anywhere.',
     tag: dict?.home?.hero_slide4_tag || 'Mobile App',
     link: `/${lang}/download-application`,
     linkText: dict?.home?.hero_slide4_btn || 'Download Now',
@@ -79,7 +79,7 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
 
   return (
     <div 
-      className="w-full relative min-h-[260px] h-auto pt-7 pb-10 sm:py-0 sm:h-[320px] md:h-[340px] lg:h-[340px] xl:h-[420px] rounded-2xl overflow-hidden shadow-xs border border-border mb-4 group"
+      className="w-full relative h-[250px] sm:h-[260px] md:h-[280px] lg:h-[300px] xl:h-[340px] min-h-[250px] sm:min-h-[260px] md:min-h-[280px] lg:min-h-[300px] xl:min-h-[340px] rounded-2xl overflow-hidden shadow-xs border border-border mb-4 group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -91,6 +91,7 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
             key={slide.id}
             className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
             aria-hidden={!isActive}
+            style={index === 0 ? undefined : { contentVisibility: 'auto' }}
           >
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Background Gradient */}
@@ -104,18 +105,17 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
               />
               
               {/* Decorative Pattern / Texture */}
-              <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10 mix-blend-overlay pointer-events-none"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent pointer-events-none"></div>
 
               {/* Content */}
               <div className="relative z-10 w-full px-4 sm:pl-12 md:pr-16 lg:pl-10 lg:pr-10 xl:pl-16 xl:pr-16 flex items-center justify-between h-full text-white">
                 
                 {/* Left Side: Text Content */}
-                <div className="flex flex-col items-start justify-center flex-1 min-w-0 max-w-2xl xl:max-w-3xl 2xl:max-w-4xl pr-4 lg:pr-6 xl:pr-8">
+                <div className="flex flex-col items-start justify-center flex-1 min-w-0 max-w-2xl lg:max-w-xl xl:max-w-2xl 2xl:max-w-4xl pr-4 lg:pr-8 xl:pr-10">
                   <span className="inline-block px-2.5 py-1 mb-2 sm:mb-2 text-[10px] sm:text-xs font-bold tracking-wider uppercase rounded-full bg-white/20 backdrop-blur-md border border-white/30 shadow-sm text-white">
                     {slide.tag}
                   </span>
-                  <h2 className="text-lg sm:text-2xl md:text-3xl lg:text-3xl xl:text-[36px] font-black mb-1 sm:mb-1.5 drop-shadow-lg tracking-tight leading-tight">
+                  <h2 className="text-lg sm:text-xl md:text-2xl lg:text-[26px] xl:text-[34px] font-black mb-1 sm:mb-1.5 drop-shadow-lg tracking-tight leading-tight">
                     {slide.title}
                   </h2>
                   {slide.subtitle && (
@@ -123,12 +123,12 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
                       {slide.subtitle}
                     </h3>
                   )}
-                  <p className="text-[10px] sm:text-xs md:text-xs lg:text-sm xl:text-sm mb-3 sm:mb-4 max-w-2xl text-white/95 drop-shadow-md font-medium leading-relaxed">
+                  <p className="text-[10px] sm:text-xs md:text-xs lg:text-sm xl:text-sm mb-3 sm:mb-4 max-w-2xl text-white/95 drop-shadow-md font-medium leading-relaxed line-clamp-4 sm:line-clamp-none">
                     {slide.description}
                   </p>
                   <Link 
                     href={slide.link}
-                    className="group/btn inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 xl:px-6 xl:py-3 text-[10px] sm:text-xs md:text-sm xl:text-base font-bold rounded-xl bg-white text-gray-900 hover:bg-gray-50 transition-all duration-300 shadow-[0_4px_14px_0_rgba(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.15)] hover:-translate-y-0.5"
+                    className="group/btn inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 md:px-4 md:py-2 xl:px-5 xl:py-2 text-[10px] sm:text-[11px] md:text-xs xl:text-sm font-bold rounded-lg bg-white text-gray-900 hover:bg-gray-50 transition-all duration-300 shadow-[0_4px_14px_0_rgba(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.15)] hover:-translate-y-0.5"
                     tabIndex={isActive ? 0 : -1}
                   >
                     {slide.linkText}
@@ -138,9 +138,9 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
 
                 {/* Right Side: Abstract App Mockup / Illustrations */}
                 {slide.id === 'marketing-1' && (
-                  <div className="hidden lg:flex justify-end pl-4 lg:pl-6 xl:pl-8 lg:pr-4 xl:pr-12 relative h-full items-center shrink-0">
+                  <div className="hidden lg:flex justify-end pl-4 lg:pl-6 xl:pl-8 lg:pr-8 xl:pr-14 relative h-full items-center shrink-0">
                     {/* Glassmorphic App Mockup */}
-                    <div className="relative w-48 lg:w-48 xl:w-60 h-[240px] lg:h-[240px] xl:h-[290px] shrink-0 bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl p-3 xl:p-4 flex flex-col gap-2.5 xl:gap-3 transform -rotate-3 hover:rotate-0 transition-transform duration-700 ease-out mt-2 xl:mt-4 lg:scale-90 xl:scale-100 origin-right">
+                    <div className="relative w-48 lg:w-48 xl:w-60 h-[240px] lg:h-[240px] xl:h-[290px] shrink-0 bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl p-3 xl:p-4 flex flex-col gap-2.5 xl:gap-3 transform -rotate-3 hover:rotate-0 transition-transform duration-700 ease-out mt-2 xl:mt-4 lg:scale-[0.80] xl:scale-90 origin-center lg:origin-right">
                       {/* App Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -200,40 +200,51 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
                 )}
 
                 {slide.id === 'trust-1' && (
-                  <div className="hidden lg:flex justify-end pl-4 lg:pl-6 xl:pl-8 lg:pr-4 xl:pr-12 relative h-full items-center shrink-0">
-                    {/* Glassmorphic Trust Mockup */}
-                    <div className="relative w-48 lg:w-48 xl:w-60 h-[240px] lg:h-[240px] xl:h-[290px] shrink-0 bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl p-4 xl:p-5 flex flex-col gap-3 xl:gap-4 justify-center transform rotate-2 hover:rotate-0 transition-transform duration-700 ease-out mt-2 xl:mt-4 lg:scale-90 xl:scale-100 origin-right">
+                  <div className="hidden lg:flex justify-end pl-4 lg:pl-6 xl:pl-8 lg:pr-8 xl:pr-14 relative h-full items-center shrink-0">
+                    {/* Glassmorphic Trust Mockup - Redesigned & Fully Visible */}
+                    <div className="relative w-52 lg:w-52 xl:w-64 h-[250px] lg:h-[250px] xl:h-[300px] shrink-0 transform transition-transform duration-700 ease-out mt-2 xl:mt-4 lg:scale-[0.80] xl:scale-90 origin-center lg:origin-right flex flex-col group/trust">
                       
-                      {/* 90+ Countries */}
-                      <div className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 flex items-center gap-3 transform hover:-translate-y-1 transition-transform">
-                        <div className="w-10 h-10 xl:w-12 xl:h-12 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shrink-0">
-                          <i className="fa-solid fa-earth-americas text-white text-lg xl:text-xl"></i>
-                        </div>
+                      {/* Background decorative ring/globe effect */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 xl:w-52 xl:h-52 bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 rounded-full blur-2xl"></div>
+                      
+                      {/* Top Card - Countries */}
+                      <div className="absolute top-0 right-0 w-44 xl:w-52 bg-white/10 backdrop-blur-xl border border-white/30 rounded-2xl p-2.5 xl:p-3 shadow-lg transform hover:-translate-y-1 transition-all duration-300 z-10 flex items-center justify-between">
                         <div>
-                          <div className="text-lg xl:text-xl font-black text-white">90+</div>
-                          <div className="text-[10px] xl:text-xs font-bold text-white/80 uppercase tracking-wider">Countries</div>
+                          <div className="text-xl xl:text-2xl font-black text-white drop-shadow-sm leading-none">90+</div>
+                          <div className="text-[9px] xl:text-[10px] text-cyan-100 uppercase tracking-widest font-bold mt-1">Countries</div>
+                        </div>
+                        <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full bg-cyan-400/20 border border-cyan-400/30 flex items-center justify-center shadow-inner shrink-0">
+                          <i className="fa-solid fa-earth-americas text-cyan-300 text-sm xl:text-base"></i>
                         </div>
                       </div>
 
-                      {/* 20+ Years */}
-                      <div className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 flex items-center gap-3 transform hover:-translate-y-1 transition-transform">
-                        <div className="w-10 h-10 xl:w-12 xl:h-12 rounded-full bg-gradient-to-tr from-purple-400 to-pink-500 flex items-center justify-center shadow-lg shrink-0">
-                          <i className="fa-solid fa-award text-white text-lg xl:text-xl"></i>
+                      {/* Center Prominent Card - Clients */}
+                      <div className="absolute top-1/2 left-0 -translate-y-1/2 w-48 xl:w-56 bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-2xl border border-white/40 rounded-2xl p-3 xl:p-4 shadow-[0_8px_32px_rgba(0,0,0,0.25)] transform hover:scale-105 transition-all duration-300 z-20">
+                        <div className="flex justify-between items-center mb-1.5 xl:mb-2">
+                          <div className="flex items-center gap-2">
+                             <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg border border-white/20 shrink-0">
+                              <i className="fa-solid fa-users text-white text-sm xl:text-base"></i>
+                            </div>
+                            <span className="text-[10px] xl:text-[11px] font-bold text-white/90">Global Network</span>
+                          </div>
+                          <div className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-400/40 rounded shadow-inner text-[8px] xl:text-[9px] text-emerald-200 font-black tracking-widest uppercase">
+                            TRUSTED
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-lg xl:text-xl font-black text-white">20+</div>
-                          <div className="text-[10px] xl:text-xs font-bold text-white/80 uppercase tracking-wider">Years Exp.</div>
+                        <div className="flex items-end gap-2 mt-2">
+                          <div className="text-2xl xl:text-3xl font-black text-white drop-shadow-md leading-none">10K+</div>
+                          <div className="text-[9px] xl:text-[10px] text-white/90 uppercase tracking-widest font-bold pb-0.5">Active Clients</div>
                         </div>
                       </div>
 
-                      {/* 10K+ Clients */}
-                      <div className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 flex items-center gap-3 transform hover:-translate-y-1 transition-transform">
-                        <div className="w-10 h-10 xl:w-12 xl:h-12 rounded-full bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shrink-0">
-                          <i className="fa-solid fa-users text-white text-lg xl:text-xl"></i>
-                        </div>
+                      {/* Bottom Card - Experience */}
+                      <div className="absolute bottom-0 right-0 w-44 xl:w-52 bg-white/10 backdrop-blur-xl border border-white/30 rounded-2xl p-2.5 xl:p-3 shadow-lg transform hover:translate-y-1 transition-all duration-300 z-10 flex items-center justify-between">
                         <div>
-                          <div className="text-lg xl:text-xl font-black text-white">10K+</div>
-                          <div className="text-[10px] xl:text-xs font-bold text-white/80 uppercase tracking-wider">Trusted Clients</div>
+                          <div className="text-xl xl:text-2xl font-black text-white drop-shadow-sm leading-none">20+</div>
+                          <div className="text-[9px] xl:text-[10px] text-purple-100 uppercase tracking-widest font-bold mt-1">Years Exp.</div>
+                        </div>
+                        <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full bg-purple-400/20 border border-purple-400/30 flex items-center justify-center shadow-inner shrink-0">
+                          <i className="fa-solid fa-trophy text-purple-300 text-sm xl:text-base"></i>
                         </div>
                       </div>
 
@@ -242,8 +253,8 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
                 )}
 
                 {slide.id === 'membership-1' && (
-                  <div className="hidden lg:flex justify-end pl-4 lg:pl-6 xl:pl-8 lg:pr-4 xl:pr-12 relative h-full items-center shrink-0">
-                    <div className="relative w-44 lg:w-44 xl:w-56 h-60 lg:h-60 xl:h-72 shrink-0 bg-white/10 backdrop-blur-xl border border-white/30 rounded-2xl shadow-2xl flex flex-col items-center justify-start pt-5 xl:pt-6 transform -rotate-3 hover:rotate-0 transition-transform duration-700 mt-2 xl:mt-4 lg:scale-90 xl:scale-100 origin-right">
+                  <div className="hidden lg:flex justify-end pl-4 lg:pl-6 xl:pl-8 lg:pr-8 xl:pr-14 relative h-full items-center shrink-0">
+                    <div className="relative w-44 lg:w-44 xl:w-56 h-60 lg:h-60 xl:h-72 shrink-0 bg-white/10 backdrop-blur-xl border border-white/30 rounded-2xl shadow-2xl flex flex-col items-center justify-start pt-5 xl:pt-6 transform -rotate-3 hover:rotate-0 transition-transform duration-700 mt-2 xl:mt-4 lg:scale-[0.80] xl:scale-90 origin-center lg:origin-right">
                       <div className="w-14 h-14 xl:w-16 xl:h-16 rounded-full bg-gradient-to-tr from-slate-200 to-slate-400 shadow-[0_0_30px_rgba(203,213,225,0.4)] flex items-center justify-center border-4 border-white/20 mb-3 xl:mb-4">
                         <i className="fa-solid fa-medal text-xl xl:text-2xl text-slate-700"></i>
                       </div>
@@ -265,12 +276,12 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
                 )}
 
                 {slide.id === 'app-1' && (
-                  <div className="hidden lg:flex justify-end pl-4 lg:pl-6 xl:pl-8 lg:pr-4 xl:pr-12 relative h-full items-center shrink-0">
-                    <div className="relative w-48 lg:w-48 xl:w-60 h-[240px] lg:h-[240px] xl:h-[280px] shrink-0 bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl p-3 flex flex-col gap-3 transform rotate-2 hover:rotate-0 transition-transform duration-700 ease-out mt-2 xl:mt-4 lg:scale-90 xl:scale-100 origin-right">
+                  <div className="hidden lg:flex justify-end pl-4 lg:pl-6 xl:pl-8 lg:pr-8 xl:pr-14 relative h-full items-center shrink-0">
+                    <div className="relative w-48 lg:w-48 xl:w-60 h-[240px] lg:h-[240px] xl:h-[280px] shrink-0 bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl p-3 flex flex-col gap-3 transform rotate-2 hover:rotate-0 transition-transform duration-700 ease-out mt-2 xl:mt-4 lg:scale-[0.80] xl:scale-90 origin-center lg:origin-right">
                        <div className="w-full flex-1 bg-gradient-to-b from-white/20 to-transparent rounded-2xl flex flex-col items-center justify-center gap-3 xl:gap-4 border border-white/10 p-3 xl:p-4">
                          {/* QR Code abstraction */}
                          <div className="w-20 h-20 xl:w-24 xl:h-24 bg-white p-1.5 rounded-xl shadow-inner flex items-center justify-center">
-                            <img src="/apple-qr.svg" alt="App QR Code" className="w-full h-full object-contain" />
+                            <img src="/apple-qr.svg" alt="App QR Code" width={96} height={96} className="w-full h-full object-contain" />
                          </div>
                          <div className="text-center flex flex-col items-center">
                            <span className="text-[9px] xl:text-[10px] font-bold text-white/90 mb-1.5 leading-tight">Available on App Store <br/> & Google Play</span>
@@ -295,7 +306,7 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
       })}
 
       {/* Navigation Dots */}
-      <div className="absolute bottom-2 sm:bottom-6 left-0 right-0 z-20 flex justify-center space-x-2 sm:space-x-3">
+      <div className="absolute bottom-3 sm:bottom-6 left-0 right-0 z-20 flex justify-center space-x-2 sm:space-x-3">
         {slides.map((_, index) => (
           <button
             key={index}

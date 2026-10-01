@@ -102,12 +102,12 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
   const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
   let attempt = 0;
-  const maxRetries = 2; // Total 3 attempts (1 initial + 2 retries)
+  const maxRetries = 1; // Total 2 attempts (1 initial + 1 retry)
 
   while (attempt <= maxRetries) {
     // Add an explicit timeout to prevent hanging forever
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout (was 10s)
     
     fetchInit.signal = controller.signal;
 
@@ -118,7 +118,7 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
       if (res.status >= 500 && res.status <= 599 && attempt < maxRetries) {
         clearTimeout(timeoutId);
         attempt++;
-        await delay(attempt * 1500); // 1.5s, 3s
+        await delay(500); // 500ms retry delay (was 1.5s)
         continue;
       }
 
@@ -166,10 +166,10 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
     } catch (error: any) {
       clearTimeout(timeoutId);
       
-      // Retry on network failures / timeouts
-      if (attempt < maxRetries && (error.name === 'AbortError' || error.message?.includes('fetch') || error.message?.includes('network'))) {
+      // Only retry on pure network failures, NOT timeouts (AbortError) — retrying a timed-out request wastes more time
+      if (attempt < maxRetries && error.name !== 'AbortError' && (error.message?.includes('fetch') || error.message?.includes('network'))) {
         attempt++;
-        await delay(attempt * 1500);
+        await delay(500);
         continue;
       }
       

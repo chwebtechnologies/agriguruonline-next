@@ -294,26 +294,26 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       {/* ======================================================== */}
       {/* 6. Mobile Bottom Navigation Bar (Pixel Perfect)            */}
       {/* ======================================================== */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl transition-all duration-200 h-[64px] min-[390px]:h-[68px]">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl h-[64px] min-[390px]:h-[68px]">
         <div className="w-full max-w-2xl mx-auto h-full px-2 py-1 flex justify-between items-center">
         {tabs.map((tab, idx) => (
           <Link
             key={idx}
             href={tab.href}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 min-[390px]:gap-1 transition-all duration-200 py-1 px-0.5 rounded-lg select-none group text-center ${
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 min-[390px]:gap-1 transition-colors duration-150 py-1 px-0.5 rounded-lg select-none group text-center ${
               tab.isActive 
                 ? 'text-[#0F6FBF] dark:text-brand-blue scale-105' 
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <div className="flex h-6 min-[390px]:h-6.5 w-6 min-[390px]:w-6.5 items-center justify-center shrink-0 transition-transform duration-200 group-active:scale-90">
-              <i className={`${tab.iconClass} text-[19px] min-[390px]:text-[21px] transition-all duration-200 ${
+            <div className="flex h-6 min-[390px]:h-6.5 w-6 min-[390px]:w-6.5 items-center justify-center shrink-0">
+              <i className={`${tab.iconClass} text-[19px] min-[390px]:text-[21px] transition-colors duration-150 ${
                 tab.isActive 
                   ? 'text-[#0F6FBF] dark:text-brand-blue drop-shadow-[0_0_8px_rgba(29,146,235,0.35)]' 
                   : 'text-muted-foreground group-hover:text-foreground'
               }`} />
             </div>
-            <span className={`text-[10px] min-[360px]:text-[11px] min-[390px]:text-[12px] font-bold tracking-tight transition-colors duration-200 truncate max-w-full px-0.5 whitespace-nowrap leading-tight text-center block ${
+            <span className={`text-[10px] min-[360px]:text-[11px] min-[390px]:text-[12px] font-bold tracking-tight transition-colors duration-150 truncate max-w-full px-0.5 whitespace-nowrap leading-tight text-center block ${
               tab.isActive 
                 ? 'text-[#0F6FBF] dark:text-brand-blue font-extrabold' 
                 : 'text-muted-foreground group-hover:text-foreground'

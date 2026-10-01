@@ -436,12 +436,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
 
 
-  const [isMac, setIsMac] = useState(false)
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsMac(navigator.userAgent.toUpperCase().indexOf('MAC') >= 0)
-  }, [])
 
 
 
@@ -483,25 +478,27 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   }, [fcmToken, token]);
 
   // Hydration-safe responsive logic to prevent category item overflow
-  const [mounted, setMounted] = useState(false)
   const [width, setWidth] = useState(1280)
 
   useEffect(() => {
-    setTimeout(() => {
-      setMounted(true)
-      setWidth(window.innerWidth)
-    }, 0)
     const handleResize = () => setWidth(window.innerWidth)
+    // Defer to after first paint to avoid blocking main thread (TBT)
+    const raf = requestAnimationFrame(() => {
+      setWidth(window.innerWidth)
+    })
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', handleResize)
+    }
   }, [])
 
   // Calculate dynamic fit based on estimated text width to keep items within bounds
-  // Available width is screen width minus spacing for logo, dropdowns, and margins
+  // width defaults to 1280 (SSR-safe), so initial render = after-hydration render → no CLS
   const layoutWidth = Math.min(width, 1280)
   const horizontalPadding = width >= 1280 ? 160 : (width >= 1024 ? 112 : 32)
   const otherElementsWidth = 220
-  const availableWidth = mounted ? Math.max(200, layoutWidth - horizontalPadding - otherElementsWidth) : 700
+  const availableWidth = Math.max(200, layoutWidth - horizontalPadding - otherElementsWidth)
   let accumulatedWidth = 0
   let fitCount = 0
   const othersWidth = 100
@@ -993,14 +990,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           {/* Right-aligned container containing all categories with Others at the very last */}
           <div ref={categoriesRef} className="flex-1 flex justify-end items-center gap-6 overflow-visible">
             <nav className="flex items-center gap-5 text-[16px] font-bold tracking-wide whitespace-nowrap">
-              {!mounted ? (
-                <>
-                  <div className="h-4 w-12 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-14 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-10 bg-muted animate-pulse rounded" />
-                </>
-              ) : (
-                displayCategories.map((category, index) => {
+              {displayCategories.map((category, index) => {
                   const isActive = pathname === category.href
                   return (
                     <CategoryLink
@@ -1014,11 +1004,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                       {category.name}
                     </CategoryLink>
                   )
-                })
-              )}
+                })}
 
               {/* "Others" Dropdown inside the same row, at the very last (on the right) */}
-              {dropdownCategories.length > 0 && mounted && (
+              {dropdownCategories.length > 0 && (
                 <div className="relative group">
                   <button className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground font-bold text-[16px] focus:outline-none border-y-2 border-t-transparent border-b-transparent hover:border-b-primary pt-1 pb-1">
                     <span>{dict.header.categories.others}</span>

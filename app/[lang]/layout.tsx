@@ -6,6 +6,8 @@ const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
+  preload: true,
+  weight: ['400', '500', '600', '700', '800', '900'],
 })
 import Header from '@/components/layout/Header'
 import { HeaderGuest, HeaderGuestStatic, HeaderGuestSkeleton } from '@/components/layout/HeaderGuest'
@@ -25,7 +27,7 @@ import { NotificationPermissionPopup } from '@/components/modals/NotificationPer
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import OfflineNotification from '@/components/layout/OfflineNotification'
 
-import '@fortawesome/fontawesome-free/css/all.min.css'
+import FontAwesomeLoader from '@/components/ui/FontAwesomeLoader'
 import '../globals.css'
 
 export async function generateMetadata(props: {
@@ -169,10 +171,8 @@ export default async function LocalizedRootLayout(props: {
       suppressHydrationWarning
     >
       <head>
-
-
-
-
+        <link rel="preload" href="/fa-all.min.css" as="style" />
+        <link rel="stylesheet" href="/fa-all.min.css" />
 
         <Script
           id="trusted-types-policy"
@@ -209,121 +209,27 @@ export default async function LocalizedRootLayout(props: {
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                var isUpdating = false;
-                var lastAppliedScale = -1;
-                var lastViewportContent = '';
-
+                var lastScale = -1;
                 function updateScale() {
-                  if (isUpdating) return;
-                  isUpdating = true;
-
                   try {
-                    var screenW = window.screen.width;
-                    var screenH = window.screen.height;
-                    var isLandscape = window.matchMedia && window.matchMedia("(orientation: landscape)").matches;
-                    
-                    // Fallback to basic dimension check if matchMedia fails
-                    if (typeof isLandscape === 'undefined') {
-                      isLandscape = window.innerWidth > window.innerHeight;
+                    var w = window.innerWidth || document.documentElement.clientWidth;
+                    if (!w) return;
+                    var scale = 1;
+                    if (w >= 1440) {
+                      scale = Math.round((w / 1440) * 1000) / 1000;
                     }
-                    
-                    var logicalWidth = isLandscape ? Math.max(screenW, screenH) : Math.min(screenW, screenH);
-                    
-                    // On desktop, logicalWidth might be very large, use window.innerWidth
-                    var w = (logicalWidth && logicalWidth < 1024) ? logicalWidth : (window.innerWidth || document.documentElement.clientWidth || screenW);
-
-                    if (!w || w <= 0) {
-                      isUpdating = false;
-                      return;
+                    if (Math.abs(scale - lastScale) > 0.005) {
+                      lastScale = scale;
+                      document.documentElement.style.zoom = scale;
                     }
-
-                    if (w < 1024) {
-                      document.documentElement.style.zoom = '1';
-                      
-                      var viewportMeta = document.querySelector('meta[name="viewport"]');
-                      if (!viewportMeta) {
-                        viewportMeta = document.createElement('meta');
-                        viewportMeta.name = 'viewport';
-                        document.head.appendChild(viewportMeta);
-                      }
-
-                      var targetWidth = 'device-width';
-                      var scale = 1;
-                      var newContent = '';
-                      
-                      if (w < 430) {
-                        // Force 430px width (iPhone 14/15/16/17 Pro Max) and scale it down to fit perfectly on smaller screens
-                        targetWidth = '430';
-                        scale = w / 430;
-                        scale = Math.floor(scale * 1000) / 1000;
-                        newContent = 'width=' + targetWidth + ', initial-scale=' + scale + ', maximum-scale=' + scale + ', minimum-scale=' + scale + ', user-scalable=no';
-                      } else if (w >= 768 && w < 820) {
-                        // iPad Mini scaling
-                        targetWidth = '820';
-                        scale = w / 820;
-                        scale = Math.floor(scale * 1000) / 1000;
-                        newContent = 'width=' + targetWidth + ', initial-scale=' + scale + ', maximum-scale=' + scale + ', minimum-scale=' + scale + ', user-scalable=no';
-                      } else {
-                        newContent = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
-                      }
-                      
-                      if (viewportMeta.getAttribute('content') !== newContent && lastViewportContent !== newContent) {
-                        viewportMeta.setAttribute('content', newContent);
-                        lastViewportContent = newContent;
-                      }
-                      
-                      isUpdating = false;
-                      return;
-                    }
-
-                    // Desktop CSS Zoom
-                    var wDesktop = window.innerWidth || document.documentElement.clientWidth;
-                    var scaleDesktop = 1;
-                    if (wDesktop >= 1440) {
-                      scaleDesktop = wDesktop / 1440;
-                    }
-                    scaleDesktop = Math.round(scaleDesktop * 1000) / 1000;
-
-                    if (lastAppliedScale > 0 && Math.abs(scaleDesktop - lastAppliedScale) < 0.005) {
-                      isUpdating = false;
-                      return;
-                    }
-
-                    lastAppliedScale = scaleDesktop;
-                    document.documentElement.style.zoom = scaleDesktop;
-
-                    setTimeout(function() { isUpdating = false; }, 50);
-                  } catch(e) {
-                    isUpdating = false;
-                  }
+                  } catch(e) {}
                 }
-
-                // Initial synchronous run before first paint
                 updateScale();
-
-                // Observe if Next.js tries to overwrite our viewport meta tag during hydration
-                try {
-                  var headObserver = new MutationObserver(function(mutations) {
-                    for (var i = 0; i < mutations.length; i++) {
-                      var m = mutations[i];
-                      if (m.type === 'attributes' && m.target.name === 'viewport') {
-                        if (m.target.getAttribute('content') !== lastViewportContent && lastViewportContent !== '') {
-                          // Next.js changed it, change it back immediately!
-                          m.target.setAttribute('content', lastViewportContent);
-                        }
-                      }
-                    }
-                  });
-                  var existingMeta = document.querySelector('meta[name="viewport"]');
-                  if (existingMeta) {
-                    headObserver.observe(existingMeta, { attributes: true, attributeFilter: ['content'] });
-                  } else {
-                    headObserver.observe(document.head, { childList: true, subtree: true });
-                  }
-                } catch(e) {}
-
-                // On resize: run synchronously so zoom + layout paint in a SINGLE frame
-                window.addEventListener('resize', updateScale, { passive: true });
+                var resizeTimeout;
+                window.addEventListener('resize', function() {
+                  clearTimeout(resizeTimeout);
+                  resizeTimeout = setTimeout(updateScale, 150);
+                }, { passive: true });
                 window.addEventListener('orientationchange', updateScale, { passive: true });
               })();
             `,
@@ -347,8 +253,10 @@ export default async function LocalizedRootLayout(props: {
 
             <Footer />
             <ServiceWorkerRegister />
-            <Toaster position="top-right" richColors closeButton />
-            <NotificationPermissionPopup />
+            <div role="region" aria-label="Notifications">
+              <Toaster position="top-right" richColors closeButton />
+              <NotificationPermissionPopup />
+            </div>
           </NotificationProvider>
         </ThemeProvider>
       </body>
