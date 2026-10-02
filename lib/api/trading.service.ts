@@ -172,7 +172,7 @@ export const tradingService = {
     try {
       const json = await customFetchJSON<any>(url, {
         params: { page: 1, limit, lang_code: lang, source: 'web' },
-        revalidate: 300,
+        revalidate: 86400,
       });
 
       if (json && (json.success === 1 || json.success === true || json.status === 'success')) {
@@ -202,6 +202,7 @@ export const tradingService = {
     try {
       const json = await customFetchJSON<any>(url, {
         params: { lang_code: lang, source: 'web' },
+        revalidate: 86400,
       });
       if (json?.success && json.data) {
         return json.data;
@@ -224,6 +225,7 @@ export const tradingService = {
       try {
         const json = await customFetchJSON<any>(url, {
           params: { lang_code: lang, is_active: 'true', source: 'web' },
+          revalidate: 3600,
         });
         if (json?.success && json.data) {
           return json.data;
@@ -246,6 +248,7 @@ export const tradingService = {
     try {
       const json = await customFetchJSON<any>(url, {
         params: { lang_code: lang, source: 'web' },
+        revalidate: 3600,
       });
       if (json?.success && json.data) {
         return json.data;

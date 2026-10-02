@@ -71,7 +71,7 @@ export async function generateMetadata(
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
   const subSlug = params?.subSlug ? decodeURIComponent(params.subSlug) : '';
 
-  const data = await withTimeout(tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null), 2500, null);
+  const data = await withTimeout(tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null), 1200, null);
 
   const formattedName = data?.sub_category?.name || subSlug
     .split('-')
@@ -203,12 +203,11 @@ function SubCategoryProductsSkeleton({ subSlug, slug, lang, dict }: { subSlug: s
 }
 
 async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: string; slug: string; subSlug: string }) {
-  const [data, dict, authData] = await Promise.all([
+  const [data, dict] = await Promise.all([
     withTimeout(tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null), 2500, null),
     getDictionary(lang).catch(() => ({})),
-    getClientAuthData(lang).catch(() => ({ userProfile: null }))
   ])
-  const userType = getNormalizedUserType(authData.userProfile?.user_type);
+  const userType = null;
   const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
     no_products_found: commonDict.no_products_found || "No products found",

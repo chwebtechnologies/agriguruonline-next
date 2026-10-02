@@ -56,8 +56,24 @@ export function ProductActionButtons({
   const handleActionClick = async (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>, action: 'buy' | 'sell', fallbackHref: string) => {
     e.preventDefault();
     
+    // Check userType from props or client cookie fallback
+    const getClientUserType = (): string | null => {
+      if (typeof document === 'undefined') return null;
+      const match = document.cookie.match(/user_info=([^;]+)/);
+      if (!match) return null;
+      try {
+        const user = JSON.parse(decodeURIComponent(match[1]));
+        const rawType = user?.role || user?.user_type || user?.type;
+        return rawType ? String(rawType).toLowerCase() : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const activeUser = userType || getClientUserType();
+
     // If not logged in, redirect to login
-    if (!userType) {
+    if (!activeUser) {
       router.push(`/${lang}/login`);
       return;
     }

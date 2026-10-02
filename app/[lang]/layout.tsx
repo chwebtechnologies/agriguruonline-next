@@ -114,7 +114,7 @@ export default async function LocalizedRootLayout(props: {
 
   const [rawDict, apiCategories] = await Promise.all([
     getDictionary(activeLang),
-    withTimeout(getCategories(activeLang), 2500, [])
+    withTimeout(getCategories(activeLang), 1200, [])
   ])
   const tradingApiUrl = getTradingApiUrl()
   const assetsUrl = getAssetsUrl()
@@ -172,7 +172,6 @@ export default async function LocalizedRootLayout(props: {
       suppressHydrationWarning
     >
       <head>
-        <link rel="preload" href="/fa-all.min.css" as="style" />
         <link rel="stylesheet" href="/fa-all.min.css" media="print" id="fa-css" />
         <script
           id="fa-async-loader"

@@ -12,7 +12,6 @@ import InfiniteParticipationCarousel from '@/components/home/InfiniteParticipati
 import AssociatePartnersCarousel from '@/components/home/AssociatePartnersCarousel'
 import LatestOffersForBuyerSection from '@/components/home/LatestOffersForBuyerSection'
 import LatestInquiriesForSellerSection from '@/components/home/LatestInquiriesForSellerSection'
-import { getClientAuthData } from '@/app/actions/authData'
 import { getAssetsUrl } from '@/lib/api-utils'
 import type { Metadata } from 'next'
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
@@ -128,8 +127,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
     participationData,
     associatePartnersData,
     buyerOffersData,
-    sellerInquiriesData,
-    authData
+    sellerInquiriesData
   ] = await Promise.all([
     withTimeout(cmsService.getLatestNews({ lang: activeLang, page: 1, limit: 12 }).catch(() => null), API_TIMEOUT, null),
     withTimeout(cmsService.getLatestEvents({ lang: activeLang, page: 1, limit: 12 }).catch(() => null), API_TIMEOUT, null),
@@ -140,7 +138,6 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
     withTimeout(cmsService.getAssociatePartners(1, 25).catch(() => null), API_TIMEOUT, null),
     withTimeout(tradingService.getLatestTradingInquiries({ type: 'BUYER', page: 1, limit: 12, lang: activeLang }).catch(() => null), API_TIMEOUT, null),
     withTimeout(tradingService.getLatestTradingInquiries({ type: 'SELLER', page: 1, limit: 12, lang: activeLang }).catch(() => null), API_TIMEOUT, null),
-    getClientAuthData(activeLang).catch(() => ({ userProfile: null }))
   ]);
 
   const articles = newsData?.data?.news || [];
@@ -173,8 +170,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
   const assetsUrl = getAssetsUrl();
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
   
-  const userType = authData?.userProfile?.user_type ? 
-    (typeof authData.userProfile.user_type === 'string' ? authData.userProfile.user_type.toLowerCase() : String(authData.userProfile.user_type.name || '').toLowerCase()) : null;
+  const userType = null;
 
   return (
     <>

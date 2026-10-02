@@ -107,7 +107,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
               alt={product.name}
               title={product.name}
               fill
-              sizes="100vw"
+              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
               className="object-cover"
               priority={true}
               loading="eager"

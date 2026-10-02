@@ -64,7 +64,7 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang)
   const slug = decodeURIComponent(params?.slug || '')
 
-  const data = await withTimeout(tradingService.getSubCategories(slug, lang).catch(() => null), 2500, null)
+  const data = await withTimeout(tradingService.getSubCategories(slug, lang).catch(() => null), 1200, null)
   const matchedCategory = data?.category
 
   // Use translation if available, otherwise format slug
@@ -241,7 +241,7 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
                       alt={subCatName}
                       title={subCatName}
                       fill
-                      sizes="100vw"
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                       priority={true}
                       loading="eager"
                       fetchPriority="high"

@@ -77,7 +77,7 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang);
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
 
-  const data = await withTimeout(tradingService.getProduct(slug, lang).catch(() => null), 2500, null);
+  const data = await withTimeout(tradingService.getProduct(slug, lang).catch(() => null), 1200, null);
 
   const productName = data?.name || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
   const title = `${productName} | AgriGuru Online`
@@ -232,13 +232,12 @@ function ProductDetailSkeleton({ slug }: { slug: string }) {
 }
 
 async function ProductDetailContent({ lang, slug }: { lang: string; slug: string }) {
-  const [product, dict, authData] = await Promise.all([
+  const [product, dict] = await Promise.all([
     withTimeout(tradingService.getProduct(slug, lang).catch(() => null), 2500, null),
     getDictionary(lang).catch(() => ({})),
-    getClientAuthData(lang).catch(() => ({ userProfile: null }))
   ])
   
-  const userType = getNormalizedUserType(authData.userProfile?.user_type);
+  const userType = null;
   
   const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
@@ -288,7 +287,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
                 priority={true}
                 loading="eager"
                 fetchPriority="high"
-                sizes="(max-width: 768px) 40vw, 33vw"
+                sizes="(max-width: 768px) 40vw, (max-width: 1200px) 33vw, 420px"
               />
             </div>
             
