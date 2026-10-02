@@ -245,6 +245,8 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
                       priority={true}
                       loading="eager"
                       fetchPriority="high"
+                      decoding="async"
+                      quality={70}
                       className="object-cover"
                     />
                   </Link>

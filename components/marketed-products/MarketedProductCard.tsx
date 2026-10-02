@@ -112,6 +112,8 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
               priority={true}
               loading="eager"
               fetchPriority="high"
+              decoding="async"
+              quality={70}
             />
           ) : (
             <ImageWithSkeleton

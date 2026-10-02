@@ -28,6 +28,7 @@ interface ImageWithSkeletonProps {
   className?: string
   skeletonClassName?: string
   style?: React.CSSProperties
+  unoptimized?: boolean
 }
 
 export default function ImageWithSkeleton({
@@ -42,6 +43,7 @@ export default function ImageWithSkeleton({
   className = '',
   skeletonClassName = '',
   style,
+  unoptimized,
 }: ImageWithSkeletonProps) {
   const resolvedSrc = resolveImageUrl(src)
 
@@ -56,10 +58,11 @@ export default function ImageWithSkeleton({
         height={fill ? undefined : (height || 267)}
         sizes={sizes || '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw'}
         priority={priority}
-        fetchPriority={priority ? 'high' : 'auto'}
+        fetchPriority={priority ? 'high' : 'low'}
         loading={priority ? 'eager' : 'lazy'}
         decoding="async"
-        quality={65}
+        unoptimized={unoptimized}
+        quality={unoptimized ? undefined : 65}
         style={{ objectFit: 'cover', ...style }}
         className={`transition-opacity duration-300 ${className}`}
       />

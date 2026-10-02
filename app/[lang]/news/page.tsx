@@ -81,7 +81,7 @@ async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, mat
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {articles.map((article: any, index: number) => (
           <div key={article.id} style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
-            <NewsCard priority={index === 0} article={article} lang={lang} />
+            <NewsCard priority={index < 2} article={article} lang={lang} />
           </div>
         ))}
       </div>
@@ -208,7 +208,7 @@ export default async function LatestNewsPage(props: {
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<NewsGridSkeleton />}>
+          <Suspense key={`${lang}-${searchParams?.page || 1}-${searchParams?.category || ''}`} fallback={<NewsGridSkeleton />}>
             <NewsPageContent lang={lang} searchParams={searchParams} />
           </Suspense>
         </div>

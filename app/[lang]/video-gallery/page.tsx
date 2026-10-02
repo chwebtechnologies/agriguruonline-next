@@ -60,7 +60,7 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {currentCategories.map((category, index) => (
           <div key={category.category_id} style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
-            <VideoGalleryCard priority={index === 0} category={category} lang={lang} />
+            <VideoGalleryCard priority={index < 2} category={category} lang={lang} />
           </div>
         ))}
       </div>
@@ -135,7 +135,7 @@ export default async function VideoGalleryPage(props: {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title={dict.header?.video_gallery || "Video Gallery"} backText={dict.common?.back || "Back"} />
                     
-          <Suspense fallback={<VideoGalleryGridSkeleton />}>
+          <Suspense key={`${lang}-${currentPage}`} fallback={<VideoGalleryGridSkeleton />}>
             <VideoGalleryGrid lang={lang} currentPage={currentPage} />
           </Suspense>
         </div>

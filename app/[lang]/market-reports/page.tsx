@@ -144,7 +144,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
         {reports.map(sanitizeReport).filter(Boolean).map((report: any, index: number) => (
           <div key={report.id || report._id || `report-${index}`} style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
-            <MarketReportCard priority={index === 0} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
+            <MarketReportCard priority={index < 2} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
           </div>
         ))}
       </div>
@@ -240,7 +240,7 @@ export default async function MarketReportsPage(props: {
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title={dict.header?.market_reports || "Market Reports"} backText={dict.common?.back || "Back"} />
           <ListingFilters categories={filterCategories} />
-          <Suspense fallback={<MarketReportsGridSkeleton />}>
+          <Suspense key={`${lang}-${currentPage}-${categoryId || ''}`} fallback={<MarketReportsGridSkeleton />}>
             <MarketReportsGrid lang={lang} page={currentPage} apiLimit={apiLimit} displayLimit={displayLimit} search={searchQuery} token={token} categoryId={categoryId} dict={dict.common} />
           </Suspense>
         </div>

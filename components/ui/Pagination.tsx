@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
+import { useTransition, useEffect } from 'react';
 import Link from 'next/link';
 
 interface PaginationProps {
@@ -13,6 +13,20 @@ interface PaginationProps {
 export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // Automatically pre-warm adjacent pages (e.g. next page) as soon as pagination mounts into view
+  useEffect(() => {
+    if (currentPage < totalPages) {
+      try {
+        router.prefetch(`${baseUrl}?page=${currentPage + 1}`);
+      } catch {}
+    }
+    if (currentPage > 1) {
+      try {
+        router.prefetch(`${baseUrl}?page=${currentPage - 1}`);
+      } catch {}
+    }
+  }, [currentPage, totalPages, baseUrl, router]);
 
   if (totalPages <= 1) return null;
 
@@ -28,8 +42,10 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
 
   const navigateTo = (e: React.MouseEvent<HTMLAnchorElement>, pageNumber: number) => {
     e.preventDefault();
+    // Scroll instantly to top so user is not stuck at the bottom during page switch
+    window.scrollTo({ top: 0, behavior: 'instant' });
     startTransition(() => {
-      router.push(`${baseUrl}?page=${pageNumber}`, { scroll: true });
+      router.push(`${baseUrl}?page=${pageNumber}`, { scroll: false });
     });
   };
 
@@ -49,6 +65,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
       {currentPage > 1 ? (
         <Link
           href={`${baseUrl}?page=${currentPage - 1}`}
+          prefetch={true}
           onClick={(e) => navigateTo(e, currentPage - 1)}
           onPointerEnter={() => warmPage(currentPage - 1)}
           onTouchStart={() => warmPage(currentPage - 1)}
@@ -68,6 +85,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
         <>
           <Link
             href={`${baseUrl}?page=1`}
+            prefetch={true}
             onClick={(e) => navigateTo(e, 1)}
             onPointerEnter={() => warmPage(1)}
             onTouchStart={() => warmPage(1)}
@@ -84,6 +102,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
         <Link
           key={page}
           href={`${baseUrl}?page=${page}`}
+          prefetch={true}
           onClick={(e) => navigateTo(e, page)}
           onPointerEnter={() => warmPage(page)}
           onTouchStart={() => warmPage(page)}
@@ -104,6 +123,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
           {endPage < totalPages - 1 && <span className="hidden sm:flex items-center justify-center w-10 h-10 text-foreground/50 font-bold">...</span>}
           <Link
             href={`${baseUrl}?page=${totalPages}`}
+            prefetch={true}
             onClick={(e) => navigateTo(e, totalPages)}
             onPointerEnter={() => warmPage(totalPages)}
             onTouchStart={() => warmPage(totalPages)}
@@ -119,6 +139,7 @@ export function Pagination({ currentPage, totalPages, baseUrl }: PaginationProps
       {currentPage < totalPages ? (
         <Link
           href={`${baseUrl}?page=${currentPage + 1}`}
+          prefetch={true}
           onClick={(e) => navigateTo(e, currentPage + 1)}
           onPointerEnter={() => warmPage(currentPage + 1)}
           onTouchStart={() => warmPage(currentPage + 1)}

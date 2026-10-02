@@ -203,14 +203,10 @@ export function HeaderGuestBase({
   const [width, setWidth] = useState(1280)
 
   useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth < 1024) return
     const handleResize = () => setWidth(window.innerWidth)
-    // Defer to after first paint to avoid blocking main thread (TBT)
-    const raf = requestAnimationFrame(() => {
-      setWidth(window.innerWidth)
-    })
-    window.addEventListener('resize', handleResize)
+    window.addEventListener('resize', handleResize, { passive: true })
     return () => {
-      cancelAnimationFrame(raf)
       window.removeEventListener('resize', handleResize)
     }
   }, [])
@@ -255,10 +251,10 @@ export function HeaderGuestBase({
           <div className="flex items-center flex-1 gap-3 md:gap-4">
             <div className="flex items-center shrink-0 lg:w-[110px] rtl:lg:w-[130px] w-auto">
               {/* On Mobile & Tablet (< 1024px): Always show Hamburger Menu */}
-              <div className="lg:hidden">
+              <div className="lg:hidden w-[44px] h-[42px] flex items-center shrink-0">
                 <AppMenu dict={dict} align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
-                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
-                    <i className="fa-solid fa-bars text-3xl"></i>
+                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors w-[44px] h-[42px] justify-center">
+                    <i className="fa-solid fa-bars text-3xl w-[30px] h-[30px] flex items-center justify-center"></i>
                   </div>
                 </AppMenu>
               </div>
@@ -364,8 +360,8 @@ export function HeaderGuestBase({
                     href={`/${activeLang}/login`}
                     className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-muted text-foreground hover:bg-muted hover:text-foreground transition-all border border-border shadow-sm hover:scale-105 active:scale-95 duration-200"
                   >
-                    <i className="fa-solid fa-user text-[15px] mb-0.5"></i>
-                    <span className="text-[9px] font-extrabold leading-none mt-0.5">{dict.navigation.login}</span>
+                    <i className="fa-solid fa-user text-[15px] w-[15px] h-[15px] flex items-center justify-center mb-0.5"></i>
+                    <span className="text-[9px] font-extrabold leading-none mt-0.5 h-[9px] flex items-center justify-center">{dict.navigation.login}</span>
                   </Link>
                 </div>
               )}

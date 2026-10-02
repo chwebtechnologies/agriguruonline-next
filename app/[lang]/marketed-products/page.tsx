@@ -78,7 +78,7 @@ export default async function MarketedProductsPage(
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<MarketedProductsSkeleton />}>
+          <Suspense key={page} fallback={<MarketedProductsSkeleton />}>
             <MarketedProductsContent lang={lang} page={page} />
           </Suspense>
         </div>
@@ -188,7 +188,7 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
                 lang={lang}
                 common={common}
                 imageBaseUrl={imageBaseUrl}
-                isLCP={index === 0}
+                isLCP={index < 2}
                 userType={userType}
               />
             </div>
