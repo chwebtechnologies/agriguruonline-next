@@ -17,8 +17,7 @@ export default function InfiniteParticipationCarousel({
   dict?: any
 }) {
   const [items, setItems] = useState(() => {
-    // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
-    return [...categories, ...categories].map((cat, i) => ({
+    return categories.map((cat, i) => ({
       ...cat,
       _uniqueId: `${cat.category_id || cat.slug || 'cat'}-${i}`
     }));

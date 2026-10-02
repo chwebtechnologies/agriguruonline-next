@@ -17,8 +17,7 @@ interface InfiniteMarketedProductsCarouselProps {
 
 export default function InfiniteMarketedProductsCarousel({ products, lang, common, imageBaseUrl, userType, dict = {} }: InfiniteMarketedProductsCarouselProps) {
   const [items, setItems] = useState(() => {
-    // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
-    return [...products, ...products].map((p, i) => ({
+    return products.map((p, i) => ({
       ...p,
       _uniqueId: `${p.id}-${i}`
     }));

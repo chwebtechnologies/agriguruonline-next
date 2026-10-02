@@ -8,8 +8,7 @@ type AnimationState = 'idle' | 'forward' | 'prep-backward' | 'backward';
 
 export default function InfiniteNewsCarousel({ articles, lang, dict = {} }: { articles: any[], lang: string, dict?: any }) {
   const [items, setItems] = useState(() => {
-    // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
-    return [...articles, ...articles].map((a, i) => ({
+    return articles.map((a, i) => ({
       ...a,
       _uniqueId: `${a.id}-${i}`
     }));

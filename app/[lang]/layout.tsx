@@ -172,7 +172,16 @@ export default async function LocalizedRootLayout(props: {
     >
       <head>
         <link rel="preload" href="/fa-all.min.css" as="style" />
-        <link rel="stylesheet" href="/fa-all.min.css" />
+        <link rel="stylesheet" href="/fa-all.min.css" media="print" id="fa-css" />
+        <script
+          id="fa-async-loader"
+          dangerouslySetInnerHTML={{
+            __html: `!function(){var e=document.getElementById("fa-css");if(e){e.addEventListener("load",function(){e.media="all"}),e.sheet&&(e.media="all")}}();`
+          }}
+        />
+        <noscript>
+          <link rel="stylesheet" href="/fa-all.min.css" />
+        </noscript>
 
         <Script
           id="trusted-types-policy"

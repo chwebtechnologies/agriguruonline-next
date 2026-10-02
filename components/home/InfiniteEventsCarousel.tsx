@@ -8,8 +8,7 @@ type AnimationState = 'idle' | 'forward' | 'prep-backward' | 'backward';
 
 export default function InfiniteEventsCarousel({ events, lang, dict = {} }: { events: any[], lang: string, dict?: any }) {
   const [items, setItems] = useState(() => {
-    // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
-    return [...events, ...events].map((e, i) => ({
+    return events.map((e, i) => ({
       ...e,
       _uniqueId: `${e.id}-${i}`
     }));

@@ -17,8 +17,7 @@ export default function InfiniteMarketUpdatesCarousel({
   dict?: any
 }) {
   const [items, setItems] = useState(() => {
-    // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
-    return [...updates, ...updates].map((update, i) => ({
+    return updates.map((update, i) => ({
       ...update,
       _uniqueId: `${update.id || update.slug || 'update'}-${i}`
     }));

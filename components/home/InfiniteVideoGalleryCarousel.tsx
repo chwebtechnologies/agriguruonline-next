@@ -19,8 +19,7 @@ export default function InfiniteVideoGalleryCarousel({
   dict?: any
 }) {
   const [items, setItems] = useState(() => {
-    // Generate stable unique IDs for the duplicated items to prevent React from re-rendering/blinking
-    return [...videoCategories, ...videoCategories].map((cat, i) => ({
+    return videoCategories.map((cat, i) => ({
       ...cat,
       _uniqueId: `${cat.category_id || cat.slug || 'cat'}-${i}`
     }));

@@ -79,7 +79,7 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
 
   return (
     <div 
-      className="w-full relative h-[250px] sm:h-[260px] md:h-[280px] lg:h-[300px] xl:h-[340px] min-h-[250px] sm:min-h-[260px] md:min-h-[280px] lg:min-h-[300px] xl:min-h-[340px] rounded-2xl overflow-hidden shadow-xs border border-border mb-4 group"
+      className="w-full relative h-[290px] sm:h-[300px] md:h-[310px] lg:h-[320px] xl:h-[340px] min-h-[290px] sm:min-h-[300px] md:min-h-[310px] lg:min-h-[320px] xl:min-h-[340px] rounded-2xl overflow-hidden shadow-xs border border-border mb-4 group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
