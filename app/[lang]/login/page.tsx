@@ -33,43 +33,16 @@ interface LoginPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-// Since params in Next 15 must be treated as async in some contexts, we use standard page props
-import { Suspense } from 'react'
-
 export default async function LoginPage({ params, searchParams }: LoginPageProps) {
-  const lang = (await params).lang;
-  
-  const resolvedSearchParams = await searchParams;
+  const [{ lang }, resolvedSearchParams, cookieStore] = await Promise.all([
+    params,
+    searchParams,
+    cookies()
+  ]);
   const redirectUrl = resolvedSearchParams?.redirectUrl as string | undefined;
-
-  return (
-    <div className="bg-background text-foreground">
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<LoginPageSkeleton />}>
-            <LoginPageContent lang={lang} redirectUrl={redirectUrl} />
-          </Suspense>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LoginPageSkeleton() {
-  return (
-    <div className="w-full max-w-md mx-auto h-[500px] bg-card border border-border rounded-2xl animate-pulse mt-8"></div>
-  )
-}
-
-async function LoginPageContent({ lang, redirectUrl }: { lang: string, redirectUrl?: string }) {
-  const dict = await getDictionary(lang);
-
-  // Check if the user is already logged in
-  const cookieStore = await cookies();
   const token = cookieStore.get("auth_token")?.value;
 
   if (token) {
-    // If they have a token, redirect them to the intended page or profile page
     if (redirectUrl) {
       redirect(redirectUrl);
     } else {
@@ -77,5 +50,15 @@ async function LoginPageContent({ lang, redirectUrl }: { lang: string, redirectU
     }
   }
 
-  return <AuthFlow lang={lang} redirectUrl={redirectUrl} dict={dict.auth} commonDict={dict.common} />
+  const dict = await getDictionary(lang);
+
+  return (
+    <div className="bg-background text-foreground">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <AuthFlow lang={lang} redirectUrl={redirectUrl} dict={dict.auth} commonDict={dict.common} />
+        </div>
+      </div>
+    </div>
+  );
 }

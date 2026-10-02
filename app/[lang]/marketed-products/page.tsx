@@ -40,7 +40,7 @@ interface ProductData {
   total: number
 }
 
-import { getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl, withTimeout } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api/trading.service'
 import { getClientAuthData } from '@/app/actions/authData'
 
@@ -115,7 +115,11 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
   const limit = 20
 
   const [data, dict, authData] = await Promise.all([
-    (tradingService.getMarketedProducts(lang, page, limit).catch(() => null)) as Promise<ProductData | null>,
+    withTimeout(
+      tradingService.getMarketedProducts(lang, page, limit).catch(() => null) as Promise<ProductData | null>,
+      2500,
+      null
+    ),
     getDictionary(lang).catch(() => ({})),
     getClientAuthData(lang).catch(() => ({ userProfile: null }))
   ])
@@ -180,15 +184,16 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
           };
           
           return (
-            <MarketedProductCard
-              key={product.id}
-              product={mappedProduct as any}
-              lang={lang}
-              common={common}
-              imageBaseUrl={imageBaseUrl}
-              isLCP={index === 0}
-              userType={userType}
-            />
+            <div key={product.id} style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
+              <MarketedProductCard
+                product={mappedProduct as any}
+                lang={lang}
+                common={common}
+                imageBaseUrl={imageBaseUrl}
+                isLCP={index === 0}
+                userType={userType}
+              />
+            </div>
           );
         })}
       </div>

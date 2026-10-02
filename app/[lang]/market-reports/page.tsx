@@ -65,6 +65,8 @@ function MarketReportsGridSkeleton() {
   )
 }
 
+import { withTimeout } from '@/lib/api-utils'
+
 /* ---------- Async component that fetches and renders market reports grid ---------- */
 async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, token, categoryId, dict }: {
   lang: string
@@ -76,7 +78,11 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
   categoryId?: string
   dict: any
 }) {
-  const reportsData = await cmsService.getMarketReports({ lang, page, limit: apiLimit, search, token, categoryId })
+  const reportsData = await withTimeout(
+    cmsService.getMarketReports({ lang, page, limit: apiLimit, search, token, categoryId }).catch(() => null),
+    2500,
+    null
+  )
   
   // Try to safely extract array of reports and total
   let reports = (reportsData?.data as any)?.market_reports || (reportsData?.data as any) || []
@@ -137,7 +143,9 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
         {reports.map(sanitizeReport).filter(Boolean).map((report: any, index: number) => (
-          <MarketReportCard priority={index < 4} key={report.id || report._id || `report-${index}`} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
+          <div key={report.id || report._id || `report-${index}`} style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
+            <MarketReportCard priority={index === 0} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
+          </div>
         ))}
       </div>
       <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/market-reports`} />
@@ -207,8 +215,11 @@ export default async function MarketReportsPage(props: {
   const categoryQuery = typeof searchParams.category === 'string' ? searchParams.category : undefined
   
 
-  // Fetch categories using identical Next.js cached configuration as Header
-  const apiCategories = await getCategories(lang)
+  // Fetch categories & dictionary in parallel
+  const [apiCategories, dict] = await Promise.all([
+    getCategories(lang).catch(() => []),
+    getDictionary(lang).catch(() => ({} as any))
+  ]);
   
   let categoryId = undefined;
   if (categoryQuery && apiCategories) {
@@ -222,8 +233,6 @@ export default async function MarketReportsPage(props: {
     slug: c.slug,
     name: c.name
   }))
-
-  const dict = await getDictionary(lang)
 
   return (
     <div className="bg-background text-foreground">

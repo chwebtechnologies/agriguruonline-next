@@ -56,6 +56,7 @@ export async function generateStaticParams() {
 }
 
 import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { withTimeout } from '@/lib/api-utils'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -65,7 +66,7 @@ export async function generateMetadata(
   const slug = params.slug
   
   const decodedSlug = decodeURIComponent(slug)
-  const article = await cmsService.getNewsDetail(decodedSlug, lang)
+  const article = await withTimeout(cmsService.getNewsDetail(decodedSlug, lang).catch(() => null), 2500, null)
   const alternates = getAlternates(`news/${slug}`, lang)
   
   if (!article) {
@@ -232,18 +233,21 @@ function NewsDetailSkeleton() {
 }
 
 async function NewsDetailContent({ lang, slug }: { lang: string, slug: string }) {
-  const article = await cmsService.getNewsDetail(slug, lang).catch(() => null)
+  const [article, dict] = await Promise.all([
+    withTimeout(cmsService.getNewsDetail(slug, lang).catch(() => null), 2500, null),
+    getDictionary(lang as any).catch(() => ({} as any))
+  ])
   
   if (!article) {
     notFound()
   }
 
   const categoryId = article.categories?.[0]?.id
-  let allLatestNews = await cmsService.getOtherNews(lang, categoryId, 6).catch(() => [])
+  let allLatestNews = await withTimeout(cmsService.getOtherNews(lang, categoryId, 6).catch(() => []), 2000, [])
   let otherNewsList = allLatestNews.filter(item => item.slug !== slug)
 
   if (otherNewsList.length === 0 && categoryId) {
-    allLatestNews = await cmsService.getOtherNews(lang, undefined, 6).catch(() => [])
+    allLatestNews = await withTimeout(cmsService.getOtherNews(lang, undefined, 6).catch(() => []), 2000, [])
     otherNewsList = allLatestNews.filter(item => item.slug !== slug)
   }
 
@@ -252,7 +256,6 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
   const translation = article.translations?.find((t: any) => t.lang_code === lang)
   const title = translation?.title || article.title
   const rawContent = translation?.description || article.description || ''
-  const dict = await getDictionary(lang as any)
   const formattedContent = formatEditorialContent(rawContent, dict.common)
   const sourceName = translation?.source || article.source || "Agriguru Online"
   const categoryName = article.categories?.[0]?.name

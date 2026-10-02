@@ -6,6 +6,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { ParticipationCategoriesResponse } from '@/types/participationGallery'
 import { cache, Suspense } from 'react'
 import { cmsService } from '@/lib/api/cms.service'
+import { withTimeout } from '@/lib/api-utils'
 
 const PAGE_LIMIT = 12
 
@@ -38,7 +39,11 @@ async function ParticipationGalleryGrid({
   lang: string
   page: number
 }) {
-  const data = await cmsService.getParticipationCategories(lang, page, PAGE_LIMIT)
+  const data = await withTimeout(
+    cmsService.getParticipationCategories(lang, page, PAGE_LIMIT),
+    2500,
+    null
+  )
   const categories = data?.data?.categories || []
   const totalCategories = data?.data?.total_categories || 0
   const totalPages = Math.ceil(totalCategories / PAGE_LIMIT)
@@ -66,7 +71,8 @@ async function ParticipationGalleryGrid({
             key={category.category_id || category.slug}
             category={category}
             lang={lang}
-            priority={index < 4}
+            priority={index < 2}
+            style={index >= 4 ? { contentVisibility: 'auto' } : undefined}
           />
         ))}
       </div>

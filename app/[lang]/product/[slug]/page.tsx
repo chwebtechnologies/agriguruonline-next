@@ -7,7 +7,7 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { Metadata } from 'next'
-import { getAssetsUrl, getNormalizedUserType } from '@/lib/api-utils'
+import { getAssetsUrl, getNormalizedUserType, withTimeout } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api/trading.service'
 import { getClientAuthData } from '@/app/actions/authData'
 import { ProductActionButtons } from '@/components/marketed-products/ProductActionButtons'
@@ -77,7 +77,7 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang);
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
 
-  const data = await tradingService.getProduct(slug, lang);
+  const data = await withTimeout(tradingService.getProduct(slug, lang).catch(() => null), 2500, null);
 
   const productName = data?.name || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
   const title = `${productName} | AgriGuru Online`
@@ -233,7 +233,7 @@ function ProductDetailSkeleton({ slug }: { slug: string }) {
 
 async function ProductDetailContent({ lang, slug }: { lang: string; slug: string }) {
   const [product, dict, authData] = await Promise.all([
-    tradingService.getProduct(slug, lang).catch(() => null),
+    withTimeout(tradingService.getProduct(slug, lang).catch(() => null), 2500, null),
     getDictionary(lang).catch(() => ({})),
     getClientAuthData(lang).catch(() => ({ userProfile: null }))
   ])

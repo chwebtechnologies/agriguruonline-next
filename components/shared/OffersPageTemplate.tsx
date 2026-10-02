@@ -4,7 +4,7 @@ import ListingFilters from '@/components/shared/ListingFilters'
 import { OfferCard } from '@/components/shared/OfferCard'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { tradingService } from '@/lib/api'
-import { getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl, withTimeout } from '@/lib/api-utils'
 import { getClientAuthData } from '@/app/actions/authData'
 
 interface Inquiry {
@@ -33,14 +33,18 @@ interface InquiriesResponse {
 
 async function getLatestOffers(lang: string, offerType: 'BUYER' | 'SELLER', searchParams?: { search?: string, categoryId?: string }): Promise<InquiriesResponse | null> {
   const apiType = offerType === 'BUYER' ? 'SELLER' : 'BUYER'
-  return await tradingService.getLatestTradingInquiries({
-    type: apiType,
-    page: 1,
-    limit: 12,
-    search: searchParams?.search,
-    categoryId: searchParams?.categoryId,
-    lang,
-  });
+  return await withTimeout(
+    tradingService.getLatestTradingInquiries({
+      type: apiType,
+      page: 1,
+      limit: 12,
+      search: searchParams?.search,
+      categoryId: searchParams?.categoryId,
+      lang,
+    }).catch(() => null),
+    2500,
+    null
+  );
 }
 
 interface OffersPageTemplateProps {
@@ -98,17 +102,17 @@ async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: O
   const searchStr = searchParams.search;
   const categoryStr = searchParams.category;
 
-  const apiCategories = await tradingService.getCategories(lang);
+  const [apiCategories, dict, authData] = await Promise.all([
+    tradingService.getCategories(lang).catch(() => []),
+    getDictionary(lang).catch(() => ({} as any)),
+    getClientAuthData(lang).catch(() => ({ userProfile: null }))
+  ]);
 
   // Resolve slug to ID server-side so ID never leaks to the client
   const matchedCategory = categoryStr ? apiCategories.find(cat => cat.slug === categoryStr) : undefined
   const categoryId = matchedCategory?.id
 
-  const [data, dict, authData] = await Promise.all([
-    getLatestOffers(lang, offerType, { search: searchStr, categoryId: categoryId }),
-    getDictionary(lang),
-    getClientAuthData(lang).catch(() => ({ userProfile: null }))
-  ])
+  const data = await getLatestOffers(lang, offerType, { search: searchStr, categoryId: categoryId });
   
   const userType = authData.userProfile?.user_type ? (typeof authData.userProfile.user_type === 'string' ? authData.userProfile.user_type.toLowerCase() : String(authData.userProfile.user_type.name || '').toLowerCase()) : null;
 
@@ -140,16 +144,17 @@ async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: O
       <div className="bg-card border border-border rounded-2xl p-3 sm:p-5 lg:p-6 mt-4">
         {inquiries.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-            {inquiries.map((inquiry) => (
-              <OfferCard 
-                key={inquiry.id} 
-                inquiry={inquiry} 
-                lang={lang} 
-                imageBaseUrl={imageBaseUrl} 
-                offerType={offerType}
-                userType={userType}
-                dict={dict}
-              />
+            {inquiries.map((inquiry, index) => (
+              <div key={inquiry.id} style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
+                <OfferCard 
+                  inquiry={inquiry} 
+                  lang={lang} 
+                  imageBaseUrl={imageBaseUrl} 
+                  offerType={offerType}
+                  userType={userType}
+                  dict={dict}
+                />
+              </div>
             ))}
           </div>
         ) : (

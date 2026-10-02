@@ -49,9 +49,15 @@ function NewsGridSkeleton() {
   )
 }
 
+import { withTimeout } from '@/lib/api-utils'
+
 /* ---------- News Feed Component ---------- */
 async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, matchedCategory, dict }: any) {
-  const newsData = await cmsService.getLatestNews({ lang, page: currentPage, limit, search: searchQuery, categoryId })
+  const newsData = await withTimeout(
+    cmsService.getLatestNews({ lang, page: currentPage, limit, search: searchQuery, categoryId }).catch(() => null),
+    2500,
+    null
+  )
   const articles = newsData?.data?.news || []
   const totalItems = newsData?.data?.total || 0
   const totalPages = Math.ceil(totalItems / limit)
@@ -74,7 +80,9 @@ async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, mat
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {articles.map((article: any, index: number) => (
-          <NewsCard priority={index < 2} key={article.id} article={article} lang={lang} />
+          <div key={article.id} style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
+            <NewsCard priority={index === 0} article={article} lang={lang} />
+          </div>
         ))}
       </div>
       <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/news`} />
@@ -156,8 +164,10 @@ async function NewsPageContent({ lang, searchParams }: { lang: string, searchPar
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
   
-  const dict = await getDictionary(lang);
-  const apiCategories = await getCategories(lang);
+  const [dict, apiCategories] = await Promise.all([
+    getDictionary(lang).catch(() => ({} as any)),
+    getCategories(lang).catch(() => [])
+  ]);
 
   const matchedCategory = categorySlug
     ? apiCategories.find(cat => cat.slug === categorySlug)

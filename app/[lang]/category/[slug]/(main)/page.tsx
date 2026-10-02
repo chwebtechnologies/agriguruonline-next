@@ -9,7 +9,7 @@ import { ShareButton } from '@/components/ui/ShareButton'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
 import { cache } from 'react'
-import { getAssetsUrl } from '@/lib/api-utils';
+import { getAssetsUrl, withTimeout } from '@/lib/api-utils';
 import { tradingService } from '@/lib/api/trading.service';
 
 export const revalidate = 60;
@@ -64,7 +64,7 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang)
   const slug = decodeURIComponent(params?.slug || '')
 
-  const data = await tradingService.getSubCategories(slug, lang)
+  const data = await withTimeout(tradingService.getSubCategories(slug, lang).catch(() => null), 2500, null)
   const matchedCategory = data?.category
 
   // Use translation if available, otherwise format slug
@@ -189,7 +189,7 @@ function CategorySkeleton({ slug, dict }: { slug: string, dict?: any }) {
 
 async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
   const [data, dict] = await Promise.all([
-    tradingService.getSubCategories(slug, lang).catch(() => null),
+    withTimeout(tradingService.getSubCategories(slug, lang).catch(() => null), 2500, null),
     getDictionary(lang).catch(() => ({}))
   ])
   const commonDict = (dict as Record<string, any>).common || {}
@@ -231,6 +231,7 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
               <div
                 key={subCat.id}
                 title={subCatName}
+                style={index >= 8 ? { contentVisibility: 'auto' } : undefined}
                 className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
               >
                 {index === 0 ? (

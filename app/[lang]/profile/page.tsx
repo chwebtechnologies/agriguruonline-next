@@ -13,6 +13,7 @@ import { ForceLogout } from '@/components/auth/ForceLogout';
 import { tradingService } from '@/lib/api/trading.service';
 import { userService } from '@/lib/api/user.service';
 import { getUserProfile } from '@/lib/user-data';
+import { withTimeout } from '@/lib/api-utils';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -82,24 +83,27 @@ function ProfilePageSkeleton() {
 }
 
 async function ProfilePageContent({ lang, token }: { lang: string, token: string }) {
-  const dict = await getDictionary(lang);
+  // Parallel Fetching for Dictionary and Profile
+  const [dict, userResult] = await Promise.all([
+    getDictionary(lang),
+    withTimeout(getUserProfile(token, lang), 3000, { userProfile: null, shouldLogout: false })
+  ]);
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
 
-  // Fetch profile data — deduplicated with Header via React cache()
-  const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
+  const { userProfile: profileData, shouldLogout } = userResult;
 
   // 100% Security: If there is no profile data or we marked for logout, redirect immediately
   if (shouldLogout || !profileData) {
     redirect(`/${lang}/login`);
   }
 
-  // Parallel Fetching for Categories, Countries, and KYC using Centralized Services
+  // Parallel Fetching for Categories, Countries, and KYC using Centralized Services with timeout protection
   const userId = profileData.id || profileData._id || profileData.customer_id;
 
   const [categoriesResult, countriesResult, kycResult] = await Promise.allSettled([
-    getCategories(lang),
-    tradingService.getCountries(lang),
-    userService.getRequiredDocuments(userId, token, lang)
+    withTimeout(getCategories(lang), 2500, []),
+    withTimeout(tradingService.getCountries(lang), 2500, []),
+    withTimeout(userService.getRequiredDocuments(userId, token, lang), 2500, null)
   ]);
 
   const apiCategories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];

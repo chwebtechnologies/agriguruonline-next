@@ -36,6 +36,7 @@ export async function generateStaticParams() {
 }
 
 import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { withTimeout } from '@/lib/api-utils'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -45,7 +46,7 @@ export async function generateMetadata(
   const slug = params.slug
 
   const decodedSlug = decodeURIComponent(slug)
-  const event = await cmsService.getEventDetail(decodedSlug, lang)
+  const event = await withTimeout(cmsService.getEventDetail(decodedSlug, lang).catch(() => null), 2500, null)
   const alternates = getAlternates(`events/${slug}`, lang)
 
   if (!event) {
@@ -215,9 +216,10 @@ function EventDetailSkeleton() {
 }
 
 async function EventDetailContent({ lang, slug }: { lang: string, slug: string }) {
-  const [event, allLatestEvents] = await Promise.all([
-    cmsService.getEventDetail(slug, lang).catch(() => null),
-    cmsService.getOtherEvents(lang, undefined, 6).catch(() => [])
+  const [event, allLatestEvents, dict] = await Promise.all([
+    withTimeout(cmsService.getEventDetail(slug, lang).catch(() => null), 2500, null),
+    withTimeout(cmsService.getOtherEvents(lang, undefined, 6).catch(() => []), 2000, []),
+    getDictionary(lang as any).catch(() => ({} as any))
   ])
 
   if (!event) {
@@ -228,7 +230,6 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
   const title = translation?.title || event.title
   const rawContent = translation?.description || event.description || ''
   
-  const dict = await getDictionary(lang as any)
   const formattedContent = formatEditorialContent(rawContent, dict.common)
   const location = translation?.location || event.location || 'A-1107, Mondeal Heights'
   const sourceName = translation?.source || event.source || 'AgriGuru Online'

@@ -21,8 +21,6 @@ export async function generateMetadata(props: {
 
 export const revalidate = 3600;
 
-import { Suspense } from 'react'
-
 export default async function ContactUsPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en'
@@ -31,29 +29,10 @@ export default async function ContactUsPage(props: { params: Promise<{ lang: str
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<ContactUsSkeleton />}>
-            <ContactUsContent lang={lang} />
-          </Suspense>
+          <ContactUsContent lang={lang} />
         </div>
       </div>
     </div>
-  )
-}
-
-function ContactUsSkeleton() {
-  return (
-    <>
-      <PageHeader title="Contact Us" backText="Back" />
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
-        <div className="lg:col-span-5 flex flex-col gap-3 sm:gap-4">
-          <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-xs h-64 animate-pulse"></div>
-          <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-xs flex-1 animate-pulse min-h-[300px]"></div>
-        </div>
-        <div className="lg:col-span-7">
-          <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 shadow-xs h-[600px] animate-pulse"></div>
-        </div>
-      </div>
-    </>
   )
 }
 

@@ -5,7 +5,7 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import type { Metadata } from 'next'
-import { getAssetsUrl, getNormalizedUserType } from '@/lib/api-utils';
+import { getAssetsUrl, getNormalizedUserType, withTimeout } from '@/lib/api-utils';
 import { tradingService } from '@/lib/api/trading.service';
 import { getClientAuthData } from '@/app/actions/authData';
 import { MarketedProductCard } from '@/components/marketed-products/MarketedProductCard';
@@ -71,7 +71,7 @@ export async function generateMetadata(
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
   const subSlug = params?.subSlug ? decodeURIComponent(params.subSlug) : '';
 
-  const data = await tradingService.getProductsForSubcategory(slug, subSlug, lang);
+  const data = await withTimeout(tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null), 2500, null);
 
   const formattedName = data?.sub_category?.name || subSlug
     .split('-')
@@ -204,7 +204,7 @@ function SubCategoryProductsSkeleton({ subSlug, slug, lang, dict }: { subSlug: s
 
 async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: string; slug: string; subSlug: string }) {
   const [data, dict, authData] = await Promise.all([
-    tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null),
+    withTimeout(tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null), 2500, null),
     getDictionary(lang).catch(() => ({})),
     getClientAuthData(lang).catch(() => ({ userProfile: null }))
   ])
@@ -268,18 +268,19 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
           };
 
           return (
-            <MarketedProductCard
-              key={product.id}
-              product={mappedProduct as any}
-              lang={lang}
-              common={common}
-              imageBaseUrl={imageBaseUrl}
-              isLCP={index === 0}
-              userType={userType}
-              hideInfoIcon={true}
-              hideFlag={true}
-              showViewDetails={true}
-            />
+            <div key={product.id} style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
+              <MarketedProductCard
+                product={mappedProduct as any}
+                lang={lang}
+                common={common}
+                imageBaseUrl={imageBaseUrl}
+                isLCP={index === 0}
+                userType={userType}
+                hideInfoIcon={true}
+                hideFlag={true}
+                showViewDetails={true}
+              />
+            </div>
           )
         })}
       </div>

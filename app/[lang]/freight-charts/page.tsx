@@ -3,7 +3,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries'
 import { PageHeader } from '@/components/ui/PageHeader'
 import FreightChartClient from '@/components/freight-chart/FreightChartClient'
 import { cookies } from 'next/headers'
-import { getSafeLang } from '@/lib/api-utils'
+import { getSafeLang, withTimeout } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api/trading.service'
 import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
@@ -34,9 +34,9 @@ async function getFreightInitialData(lang: string = 'en') {
 
   // Execute all independent API fetches concurrently in parallel using centralized services
   const [containersSettled, profileSettled, favsSettled] = await Promise.allSettled([
-    tradingService.getShippingContainers(safeLang),
-    token ? getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null) : Promise.resolve(null),
-    tradingService.getFavoritePorts(token || '', safeLang)
+    withTimeout(tradingService.getShippingContainers(safeLang), 3000, []),
+    token ? withTimeout(getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null), 2500, null) : Promise.resolve(null),
+    withTimeout(tradingService.getFavoritePorts(token || '', safeLang), 3000, [])
   ])
 
   // 1. Process shipping containers

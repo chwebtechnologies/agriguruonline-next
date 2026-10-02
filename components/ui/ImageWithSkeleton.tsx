@@ -46,7 +46,7 @@ export default function ImageWithSkeleton({
   const resolvedSrc = resolveImageUrl(src)
 
   return (
-    <div className={`relative overflow-hidden w-full h-full ${skeletonClassName}`}>
+    <div className={`relative overflow-hidden w-full h-full bg-card/50 ${skeletonClassName}`}>
       <Image
         src={resolvedSrc}
         alt={alt}
@@ -54,14 +54,14 @@ export default function ImageWithSkeleton({
         fill={fill}
         width={fill ? undefined : (width || 400)}
         height={fill ? undefined : (height || 267)}
-        sizes={sizes || '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw'}
+        sizes={sizes || '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw'}
         priority={priority}
         fetchPriority={priority ? 'high' : 'auto'}
         loading={priority ? 'eager' : 'lazy'}
         decoding="async"
         quality={65}
         style={{ objectFit: 'cover', ...style }}
-        className={className}
+        className={`transition-opacity duration-300 ${className}`}
       />
     </div>
   )

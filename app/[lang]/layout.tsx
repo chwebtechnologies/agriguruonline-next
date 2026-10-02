@@ -20,7 +20,7 @@ import { Toaster } from 'sonner'
 import ServiceWorkerRegister from '@/components/ui/ServiceWorkerRegister'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
-import { getTradingApiUrl, getAssetsUrl } from '@/lib/api-utils'
+import { getTradingApiUrl, getAssetsUrl, withTimeout } from '@/lib/api-utils'
 import { getAlternates, getSafeLanguage, getSiteUrl, SEO_DICTIONARY } from '@/lib/seo'
 import { NotificationProvider } from '@/components/providers/NotificationProvider'
 import { NotificationPermissionPopup } from '@/components/modals/NotificationPermissionPopup'
@@ -112,13 +112,14 @@ export default async function LocalizedRootLayout(props: {
   const activeLang = params.lang || 'en'
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
-  const rawDict = await getDictionary(activeLang)
+  const [rawDict, apiCategories] = await Promise.all([
+    getDictionary(activeLang),
+    withTimeout(getCategories(activeLang), 2500, [])
+  ])
   const tradingApiUrl = getTradingApiUrl()
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl.slice(0, -1) : assetsUrl
   const categoriesApiUrl = `${tradingApiUrl.replace(/\/$/, '')}/category`
-
-  const apiCategories = await getCategories(activeLang)
 
   const categories = apiCategories
     .filter(cat => cat.is_active !== false)

@@ -9,12 +9,14 @@ interface ParticipationGalleryCardProps {
   lang: string
   dict?: any
   priority?: boolean
+  style?: React.CSSProperties
 }
 
 export default function ParticipationGalleryCard({
   category,
   lang, dict = {},
   priority = false,
+  style,
 }: ParticipationGalleryCardProps) {
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return '/logo.webp'
@@ -30,6 +32,7 @@ export default function ParticipationGalleryCard({
   return (
     <article
       title={category.category_name}
+      style={style}
       className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs h-full"
     >
       {/* 1:1 Square Image Container with Theme bg-muted Skeleton */}
@@ -38,7 +41,7 @@ export default function ParticipationGalleryCard({
         prefetch={true}
         title={category.category_name}
         aria-label={category.category_name}
-        className="relative w-full aspect-square bg-muted overflow-hidden border-b border-border block"
+        className="relative w-full aspect-square bg-card overflow-hidden border-b border-border block"
       >
         <ImageWithSkeleton
           src={imageUrl}

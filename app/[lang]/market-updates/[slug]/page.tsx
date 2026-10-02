@@ -36,6 +36,7 @@ export async function generateStaticParams() {
 }
 
 import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { withTimeout } from '@/lib/api-utils'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -45,7 +46,7 @@ export async function generateMetadata(
   const slug = params.slug
   
   const decodedSlug = decodeURIComponent(slug)
-  const article = await cmsService.getMarketUpdateDetail(decodedSlug, lang)
+  const article = await withTimeout(cmsService.getMarketUpdateDetail(decodedSlug, lang).catch(() => null), 2500, null)
   const alternates = getAlternates(`market-updates/${slug}`, lang)
   
   if (!article) {
@@ -152,20 +153,21 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
   const params = await props.params
   const { lang, slug } = params
   
-  const article = await cmsService.getMarketUpdateDetail(slug, lang).catch(() => null)
+  const [article, allUpdates, dict] = await Promise.all([
+    withTimeout(cmsService.getMarketUpdateDetail(slug, lang).catch(() => null), 2500, null),
+    withTimeout(cmsService.getOtherMarketUpdates(lang, 6).catch(() => []), 2000, []),
+    getDictionary(lang as any).catch(() => ({} as any))
+  ]);
   
   if (!article) {
     notFound()
   }
 
-  const allUpdates = await cmsService.getOtherMarketUpdates(lang, 6).catch(() => [])
   const otherList = allUpdates.filter(item => item.slug !== slug).slice(0, 5)
 
   const translation = article.translations?.find((t: any) => t.lang_code === lang)
   const title = translation?.title || article.title
   const rawContent = translation?.description || article.description
-
-  const dict = await getDictionary(lang as any)
   const formattedContent = formatEditorialContent(rawContent, dict.common)
 
   const assetsUrl = getAssetsUrl()

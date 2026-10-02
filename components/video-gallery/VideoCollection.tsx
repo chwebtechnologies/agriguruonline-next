@@ -58,7 +58,7 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
           const isYoutube = !!ytId
           
           return (
-            <article key={video.id} className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs relative">
+            <article key={video.id} style={index >= 4 ? { contentVisibility: 'auto' } : undefined} className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs relative">
               {/* Trigger overlay to handle clicks without wrapping the Image in a client boundary */}
               <VideoTriggerClient index={index} />
               

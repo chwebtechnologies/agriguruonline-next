@@ -50,6 +50,8 @@ function EventsGridSkeleton() {
   )
 }
 
+import { withTimeout } from '@/lib/api-utils'
+
 async function EventsPageContent({ lang, searchParams }: { lang: string, searchParams: { [key: string]: string | string[] | undefined } }) {
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
@@ -57,8 +59,10 @@ async function EventsPageContent({ lang, searchParams }: { lang: string, searchP
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
   const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined
   
-  const dict = await getDictionary(lang);
-  const apiCategories = await getCategories(lang);
+  const [dict, apiCategories] = await Promise.all([
+    getDictionary(lang).catch(() => ({} as any)),
+    getCategories(lang).catch(() => [])
+  ]);
 
   // Resolve slug to ID server-side so ID never leaks to the client
   const matchedCategory = categorySlug
@@ -66,7 +70,11 @@ async function EventsPageContent({ lang, searchParams }: { lang: string, searchP
     : undefined
   const categoryId = matchedCategory?.id
 
-  const eventsData = await cmsService.getLatestEvents({ lang, page: currentPage, limit, search: searchQuery, categoryId })
+  const eventsData = await withTimeout(
+    cmsService.getLatestEvents({ lang, page: currentPage, limit, search: searchQuery, categoryId }).catch(() => null),
+    2500,
+    null
+  )
   const eventsList = eventsData?.data?.events || []
   const totalItems = eventsData?.data?.total || 0
   const totalPages = Math.ceil(totalItems / limit)
@@ -97,7 +105,9 @@ async function EventsPageContent({ lang, searchParams }: { lang: string, searchP
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
             {eventsList.map((eventItem, index) => (
-              <EventCard priority={index < 4} key={eventItem.id} event={eventItem} lang={lang} />
+              <div key={eventItem.id} style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
+                <EventCard priority={index === 0} event={eventItem} lang={lang} />
+              </div>
             ))}
           </div>
           <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/events`} />

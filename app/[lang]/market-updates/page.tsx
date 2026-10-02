@@ -5,7 +5,7 @@ import ListingFilters from '@/components/shared/ListingFilters'
 import type { Metadata } from 'next'
 import type { MarketUpdatesResponse } from '@/types/marketUpdates'
 import { cache, Suspense } from 'react'
-import { getAssetsUrl } from '@/lib/api-utils';
+import { getAssetsUrl, withTimeout } from '@/lib/api-utils';
 import { cmsService } from '@/lib/api/cms.service';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 
@@ -44,13 +44,19 @@ export default async function MarketUpdatesPage(props: {
   const limit = 18 // Used 18 as per API limit in requirement
   const searchQuery = typeof searchParams.search === 'string' ? searchParams.search : undefined
 
-  const updatesData = await cmsService.getMarketUpdates(lang, currentPage, limit, searchQuery)
+  const [updatesData, dict] = await Promise.all([
+    withTimeout(
+      cmsService.getMarketUpdates(lang, currentPage, limit, searchQuery).catch(() => null),
+      2500,
+      null
+    ),
+    getDictionary(lang).catch(() => ({} as any))
+  ]);
+
   const flyers = updatesData?.data?.flyers || []
   const totalItems = updatesData?.data?.total || 0
   const totalPages = Math.ceil(totalItems / limit)
   const assetsUrl = getAssetsUrl()
-
-  const dict = await getDictionary(lang);
 
   return (
     <div className="bg-background text-foreground">
@@ -73,7 +79,9 @@ export default async function MarketUpdatesPage(props: {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
                 {flyers.map((flyer, index) => (
-                  <MarketUpdateCard priority={index < 4} key={flyer.id} update={flyer} lang={lang} />
+                  <div key={flyer.id} style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
+                    <MarketUpdateCard priority={index === 0} update={flyer} lang={lang} />
+                  </div>
                 ))}
               </div>
               <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/market-updates`} />

@@ -24,8 +24,6 @@ export async function generateMetadata(
 
 export const revalidate = 3600;
 
-import { Suspense } from 'react'
-
 export default async function AboutPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en';
@@ -34,28 +32,10 @@ export default async function AboutPage(props: { params: Promise<{ lang: string 
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<AboutPageSkeleton />}>
-            <AboutPageContent lang={lang} />
-          </Suspense>
+          <AboutPageContent lang={lang} />
         </div>
       </div>
     </div>
-  )
-}
-
-function AboutPageSkeleton() {
-  return (
-    <>
-      <PageHeader title="About Us" backText="Back" />
-      <div className="mt-8 mb-16 text-center w-full relative">
-        <div className="h-12 bg-muted animate-pulse rounded-lg max-w-md mx-auto mb-6"></div>
-        <div className="w-full max-w-4xl mx-auto bg-card border border-border/60 shadow-sm p-6 sm:p-8 rounded-3xl h-48 animate-pulse">
-        </div>
-      </div>
-      <div className="space-y-16 w-full">
-         <div className="h-96 w-full bg-muted animate-pulse rounded-2xl"></div>
-      </div>
-    </>
   )
 }
 

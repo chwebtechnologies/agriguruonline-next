@@ -1,7 +1,13 @@
 /// <reference lib="webworker" />
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, StaleWhileRevalidate } from "serwist";
+import {
+  Serwist,
+  StaleWhileRevalidate,
+  CacheFirst,
+  ExpirationPlugin,
+  CacheableResponsePlugin,
+} from "serwist";
 
 // This allows TypeScript to recognize the injected manifest variable
 declare global {
@@ -38,7 +44,33 @@ const serwist = new Serwist({
     ],
   },
   runtimeCaching: [
-    // Aggressively cache Next.js RSC payloads (the data fetched during client-side navigation)
+    // 1. Aggressively cache all images (Next.js image proxy, CDN assets, local icons/images)
+    // CacheFirst serves from browser storage instantly (0ms), eliminating network latency and blinking
+    {
+      matcher: ({ request, url }) => {
+        return (
+          request.destination === "image" ||
+          url.pathname.startsWith("/_next/image") ||
+          url.hostname === "assets.agriguruonline.com" ||
+          url.hostname === "assets.agriguruonline.cloud" ||
+          /\.(?:png|jpg|jpeg|svg|webp|gif|avif|ico)$/i.test(url.pathname)
+        );
+      },
+      handler: new CacheFirst({
+        cacheName: "agriguru-images-v1",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 500,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+            purgeOnQuotaError: true,
+          }),
+          new CacheableResponsePlugin({
+            statuses: [0, 200],
+          }),
+        ],
+      }),
+    },
+    // 2. Next.js RSC payloads (the data fetched during client-side navigation)
     // StaleWhileRevalidate will serve the page INSTANTLY from cache, then update in background.
     {
       matcher: ({ url }) => url.searchParams.has('_rsc'),
@@ -56,6 +88,7 @@ const serwist = new Serwist({
         ],
       }),
     },
+    // 3. Page navigations
     {
       matcher: ({ request }) => request.mode === 'navigate',
       handler: new StaleWhileRevalidate({

@@ -7,6 +7,7 @@ import { AIPredictClient } from '@/app/[lang]/ai-predict/AIPredictClient';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 
 import { getUserAiPredicts } from '@/lib/user-data';
+import { withTimeout } from '@/lib/api-utils';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -35,8 +36,10 @@ export default async function AIPredictPage(props: { params: Promise<{ lang: str
     redirect(`/${lang}/login?redirectUrl=/${lang}/ai-predict`);
   }
 
-  const predictsList = await getUserAiPredicts(token, lang);
-  const dict = await getDictionary(lang);
+  const [predictsList, dict] = await Promise.all([
+    withTimeout(getUserAiPredicts(token, lang), 2500, []),
+    getDictionary(lang),
+  ]);
 
   return (
     <div className="bg-background text-foreground transition-theme pb-5">

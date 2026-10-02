@@ -7,6 +7,7 @@ import { AlertsClient } from './AlertsClient';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 
 import { getUserAlerts } from '@/lib/user-data';
+import { withTimeout } from '@/lib/api-utils';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -35,8 +36,10 @@ export default async function AlertsSetupsPage(props: { params: Promise<{ lang: 
     redirect(`/${lang}/login?redirectUrl=/${lang}/alerts-setups`);
   }
 
-  const alertsList = await getUserAlerts(token, lang);
-  const dict = await getDictionary(lang);
+  const [alertsList, dict] = await Promise.all([
+    withTimeout(getUserAlerts(token, lang), 2500, []),
+    getDictionary(lang),
+  ]);
 
   return (
     <div className="bg-background text-foreground transition-theme pb-5">

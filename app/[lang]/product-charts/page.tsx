@@ -3,8 +3,7 @@ import type { Metadata } from 'next'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ProductChartsClient from '@/components/product-charts/ProductChartsClient'
 import { cookies } from 'next/headers'
-import { getSafeLang } from '@/lib/api-utils'
-import { getNormalizedUserType } from '@/lib/api-utils'
+import { getSafeLang, getNormalizedUserType, withTimeout } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api/trading.service'
 import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
@@ -37,10 +36,10 @@ async function getChartsInitialData(lang: string = 'en') {
 
   // Execute all independent API fetches concurrently in parallel using centralized services
   const [productsSettled, termsSettled, profileSettled, favsSettled] = await Promise.allSettled([
-    tradingService.getAllProducts(safeLang),
-    tradingService.getShippingTerms(safeLang),
-    token ? getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null) : Promise.resolve(null),
-    tradingService.getFavoriteProducts(token || '', safeLang)
+    withTimeout(tradingService.getAllProducts(safeLang), 3000, []),
+    withTimeout(tradingService.getShippingTerms(safeLang), 3000, []),
+    token ? withTimeout(getUserProfile(token, safeLang).then(r => r.userProfile ? { data: r.userProfile } : null), 2500, null) : Promise.resolve(null),
+    withTimeout(tradingService.getFavoriteProducts(token || '', safeLang), 3000, [])
   ])
 
   // 1. Process products

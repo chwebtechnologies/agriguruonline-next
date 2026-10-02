@@ -28,9 +28,11 @@ export async function generateMetadata(
   });
 }
 
+import { withTimeout } from '@/lib/api-utils'
+
 /* ---------- Async component that fetches and renders video grid ---------- */
 async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPage: number }) {
-  const data = await cmsService.getVideoCategories()
+  const data = await withTimeout(cmsService.getVideoCategories().catch(() => null), 2500, null)
   const categories = data?.data?.categories || []
 
   if (categories.length === 0) {
@@ -57,7 +59,9 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {currentCategories.map((category, index) => (
-          <VideoGalleryCard priority={index < 2} key={category.category_id} category={category} lang={lang} />
+          <div key={category.category_id} style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
+            <VideoGalleryCard priority={index === 0} category={category} lang={lang} />
+          </div>
         ))}
       </div>
       

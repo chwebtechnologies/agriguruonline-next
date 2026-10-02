@@ -8,7 +8,7 @@ import type {
   ParticipationPhotoItem,
 } from '@/types/participationGallery'
 import { cache } from 'react'
-import { getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl, withTimeout } from '@/lib/api-utils'
 import { cmsService } from '@/lib/api/cms.service'
 import Link from 'next/link'
 import { getDictionary } from '@/app/[lang]/dictionaries'
@@ -49,7 +49,7 @@ export async function generateMetadata(
   const slug = params.slug
   const photoParam = searchParams.photo
 
-  const data = await cmsService.getParticipationAlbumDetails(slug, lang)
+  const data = await withTimeout(cmsService.getParticipationAlbumDetails(slug, lang).catch(() => null), 2500, null)
   const category = data?.data?.category
   const photos = data?.data?.images || data?.data?.galleries || []
 
@@ -159,7 +159,10 @@ export default async function ParticipationAlbumPage(props: {
   const lang = params.lang || 'en'
   const slug = params.slug
 
-  const data = await cmsService.getParticipationAlbumDetails(slug, lang)
+  const [data, dict] = await Promise.all([
+    withTimeout(cmsService.getParticipationAlbumDetails(slug, lang).catch(() => null), 2500, null),
+    getDictionary(lang).catch(() => ({} as any))
+  ]);
   const category = data?.data?.category
   const photos = data?.data?.images || data?.data?.galleries || []
 
@@ -173,8 +176,6 @@ export default async function ParticipationAlbumPage(props: {
   if (isNotFound) {
     notFound()
   }
-
-  const dict = await getDictionary(lang);
 
   return (
     <div className="bg-background text-foreground">

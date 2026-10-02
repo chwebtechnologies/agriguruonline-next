@@ -38,6 +38,7 @@ interface CollectionData {
 
 
 import { getAlternates, getSafeLanguage, getSiteUrl } from '@/lib/seo'
+import { withTimeout } from '@/lib/api-utils'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -46,7 +47,7 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params.lang)
   const slug = params.slug
 
-  const data = await cmsService.getCollectionVideos(slug, lang)
+  const data = await withTimeout(cmsService.getCollectionVideos(slug, lang).catch(() => null), 2500, null)
   const categoryName = data?.category?.category_name || 'Video Collection'
 
   const descriptions: Record<string, string> = {
@@ -110,8 +111,10 @@ function VideoGridSkeleton() {
 }
 
 async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: string; currentPage: number }) {
-  const data = await cmsService.getCollectionVideos(slug, lang).catch(() => null)
-  const dict = await getDictionary(lang)
+  const [data, dict] = await Promise.all([
+    withTimeout(cmsService.getCollectionVideos(slug, lang).catch(() => null), 2500, null),
+    getDictionary(lang).catch(() => ({} as any))
+  ]);
   
   const categoryName = data?.category?.translations?.find((t: any) => t.lang_code === lang)?.category_name 
     || data?.category?.category_name 

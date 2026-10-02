@@ -41,3 +41,18 @@ export const getNormalizedUserType = (typeData: any): string => {
   if (typeof typeData === 'object') return String(typeData.name || typeData.title || typeData.type || '').toLowerCase();
   return String(typeData).toLowerCase();
 };
+
+/**
+ * Universal timeout wrapper to prevent slow external API responses from blocking SSR streaming.
+ */
+export const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([
+    promise.finally(() => clearTimeout(timeoutId)),
+    timeoutPromise
+  ]);
+};
+

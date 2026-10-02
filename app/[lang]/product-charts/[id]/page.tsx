@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { PageHeader } from '@/components/ui/PageHeader';
 import DedicatedChartClient from './DedicatedChartClient';
 import { cookies } from 'next/headers';
-import { getSafeLang, getAssetsUrl } from '@/lib/api-utils';
+import { getSafeLang, getAssetsUrl, withTimeout } from '@/lib/api-utils';
 import { tradingService } from '@/lib/api/trading.service';
 import { getUserProfile } from '@/lib/user-data';
 
@@ -111,38 +111,34 @@ async function getChartProductData(id: string, lang: string = 'en', dict: any = 
   let userType: string | null = null;
   let itemData: any = null;
 
-  // 1. Fetch user profile for userType — deduplicated via React cache()
+  // 1 & 2. Fetch user profile and favorite products in parallel
   if (token) {
     try {
-      const { userProfile } = await getUserProfile(token, safeLang);
-      if (userProfile?.user_type) {
-        userType = typeof userProfile.user_type === 'string'
-          ? userProfile.user_type.toLowerCase()
-          : String(userProfile.user_type.name || '').toLowerCase();
-      }
-    } catch (e) {
-      console.error('Failed to fetch profile:', e);
-    }
-  }
+      const [profileRes, rawFavs] = await Promise.all([
+        withTimeout(getUserProfile(token, safeLang).catch(() => ({ userProfile: null })), 2500, { userProfile: null }),
+        withTimeout(tradingService.getFavoriteProducts(token, safeLang).catch(() => []), 2500, [])
+      ]);
 
-  // 2. Fetch favorite products to find matching item
-  if (token) {
-    try {
-      const rawFavs = await tradingService.getFavoriteProducts(token, safeLang);
+      if (profileRes?.userProfile?.user_type) {
+        userType = typeof profileRes.userProfile.user_type === 'string'
+          ? profileRes.userProfile.user_type.toLowerCase()
+          : String(profileRes.userProfile.user_type.name || '').toLowerCase();
+      }
+
       if (Array.isArray(rawFavs)) {
         const match = rawFavs.find((f: any) => String(f.id) === String(id) || String(f.product?.id) === String(id) || String(f.product_id) === String(id));
         if (match) {
           itemData = {
             id: match.id,
-            category: match.category?.name || dict.common?.not_available || 'N/A',
-            country: match.country?.name || dict.common?.not_available || 'N/A',
+            category: match.category?.name || dict?.common?.not_available || 'N/A',
+            country: match.country?.name || dict?.common?.not_available || 'N/A',
             countryFlag: match.country?.flag || '',
-            product: match.product?.name || dict.common?.not_available || 'N/A',
-            shipBy: match.shipping_container?.title || dict.common?.not_available || 'N/A',
-            term: match.shipping_term?.title || dict.common?.not_available || 'N/A',
-            pol: match.loading_port?.name || dict.common?.not_available || 'N/A',
+            product: match.product?.name || dict?.common?.not_available || 'N/A',
+            shipBy: match.shipping_container?.title || dict?.common?.not_available || 'N/A',
+            term: match.shipping_term?.title || dict?.common?.not_available || 'N/A',
+            pol: match.loading_port?.name || dict?.common?.not_available || 'N/A',
             polFlag: match.loading_port?.flag || match.loading_port?.country?.flag || '',
-            pod: match.destination_port?.name || dict.common?.not_available || 'N/A',
+            pod: match.destination_port?.name || dict?.common?.not_available || 'N/A',
             podFlag: match.destination_port?.flag || match.destination_port?.country?.flag || '',
             price: (match.price != null ? Math.round(Number(match.price)) : (match.current_price != null ? Math.round(Number(match.current_price)) : 0)).toString(),
             chartStatus: (
@@ -161,7 +157,7 @@ async function getChartProductData(id: string, lang: string = 'en', dict: any = 
   // 3. Fallback to product details if not in favorites
   if (!itemData) {
     try {
-      const pData = await tradingService.getProduct(id, safeLang);
+      const pData = await withTimeout(tradingService.getProduct(id, safeLang).catch(() => null), 2500, null);
       if (pData) {
         itemData = {
           id: pData.id || id,
