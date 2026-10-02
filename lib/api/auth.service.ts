@@ -83,4 +83,18 @@ export const authService = {
       console.error('[authService.logout] Network error during logout:', error);
     }
   },
+
+  /**
+   * Google OAuth Login/Registration
+   */
+  googleLogin: async (idToken: string, lang: string = 'en'): Promise<Response> => {
+    const apiUrl = getUserApiUrl();
+    const url = `${apiUrl}/auth/google-login`;
+    return await customFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      params: { lang_code: lang, source: 'web' },
+      body: JSON.stringify({ id_token: idToken, source: 'WEB' }),
+    });
+  },
 };

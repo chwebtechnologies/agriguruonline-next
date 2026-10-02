@@ -5,16 +5,19 @@ import Link from "next/link";
 import { validateEmailDomain } from "@/app/actions/auth";
 import { toast } from "sonner";
 import { authService } from "@/lib/api";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import GoogleLoginButton from "./GoogleLoginButton";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface EmailStepProps {
   onNext: (email: string) => void;
+  onGoogleSuccess?: (email: string, nextStep: string | null) => void;
   lang: string;
   dict?: any;
 }
 
-export default function EmailStep({ onNext, lang, dict }: EmailStepProps) {
+export default function EmailStep({ onNext, onGoogleSuccess, lang, dict }: EmailStepProps) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -150,11 +153,13 @@ export default function EmailStep({ onNext, lang, dict }: EmailStepProps) {
       </div>
 
       <div className="w-full space-y-3">
-        <button className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-foreground/20 rounded-lg hover:bg-foreground/5 transition-colors">
-          <i className="fa-brands fa-google text-lg"></i>
-          <span className="font-medium text-foreground">Google</span>
-        </button>
-        <button className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-foreground/20 rounded-lg hover:bg-foreground/5 transition-colors">
+        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1069930285243-ac406a8ddj6ckg8rkmvm8khfpcqq9hpt.apps.googleusercontent.com"}>
+          <GoogleLoginButton lang={lang} onSuccess={onGoogleSuccess} />
+        </GoogleOAuthProvider>
+        <button
+          type="button"
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-foreground/20 rounded-lg hover:bg-foreground/5 transition-colors"
+        >
           <i className="fa-brands fa-apple text-lg"></i>
           <span className="font-medium text-foreground">Apple</span>
         </button>

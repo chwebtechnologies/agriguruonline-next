@@ -87,7 +87,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const currentPath = usePathname()
   const isGuestPage = currentPath ? (currentPath.includes('/login') || currentPath.includes('/register')) : false
 
-  const [profile] = useState<any>(initialProfile || null)
+  const [profile, setProfile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -103,6 +103,12 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [isLoadingAiPredicts, setIsLoadingAiPredicts] = useState(false)
 
   // Keep state synced if SSR props change
+  useEffect(() => {
+    if (initialProfile) {
+      setProfile(initialProfile);
+    }
+  }, [initialProfile]);
+
   useEffect(() => {
     if (initialNotifications && initialNotifications.length > 0) {
       setNotificationsData(initialNotifications);

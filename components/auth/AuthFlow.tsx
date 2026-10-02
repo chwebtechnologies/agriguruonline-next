@@ -69,21 +69,20 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
       window.history.replaceState({ step: "REGISTER" }, "");
       setStep("REGISTER");
     } else {
-      if (redirectUrl) {
-        router.push(redirectUrl);
-      } else {
-        router.push(`/${lang}/profile`);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("auth-state-change"));
       }
+      const targetUrl = redirectUrl || `/${lang}/profile`;
+      window.location.href = targetUrl;
     }
   };
 
   const handleRegisterComplete = () => {
-    // Simulate completing registration and logging in
-    if (redirectUrl) {
-      router.push(redirectUrl);
-    } else {
-      router.push(`/${lang}/profile`);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("auth-state-change"));
     }
+    const targetUrl = redirectUrl || `/${lang}/profile`;
+    window.location.href = targetUrl;
   };
 
   const handlePageHeaderBack = () => {
@@ -92,6 +91,20 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     } else if (step === "OTP") {
       // Go back in history which will trigger popstate and set step to EMAIL
       window.history.back();
+    }
+  };
+
+  const handleGoogleSuccess = (googleEmail: string, nextStep: string | null) => {
+    setEmail(googleEmail);
+    if (nextStep === "REQUIRE_REGISTRATION") {
+      window.history.replaceState({ step: "REGISTER" }, "");
+      setStep("REGISTER");
+    } else {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("auth-state-change"));
+      }
+      const targetUrl = redirectUrl || `/${lang}/profile`;
+      window.location.href = targetUrl;
     }
   };
 
@@ -112,7 +125,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
       <div className="w-full flex flex-col items-center px-4 sm:px-0">
         <LoginRequiredBanner redirectUrl={redirectUrl} dict={dict} />
         {step === "EMAIL" && (
-          <EmailStep onNext={handleEmailNext} lang={lang} dict={dict} />
+          <EmailStep onNext={handleEmailNext} onGoogleSuccess={handleGoogleSuccess} lang={lang} dict={dict} />
         )}
       {step === "OTP" && (
         <OtpStep

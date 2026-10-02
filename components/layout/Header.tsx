@@ -111,9 +111,39 @@ export default async function Header(props?: HeaderProps) {
     console.error('Error fetching initial search products:', error)
   }
 
-  const { HeaderClient } = await import('./HeaderClient');
+  try {
+    const cookieStore = await import('next/headers').then(m => m.cookies());
+    const userInfoCookie = cookieStore.get("user_info");
+    const authTokenCookie = cookieStore.get("auth_token");
+
+    if (userInfoCookie || authTokenCookie) {
+      const { getClientAuthData } = await import('@/app/actions/authData');
+      const authState = await getClientAuthData(activeLang);
+      
+      if (authState?.isAuthenticated && authState?.token) {
+        const HeaderAuth = (await import('./HeaderAuth')).HeaderAuth;
+        return (
+          <HeaderAuth
+            token={authState.token as string}
+            dict={dict}
+            activeLang={activeLang}
+            categories={categories}
+            profile={authState.userProfile}
+            alerts={authState.alertsData}
+            notifications={authState.notificationsData}
+            aiPredicts={authState.aiPredictsData}
+            initialSearchProducts={initialSearchProducts}
+          />
+        );
+      }
+    }
+  } catch (error) {
+    // Graceful fallback during static build / prerendering
+  }
+
+  const HeaderGuest = (await import('./HeaderGuest')).HeaderGuest;
   return (
-    <HeaderClient
+    <HeaderGuest
       dict={dict}
       activeLang={activeLang}
       categories={categories}

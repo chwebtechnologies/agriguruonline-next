@@ -107,6 +107,49 @@ export async function serverVerifyOtp(email: string, otp: string, lang: string) 
   return { ok: false, error: data?.message || data?.error || "OTP Verification failed", status: response.status };
 }
 
+export async function serverGoogleLogin(idToken: string, lang: string) {
+  const apiUrl = getUserApiUrl();
+  const url = `${apiUrl}/auth/google-login?lang_code=${lang}&source=web`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken, source: "WEB" }),
+  });
+
+  const setCookieHeader = response.headers.get("set-cookie");
+  let backendRefreshToken = null;
+
+  if (setCookieHeader) {
+    const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
+    if (match) {
+      backendRefreshToken = match[1];
+    }
+  } else {
+    const cookiesArr = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
+    for (const c of cookiesArr) {
+      const match = c.match(/web_refresh_token=([^;]+)/);
+      if (match) {
+        backendRefreshToken = match[1];
+        break;
+      }
+    }
+  }
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (e) {
+    return { ok: false, error: "Invalid JSON response from backend" };
+  }
+
+  if (response.ok && (data?.success === 1 || data?.success === true)) {
+    return { ok: true, data, backendRefreshToken };
+  }
+
+  return { ok: false, error: data?.message || data?.error || "Google Login failed", status: response.status };
+}
+
 
 async function destroySession() {
   try {
