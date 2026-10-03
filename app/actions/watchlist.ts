@@ -7,7 +7,8 @@ import { getUserProfile } from '@/lib/user-data';
 
 export async function getWatchlistProductsAction(lang: string = 'en') {
   const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || '';
+  let token = cookieStore.get('auth_token')?.value || '';
+  if (!token) token = cookieStore.get('__Secure-uid')?.value || '';
   const safeLang = getSafeLang(lang);
 
   let products: any[] = [];
@@ -133,7 +134,8 @@ export async function getWatchlistProductsAction(lang: string = 'en') {
 
 export async function getWatchlistFreightAction(lang: string = 'en') {
   const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || '';
+  let token = cookieStore.get('auth_token')?.value || '';
+  if (!token) token = cookieStore.get('__Secure-uid')?.value || '';
   const safeLang = getSafeLang(lang);
 
   let shippingContainers: any[] = [];

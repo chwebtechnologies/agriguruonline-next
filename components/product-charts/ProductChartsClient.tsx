@@ -335,6 +335,13 @@ export default function ProductChartsClient({
 
   useEffect(() => {
     let isMounted = true;
+    
+    if (isHomePage) {
+      setAddedProducts(initialFavorites);
+      setIsFetchingFavorites(false);
+      return;
+    }
+
     const fetchLatestFavorites = async () => {
       try {
         setIsFetchingFavorites(true);
@@ -400,7 +407,7 @@ export default function ProductChartsClient({
     };
     fetchLatestFavorites();
     return () => { isMounted = false; };
-  }, [lang]);
+  }, [lang, isHomePage, initialFavorites]);
 
   useEffect(() => {
     if (!isFetchingFavorites && addedProducts.length === 0 && initialFavorites.length > 0) {
@@ -775,10 +782,7 @@ export default function ProductChartsClient({
         setLoadingPorts([]);
         setDestinationPorts([]);
         
-        toast.success("Product added successfully!", {
-          style: { background: 'var(--brand-green)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
-          duration: 3000
-        });
+        toast.success("Product added successfully!");
       } else {
         console.error('Failed to add product:', result.error);
         if (result.response_indication) {
@@ -788,16 +792,12 @@ export default function ProductChartsClient({
             indication: result.response_indication 
           });
         } else {
-          toast.error(result.error || "Failed to add product", {
-            style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
-          });
+          toast.error(result.error || "Failed to add product");
         }
       }
     } catch (error) {
       console.error('Error adding product:', error);
-      toast.error("An error occurred while adding the product", {
-        style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
-      });
+      toast.error("An error occurred while adding the product");
     } finally {
       setIsAdding(false);
     }
@@ -820,10 +820,7 @@ export default function ProductChartsClient({
     try {
       const res = await deleteFavoriteProductAction(id, lang);
       if (res.success) {
-        toast.success("Product deleted successfully!", {
-          style: { background: 'var(--brand-green)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' },
-          duration: 3000
-        });
+        toast.success("Product deleted successfully!");
 
         // Sync fresh server state
         const favsRes = await getFavoriteProductsAction(lang);
@@ -883,17 +880,13 @@ export default function ProductChartsClient({
       } else {
         // Rollback state if server deletion was unsuccessful
         setAddedProducts(previousProducts);
-        toast.error(res.error || "Failed to delete product from server", {
-          style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
-        });
+        toast.error(res.error || "Failed to delete product from server");
       }
     } catch (error) {
       // Rollback state
       setAddedProducts(previousProducts);
       console.error('Failed to delete favorite product:', error);
-      toast.error("Failed to delete product", {
-        style: { background: 'var(--brand-red)', color: 'white', border: 'none', fontSize: '15px', fontWeight: 'bold' }
-      });
+      toast.error("Failed to delete product");
     }
   };
 

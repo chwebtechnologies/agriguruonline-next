@@ -391,7 +391,7 @@ export const tradingService = {
         token,
         params: { lang_code: lang, source: 'web' },
       });
-      const rawFavs = json?.data?.favourite_port || json?.data?.favorite_port || (Array.isArray(json?.data) ? json.data : []);
+      const rawFavs = json?.data?.favourite_ports || json?.data?.favorite_ports || json?.data?.favourite_port || json?.data?.favorite_port || json?.data?.ports || (Array.isArray(json?.data) ? json.data : []);
       return Array.isArray(rawFavs) ? rawFavs : [];
     } catch (error) {
       console.error('[tradingService.getFavoritePorts] error:', error);

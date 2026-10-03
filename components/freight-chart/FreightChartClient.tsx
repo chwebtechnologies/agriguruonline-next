@@ -84,6 +84,13 @@ export default function FreightChartClient({
 
   useEffect(() => {
     let isMounted = true;
+    
+    if (isHomePage) {
+      setAddedFreights(initialFavorites);
+      setIsFetchingFavorites(false);
+      return;
+    }
+
     const fetchLatestFavorites = async () => {
       try {
         setIsFetchingFavorites(true);
@@ -148,7 +155,7 @@ export default function FreightChartClient({
     };
     fetchLatestFavorites();
     return () => { isMounted = false; };
-  }, [lang]);
+  }, [lang, isHomePage, initialFavorites]);
 
   useEffect(() => {
     if (!isFetchingFavorites && addedFreights.length === 0 && initialFavorites.length > 0) {
