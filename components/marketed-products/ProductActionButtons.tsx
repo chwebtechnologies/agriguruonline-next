@@ -6,6 +6,7 @@ import { ProductInquiryModal } from './ProductInquiryModal';
 import { useRouter } from 'next/navigation';
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
+import { getProductDetailsAction, getShippingContainersAction } from '@/app/actions/charts';
 import { AddFavoriteProductModal } from './AddFavoriteProductModal';
 
 interface ProductActionButtonsProps {
@@ -74,8 +75,8 @@ export function ProductActionButtons({
 
     const activeUser = userType || getClientUserType();
 
-    // If not logged in, redirect to login
-    if (!activeUser) {
+    // If not logged in, redirect to login ONLY for buy/sell
+    if (!activeUser && action !== 'add') {
       router.push(`/${lang}/login`);
       return;
     }
@@ -115,11 +116,24 @@ export function ProductActionButtons({
         }
       }
       
-      const [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
-        fetchProductDetails(productSlugOrId, lang),
-        fetchShippingTerms(lang),
-        action !== 'add' ? fetchPaymentTerms(lang) : Promise.resolve(null)
-      ]);
+      let productResponse;
+      let termsResponse;
+      let paymentTermsResponse;
+
+      if (!activeUser && action === 'add') {
+        // Fetch unauthenticated product data for Add to Favorites
+        [productResponse] = await Promise.all([
+          getProductDetailsAction(productSlugOrId, lang)
+        ]);
+        // Note: For unauthenticated, we don't have shipping terms readily available without a token through fetchShippingTerms,
+        // but getProductDetailsAction returns the product which has containers. We will rely on product containers.
+      } else {
+        [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
+          fetchProductDetails(productSlugOrId, lang),
+          fetchShippingTerms(lang),
+          action !== 'add' ? fetchPaymentTerms(lang) : Promise.resolve(null)
+        ]);
+      }
       
       const combinedData: any = {};
       

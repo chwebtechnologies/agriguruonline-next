@@ -223,7 +223,7 @@ export function AddFavoriteProductModal({
       } else {
         const errorMsg = res?.error || res?.message || "Failed to submit. Please try again.";
         toast.error(errorMsg);
-        if (errorMsg.toLowerCase().includes('kyc') || errorMsg.toLowerCase().includes('limit')) {
+        if (errorMsg.toLowerCase().includes('kyc') || errorMsg.toLowerCase().includes('limit') || errorMsg.toLowerCase().includes('authenticated') || errorMsg.toLowerCase().includes('unauthorized')) {
           setKycErrorMsg(errorMsg);
         }
       }
@@ -282,11 +282,15 @@ export function AddFavoriteProductModal({
               <button 
                 onClick={() => {
                   onClose();
-                  router.push(`/${lang}/profile`);
+                  if (kycErrorMsg.toLowerCase().includes('authenticated') || kycErrorMsg.toLowerCase().includes('unauthorized')) {
+                    router.push(`/${lang}/login`);
+                  } else {
+                    router.push(`/${lang}/profile`);
+                  }
                 }}
                 className="shrink-0 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 w-full sm:w-auto"
               >
-                Verify KYC / Upgrade
+                {kycErrorMsg.toLowerCase().includes('authenticated') || kycErrorMsg.toLowerCase().includes('unauthorized') ? 'Login Now' : 'Verify KYC / Upgrade'}
               </button>
             </div>
           )}
