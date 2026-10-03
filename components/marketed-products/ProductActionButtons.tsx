@@ -6,6 +6,7 @@ import { ProductInquiryModal } from './ProductInquiryModal';
 import { useRouter } from 'next/navigation';
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
+import { AddFavoriteProductModal } from './AddFavoriteProductModal';
 
 interface ProductActionButtonsProps {
   productSlugOrId: string;
@@ -34,7 +35,8 @@ export function ProductActionButtons({
 }: ProductActionButtonsProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalAction, setModalAction] = useState<'buy' | 'sell'>('buy');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [modalAction, setModalAction] = useState<'buy' | 'sell' | 'add'>('buy');
   const [isLoading, setIsLoading] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
@@ -53,7 +55,7 @@ export function ProductActionButtons({
     sizeClass = 'py-2 sm:py-2.5 px-2 text-[13px] sm:text-sm rounded-lg';
   }
 
-  const handleActionClick = async (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>, action: 'buy' | 'sell', fallbackHref: string) => {
+  const handleActionClick = async (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>, action: 'buy' | 'sell' | 'add', fallbackHref: string) => {
     e.preventDefault();
     
     // Check userType from props or client cookie fallback
@@ -84,37 +86,39 @@ export function ProductActionButtons({
     setIsLoading(true);
     
     try {
-      const type = action === 'buy' ? 'BUYER' : 'SELLER';
-      const kycResponse = await checkKYCStatus(lang, type);
-      
-      const isErrorOrNotVerified = 
-        (kycResponse && kycResponse.data && kycResponse.data.can_create === false) ||
-        (kycResponse && kycResponse.response_indication === 'NOT_VERIFIED') ||
-        (kycResponse && kycResponse.data?.response_indication === 'NOT_VERIFIED') ||
-        (kycResponse && (kycResponse.success === 0 || kycResponse.success === false) && (kycResponse.response_indication || kycResponse.data?.response_indication || kycResponse.message));
+      if (action !== 'add') {
+        const type = action === 'buy' ? 'BUYER' : 'SELLER';
+        const kycResponse = await checkKYCStatus(lang, type);
+        
+        const isErrorOrNotVerified = 
+          (kycResponse && kycResponse.data && kycResponse.data.can_create === false) ||
+          (kycResponse && kycResponse.response_indication === 'NOT_VERIFIED') ||
+          (kycResponse && kycResponse.data?.response_indication === 'NOT_VERIFIED') ||
+          (kycResponse && (kycResponse.success === 0 || kycResponse.success === false) && (kycResponse.response_indication || kycResponse.data?.response_indication || kycResponse.message));
 
-      if (isErrorOrNotVerified) {
-        setKycMessage(kycResponse.message || "You cannot proceed with this action.");
-        
-        const indication = kycResponse.response_indication || kycResponse.data?.response_indication;
-        
-        if (indication === 'NOT_VERIFIED') {
-          setKycIndicationText('Submit Documents');
-          setKycRedirectUrl(`/${lang}/profile`);
-        } else {
-          setKycIndicationText('Upgrade Plan');
-          setKycRedirectUrl(`/${lang}/profile`); // Modify this to pricing page if available
+        if (isErrorOrNotVerified) {
+          setKycMessage(kycResponse.message || "You cannot proceed with this action.");
+          
+          const indication = kycResponse.response_indication || kycResponse.data?.response_indication;
+          
+          if (indication === 'NOT_VERIFIED') {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            setKycIndicationText('Upgrade Plan');
+            setKycRedirectUrl(`/${lang}/profile`);
+          }
+          
+          setIsKYCModalOpen(true);
+          setIsLoading(false);
+          return;
         }
-        
-        setIsKYCModalOpen(true);
-        setIsLoading(false);
-        return;
       }
       
       const [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
         fetchProductDetails(productSlugOrId, lang),
         fetchShippingTerms(lang),
-        fetchPaymentTerms(lang)
+        action !== 'add' ? fetchPaymentTerms(lang) : Promise.resolve(null)
       ]);
       
       const combinedData: any = {};
@@ -130,7 +134,11 @@ export function ProductActionButtons({
       }
       
       setModalData(combinedData);
-      setIsModalOpen(true);
+      if (action === 'add') {
+        setIsAddModalOpen(true);
+      } else {
+        setIsModalOpen(true);
+      }
     } catch (error) {
       console.error("Failed to fetch product details", error);
     } finally {
@@ -155,10 +163,12 @@ export function ProductActionButtons({
 
           <ActionButton 
             variant="add" 
-            href={addProductHref}
-            className={`${sizeClass} shadow-sm`}
+            href={undefined}
+            onClick={(e) => handleActionClick(e, 'add', addProductHref)}
+            className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'add' ? 'opacity-70 pointer-events-none' : ''}`}
+            disabled={isLoading && modalAction === 'add'}
           >
-            {common.addProduct}
+            {isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}
           </ActionButton>
 
           <ActionButton 
@@ -180,10 +190,12 @@ export function ProductActionButtons({
         <div className={`flex flex-col gap-2 ${className}`}>
           <ActionButton 
             variant="add" 
-            href={addProductHref}
-            className={`${sizeClass} shadow-sm w-full`}
+            href={undefined}
+            onClick={(e) => handleActionClick(e, 'add', addProductHref)}
+            className={`${sizeClass} shadow-sm w-full ${isLoading && modalAction === 'add' ? 'opacity-70 pointer-events-none' : ''}`}
+            disabled={isLoading && modalAction === 'add'}
           >
-            {common.addProduct}
+            {isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}
           </ActionButton>
 
           <div className="grid grid-cols-2 gap-2">
@@ -216,7 +228,7 @@ export function ProductActionButtons({
     // fallback / inline
     return (
       <div className={`flex gap-2 ${className}`}>
-        <ActionButton variant="add" href={addProductHref} className={`${sizeClass} shadow-sm`}>{common.addProduct}</ActionButton>
+        <ActionButton variant="add" href={undefined} onClick={(e) => handleActionClick(e, 'add', addProductHref)} disabled={isLoading && modalAction === 'add'} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'add' ? 'opacity-70 pointer-events-none' : ''}`}>{isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}</ActionButton>
         <ActionButton variant="buy" href={userType === 'buyer' ? undefined : buyHref} disabled={userType === 'seller' || (isLoading && modalAction === 'buy')} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`} title={userType === 'seller' ? "Only Buyer accounts can purchase products." : undefined} onClick={(e) => userType !== 'seller' ? handleActionClick(e, 'buy', buyHref) : undefined}>{isLoading && modalAction === 'buy' ? 'Loading...' : common.buy}</ActionButton>
         <ActionButton variant="sell" href={userType === 'seller' ? undefined : sellHref} disabled={userType === 'buyer' || (isLoading && modalAction === 'sell')} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`} title={userType === 'buyer' ? "Only Seller accounts can offer products for sale." : undefined} onClick={(e) => userType !== 'buyer' ? handleActionClick(e, 'sell', sellHref) : undefined}>{isLoading && modalAction === 'sell' ? 'Loading...' : common.sell}</ActionButton>
       </div>
@@ -236,11 +248,25 @@ export function ProductActionButtons({
         productName={modalData?.product?.name || productName}
         countryName={modalData?.product?.country?.name || countryName}
         price={price}
-        actionType={modalAction}
+        actionType={modalAction === 'add' ? 'buy' : modalAction} // fallback
         shippingTerms={modalData?.shippingTerms || []}
         packingTypes={modalData?.product?.packing_types || []}
         containers={modalData?.product?.containers || []}
         paymentTerms={modalData?.paymentTerms || []}
+      />
+
+      <AddFavoriteProductModal 
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        productId={modalData?.product?.id || productSlugOrId}
+        categoryId={modalData?.product?.category?.id}
+        countryId={modalData?.product?.country?.id}
+        lang={lang}
+        common={common}
+        productName={modalData?.product?.name || productName}
+        countryName={modalData?.product?.country?.name || countryName}
+        shippingTerms={modalData?.shippingTerms || []}
+        containers={modalData?.product?.containers || []}
       />
 
       <ActionIndicationModal
