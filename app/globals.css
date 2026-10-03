@@ -325,14 +325,14 @@ i[class*="fa-"] {
 }
 
 html {
-  overflow-x: hidden; /* Prevent horizontal scroll from zoomed/overflowing content */
+  overflow-x: clip; /* Prevent horizontal scroll from zoomed/overflowing content without breaking sticky */
 }
 
 body {
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
   background-color: var(--background);
   color: var(--foreground);
-  overflow-x: hidden; /* Belt-and-suspenders: no horizontal scroll on body either */
+  overflow-x: clip; /* Belt-and-suspenders: no horizontal scroll on body either, preserves sticky */
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
