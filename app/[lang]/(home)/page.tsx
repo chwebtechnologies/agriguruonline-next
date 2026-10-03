@@ -15,6 +15,7 @@ import LatestInquiriesForSellerSection from '@/components/home/LatestInquiriesFo
 import { getAssetsUrl } from '@/lib/api-utils'
 import type { Metadata } from 'next'
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
+import WatchlistSection from '@/components/home/WatchlistSection'
 
 function OrganizationSchema() {
   const schema = {
@@ -341,6 +342,23 @@ export default async function LocalizedHomePage() {
           <div className="max-w-7xl mx-auto pt-3 pb-5">
             <HeroCarousel lang={activeLang} dict={dict} />
             
+            <section className="w-full pt-6 pb-2">
+              <div className="max-w-3xl mx-auto text-center px-4">
+                <div className="inline-block mb-4">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">
+                    {dict?.home?.watchlist_title || 'Market Watchlist'}
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1.5 bg-primary rounded-full"></span>
+                  </h2>
+                </div>
+                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed text-balance w-full max-w-4xl mx-auto line-clamp-2">
+                  {dict?.home?.watchlist_desc || 'Easily track FOB, CNF/CFR, and CIF product prices. Monitor live Ocean Port-to-Port freight rates to stay updated on global market trends effortlessly.'}
+                </p>
+              </div>
+              <Suspense fallback={<div className="w-full min-h-[300px] mt-5 flex flex-col gap-4 animate-pulse"><div className="flex gap-4 w-full h-14 bg-muted/30 rounded-xl"/><div className="w-full h-72 bg-muted/20 rounded-xl" /></div>}>
+                <WatchlistSection dict={dict} lang={activeLang} />
+              </Suspense>
+            </section>
+
             <Suspense fallback={<HomeFeedSkeleton />}>
               <HomeFeed activeLang={activeLang} dict={dict} />
             </Suspense>

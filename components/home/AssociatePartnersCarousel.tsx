@@ -18,12 +18,12 @@ export default function AssociatePartnersCarousel({
   return (
     <div className="w-full overflow-hidden py-6 group relative" dir="ltr" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 160px' }}>
       <style dangerouslySetInnerHTML={{__html: `
-        @keyframes marquee {
+        @keyframes marqueePartners {
           0% { transform: translateX(0%); }
           100% { transform: translateX(-50%); }
         }
         .animate-marquee {
-          animation: marquee 30s linear infinite;
+          animation: marqueePartners 30s linear infinite;
         }
         .animate-marquee:hover {
           animation-play-state: paused;
@@ -37,6 +37,7 @@ export default function AssociatePartnersCarousel({
       <div 
         ref={trackRef}
         className="flex w-[max-content] animate-marquee"
+        style={{ animationDuration: `${Math.max(partners.length * 5, 30)}s` }}
       >
         {duplicatedPartners.map((partner, index) => {
           const getImageUrl = (imagePath: string) => {

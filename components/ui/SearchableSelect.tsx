@@ -73,11 +73,11 @@ export function SearchableSelect({
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
       
-      if (spaceBelow < 280 && spaceAbove > spaceBelow) {
+      if (spaceBelow < 250 && spaceAbove > spaceBelow) {
         setComputedMenuPosition('top');
       } else {
         setComputedMenuPosition(menuPosition);
-        if (spaceBelow < 280) {
+        if (spaceBelow < 250) {
           wrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       }
@@ -219,7 +219,7 @@ export function SearchableSelect({
 
       {isOpen && isInteractive && (
         <div
-          className={`absolute z-50 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-2xl max-h-[300px] flex flex-col left-0 ${
+          className={`absolute z-50 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-2xl max-h-[240px] flex flex-col left-0 ${
             computedMenuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >

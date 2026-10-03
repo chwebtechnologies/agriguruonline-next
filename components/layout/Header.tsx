@@ -111,6 +111,7 @@ export default async function Header(props?: HeaderProps) {
     console.error('Error fetching initial search products:', error)
   }
 
+  let authState = null;
   try {
     const cookieStore = await import('next/headers').then(m => m.cookies());
     const userInfoCookie = cookieStore.get("user_info");
@@ -118,27 +119,27 @@ export default async function Header(props?: HeaderProps) {
 
     if (userInfoCookie || authTokenCookie) {
       const { getClientAuthData } = await import('@/app/actions/authData');
-      const authState = await getClientAuthData(activeLang);
-      
-      if (authState?.isAuthenticated && authState?.token) {
-        const HeaderAuth = (await import('./HeaderAuth')).HeaderAuth;
-        return (
-          <HeaderAuth
-            token={authState.token as string}
-            dict={dict}
-            activeLang={activeLang}
-            categories={categories}
-            profile={authState.userProfile}
-            alerts={authState.alertsData}
-            notifications={authState.notificationsData}
-            aiPredicts={authState.aiPredictsData}
-            initialSearchProducts={initialSearchProducts}
-          />
-        );
-      }
+      authState = await getClientAuthData(activeLang);
     }
   } catch (error) {
     // Graceful fallback during static build / prerendering
+  }
+
+  if (authState?.isAuthenticated && authState?.token) {
+    const HeaderAuth = (await import('./HeaderAuth')).HeaderAuth;
+    return (
+      <HeaderAuth
+        token={authState.token as string}
+        dict={dict}
+        activeLang={activeLang}
+        categories={categories}
+        profile={authState.userProfile}
+        alerts={authState.alertsData}
+        notifications={authState.notificationsData}
+        aiPredicts={authState.aiPredictsData}
+        initialSearchProducts={initialSearchProducts}
+      />
+    );
   }
 
   const HeaderGuest = (await import('./HeaderGuest')).HeaderGuest;

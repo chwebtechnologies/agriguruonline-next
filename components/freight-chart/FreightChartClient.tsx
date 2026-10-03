@@ -60,6 +60,7 @@ interface FreightChartClientProps {
   initialUserType?: string | null;
   lang?: string;
   common?: any;
+  isHomePage?: boolean;
 }
 
 export default function FreightChartClient({
@@ -67,7 +68,8 @@ export default function FreightChartClient({
   initialFavorites = [],
   initialUserType = null,
   lang = 'en',
-  common = {}
+  common = {},
+  isHomePage = false
 }: FreightChartClientProps) {
   const router = useRouter();
 
@@ -170,7 +172,20 @@ export default function FreightChartClient({
   const [actionIndication, setActionIndication] = useState<{ isOpen: boolean; message: string; indication: string } | null>(null);
   const [activeBottomSheetId, setActiveBottomSheetId] = useState<string | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [disclaimerPos, setDisclaimerPos] = useState<'top' | 'bottom'>('bottom');
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
+
+  const handleDisclaimerClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceNeeded = 180;
+    if (spaceBelow < spaceNeeded && rect.top > spaceNeeded) {
+      setDisclaimerPos('top');
+    } else {
+      setDisclaimerPos('bottom');
+    }
+    setShowDisclaimer(true);
+  };
 
   const gridCols = 'grid-cols-[1.2fr_1.4fr_1.4fr_0.9fr_1fr_0.9fr_0.7fr_1.3fr]';
 
@@ -454,268 +469,201 @@ export default function FreightChartClient({
                     {/* Col 1: Ship by (Step 1) */}
                     <div
                       onClick={() => document.getElementById('desktop-shipby-select')?.click()}
-                      className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden cursor-pointer ${
+                      className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden cursor-pointer transition-all ${
                         !selectedShipBy
-                          ? 'bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
-                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                          : 'bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                       }`}
                     >
-                      <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className={`fa-solid ${selectedShipBy ? 'fa-check text-emerald-500' : 'fa-arrow-up animate-bounce text-brand-blue'} text-[11px]`}></i>
-                        <span className={`text-[9.5px] font-bold uppercase tracking-wider ${!selectedShipBy ? 'text-blue-600 dark:text-blue-400' : ''}`}>
-                          {selectedShipBy ? 'Container' : '★ Step 1: Ship by'}
-                        </span>
+                      <div className="shrink-0 px-1 flex items-center justify-center">
+                        <i className={`fa-solid ${selectedShipBy ? 'fa-check text-brand-green dark:text-emerald-400' : 'fa-arrow-up animate-bounce text-brand-blue'} text-[18px]`}></i>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
-                        {selectedShipBy ? (shippingContainers.find(c => String(c.id) === String(selectedShipBy))?.title || 'Ship by') : 'Select Container'}
-                      </div>
-                      <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
-                        {selectedShipBy ? '✓ Selected' : '20FT / 40FT / Bulk'}
+                      <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
+                        <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedShipBy ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>
+                            Step 1: Container
+                          </span>
+                        </div>
+                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${selectedShipBy ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                          {selectedShipBy ? (shippingContainers.find(c => String(c.id) === String(selectedShipBy))?.title || 'Container') : 'Select Container'}
+                        </div>
                       </div>
                     </div>
 
                     {/* Col 2: Loading Port (Step 2) */}
                     <div
+                      title={!selectedShipBy ? "Please select Container first to unlock" : ""}
                       onClick={() => {
                         if (selectedShipBy) document.getElementById('desktop-pol-select')?.click();
                         else document.getElementById('desktop-shipby-select')?.click();
                       }}
-                      className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
+                      className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                         !selectedShipBy
-                          ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                          ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
                           : !selectedPOL
-                            ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
-                            : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                            ? 'cursor-pointer bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                            : 'cursor-pointer bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                       }`}
                     >
-                      <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className={`fa-solid ${selectedPOL ? 'fa-check text-emerald-500' : selectedShipBy ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider">Step 2: POL</span>
+                      <div className="shrink-0 px-1 flex items-center justify-center">
+                        <i className={`fa-solid ${selectedPOL ? 'fa-check text-brand-green dark:text-emerald-400' : selectedShipBy ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
-                        {selectedPOL ? (loadingPorts.find(p => String(p.id) === String(selectedPOL))?.name || 'Port') : 'Loading Port'}
-                      </div>
-                      <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
-                        {selectedPOL ? '✓ Selected' : 'Origin port'}
+                      <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
+                        <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedShipBy ? 'text-zinc-400' : !selectedPOL ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 2: POL</span>
+                        </div>
+                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedShipBy ? 'text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                          {selectedPOL ? (loadingPorts.find(p => String(p.id) === String(selectedPOL))?.name || 'Port') : 'Select Port'}
+                        </div>
                       </div>
                     </div>
 
                     {/* Col 3: Destination Port (Step 3) */}
                     <div
+                      title={!selectedPOL ? "Please select Loading Port first to unlock" : ""}
                       onClick={() => {
                         if (selectedPOL) document.getElementById('desktop-pod-select')?.click();
                         else if (selectedShipBy) document.getElementById('desktop-pol-select')?.click();
                         else document.getElementById('desktop-shipby-select')?.click();
                       }}
-                      className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
+                      className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                         !selectedPOL
-                          ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
+                          ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
                           : !selectedPOD
-                            ? 'cursor-pointer bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
-                            : 'cursor-pointer bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                            ? 'cursor-pointer bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                            : 'cursor-pointer bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                       }`}
                     >
-                      <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className={`fa-solid ${selectedPOD ? 'fa-check text-emerald-500' : selectedPOL ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-arrow-up text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider">Step 3: POD</span>
+                      <div className="shrink-0 px-1 flex items-center justify-center">
+                        <i className={`fa-solid ${selectedPOD ? 'fa-check text-brand-green dark:text-emerald-400' : selectedPOL ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
-                        {selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'Destination') : 'Destination Port'}
-                      </div>
-                      <div className="text-[9.5px] text-foreground/75 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
-                        {selectedPOD ? '✓ Selected' : 'Discharge port'}
+                      <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
+                        <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedPOL ? 'text-zinc-400' : !selectedPOD ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 3: POD</span>
+                        </div>
+                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedPOL ? 'text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                          {selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'Destination') : 'Destination Port'}
+                        </div>
                       </div>
                     </div>
 
                     {/* Col 4: Freight Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className="fa-solid fa-dollar-sign text-emerald-500/80 text-[11px]"></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Total</span>
+                        <i className="fa-solid fa-dollar-sign text-zinc-400 text-[11px]"></i>
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500">Total</span>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
+                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-600 dark:text-zinc-400">
                         Freight
                       </div>
-                      <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         Total rate
                       </div>
                     </div>
 
                     {/* Col 5: Freight (PMT) Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className="fa-solid fa-scale-balanced text-emerald-500/80 text-[11px]"></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">PMT</span>
+                        <i className="fa-solid fa-scale-balanced text-zinc-400 text-[11px]"></i>
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500">PMT</span>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
+                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-600 dark:text-zinc-400">
                         Freight (PMT)
                       </div>
-                      <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         Per MT rate
                       </div>
                     </div>
 
                     {/* Col 6: Change Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className="fa-solid fa-arrow-trend-up text-blue-500/80 text-[11px]"></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Trend</span>
+                        <i className="fa-solid fa-arrow-trend-up text-zinc-400 text-[11px]"></i>
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500">Trend</span>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
+                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-600 dark:text-zinc-400">
                         Change
                       </div>
-                      <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         Daily shift
                       </div>
                     </div>
 
                     {/* Col 7: Chart Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-border bg-foreground/[0.02] text-foreground/75 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                      <i className="fa-solid fa-chart-area text-brand-blue/80 text-[11px]"></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-foreground/40">Chart</span>
+                      <i className="fa-solid fa-chart-area text-zinc-400 text-[11px]"></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500">Chart</span>
                     </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
+                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-600 dark:text-zinc-400">
                         Chart
                       </div>
-                      <div className="text-[9.5px] text-foreground/40 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         Rate history
                       </div>
                     </div>
 
                     {/* Col 8: Final Step - Add Freight Button Pointer */}
                     <div
+                      title={!isAddFreightEnabled ? "Please complete all steps to unlock" : ""}
                       onClick={() => {
                         if (isAddFreightEnabled) handleAddFreight();
                       }}
-                      className={`group h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border select-none w-full min-w-0 overflow-hidden ${
+                      className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                         !isAddFreightEnabled
-                          ? 'opacity-40 cursor-not-allowed bg-zinc-100/50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600'
-                          : 'cursor-pointer bg-primary-gradient text-white border-transparent shadow-md hover:shadow-lg ring-2 ring-emerald-500/40 active:scale-[0.98]'
+                          ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                          : 'cursor-pointer bg-primary-gradient text-white border-none shadow-md hover:shadow-lg active:scale-[0.98]'
                       }`}
                     >
-                      <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className={`fa-solid fa-arrow-up ${isAddFreightEnabled ? 'animate-bounce text-white' : 'text-zinc-300 dark:text-zinc-700'} text-[11px]`}></i>
-                        <span className={`text-[9.5px] font-bold uppercase tracking-wider ${isAddFreightEnabled ? 'text-white' : ''}`}>Final</span>
+                      <div className="shrink-0 px-1 flex items-center justify-center">
+                        <i className={`fa-solid ${isAddFreightEnabled ? 'fa-arrow-up animate-bounce text-white' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
                       </div>
-                      <div className={`font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight ${isAddFreightEnabled ? 'text-white' : 'text-foreground/80'}`}>
-                        Add Freight
-                      </div>
-                      <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${isAddFreightEnabled ? 'text-white/90 font-medium' : 'text-foreground/75'}`}>
-                        {isAddFreightEnabled ? 'Ready! Click here' : 'Complete 3 steps'}
+                      <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
+                        <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${isAddFreightEnabled ? 'text-white' : 'text-zinc-400'}`}>Final</span>
+                        </div>
+                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${isAddFreightEnabled ? 'text-white' : 'text-zinc-400'}`}>
+                          Add Freight
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Visual Tutorial Showcase Card */}
-                  <div className="bg-card rounded-2xl p-5 shadow-sm border border-border ">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-100 dark:border-zinc-800/80">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-brand-blue flex items-center justify-center text-lg shadow-sm border border-blue-100 dark:border-blue-900/40">
-                          <i className="fa-solid fa-ship"></i>
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                            <span>How to Track Global Freight Rates</span>
-                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">Quick Guide</span>
-                          </h3>
-                          <p className="text-xs text-foreground/75 mt-0.5">
-                            Select container type, origin port of loading, and destination port to monitor live shipping costs.
-                          </p>
-                        </div>
+                  <div className="bg-card rounded-xl p-4 shadow-sm border border-border flex flex-col md:flex-row items-center justify-between gap-4 mt-2">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 shrink-0 rounded-full bg-blue-500/10 text-brand-blue flex items-center justify-center text-xl">
+                        <i className="fa-solid fa-ship"></i>
                       </div>
-
-                      {/* Progress pill */}
-                      <div className="flex items-center gap-2 self-start md:self-auto bg-background px-3 py-1.5 rounded-lg border border-border">
-                        <i className="fa-solid fa-layer-group text-xs text-brand-blue"></i>
-                        <span className="text-xs font-semibold text-foreground/80">
-                          {isAddFreightEnabled
-                            ? 'All 3 options selected! Ready to add 🚀'
-                            : !selectedShipBy
-                              ? 'Step 1: Pick Container (20FT / 40FT / Bulk)'
-                              : !selectedPOL
-                                ? 'Step 2: Pick Loading Port'
-                                : 'Step 3: Pick Destination Port'}
-                        </span>
+                      <div>
+                        <h3 className="font-bold text-[15px] text-zinc-900 dark:text-zinc-100 mb-1">
+                          Track Global Freight Rates
+                        </h3>
+                        <p className="text-[13px] text-foreground/75 leading-relaxed max-w-3xl">
+                          Select container type, origin port of loading, and destination port to monitor live shipping costs and historical trends. Stay ahead of market fluctuations!
+                        </p>
                       </div>
                     </div>
-
-                    {/* 3 Tutorial Feature Columns */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Step 1 */}
-                      <div
-                        onClick={() => document.getElementById('desktop-shipby-select')?.click()}
-                        className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-blue-500/10 border border-border hover:border-blue-400/50 cursor-pointer group"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
-                            1
-                          </div>
-                          <span className="text-[11px] text-brand-blue font-semibold group-hover:underline flex items-center gap-1">
-                            <span>Pick Container</span> <i className="fa-solid fa-arrow-right text-[9px]"></i>
-                          </span>
-                        </div>
-                        <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
-                          1. Choose Container Type
-                        </h4>
-                        <p className="text-[11px] text-foreground/75 leading-relaxed">
-                          Select <strong>20FT FCL</strong>, <strong>40FT FCL</strong>, or <strong>Vessel/Bulk</strong> shipping modes.
-                        </p>
-                      </div>
-
-                      {/* Step 2 */}
-                      <div
-                        onClick={() => {
-                          if (selectedShipBy) document.getElementById('desktop-pol-select')?.click();
-                          else document.getElementById('desktop-shipby-select')?.click();
-                        }}
-                        className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-blue-500/10 border border-border hover:border-blue-400/50 cursor-pointer group"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-brand-blue flex items-center justify-center font-bold text-xs">
-                            2
-                          </div>
-                          <span className="text-[11px] text-brand-blue font-semibold group-hover:underline flex items-center gap-1">
-                            <span>Pick Ports</span> <i className="fa-solid fa-arrow-right text-[9px]"></i>
-                          </span>
-                        </div>
-                        <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
-                          2. Origin & Destination Ports
-                        </h4>
-                        <p className="text-[11px] text-foreground/75 leading-relaxed">
-                          Choose the <strong>Loading Port</strong> (POL) and the <strong>Destination Port</strong> (POD).
-                        </p>
-                      </div>
-
-                      {/* Step 3 */}
-                      <div
-                        onClick={() => {
-                          if (isAddFreightEnabled) handleAddFreight();
-                        }}
-                        className="p-3.5 rounded-xl bg-foreground/[0.02] hover:bg-emerald-500/10 border border-border hover:border-emerald-400/50 cursor-pointer group"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
-                            3
-                          </div>
-                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold group-hover:underline flex items-center gap-1">
-                            <span>Add & Book</span> <i className="fa-solid fa-arrow-right text-[9px]"></i>
-                          </span>
-                        </div>
-                        <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-1">
-                          3. Track PMT & Instant Booking
-                        </h4>
-                        <p className="text-[11px] text-foreground/75 leading-relaxed">
-                          Click <strong>Add Freight</strong> to monitor real-time freight trends, PMT breakdowns, and book containers.
-                        </p>
-                      </div>
+                    
+                    {/* Progress pill */}
+                    <div className="flex items-center gap-2 shrink-0 bg-background px-3.5 py-2 rounded-lg border border-border">
+                      <i className="fa-solid fa-layer-group text-sm text-brand-blue"></i>
+                      <span className="text-sm font-semibold text-foreground/80">
+                        {isAddFreightEnabled
+                          ? 'Ready to add 🚀'
+                          : !selectedShipBy
+                            ? 'Select Container'
+                            : !selectedPOL
+                              ? 'Select Loading Port'
+                              : 'Select Destination Port'}
+                      </span>
                     </div>
                   </div>
                 </div>
               </>
             ) : (
               <div className="flex flex-col gap-[7px] lg:gap-2 mt-0.5 lg:mt-1">
-                {addedFreights.map((item, index) => {
+                {(isHomePage ? addedFreights.slice(0, 4) : addedFreights).map((item, index) => {
                   const changeVal = Number(item.change) || 0;
                   const isPositive = changeVal >= 0;
                   const desktopRowBg = 'bg-card hover:bg-muted';
@@ -836,29 +784,39 @@ export default function FreightChartClient({
           </div>
         </div>
 
-        {/* Global Actions Bar for Mobile/Tablet - Sticky matching Product Charts */}
-        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 lg:hidden items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto">
+        {/* Global Actions Bar - Sticky on Mobile, Static on Desktop */}
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto md:flex md:justify-between lg:static lg:bottom-auto lg:bg-transparent lg:border-none lg:shadow-none lg:px-0 lg:mx-0 lg:mt-4">
           <button
             type="button"
             onClick={handleBooking}
-            className="w-full h-[42px] bg-card hover:bg-muted border border-border text-foreground font-semibold rounded-lg text-[13px] sm:text-[14px] shadow-sm whitespace-nowrap"
+            className="w-full md:w-auto inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
           >
-            Inquiry / Booking
+            Inquiry / Booking <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
           </button>
           
-          <div className="relative flex items-center justify-center px-2">
+          <div className="relative flex items-center justify-center gap-4 px-2">
             <button
               type="button"
-              onClick={() => setShowDisclaimer(true)}
-              className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100  flex items-center justify-center cursor-pointer"
+              onClick={handleDisclaimerClick}
+              className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100 flex items-center justify-center cursor-pointer"
               aria-label="Market Rate Disclaimer"
             >
               <i className="fa-solid fa-triangle-exclamation text-[22px]"></i>
             </button>
 
+            {/* View All Button - Desktop Only */}
+            {isHomePage && addedFreights.length > 4 && (
+              <button 
+                onClick={() => router.push(`/${lang}/freight-charts`)}
+                className="hidden xl:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
+              >
+                View All
+              </button>
+            )}
+
             {showDisclaimer && (
-              <div className="absolute bottom-[calc(100%+12px)] z-50 w-[280px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95 ">
-                <div className="absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card border-b border-r border-brand-blue transform rotate-45"></div>
+              <div className={`absolute ${disclaimerPos === 'top' ? 'bottom-[calc(100%+12px)] lg:mb-2' : 'top-[calc(100%+12px)] lg:mt-2'} z-50 w-[280px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95`}>
+                <div className={`absolute ${disclaimerPos === 'top' ? '-bottom-[7px]' : '-top-[7px]'} left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card ${disclaimerPos === 'top' ? 'border-b border-r' : 'border-t border-l'} border-brand-blue transform rotate-45`}></div>
                 <h3 className="text-foreground text-center font-semibold text-[16px] mb-2">Standard Market Freight</h3>
                 <p className="text-foreground/80 text-[13px] leading-relaxed text-justify mb-3">
                   The displayed ocean freight rates reflect standard indicative rates and are subject to final reconfirmation as per AgriGuru’s shipping terms and container availability.
@@ -867,7 +825,7 @@ export default function FreightChartClient({
                   <button
                     type="button"
                     onClick={() => setShowDisclaimer(false)}
-                    className="text-brand-blue font-bold text-[14px] hover:text-blue-500  cursor-pointer"
+                    className="text-brand-blue font-bold text-[14px] hover:text-blue-500 cursor-pointer"
                   >
                     Got it
                   </button>
@@ -876,12 +834,17 @@ export default function FreightChartClient({
             )}
           </div>
 
+          {/* Right Action (Add Freight) - Mobile Only */}
           <ChartAddButton
             onClick={() => setShowMobileAddForm(true)}
             label="Add Freight"
             variant="mobile-sticky"
-            className="!max-w-none !w-full h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
+            className="lg:hidden !max-w-none !w-full md:!w-auto h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
           />
+          {/* Empty Placeholder for Desktop to keep Warning centered */}
+          <div className="hidden lg:inline-flex px-4 py-2 sm:px-5 sm:py-2.5 invisible pointer-events-none select-none" aria-hidden="true">
+            Inquiry / Booking <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+          </div>
         </div>
       </div>
 

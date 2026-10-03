@@ -56,7 +56,10 @@ export default function LatestOffersForBuyerSection({
             <div className="absolute top-0 left-0 w-full h-12 sm:h-16 z-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(to bottom, var(--ag-card-bg) 0%, transparent 100%)' }}></div>
             
             <div className="flex-1 w-full relative overflow-hidden">
-              <div className="animate-marquee-vertical flex flex-col gap-4 absolute top-0 left-0 w-full h-max">
+              <div 
+                className="animate-marquee-vertical flex flex-col gap-4 absolute top-0 left-0 w-full h-max"
+                style={{ animationDuration: `${Math.max(offers.length * 6, 25)}s` }}
+              >
                 {/* Double the list for seamless looping */}
                 {[...offers, ...offers].map((offer, idx) => (
                   <OfferCard 
