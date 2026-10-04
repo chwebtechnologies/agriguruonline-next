@@ -16,6 +16,7 @@ import { getAssetsUrl } from '@/lib/api-utils'
 import type { Metadata } from 'next'
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
 import WatchlistSection from '@/components/home/WatchlistSection'
+import WatchlistScrollHandler from '@/components/home/WatchlistScrollHandler'
 
 function OrganizationSchema() {
   const schema = {
@@ -342,7 +343,8 @@ export default async function LocalizedHomePage() {
           <div className="max-w-7xl mx-auto pt-3 pb-5">
             <HeroCarousel lang={activeLang} dict={dict} />
             
-            <section className="w-full pt-6 pb-2">
+            <section id="market-watchlist" className="w-full pt-6 pb-2 scroll-mt-20 md:scroll-mt-24">
+              <WatchlistScrollHandler />
               <div className="max-w-3xl mx-auto text-center px-4">
                 <div className="inline-block mb-4">
                   <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-foreground relative pb-3">

@@ -6,7 +6,7 @@ import { ProductInquiryModal } from './ProductInquiryModal';
 import { useRouter } from 'next/navigation';
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
-import { getProductDetailsAction, getShippingContainersAction } from '@/app/actions/charts';
+import { getProductDetailsAction, getShippingContainersAction, getShippingTermsAction } from '@/app/actions/charts';
 import { AddFavoriteProductModal } from './AddFavoriteProductModal';
 
 interface ProductActionButtonsProps {
@@ -120,18 +120,18 @@ export function ProductActionButtons({
       let termsResponse;
       let paymentTermsResponse;
 
-      if (!activeUser && action === 'add') {
-        // Fetch unauthenticated product data for Add to Favorites
-        [productResponse] = await Promise.all([
-          getProductDetailsAction(productSlugOrId, lang)
+      if (action === 'add') {
+        const [prodRes, termsRes] = await Promise.all([
+          getProductDetailsAction(productSlugOrId, lang),
+          getShippingTermsAction(lang)
         ]);
-        // Note: For unauthenticated, we don't have shipping terms readily available without a token through fetchShippingTerms,
-        // but getProductDetailsAction returns the product which has containers. We will rely on product containers.
+        productResponse = prodRes;
+        termsResponse = termsRes;
       } else {
         [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
           fetchProductDetails(productSlugOrId, lang),
           fetchShippingTerms(lang),
-          action !== 'add' ? fetchPaymentTerms(lang) : Promise.resolve(null)
+          fetchPaymentTerms(lang)
         ]);
       }
       
@@ -141,7 +141,7 @@ export function ProductActionButtons({
         combinedData.product = productResponse.data;
       }
       if (termsResponse && termsResponse.success) {
-        combinedData.shippingTerms = termsResponse.data?.shipping_term || [];
+        combinedData.shippingTerms = termsResponse.data?.shipping_term || termsResponse.data || [];
       }
       if (paymentTermsResponse && paymentTermsResponse.success) {
         combinedData.paymentTerms = paymentTermsResponse.data?.payment_term || [];

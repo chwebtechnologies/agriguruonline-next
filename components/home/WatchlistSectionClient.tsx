@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { getWatchlistFreightAction } from '@/app/actions/watchlist';
 import ProductChartsClient from '@/components/product-charts/ProductChartsClient';
 import FreightChartClient from '@/components/freight-chart/FreightChartClient';
+import { WATCHLIST_SCROLL_KEY, WATCHLIST_SCROLL_EVENT, WATCHLIST_REFRESH_EVENT } from '@/lib/watchlist-utils';
 
 interface WatchlistSectionClientProps {
   dict?: any;
@@ -16,6 +17,33 @@ export default function WatchlistSectionClient({ dict, lang = 'en', initialProdu
   
   const [freightData, setFreightData] = useState<any>(null);
   const [isFreightLoading, setIsFreightLoading] = useState(false);
+
+  useEffect(() => {
+    const handleSwitchToProducts = () => {
+      setActiveTab('products');
+    };
+
+    if (typeof window !== 'undefined') {
+      try {
+        if (
+          window.location.hash === '#market-watchlist' || 
+          sessionStorage.getItem(WATCHLIST_SCROLL_KEY) === 'true'
+        ) {
+          setActiveTab('products');
+        }
+      } catch {}
+    }
+
+    window.addEventListener(WATCHLIST_SCROLL_EVENT, handleSwitchToProducts);
+    window.addEventListener(WATCHLIST_REFRESH_EVENT, handleSwitchToProducts);
+    window.addEventListener('hashchange', handleSwitchToProducts);
+
+    return () => {
+      window.removeEventListener(WATCHLIST_SCROLL_EVENT, handleSwitchToProducts);
+      window.removeEventListener(WATCHLIST_REFRESH_EVENT, handleSwitchToProducts);
+      window.removeEventListener('hashchange', handleSwitchToProducts);
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;

@@ -170,6 +170,10 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       // Move to previous input on backspace if empty
       inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
@@ -181,7 +185,7 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
   };
 
   return (
-    <div className="w-full max-w-md mx-auto mt-[5px] p-5 sm:p-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">
+    <div className="w-full max-w-md mx-auto mt-[5px] px-3.5 sm:px-6 py-5 sm:py-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">
       <p className="text-sm text-foreground/80 mb-2 text-center">
         We sent a verification code to
       </p>
@@ -191,7 +195,7 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
 
       <form onSubmit={handleSubmit} className="w-full">
         <div 
-          className={`flex justify-between gap-2 ${error ? "mb-2" : "mb-8"} ${(countdown === 0 || isExpired) ? "cursor-not-allowed" : ""}`}
+          className={`flex justify-between items-center gap-1.5 sm:gap-2.5 w-full max-w-[360px] mx-auto ${error ? "mb-2" : "mb-8"} ${(countdown === 0 || isExpired) ? "cursor-not-allowed" : ""}`}
           title={(countdown === 0 || isExpired) ? "Time expired. Please resend OTP to continue." : undefined}
         >
           {otp.map((digit, index) => (
@@ -207,10 +211,11 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
               maxLength={1}
               value={digit}
               disabled={isPending || countdown === 0 || isExpired}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
-              className={`w-12 h-14 text-center text-xl font-bold rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 transition-all disabled:opacity-50 ${
+              className={`flex-1 min-w-0 max-w-[48px] h-12 sm:h-14 p-0 text-center text-lg sm:text-xl font-bold rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 transition-all disabled:opacity-50 ${
                 error
                   ? "border-red-500 focus:ring-red-500/50 text-red-500"
                   : "border-foreground/20 focus:ring-foreground/50"

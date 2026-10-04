@@ -17,6 +17,7 @@ import { FlagIcon } from '@/components/ui/FlagIcon';
 import { ProductInquiryModal } from '@/components/marketed-products/ProductInquiryModal';
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
+import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist } from '@/lib/watchlist-utils';
 
 
 
@@ -333,81 +334,102 @@ export default function ProductChartsClient({
   const [addedProducts, setAddedProducts] = useState<FavoriteItem[]>(initialFavorites);
   const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(true);
 
-  useEffect(() => {
-    let isMounted = true;
-    
-    if (isHomePage) {
-      setAddedProducts(initialFavorites);
-      setIsFetchingFavorites(false);
-      return;
-    }
-
-    const fetchLatestFavorites = async () => {
-      try {
-        setIsFetchingFavorites(true);
-        const favsRes = await getFavoriteProductsAction(lang);
-        if (!isMounted) return;
-        if (favsRes.success && Array.isArray(favsRes.data)) {
-          const isChart = (val: any) => {
-            if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
-            return true;
+  const fetchLatestFavorites = useCallback(async () => {
+    try {
+      setIsFetchingFavorites(true);
+      const favsRes = await getFavoriteProductsAction(lang);
+      if (favsRes.success && Array.isArray(favsRes.data)) {
+        const isChart = (val: any) => {
+          if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
+          return true;
+        };
+        const getTitle = (obj: any, fallback = 'N/A') => {
+          if (!obj) return fallback;
+          if (typeof obj === 'string') return obj;
+          return obj.name || obj.title || obj.label || fallback;
+        };
+        const getFlag = (obj: any) => {
+          if (!obj) return '';
+          if (typeof obj === 'string') return obj;
+          return obj.flag || obj.country?.flag || '';
+        };
+        const mapped: FavoriteItem[] = favsRes.data.map((item: any) => {
+          const prodName = getTitle(item.product) !== 'N/A' ? getTitle(item.product) : (item.product_name || item.name || 'N/A');
+          const catName = getTitle(item.category) !== 'N/A' ? getTitle(item.category) : (item.category_name || 'N/A');
+          const countryName = getTitle(item.country) !== 'N/A' ? getTitle(item.country) : (item.country_name || 'N/A');
+          const countryFlag = getFlag(item.country) || item.country_flag || item.flag || '';
+          const shipBy = getTitle(item.shipping_container) !== 'N/A' ? getTitle(item.shipping_container) : (getTitle(item.shippingContainer) !== 'N/A' ? getTitle(item.shippingContainer) : (item.ship_by || item.shipBy || 'N/A'));
+          const term = getTitle(item.shipping_term) !== 'N/A' ? getTitle(item.shipping_term) : (getTitle(item.shippingTerm) !== 'N/A' ? getTitle(item.shippingTerm) : (item.term || 'N/A'));
+          const pol = getTitle(item.loading_port) !== 'N/A' ? getTitle(item.loading_port) : (getTitle(item.loadingPort) !== 'N/A' ? getTitle(item.loadingPort) : (item.pol || 'N/A'));
+          const polFlag = getFlag(item.loading_port) || getFlag(item.loadingPort) || item.pol_flag || '';
+          const pod = getTitle(item.destination_port) !== 'N/A' ? getTitle(item.destination_port) : (getTitle(item.destinationPort) !== 'N/A' ? getTitle(item.destinationPort) : (item.pod || 'N/A'));
+          const podFlag = getFlag(item.destination_port) || getFlag(item.destinationPort) || item.pod_flag || '';
+          const price = (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString();
+          const change = (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString();
+          return {
+            id: item.id || Date.now(),
+            category: catName,
+            country: countryName,
+            countryFlag,
+            product: prodName,
+            productId: item.product?.id || item.product_id || '',
+            shipBy,
+            shipById: item.shipping_container?.id || item.shippingContainer?.id || item.shipping_container_id || '',
+            term,
+            termId: item.shipping_term?.id || item.shippingTerm?.id || item.shipping_term_id || '',
+            pol,
+            polId: item.loading_port?.id || item.loadingPort?.id || item.loading_port_id || '',
+            polFlag,
+            pod,
+            podId: item.destination_port?.id || item.destinationPort?.id || item.destination_port_id || '',
+            podFlag,
+            price,
+            change,
+            chartStatus: isChart(item.chart_status) && isChart(item.chartStatus) && isChart(item.product?.chart_status)
           };
-          const getTitle = (obj: any, fallback = 'N/A') => {
-            if (!obj) return fallback;
-            if (typeof obj === 'string') return obj;
-            return obj.name || obj.title || obj.label || fallback;
-          };
-          const getFlag = (obj: any) => {
-            if (!obj) return '';
-            if (typeof obj === 'string') return obj;
-            return obj.flag || obj.country?.flag || '';
-          };
-          const mapped: FavoriteItem[] = favsRes.data.map((item: any) => {
-            const prodName = getTitle(item.product) !== 'N/A' ? getTitle(item.product) : (item.product_name || item.name || 'N/A');
-            const catName = getTitle(item.category) !== 'N/A' ? getTitle(item.category) : (item.category_name || 'N/A');
-            const countryName = getTitle(item.country) !== 'N/A' ? getTitle(item.country) : (item.country_name || 'N/A');
-            const countryFlag = getFlag(item.country) || item.country_flag || item.flag || '';
-            const shipBy = getTitle(item.shipping_container) !== 'N/A' ? getTitle(item.shipping_container) : (getTitle(item.shippingContainer) !== 'N/A' ? getTitle(item.shippingContainer) : (item.ship_by || item.shipBy || 'N/A'));
-            const term = getTitle(item.shipping_term) !== 'N/A' ? getTitle(item.shipping_term) : (getTitle(item.shippingTerm) !== 'N/A' ? getTitle(item.shippingTerm) : (item.term || 'N/A'));
-            const pol = getTitle(item.loading_port) !== 'N/A' ? getTitle(item.loading_port) : (getTitle(item.loadingPort) !== 'N/A' ? getTitle(item.loadingPort) : (item.pol || 'N/A'));
-            const polFlag = getFlag(item.loading_port) || getFlag(item.loadingPort) || item.pol_flag || '';
-            const pod = getTitle(item.destination_port) !== 'N/A' ? getTitle(item.destination_port) : (getTitle(item.destinationPort) !== 'N/A' ? getTitle(item.destinationPort) : (item.pod || 'N/A'));
-            const podFlag = getFlag(item.destination_port) || getFlag(item.destinationPort) || item.pod_flag || '';
-            const price = (item.price != null ? Math.round(Number(item.price)) : (item.current_price != null ? Math.round(Number(item.current_price)) : 0)).toString();
-            const change = (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString();
-            return {
-              id: item.id || Date.now(),
-              category: catName,
-              country: countryName,
-              countryFlag,
-              product: prodName,
-              productId: item.product?.id || item.product_id || '',
-              shipBy,
-              shipById: item.shipping_container?.id || item.shippingContainer?.id || item.shipping_container_id || '',
-              term,
-              termId: item.shipping_term?.id || item.shippingTerm?.id || item.shipping_term_id || '',
-              pol,
-              polId: item.loading_port?.id || item.loadingPort?.id || item.loading_port_id || '',
-              polFlag,
-              pod,
-              podId: item.destination_port?.id || item.destinationPort?.id || item.destination_port_id || '',
-              podFlag,
-              price,
-              change,
-              chartStatus: isChart(item.chart_status) && isChart(item.chartStatus) && isChart(item.product?.chart_status)
-            };
-          });
-          setAddedProducts(mapped);
-        }
-      } catch (err) {
-        console.error("Failed to fetch latest favorites on mount", err);
-      } finally {
-        if (isMounted) setIsFetchingFavorites(false);
+        });
+        setAddedProducts(mapped);
       }
+    } catch (err) {
+      console.error("Failed to fetch latest favorites", err);
+    } finally {
+      setIsFetchingFavorites(false);
+    }
+  }, [lang]);
+
+  useEffect(() => {
+    if (isHomePage) {
+      let cameFromAdd = false;
+      if (typeof window !== 'undefined') {
+        try {
+          if (sessionStorage.getItem(WATCHLIST_SCROLL_KEY) === 'true') {
+            cameFromAdd = true;
+          }
+        } catch {}
+      }
+
+      if (cameFromAdd) {
+        fetchLatestFavorites();
+      } else {
+        setAddedProducts(initialFavorites);
+        setIsFetchingFavorites(false);
+      }
+    } else {
+      fetchLatestFavorites();
+    }
+  }, [lang, isHomePage, initialFavorites, fetchLatestFavorites]);
+
+  // Listen for watchlist refresh event (dispatched when user adds a product from modal)
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchLatestFavorites();
     };
-    fetchLatestFavorites();
-    return () => { isMounted = false; };
-  }, [lang, isHomePage, initialFavorites]);
+
+    window.addEventListener(WATCHLIST_REFRESH_EVENT, handleRefresh);
+    return () => {
+      window.removeEventListener(WATCHLIST_REFRESH_EVENT, handleRefresh);
+    };
+  }, [fetchLatestFavorites]);
 
   useEffect(() => {
     if (!isFetchingFavorites && addedProducts.length === 0 && initialFavorites.length > 0) {
@@ -783,6 +805,11 @@ export default function ProductChartsClient({
         setDestinationPorts([]);
         
         toast.success("Product added successfully!");
+        if (isHomePage) {
+          setTimeout(() => {
+            scrollToMarketWatchlist({ smooth: true });
+          }, 100);
+        }
       } else {
         console.error('Failed to add product:', result.error);
         if (result.response_indication) {

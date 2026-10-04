@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface SearchableSelectOption {
   id: string;
@@ -41,7 +41,7 @@ export function SearchableSelect({
   triggerClassName = '',
   customTriggerClass,
   tabIndex = 0,
-  autoOpen = false
+  autoOpen = false,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -62,27 +62,34 @@ export function SearchableSelect({
   useEffect(() => {
     if (autoOpen && !disabled && !loading) {
       setIsOpen(true);
-    } else if (disabled) {
+    } else if (autoOpen && disabled) {
       setIsOpen(false);
     }
   }, [autoOpen, disabled, loading]);
 
   useEffect(() => {
     if (isOpen && wrapperRef.current) {
-      const rect = wrapperRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      
-      if (spaceBelow < 250 && spaceAbove > spaceBelow) {
-        setComputedMenuPosition('top');
+      if (variant === 'mobile') {
+        setComputedMenuPosition('bottom');
+        setTimeout(() => {
+          wrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 60);
       } else {
-        setComputedMenuPosition(menuPosition);
-        if (spaceBelow < 250) {
-          wrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const rect = wrapperRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        
+        if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+          setComputedMenuPosition('top');
+        } else {
+          setComputedMenuPosition(menuPosition);
+          if (spaceBelow < 250) {
+            wrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
         }
       }
     }
-  }, [isOpen, menuPosition]);
+  }, [isOpen, menuPosition, variant]);
 
   const safeOptions = Array.isArray(options) ? options : [];
   const selectedOption = safeOptions.find(o => String(o.id) === String(value));
@@ -99,8 +106,15 @@ export function SearchableSelect({
   });
 
   useEffect(() => {
+    if (isOpen) {
+      setSearch('');
+    }
     setFocusedIndex(-1);
-  }, [search, isOpen]);
+  }, [isOpen]);
+
+  useEffect(() => {
+    setFocusedIndex(-1);
+  }, [search]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -223,22 +237,24 @@ export function SearchableSelect({
             computedMenuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >
-          <div className="p-2 shrink-0 border-b border-border bg-muted/50 rounded-t-xl">
-            <div className="relative">
-              <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
-              <input
-                type="text"
-                aria-label="Search options"
-                className="w-full bg-card border border-border rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue text-foreground transition-all placeholder:text-foreground/40"
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={handleKeyDown}
-                autoFocus
-              />
+          {safeOptions.length > 5 && (
+            <div className="p-2 shrink-0 border-b border-border bg-muted/50 rounded-t-xl">
+              <div className="relative">
+                <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs"></i>
+                <input
+                  type="text"
+                  aria-label="Search options"
+                  className="w-full bg-card border border-border rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue text-foreground transition-all placeholder:text-foreground/40"
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={handleKeyDown}
+                  autoFocus={variant !== 'mobile'}
+                />
+              </div>
             </div>
-          </div>
+          )}
           <div className="p-1.5 overflow-y-auto">
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-4 text-sm text-zinc-500 text-center font-medium">

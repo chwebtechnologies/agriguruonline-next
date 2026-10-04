@@ -92,6 +92,46 @@ export async function getDestinationPortsAction(
 }
 
 /**
+ * Fetch all active products on server side (for dropdowns)
+ */
+export async function getAllProductsAction(
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    const safeLang = getSafeLang(lang);
+    const rawProducts = await tradingService.getAllProducts(safeLang);
+    const products = (rawProducts || []).map((p: any) => ({
+      id: p.id || '',
+      name: p.name || '',
+      category: p.category ? { id: p.category.id || '', name: p.category.name || '' } : { id: '', name: '' },
+      country: p.country ? { id: p.country.id || '', name: p.country.name || '', flag: p.country.flag || '', iso2: p.country.iso2 || '' } : { id: '', name: '', flag: '', iso2: '' },
+      chart_status: p.chart_status
+    }));
+    return { success: true, data: products };
+  } catch (err: any) {
+    console.error("getAllProductsAction error:", err);
+    return { success: false, error: err.message, data: [] };
+  }
+}
+
+/**
+ * Fetch shipping terms on server side
+ */
+export async function getShippingTermsAction(
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  try {
+    const safeLang = getSafeLang(lang);
+    const rawTerms = await tradingService.getShippingTerms(safeLang);
+    const terms = Array.isArray(rawTerms) ? rawTerms : ((rawTerms as any)?.data?.shipping_term || []);
+    return { success: true, data: terms.map((t: any) => ({ id: t.id || '', title: t.title || t.name || '' })) };
+  } catch (err: any) {
+    console.error("getShippingTermsAction error:", err);
+    return { success: false, error: err.message, data: [] };
+  }
+}
+
+/**
  * Add favorite product on server side
  */
 export async function addFavoriteProductAction(
