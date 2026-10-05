@@ -71,6 +71,12 @@ export const authService = {
    * Terminate active backend session.
    */
   logout: async (token?: string): Promise<void> => {
+    try {
+      const { invalidateUserAuthCache } = await import('./user.service');
+      invalidateUserAuthCache(token);
+    } catch (e) {
+      // Ignore dynamic import failure if any
+    }
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/logout`;
     try {

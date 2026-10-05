@@ -17,6 +17,9 @@ import { withTimeout } from '@/lib/api-utils';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
 ): Promise<Metadata> {

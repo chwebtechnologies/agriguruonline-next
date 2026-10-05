@@ -2,7 +2,7 @@
 
 import disposableDomains from "disposable-email-domains";
 import { cookies } from "next/headers";
-import { authService, userService } from "@/lib/api";
+import { authService, userService, invalidateUserAuthCache } from "@/lib/api";
 import { getUserApiUrl } from "@/lib/api-utils";
 
 export async function validateEmailDomain(email: string): Promise<{ isValid: boolean; error?: string }> {
@@ -23,6 +23,13 @@ export async function createSession(accessToken: string, refreshToken: string | 
   // In Next.js 15, cookies() must be awaited
   const cookieStore = await cookies();
   
+  // Invalidate any old session cache
+  const oldToken = cookieStore.get("auth_token")?.value;
+  if (oldToken) {
+    invalidateUserAuthCache(oldToken);
+  }
+  invalidateUserAuthCache(accessToken);
+  
   // Secure HttpOnly cookie for the access token
   cookieStore.set("auth_token", accessToken, {
     httpOnly: true,
@@ -42,13 +49,38 @@ export async function createSession(accessToken: string, refreshToken: string | 
     });
   }
 
-  // Sanitize user object for client-side storage (remove tokens, passwords, full IDs)
+  const rawUserType = typeof user?.user_type === 'object' && user?.user_type !== null
+    ? (user.user_type.name || user.user_type.title || user.user_type.type || "")
+    : (user?.user_type || "");
+
+  const rawRole = typeof user?.role === 'object' && user?.role !== null
+    ? (user.role.name || user.role.title || "")
+    : (user?.role || "");
+
+  let effectiveType = "";
+  const normalizedUserType = String(rawUserType).toLowerCase();
+  const normalizedRole = String(rawRole).toLowerCase();
+
+  if (normalizedUserType.includes('buyer') || normalizedRole.includes('buyer')) {
+    effectiveType = 'buyer';
+  } else if (normalizedUserType.includes('seller') || normalizedRole.includes('seller')) {
+    effectiveType = 'seller';
+  } else {
+    effectiveType = normalizedUserType || normalizedRole || "business user";
+  }
+
+  // Sanitize user object for client-side storage
   const safeUser = {
+    id: user?.id || user?._id || user?.customer_id || "",
+    customer_id: user?.customer_id || user?.id || "",
     first_name: user?.first_name || "",
     last_name: user?.last_name || "",
     email: user?.email || "",
     country_code: user?.country_code || "",
-    role: user?.role?.name || user?.user_type?.name || "Business User",
+    role: rawRole || "Business User",
+    user_type: effectiveType,
+    is_kyc_verified: user?.is_kyc_verified ?? false,
+    membership: user?.membership || null,
   };
 
   // Non-HttpOnly cookie for non-sensitive user info (optional, if client needs it)
@@ -100,8 +132,23 @@ export async function serverVerifyOtp(email: string, otp: string, lang: string) 
   }
 
   if (response.ok && data?.success === 1) {
+    const successData = data;
+    const nextStep = successData?.data?.next_step || successData?.next_step || null;
+    const token = successData?.data?.access_token || successData?.access_token;
+    const refreshToken = backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null;
+    const user = successData?.data?.user || successData?.user || null;
+
+    if (nextStep === "LOGGED_IN" && token) {
+      try {
+        await createSession(token, refreshToken, user);
+      } catch (sessionErr: any) {
+        console.error("Failed to create session cookies:", sessionErr);
+        return { ok: false, error: "Failed to setup session. Please try again." };
+      }
+    }
+
     // Return the extracted refresh token along with the JSON data so the client can use it
-    return { ok: true, data, backendRefreshToken };
+    return { ok: true, data, nextStep, backendRefreshToken };
   }
 
   return { ok: false, error: data?.message || data?.error || "OTP Verification failed", status: response.status };
@@ -154,9 +201,16 @@ export async function serverGoogleLogin(idToken: string, lang: string) {
 async function destroySession() {
   try {
     const cookieStore = await cookies();
-    cookieStore.delete("auth_token");
-    cookieStore.delete("refresh_token");
-    cookieStore.delete("user_info");
+    const token = cookieStore.get("auth_token")?.value;
+    if (token) {
+      invalidateUserAuthCache(token);
+    }
+    cookieStore.delete({ name: "auth_token", path: "/" });
+    cookieStore.delete({ name: "refresh_token", path: "/" });
+    cookieStore.delete({ name: "user_info", path: "/" });
+    cookieStore.set("auth_token", "", { path: "/", maxAge: 0 });
+    cookieStore.set("refresh_token", "", { path: "/", maxAge: 0 });
+    cookieStore.set("user_info", "", { path: "/", maxAge: 0 });
   } catch (cookieErr) {
     console.warn("[destroySession] Cannot modify cookies during RSC rendering:", cookieErr);
   }
@@ -167,11 +221,14 @@ export async function logoutUser() {
   const token = cookieStore.get("auth_token")?.value;
   
   if (token) {
+    invalidateUserAuthCache(token);
     try {
       await authService.logout(token);
     } catch (error) {
       console.error("Logout API failed", error);
     }
+  } else {
+    invalidateUserAuthCache();
   }
   
   await destroySession();

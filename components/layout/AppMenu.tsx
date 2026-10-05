@@ -103,6 +103,15 @@ export function AppMenu({
   const handleLogout = async () => {
     setShowLogoutConfirm(false);
     setIsOpen(false);
+    try {
+      document.cookie = 'user_info=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      localStorage.removeItem('auth_token');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth-state-change'));
+      }
+    } catch (e) {}
     await logoutUser();
     const currentLang = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en';
     window.location.href = `/${currentLang}/`;

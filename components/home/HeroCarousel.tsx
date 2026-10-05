@@ -306,19 +306,24 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
       })}
 
       {/* Navigation Dots */}
-      <div className="absolute bottom-3 sm:bottom-6 left-0 right-0 z-20 flex justify-center space-x-2 sm:space-x-3">
+      <div className="absolute bottom-3 sm:bottom-6 left-0 right-0 z-20 flex justify-center space-x-1 sm:space-x-1.5">
         {slides.map((_, index) => (
           <button
             key={index}
+            type="button"
             onClick={() => setCurrentSlide(index)}
-            className={`h-1.5 sm:h-2 rounded-full transition-all duration-500 ease-out ${
-              index === currentSlide 
-                ? 'bg-white w-6 sm:w-8 shadow-[0_0_10px_rgba(255,255,255,0.8)]' 
-                : 'bg-white/40 hover:bg-white/60 w-1.5 sm:w-2 hover:scale-110'
-            }`}
+            className="min-w-[32px] min-h-[32px] p-2 flex items-center justify-center cursor-pointer focus:outline-none -m-1"
             aria-label={`Go to slide ${index + 1}`}
             aria-current={index === currentSlide}
-          />
+          >
+            <span
+              className={`h-1.5 sm:h-2 rounded-full transition-all duration-500 ease-out block ${
+                index === currentSlide 
+                  ? 'bg-white w-6 sm:w-8 shadow-[0_0_10px_rgba(255,255,255,0.8)]' 
+                  : 'bg-white/50 hover:bg-white/80 w-1.5 sm:w-2 hover:scale-110'
+              }`}
+            />
+          </button>
         ))}
       </div>
     </div>

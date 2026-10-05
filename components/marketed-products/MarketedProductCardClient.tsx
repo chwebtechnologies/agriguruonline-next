@@ -39,14 +39,15 @@ export function MarketedProductCardClient({
     <>
       {!hideInfoIcon && (
         <button
+          type="button"
           onClick={(e) => {
             e.preventDefault();
             setShowSpecs(true);
           }}
-          className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/90 shadow-sm border border-black/10 text-brand-blue hover:scale-110 hover:bg-white transition-all z-10 focus:outline-none"
-          aria-label="View Specifications"
+          className="absolute top-2 right-2 flex items-center justify-center w-8 h-8 sm:w-8 sm:h-8 rounded-full bg-white/90 shadow-sm border border-black/10 text-brand-blue hover:scale-110 hover:bg-white transition-all z-10 focus:outline-none cursor-pointer"
+          aria-label={`View specifications for ${product?.name || 'product'}`}
         >
-          <i className="fa-solid fa-info text-[10px] sm:text-xs"></i>
+          <i className="fa-solid fa-info text-[11px] sm:text-xs"></i>
         </button>
       )}
 
@@ -67,8 +68,10 @@ export function MarketedProductCardClient({
                 Specifications
               </h2>
               <button
+                type="button"
                 onClick={() => setShowSpecs(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-foreground focus:outline-none"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-foreground focus:outline-none cursor-pointer"
+                aria-label="Close specifications modal"
               >
                 <i className="fa-solid fa-xmark text-lg"></i>
               </button>

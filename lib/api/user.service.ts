@@ -48,7 +48,9 @@ export function extractPredicts(data: any | null): any[] {
   return [];
 }
 
-// Server in-memory caching for auth data (eliminates 4 network calls on every link click)
+import crypto from 'crypto';
+
+// Server in-memory caching for auth data (eliminates duplicate network calls on link clicks)
 interface MemoryCacheEntry<T> {
   data: T;
   timestamp: number;
@@ -58,14 +60,50 @@ const userProfileMemoryCache = new Map<string, MemoryCacheEntry<UserProfileResul
 const authDataMemoryCache = new Map<string, MemoryCacheEntry<AuthDataResult>>();
 const AUTH_CACHE_TTL_MS = 45 * 1000; // 45 seconds
 
+function getAuthCacheKey(token: string, lang: string): string {
+  try {
+    const hash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+    return `${hash}_${lang}`;
+  } catch {
+    return `${token.trim()}_${lang}`;
+  }
+}
+
+function cleanOldCacheEntries() {
+  const now = Date.now();
+  if (userProfileMemoryCache.size > 50) {
+    for (const [key, entry] of userProfileMemoryCache.entries()) {
+      if (now - entry.timestamp > AUTH_CACHE_TTL_MS) {
+        userProfileMemoryCache.delete(key);
+      }
+    }
+  }
+  if (authDataMemoryCache.size > 50) {
+    for (const [key, entry] of authDataMemoryCache.entries()) {
+      if (now - entry.timestamp > AUTH_CACHE_TTL_MS) {
+        authDataMemoryCache.delete(key);
+      }
+    }
+  }
+}
+
 export function invalidateUserAuthCache(token?: string) {
   if (token) {
-    const tokenPrefix = token.slice(0, 16);
-    for (const key of userProfileMemoryCache.keys()) {
-      if (key.startsWith(tokenPrefix)) userProfileMemoryCache.delete(key);
-    }
-    for (const key of authDataMemoryCache.keys()) {
-      if (key.startsWith(tokenPrefix)) authDataMemoryCache.delete(key);
+    try {
+      const hash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+      for (const key of userProfileMemoryCache.keys()) {
+        if (key.startsWith(hash)) userProfileMemoryCache.delete(key);
+      }
+      for (const key of authDataMemoryCache.keys()) {
+        if (key.startsWith(hash)) authDataMemoryCache.delete(key);
+      }
+    } catch {
+      for (const key of userProfileMemoryCache.keys()) {
+        if (key.startsWith(token.trim())) userProfileMemoryCache.delete(key);
+      }
+      for (const key of authDataMemoryCache.keys()) {
+        if (key.startsWith(token.trim())) authDataMemoryCache.delete(key);
+      }
     }
   } else {
     userProfileMemoryCache.clear();
@@ -83,7 +121,7 @@ export const userService = {
     }
 
     const safeLang = lang || 'en';
-    const cacheKey = `${token.slice(0, 32)}_${safeLang}`;
+    const cacheKey = getAuthCacheKey(token, safeLang);
     const cached = userProfileMemoryCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < AUTH_CACHE_TTL_MS) {
       return cached.data;
@@ -94,19 +132,18 @@ export const userService = {
     try {
       const res = await customFetch(url, { token });
 
-
-
       if (res.ok) {
         const json = await res.json();
         if (json.success === false || !json.data) {
-          invalidateUserAuthCache();
+          invalidateUserAuthCache(token);
           return { userProfile: null, shouldLogout: true };
         }
         const result = { userProfile: json.data, shouldLogout: false };
+        cleanOldCacheEntries();
         userProfileMemoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
         return result;
       } else if (res.status === 401 || res.status === 403) {
-        invalidateUserAuthCache();
+        invalidateUserAuthCache(token);
         return { userProfile: null, shouldLogout: true };
       }
     } catch (err) {
@@ -210,7 +247,7 @@ export const userService = {
     }
 
     const safeLang = lang || 'en';
-    const cacheKey = `${token.slice(0, 32)}_${safeLang}`;
+    const cacheKey = getAuthCacheKey(token, safeLang);
     const cached = authDataMemoryCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < AUTH_CACHE_TTL_MS) {
       return cached.data;
@@ -338,6 +375,7 @@ export const userService = {
     }));
 
     if (!profileRes.shouldLogout) {
+      cleanOldCacheEntries();
       authDataMemoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
     }
 

@@ -26,7 +26,7 @@ export default function VideoGalleryCard({ category, lang, dict = {}, priority =
   const imageUrl = getImageUrl(((category as unknown) as Record<string, string>).thumbnail || category.image);
 
   return (
-    <article className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">
+    <article className="group flex flex-col h-full rounded-2xl bg-card border border-border overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 hover:border-primary/50 relative">
       <Link 
         href={`/${lang}/video-gallery/${category.slug}`}
         prefetch={true}
@@ -59,19 +59,26 @@ export default function VideoGalleryCard({ category, lang, dict = {}, priority =
         )}
       </Link>
 
-      <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
-        <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-2 tracking-tight min-h-[44px] sm:min-h-[52px]" >
-          <Link href={`/${lang}/video-gallery/${category.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
-            {category.category_name}
-          </Link>
-        </h2>
+      <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col flex-1 justify-between">
+        <div>
+          <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug h-[44px] sm:h-[52px] flex items-center tracking-tight">
+            <Link 
+              href={`/${lang}/video-gallery/${category.slug}`} 
+              prefetch={true} 
+              title={category.category_name}
+              className="hover:text-brand-blue transition-colors line-clamp-2 break-words"
+            >
+              {category.category_name}
+            </Link>
+          </h2>
+        </div>
         
-        <div className="flex items-center justify-between mt-1">
+        <div className="flex items-center justify-between mt-1 pt-2 border-t border-border">
           <Link 
             href={`/${lang}/video-gallery/${category.slug}`}
             prefetch={true}
             aria-label={`View collection: ${category.category_name}`}
-            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link"
+            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity inline-flex items-center gap-1 sm:gap-1.5 group/link min-h-[36px] py-1.5"
           >
             <span>{dict?.common?.view_collection || 'View Collection'}</span>
             <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform"></i>

@@ -12,11 +12,14 @@ import InfiniteParticipationCarousel from '@/components/home/InfiniteParticipati
 import AssociatePartnersCarousel from '@/components/home/AssociatePartnersCarousel'
 import LatestOffersForBuyerSection from '@/components/home/LatestOffersForBuyerSection'
 import LatestInquiriesForSellerSection from '@/components/home/LatestInquiriesForSellerSection'
-import { getAssetsUrl } from '@/lib/api-utils'
+import { getAssetsUrl, withTimeout } from '@/lib/api-utils'
 import type { Metadata } from 'next'
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
 import WatchlistSection from '@/components/home/WatchlistSection'
 import WatchlistScrollHandler from '@/components/home/WatchlistScrollHandler'
+import { cookies } from 'next/headers'
+import { getUserProfile } from '@/lib/user-data'
+import { Suspense } from 'react'
 
 function OrganizationSchema() {
   const schema = {
@@ -72,20 +75,6 @@ export async function generateMetadata(
   })
 }
 
-// Helper to create a timeout promise so slow APIs don't block the FCP infinitely
-const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
-  let timeoutId: NodeJS.Timeout;
-  const timeoutPromise = new Promise<T>((resolve) => {
-    timeoutId = setTimeout(() => resolve(fallback), ms);
-  });
-  return Promise.race([
-    promise.finally(() => clearTimeout(timeoutId)),
-    timeoutPromise
-  ]);
-};
-
-import { Suspense } from 'react'
-
 function HomeFeedSkeleton() {
   return (
     <div className="w-full space-y-8 animate-pulse pt-4 pb-8">
@@ -118,7 +107,36 @@ function HomeFeedSkeleton() {
 }
 
 async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any }) {
-  const API_TIMEOUT = 2000;
+  const API_TIMEOUT = 2500;
+
+  // Resolve user authentication & role securely
+  let userType: string | null = null;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
+    if (token) {
+      const userResult = await withTimeout(getUserProfile(token, activeLang), 2000, { userProfile: null, shouldLogout: false });
+      if (userResult.userProfile) {
+        const u = userResult.userProfile;
+        const rawUserType = typeof u.user_type === 'object' && u.user_type !== null ? (u.user_type.name || u.user_type.title) : u.user_type;
+        const rawRole = typeof u.role === 'object' && u.role !== null ? u.role.name : u.role;
+        const normUT = String(rawUserType || '').toLowerCase();
+        const normR = String(rawRole || '').toLowerCase();
+        if (normUT === 'buyer' || normR === 'buyer') userType = 'buyer';
+        else if (normUT === 'seller' || normR === 'seller') userType = 'seller';
+        else userType = normUT || normR || null;
+      }
+    }
+    if (!userType) {
+      const userInfoCookie = cookieStore.get('user_info')?.value;
+      if (userInfoCookie) {
+        const u = JSON.parse(decodeURIComponent(userInfoCookie));
+        const rawType = String(u.user_type || u.role || '').toLowerCase();
+        if (rawType.includes('buyer')) userType = 'buyer';
+        else if (rawType.includes('seller')) userType = 'seller';
+      }
+    }
+  } catch {}
 
   const [
     newsData,
@@ -166,13 +184,13 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
     viewDetails: commonDict.view_details || "View Details",
     fobPrice: commonDict.fob_price || "FOB Price",
     inquireNow: commonDict.inquire_now || "Inquire Now",
-    perMT: commonDict.per_mt || "/ MT"
+    perMT: commonDict.per_mt || "/ MT",
+    only_buyer_can_buy: commonDict.only_buyer_can_buy || "Only Buyer accounts can purchase products.",
+    only_seller_can_sell: commonDict.only_seller_can_sell || "Only Seller accounts can offer products for sale."
   };
 
   const assetsUrl = getAssetsUrl();
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
-  
-  const userType = null;
 
   return (
     <>

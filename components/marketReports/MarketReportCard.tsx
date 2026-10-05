@@ -109,31 +109,30 @@ export default function MarketReportCard({ report, lang, priority = false, dict 
           />
         </div>
         
-        <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
-          
-          {/* Meta Info (ID & Date) */}
-          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/80 mb-2 font-medium gap-2">
-            {displayId && (
-              <span className="bg-primary/5 text-primary px-1.5 sm:px-2 py-0.5 rounded border border-primary/20 font-mono whitespace-nowrap overflow-hidden text-ellipsis font-semibold">
-                {displayId}
-              </span>
-            )}
-            {publishDate && (
-              <span className="whitespace-nowrap flex-shrink-0">
-                <i className="fa-regular fa-calendar-days mr-1"></i>{publishDate}
-              </span>
-            )}
-          </div>
+        <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-1 justify-between">
+          <div>
+            {/* Meta Info (ID & Date) */}
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/80 mb-2 font-medium gap-2 h-5">
+              {displayId ? (
+                <span className="bg-primary/5 text-primary px-1.5 sm:px-2 py-0.5 rounded border border-primary/20 font-mono whitespace-nowrap overflow-hidden text-ellipsis font-semibold">
+                  {displayId}
+                </span>
+              ) : <span />}
+              {publishDate && (
+                <span className="whitespace-nowrap flex-shrink-0">
+                  <i className="fa-regular fa-calendar-days mr-1"></i>{publishDate}
+                </span>
+              )}
+            </div>
 
-          <h2 className="text-sm sm:text-base font-bold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors leading-tight">
-            {title}
-          </h2>
-          
-          {description && (
-            <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 mb-4 flex-grow">
-              {description}
+            <h2 className="text-sm sm:text-base font-bold text-foreground mb-2 group-hover:text-primary transition-colors leading-snug h-[40px] sm:h-[48px] flex items-center">
+              <span className="line-clamp-2 break-words">{title}</span>
+            </h2>
+            
+            <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 break-words mb-4 h-[34px] sm:h-[40px] overflow-hidden leading-snug">
+              {description || '\u00A0'}
             </p>
-          )}
+          </div>
           
           <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
             <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">

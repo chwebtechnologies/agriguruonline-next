@@ -43,27 +43,33 @@ export default function NewsCard({ article, lang, dict = {}, priority = false }:
         />
       </FastLink>
       
-      <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
-        <div className="flex items-center text-xs text-foreground/80 font-medium mb-2">
-          <i className="fa-regular fa-calendar mr-1.5 text-foreground/70"></i>
-          <time dateTime={article.posting_date}>{formattedDate}</time>
+      <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-1 justify-between">
+        <div>
+          <div className="flex items-center text-xs text-foreground/80 font-medium mb-2 h-4">
+            <i className="fa-regular fa-calendar mr-1.5 text-foreground/70"></i>
+            <time dateTime={article.posting_date}>{formattedDate}</time>
+          </div>
+          
+          <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 leading-snug h-[44px] sm:h-[50px] flex items-center">
+            <FastLink 
+              href={`/${lang}/news/${article.slug}`} 
+              title={title}
+              className="hover:text-brand-blue transition-colors line-clamp-2 break-words"
+            >
+              {title}
+            </FastLink>
+          </h2>
+          
+          <p className="text-[13px] text-foreground/80 mb-4 line-clamp-2 break-words leading-relaxed h-[40px] overflow-hidden">
+            {excerpt}
+          </p>
         </div>
         
-        <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 line-clamp-2" >
-          <FastLink href={`/${lang}/news/${article.slug}`} className="hover:text-brand-blue transition-colors">
-            {title}
-          </FastLink>
-        </h2>
-        
-        <p className="text-[13px] text-foreground/80 mb-4 line-clamp-2 flex-grow">
-          {excerpt}
-        </p>
-        
-        <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
+        <div className="flex items-center justify-between mt-auto border-t border-border pt-2">
           <FastLink 
             href={`/${lang}/news/${article.slug}`}
             aria-label={`Read more: ${title}`}
-            className="text-[12px] uppercase tracking-wide font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1.5 group/link"
+            className="text-[12px] uppercase tracking-wide font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity inline-flex items-center gap-1.5 group/link min-h-[36px] py-1.5"
           >
             <span>{dict?.common?.read_more || 'Read More'}<span className="sr-only">: {title}</span></span>
             <i className="fa-solid fa-arrow-right text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>

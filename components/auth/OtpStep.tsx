@@ -83,33 +83,34 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
       try {
         const result = await serverVerifyOtp(email, otpString, lang);
         
-        let nextStep = null;
-        try {
-          if (!result.ok) {
-            throw new Error(result.error);
-          }
-          
-          const successData = result.data;
-          nextStep = successData?.data?.next_step || null;
-
-          if (nextStep === "LOGGED_IN" && successData.data?.access_token) {
-            await createSession(
-              successData.data.access_token, 
-              result.backendRefreshToken || successData.data.refresh_token || successData.data.refreshToken || null,
-              successData.data.user
-            );
-          }
-        } catch (e) {
-          const errMsg = "Failed to setup session. Please try again.";
+        if (!result.ok) {
+          const errMsg = result.error || "Invalid OTP. Please try again.";
           setError(errMsg);
           toast.error(errMsg);
           return;
         }
 
+        const successData = result.data;
+        const nextStep = result.nextStep || successData?.data?.next_step || successData?.next_step || null;
+
+        // Fallback session creation in case it wasn't already handled on server
+        const token = successData?.data?.access_token || successData?.access_token;
+        if (nextStep === "LOGGED_IN" && token) {
+          try {
+            await createSession(
+              token, 
+              result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null,
+              successData?.data?.user || successData?.user || null
+            );
+          } catch (e) {
+            // Already handled server-side in serverVerifyOtp
+          }
+        }
+
         toast.success("OTP verified successfully!");
         onVerify(otpString, nextStep);
-      } catch (err) {
-        const errMsg = "Something went wrong verifying the OTP.";
+      } catch (err: any) {
+        const errMsg = err?.message || "Something went wrong verifying the OTP.";
         setError(errMsg);
         toast.error(errMsg);
       }
@@ -146,11 +147,31 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
 
   const handleChange = (index: number, value: string) => {
     if (error) setError("");
+
+    // If multiple digits pasted or autofilled into an input
+    const digitsOnly = value.replace(/\D/g, "");
+    if (digitsOnly.length > 1) {
+      const newOtp = [...otp];
+      const slice = digitsOnly.slice(0, 6);
+      for (let i = 0; i < slice.length; i++) {
+        if (index + i < 6) {
+          newOtp[index + i] = slice[i];
+        }
+      }
+      setOtp(newOtp);
+      const nextIndex = Math.min(index + slice.length, 5);
+      inputRefs.current[nextIndex]?.focus();
+      if (newOtp.every((digit) => digit !== "")) {
+        handleVerify(newOtp.join(""));
+      }
+      return;
+    }
+
     // Only allow numbers
     if (!/^\d*$/.test(value)) return;
 
     const newOtp = [...otp];
-    // Take only the last character if they pasted multiple or typed multiple
+    // Take only the last character if they typed
     newOtp[index] = value.substring(value.length - 1);
     setOtp(newOtp);
 
@@ -193,7 +214,7 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
         {email}
       </p>
 
-      <form onSubmit={handleSubmit} className="w-full">
+      <form onSubmit={handleSubmit} className="w-full" autoComplete="off">
         <div 
           className={`flex justify-between items-center gap-1.5 sm:gap-2.5 w-full max-w-[360px] mx-auto ${error ? "mb-2" : "mb-8"} ${(countdown === 0 || isExpired) ? "cursor-not-allowed" : ""}`}
           title={(countdown === 0 || isExpired) ? "Time expired. Please resend OTP to continue." : undefined}
@@ -205,10 +226,12 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
                 inputRefs.current[index] = el;
               }}
               type="text"
+              name={`otp-code-${index}`}
+              data-lpignore="true"
               inputMode="numeric"
               pattern="[0-9]*"
               autoComplete={index === 0 ? "one-time-code" : "off"}
-              maxLength={1}
+              maxLength={index === 0 ? 6 : 1}
               value={digit}
               disabled={isPending || countdown === 0 || isExpired}
               onFocus={(e) => e.target.select()}

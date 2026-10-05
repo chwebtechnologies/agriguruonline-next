@@ -98,14 +98,16 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
                 </div>
               </div>
 
-              <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col pointer-events-none">
-                <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-2 tracking-tight min-h-[44px] sm:min-h-[52px]" >
-                  <span className="hover:text-brand-blue transition-colors text-left line-clamp-2 w-full">
-                    {title}
-                  </span>
-                </h2>
+              <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col flex-1 justify-between pointer-events-none">
+                <div>
+                  <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug h-[44px] sm:h-[52px] flex items-center tracking-tight">
+                    <span className="hover:text-brand-blue transition-colors text-left line-clamp-2 break-words w-full">
+                      {title}
+                    </span>
+                  </h2>
+                </div>
                 
-                <div className="flex items-center justify-between mt-1 pointer-events-auto relative z-30">
+                <div className="flex items-center justify-between mt-1 pointer-events-auto relative z-30 pt-1 border-t border-border/40">
                   <span 
                     className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 flex items-center gap-1 sm:gap-1.5 group/link cursor-pointer"
                   >

@@ -232,7 +232,7 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
                 key={subCat.id}
                 title={subCatName}
                 style={index >= 8 ? { contentVisibility: 'auto' } : undefined}
-                className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
+                className="group flex flex-col h-full rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
               >
                 {index === 0 ? (
                   <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
@@ -264,20 +264,20 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
                   </ProductLink>
                 )}
 
-                <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col">
-                  <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight" >
+                <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col flex-1 justify-between">
+                  <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug h-[44px] sm:h-[52px] flex items-center tracking-tight">
                     {index === 0 ? (
-                      <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors">
+                      <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors line-clamp-2 break-words">
                         {subCatName}
                       </Link>
                     ) : (
-                      <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors">
+                      <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors line-clamp-2 break-words">
                         {subCatName}
                       </ProductLink>
                     )}
                   </h2>
 
-                  <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center justify-between mt-auto pt-1">
                     {index === 0 ? (
                       <Link
                         href={`/${lang}/category/${slug}/${subCat.slug}`}

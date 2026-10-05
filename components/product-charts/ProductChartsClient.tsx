@@ -194,26 +194,29 @@ export default function ProductChartsClient({
       const type = action === 'buy' ? 'BUYER' : 'SELLER';
       const kycResponse = await checkKYCStatus(lang, type);
       
-      const isErrorOrNotVerified = 
-        (kycResponse && kycResponse.data && kycResponse.data.can_create === false) ||
-        (kycResponse && kycResponse.response_indication === 'NOT_VERIFIED') ||
-        (kycResponse && kycResponse.data?.response_indication === 'NOT_VERIFIED') ||
-        (kycResponse && (kycResponse.success === 0 || kycResponse.success === false) && (kycResponse.response_indication || kycResponse.data?.response_indication || kycResponse.message));
+      const canCreate = kycResponse?.data?.can_create;
+      const indication = kycResponse?.response_indication || kycResponse?.data?.response_indication;
+      const isVerifiedInProfile = Boolean(kycResponse?.is_kyc_verified);
 
-      if (isErrorOrNotVerified) {
-        setKycMessage(kycResponse.message || "You cannot proceed with this action.");
-        const indication = kycResponse.response_indication || kycResponse.data?.response_indication;
-        if (indication === 'NOT_VERIFIED') {
-          setKycIndicationText('Submit Documents');
-          setKycRedirectUrl(`/${lang}/profile`);
+      const isBlocked = canCreate === false || (indication && indication !== 'SUCCESS');
+
+      if (isBlocked) {
+        if (indication === 'NOT_VERIFIED' && isVerifiedInProfile) {
+          // User is verified in profile, proceed smoothly
         } else {
-          setKycIndicationText('Upgrade Plan');
-          setKycRedirectUrl(`/${lang}/profile`);
+          setKycMessage(kycResponse.message || "You cannot proceed with this action.");
+          if (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            setKycIndicationText('Upgrade Plan');
+            setKycRedirectUrl(`/${lang}/profile`);
+          }
+          setIsKYCModalOpen(true);
+          setIsActionLoading(false);
+          setActionItemId(null);
+          return;
         }
-        setIsKYCModalOpen(true);
-        setIsActionLoading(false);
-        setActionItemId(null);
-        return;
       }
       
       const productId = item.productId || '';
@@ -962,19 +965,21 @@ export default function ProductChartsClient({
                   <span className="font-semibold text-foreground/80 text-[13px]">{p.name}</span>
                   {p.port && <span className="text-foreground/75 text-[11px] font-medium ml-2 uppercase">({p.port})</span>}
                   <span className="text-blue-600 dark:text-blue-500 font-bold text-[13px] mx-3">${p.price}</span>
-                  <span className={`font-semibold text-[13px] flex items-center ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`}>
+                  <span className={`font-semibold text-[13px] flex items-center ${isPositive ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
                     <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-[11px] mr-1`}></i>
                     {sign}{Math.abs(changeVal).toFixed(2)}%
                   </span>
                   {p.id && (
                     <button 
+                      type="button"
                       onClick={() => {
                         handleProductSelect(p.id);
                         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                           setShowMobileAddForm(true);
                         }
                       }}
-                      className="ml-4 px-2.5 py-1 bg-brand-blue hover:bg-brand-blue-hover text-white text-[11px] font-semibold rounded cursor-pointer  shadow-sm"
+                      aria-label={`Add ${p.name} to chart`}
+                      className="ml-4 px-2.5 py-1 bg-brand-blue hover:bg-brand-blue-hover text-white text-[11px] font-semibold rounded cursor-pointer shadow-sm"
                     >
                       Add
                     </button>
@@ -1081,14 +1086,14 @@ export default function ProductChartsClient({
           </div>
           
           {/* Static Column Headers - Hidden on Mobile */}
-          <div className="hidden xl:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
+          <div className="hidden xl:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
             <span>Price</span>
-            <span className="text-[12px] text-zinc-400 dark:text-zinc-500 leading-none mt-0.5">(PMT)</span>
+            <span className="text-[12px] text-zinc-600 dark:text-zinc-400 leading-none mt-0.5">(PMT)</span>
           </div>
-          <div className="hidden xl:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+          <div className="hidden xl:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
             Change
           </div>
-          <div className="hidden xl:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+          <div className="hidden xl:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
             Chart
           </div>
           
@@ -1140,12 +1145,12 @@ export default function ProductChartsClient({
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className={`fa-solid ${selectedCategory ? 'fa-check text-brand-green dark:text-emerald-400' : 'fa-filter text-blue-500/80'} text-[11px]`}></i>
-                      <span className={`text-[9.5px] font-bold uppercase tracking-wider ${selectedCategory ? 'text-emerald-800 dark:text-emerald-300' : 'text-zinc-500'}`}>Filter</span>
+                      <span className={`text-[9.5px] font-bold uppercase tracking-wider ${selectedCategory ? 'text-emerald-800 dark:text-emerald-300' : 'text-zinc-600 dark:text-zinc-400'}`}>Filter</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedCategory ? (categories.find(c => String(c.id) === String(selectedCategory))?.name || 'Category') : 'Category'}
                     </div>
-                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${selectedCategory ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-zinc-400'}`}>
+                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${selectedCategory ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400'}`}>
                       {selectedCategory ? '✓ Selected' : 'Optional filter'}
                     </div>
                   </div>
@@ -1161,12 +1166,12 @@ export default function ProductChartsClient({
                   >
                     <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
                       <i className={`fa-solid ${selectedCountry ? 'fa-check text-brand-green dark:text-emerald-400' : 'fa-filter text-blue-500/80'} text-[11px]`}></i>
-                      <span className={`text-[9.5px] font-bold uppercase tracking-wider ${selectedCountry ? 'text-emerald-800 dark:text-emerald-300' : 'text-zinc-500'}`}>Filter</span>
+                      <span className={`text-[9.5px] font-bold uppercase tracking-wider ${selectedCountry ? 'text-emerald-800 dark:text-emerald-300' : 'text-zinc-600 dark:text-zinc-400'}`}>Filter</span>
                     </div>
                     <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-900 dark:text-zinc-100">
                       {selectedCountry ? (countries.find(c => String(c.id) === String(selectedCountry))?.name || 'Country') : 'Country'}
                     </div>
-                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${selectedCountry ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-zinc-400'}`}>
+                    <div className={`text-[9.5px] mt-0.5 truncate w-full text-center px-0.5 leading-tight ${selectedCountry ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400'}`}>
                       {selectedCountry ? '✓ Selected' : 'Optional filter'}
                     </div>
                   </div>
@@ -1204,20 +1209,20 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                       !selectedProduct 
-                        ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                        ? 'opacity-80 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 shadow-sm'
                         : !selectedShipBy
                           ? 'cursor-pointer bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                           : 'cursor-pointer bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                     }`}
                   >
                     <div className="shrink-0 px-1 flex items-center justify-center">
-                      <i className={`fa-solid ${selectedShipBy ? 'fa-check text-brand-green dark:text-emerald-400' : selectedProduct ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
+                      <i className={`fa-solid ${selectedShipBy ? 'fa-check text-brand-green dark:text-emerald-400' : selectedProduct ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-500 dark:text-zinc-400'} text-[18px]`}></i>
                     </div>
                     <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
                       <div className="flex items-center justify-center gap-1.5 mb-1 shrink-0">
-                        <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedProduct ? 'text-zinc-400' : !selectedShipBy ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 2</span>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedProduct ? 'text-zinc-600 dark:text-zinc-400' : !selectedShipBy ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 2</span>
                       </div>
-                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedProduct ? 'text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedProduct ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
                         {selectedShipBy ? (shippingContainers.find(c => String(c.id) === String(selectedShipBy))?.title || 'Container') : 'Select Container'}
                       </div>
                     </div>
@@ -1231,20 +1236,20 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                       !selectedShipBy 
-                        ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                        ? 'opacity-80 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 shadow-sm'
                         : !selectedTerm
                           ? 'cursor-pointer bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                           : 'cursor-pointer bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                     }`}
                   >
                     <div className="shrink-0 px-1 flex items-center justify-center">
-                      <i className={`fa-solid ${selectedTerm ? 'fa-check text-brand-green dark:text-emerald-400' : selectedShipBy ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
+                      <i className={`fa-solid ${selectedTerm ? 'fa-check text-brand-green dark:text-emerald-400' : selectedShipBy ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-500 dark:text-zinc-400'} text-[18px]`}></i>
                     </div>
                     <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
                       <div className="flex items-center justify-center gap-1.5 mb-1 shrink-0">
-                        <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedShipBy ? 'text-zinc-400' : !selectedTerm ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 3</span>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedShipBy ? 'text-zinc-600 dark:text-zinc-400' : !selectedTerm ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 3</span>
                       </div>
-                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedShipBy ? 'text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedShipBy ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
                         {selectedTerm ? (shippingTerms.find(t => String(t.id) === String(selectedTerm))?.title || 'Term') : 'Select Term'}
                       </div>
                     </div>
@@ -1258,20 +1263,20 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                       !selectedTerm 
-                        ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                        ? 'opacity-80 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 shadow-sm'
                         : !selectedPOL
                           ? 'cursor-pointer bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                           : 'cursor-pointer bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                     }`}
                   >
                     <div className="shrink-0 px-1 flex items-center justify-center">
-                      <i className={`fa-solid ${selectedPOL ? 'fa-check text-brand-green dark:text-emerald-400' : selectedTerm ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
+                      <i className={`fa-solid ${selectedPOL ? 'fa-check text-brand-green dark:text-emerald-400' : selectedTerm ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-500 dark:text-zinc-400'} text-[18px]`}></i>
                     </div>
                     <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
                       <div className="flex items-center justify-center gap-1.5 mb-1 shrink-0">
-                        <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedTerm ? 'text-zinc-400' : !selectedPOL ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 4</span>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedTerm ? 'text-zinc-600 dark:text-zinc-400' : !selectedPOL ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 4</span>
                       </div>
-                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedTerm ? 'text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedTerm ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
                         {selectedPOL ? (loadingPorts.find(p => String(p.id) === String(selectedPOL))?.name || 'POL') : 'Select Port'}
                       </div>
                     </div>
@@ -1285,36 +1290,36 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                       !isPodRequired
-                        ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                        ? 'opacity-80 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 shadow-sm'
                         : !selectedPOL 
-                          ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                          ? 'opacity-80 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 shadow-sm'
                           : !selectedPOD
                             ? 'cursor-pointer bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                             : 'cursor-pointer bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                     }`}
                   >
                     <div className="shrink-0 px-1 flex items-center justify-center">
-                      <i className={`fa-solid ${!isPodRequired ? 'fa-minus text-zinc-400' : selectedPOD ? 'fa-check text-brand-green dark:text-emerald-400' : selectedPOL ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
+                      <i className={`fa-solid ${!isPodRequired ? 'fa-minus text-zinc-500 dark:text-zinc-400' : selectedPOD ? 'fa-check text-brand-green dark:text-emerald-400' : selectedPOL ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-500 dark:text-zinc-400'} text-[18px]`}></i>
                     </div>
                     <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
                       <div className="flex items-center justify-center gap-1.5 mb-1 shrink-0">
-                        <span className={`text-[9px] font-bold uppercase tracking-wider ${!isPodRequired || (!selectedPOL && isPodRequired) ? 'text-zinc-400' : !selectedPOD ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>{!isPodRequired ? 'POD' : 'Step 5'}</span>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${!isPodRequired || (!selectedPOL && isPodRequired) ? 'text-zinc-600 dark:text-zinc-400' : !selectedPOD ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>{!isPodRequired ? 'POD' : 'Step 5'}</span>
                       </div>
-                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!isPodRequired || (!selectedPOL && isPodRequired) ? 'text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!isPodRequired || (!selectedPOL && isPodRequired) ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
                         {!isPodRequired ? 'N/A' : selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'POD') : 'Destination Port'}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ gridColumn: 'span 3 / span 3' }} className="h-[74px] rounded-xl p-1.5 flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
+                  <div style={{ gridColumn: 'span 3 / span 3' }} className="h-[74px] rounded-xl p-1.5 flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-600 dark:text-zinc-400 select-none w-full min-w-0 overflow-hidden">
                     <div className="flex items-center justify-center gap-2 mb-1 shrink-0">
-                      <i className="fa-solid fa-chart-line text-zinc-400 text-[13px]"></i>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Market Data</span>
+                      <i className="fa-solid fa-chart-line text-zinc-500 dark:text-zinc-400 text-[13px]"></i>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Market Data</span>
                     </div>
-                    <div className="font-bold text-[12px] truncate w-full text-center px-1 leading-tight text-zinc-600 dark:text-zinc-400">
+                    <div className="font-bold text-[12px] truncate w-full text-center px-1 leading-tight text-zinc-700 dark:text-zinc-300">
                       Price, Trend & Chart
                     </div>
-                    <div className="text-[10px] text-zinc-400 mt-1 truncate w-full text-center px-1 leading-tight">
+                    <div className="text-[10px] text-zinc-600 dark:text-zinc-400 mt-1 truncate w-full text-center px-1 leading-tight">
                       Real-time analytics
                     </div>
                   </div>
@@ -1326,18 +1331,18 @@ export default function ProductChartsClient({
                     }}
                     className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                       !isAddProductEnabled
-                        ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                        ? 'opacity-80 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 shadow-sm'
                         : 'cursor-pointer bg-primary-gradient text-white border-none shadow-md hover:shadow-lg active:scale-[0.98]'
                     }`}
                   >
                     <div className="shrink-0 px-1 flex items-center justify-center">
-                      <i className={`fa-solid ${isAddProductEnabled ? 'fa-arrow-up animate-bounce text-white' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
+                      <i className={`fa-solid ${isAddProductEnabled ? 'fa-arrow-up animate-bounce text-white' : 'fa-lock text-zinc-500 dark:text-zinc-400'} text-[18px]`}></i>
                     </div>
                     <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isAddProductEnabled ? 'text-white' : 'text-zinc-400'}`}>Final</span>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${isAddProductEnabled ? 'text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>Final</span>
                       </div>
-                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${isAddProductEnabled ? 'text-white' : 'text-zinc-400'}`}>
+                      <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${isAddProductEnabled ? 'text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>
                         Add Product
                       </div>
                     </div>
@@ -1426,13 +1431,17 @@ export default function ProductChartsClient({
                         <span className="truncate min-w-0">{item.pod || '-'}</span>
                       </div>
                       <div className="w-full flex items-center justify-center text-center font-bold text-foreground text-[16px] min-w-0" title={`$${item.price}`}>${item.price}</div>
-                      <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-[16px] ${isPositive ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`} title={`${changeVal}$`}>
+                      <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-[16px] ${isPositive ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`} title={`${changeVal}$`}>
                         <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-xs`}></i>
                         <span className="truncate">{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
                       </div>
                       <div 
+                        role="button"
+                        tabIndex={item.chartStatus ? 0 : -1}
+                        aria-label={item.chartStatus ? `View ${item.product} chart` : "Chart not available"}
                         className={`w-full flex items-center justify-center text-center transition-transform min-w-0 ${item.chartStatus ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed opacity-50'}`}
                         onClick={() => { if (item.chartStatus) openBottomSheet(item.id); }}
+                        onKeyDown={(e) => { if (item.chartStatus && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBottomSheet(item.id); } }}
                         title={item.chartStatus ? "View Product Chart" : "Chart Not Available"}
                       >
                         <i className={`fa-solid fa-chart-area text-[18px] ${item.chartStatus ? 'bg-gradient-to-tr from-brand-blue to-brand-green bg-clip-text text-transparent' : 'text-zinc-400'}`}></i>
@@ -1468,7 +1477,12 @@ export default function ProductChartsClient({
 
           {/* Center Action (Disclaimer Icon) */}
           <div className="flex items-center justify-center gap-4 relative px-2">
-            <button onClick={handleDisclaimerClick} className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100 flex items-center justify-center transition-colors">
+            <button 
+              type="button"
+              onClick={handleDisclaimerClick} 
+              aria-label="Standard Market Rate Disclaimer"
+              className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center transition-colors min-w-[36px] min-h-[36px] p-2 rounded-lg cursor-pointer"
+            >
               <i className="fa-solid fa-triangle-exclamation text-[22px]"></i>
             </button>
 

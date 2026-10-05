@@ -419,20 +419,20 @@ export default function FreightChartClient({
             </div>
 
             {/* Static Column Headers */}
-            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
               Freight
             </div>
 
-            <div className="hidden lg:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
+            <div className="hidden lg:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
               <span>Freight</span>
-              <span className="text-[12px] text-zinc-400 dark:text-zinc-500 leading-none mt-0.5">(PMT)</span>
+              <span className="text-[12px] text-zinc-600 dark:text-zinc-400 leading-none mt-0.5">(PMT)</span>
             </div>
 
-            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
               Change
             </div>
 
-            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-400 dark:text-zinc-500 font-medium text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
               Chart
             </div>
 
@@ -805,8 +805,8 @@ export default function FreightChartClient({
             <button
               type="button"
               onClick={handleDisclaimerClick}
-              className="text-zinc-400 dark:text-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-100 flex items-center justify-center cursor-pointer"
-              aria-label="Market Rate Disclaimer"
+              className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center cursor-pointer min-w-[36px] min-h-[36px] p-2 rounded-lg transition-colors"
+              aria-label="Standard Market Rate Disclaimer"
             >
               <i className="fa-solid fa-triangle-exclamation text-[22px]"></i>
             </button>

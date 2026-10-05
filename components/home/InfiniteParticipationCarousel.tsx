@@ -156,7 +156,7 @@ export default function InfiniteParticipationCarousel({
           {items.map((category: any, index: number) => (
             <div 
               key={category._uniqueId} 
-              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] xl:w-[calc(25%-15px)]"
+              className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] xl:w-[calc(25%-15px)] flex flex-col"
               style={index >= 4 ? { contentVisibility: 'auto' } : undefined}
             >
               <ParticipationGalleryCard category={category} lang={lang} priority={false} dict={dict} />

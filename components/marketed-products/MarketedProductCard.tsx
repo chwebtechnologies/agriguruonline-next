@@ -98,8 +98,8 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
   // -----------------------------------------
 
   return (
-    <div className="group flex flex-col rounded-md bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs relative">
-      <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border">
+    <div className="group flex flex-col h-full rounded-md bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs relative">
+      <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border shrink-0">
         <Link prefetch={false} href={`/${lang}/product/${product.slug}`} aria-label={product.name} className="block w-full h-full">
           {isLCP ? (
             <Image
@@ -157,21 +157,28 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
         />
       </div>
 
-      <div className="p-2 flex flex-col flex-1">
-        <div className="flex justify-center mb-1">
-          <span className="text-[10px] sm:text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider line-clamp-1 text-center">
-            {product.category?.name || 'Product'} {product.country?.name ? `• ${product.country.name}` : ''}
-          </span>
+      <div className="p-2 sm:p-2.5 flex flex-col flex-1 justify-between">
+        <div>
+          <div className="flex justify-center mb-1 h-4 items-center">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider line-clamp-1 text-center">
+              {product.category?.name || 'Product'} {product.country?.name ? `• ${product.country.name}` : ''}
+            </span>
+          </div>
+          <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 leading-snug h-[38px] sm:h-[44px] flex items-center justify-center">
+            <Link 
+              prefetch={false} 
+              href={`/${lang}/product/${product.slug}`} 
+              title={product.name}
+              className="hover:text-brand-blue transition-colors line-clamp-2 break-words text-center"
+            >
+              {product.name}
+            </Link>
+          </h2>
         </div>
-        <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 line-clamp-2 leading-tight min-h-[34px]" >
-          <Link prefetch={false} href={`/${lang}/product/${product.slug}`} className="hover:text-brand-blue transition-colors">
-            {product.name}
-          </Link>
-        </h2>
 
         <div className="mt-auto">
-          {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 && (
-            <div className="flex items-baseline justify-center gap-1 mt-0.5 mb-2.5">
+          {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 ? (
+            <div className="flex items-baseline justify-center gap-1 mt-0.5 mb-2.5 h-6">
               <span className="text-[16px] sm:text-[18px] font-extrabold text-foreground/85 mr-0.5 leading-none tracking-tight">
                 FOB
               </span>
@@ -182,6 +189,8 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
                 / MT
               </span>
             </div>
+          ) : (
+            <div className="h-6 mt-0.5 mb-2.5" />
           )}
 
           <div className="space-y-1.5">

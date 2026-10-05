@@ -177,16 +177,7 @@ export default async function LocalizedRootLayout(props: {
         <link rel="preload" href="/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/webfonts/fa-regular-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="stylesheet" href="/fa-all.min.css" media="print" id="fa-css" />
-        <script
-          id="fa-async-loader"
-          dangerouslySetInnerHTML={{
-            __html: `!function(){var e=document.getElementById("fa-css");if(e){e.addEventListener("load",function(){e.media="all"}),e.sheet&&(e.media="all")}}();`
-          }}
-        />
-        <noscript>
-          <link rel="stylesheet" href="/fa-all.min.css" />
-        </noscript>
+        <link rel="stylesheet" href="/fa-all.min.css" />
 
         <Script
           id="trusted-types-policy"

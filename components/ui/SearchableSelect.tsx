@@ -157,14 +157,14 @@ export function SearchableSelect({
             isMobile
               ? `py-2.5 px-4 text-sm ${triggerClassName || 'rounded-xl'} ${
                   !isInteractive
-                    ? (isSelected ? 'bg-brand-blue border-brand-blue text-white font-semibold cursor-not-allowed shadow-sm' : 'bg-muted border border-border text-muted-foreground font-medium select-none cursor-not-allowed opacity-60')
+                    ? (isSelected ? 'bg-brand-blue border-brand-blue text-white font-semibold cursor-not-allowed shadow-sm' : 'bg-muted border border-border text-zinc-600 dark:text-zinc-300 font-medium select-none cursor-not-allowed')
                     : isSelected
                       ? 'bg-brand-blue border-brand-blue text-white font-semibold cursor-pointer shadow-sm outline-none focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue'
                       : 'bg-card border border-border hover:border-brand-blue/50 focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none focus:outline-none dark:hover:border-brand-blue/50 text-foreground font-medium cursor-pointer active:scale-[0.99]'
                 }`
               : `h-[45px] px-2 lg:px-2.5 text-xs lg:text-[13px] xl:text-sm ${triggerClassName || 'rounded-lg'} ${
                   !isInteractive
-                    ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 font-medium select-none cursor-not-allowed shadow-xs opacity-60'
+                    ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 font-medium select-none cursor-not-allowed shadow-xs'
                     : isSelected
                       ? 'bg-brand-blue text-white border-brand-blue shadow-xs font-bold cursor-pointer focus:ring-1 focus:ring-brand-blue focus:border-brand-blue outline-none focus:outline-none'
                       : 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold hover:border-brand-blue dark:hover:border-brand-blue shadow-xs cursor-pointer focus:ring-1 focus:ring-brand-blue focus:border-brand-blue outline-none focus:outline-none'
@@ -187,11 +187,9 @@ export function SearchableSelect({
               customTriggerClass 
                 ? '' 
                 : !isSelected && !isInteractive
-                  ? 'text-muted-foreground font-medium'
+                  ? 'text-zinc-600 dark:text-zinc-300 font-medium'
                   : !isSelected
-                    ? isMobile
-                      ? 'text-muted-foreground font-medium'
-                      : 'text-zinc-400 dark:text-zinc-500 font-medium'
+                    ? 'text-zinc-600 dark:text-zinc-300 font-medium'
                     : isMobile
                       ? 'text-white font-semibold'
                       : 'text-white font-bold'
@@ -210,6 +208,7 @@ export function SearchableSelect({
               onChange('');
               setIsOpen(false);
             }}
+            aria-label="Clear selection"
             title="Clear selection"
           >
             <i className="fa-solid fa-xmark text-xs"></i>

@@ -1,13 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { ActionButton } from '@/components/ui/ActionButton';
-import { ProductInquiryModal } from './ProductInquiryModal';
 import { useRouter } from 'next/navigation';
-import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
 import { getProductDetailsAction, getShippingContainersAction, getShippingTermsAction } from '@/app/actions/charts';
-import { AddFavoriteProductModal } from './AddFavoriteProductModal';
+
+const ProductInquiryModal = dynamic(
+  () => import('./ProductInquiryModal').then(m => m.ProductInquiryModal),
+  { ssr: false }
+);
+const AddFavoriteProductModal = dynamic(
+  () => import('./AddFavoriteProductModal').then(m => m.AddFavoriteProductModal),
+  { ssr: false }
+);
+const ActionIndicationModal = dynamic(
+  () => import('@/components/ui/charts/ActionIndicationModal').then(m => m.ActionIndicationModal),
+  { ssr: false }
+);
 
 interface ProductActionButtonsProps {
   productSlugOrId: string;
@@ -45,38 +56,66 @@ export function ProductActionButtons({
   const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
   const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
 
+  // Client-side user type detection from cookies or prop
+  const [clientUserType, setClientUserType] = useState<string | null>(() => {
+    if (userType) return userType.toLowerCase();
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(/user_info=([^;]+)/);
+    if (!match) return null;
+    try {
+      const user = JSON.parse(decodeURIComponent(match[1]));
+      const rawType = String(user?.user_type || user?.role || user?.type || '').toLowerCase();
+      if (rawType.includes('buyer')) return 'buyer';
+      if (rawType.includes('seller')) return 'seller';
+      return rawType || null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (userType) {
+      setClientUserType(userType.toLowerCase());
+      return;
+    }
+    const match = document.cookie.match(/user_info=([^;]+)/);
+    if (match) {
+      try {
+        const user = JSON.parse(decodeURIComponent(match[1]));
+        const rawType = String(user?.user_type || user?.role || user?.type || '').toLowerCase();
+        if (rawType.includes('buyer')) setClientUserType('buyer');
+        else if (rawType.includes('seller')) setClientUserType('seller');
+        else if (rawType) setClientUserType(rawType);
+      } catch {}
+    }
+  }, [userType]);
+
+  const effectiveUserType = (userType || clientUserType || '').toLowerCase();
+  const isBuyer = effectiveUserType === 'buyer';
+  const isSeller = effectiveUserType === 'seller';
+
   const addProductHref = `/${lang}/product/${encodeURIComponent(productSlugOrId)}`;
   const buyHref = `/${lang}/product/${encodeURIComponent(productSlugOrId)}?action=buy`;
   const sellHref = `/${lang}/product/${encodeURIComponent(productSlugOrId)}?action=sell`;
 
-  let sizeClass = 'py-2.5 sm:py-3 px-4 text-sm md:text-base rounded-xl'; // lg/md
+  let sizeClass = 'min-h-[44px] py-2.5 sm:py-3 px-4 text-sm md:text-base rounded-xl'; // lg/md
   if (size === 'sm') {
-    sizeClass = 'py-1 sm:py-1.5 px-1 sm:px-2 text-[13px] sm:text-[15px] rounded-lg';
+    sizeClass = 'min-h-[36px] py-1.5 sm:py-2 px-1.5 sm:px-2.5 text-[13px] sm:text-[15px] rounded-lg';
   } else if (size === 'md') {
-    sizeClass = 'py-2 sm:py-2.5 px-2 text-[13px] sm:text-sm rounded-lg';
+    sizeClass = 'min-h-[40px] py-2 sm:py-2.5 px-2 text-[13px] sm:text-sm rounded-lg';
   }
 
   const handleActionClick = async (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>, action: 'buy' | 'sell' | 'add', fallbackHref: string) => {
     e.preventDefault();
     
-    // Check userType from props or client cookie fallback
-    const getClientUserType = (): string | null => {
-      if (typeof document === 'undefined') return null;
-      const match = document.cookie.match(/user_info=([^;]+)/);
-      if (!match) return null;
-      try {
-        const user = JSON.parse(decodeURIComponent(match[1]));
-        const rawType = user?.role || user?.user_type || user?.type;
-        return rawType ? String(rawType).toLowerCase() : null;
-      } catch {
-        return null;
-      }
-    };
-
-    const activeUser = userType || getClientUserType();
+    // Check if user is logged in via cookie
+    const hasAuth = Boolean(
+      effectiveUserType ||
+      (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=')))
+    );
 
     // If not logged in, redirect to login ONLY for buy/sell
-    if (!activeUser && action !== 'add') {
+    if (!hasAuth && action !== 'add') {
       router.push(`/${lang}/login`);
       return;
     }
@@ -91,28 +130,31 @@ export function ProductActionButtons({
         const type = action === 'buy' ? 'BUYER' : 'SELLER';
         const kycResponse = await checkKYCStatus(lang, type);
         
-        const isErrorOrNotVerified = 
-          (kycResponse && kycResponse.data && kycResponse.data.can_create === false) ||
-          (kycResponse && kycResponse.response_indication === 'NOT_VERIFIED') ||
-          (kycResponse && kycResponse.data?.response_indication === 'NOT_VERIFIED') ||
-          (kycResponse && (kycResponse.success === 0 || kycResponse.success === false) && (kycResponse.response_indication || kycResponse.data?.response_indication || kycResponse.message));
+        const canCreate = kycResponse?.data?.can_create;
+        const indication = kycResponse?.response_indication || kycResponse?.data?.response_indication;
+        const isVerifiedInProfile = Boolean(kycResponse?.is_kyc_verified);
 
-        if (isErrorOrNotVerified) {
-          setKycMessage(kycResponse.message || "You cannot proceed with this action.");
-          
-          const indication = kycResponse.response_indication || kycResponse.data?.response_indication;
-          
-          if (indication === 'NOT_VERIFIED') {
-            setKycIndicationText('Submit Documents');
-            setKycRedirectUrl(`/${lang}/profile`);
+        const isBlocked = canCreate === false || (indication && indication !== 'SUCCESS');
+
+        if (isBlocked) {
+          // If indication is NOT_VERIFIED but user is already verified in profile, DO NOT block!
+          if (indication === 'NOT_VERIFIED' && isVerifiedInProfile) {
+            // User is verified in profile, proceed smoothly
           } else {
-            setKycIndicationText('Upgrade Plan');
-            setKycRedirectUrl(`/${lang}/profile`);
+            setKycMessage(kycResponse.message || "You cannot proceed with this action.");
+            
+            if (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) {
+              setKycIndicationText('Submit Documents');
+              setKycRedirectUrl(`/${lang}/profile`);
+            } else {
+              setKycIndicationText('Upgrade Plan');
+              setKycRedirectUrl(`/${lang}/profile`);
+            }
+            
+            setIsKYCModalOpen(true);
+            setIsLoading(false);
+            return;
           }
-          
-          setIsKYCModalOpen(true);
-          setIsLoading(false);
-          return;
         }
       }
       
@@ -166,11 +208,11 @@ export function ProductActionButtons({
         <div className={`grid grid-cols-3 gap-2.5 ${className}`}>
           <ActionButton 
             variant="buy" 
-            href={userType === 'buyer' ? undefined : buyHref}
-            className={`${sizeClass} shadow-sm ${userType === 'seller' ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`}
-            disabled={userType === 'seller' || (isLoading && modalAction === 'buy')}
-            title={userType === 'seller' ? "Only Buyer accounts can purchase products." : undefined}
-            onClick={(e) => userType !== 'seller' ? handleActionClick(e, 'buy', buyHref) : undefined}
+            href={isBuyer ? undefined : buyHref}
+            className={`${sizeClass} shadow-sm ${isSeller ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`}
+            disabled={isSeller || (isLoading && modalAction === 'buy')}
+            title={isSeller ? (common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : undefined}
+            onClick={(e) => !isSeller ? handleActionClick(e, 'buy', buyHref) : undefined}
           >
             {isLoading && modalAction === 'buy' ? 'Loading...' : common.buy}
           </ActionButton>
@@ -187,11 +229,11 @@ export function ProductActionButtons({
 
           <ActionButton 
             variant="sell" 
-            href={userType === 'seller' ? undefined : sellHref}
-            className={`${sizeClass} shadow-sm ${userType === 'buyer' ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`}
-            disabled={userType === 'buyer' || (isLoading && modalAction === 'sell')}
-            title={userType === 'buyer' ? "Only Seller accounts can offer products for sale." : undefined}
-            onClick={(e) => userType !== 'buyer' ? handleActionClick(e, 'sell', sellHref) : undefined}
+            href={isSeller ? undefined : sellHref}
+            className={`${sizeClass} shadow-sm ${isBuyer ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`}
+            disabled={isBuyer || (isLoading && modalAction === 'sell')}
+            title={isBuyer ? (common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.") : undefined}
+            onClick={(e) => !isBuyer ? handleActionClick(e, 'sell', sellHref) : undefined}
           >
             {isLoading && modalAction === 'sell' ? 'Loading...' : common.sell}
           </ActionButton>
@@ -215,22 +257,22 @@ export function ProductActionButtons({
           <div className="grid grid-cols-2 gap-2">
             <ActionButton 
               variant="buy" 
-              href={userType === 'buyer' ? undefined : buyHref}
-              className={`${sizeClass} shadow-sm ${userType === 'seller' ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`}
-              disabled={userType === 'seller' || (isLoading && modalAction === 'buy')}
-              title={userType === 'seller' ? "Only Buyer accounts can purchase products." : undefined}
-              onClick={(e) => userType !== 'seller' ? handleActionClick(e, 'buy', buyHref) : undefined}
+              href={isBuyer ? undefined : buyHref}
+              className={`${sizeClass} shadow-sm ${isSeller ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`}
+              disabled={isSeller || (isLoading && modalAction === 'buy')}
+              title={isSeller ? (common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : undefined}
+              onClick={(e) => !isSeller ? handleActionClick(e, 'buy', buyHref) : undefined}
             >
               {isLoading && modalAction === 'buy' ? 'Loading...' : common.buy}
             </ActionButton>
 
             <ActionButton 
               variant="sell" 
-              href={userType === 'seller' ? undefined : sellHref}
-              className={`${sizeClass} shadow-sm ${userType === 'buyer' ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`}
-              disabled={userType === 'buyer' || (isLoading && modalAction === 'sell')}
-              title={userType === 'buyer' ? "Only Seller accounts can offer products for sale." : undefined}
-              onClick={(e) => userType !== 'buyer' ? handleActionClick(e, 'sell', sellHref) : undefined}
+              href={isSeller ? undefined : sellHref}
+              className={`${sizeClass} shadow-sm ${isBuyer ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`}
+              disabled={isBuyer || (isLoading && modalAction === 'sell')}
+              title={isBuyer ? (common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.") : undefined}
+              onClick={(e) => !isBuyer ? handleActionClick(e, 'sell', sellHref) : undefined}
             >
               {isLoading && modalAction === 'sell' ? 'Loading...' : common.sell}
             </ActionButton>
@@ -243,8 +285,8 @@ export function ProductActionButtons({
     return (
       <div className={`flex gap-2 ${className}`}>
         <ActionButton variant="add" href={undefined} onClick={(e) => handleActionClick(e, 'add', addProductHref)} disabled={isLoading && modalAction === 'add'} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'add' ? 'opacity-70 pointer-events-none' : ''}`}>{isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}</ActionButton>
-        <ActionButton variant="buy" href={userType === 'buyer' ? undefined : buyHref} disabled={userType === 'seller' || (isLoading && modalAction === 'buy')} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`} title={userType === 'seller' ? "Only Buyer accounts can purchase products." : undefined} onClick={(e) => userType !== 'seller' ? handleActionClick(e, 'buy', buyHref) : undefined}>{isLoading && modalAction === 'buy' ? 'Loading...' : common.buy}</ActionButton>
-        <ActionButton variant="sell" href={userType === 'seller' ? undefined : sellHref} disabled={userType === 'buyer' || (isLoading && modalAction === 'sell')} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`} title={userType === 'buyer' ? "Only Seller accounts can offer products for sale." : undefined} onClick={(e) => userType !== 'buyer' ? handleActionClick(e, 'sell', sellHref) : undefined}>{isLoading && modalAction === 'sell' ? 'Loading...' : common.sell}</ActionButton>
+        <ActionButton variant="buy" href={isBuyer ? undefined : buyHref} disabled={isSeller || (isLoading && modalAction === 'buy')} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`} title={isSeller ? (common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : undefined} onClick={(e) => !isSeller ? handleActionClick(e, 'buy', buyHref) : undefined}>{isLoading && modalAction === 'buy' ? 'Loading...' : common.buy}</ActionButton>
+        <ActionButton variant="sell" href={isSeller ? undefined : sellHref} disabled={isBuyer || (isLoading && modalAction === 'sell')} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`} title={isBuyer ? (common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.") : undefined} onClick={(e) => !isBuyer ? handleActionClick(e, 'sell', sellHref) : undefined}>{isLoading && modalAction === 'sell' ? 'Loading...' : common.sell}</ActionButton>
       </div>
     );
   };
@@ -253,48 +295,54 @@ export function ProductActionButtons({
     <>
       {renderButtons()}
       
-      <ProductInquiryModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        productId={modalData?.product?.id || productSlugOrId}
-        lang={lang}
-        common={common}
-        productName={modalData?.product?.name || productName}
-        countryName={modalData?.product?.country?.name || countryName}
-        price={price}
-        actionType={modalAction === 'add' ? 'buy' : modalAction} // fallback
-        shippingTerms={modalData?.shippingTerms || []}
-        packingTypes={modalData?.product?.packing_types || []}
-        containers={modalData?.product?.containers || []}
-        paymentTerms={modalData?.paymentTerms || []}
-      />
+      {isModalOpen && (
+        <ProductInquiryModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          productId={modalData?.product?.id || productSlugOrId}
+          lang={lang}
+          common={common}
+          productName={modalData?.product?.name || productName}
+          countryName={modalData?.product?.country?.name || countryName}
+          price={price}
+          actionType={modalAction === 'add' ? 'buy' : modalAction} // fallback
+          shippingTerms={modalData?.shippingTerms || []}
+          packingTypes={modalData?.product?.packing_types || []}
+          containers={modalData?.product?.containers || []}
+          paymentTerms={modalData?.paymentTerms || []}
+        />
+      )}
 
-      <AddFavoriteProductModal 
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        productId={modalData?.product?.id || productSlugOrId}
-        categoryId={modalData?.product?.category?.id}
-        countryId={modalData?.product?.country?.id}
-        lang={lang}
-        common={common}
-        productName={modalData?.product?.name || productName}
-        countryName={modalData?.product?.country?.name || countryName}
-        shippingTerms={modalData?.shippingTerms || []}
-        containers={modalData?.product?.containers || []}
-      />
+      {isAddModalOpen && (
+        <AddFavoriteProductModal 
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          productId={modalData?.product?.id || productSlugOrId}
+          categoryId={modalData?.product?.category?.id}
+          countryId={modalData?.product?.country?.id}
+          lang={lang}
+          common={common}
+          productName={modalData?.product?.name || productName}
+          countryName={modalData?.product?.country?.name || countryName}
+          shippingTerms={modalData?.shippingTerms || []}
+          containers={modalData?.product?.containers || []}
+        />
+      )}
 
-      <ActionIndicationModal
-        isOpen={isKYCModalOpen}
-        onClose={() => setIsKYCModalOpen(false)}
-        onConfirm={() => {
-          setIsKYCModalOpen(false);
-          router.push(kycRedirectUrl);
-        }}
-        title="Action Required"
-        description={kycMessage}
-        indicationText={kycIndicationText}
-        type="warning"
-      />
+      {isKYCModalOpen && (
+        <ActionIndicationModal
+          isOpen={isKYCModalOpen}
+          onClose={() => setIsKYCModalOpen(false)}
+          onConfirm={() => {
+            setIsKYCModalOpen(false);
+            router.push(kycRedirectUrl);
+          }}
+          title="Action Required"
+          description={kycMessage}
+          indicationText={kycIndicationText}
+          type="warning"
+        />
+      )}
     </>
   );
 }

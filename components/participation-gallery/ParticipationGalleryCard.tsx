@@ -62,13 +62,15 @@ export default function ParticipationGalleryCard({
         )}
       </Link>
 
-      <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col justify-between flex-grow">
+      <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col flex-1 justify-between">
         <div>
-          <h2
-            className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 line-clamp-1 tracking-tight"
-            
-          >
-            <Link href={albumUrl} prefetch={true} title={category.category_name} className="hover:text-brand-blue transition-colors">
+          <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug h-[44px] sm:h-[52px] flex items-center tracking-tight">
+            <Link 
+              href={albumUrl} 
+              prefetch={true} 
+              title={category.category_name} 
+              className="hover:text-brand-blue transition-colors line-clamp-2 break-words"
+            >
               {category.category_name}
             </Link>
           </h2>
@@ -79,7 +81,7 @@ export default function ParticipationGalleryCard({
             href={albumUrl}
             prefetch={true}
             aria-label={`View album: ${category.category_name}`}
-            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity flex items-center gap-1 sm:gap-1.5 group/link p-2 -ml-2"
+            className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 hover:opacity-80 transition-opacity inline-flex items-center gap-1 sm:gap-1.5 group/link min-h-[36px] py-1.5"
           >
             <span>{dict?.common?.view_album || 'View Album'}</span>
             <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] rtl:rotate-180 group-hover/link:translate-x-1 rtl:group-hover/link:-translate-x-1 transition-transform"></i>

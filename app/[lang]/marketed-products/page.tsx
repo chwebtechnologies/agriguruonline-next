@@ -182,7 +182,7 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
           };
           
           return (
-            <div key={product.id} style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
+            <div key={product.id} className="h-full flex flex-col" style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
               <MarketedProductCard
                 product={mappedProduct as any}
                 lang={lang}

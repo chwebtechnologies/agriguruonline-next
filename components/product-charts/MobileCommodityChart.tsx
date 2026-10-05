@@ -213,25 +213,28 @@ export default function MobileCommodityChart({
       const type = action === 'buy' ? 'BUYER' : 'SELLER';
       const kycResponse = await checkKYCStatus(lang, type);
       
-      const isErrorOrNotVerified = 
-        (kycResponse && kycResponse.data && kycResponse.data.can_create === false) ||
-        (kycResponse && kycResponse.response_indication === 'NOT_VERIFIED') ||
-        (kycResponse && kycResponse.data?.response_indication === 'NOT_VERIFIED') ||
-        (kycResponse && (kycResponse.success === 0 || kycResponse.success === false) && (kycResponse.response_indication || kycResponse.data?.response_indication || kycResponse.message));
+      const canCreate = kycResponse?.data?.can_create;
+      const indication = kycResponse?.response_indication || kycResponse?.data?.response_indication;
+      const isVerifiedInProfile = Boolean(kycResponse?.is_kyc_verified);
 
-      if (isErrorOrNotVerified) {
-        setKycMessage(kycResponse.message || "You cannot proceed with this action.");
-        const indication = kycResponse.response_indication || kycResponse.data?.response_indication;
-        if (indication === 'NOT_VERIFIED') {
-          setKycIndicationText('Submit Documents');
-          setKycRedirectUrl(`/${lang}/profile`);
+      const isBlocked = canCreate === false || (indication && indication !== 'SUCCESS');
+
+      if (isBlocked) {
+        if (indication === 'NOT_VERIFIED' && isVerifiedInProfile) {
+          // User is verified in profile, proceed smoothly
         } else {
-          setKycIndicationText('Upgrade Plan');
-          setKycRedirectUrl(`/${lang}/profile`);
+          setKycMessage(kycResponse.message || "You cannot proceed with this action.");
+          if (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            setKycIndicationText('Upgrade Plan');
+            setKycRedirectUrl(`/${lang}/profile`);
+          }
+          setIsKYCModalOpen(true);
+          setIsActionLoading(false);
+          return;
         }
-        setIsKYCModalOpen(true);
-        setIsActionLoading(false);
-        return;
       }
       
       const productId = apiProduct?.product?.id || apiProduct?.product_id || item.productId || item.favoriteProductId || item.id;

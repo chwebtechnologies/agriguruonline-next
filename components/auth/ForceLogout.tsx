@@ -8,6 +8,8 @@ export function ForceLogout({ lang }: { lang: string }) {
     
     // Instantly destroy token locally to prevent authenticated UI flashes
     document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;'
+    document.cookie = 'user_info=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;'
+    document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;'
     document.cookie = '__Secure-uid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;'
     localStorage.removeItem('auth_token')
     sessionStorage.clear()

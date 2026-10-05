@@ -12,6 +12,9 @@ import { tradingService } from '@/lib/api/trading.service'
 import { getClientAuthData } from '@/app/actions/authData'
 import { ProductActionButtons } from '@/components/marketed-products/ProductActionButtons'
 
+import { cookies } from 'next/headers'
+import { getUserProfile } from '@/lib/user-data'
+
 export const revalidate = 60;
 
 interface ProductDetail {
@@ -237,7 +240,33 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
     getDictionary(lang).catch(() => ({})),
   ])
   
-  const userType = null;
+  let userType: string | null = null;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
+    if (token) {
+      const userResult = await withTimeout(getUserProfile(token, lang), 2000, { userProfile: null, shouldLogout: false });
+      if (userResult.userProfile) {
+        const u = userResult.userProfile;
+        const rawUserType = typeof u.user_type === 'object' && u.user_type !== null ? (u.user_type.name || u.user_type.title) : u.user_type;
+        const rawRole = typeof u.role === 'object' && u.role !== null ? u.role.name : u.role;
+        const normUT = String(rawUserType || '').toLowerCase();
+        const normR = String(rawRole || '').toLowerCase();
+        if (normUT === 'buyer' || normR === 'buyer') userType = 'buyer';
+        else if (normUT === 'seller' || normR === 'seller') userType = 'seller';
+        else userType = normUT || normR || null;
+      }
+    }
+    if (!userType) {
+      const userInfoCookie = cookieStore.get('user_info')?.value;
+      if (userInfoCookie) {
+        const u = JSON.parse(decodeURIComponent(userInfoCookie));
+        const rawType = String(u.user_type || u.role || '').toLowerCase();
+        if (rawType.includes('buyer')) userType = 'buyer';
+        else if (rawType.includes('seller')) userType = 'seller';
+      }
+    }
+  } catch {}
   
   const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
@@ -523,7 +552,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
                 <div
                   key={simProduct.id}
                   title={simProductName}
-                  className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
+                  className="group flex flex-col h-full rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
                 >
                   <Link href={`/${lang}/product/${simProduct.slug}`} prefetch={true} className="relative w-full aspect-square bg-muted overflow-hidden border-b border-border block" title={simProductName} tabIndex={-1} aria-hidden="true">
                     <ImageWithSkeleton
@@ -536,12 +565,14 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
                     />
                   </Link>
 
-                  <div className="p-2 sm:p-3 flex flex-col flex-1">
-                    <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 line-clamp-2 leading-tight min-h-[34px]" >
-                      <Link href={`/${lang}/product/${simProduct.slug}`} prefetch={true} className="hover:text-brand-blue transition-colors">
-                        {simProduct.name}
-                      </Link>
-                    </h2>
+                  <div className="p-2 sm:p-3 flex flex-col flex-1 justify-between">
+                    <div>
+                      <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-2 leading-snug h-[38px] sm:h-[44px] flex items-center justify-center">
+                        <Link href={`/${lang}/product/${simProduct.slug}`} prefetch={true} title={simProductName} className="hover:text-brand-blue transition-colors line-clamp-2 break-words text-center">
+                          {simProduct.name}
+                        </Link>
+                      </h2>
+                    </div>
 
                     <div className="mt-auto space-y-1.5">
                       <ProductActionButtons 

@@ -2,6 +2,8 @@
 
 import { customFetch, customFetchJSON } from "@/lib/api/fetcher";
 import { cookies } from "next/headers";
+import { getTradingApiUrl, getUserApiUrl } from "@/lib/api-utils";
+import { getUserProfile } from "@/lib/user-data";
 import fs from "fs";
 
 export async function fetchProductDetails(productId: string, langCode: string) {
@@ -244,22 +246,43 @@ export async function checkKYCStatus(langCode: string, type: string) {
   const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
 
   if (!token) {
-    return { success: false, message: "Unauthorized", data: null };
+    return { success: false, message: "Unauthorized", data: null, isUnauthorized: true };
   }
 
+  // Get user profile using centralized getUserProfile service (cached & deduplicated)
   let user_id = '';
+  let isKycVerified = false;
+  let userType: any = null;
+
   try {
-    const userApiUrl = process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud';
-    const profileUrl = `${userApiUrl}/user/my-profile?lang_code=${langCode}&source=web`;
-    const profileRes = await customFetchJSON<any>(profileUrl, { token });
-    if (profileRes && profileRes.data && profileRes.data.id) {
-       user_id = profileRes.data.id;
+    const profileResult = await getUserProfile(token, langCode);
+    const profile = profileResult?.userProfile;
+    if (profile) {
+      user_id = profile.id || profile._id || profile.customer_id || '';
+      isKycVerified = Boolean(profile.is_kyc_verified);
+      userType = profile.user_type;
     }
   } catch (e) {
-    console.error(e);
+    console.error("Error retrieving user profile in checkKYCStatus:", e);
   }
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  if (!user_id) {
+    const userInfoCookie = cookieStore.get("user_info")?.value;
+    if (userInfoCookie) {
+      try {
+        const u = JSON.parse(decodeURIComponent(userInfoCookie));
+        user_id = u?.id || u?._id || u?.customer_id || '';
+        if (u?.is_kyc_verified !== undefined) {
+          isKycVerified = Boolean(u.is_kyc_verified);
+        }
+        if (u?.user_type) {
+          userType = u.user_type;
+        }
+      } catch {}
+    }
+  }
+
+  const tradingApiUrl = getTradingApiUrl();
   const url = `${tradingApiUrl}/trading-inquiry/next-button?lang_code=${langCode}&source=web`;
   
   try {
@@ -281,16 +304,20 @@ export async function checkKYCStatus(langCode: string, type: string) {
     console.log("KYC API Response:", data, "Status:", res.status);
     
     if (data) {
-       return data;
+       return {
+         ...data,
+         is_kyc_verified: isKycVerified,
+         user_type: userType
+       };
     }
     
     if (!res.ok) {
-       return { success: false, message: "Failed", data: null };
+       return { success: false, message: "Failed", data: null, is_kyc_verified: isKycVerified };
     }
     
-    return data;
+    return { ...data, is_kyc_verified: isKycVerified };
   } catch (error) {
     console.error("Error checking KYC status:", error);
-    return { success: false, message: "Failed to check KYC status", data: null };
+    return { success: false, message: "Failed to check KYC status", data: null, is_kyc_verified: isKycVerified };
   }
 }

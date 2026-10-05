@@ -103,7 +103,7 @@ export function ShareButton({
     }, 2000)
   }
 
-  const defaultClasses = "inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-transparent hover:bg-muted text-foreground hover:text-brand-blue transition-colors cursor-pointer"
+  const defaultClasses = "inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] rounded-full bg-transparent hover:bg-muted text-foreground hover:text-brand-blue transition-colors cursor-pointer"
 
   const shareLinks = {
     whatsapp: `https://api.whatsapp.com/send?text=${encodeURIComponent(title + " " + absoluteUrl)}`,
@@ -131,31 +131,36 @@ export function ShareButton({
 
         <div className="flex justify-between items-center mb-6">
           <h3 className="font-bold text-xl text-foreground tracking-tight">Share this article</h3>
-          <button onClick={() => setShowModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-muted hover:bg-border transition-colors text-foreground">
+          <button 
+            type="button"
+            onClick={() => setShowModal(false)} 
+            aria-label="Close share dialog"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-muted hover:bg-border transition-colors text-foreground cursor-pointer"
+          >
             <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
         
         <div className="grid grid-cols-4 gap-2 mb-8">
-          <button onClick={() => openPopup(shareLinks.whatsapp)} className="flex flex-col items-center gap-2.5 group">
+          <button type="button" onClick={() => openPopup(shareLinks.whatsapp)} aria-label="Share on WhatsApp" className="flex flex-col items-center gap-2.5 group cursor-pointer">
             <div className="w-[52px] h-[52px] rounded-full bg-[#25D366]/10 text-[#25D366] flex items-center justify-center text-[26px] group-hover:bg-[#25D366] group-hover:text-white transition-all shadow-sm">
               <i className="fa-brands fa-whatsapp"></i>
             </div>
             <span className="text-[11px] font-semibold text-foreground/80">WhatsApp</span>
           </button>
-          <button onClick={() => openPopup(shareLinks.facebook)} className="flex flex-col items-center gap-2.5 group">
+          <button type="button" onClick={() => openPopup(shareLinks.facebook)} aria-label="Share on Facebook" className="flex flex-col items-center gap-2.5 group cursor-pointer">
             <div className="w-[52px] h-[52px] rounded-full bg-[#1877F2]/10 text-[#1877F2] flex items-center justify-center text-[26px] group-hover:bg-[#1877F2] group-hover:text-white transition-all shadow-sm">
               <i className="fa-brands fa-facebook-f"></i>
             </div>
             <span className="text-[11px] font-semibold text-foreground/80">Facebook</span>
           </button>
-          <button onClick={() => openPopup(shareLinks.twitter)} className="flex flex-col items-center gap-2.5 group">
+          <button type="button" onClick={() => openPopup(shareLinks.twitter)} aria-label="Share on X" className="flex flex-col items-center gap-2.5 group cursor-pointer">
             <div className="w-[52px] h-[52px] rounded-full bg-black/5 dark:bg-white/10 text-black dark:text-white flex items-center justify-center text-2xl group-hover:bg-black group-hover:dark:bg-white group-hover:text-white group-hover:dark:text-black transition-all shadow-sm">
               <i className="fa-brands fa-x-twitter"></i>
             </div>
             <span className="text-[11px] font-semibold text-foreground/80">X</span>
           </button>
-          <button onClick={() => openPopup(shareLinks.linkedin)} className="flex flex-col items-center gap-2.5 group">
+          <button type="button" onClick={() => openPopup(shareLinks.linkedin)} aria-label="Share on LinkedIn" className="flex flex-col items-center gap-2.5 group cursor-pointer">
             <div className="w-[52px] h-[52px] rounded-full bg-[#0A66C2]/10 text-[#0A66C2] flex items-center justify-center text-[26px] group-hover:bg-[#0A66C2] group-hover:text-white transition-all shadow-sm">
               <i className="fa-brands fa-linkedin-in"></i>
             </div>
@@ -163,7 +168,7 @@ export function ShareButton({
           </button>
         </div>
 
-        <button onClick={copyToClipboard} className="w-full py-4 rounded-xl bg-muted hover:bg-border transition-colors font-bold flex items-center justify-center gap-2.5 text-foreground text-[15px]">
+        <button type="button" onClick={copyToClipboard} className="w-full py-4 rounded-xl bg-muted hover:bg-border transition-colors font-bold flex items-center justify-center gap-2.5 text-foreground text-[15px] cursor-pointer">
           <i className={`fa-solid ${copied ? 'fa-check text-brand-green' : 'fa-link'}`}></i>
           {copied ? "Link Copied to Clipboard!" : "Copy Link"}
         </button>
@@ -182,7 +187,7 @@ export function ShareButton({
         onClick={handleShare}
         className={className || defaultClasses}
         title={copied ? "Link Copied!" : "Share"}
-        aria-label="Share article"
+        aria-label={title ? `Share ${title}` : "Share article"}
       >
         {label && <span>{copied ? "Copied!" : label}</span>}
         <i className={`fa-solid ${copied ? 'fa-check text-brand-green' : 'fa-share-nodes'} text-xs sm:text-sm transition-transform ${copied ? 'scale-110' : ''}`}></i>

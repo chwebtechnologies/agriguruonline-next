@@ -47,14 +47,16 @@ export default function MarketUpdateCard({ update, lang, dict = {}, priority = f
         />
       </div>
       
-      <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
-        <h2 className="text-sm sm:text-base font-semibold text-foreground line-clamp-2 mb-2 group-hover:text-primary transition-colors min-h-[2.5rem]">
-          {title}
-        </h2>
-        
-        <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 mb-4 flex-grow min-h-[2rem]">
-          {description}
-        </p>
+      <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-1 justify-between">
+        <div>
+          <h2 className="text-sm sm:text-base font-semibold text-foreground mb-2 group-hover:text-primary transition-colors leading-snug h-[40px] sm:h-[48px] flex items-center">
+            <span className="line-clamp-2 break-words">{title}</span>
+          </h2>
+          
+          <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 break-words mb-4 h-[34px] sm:h-[40px] overflow-hidden leading-snug">
+            {description || '\u00A0'}
+          </p>
+        </div>
         
         <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
           <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">{dict?.common?.read_more || 'Read More'}</span>

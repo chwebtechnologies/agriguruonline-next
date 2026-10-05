@@ -212,6 +212,9 @@ export default async function middleware(request: NextRequest) {
     response.cookies.delete('auth_token');
     response.cookies.delete('refresh_token');
     response.cookies.delete('user_info');
+    response.cookies.set('auth_token', '', { path: '/', maxAge: 0 });
+    response.cookies.set('refresh_token', '', { path: '/', maxAge: 0 });
+    response.cookies.set('user_info', '', { path: '/', maxAge: 0 });
     
     return response;
   }

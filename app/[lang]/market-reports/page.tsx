@@ -143,7 +143,7 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 mt-2">
         {reports.map(sanitizeReport).filter(Boolean).map((report: any, index: number) => (
-          <div key={report.id || report._id || `report-${index}`} style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
+          <div key={report.id || report._id || `report-${index}`} className="h-full flex flex-col" style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
             <MarketReportCard priority={index < 2} report={report} lang={lang} dict={dict} isLoggedIn={!!token} />
           </div>
         ))}

@@ -52,8 +52,8 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType, di
   const isDisabled = (buttonText === 'Buy' && userType === 'seller') || (buttonText === 'Sell' && userType === 'buyer');
 
   return (
-    <div className="group flex flex-col rounded-md bg-muted/40 border border-border/50 overflow-hidden hover:shadow-sm transition-shadow duration-300">
-      <div className="px-4 py-3 sm:py-4">
+    <div className="group flex flex-col h-full rounded-md bg-muted/40 border border-border/50 overflow-hidden hover:shadow-sm transition-shadow duration-300">
+      <div className="px-4 py-3 sm:py-4 flex-1 flex flex-col justify-between">
         <div className="grid grid-cols-[65px_1fr] sm:grid-cols-[75px_1fr] gap-x-2 gap-y-3">
           {/* Row 1: Country */}
           <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">{dict?.common?.country || 'Country'}:</div>
@@ -79,7 +79,7 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType, di
           
           {/* Row 2: Product */}
           <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">{dict?.common?.product || 'Product'}:</div>
-          <h2 className="text-foreground font-bold text-[14px] sm:text-[15px] line-clamp-1">
+          <h2 className="text-foreground font-bold text-[14px] sm:text-[15px] line-clamp-2 break-words leading-tight" title={inquiry.product.name}>
             {inquiry.product.name}
           </h2>
           

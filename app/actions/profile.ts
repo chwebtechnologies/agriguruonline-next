@@ -56,6 +56,12 @@ export async function updateProfile(
 }
 
 export async function revalidateProfile(lang: string = "en") {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+  if (token) {
+    const { invalidateUserAuthCache } = await import("@/lib/api");
+    invalidateUserAuthCache(token);
+  }
   revalidatePath(`/${lang}/profile`);
   revalidatePath(`/`, "layout");
 }

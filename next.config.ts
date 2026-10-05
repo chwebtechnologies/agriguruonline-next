@@ -32,6 +32,7 @@ const nextConfig: NextConfig = {
       'libphonenumber-js',
       'sonner',
       'yet-another-react-lightbox',
+      'date-fns',
     ],
   },
   turbopack: {
