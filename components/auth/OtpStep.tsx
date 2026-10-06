@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import { toast } from "sonner";
-import { createSession, serverVerifyOtp } from "@/app/actions/auth";
+import { createSession, serverVerifyOtp, serverVerifyAppleOtp } from "@/app/actions/auth";
 import { authService } from "@/lib/api";
 
 interface OtpStepProps {
@@ -51,7 +51,13 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     }
     startTransition(async () => {
       try {
-        const response = await authService.sendOtp(email, lang);
+        const appleTxnId = localStorage.getItem("apple_txn_id");
+        let response;
+        if (appleTxnId) {
+          response = await authService.sendOtpApple(email, appleTxnId, lang);
+        } else {
+          response = await authService.sendOtp(email, lang);
+        }
 
         if (!response.ok) {
           let errorMessage = "Failed to resend OTP. Please try again.";
@@ -81,7 +87,13 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     setError("");
     startTransition(async () => {
       try {
-        const result = await serverVerifyOtp(email, otpString, lang);
+        const appleTxnId = localStorage.getItem("apple_txn_id");
+        let result;
+        if (appleTxnId) {
+          result = await serverVerifyAppleOtp(email, otpString, appleTxnId, lang);
+        } else {
+          result = await serverVerifyOtp(email, otpString, lang);
+        }
         
         if (!result.ok) {
           const errMsg = result.error || "Invalid OTP. Please try again.";
@@ -95,15 +107,24 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
 
         // Fallback session creation in case it wasn't already handled on server
         const token = successData?.data?.access_token || successData?.access_token;
-        if (nextStep === "LOGGED_IN" && token) {
+        if (nextStep === "LOGGED_IN") {
           try {
-            await createSession(
-              token, 
-              result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null,
-              successData?.data?.user || successData?.user || null
-            );
-          } catch (e) {
-            // Already handled server-side in serverVerifyOtp
+            localStorage.removeItem("apple_txn_id");
+            localStorage.removeItem("apple_email");
+            localStorage.removeItem("apple_first_name");
+            localStorage.removeItem("apple_last_name");
+          } catch (e) {}
+
+          if (token) {
+            try {
+              await createSession(
+                token, 
+                result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null,
+                successData?.data?.user || successData?.user || null
+              );
+            } catch (e) {
+              // Already handled server-side in serverVerifyOtp
+            }
           }
         }
 

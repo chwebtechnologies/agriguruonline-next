@@ -22,6 +22,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
   const router = useRouter();
   const [step, setStep] = useState<AuthStep>("EMAIL");
   const [email, setEmail] = useState("");
+  const [isAppleFlow, setIsAppleFlow] = useState(false);
 
   useEffect(() => {
     // Cleanup expired OTPs from localStorage on mount
@@ -34,7 +35,6 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
           const timestampStr = localStorage.getItem(key);
           if (timestampStr) {
             const timestamp = parseInt(timestampStr, 10);
-            // If older than 2 minutes
             if (now - timestamp >= 120 * 1000) {
               keysToRemove.push(key);
             }
@@ -42,6 +42,16 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
+      
+      // Check if resuming an Apple flow or clean up stale state
+      const txnId = localStorage.getItem("apple_txn_id");
+      if (txnId) {
+        setIsAppleFlow(true);
+        const savedAppleEmail = localStorage.getItem("apple_email");
+        if (savedAppleEmail) {
+          setEmail(savedAppleEmail);
+        }
+      }
     } catch (e) {
       // Ignore errors for localStorage
     }
@@ -89,23 +99,40 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     if (step === "EMAIL") {
       router.push(`/${lang}`);
     } else if (step === "OTP") {
-      // Go back in history which will trigger popstate and set step to EMAIL
       window.history.back();
     }
   };
 
-  const handleGoogleSuccess = (googleEmail: string, nextStep: string | null) => {
-    setEmail(googleEmail);
+  const handleSocialSuccess = (socialEmail: string, nextStep: string | null) => {
+    if (socialEmail) {
+      setEmail(socialEmail);
+    }
     if (nextStep === "REQUIRE_REGISTRATION") {
+      setIsAppleFlow(false);
       window.history.replaceState({ step: "REGISTER" }, "");
       setStep("REGISTER");
+    } else if (nextStep === "REQUIRE_EMAIL") {
+      setIsAppleFlow(true);
+      setStep("EMAIL");
     } else {
+      setIsAppleFlow(false);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("auth-state-change"));
       }
       const targetUrl = redirectUrl || `/${lang}/profile`;
       window.location.href = targetUrl;
     }
+  };
+
+  const handleCancelAppleFlow = () => {
+    setIsAppleFlow(false);
+    setEmail("");
+    try {
+      localStorage.removeItem("apple_txn_id");
+      localStorage.removeItem("apple_email");
+      localStorage.removeItem("apple_first_name");
+      localStorage.removeItem("apple_last_name");
+    } catch (e) {}
   };
 
   const getTitle = () => {
@@ -125,26 +152,35 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
       <div className="w-full flex flex-col items-center px-4 sm:px-0">
         <LoginRequiredBanner redirectUrl={redirectUrl} dict={dict} />
         {step === "EMAIL" && (
-          <EmailStep onNext={handleEmailNext} onGoogleSuccess={handleGoogleSuccess} lang={lang} dict={dict} />
+          <EmailStep
+            initialEmail={email}
+            isAppleFlow={isAppleFlow}
+            onCancelAppleFlow={handleCancelAppleFlow}
+            onNext={handleEmailNext}
+            onGoogleSuccess={handleSocialSuccess}
+            onAppleSuccess={handleSocialSuccess}
+            lang={lang}
+            dict={dict}
+          />
         )}
-      {step === "OTP" && (
-        <OtpStep
-          email={email}
-          onBack={() => window.history.back()}
-          onVerify={handleOtpVerify}
-          lang={lang}
-          dict={dict}
-        />
-      )}
-      {step === "REGISTER" && (
-        <RegisterStep
-          email={email}
-          onComplete={handleRegisterComplete}
-          lang={lang}
-          dict={dict}
-        />
-      )}
-    </div>
+        {step === "OTP" && (
+          <OtpStep
+            email={email}
+            onBack={() => window.history.back()}
+            onVerify={handleOtpVerify}
+            lang={lang}
+            dict={dict}
+          />
+        )}
+        {step === "REGISTER" && (
+          <RegisterStep
+            email={email}
+            onComplete={handleRegisterComplete}
+            lang={lang}
+            dict={dict}
+          />
+        )}
+      </div>
     </>
   );
 }

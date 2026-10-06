@@ -197,6 +197,104 @@ export async function serverGoogleLogin(idToken: string, lang: string) {
   return { ok: false, error: data?.message || data?.error || "Google Login failed", status: response.status };
 }
 
+export async function serverAppleLogin(applePayload: any, lang: string) {
+  const apiUrl = getUserApiUrl();
+  const url = `${apiUrl}/auth/apple-login?lang_code=${lang}&source=web`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...applePayload, source: "WEB" }),
+  });
+
+  const setCookieHeader = response.headers.get("set-cookie");
+  let backendRefreshToken = null;
+
+  if (setCookieHeader) {
+    const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
+    if (match) {
+      backendRefreshToken = match[1];
+    }
+  } else {
+    const cookiesArr = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
+    for (const c of cookiesArr) {
+      const match = c.match(/web_refresh_token=([^;]+)/);
+      if (match) {
+        backendRefreshToken = match[1];
+        break;
+      }
+    }
+  }
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (e) {
+    return { ok: false, error: "Invalid JSON response from backend" };
+  }
+
+  if (response.ok && (data?.success === 1 || data?.success === true)) {
+    return { ok: true, data, backendRefreshToken };
+  }
+
+  return { ok: false, error: data?.message || data?.error || "Apple Login failed", status: response.status };
+}
+
+export async function serverVerifyAppleOtp(email: string, otp: string, transactionId: string, lang: string) {
+  const apiUrl = getUserApiUrl();
+  const url = `${apiUrl}/auth/verify-otp-apple?lang_code=${lang}&source=web`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transaction_id: transactionId, otp, ...(email ? { email } : {}), source: "WEB" }),
+  });
+
+  const setCookieHeader = response.headers.get("set-cookie");
+  let backendRefreshToken = null;
+
+  if (setCookieHeader) {
+    const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
+    if (match) {
+      backendRefreshToken = match[1];
+    }
+  } else {
+    const cookiesArr = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
+    for (const c of cookiesArr) {
+      const match = c.match(/web_refresh_token=([^;]+)/);
+      if (match) {
+        backendRefreshToken = match[1];
+        break;
+      }
+    }
+  }
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (e) {
+    return { ok: false, error: "Invalid JSON response from backend" };
+  }
+
+  if (response.ok && data?.success === 1) {
+    const successData = data;
+    const nextStep = successData?.data?.next_step || successData?.next_step || null;
+    const token = successData?.data?.access_token || successData?.access_token;
+    const refreshToken = backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null;
+    const user = successData?.data?.user || successData?.user || null;
+
+    if (nextStep === "LOGGED_IN" && token) {
+      try {
+        await createSession(token, refreshToken, user);
+      } catch (sessionErr: any) {
+        return { ok: false, error: "Failed to setup session. Please try again." };
+      }
+    }
+    return { ok: true, data, nextStep, backendRefreshToken };
+  }
+  return { ok: false, error: data?.message || data?.error || "OTP Verification failed", status: response.status };
+}
+
 
 async function destroySession() {
   try {

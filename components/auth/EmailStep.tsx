@@ -1,26 +1,50 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { validateEmailDomain } from "@/app/actions/auth";
 import { toast } from "sonner";
 import { authService } from "@/lib/api";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import GoogleLoginButton from "./GoogleLoginButton";
+import AppleLoginButton from "./AppleLoginButton";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface EmailStepProps {
+  initialEmail?: string;
+  isAppleFlow?: boolean;
+  onCancelAppleFlow?: () => void;
   onNext: (email: string) => void;
   onGoogleSuccess?: (email: string, nextStep: string | null) => void;
+  onAppleSuccess?: (email: string, nextStep: string | null) => void;
   lang: string;
   dict?: any;
 }
 
-export default function EmailStep({ onNext, onGoogleSuccess, lang, dict }: EmailStepProps) {
-  const [email, setEmail] = useState("");
+export default function EmailStep({
+  initialEmail = "",
+  isAppleFlow = false,
+  onCancelAppleFlow,
+  onNext,
+  onGoogleSuccess,
+  onAppleSuccess,
+  lang,
+  dict,
+}: EmailStepProps) {
+  const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // Synchronize email state if initialEmail prop changes
+  useEffect(() => {
+    if (initialEmail && initialEmail !== email) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail]);
+
+  // Check if we are currently in Apple verification flow
+  const isAppleActive = isAppleFlow || (typeof window !== "undefined" && Boolean(localStorage.getItem("apple_txn_id")));
 
   const isFormatValid = EMAIL_REGEX.test(email.trim());
   const isButtonDisabled = !isFormatValid || isPending;
@@ -31,6 +55,20 @@ export default function EmailStep({ onNext, onGoogleSuccess, lang, dict }: Email
     if (error) {
       setError("");
     }
+  };
+
+  const handleCancelApple = () => {
+    try {
+      localStorage.removeItem("apple_txn_id");
+      localStorage.removeItem("apple_email");
+      localStorage.removeItem("apple_first_name");
+      localStorage.removeItem("apple_last_name");
+    } catch (e) {}
+    if (onCancelAppleFlow) {
+      onCancelAppleFlow();
+    }
+    setError("");
+    toast.info("Switched back to standard email login.");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -64,27 +102,36 @@ export default function EmailStep({ onNext, onGoogleSuccess, lang, dict }: Email
           return;
         }
 
-        const lastSentStr = localStorage.getItem(`otp_sent_${trimmedEmail}`);
-        if (lastSentStr) {
-          const lastSent = parseInt(lastSentStr, 10);
-          if (Date.now() - lastSent < 120 * 1000) {
-            toast.success("OTP was already sent recently!");
-            onNext(trimmedEmail);
-            return;
-          }
+        const appleTxnId = isAppleActive ? localStorage.getItem("apple_txn_id") : null;
+        let response: Response;
+
+        if (appleTxnId) {
+          response = await authService.sendOtpApple(trimmedEmail, appleTxnId, lang);
+        } else {
+          response = await authService.sendOtp(trimmedEmail, lang);
         }
-        
-        const response = await authService.sendOtp(trimmedEmail, lang);
 
         if (!response.ok) {
           let errorMessage = "Failed to send OTP. Please try again.";
           try {
             const errorData = await response.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
+            
+            // If the Apple transaction is expired or invalid, clear it so user isn't permanently stuck
+            if (appleTxnId && (response.status === 400 || response.status === 401 || response.status === 404)) {
+              localStorage.removeItem("apple_txn_id");
+              localStorage.removeItem("apple_email");
+              if (onCancelAppleFlow) onCancelAppleFlow();
+            }
           } catch (e) {}
           setError(errorMessage);
           toast.error(errorMessage);
           return;
+        }
+
+        // On success
+        if (appleTxnId) {
+          localStorage.setItem("apple_email", trimmedEmail);
         }
         
         localStorage.setItem(`otp_sent_${trimmedEmail}`, Date.now().toString());
@@ -100,6 +147,22 @@ export default function EmailStep({ onNext, onGoogleSuccess, lang, dict }: Email
 
   return (
     <div className="w-full max-w-md mx-auto mt-[5px] p-5 sm:p-6 flex flex-col items-center bg-card border border-foreground/10 rounded-2xl shadow-sm">      
+      {isAppleActive && (
+        <div className="w-full mb-4 p-3 bg-foreground/5 border border-foreground/15 rounded-xl flex items-center justify-between text-xs sm:text-sm">
+          <div className="flex items-center gap-2 text-foreground font-medium">
+            <i className="fa-brands fa-apple text-base"></i>
+            <span>Apple Sign-In: Enter email to link account</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleCancelApple}
+            className="text-xs text-brand-red hover:underline ml-2 font-semibold cursor-pointer shrink-0"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="w-full mb-6">
         <div className="mb-4">
           <label htmlFor="email" className={`block text-sm font-medium mb-2 transition-colors ${error ? 'text-red-500' : 'text-foreground'}`}>
@@ -116,7 +179,6 @@ export default function EmailStep({ onNext, onGoogleSuccess, lang, dict }: Email
             value={email}
             disabled={isPending}
             onChange={handleEmailChange}
-            onInput={(e: React.FormEvent<HTMLInputElement>) => setEmail((e.target as HTMLInputElement).value)}
             className={`w-full px-4 py-3 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 transition-colors ${
               error
                 ? "border-red-500 focus:ring-red-500/50"
@@ -146,24 +208,32 @@ export default function EmailStep({ onNext, onGoogleSuccess, lang, dict }: Email
         </button>
       </form>
 
-      <div className="flex items-center w-full mb-6">
-        <div className="flex-1 h-px bg-foreground/20"></div>
-        <span className="px-3 text-sm text-foreground/50">{dict?.or_continue_with || "or continue with"}</span>
-        <div className="flex-1 h-px bg-foreground/20"></div>
-      </div>
+      {!isAppleActive ? (
+        <>
+          <div className="flex items-center w-full mb-6">
+            <div className="flex-1 h-px bg-foreground/20"></div>
+            <span className="px-3 text-sm text-foreground/50">{dict?.or_continue_with || "or continue with"}</span>
+            <div className="flex-1 h-px bg-foreground/20"></div>
+          </div>
 
-      <div className="w-full space-y-3">
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1069930285243-ac406a8ddj6ckg8rkmvm8khfpcqq9hpt.apps.googleusercontent.com"}>
-          <GoogleLoginButton lang={lang} onSuccess={onGoogleSuccess} />
-        </GoogleOAuthProvider>
-        <button
-          type="button"
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-foreground/20 rounded-lg hover:bg-foreground/5 transition-colors"
-        >
-          <i className="fa-brands fa-apple text-lg"></i>
-          <span className="font-medium text-foreground">Apple</span>
-        </button>
-      </div>
+          <div className="w-full space-y-3">
+            <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1069930285243-ac406a8ddj6ckg8rkmvm8khfpcqq9hpt.apps.googleusercontent.com"}>
+              <GoogleLoginButton lang={lang} onSuccess={onGoogleSuccess} />
+            </GoogleOAuthProvider>
+            <AppleLoginButton lang={lang} onSuccess={onAppleSuccess || onGoogleSuccess} />
+          </div>
+        </>
+      ) : (
+        <div className="w-full text-center">
+          <button
+            type="button"
+            onClick={handleCancelApple}
+            className="text-xs text-foreground/60 hover:text-foreground underline transition-colors cursor-pointer"
+          >
+            Sign in with a different method
+          </button>
+        </div>
+      )}
 
       <p className="mt-8 text-xs text-center text-foreground/80">
         {dict?.by_continuing || "By continuing, you accept AgriGuru Online"} {" "}

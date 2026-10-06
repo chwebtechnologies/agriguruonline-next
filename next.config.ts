@@ -52,18 +52,18 @@ const nextConfig: NextConfig = {
   async headers() {
     const cspHeader = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com https://www.google.com/recaptcha/ https://www.gstatic.com https://accounts.google.com https://ssl.gstatic.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com https://www.google.com/recaptcha/ https://www.gstatic.com https://accounts.google.com https://ssl.gstatic.com https://appleid.cdn-apple.com",
       "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://accounts.google.com",
-      "img-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com https://www.transparenttextures.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://img.youtube.com https://i.ytimg.com https://lh3.googleusercontent.com",
+      "img-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com https://www.transparenttextures.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://img.youtube.com https://i.ytimg.com https://lh3.googleusercontent.com https://appleid.cdn-apple.com",
       "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com",
-      "connect-src 'self' https://trading-api.agriguruonline.cloud https://cms-api.agriguruonline.cloud https://user-api.agriguruonline.cloud https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com ws: wss: https://unpkg.com https://get.geojs.io https://api.country.is https://*.googleapis.com https://*.firebaseio.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://*.firebase.com https://firebase.googleapis.com https://accounts.google.com",
+      "connect-src 'self' https://trading-api.agriguruonline.cloud https://cms-api.agriguruonline.cloud https://user-api.agriguruonline.cloud https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com ws: wss: https://unpkg.com https://get.geojs.io https://api.country.is https://*.googleapis.com https://*.firebaseio.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://*.firebase.com https://firebase.googleapis.com https://accounts.google.com https://appleid.apple.com",
       "media-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud",
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'self'",
-      "frame-src 'self' https://www.youtube.com https://youtube.com https://www.google.com/recaptcha/ https://accounts.google.com",
+      "frame-src 'self' https://www.youtube.com https://youtube.com https://www.google.com/recaptcha/ https://accounts.google.com https://appleid.apple.com",
       // "require-trusted-types-for 'script'",
       // "trusted-types default nextjs nextjs#bundler 'allow-duplicates'",
       // Note: upgrade-insecure-requests intentionally omitted.

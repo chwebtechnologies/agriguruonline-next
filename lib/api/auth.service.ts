@@ -103,4 +103,32 @@ export const authService = {
       body: JSON.stringify({ id_token: idToken, source: 'WEB' }),
     });
   },
+
+  /**
+   * Send Apple OTP
+   */
+  sendOtpApple: async (email: string, transactionId: string, lang: string = 'en'): Promise<Response> => {
+    const apiUrl = getUserApiUrl();
+    const url = `${apiUrl}/auth/send-otp-apple`;
+    return await customFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      params: { lang_code: lang, source: 'web' },
+      body: JSON.stringify({ email, transaction_id: transactionId }),
+    });
+  },
+
+  /**
+   * Register Apple User
+   */
+  registerApple: async (payload: Record<string, unknown>, lang: string = 'en'): Promise<Response> => {
+    const apiUrl = getUserApiUrl();
+    const url = `${apiUrl}/auth/register-apple`;
+    return await customFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      params: { lang_code: lang, source: 'web' },
+      body: JSON.stringify({ ...payload, source: 'WEB' }),
+    });
+  },
 };
