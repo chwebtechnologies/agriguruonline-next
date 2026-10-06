@@ -41,7 +41,7 @@ export function ChartActionButton({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3.5 py-1 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-xs font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap cursor-pointer ${className} ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}
+      className={`px-2 py-0.5 bg-card border border-zinc-300 dark:border-zinc-700 text-foreground text-[11px] font-semibold rounded-full hover:bg-muted transition-colors shadow-xs whitespace-nowrap cursor-pointer ${className} ${isLoading ? 'opacity-70 pointer-events-none' : ''}`}
       disabled={isLoading}
     >
       {isLoading ? 'Wait...' : displayLabel}

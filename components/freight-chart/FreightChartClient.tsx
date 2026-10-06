@@ -378,7 +378,7 @@ export default function FreightChartClient({
       <div className="w-full flex flex-col gap-0 lg:gap-2">
         <div className="w-full relative">
           {/* Desktop Filter Row */}
-          <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0`}>
+          <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-3 border border-transparent`}>
             {/* 1. Ship by */}
             <div className="w-full min-w-0">
               <SearchableSelect
@@ -472,7 +472,7 @@ export default function FreightChartClient({
                 {/* Desktop Empty State with Interactive Step Pointers & Tutorial Guide */}
                 <div className="hidden lg:flex flex-col gap-3">
                   {/* Step-by-Step Pointers Grid matching input columns with 100% exact alignment */}
-                  <div className={`grid ${gridCols} gap-2 px-2 -mx-2`}>
+                  <div className={`grid ${gridCols} gap-1.5 px-3 border border-transparent`}>
                     {/* Col 1: Ship by (Step 1) */}
                     <div
                       onClick={() => document.getElementById('desktop-shipby-select')?.click()}

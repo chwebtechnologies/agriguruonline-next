@@ -926,7 +926,7 @@ export default function ProductChartsClient({
     return flagPath.startsWith('http') ? flagPath : `${baseUrl}/${flagPath.replace(/^\//, '')}`;
   };
 
-  const gridCols = "grid-cols-[0.92fr_0.98fr_1.85fr_1.0fr_0.78fr_1.22fr_1.27fr_0.68fr_0.72fr_0.5fr_1.08fr]";
+  const gridCols = "grid-cols-[minmax(0,0.92fr)_minmax(0,0.98fr)_minmax(0,1.75fr)_minmax(0,0.9fr)_minmax(0,0.78fr)_minmax(0,1.15fr)_minmax(0,1.15fr)_minmax(0,0.68fr)_minmax(0,0.72fr)_minmax(0,0.65fr)_minmax(0,1.32fr)]";
 
   const marqueeCopies = 5;
   const marqueeItems = initialMarketedProducts && initialMarketedProducts.length > 0 
@@ -993,7 +993,7 @@ export default function ProductChartsClient({
 
       <div className="w-full relative">
         {/* Header / Input Row */}
-        <div className={`hidden xl:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0`}>
+        <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0 border border-transparent`}>
           {/* 1. Category */}
           <div className="w-full min-w-0">
             <SearchableSelect 
@@ -1086,33 +1086,35 @@ export default function ProductChartsClient({
           </div>
           
           {/* Static Column Headers - Hidden on Mobile */}
-          <div className="hidden xl:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
+          <div className="hidden lg:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[12px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
             <span>Price</span>
             <span className="text-[12px] text-zinc-600 dark:text-zinc-400 leading-none mt-0.5">(PMT)</span>
           </div>
-          <div className="hidden xl:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+          <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[12px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
             Change
           </div>
-          <div className="hidden xl:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+          <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[12px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
             Chart
           </div>
           
           {/* Add Product Button */}
-          <ChartAddButton
-            id="desktop-add-product-btn"
-            onClick={handleAddProduct}
-            disabled={!isAddProductEnabled}
-            loading={isAdding}
-            label="Add Product"
-            tooltipText="Please select the options to add the product"
-            variant="desktop"
-          />
+          <div className="w-full min-w-0 flex items-center justify-end">
+            <ChartAddButton
+              id="desktop-add-product-btn"
+              onClick={handleAddProduct}
+              disabled={!isAddProductEnabled}
+              loading={isAdding}
+              label="Add Product"
+              tooltipText="Please select the options to add the product"
+              variant="desktop"
+            />
+          </div>
         </div>
 
         {/* Data Rows */}
-        <div className={`mt-0 xl:mt-2 ${addedProducts.length === 0 ? 'xl:min-h-[220px]' : ''}`}>
+        <div className={`mt-0 lg:mt-2 ${addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
           {isFetchingFavorites && addedProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 xl:py-16 text-center bg-card border border-border border-dashed rounded-xl h-full xl:min-h-[220px]">
+            <div className="flex flex-col items-center justify-center py-10 lg:py-16 text-center bg-card border border-border border-dashed rounded-xl h-full lg:min-h-[220px]">
               <i className="fa-solid fa-spinner fa-spin text-brand-blue text-3xl mb-4"></i>
               <h3 className="text-lg font-bold text-foreground">Loading Your Charts...</h3>
               <p className="text-muted-foreground text-sm mt-2">Please wait while we fetch your data</p>
@@ -1131,9 +1133,9 @@ export default function ProductChartsClient({
               />
 
               {/* Desktop Empty State with Interactive Step Pointers & Tutorial */}
-              <div className="hidden xl:flex flex-col gap-3">
+              <div className="hidden lg:flex flex-col gap-3">
                 {/* Step-by-Step Pointers Grid matching input columns with 100% exact alignment */}
-                <div className={`grid ${gridCols} gap-2 px-2 -mx-2`}>
+                <div className={`grid ${gridCols} gap-1.5 px-0 border border-transparent`}>
                   {/* Col 1: Category (Optional Filter) */}
                   <div 
                     onClick={() => document.getElementById('desktop-category-select')?.click()}
@@ -1376,7 +1378,7 @@ export default function ProductChartsClient({
               </div>
             </>
           ) : (
-            <div className="flex flex-col gap-[7px] xl:gap-2 mt-0.5 xl:mt-1">
+            <div className="flex flex-col gap-[7px] lg:gap-2 mt-0.5 lg:mt-1">
               {(isHomePage ? addedProducts.slice(0, 4) : addedProducts).map((item, index) => {
                 const changeVal = Number(item.change) || 0;
                 const isPositive = changeVal >= 0;
@@ -1413,8 +1415,8 @@ export default function ProductChartsClient({
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
-                    <div className={`hidden xl:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-[16px] font-semibold`}>
-                      <div className="truncate text-foreground/90 min-w-0" title={item.category}>{item.category}</div>
+                    <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm text-[13px] xl:text-[16px] font-semibold px-0`}>
+                      <div className="truncate text-foreground/90 min-w-0 pl-3" title={item.category}>{item.category}</div>
                       <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.country}>
                         {item.countryFlag && <FlagIcon src={getFlagUrl(item.countryFlag)} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}
                         <span className="truncate min-w-0">{item.country}</span>
@@ -1430,8 +1432,8 @@ export default function ProductChartsClient({
                         {item.podFlag && <FlagIcon src={getFlagUrl(item.podFlag)} alt={`${item.pod || 'POD'} Flag`} title={`${item.pod || 'POD'} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}
                         <span className="truncate min-w-0">{item.pod || '-'}</span>
                       </div>
-                      <div className="w-full flex items-center justify-center text-center font-bold text-foreground text-[16px] min-w-0" title={`$${item.price}`}>${item.price}</div>
-                      <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-[16px] ${isPositive ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`} title={`${changeVal}$`}>
+                      <div className="w-full flex items-center justify-center text-center font-bold text-brand-blue dark:text-blue-400 text-[14px] xl:text-[18px] min-w-0" title={`$${item.price}`}>${item.price}</div>
+                      <div className={`w-full text-center font-bold flex items-center justify-center gap-1 min-w-0 text-[13px] xl:text-[16px] ${isPositive ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`} title={`${changeVal}$`}>
                         <i className={`fa-solid ${isPositive ? 'fa-caret-up' : 'fa-caret-down'} text-xs`}></i>
                         <span className="truncate">{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
                       </div>
@@ -1444,9 +1446,9 @@ export default function ProductChartsClient({
                         onKeyDown={(e) => { if (item.chartStatus && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBottomSheet(item.id); } }}
                         title={item.chartStatus ? "View Product Chart" : "Chart Not Available"}
                       >
-                        <i className={`fa-solid fa-chart-area text-[18px] ${item.chartStatus ? 'bg-gradient-to-tr from-brand-blue to-brand-green bg-clip-text text-transparent' : 'text-zinc-400'}`}></i>
+                        <i className={`fa-solid fa-chart-area text-[16px] xl:text-[18px] ${item.chartStatus ? 'text-brand-blue dark:text-blue-400' : 'text-zinc-400'}`}></i>
                       </div>
-                      <div className="flex items-center justify-end gap-2.5 min-w-0">
+                      <div className="flex items-center justify-end gap-2.5 min-w-0 pr-3">
                         <ChartActionButton
                           onClick={(e) => handleBuySellClick(item, e)}
                           userType={userType}
@@ -1468,7 +1470,7 @@ export default function ProductChartsClient({
       </div>
 
         {/* Global Actions Bar - Sticky on Mobile, Static on Desktop */}
-        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto md:flex md:justify-between xl:static xl:bottom-auto xl:bg-transparent xl:border-none xl:shadow-none xl:px-0 xl:mx-0 xl:mt-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto md:flex md:justify-between lg:static lg:bottom-auto lg:bg-transparent lg:border-none lg:shadow-none lg:px-0 lg:mx-0 lg:mt-4">
           
           {/* Left Action (Inquiry/Offer) */}
           <button className="w-full md:w-auto inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap">
@@ -1490,14 +1492,14 @@ export default function ProductChartsClient({
             {isHomePage && addedProducts.length > 4 && (
               <button 
                 onClick={() => router.push(`/${lang}/product-charts`)}
-                className="hidden xl:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
+                className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
               >
                 View All
               </button>
             )}
 
             {showDisclaimer && (
-              <div className={`absolute ${disclaimerPos === 'top' ? 'bottom-[calc(100%+12px)] xl:mb-3' : 'top-[calc(100%+12px)] xl:mt-3'} z-50 w-[280px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95`}>
+              <div className={`absolute ${disclaimerPos === 'top' ? 'bottom-[calc(100%+12px)] lg:mb-3' : 'top-[calc(100%+12px)] lg:mt-3'} z-50 w-[280px] sm:w-[320px] left-1/2 -translate-x-1/2 bg-card border border-brand-blue rounded-xl p-4 shadow-2xl animate-in fade-in zoom-in-95`}>
                 {/* Triangle pointer */}
                 <div className={`absolute ${disclaimerPos === 'top' ? '-bottom-[7px]' : '-top-[7px]'} left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card ${disclaimerPos === 'top' ? 'border-b border-r' : 'border-t border-l'} border-brand-blue transform rotate-45`}></div>
                 
@@ -1522,13 +1524,13 @@ export default function ProductChartsClient({
             onClick={() => setShowMobileAddForm(true)}
             label="Add Product"
             variant="mobile-sticky"
-            className="xl:hidden !max-w-none !w-full md:!w-auto h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
+            className="lg:hidden !max-w-none !w-full md:!w-auto h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
           />
 
           {/* Right Action (Freight Inquiry) - Desktop Only */}
           <button 
             onClick={() => document.getElementById('freight-section')?.scrollIntoView({ behavior: 'smooth' })}
-            className="hidden xl:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
+            className="hidden lg:inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
           >
             Freight Inquiry <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
           </button>

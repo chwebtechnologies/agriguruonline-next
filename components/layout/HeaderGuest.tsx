@@ -203,10 +203,14 @@ export function HeaderGuestBase({
   const [width, setWidth] = useState(1280)
 
   useEffect(() => {
-    if (typeof window === 'undefined' || window.innerWidth < 1024) return
     const handleResize = () => setWidth(window.innerWidth)
-    window.addEventListener('resize', handleResize, { passive: true })
+    // Defer to after first paint to avoid blocking main thread (TBT)
+    const raf = requestAnimationFrame(() => {
+      setWidth(window.innerWidth)
+    })
+    window.addEventListener('resize', handleResize)
     return () => {
+      cancelAnimationFrame(raf)
       window.removeEventListener('resize', handleResize)
     }
   }, [])

@@ -47,7 +47,7 @@ export function ChartMobileItemCard({
           {title}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="font-bold text-[14px] text-foreground whitespace-nowrap">
+          <div className="font-bold text-[16px] text-brand-blue dark:text-blue-400 whitespace-nowrap">
             {priceDisplay}
           </div>
           <button

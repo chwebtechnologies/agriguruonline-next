@@ -162,7 +162,7 @@ export function SearchableSelect({
                       ? 'bg-brand-blue border-brand-blue text-white font-semibold cursor-pointer shadow-sm outline-none focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue'
                       : 'bg-card border border-border hover:border-brand-blue/50 focus:border-brand-blue focus:ring-1 focus:ring-brand-blue outline-none focus:outline-none dark:hover:border-brand-blue/50 text-foreground font-medium cursor-pointer active:scale-[0.99]'
                 }`
-              : `h-[45px] px-2 lg:px-2.5 text-xs lg:text-[13px] xl:text-sm ${triggerClassName || 'rounded-lg'} ${
+              : `h-[45px] px-1.5 lg:px-1.5 xl:px-2.5 text-xs lg:text-[11.5px] xl:text-sm ${triggerClassName || 'rounded-lg'} ${
                   !isInteractive
                     ? 'bg-card border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 font-medium select-none cursor-not-allowed shadow-xs'
                     : isSelected

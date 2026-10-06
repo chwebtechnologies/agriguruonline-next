@@ -370,6 +370,7 @@ export const tradingService = {
       const json = await customFetchJSON<any>(url, {
         token,
         params: { lang_code: lang, source: 'web' },
+        cache: 'no-store',
       });
       const rawFavs = json?.data?.favorite_products || json?.data?.favorite_product || (Array.isArray(json?.data) ? json.data : []);
       return Array.isArray(rawFavs) ? rawFavs : [];
@@ -390,6 +391,7 @@ export const tradingService = {
       const json = await customFetchJSON<any>(url, {
         token,
         params: { lang_code: lang, source: 'web' },
+        cache: 'no-store',
       });
       const rawFavs = json?.data?.favourite_ports || json?.data?.favorite_ports || json?.data?.favourite_port || json?.data?.favorite_port || json?.data?.ports || (Array.isArray(json?.data) ? json.data : []);
       return Array.isArray(rawFavs) ? rawFavs : [];
