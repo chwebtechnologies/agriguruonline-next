@@ -30,6 +30,7 @@ interface FooterProps {
       freight?: string
       price?: string
       chart?: string
+      insights?: string
       [key: string]: unknown
     }
   }
@@ -49,21 +50,21 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
     },
     {
       label: dict.navigation?.freight || 'Freight',
-      href: `/${activeLang}/freight`,
+      href: `/${activeLang}/freight-charts`,
       iconClass: 'fa-solid fa-ship',
-      isActive: pathname.startsWith(`/${activeLang}/freight`),
+      isActive: pathname.startsWith(`/${activeLang}/freight-charts`),
     },
     {
       label: dict.navigation?.price || 'Price',
-      href: `/${activeLang}/prices`,
+      href: `/${activeLang}/product-charts`,
       iconClass: 'fa-solid fa-dollar-sign',
-      isActive: pathname.startsWith(`/${activeLang}/prices`),
+      isActive: pathname.startsWith(`/${activeLang}/product-charts`),
     },
     {
-      label: dict.navigation?.chart || 'Charts',
-      href: `/${activeLang}/product-charts`,
-      iconClass: 'fa-solid fa-chart-line',
-      isActive: pathname.startsWith(`/${activeLang}/product-charts`),
+      label: dict.navigation?.insights || 'Insights',
+      href: '#',
+      iconClass: 'fa-solid fa-lightbulb',
+      isActive: false,
     },
     {
       label: dict.navigation?.home || 'Home',

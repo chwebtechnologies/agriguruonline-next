@@ -604,7 +604,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                 {dict.header.home}
               </Link>
               <Link
-                href="#"
+                href={`/${activeLang}/products`}
                 className="transition-colors duration-150 font-extrabold text-muted-foreground hover:text-foreground"
               >
                 {dict.navigation.products || 'Products'}

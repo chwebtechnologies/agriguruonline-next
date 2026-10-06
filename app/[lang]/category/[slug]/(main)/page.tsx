@@ -264,20 +264,20 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
                   </ProductLink>
                 )}
 
-                <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col flex-1 justify-between">
-                  <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug h-[44px] sm:h-[52px] flex items-center tracking-tight">
+                <div className="px-3 py-2 sm:px-4 sm:py-2 flex flex-col flex-1 justify-between">
+                  <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug tracking-tight">
                     {index === 0 ? (
-                      <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors line-clamp-2 break-words">
+                      <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors truncate block">
                         {subCatName}
                       </Link>
                     ) : (
-                      <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors line-clamp-2 break-words">
+                      <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="hover:text-brand-blue transition-colors truncate block">
                         {subCatName}
                       </ProductLink>
                     )}
                   </h2>
 
-                  <div className="flex items-center justify-between mt-auto pt-1">
+                  <div className="flex items-center justify-between mt-auto">
                     {index === 0 ? (
                       <Link
                         href={`/${lang}/category/${slug}/${subCat.slug}`}
