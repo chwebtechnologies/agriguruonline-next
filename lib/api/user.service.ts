@@ -15,6 +15,32 @@ export interface AuthDataResult {
   aiPredictsData: any[];
 }
 
+export interface PlanFeature {
+  id: string;
+  name: string;
+  is_enabled: boolean;
+  is_countable: boolean;
+  month_wise: boolean;
+  count_limit: number;
+}
+
+export interface MembershipPlan {
+  id: string;
+  plan_name: string;
+  monthly_usd_price: number;
+  monthly_inr_price: number;
+  monthly_trial_days: number;
+  yearly_usd_price: number;
+  yearly_inr_price: number;
+  yearly_trial_days: number;
+  is_monthly: boolean;
+  is_yearly: boolean;
+  sequence: number;
+  discount_percentage: number;
+  is_active: boolean;
+  features: PlanFeature[];
+}
+
 export function extractPredicts(data: any | null): any[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
@@ -459,5 +485,27 @@ export const userService = {
       body: JSON.stringify(payload),
     });
     return res;
-  }
+  },
+
+  /**
+   * Fetch active membership plans.
+   */
+  getMembershipPlans: cache(async (lang: string = 'en'): Promise<MembershipPlan[]> => {
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const url = `${getUserApiUrl()}/membership-plan?is_active=true&lang_code=${safeLang}&source=web`;
+
+    try {
+      const res = await customFetch(url, { revalidate: 3600 });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data?.plans && Array.isArray(json.data.plans)) {
+          return json.data.plans;
+        }
+      }
+    } catch (err) {
+      console.error('[userService.getMembershipPlans] Fetch error:', err);
+    }
+
+    return [];
+  })
 };
