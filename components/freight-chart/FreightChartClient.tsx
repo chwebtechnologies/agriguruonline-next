@@ -381,7 +381,7 @@ export default function FreightChartClient({
       <div className="w-full flex flex-col gap-0 lg:gap-2">
         <div className="w-full relative">
           {/* Desktop Filter Row */}
-          <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-3 border border-transparent`}>
+          <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0 border border-transparent`}>
             {/* 1. Ship by */}
             <div className="w-full min-w-0">
               <SearchableSelect
@@ -422,20 +422,20 @@ export default function FreightChartClient({
             </div>
 
             {/* Static Column Headers */}
-            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-border bg-card items-center justify-center text-foreground font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
               Freight
             </div>
 
-            <div className="hidden lg:flex flex-col w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
+            <div className="hidden lg:flex flex-col w-full h-[45px] rounded-lg border border-border bg-card items-center justify-center text-foreground font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 leading-tight select-none cursor-default">
               <span>Freight</span>
-              <span className="text-[12px] text-zinc-600 dark:text-zinc-400 leading-none mt-0.5">(PMT)</span>
+              <span className="text-[12px] text-muted-foreground leading-none mt-0.5">(PMT)</span>
             </div>
 
-            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-border bg-card items-center justify-center text-foreground font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
               Change
             </div>
 
-            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-card items-center justify-center text-zinc-700 dark:text-zinc-300 font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
+            <div className="hidden lg:flex w-full h-[45px] rounded-lg border border-border bg-card items-center justify-center text-foreground font-semibold text-xs lg:text-[13px] xl:text-sm px-1 text-center shadow-xs min-w-0 select-none cursor-default">
               Chart
             </div>
 
@@ -475,7 +475,7 @@ export default function FreightChartClient({
                 {/* Desktop Empty State with Interactive Step Pointers & Tutorial Guide */}
                 <div className="hidden lg:flex flex-col gap-3">
                   {/* Step-by-Step Pointers Grid matching input columns with 100% exact alignment */}
-                  <div className={`grid ${gridCols} gap-1.5 px-3 border border-transparent`}>
+                  <div className={`grid ${gridCols} gap-1.5 px-0 border border-transparent`}>
                     {/* Col 1: Ship by (Step 1) */}
                     <div
                       onClick={() => document.getElementById('desktop-shipby-select')?.click()}
@@ -719,9 +719,9 @@ export default function FreightChartClient({
                       </SwipeableCard>
 
                       {/* Desktop Row Layout (Matching Screenshot 1 Exactly) */}
-                      <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center px-3 py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm  text-[16px] font-semibold`}>
+                      <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm text-[16px] font-semibold px-0`}>
                         {/* 1. Ship by */}
-                        <div className="truncate text-foreground/90 font-bold min-w-0" title={item.shipBy}>
+                        <div className="truncate text-foreground/90 font-bold min-w-0 pl-3" title={item.shipBy}>
                           {item.shipBy}
                         </div>
 
@@ -774,7 +774,7 @@ export default function FreightChartClient({
                         </div>
 
                         {/* 8. Reusable Action Buttons (Book & Delete) */}
-                        <div className="flex items-center justify-end gap-2.5 min-w-0">
+                        <div className="flex items-center justify-end gap-2.5 min-w-0 pr-3">
                           <ChartActionButton
                             onClick={handleBooking}
                             mode="freight"
