@@ -68,11 +68,13 @@ function PayPalSubscriptionButtons({
   onApproveCallback,
   onErrorCallback,
   onCancelCallback,
+  onInitiateCallback,
 }: {
   preCreatedSubscriptionId: string;
   onApproveCallback: (subscriptionID: string, orderID: string) => Promise<void>;
   onErrorCallback: (err: any) => void;
   onCancelCallback: () => void;
+  onInitiateCallback?: () => void;
 }) {
   const [{ isPending: isSDKPending }] = usePayPalScriptReducer();
 
@@ -95,6 +97,10 @@ function PayPalSubscriptionButtons({
         shape: 'rect',
         color: 'gold',
         label: 'subscribe',
+      }}
+      onClick={(_data, actions) => {
+        onInitiateCallback?.();
+        return actions.resolve();
       }}
       createSubscription={(_data, _actions) => {
         // Synchronous return — subscriptionId was pre-fetched before buttons were rendered
@@ -149,7 +155,7 @@ export default function ConfirmationModal({
     [paypalClientId]
   );
 
-  useScrollLock(isOpen);
+  useScrollLock(isOpen && initiatingGateway !== 'paypal');
 
   useEffect(() => {
     setMounted(true);
@@ -572,6 +578,8 @@ export default function ConfirmationModal({
         setInitiatingGateway(null);
       });
       rzpInstance.open();
+      // Immediately close confirmation modal so it does not remain open behind Razorpay
+      onClose();
     } catch (err: any) {
       console.error('[handleSelectRazorpay] Error:', err);
       toast.error(err?.message || 'A network error occurred while connecting to Razorpay.');
@@ -579,12 +587,16 @@ export default function ConfirmationModal({
     }
   };
 
+  const isPayPalOpen = initiatingGateway === 'paypal';
+
   const content = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirmation-modal-title"
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
+      className={`fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto overscroll-contain ${
+        isPayPalOpen ? 'hidden pointer-events-none' : ''
+      }`}
       onClick={() => !isPending && !initiatingGateway && onClose()}
     >
       <div
@@ -601,16 +613,16 @@ export default function ConfirmationModal({
         />
 
         {/* Gateway Verification Processing Overlay */}
-        {Boolean(initiatingGateway) && (
-          <div className="absolute inset-0 z-50 bg-card/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4 shadow-sm border border-primary/20">
+        {initiatingGateway === 'razorpay' && (
+          <div className="absolute inset-0 z-50 bg-card rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4 shadow-sm border border-emerald-500/20">
               <i className="fa-solid fa-circle-notch fa-spin text-2xl"></i>
             </div>
             <h4 className="text-lg font-black text-foreground">
-              {initiatingGateway === 'paypal' ? 'Verifying PayPal Subscription...' : 'Verifying Razorpay Payment...'}
+              Opening Razorpay Checkout...
             </h4>
             <p className="text-xs text-muted-foreground mt-2 max-w-xs leading-relaxed">
-              Please wait while we confirm your payment and activate your membership plan. Do not close or refresh this page.
+              Please wait while we initialize your secure payment gateway...
             </p>
           </div>
         )}
@@ -777,71 +789,94 @@ export default function ConfirmationModal({
                 </span>
               </div>
 
-              {/* 1. PayPal & International Cards (USD) */}
-              <div className="rounded-2xl border border-border bg-card/60 p-4 transition-all shadow-sm space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-card border border-border text-foreground flex items-center justify-center shrink-0 text-xl shadow-xs">
-                      <i className="fa-brands fa-paypal text-[#0070ba] dark:text-[#38a3ff]"></i>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm sm:text-base font-black text-foreground">PayPal</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border/50">
-                          International (USD)
+              {/* 1. PayPal & International Cards (USD) - Hidden when Razorpay is initiating */}
+              {initiatingGateway !== 'razorpay' && (
+                <div className="rounded-2xl border border-border bg-card/60 p-4 transition-all shadow-sm space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-card border border-border text-foreground flex items-center justify-center shrink-0 text-xl shadow-xs">
+                        <i className="fa-brands fa-paypal text-[#0070ba] dark:text-[#38a3ff]"></i>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm sm:text-base font-black text-foreground">PayPal</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border/50">
+                            International (USD)
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground block truncate mt-0.5">
+                          PayPal Balance, Credit & Debit Cards
                         </span>
                       </div>
-                      <span className="text-xs text-muted-foreground block truncate mt-0.5">
-                        PayPal Balance, Credit & Debit Cards
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-base sm:text-lg font-black text-foreground block">
+                        ${formattedUsd}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground font-medium">
+                        /{isYearly ? 'yr' : 'mo'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
-                    <span className="text-base sm:text-lg font-black text-foreground block">
-                      ${formattedUsd}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-medium">
-                      /{isYearly ? 'yr' : 'mo'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* PayPal Buttons Container */}
-                <div className="pt-1">
-                  {paypalError ? (
-                    <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <i className="fa-solid fa-circle-exclamation shrink-0"></i>
-                        <span className="truncate">{paypalError}</span>
+                  {/* PayPal Buttons Container */}
+                  <div className="pt-1">
+                    {paypalError ? (
+                      <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <i className="fa-solid fa-circle-exclamation shrink-0"></i>
+                          <span className="truncate">{paypalError}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => initPayPal(planId, isYearly ? 'YEARLY' : 'MONTHLY', orderType)}
+                          className="font-bold underline shrink-0 hover:opacity-80 cursor-pointer"
+                        >
+                          Retry
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => initPayPal(planId, isYearly ? 'YEARLY' : 'MONTHLY', orderType)}
-                        className="font-bold underline shrink-0 hover:opacity-80 cursor-pointer"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  ) : (
-                    <PayPalScriptProvider options={paypalScriptOptions}>
-                      <PayPalSubscriptionButtons
-                        preCreatedSubscriptionId={paypalSubscriptionId || ''}
-                        onApproveCallback={async (subscriptionID, orderID) => {
-                          const effectiveSubId = subscriptionID || paypalSubscriptionId || orderID || '';
-                          const effectiveOrderId = orderID || effectiveSubId;
-                          setInitiatingGateway('paypal');
-                          try {
-                            const captureRes = await captureSubscriptionAction(
-                              {
-                                order_id: effectiveOrderId,
-                                subscription_id: effectiveSubId,
-                                payment_gateway: 'PayPal',
-                              },
-                              lang
-                            );
+                    ) : (
+                      <PayPalScriptProvider options={paypalScriptOptions}>
+                        <PayPalSubscriptionButtons
+                          preCreatedSubscriptionId={paypalSubscriptionId || ''}
+                          onInitiateCallback={() => {
+                            setInitiatingGateway('paypal');
+                          }}
+                          onApproveCallback={async (subscriptionID, orderID) => {
+                            const effectiveSubId = subscriptionID || paypalSubscriptionId || orderID || '';
+                            const effectiveOrderId = orderID || effectiveSubId;
+                            setInitiatingGateway('paypal');
+                            try {
+                              const captureRes = await captureSubscriptionAction(
+                                {
+                                  order_id: effectiveOrderId,
+                                  subscription_id: effectiveSubId,
+                                  payment_gateway: 'PayPal',
+                                },
+                                lang
+                              );
 
-                            if (!captureRes.success) {
+                              if (!captureRes.success) {
+                                try {
+                                  const refreshed = await refreshUserProfileAction(lang);
+                                  if (refreshed.success && refreshed.data?.membership?.plan_name) {
+                                    await handlePostActivationSuccess('PayPal subscription activated successfully!');
+                                    return;
+                                  }
+                                } catch {}
+
+                                toast.error(captureRes.error || 'PayPal verification failed.');
+                                setInitiatingGateway(null);
+                                onClose();
+                                return;
+                              }
+
+                              await handlePostActivationSuccess(
+                                captureRes.message || 'PayPal subscription activated successfully!'
+                              );
+                            } catch (err: any) {
+                              console.error('[PayPal onApprove] Error:', err);
                               try {
                                 const refreshed = await refreshUserProfileAction(lang);
                                 if (refreshed.success && refreshed.data?.membership?.plan_name) {
@@ -850,55 +885,43 @@ export default function ConfirmationModal({
                                 }
                               } catch {}
 
-                              toast.error(captureRes.error || 'PayPal verification failed.');
+                              toast.error(err?.message || 'Payment capture failed.');
                               setInitiatingGateway(null);
-                              return;
+                              onClose();
                             }
-
-                            await handlePostActivationSuccess(
-                              captureRes.message || 'PayPal subscription activated successfully!'
-                            );
-                          } catch (err: any) {
-                            console.error('[PayPal onApprove] Error:', err);
-                            try {
-                              const refreshed = await refreshUserProfileAction(lang);
-                              if (refreshed.success && refreshed.data?.membership?.plan_name) {
-                                await handlePostActivationSuccess('PayPal subscription activated successfully!');
-                                return;
-                              }
-                            } catch {}
-
-                            toast.error(err?.message || 'Payment capture failed.');
+                          }}
+                          onErrorCallback={(err: any) => {
+                            console.error('[PayPal Error]:', err);
+                            const errText = err?.message || (typeof err === 'string' ? err : 'PayPal encountered an error');
+                            toast.error(`PayPal Error: ${errText}`);
                             setInitiatingGateway(null);
-                          }
-                        }}
-                        onErrorCallback={(err: any) => {
-                          console.error('[PayPal Error]:', err);
-                          const errText = err?.message || (typeof err === 'string' ? err : 'PayPal encountered an error');
-                          toast.error(`PayPal Error: ${errText}`);
-                          setInitiatingGateway(null);
-                        }}
-                        onCancelCallback={() => {
-                          toast.info('PayPal payment was cancelled.');
-                          setInitiatingGateway(null);
-                        }}
-                      />
-                    </PayPalScriptProvider>
-                  )}
+                            onClose();
+                          }}
+                          onCancelCallback={() => {
+                            toast.info('PayPal payment was cancelled.');
+                            setInitiatingGateway(null);
+                            onClose();
+                          }}
+                        />
+                      </PayPalScriptProvider>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Divider between gateways */}
-              <div className="relative my-2 text-center">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border/60"></div>
+              {/* Divider between gateways - Hidden when Razorpay is initiating */}
+              {initiatingGateway !== 'razorpay' && (
+                <div className="relative my-2 text-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border/60"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-card px-3 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      or pay with inr (For indian Users Only)
+                    </span>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-card px-3 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    or pay with inr (india)
-                  </span>
-                </div>
-              </div>
+              )}
 
               {/* 2. Razorpay (Indian Users - INR) */}
               <button
@@ -923,7 +946,7 @@ export default function ConfirmationModal({
                       </span>
                     </div>
                     <span className="text-xs text-muted-foreground block truncate mt-0.5">
-                      UPI, NetBanking, Cards {formattedContact ? `• Phone: ${formattedContact}` : ''}
+                      UPI, NetBanking, Cards
                     </span>
                   </div>
                 </div>
@@ -972,7 +995,7 @@ export default function ConfirmationModal({
         <div className="mt-4 pt-3 border-t border-border/50 text-center">
           <span className="text-[11px] sm:text-xs text-muted-foreground font-semibold flex items-center justify-center gap-1.5">
             <i className="fa-solid fa-shield-halved text-emerald-500 text-xs"></i>
-            256-Bit SSL Encrypted • Instant Activation • Cancel Anytime
+            Instant Activation • Cancel Anytime
           </span>
         </div>
       </div>

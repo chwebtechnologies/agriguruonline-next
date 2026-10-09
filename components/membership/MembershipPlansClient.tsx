@@ -39,7 +39,7 @@ export default function MembershipPlansClient({
     userProfile?.membership?.plan_name?.toLowerCase() === 'regular';
 
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
-  const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
+  const currency = 'USD';
   const [confirmationOrder, setConfirmationOrder] = useState<InitiateUpgradeResponse | null>(null);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState<boolean>(false);
   const [activeIndex, setActiveIndex] = useState<number>(1); // Default to Gold (center)
@@ -103,8 +103,10 @@ export default function MembershipPlansClient({
     ''
   ).toLowerCase();
 
+  // Free trial eligibility: Without login users (guests) OR logged-in users who are specifically eligible
   const isUserTrialEligible =
-    !userProfile || userProfile.is_free_trial_applicable !== false;
+    !userProfile || Boolean(userProfile?.is_free_trial_applicable);
+  const showTrialBanner = isUserTrialEligible && silverTrialDays > 0;
 
   const handleSelectPlan = (plan: MembershipPlan) => {
     const duration = billingInterval.toUpperCase() as 'MONTHLY' | 'YEARLY';
@@ -179,8 +181,8 @@ export default function MembershipPlansClient({
           Verified commodity market intelligence, AI predictive forecasting, and direct counterparty trade network.
         </p>
 
-        {/* Billing Cycle & Multi-Currency Switchers */}
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+        {/* Billing Cycle Switcher */}
+        <div className="mt-4 flex items-center justify-center">
           {/* Monthly / Yearly Switcher */}
           <div className="inline-flex items-center p-1 bg-muted/80 rounded-2xl border border-border shadow-xs">
             <button
@@ -208,35 +210,6 @@ export default function MembershipPlansClient({
               <span className="text-[10px] font-black uppercase px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                 Save 15%
               </span>
-            </button>
-          </div>
-
-          {/* USD / INR Currency Switcher */}
-          <div className="inline-flex items-center p-1 bg-muted/80 rounded-2xl border border-border shadow-xs">
-            <button
-              type="button"
-              onClick={() => setCurrency('USD')}
-              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                currency === 'USD'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <span>USD</span>
-              <span className="text-[11px] font-semibold text-muted-foreground">($)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrency('INR')}
-              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                currency === 'INR'
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <span>INR</span>
-              <span className="text-[11px] font-semibold text-muted-foreground">(₹)</span>
             </button>
           </div>
         </div>
@@ -349,83 +322,85 @@ export default function MembershipPlansClient({
         </div>
       </div>
 
-      {/* High-Converting 100% Risk-Free Free Trial Banner */}
-      <div className="mt-8 rounded-3xl bg-gradient-to-br from-slate-200/40 via-card to-card dark:from-slate-800/40 dark:via-card dark:to-card border border-slate-300/80 dark:border-slate-700/80 p-6 sm:p-8 shadow-xl relative overflow-hidden w-full">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/80 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-black uppercase tracking-wider">
-                <i className="fa-solid fa-gift text-[11px] text-slate-700 dark:text-slate-300"></i> {silverTrialDays}-Day Free Trial
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted border border-border text-foreground text-xs font-bold">
-                <i className="fa-solid fa-credit-card text-[11px] text-slate-600 dark:text-slate-400"></i> No Card or Banking Details Required
-              </span>
+      {/* High-Converting 100% Risk-Free Free Trial Banner - Only for unauthenticated users or trial-eligible members */}
+      {showTrialBanner && (
+        <div className="mt-8 rounded-3xl bg-gradient-to-br from-slate-200/40 via-card to-card dark:from-slate-800/40 dark:via-card dark:to-card border border-slate-300/80 dark:border-slate-700/80 p-6 sm:p-8 shadow-xl relative overflow-hidden w-full">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/80 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-black uppercase tracking-wider">
+                  <i className="fa-solid fa-gift text-[11px] text-slate-700 dark:text-slate-300"></i> {silverTrialDays}-Day Free Trial
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted border border-border text-foreground text-xs font-bold">
+                  <i className="fa-solid fa-credit-card text-[11px] text-slate-600 dark:text-slate-400"></i> No Card or Banking Details Required
+                </span>
+              </div>
+
+              <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-foreground tracking-tight">
+                Try AgriGuru Online 100% Risk-Free for {silverTrialDays} Days
+              </h3>
+
+              <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                We believe in earning your trust first. We never ask for credit cards, debit cards, or banking details to start. Experience verified commodity spot rates, direct buyer/seller trade inquiries, and market analytics with zero financial commitment.
+              </p>
+
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-card border border-border/80 flex items-start gap-2.5 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300/60 dark:border-slate-700">
+                    <i className="fa-solid fa-ban text-xs"></i>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-foreground">Zero Payment Info</h4>
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                      No card or bank details. Zero auto-debits.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-card border border-border/80 flex items-start gap-2.5 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300/60 dark:border-slate-700">
+                    <i className="fa-solid fa-chart-line text-xs"></i>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-foreground">Global Spot Rates</h4>
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                      Live import-export spot prices and commodity market trends.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-card border border-border/80 flex items-start gap-2.5 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300/60 dark:border-slate-700">
+                    <i className="fa-solid fa-bolt text-xs"></i>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-foreground">Instant Activation</h4>
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                      Get started in 30 seconds. Cancel anytime.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-foreground tracking-tight">
-              Try AgriGuru Online 100% Risk-Free for {silverTrialDays} Days
-            </h3>
-
-            <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              We believe in earning your trust first. We never ask for credit cards, debit cards, or banking details to start. Experience verified commodity spot rates, direct buyer/seller trade inquiries, and market analytics with zero financial commitment.
-            </p>
-
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-card border border-border/80 flex items-start gap-2.5 shadow-2xs">
-                <div className="w-7 h-7 rounded-lg bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300/60 dark:border-slate-700">
-                  <i className="fa-solid fa-ban text-xs"></i>
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-foreground">Zero Payment Info</h4>
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                    No card or bank details. Zero auto-debits.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-card border border-border/80 flex items-start gap-2.5 shadow-2xs">
-                <div className="w-7 h-7 rounded-lg bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300/60 dark:border-slate-700">
-                  <i className="fa-solid fa-chart-line text-xs"></i>
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-foreground">Global Spot Rates</h4>
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                    Live import-export spot prices and commodity market trends.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-card border border-border/80 flex items-start gap-2.5 shadow-2xs">
-                <div className="w-7 h-7 rounded-lg bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300/60 dark:border-slate-700">
-                  <i className="fa-solid fa-bolt text-xs"></i>
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-foreground">Instant Activation</h4>
-                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                    Get started in 30 seconds. Cancel anytime.
-                  </p>
-                </div>
-              </div>
+            <div className="flex flex-col items-stretch sm:items-center lg:items-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => silverPlan && handleSelectPlan(silverPlan)}
+                className="py-3.5 px-6 rounded-2xl bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-slate-950 text-white dark:from-slate-200 dark:via-zinc-100 dark:to-slate-200 dark:hover:from-white dark:hover:to-slate-100 dark:text-slate-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 dark:shadow-slate-200/10 active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <i className="fa-solid fa-gift text-sm"></i>
+                <span>Claim {silverTrialDays} Days Free Access</span>
+                <i className="fa-solid fa-arrow-right text-xs"></i>
+              </button>
+              <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5 justify-center">
+                <i className="fa-solid fa-shield-halved text-slate-500 dark:text-slate-400 text-[10px]"></i>
+                100% Risk-Free • No commitments
+              </span>
             </div>
-          </div>
-
-          <div className="flex flex-col items-stretch sm:items-center lg:items-end gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => silverPlan && handleSelectPlan(silverPlan)}
-              className="py-3.5 px-6 rounded-2xl bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-slate-950 text-white dark:from-slate-200 dark:via-zinc-100 dark:to-slate-200 dark:hover:from-white dark:hover:to-slate-100 dark:text-slate-900 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 dark:shadow-slate-200/10 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              <i className="fa-solid fa-gift text-sm"></i>
-              <span>Claim {silverTrialDays} Days Free Access</span>
-              <i className="fa-solid fa-arrow-right text-xs"></i>
-            </button>
-            <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5 justify-center">
-              <i className="fa-solid fa-shield-halved text-slate-500 dark:text-slate-400 text-[10px]"></i>
-              100% Risk-Free • No commitments
-            </span>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Trust & Guarantee Ribbon */}
       <div className="mt-6 py-3.5 px-4 rounded-xl bg-muted/30 border border-border/70 text-center w-full">
