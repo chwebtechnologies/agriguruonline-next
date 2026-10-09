@@ -76,6 +76,8 @@ export async function createSession(accessToken: string, refreshToken: string | 
     first_name: user?.first_name || "",
     last_name: user?.last_name || "",
     email: user?.email || "",
+    mobile_no: user?.mobile_no || user?.phone || "",
+    phone: user?.phone || user?.mobile_no || "",
     country_code: user?.country_code || "",
     role: rawRole || "Business User",
     user_type: effectiveType,

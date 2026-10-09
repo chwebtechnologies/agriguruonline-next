@@ -32,8 +32,10 @@ export function AppMenu({
   align = 'right', 
   profile,
   isOpen: controlledIsOpen,
-  onOpenChange
-, dict }: AppMenuProps) {
+  onOpenChange,
+  onOpenBecomeMemberModal,
+  dict 
+}: AppMenuProps) {
   const params = useParams();
   const lang = (params?.lang as string) || 'en';
   const menuId = useId();

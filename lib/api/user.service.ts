@@ -18,10 +18,10 @@ export interface AuthDataResult {
 export interface PlanFeature {
   id: string;
   name: string;
-  is_enabled: boolean;
-  is_countable: boolean;
-  month_wise: boolean;
   count_limit: number;
+  is_enabled: boolean;
+  month_wise: boolean;
+  is_countable: boolean;
 }
 
 export interface MembershipPlan {
@@ -33,12 +33,83 @@ export interface MembershipPlan {
   yearly_usd_price: number;
   yearly_inr_price: number;
   yearly_trial_days: number;
-  is_monthly: boolean;
-  is_yearly: boolean;
-  sequence: number;
   discount_percentage: number;
   is_active: boolean;
+  is_free_trial_applicable: boolean;
   features: PlanFeature[];
+  is_monthly?: boolean;
+  is_yearly?: boolean;
+  sequence?: number;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  mobile_no: string;
+  country_id: string;
+  user_type?: {
+    id: string;
+    name: 'Buyer' | 'Seller' | 'Regular';
+  };
+  membership?: {
+    id: string;
+    plan_name: string;
+    membership_duration: 'MONTHLY' | 'YEARLY';
+    expiry_date: string;
+    is_trial?: boolean;
+  };
+  is_free_trial_applicable: boolean;
+  user_categories?: { id: string; name: string }[];
+}
+
+export interface StoredPlanSelection {
+  planId: string;
+  planName: string;
+  duration: 'MONTHLY' | 'YEARLY';
+}
+
+export interface InitiateUpgradeResponse {
+  new_membership_plan: {
+    id: string;
+    plan_name: string;
+  };
+  usd_amount: number;
+  inr_amount: number;
+  membership_duration: 'MONTHLY' | 'YEARLY';
+  expiry_date: string;
+  is_free_trial_applicable: boolean;
+  free_trial_days?: number;
+  type: 'MEMBERSHIP_UPGRADE' | 'BECOME_A_MEMBER';
+}
+
+export interface CreateSubscriptionPayload {
+  membership_id: string;
+  membership_duration: 'MONTHLY' | 'YEARLY';
+  payment_gateway: 'RazorPay' | 'PayPal';
+  type: 'BECOME_A_MEMBER' | 'MEMBERSHIP_UPGRADE';
+  user_type?: string;
+  country_id?: string;
+  category?: string[];
+}
+
+export interface CreateSubscriptionResponse {
+  subscription_id: string;
+  order_id?: string;
+  key_id?: string;
+  client_id?: string;
+  amount?: number;
+  currency?: string;
+  [key: string]: any;
+}
+
+export interface CaptureSubscriptionPayload {
+  order_id?: string;
+  subscription_id: string;
+  payment_gateway: 'RazorPay' | 'PayPal';
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
 }
 
 export function extractPredicts(data: any | null): any[] {
@@ -490,12 +561,12 @@ export const userService = {
   /**
    * Fetch active membership plans.
    */
-  getMembershipPlans: cache(async (lang: string = 'en'): Promise<MembershipPlan[]> => {
+  getMembershipPlans: cache(async (lang: string = 'en', token?: string): Promise<MembershipPlan[]> => {
     const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
     const url = `${getUserApiUrl()}/membership-plan?is_active=true&lang_code=${safeLang}&source=web`;
 
     try {
-      const res = await customFetch(url, { revalidate: 3600 });
+      const res = await customFetch(url, { revalidate: 3600, token });
       if (res.ok) {
         const json = await res.json();
         if (json?.data?.plans && Array.isArray(json.data.plans)) {
@@ -507,5 +578,150 @@ export const userService = {
     }
 
     return [];
-  })
+  }),
+
+  /**
+   * Fetch user types for onboarding dropdown.
+   */
+  getUserTypes: cache(async (lang: string = 'en'): Promise<{ id: string; name: string }[]> => {
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const url = `${getUserApiUrl()}/user/user-type?lang_code=${safeLang}&source=web`;
+
+    try {
+      const res = await customFetch(url, { revalidate: 86400 });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json?.data)) {
+          return json.data;
+        }
+        if (Array.isArray(json?.data?.user_types)) {
+          return json.data.user_types;
+        }
+      }
+    } catch (err) {
+      console.error('[userService.getUserTypes] Fetch error:', err);
+    }
+
+    return [];
+  }),
+
+  /**
+   * Initiate membership upgrade or become-a-member calculation.
+   */
+  initiateMembershipUpgrade: async (
+    payload: {
+      membership_id: string;
+      membership_duration: 'MONTHLY' | 'YEARLY';
+      type: 'BECOME_A_MEMBER' | 'MEMBERSHIP_UPGRADE';
+      is_free_trial_applicable?: boolean;
+    },
+    token: string,
+    lang: string = 'en'
+  ) => {
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const url = `${getUserApiUrl()}/membership-plan/initiate-upgrade?lang_code=${safeLang}&source=web`;
+
+    const res = await customFetch(url, {
+      method: 'POST',
+      token,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res;
+  },
+
+  /**
+   * Activate free trial directly (bypassing payment gateway).
+   */
+  startFreeTrial: async (
+    payload: {
+      membership_id: string;
+      membership_duration: 'MONTHLY' | 'YEARLY';
+      type: 'BECOME_A_MEMBER' | 'MEMBERSHIP_UPGRADE';
+      user_type?: string;
+      country_id?: string;
+      category?: string[];
+    },
+    token: string,
+    lang: string = 'en'
+  ) => {
+    invalidateUserAuthCache(token);
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const url = `${getUserApiUrl()}/membership-plan/start-trial?lang_code=${safeLang}&source=web`;
+
+    const res = await customFetch(url, {
+      method: 'POST',
+      token,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res;
+  },
+
+  /**
+   * Create membership subscription for payment gateways (RazorPay / PayPal).
+   */
+  createSubscription: async (
+    payload: {
+      membership_id: string;
+      membership_duration: 'MONTHLY' | 'YEARLY';
+      payment_gateway: 'RazorPay' | 'PayPal';
+      type: 'BECOME_A_MEMBER' | 'MEMBERSHIP_UPGRADE';
+      user_type?: string;
+      country_id?: string;
+      category?: string[];
+      amount?: number;
+      inr_amount?: number;
+      usd_amount?: number;
+      currency?: string;
+      first_name?: string;
+      last_name?: string;
+      email?: string;
+      mobile_no?: string;
+      phone?: string;
+      country_code?: string;
+      env?: 'sandbox' | 'live' | 'production';
+      is_sandbox?: boolean;
+    },
+    token: string,
+    lang: string = 'en'
+  ) => {
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const url = `${getUserApiUrl()}/membership-plan/create-subscription?lang_code=${safeLang}&source=web`;
+
+    const res = await customFetch(url, {
+      method: 'POST',
+      token,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res;
+  },
+
+  /**
+   * Capture and verify payment subscription.
+   */
+  captureSubscription: async (
+    payload: {
+      order_id?: string;
+      subscription_id: string;
+      payment_gateway: 'RazorPay' | 'PayPal';
+      razorpay_payment_id?: string;
+      razorpay_signature?: string;
+    },
+    token: string,
+    lang: string = 'en'
+  ) => {
+    invalidateUserAuthCache(token);
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const url = `${getUserApiUrl()}/membership-plan/capture-subscription?lang_code=${safeLang}&source=web`;
+
+    const res = await customFetch(url, {
+      method: 'POST',
+      token,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res;
+  }
 };

@@ -64,6 +64,12 @@ export default function Error({
           <p className="text-foreground/80 text-sm md:text-base">
             {t.desc}
           </p>
+          {error?.message && (
+            <div className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs text-left font-mono break-all max-h-40 overflow-auto">
+              <span className="font-bold">Error: </span>{error.message}
+              {error.digest && <div className="text-[10px] text-muted-foreground mt-1 font-sans">Digest: {error.digest}</div>}
+            </div>
+          )}
         </div>
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button

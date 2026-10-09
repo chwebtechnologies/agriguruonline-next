@@ -201,7 +201,7 @@ export default async function middleware(request: NextRequest) {
   }
 
   // Define protected routes (require auth)
-  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|my-inquiries|my-offers|alerts-setups)/);
+  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|my-inquiries|my-offers|alerts-setups|become-member)/);
   
   if (isProtectedRoute && (!token || !isTokenValid)) {
     const loginUrl = new URL(`/${locale}/login`, request.url);
@@ -223,6 +223,10 @@ export default async function middleware(request: NextRequest) {
   const isGuestRoute = pathname.match(/^\/[a-z]{2}\/(login|register)/);
   
   if (isGuestRoute && token && isTokenValid) {
+    const storedPlan = request.cookies.get('selected-plan')?.value;
+    if (storedPlan) {
+      return NextResponse.redirect(new URL(`/${locale}/become-member`, request.url));
+    }
     return NextResponse.redirect(new URL(`/${locale}`, request.url));
   }
 

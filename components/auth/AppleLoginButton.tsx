@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { serverAppleLogin, createSession } from "@/app/actions/auth";
+import { getStoredPlanSelection } from "@/lib/membership-storage";
 
 interface AppleLoginButtonProps {
   lang: string;
@@ -130,6 +131,13 @@ export default function AppleLoginButton({ lang, onSuccess }: AppleLoginButtonPr
         if (onSuccess) {
           onSuccess(userEmail, nextStep);
         } else {
+          try {
+            const stored = getStoredPlanSelection();
+            if (stored?.planId) {
+              window.location.href = `/${lang}/become-member`;
+              return;
+            }
+          } catch {}
           window.location.href = `/${lang}/profile`;
         }
       } catch (error) {

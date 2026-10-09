@@ -58,7 +58,12 @@ export default function SearchableCountrySelect({
         .filter((o): o is { value: string; label?: string } => Boolean(o.value))
         .map((o) => {
           const code = o.value as Country;
-          const callingCode = getCountryCallingCode(code);
+          let callingCode = "";
+          try {
+            callingCode = getCountryCallingCode(code);
+          } catch {
+            callingCode = "";
+          }
           return {
             code,
             name: o.label || countryNames[code] || code,
@@ -69,7 +74,12 @@ export default function SearchableCountrySelect({
 
     // Default: all 245 countries from react-phone-number-input
     return getCountries().map((code) => {
-      const callingCode = getCountryCallingCode(code);
+      let callingCode = "";
+      try {
+        callingCode = getCountryCallingCode(code);
+      } catch {
+        callingCode = "";
+      }
       return {
         code,
         name: countryNames[code] || code,

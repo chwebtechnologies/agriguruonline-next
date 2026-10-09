@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 
 import { PageHeader } from "@/components/ui/PageHeader";
 import LoginRequiredBanner from "./LoginRequiredBanner";
+import { getStoredPlanSelection } from "@/lib/membership-storage";
 
 type AuthStep = "EMAIL" | "OTP" | "REGISTER";
 
@@ -73,6 +74,16 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     setStep("OTP");
   };
 
+  const getPostAuthTargetUrl = () => {
+    try {
+      const stored = getStoredPlanSelection();
+      if (stored?.planId) {
+        return `/${lang}/become-member`;
+      }
+    } catch {}
+    return redirectUrl || `/${lang}/profile`;
+  };
+
   const handleOtpVerify = (otp: string, nextStep: string | null) => {
     if (nextStep === "REQUIRE_REGISTRATION") {
       // Replace state so going back from REGISTER skips OTP
@@ -82,7 +93,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("auth-state-change"));
       }
-      const targetUrl = redirectUrl || `/${lang}/profile`;
+      const targetUrl = getPostAuthTargetUrl();
       window.location.href = targetUrl;
     }
   };
@@ -91,7 +102,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("auth-state-change"));
     }
-    const targetUrl = redirectUrl || `/${lang}/profile`;
+    const targetUrl = getPostAuthTargetUrl();
     window.location.href = targetUrl;
   };
 
@@ -119,7 +130,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("auth-state-change"));
       }
-      const targetUrl = redirectUrl || `/${lang}/profile`;
+      const targetUrl = getPostAuthTargetUrl();
       window.location.href = targetUrl;
     }
   };

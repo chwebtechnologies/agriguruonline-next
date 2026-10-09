@@ -43,7 +43,10 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   const token = cookieStore.get("auth_token")?.value;
 
   if (token) {
-    if (redirectUrl) {
+    const hasStoredPlan = cookieStore.get("selected-plan")?.value;
+    if (hasStoredPlan) {
+      redirect(`/${lang}/become-member`);
+    } else if (redirectUrl) {
       redirect(redirectUrl);
     } else {
       redirect(`/${lang}/profile`);

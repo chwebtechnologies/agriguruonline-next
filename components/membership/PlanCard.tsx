@@ -8,6 +8,8 @@ interface PlanCardProps {
   billingInterval: 'monthly' | 'yearly';
   currency: 'USD' | 'INR';
   isCurrentPlan: boolean;
+  userHasOtherMembership?: boolean;
+  isTrialEligible?: boolean;
   onSelect: (plan: MembershipPlan) => void;
   dict?: any;
 }
@@ -183,6 +185,8 @@ export default function PlanCard({
   billingInterval,
   currency,
   isCurrentPlan,
+  userHasOtherMembership = false,
+  isTrialEligible = false,
   onSelect,
 }: PlanCardProps) {
   const planNameLower = plan.plan_name.toLowerCase();
@@ -194,7 +198,7 @@ export default function PlanCard({
     billingInterval === 'yearly'
       ? plan.yearly_trial_days
       : plan.monthly_trial_days;
-  const hasTrial = trialDays > 0;
+  const hasTrial = Boolean(isTrialEligible && trialDays > 0);
 
   const currentPrice =
     currency === 'USD'
@@ -236,8 +240,8 @@ export default function PlanCard({
 
   // Badges per user requirements:
   // - Gold: "Most Popular"
-  // - Silver: "90 Days Free Trial"
-  // - Platinum: Clean metallic look, no unapproved VIP/Institutional badges
+  // - Silver with eligible trial: "Free Trial" / "X Days Free Trial"
+  // - Platinum: Clean metallic look
   const tierBadge = isGold
     ? {
         text: 'Most Popular',
@@ -245,12 +249,12 @@ export default function PlanCard({
         wrapperClass:
           'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/25 border border-amber-300/60',
       }
-    : isSilver && hasTrial
+    : hasTrial
     ? {
         text: `${trialDays} Days Free Trial`,
         icon: 'fa-gift',
         wrapperClass:
-          'bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 font-black shadow-xs',
+          'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white border border-emerald-400/50 font-black shadow-xs',
       }
     : null;
 
@@ -399,7 +403,12 @@ export default function PlanCard({
             {isCurrentPlan ? (
               <>
                 <i className="fa-solid fa-check text-xs"></i>
-                <span>Current Active Plan</span>
+                <span>Current</span>
+              </>
+            ) : userHasOtherMembership ? (
+              <>
+                <span>Upgrade</span>
+                <i className="fa-solid fa-arrow-up text-xs"></i>
               </>
             ) : hasTrial ? (
               <>
@@ -408,7 +417,7 @@ export default function PlanCard({
               </>
             ) : (
               <>
-                <span>Choose {plan.plan_name} Plan</span>
+                <span>Proceed</span>
                 <i className="fa-solid fa-arrow-right text-xs"></i>
               </>
             )}
@@ -431,6 +440,10 @@ export default function PlanCard({
             {(plan.features || []).map((feature) => {
               const quota = getFeatureQuota(feature);
               const details = getFeatureDetails(feature);
+              const featureDisplayName =
+                feature.is_countable && feature.count_limit > 0
+                  ? `${feature.count_limit} ${feature.name}`
+                  : feature.name;
 
               return (
                 <div
@@ -448,14 +461,14 @@ export default function PlanCard({
                       <i className="fa-solid fa-xmark text-muted-foreground/35 text-xs sm:text-[13px] shrink-0 w-4 text-left pl-0.5"></i>
                     )}
                     <span
-                      title={feature.name}
+                      title={featureDisplayName}
                       className={`text-[13px] sm:text-[13.5px] leading-tight truncate ${
                         quota.isEnabled
                           ? 'font-medium text-foreground/90 group-hover:text-foreground'
                           : 'text-muted-foreground/75'
                       }`}
                     >
-                      {feature.name}
+                      {featureDisplayName}
                     </span>
                   </div>
 

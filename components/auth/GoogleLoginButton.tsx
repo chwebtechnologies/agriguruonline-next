@@ -4,6 +4,7 @@ import { GoogleLogin } from "@react-oauth/google";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { createSession, serverGoogleLogin } from "@/app/actions/auth";
+import { getStoredPlanSelection } from "@/lib/membership-storage";
 
 interface GoogleLoginButtonProps {
   lang: string;
@@ -51,6 +52,13 @@ export default function GoogleLoginButton({ lang, onSuccess }: GoogleLoginButton
         if (onSuccess) {
           onSuccess(userEmail, nextStep);
         } else {
+          try {
+            const stored = getStoredPlanSelection();
+            if (stored?.planId) {
+              window.location.href = `/${lang}/become-member`;
+              return;
+            }
+          } catch {}
           window.location.href = `/${lang}/profile`;
         }
       } catch (error) {

@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
-import type { MembershipPlan } from '@/lib/api/user.service';
+import React, { useState, useRef, useTransition } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
+import type { MembershipPlan, InitiateUpgradeResponse } from '@/lib/api/user.service';
 import { getNormalizedUserType } from '@/lib/api-utils';
+import { saveStoredPlanSelection } from '@/lib/membership-storage';
+import { initiateUpgradeAction } from '@/app/actions/membership';
 import PlanCard from './PlanCard';
 import MembershipFaq from './MembershipFaq';
-import MembershipActionModal from './MembershipActionModal';
+import ConfirmationModal from './ConfirmationModal';
 
 interface MembershipPlansClientProps {
   plans: MembershipPlan[];
@@ -21,9 +24,13 @@ export default function MembershipPlansClient({
   userProfile,
   dict,
 }: MembershipPlansClientProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const notice = searchParams?.get('notice');
+  const [isPending, startTransition] = useTransition();
+
   const isRegular =
+    !userProfile?.user_type ||
     getNormalizedUserType(userProfile?.user_type) === 'regular' ||
     (typeof userProfile?.user_type === 'object' &&
       userProfile?.user_type?.name?.toLowerCase() === 'regular') ||
@@ -31,12 +38,10 @@ export default function MembershipPlansClient({
     userProfile?.membership?.plan_name?.toLowerCase() === 'guest' ||
     userProfile?.membership?.plan_name?.toLowerCase() === 'regular';
 
-  const showNoticeBanner = notice === 'become_member' || (!!userProfile && isRegular);
-
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
-  const currency: 'USD' | 'INR' = 'USD';
-  const [selectedPlanForModal, setSelectedPlanForModal] = useState<MembershipPlan | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [currency, setCurrency] = useState<'USD' | 'INR'>('USD');
+  const [confirmationOrder, setConfirmationOrder] = useState<InitiateUpgradeResponse | null>(null);
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState<boolean>(false);
   const [activeIndex, setActiveIndex] = useState<number>(1); // Default to Gold (center)
 
   const safePlans = Array.isArray(plans) ? plans : [];
@@ -61,10 +66,8 @@ export default function MembershipPlansClient({
   const handleTouchEnd = () => {
     if (touchStartX.current === null) return;
     if (touchDeltaX.current < -35 && totalPlans > 0) {
-      // Swiped Left -> Forward in circle
       setActiveIndex((prev) => (prev + 1) % totalPlans);
     } else if (touchDeltaX.current > 35 && totalPlans > 0) {
-      // Swiped Right -> Backward in circle
       setActiveIndex((prev) => (prev - 1 + totalPlans) % totalPlans);
     }
     touchStartX.current = null;
@@ -78,13 +81,10 @@ export default function MembershipPlansClient({
     const diff = (index - activeIndex + totalPlans) % totalPlans;
 
     if (diff === 0) {
-      // Active center card
       return 'translate-x-0 z-20 opacity-100 pointer-events-auto';
     } else if (diff === 1 || (totalPlans === 2 && diff === 1)) {
-      // Right card (Next in infinite circle, placed cleanly to the right with 12px gap)
       return 'translate-x-[calc(100%+12px)] z-10 opacity-95 scale-[0.98] cursor-pointer pointer-events-auto';
     } else {
-      // Left card (Previous in infinite circle, placed cleanly to the left with 12px gap)
       return '-translate-x-[calc(100%+12px)] z-10 opacity-95 scale-[0.98] cursor-pointer pointer-events-auto';
     }
   };
@@ -103,33 +103,83 @@ export default function MembershipPlansClient({
     ''
   ).toLowerCase();
 
-  const handleSelectPlan = (plan: MembershipPlan) => {
-    setSelectedPlanForModal(plan);
-    setIsModalOpen(true);
-  };
+  const isUserTrialEligible =
+    !userProfile || userProfile.is_free_trial_applicable !== false;
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedPlanForModal(null);
+  const handleSelectPlan = (plan: MembershipPlan) => {
+    const duration = billingInterval.toUpperCase() as 'MONTHLY' | 'YEARLY';
+
+    // Case 1: Guest User (not logged in) -> Persist and redirect to login
+    if (!userProfile) {
+      saveStoredPlanSelection({
+        planId: plan.id,
+        planName: plan.plan_name,
+        duration,
+      });
+      toast.info('Plan selected! Please sign in to activate your membership.');
+      router.push(`/${lang}/login?redirectUrl=/${lang}/become-member`);
+      return;
+    }
+
+    // Case 2: Logged in as Regular user (not yet an onboarded Buyer/Seller) -> Persist and go to /become-member
+    if (isRegular) {
+      saveStoredPlanSelection({
+        planId: plan.id,
+        planName: plan.plan_name,
+        duration,
+      });
+      router.push(`/${lang}/become-member`);
+      return;
+    }
+
+    // Case 3: Already an active Buyer/Seller -> Direct Upgrade flow
+    startTransition(async () => {
+      try {
+        const res = await initiateUpgradeAction(
+          {
+            membership_id: plan.id,
+            membership_duration: duration,
+            type: 'MEMBERSHIP_UPGRADE',
+            is_free_trial_applicable: false,
+          },
+          lang
+        );
+
+        if (res.success && res.data) {
+          const safeOrderDetails: InitiateUpgradeResponse = {
+            ...res.data,
+            type: res.data.type || 'MEMBERSHIP_UPGRADE',
+            membership_duration: (String(res.data.membership_duration || duration).toUpperCase() as 'MONTHLY' | 'YEARLY'),
+            inr_amount: Number(res.data.inr_amount ?? 0),
+            usd_amount: Number(res.data.usd_amount ?? 0),
+          };
+          setConfirmationOrder(safeOrderDetails);
+          setIsConfirmationOpen(true);
+        } else {
+          toast.error(res.error || 'Failed to initiate plan upgrade.');
+        }
+      } catch (err: any) {
+        toast.error(err?.message || 'Error initiating upgrade.');
+      }
+    });
   };
 
   return (
     <div className="w-full">
-
-
       {/* Streamlined Controls & Title */}
       <div className="text-center w-full mt-1 mb-6 sm:mb-8">
         <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
           Verified commodity market intelligence, AI predictive forecasting, and direct counterparty trade network.
         </p>
 
-        {/* Tactile Segmented Billing Cycle Switcher */}
-        <div className="mt-4 flex items-center justify-center">
+        {/* Billing Cycle & Multi-Currency Switchers */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+          {/* Monthly / Yearly Switcher */}
           <div className="inline-flex items-center p-1 bg-muted/80 rounded-2xl border border-border shadow-xs">
             <button
               type="button"
               onClick={() => setBillingInterval('monthly')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 billingInterval === 'monthly'
                   ? 'bg-card text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -141,16 +191,45 @@ export default function MembershipPlansClient({
             <button
               type="button"
               onClick={() => setBillingInterval('yearly')}
-              className={`relative px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`relative px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 ${
                 billingInterval === 'yearly'
                   ? 'bg-card text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <span>Annual Billing</span>
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              <span className="text-[10px] font-black uppercase px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                 Save 15%
               </span>
+            </button>
+          </div>
+
+          {/* USD / INR Currency Switcher */}
+          <div className="inline-flex items-center p-1 bg-muted/80 rounded-2xl border border-border shadow-xs">
+            <button
+              type="button"
+              onClick={() => setCurrency('USD')}
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                currency === 'USD'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span>USD</span>
+              <span className="text-[11px] font-semibold text-muted-foreground">($)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrency('INR')}
+              className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                currency === 'INR'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span>INR</span>
+              <span className="text-[11px] font-semibold text-muted-foreground">(₹)</span>
             </button>
           </div>
         </div>
@@ -170,6 +249,13 @@ export default function MembershipPlansClient({
               !!plan.plan_name &&
               userCurrentPlanName.includes(plan.plan_name.toLowerCase());
 
+            const userHasOtherMembership =
+              Boolean(userProfile && !isRegular && !!userCurrentPlanName && !isCurrentPlan);
+
+            const planTrialDays =
+              billingInterval === 'yearly' ? plan.yearly_trial_days : plan.monthly_trial_days;
+            const isTrialEligible = isUserTrialEligible && planTrialDays > 0;
+
             const transformClass = getCardTransformClass(index);
             const isCenter = (index - activeIndex + totalPlans) % totalPlans === 0;
 
@@ -188,6 +274,8 @@ export default function MembershipPlansClient({
                   billingInterval={billingInterval}
                   currency={currency}
                   isCurrentPlan={isCurrentPlan}
+                  userHasOtherMembership={userHasOtherMembership}
+                  isTrialEligible={isTrialEligible}
                   onSelect={handleSelectPlan}
                   dict={dict}
                 />
@@ -220,6 +308,13 @@ export default function MembershipPlansClient({
             !!plan.plan_name &&
             userCurrentPlanName.includes(plan.plan_name.toLowerCase());
 
+          const userHasOtherMembership =
+            Boolean(userProfile && !isRegular && !!userCurrentPlanName && !isCurrentPlan);
+
+          const planTrialDays =
+            billingInterval === 'yearly' ? plan.yearly_trial_days : plan.monthly_trial_days;
+          const isTrialEligible = isUserTrialEligible && planTrialDays > 0;
+
           return (
             <div key={plan.id || plan.plan_name} className="flex h-full">
               <PlanCard
@@ -227,6 +322,8 @@ export default function MembershipPlansClient({
                 billingInterval={billingInterval}
                 currency={currency}
                 isCurrentPlan={isCurrentPlan}
+                userHasOtherMembership={userHasOtherMembership}
+                isTrialEligible={isTrialEligible}
                 onSelect={handleSelectPlan}
                 dict={dict}
               />
@@ -348,16 +445,13 @@ export default function MembershipPlansClient({
       {/* Frequently Asked Questions */}
       <MembershipFaq />
 
-      {/* Action / Checkout Confirmation Modal */}
-      <MembershipActionModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        selectedPlan={selectedPlanForModal}
-        billingInterval={billingInterval}
-        currency={currency}
-        lang={lang}
+      {/* Action / Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isConfirmationOpen}
+        onClose={() => setIsConfirmationOpen(false)}
+        orderDetails={confirmationOrder}
         userProfile={userProfile}
-        dict={dict}
+        lang={lang}
       />
     </div>
   );
