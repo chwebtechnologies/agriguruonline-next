@@ -43,14 +43,10 @@ export default function BecomeMemberModal({
     : userProfile?.name || 'Valued User';
 
   const customerId =
-    userProfile?.customer_id ||
-    userProfile?.id ||
-    userProfile?.mobile_no ||
-    userProfile?.email ||
-    'Regular Member';
+    userProfile?.customer_id || "N/A";
 
   const whatsappMessage = encodeURIComponent(
-    `Hi AgriGuru Support, I have a Regular account (ID: ${customerId}) and would like to activate a Membership Plan to access full trader features.`
+    `Hi AgriGuru Support, I have a query regarding Membership Plans. My account ID is ${customerId}.`
   );
 
   const content = (
@@ -66,7 +62,7 @@ export default function BecomeMemberModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Accent Gradient Bar */}
-        <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400" />
+        <div className="absolute top-0 inset-x-0 h-1.5 bg-brand-blue" />
 
         {/* Close Button */}
         <button
@@ -80,8 +76,8 @@ export default function BecomeMemberModal({
 
         {/* Header Icon + Title */}
         <div className="text-center pt-2 pb-4">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center">
-            <i className="fa-solid fa-crown text-2xl"></i>
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-brand-blue/10 dark:bg-brand-blue/20 text-brand-blue flex items-center justify-center">
+            <i className="fa-solid fa-user-plus text-2xl"></i>
           </div>
           <h2
             id="become-member-title"
@@ -105,47 +101,19 @@ export default function BecomeMemberModal({
               <span className="text-[11px] text-muted-foreground">ID: {customerId}</span>
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0">
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border/50 shrink-0">
             Regular Account
           </span>
         </div>
 
-        {/* Exclusive Benefits List */}
-        <div className="space-y-2.5 mb-6 text-xs sm:text-sm">
-          <div className="flex items-start gap-2.5">
-            <i className="fa-solid fa-check text-emerald-500 mt-0.5 text-xs"></i>
-            <span className="text-foreground/90">
-              Submit unlimited buy inquiries & seller offers
-            </span>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <i className="fa-solid fa-check text-emerald-500 mt-0.5 text-xs"></i>
-            <span className="text-foreground/90">
-              Direct communication with verified international suppliers
-            </span>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <i className="fa-solid fa-check text-emerald-500 mt-0.5 text-xs"></i>
-            <span className="text-foreground/90">
-              Full access to price charts, historical market trends & freight rates
-            </span>
-          </div>
-          <div className="flex items-start gap-2.5">
-            <i className="fa-solid fa-check text-emerald-500 mt-0.5 text-xs"></i>
-            <span className="text-foreground/90">
-              Priority KYC verification badge on your profile
-            </span>
-          </div>
-        </div>
-
         {/* Action Buttons */}
-        <div className="space-y-2.5">
+        <div className="space-y-2.5 mt-2">
           <Link
             href={`/${lang}/membership`}
             onClick={onClose}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+            className="w-full py-3 px-4 rounded-xl bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
           >
-            <i className="fa-solid fa-gem text-xs"></i>
+            <i className="fa-solid fa-arrow-right text-xs"></i>
             <span>View Membership Plans</span>
           </Link>
 
@@ -156,7 +124,7 @@ export default function BecomeMemberModal({
             className="w-full py-2.5 px-4 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
           >
             <i className="fa-brands fa-whatsapp text-base text-emerald-600"></i>
-            <span>Activate via WhatsApp</span>
+            <span>Help and Support</span>
           </a>
         </div>
 

@@ -115,22 +115,7 @@ export default function MembershipPlansClient({
 
   return (
     <div className="w-full">
-      {/* Notice Banner for Regular / Guest Users attempting to access restricted features */}
-      {showNoticeBanner && (
-        <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-foreground flex items-start gap-3.5 shadow-sm animate-in fade-in duration-300 max-w-3xl mx-auto text-left">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-            <i className="fa-solid fa-crown text-base"></i>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-bold text-foreground">
-              Membership Required for Trader Profile
-            </h4>
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              Your account is currently active under the <strong>Regular (Guest)</strong> plan. Upgrade to an active Membership tier or claim the 90-day Free Trial to manage your company profile, submit KYC verification, and access live market inquiries.
-            </p>
-          </div>
-        </div>
-      )}
+
 
       {/* Streamlined Controls & Title */}
       <div className="text-center w-full mt-1 mb-6 sm:mb-8">
