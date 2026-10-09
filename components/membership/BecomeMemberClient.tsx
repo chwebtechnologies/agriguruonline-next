@@ -4,7 +4,7 @@ import React, { useState, useEffect, useTransition, useMemo, useRef } from 'reac
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { getStoredPlanSelection } from '@/lib/membership-storage';
+import { getStoredPlanSelection, clearStoredPlanSelection } from '@/lib/membership-storage';
 import { initiateUpgradeAction } from '@/app/actions/membership';
 import type { MembershipPlan, StoredPlanSelection, InitiateUpgradeResponse } from '@/lib/api/user.service';
 import ConfirmationModal from './ConfirmationModal';
@@ -269,6 +269,14 @@ export default function BecomeMemberClient({
 
       if (!res.success || !res.data) {
         console.error('[BecomeMemberClient] initiateUpgradeAction failed:', res);
+        const errMsg = res.error || '';
+        if (/already\s*(active|subscribed|have)|same\s*plan|current\s*plan/i.test(errMsg)) {
+          clearStoredPlanSelection();
+          toast.success('Your membership plan is already active on your account!');
+          router.push(`/${lang}/profile`);
+          router.refresh();
+          return;
+        }
         toast.error(res.error || 'Failed to initiate member setup. Please try again.');
         setIsSubmitting(false);
         return;

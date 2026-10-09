@@ -2,6 +2,7 @@ export interface ApiFetchOptions extends RequestInit {
   token?: string;
   params?: Record<string, string | number | boolean | undefined | null>;
   revalidate?: number | false;
+  timeout?: number;
   next?: {
     revalidate?: number | false;
     tags?: string[];
@@ -37,6 +38,7 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
     headers: customHeaders,
     cache,
     revalidate,
+    timeout: customTimeout,
     next: customNext,
     method = 'GET',
     ...rest
@@ -104,10 +106,14 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
   let attempt = 0;
   const maxRetries = 1; // Total 2 attempts (1 initial + 1 retry)
 
+  // Payment/Mutations need enough time for 3rd-party gateways (PayPal/Razorpay server-to-server)
+  const defaultTimeout = isMutation ? 30000 : 15000;
+  const effectiveTimeout = customTimeout ?? defaultTimeout;
+
   while (attempt <= maxRetries) {
     // Add an explicit timeout to prevent hanging forever
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout (was 10s)
+    const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
     
     fetchInit.signal = controller.signal;
 

@@ -156,6 +156,13 @@ export default function MembershipPlansClient({
           setConfirmationOrder(safeOrderDetails);
           setIsConfirmationOpen(true);
         } else {
+          const errMsg = res.error || '';
+          if (/already\s*(active|subscribed|have)|same\s*plan|current\s*plan/i.test(errMsg)) {
+            toast.success('Your account is already active with this membership plan!');
+            router.push(`/${lang}/profile`);
+            router.refresh();
+            return;
+          }
           toast.error(res.error || 'Failed to initiate plan upgrade.');
         }
       } catch (err: any) {

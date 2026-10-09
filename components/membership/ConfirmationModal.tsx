@@ -76,11 +76,14 @@ function PayPalSubscriptionButtons({
 }) {
   const [{ isPending: isSDKPending }] = usePayPalScriptReducer();
 
-  if (isSDKPending) {
+  if (isSDKPending || !preCreatedSubscriptionId) {
     return (
-      <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
-        <i className="fa-solid fa-circle-notch fa-spin text-sm text-[#0070ba]"></i>
-        <span>Loading PayPal...</span>
+      <div className="space-y-2 py-1">
+        <div className="h-10 sm:h-11 rounded-xl bg-muted/60 animate-pulse flex items-center justify-center gap-2 text-xs text-muted-foreground font-medium border border-border/40">
+          <i className="fa-brands fa-paypal text-[#0070ba] text-base animate-pulse"></i>
+          <span>Loading PayPal buttons...</span>
+        </div>
+        <div className="h-10 sm:h-11 rounded-xl bg-muted/40 animate-pulse border border-border/30"></div>
       </div>
     );
   }
@@ -90,19 +93,17 @@ function PayPalSubscriptionButtons({
       style={{
         layout: 'vertical',
         shape: 'rect',
-        color: 'blue',
+        color: 'gold',
         label: 'subscribe',
       }}
       createSubscription={(_data, _actions) => {
-        // Synchronous return — no async call here
-        // subscriptionId was pre-fetched before buttons were rendered
+        // Synchronous return — subscriptionId was pre-fetched before buttons were rendered
         return Promise.resolve(preCreatedSubscriptionId);
       }}
       onApprove={async (data, _actions) => {
-        await onApproveCallback(
-          data.subscriptionID || '',
-          data.orderID || ''
-        );
+        const subId = data.subscriptionID || preCreatedSubscriptionId || '';
+        const ordId = data.orderID || subId || '';
+        await onApproveCallback(subId, ordId);
       }}
       onError={(err: any) => {
         onErrorCallback(err);
@@ -126,18 +127,17 @@ export default function ConfirmationModal({
   const [mounted, setMounted] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [initiatingGateway, setInitiatingGateway] = useState<'paypal' | 'razorpay' | null>(null);
-  const [selectedGateway, setSelectedGateway] = useState<'paypal' | 'razorpay' | null>(null);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(true);
   const [resolvedProfile, setResolvedProfile] = useState<any>(userProfile || null);
-  // PayPal pre-fetched subscription ID — set before showing PayPal buttons
+  // PayPal pre-fetched subscription ID — loaded automatically on modal open
   const [paypalSubscriptionId, setPaypalSubscriptionId] = useState<string | null>(null);
   const [paypalLoading, setPaypalLoading] = useState(false);
+  const [paypalError, setPaypalError] = useState<string | null>(null);
+  const initializedPlanRef = useRef<string>('');
 
-  const isPayPalSandbox = process.env.NEXT_PUBLIC_PAYPAL_ENV === 'sandbox';
+  const isSandbox = process.env.NODE_ENV !== 'production';
   const paypalClientId =
-    (isPayPalSandbox
-      ? process.env.NEXT_PUBLIC_PAYPAL_SANDBOX_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
-      : process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) ||
+    process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ||
     'AR-gOZUqUgMpOJQ2k88MHJj-cM-URgY6Y3TwYX7M39jzFXFm3IQXboVJ3fUAVMERdfy1Wjm5ZiPYOrlN';
 
   const paypalScriptOptions = React.useMemo(
@@ -162,66 +162,22 @@ export default function ConfirmationModal({
     }
   }, [userProfile]);
 
-  // Reset modal state and automatically resolve user profile / phone number when opened
-  useEffect(() => {
-    if (isOpen) {
-      setAgreedToTerms(false);
-      setSelectedGateway(null);
-      setInitiatingGateway(null);
-      setPaypalSubscriptionId(null);
-      setPaypalLoading(false);
-
-      // Auto-resolve user details if phone number or profile is missing
-      if (!resolvedProfile?.mobile_no && !resolvedProfile?.phone) {
-        // Step 1: Read from user_info cookie immediately
-        if (typeof document !== 'undefined') {
-          const match = document.cookie.match(/user_info=([^;]+)/);
-          if (match && match[1]) {
-            try {
-              const u = JSON.parse(decodeURIComponent(match[1]));
-              if (u) {
-                setResolvedProfile((prev: any) => ({ ...(prev || {}), ...u }));
-              }
-            } catch {}
-          }
-        }
-
-        // Step 2: Fetch fresh profile directly from server
-        getCurrentUserProfileAction(lang).then((res) => {
-          if (res.success && res.data) {
-            setResolvedProfile(res.data);
-          }
-        });
-      }
-    }
-  }, [isOpen, resolvedProfile, lang]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isPending && !initiatingGateway) onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isPending, initiatingGateway, onClose]);
-
-  if (!isOpen || !orderDetails || !mounted || typeof document === 'undefined') return null;
-
-  const isFreeTrial = Boolean(orderDetails.is_free_trial_applicable);
-  const planName = orderDetails.new_membership_plan?.plan_name || 'Membership Plan';
-  const isYearly = String(orderDetails.membership_duration || '').toUpperCase() === 'YEARLY';
+  // Derived plan details (safe before early return)
+  const isFreeTrial = Boolean(orderDetails?.is_free_trial_applicable);
+  const planName = orderDetails?.new_membership_plan?.plan_name || 'Membership Plan';
+  const isYearly = String(orderDetails?.membership_duration || '').toUpperCase() === 'YEARLY';
   const duration = isYearly ? 'Annual' : 'Monthly';
-  const trialDays = orderDetails.free_trial_days || 90;
-  const inrAmount = Number(orderDetails.inr_amount ?? 0);
-  const usdAmount = Number(orderDetails.usd_amount ?? 0);
+  const trialDays = orderDetails?.free_trial_days || 90;
+  const inrAmount = Number(orderDetails?.inr_amount ?? 0);
+  const usdAmount = Number(orderDetails?.usd_amount ?? 0);
   const formattedInr = inrAmount > 0 ? inrAmount.toLocaleString() : '0';
   const formattedUsd = usdAmount > 0 ? (Number.isInteger(usdAmount) ? String(usdAmount) : usdAmount.toFixed(2)) : '0';
   const planId =
-    orderDetails.new_membership_plan?.id ||
-    (orderDetails as any).membership_id ||
-    (orderDetails as any).id ||
+    orderDetails?.new_membership_plan?.id ||
+    (orderDetails as any)?.membership_id ||
+    (orderDetails as any)?.id ||
     '';
-  const orderType = orderDetails.type || 'BECOME_A_MEMBER';
+  const orderType = orderDetails?.type || 'BECOME_A_MEMBER';
 
   // Extract and format prefill user information
   const effectiveProfile = resolvedProfile || userProfile;
@@ -248,6 +204,123 @@ export default function ConfirmationModal({
       effectiveProfile.name ||
       ''
     : '';
+
+  // Function to initialize PayPal subscription ID automatically
+  const initPayPal = async (targetPlanId?: string, targetDuration?: string, targetOrderType?: string) => {
+    const effectivePlanId = targetPlanId || planId;
+    const effectiveDuration = targetDuration || (isYearly ? 'YEARLY' : 'MONTHLY');
+    const effectiveOrderType = targetOrderType || orderType;
+
+    if (!effectivePlanId || isFreeTrial) return;
+
+    setPaypalLoading(true);
+    setPaypalError(null);
+
+    try {
+      const res = await createSubscriptionAction(
+        {
+          membership_id: effectivePlanId,
+          membership_duration: effectiveDuration as 'MONTHLY' | 'YEARLY',
+          payment_gateway: 'PayPal',
+          type: effectiveOrderType as 'BECOME_A_MEMBER' | 'MEMBERSHIP_UPGRADE',
+          ...(effectiveOrderType === 'BECOME_A_MEMBER'
+            ? {
+                user_type:
+                  formValues?.user_type ||
+                  effectiveProfile?.user_type?.id ||
+                  effectiveProfile?.user_type,
+                country_id:
+                  formValues?.country_id || effectiveProfile?.country_id,
+                category:
+                  formValues?.category ||
+                  (effectiveProfile?.user_categories
+                    ? effectiveProfile.user_categories.map((c: any) => c.id || c)
+                    : []),
+              }
+            : {}),
+          env: isSandbox ? 'sandbox' : 'production',
+          is_sandbox: isSandbox,
+        },
+        lang
+      );
+
+      if (res.success && res.data) {
+        const d = res.data?.data || res.data;
+        const subId =
+          d?.subscription_id || d?.order_id || d?.id ||
+          res.data?.subscription_id || res.data?.order_id || res.data?.id;
+
+        if (subId) {
+          setPaypalSubscriptionId(subId);
+        } else {
+          setPaypalError('Unable to generate PayPal subscription ID.');
+        }
+      } else {
+        setPaypalError(res.error || 'Failed to initialize PayPal.');
+      }
+    } catch (err: any) {
+      console.error('[ConfirmationModal] PayPal init error:', err);
+      setPaypalError(err?.message || 'Failed to connect to PayPal.');
+    } finally {
+      setPaypalLoading(false);
+    }
+  };
+
+  // Reset modal state and automatically resolve user profile / phone number when opened
+  useEffect(() => {
+    if (isOpen) {
+      setAgreedToTerms(true);
+      setInitiatingGateway(null);
+
+      // Auto-resolve user details if phone number or profile is missing
+      if (!effectiveProfile?.mobile_no && !effectiveProfile?.phone) {
+        // Step 1: Read from user_info cookie immediately
+        if (typeof document !== 'undefined') {
+          const match = document.cookie.match(/user_info=([^;]+)/);
+          if (match && match[1]) {
+            try {
+              const u = JSON.parse(decodeURIComponent(match[1]));
+              if (u) {
+                setResolvedProfile((prev: any) => ({ ...(prev || {}), ...u }));
+              }
+            } catch {}
+          }
+        }
+
+        // Step 2: Fetch fresh profile directly from server
+        getCurrentUserProfileAction(lang).then((res) => {
+          if (res.success && res.data) {
+            setResolvedProfile(res.data);
+          }
+        });
+      }
+
+      // Preload PayPal subscription automatically for paid plans
+      if (orderDetails && !isFreeTrial && planId) {
+        const planKey = `${planId}_${isYearly ? 'YEARLY' : 'MONTHLY'}_${orderType}`;
+        if (initializedPlanRef.current !== planKey || !paypalSubscriptionId) {
+          initializedPlanRef.current = planKey;
+          initPayPal(planId, isYearly ? 'YEARLY' : 'MONTHLY', orderType);
+        }
+      }
+    } else {
+      setPaypalSubscriptionId(null);
+      setPaypalLoading(false);
+      setPaypalError(null);
+      initializedPlanRef.current = '';
+    }
+  }, [isOpen, orderDetails, isFreeTrial, planId, isYearly, orderType, lang, isSandbox]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isPending && !initiatingGateway) onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isPending, initiatingGateway, onClose]);
+
+  if (!isOpen || !orderDetails || !mounted || typeof document === 'undefined') return null;
 
   // Format expiry date
   let formattedExpiry = orderDetails.expiry_date || '';
@@ -395,8 +468,7 @@ export default function ConfirmationModal({
         data.key_id ||
         data.key ||
         data.razorpay_key ||
-        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-        process.env.NEXT_PUBLIC_RAZORPAY_SANDBOX_KEY_ID;
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
       console.log('[Razorpay Debug Info]:', {
         subscriptionId,
@@ -434,6 +506,15 @@ export default function ConfirmationModal({
             );
 
             if (!captureRes.success) {
+              // Safety fallback: Check if profile is actually active
+              try {
+                const refreshed = await refreshUserProfileAction(lang);
+                if (refreshed.success && refreshed.data?.membership?.plan_name) {
+                  await handlePostActivationSuccess('Razorpay subscription verified and activated!');
+                  return;
+                }
+              } catch {}
+
               toast.error(captureRes.error || 'Payment verification failed. Please contact support.');
               setInitiatingGateway(null);
               return;
@@ -443,6 +524,14 @@ export default function ConfirmationModal({
               captureRes.message || 'Razorpay subscription verified and activated!'
             );
           } catch (err: any) {
+            console.error('[Razorpay handler] Error:', err);
+            try {
+              const refreshed = await refreshUserProfileAction(lang);
+              if (refreshed.success && refreshed.data?.membership?.plan_name) {
+                await handlePostActivationSuccess('Razorpay subscription verified and activated!');
+                return;
+              }
+            } catch {}
             toast.error(err?.message || 'Payment verification failed.');
             setInitiatingGateway(null);
           }
@@ -510,6 +599,21 @@ export default function ConfirmationModal({
               : 'bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500'
           }`}
         />
+
+        {/* Gateway Verification Processing Overlay */}
+        {Boolean(initiatingGateway) && (
+          <div className="absolute inset-0 z-50 bg-card/95 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-4 shadow-sm border border-primary/20">
+              <i className="fa-solid fa-circle-notch fa-spin text-2xl"></i>
+            </div>
+            <h4 className="text-lg font-black text-foreground">
+              {initiatingGateway === 'paypal' ? 'Verifying PayPal Subscription...' : 'Verifying Razorpay Payment...'}
+            </h4>
+            <p className="text-xs text-muted-foreground mt-2 max-w-xs leading-relaxed">
+              Please wait while we confirm your payment and activate your membership plan. Do not close or refresh this page.
+            </p>
+          </div>
+        )}
 
         {/* Close Button */}
         <button
@@ -657,186 +761,95 @@ export default function ConfirmationModal({
           </div>
         ) : (
           /* Paid Subscription Flow */
-          <div className="space-y-4">
-            {/* Terms Agreement Checkbox */}
-            <label className="flex items-start gap-3 p-3.5 rounded-2xl bg-muted/30 border border-border/60 cursor-pointer transition-colors hover:bg-muted/50">
-              <input
-                type="checkbox"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-0.5 rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-              />
-              <span className="text-xs text-muted-foreground leading-relaxed">
-                I have read and agree to the Subscription{' '}
-                <span className="text-foreground underline font-medium">Payment Terms</span> and{' '}
-                <span className="text-foreground underline font-medium">Refund Policy</span> of the AgriGuru Online Platform.
-              </span>
-            </label>
-
+          <div className="space-y-3.5">
             {/* Direct Payment Action Selection */}
             <div
               className={`space-y-3 transition-opacity duration-200 ${
-                !agreedToTerms ? 'opacity-60 pointer-events-none' : 'opacity-100'
+                !agreedToTerms ? 'opacity-50 pointer-events-none' : 'opacity-100'
               }`}
             >
-              <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
-                Choose Payment Method to Continue
-              </label>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
+                  Select Payment Method
+                </span>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  Instant Activation
+                </span>
+              </div>
 
-              {/* 1. PayPal (International Users - USD) */}
-              <div className="rounded-2xl border border-border bg-card overflow-hidden transition-all shadow-sm">
-                {/* PayPal Select Button — pre-creates subscription before showing SDK buttons */}
-                {!paypalSubscriptionId && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (paypalLoading || Boolean(initiatingGateway)) return;
-                      setPaypalLoading(true);
-                      setSelectedGateway('paypal');
-                      try {
-                        const res = await createSubscriptionAction(
-                          {
-                            membership_id: planId,
-                            membership_duration: isYearly ? 'YEARLY' : 'MONTHLY',
-                            payment_gateway: 'PayPal',
-                            type: orderType,
-                            ...(orderType === 'BECOME_A_MEMBER'
-                              ? {
-                                  user_type:
-                                    formValues?.user_type ||
-                                    effectiveProfile?.user_type?.id ||
-                                    effectiveProfile?.user_type,
-                                  country_id:
-                                    formValues?.country_id || effectiveProfile?.country_id,
-                                  category:
-                                    formValues?.category ||
-                                    (effectiveProfile?.user_categories
-                                      ? effectiveProfile.user_categories.map((c: any) => c.id || c)
-                                      : []),
-                                }
-                              : {}),
-                            env: isPayPalSandbox ? 'sandbox' : 'production',
-                            is_sandbox: isPayPalSandbox,
-                          },
-                          lang
-                        );
-
-                        if (!res.success || !res.data) {
-                          toast.error(res.error || 'Failed to initialize PayPal. Please try again.');
-                          setPaypalLoading(false);
-                          setSelectedGateway(null);
-                          return;
-                        }
-
-                        const d = res.data?.data || res.data;
-                        const subscriptionId =
-                          d?.subscription_id || d?.order_id || d?.id ||
-                          res.data?.subscription_id || res.data?.order_id || res.data?.id;
-
-                        console.log('[PayPal Pre-Create Debug]:', { subscriptionId, backendData: res.data });
-
-                        if (!subscriptionId) {
-                          toast.error('PayPal did not return a subscription ID. Please try again.');
-                          setPaypalLoading(false);
-                          setSelectedGateway(null);
-                          return;
-                        }
-
-                        setPaypalSubscriptionId(subscriptionId);
-                      } catch (err: any) {
-                        console.error('[PayPal pre-create error]:', err);
-                        toast.error(err?.message || 'Failed to connect to PayPal.');
-                        setPaypalLoading(false);
-                        setSelectedGateway(null);
-                      }
-                    }}
-                    disabled={Boolean(initiatingGateway) || paypalLoading || !agreedToTerms}
-                    className="w-full p-4 hover:bg-muted/50 text-left flex items-center justify-between gap-3.5 transition-colors cursor-pointer group disabled:opacity-50"
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-11 h-11 rounded-xl bg-card border border-border text-foreground flex items-center justify-center shrink-0 text-2xl group-hover:scale-105 transition-transform shadow-sm">
-                        {paypalLoading
-                          ? <i className="fa-solid fa-circle-notch fa-spin text-lg text-[#0070ba]"></i>
-                          : <i className="fa-brands fa-paypal text-[#0070ba] dark:text-[#38a3ff]"></i>
-                        }
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm sm:text-base font-black text-foreground">PayPal</span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-muted text-muted-foreground border border-border/50">
-                            International (USD)
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground block truncate mt-0.5">
-                          {paypalLoading ? 'Connecting to PayPal...' : 'Credit/Debit Cards & PayPal Wallet'}
+              {/* 1. PayPal & International Cards (USD) */}
+              <div className="rounded-2xl border border-border bg-card/60 p-4 transition-all shadow-sm space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-card border border-border text-foreground flex items-center justify-center shrink-0 text-xl shadow-xs">
+                      <i className="fa-brands fa-paypal text-[#0070ba] dark:text-[#38a3ff]"></i>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm sm:text-base font-black text-foreground">PayPal</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border/50">
+                          International (USD)
                         </span>
                       </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="text-base sm:text-lg font-black text-foreground block">
-                        ${formattedUsd}
-                      </span>
-                      <span className="text-xs font-bold text-foreground flex items-center gap-1 justify-end">
-                        {paypalLoading ? 'Loading...' : 'Pay with PayPal'}{' '}
-                        <i className="fa-solid fa-arrow-right text-[10px]"></i>
+                      <span className="text-xs text-muted-foreground block truncate mt-0.5">
+                        PayPal Balance, Credit & Debit Cards
                       </span>
                     </div>
-                  </button>
-                )}
+                  </div>
 
-                {/* PayPal SDK Buttons — shown only after subscription is pre-created */}
-                {paypalSubscriptionId && (
-                  <div className="p-4 border-t border-border/60 bg-muted/20 animate-in fade-in duration-200">
-                    {/* Account Info */}
-                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-card border border-border/80 text-xs mb-3 shadow-2xs">
-                      <div className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                        <i className="fa-solid fa-user-check text-xs"></i>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="font-bold text-foreground block truncate">
-                          {fullName || userEmail ? `${fullName || userEmail}` : 'Verified Account'}
-                        </span>
-                        <div className="text-[11px] text-muted-foreground flex items-center gap-2 flex-wrap">
-                          {userEmail && <span className="truncate">{userEmail}</span>}
-                          {formattedContact && (
-                            <>
-                              <span>•</span>
-                              <span className="truncate">{formattedContact}</span>
-                            </>
-                          )}
-                        </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-base sm:text-lg font-black text-foreground block">
+                      ${formattedUsd}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground font-medium">
+                      /{isYearly ? 'yr' : 'mo'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* PayPal Buttons Container */}
+                <div className="pt-1">
+                  {paypalError ? (
+                    <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <i className="fa-solid fa-circle-exclamation shrink-0"></i>
+                        <span className="truncate">{paypalError}</span>
                       </div>
                       <button
                         type="button"
-                        onClick={() => { setPaypalSubscriptionId(null); setPaypalLoading(false); setSelectedGateway(null); }}
-                        className="ml-auto text-[10px] text-muted-foreground hover:text-foreground underline shrink-0 cursor-pointer"
+                        onClick={() => initPayPal(planId, isYearly ? 'YEARLY' : 'MONTHLY', orderType)}
+                        className="font-bold underline shrink-0 hover:opacity-80 cursor-pointer"
                       >
-                        Cancel
+                        Retry
                       </button>
                     </div>
-
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Click the PayPal button below to complete your subscription:
-                    </p>
-
-                    {/* PayPalScriptProvider wraps only the inner buttons component */}
+                  ) : (
                     <PayPalScriptProvider options={paypalScriptOptions}>
                       <PayPalSubscriptionButtons
-                        preCreatedSubscriptionId={paypalSubscriptionId}
+                        preCreatedSubscriptionId={paypalSubscriptionId || ''}
                         onApproveCallback={async (subscriptionID, orderID) => {
+                          const effectiveSubId = subscriptionID || paypalSubscriptionId || orderID || '';
+                          const effectiveOrderId = orderID || effectiveSubId;
                           setInitiatingGateway('paypal');
                           try {
                             const captureRes = await captureSubscriptionAction(
                               {
-                                order_id: orderID || subscriptionID,
-                                subscription_id: subscriptionID,
+                                order_id: effectiveOrderId,
+                                subscription_id: effectiveSubId,
                                 payment_gateway: 'PayPal',
                               },
                               lang
                             );
 
                             if (!captureRes.success) {
+                              try {
+                                const refreshed = await refreshUserProfileAction(lang);
+                                if (refreshed.success && refreshed.data?.membership?.plan_name) {
+                                  await handlePostActivationSuccess('PayPal subscription activated successfully!');
+                                  return;
+                                }
+                              } catch {}
+
                               toast.error(captureRes.error || 'PayPal verification failed.');
                               setInitiatingGateway(null);
                               return;
@@ -847,6 +860,14 @@ export default function ConfirmationModal({
                             );
                           } catch (err: any) {
                             console.error('[PayPal onApprove] Error:', err);
+                            try {
+                              const refreshed = await refreshUserProfileAction(lang);
+                              if (refreshed.success && refreshed.data?.membership?.plan_name) {
+                                await handlePostActivationSuccess('PayPal subscription activated successfully!');
+                                return;
+                              }
+                            } catch {}
+
                             toast.error(err?.message || 'Payment capture failed.');
                             setInitiatingGateway(null);
                           }
@@ -856,21 +877,27 @@ export default function ConfirmationModal({
                           const errText = err?.message || (typeof err === 'string' ? err : 'PayPal encountered an error');
                           toast.error(`PayPal Error: ${errText}`);
                           setInitiatingGateway(null);
-                          setPaypalSubscriptionId(null);
-                          setPaypalLoading(false);
-                          setSelectedGateway(null);
                         }}
                         onCancelCallback={() => {
                           toast.info('PayPal payment was cancelled.');
                           setInitiatingGateway(null);
-                          setPaypalSubscriptionId(null);
-                          setPaypalLoading(false);
-                          setSelectedGateway(null);
                         }}
                       />
                     </PayPalScriptProvider>
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
+
+              {/* Divider between gateways */}
+              <div className="relative my-2 text-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border/60"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-3 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    or pay with inr (india)
+                  </span>
+                </div>
               </div>
 
               {/* 2. Razorpay (Indian Users - INR) */}
@@ -881,9 +908,9 @@ export default function ConfirmationModal({
                 className="w-full p-4 rounded-2xl border border-border bg-card hover:bg-muted/60 hover:border-foreground/20 text-left flex items-center justify-between gap-3.5 transition-all cursor-pointer group shadow-sm disabled:opacity-50 active:scale-[0.99]"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-11 h-11 rounded-xl bg-card border border-border text-foreground flex items-center justify-center shrink-0 text-xl group-hover:scale-105 transition-transform shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-card border border-border text-foreground flex items-center justify-center shrink-0 text-xl group-hover:scale-105 transition-transform shadow-xs">
                     {initiatingGateway === 'razorpay' ? (
-                      <i className="fa-solid fa-circle-notch fa-spin text-lg text-emerald-600"></i>
+                      <i className="fa-solid fa-circle-notch fa-spin text-base text-emerald-600"></i>
                     ) : (
                       <i className="fa-solid fa-credit-card text-emerald-600 dark:text-emerald-400"></i>
                     )}
@@ -913,8 +940,22 @@ export default function ConfirmationModal({
               </button>
             </div>
 
-            {/* Cancel Button */}
-            <div className="pt-2">
+            {/* Terms Agreement Checkbox & Cancel */}
+            <div className="pt-1 space-y-2.5">
+              <label className="flex items-start gap-2.5 p-2 rounded-xl bg-muted/20 border border-border/40 text-xs text-muted-foreground cursor-pointer select-none hover:bg-muted/30 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-0.5 rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer shrink-0"
+                />
+                <span className="leading-relaxed">
+                  I agree to the Subscription{' '}
+                  <span className="text-foreground underline font-medium">Payment Terms</span> and{' '}
+                  <span className="text-foreground underline font-medium">Refund Policy</span>.
+                </span>
+              </label>
+
               <button
                 type="button"
                 onClick={onClose}

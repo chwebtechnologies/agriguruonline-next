@@ -624,6 +624,7 @@ export const userService = {
     const res = await customFetch(url, {
       method: 'POST',
       token,
+      timeout: 30000,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -652,6 +653,7 @@ export const userService = {
     const res = await customFetch(url, {
       method: 'POST',
       token,
+      timeout: 30000,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -692,6 +694,7 @@ export const userService = {
     const res = await customFetch(url, {
       method: 'POST',
       token,
+      timeout: 30000,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -719,6 +722,7 @@ export const userService = {
     const res = await customFetch(url, {
       method: 'POST',
       token,
+      timeout: 30000,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });

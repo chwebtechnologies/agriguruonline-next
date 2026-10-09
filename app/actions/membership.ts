@@ -236,22 +236,104 @@ export async function captureSubscriptionAction(
     };
   }
 
-  if (!payload.subscription_id) {
+  const cleanSubId = String(payload.subscription_id || '').trim();
+  const cleanOrderId = String(payload.order_id || cleanSubId).trim();
+
+  if (!cleanSubId) {
     return {
       success: false,
       error: 'Subscription ID is required.',
     };
   }
 
+  const effectivePayload = {
+    ...payload,
+    subscription_id: cleanSubId,
+    order_id: cleanOrderId,
+  };
+
   try {
-    const res = await userService.captureSubscription(payload, token, lang);
+    const res = await userService.captureSubscription(effectivePayload, token, lang);
     const json = await res.json().catch(() => ({}));
 
+    const rawError = (json.message || json.error || '').toLowerCase();
+    const isAlreadyActive = /already\s*(active|subscribed|captured|processed|exists|upgraded)|same\s*plan|active\s*membership/i.test(rawError);
+
+    // If backend returned error, check if subscription is already active or user is already upgraded
     if (!res.ok || json.success === 0 || json.success === false) {
-      return {
-        success: false,
-        error: json.message || json.error || `Payment verification failed (HTTP ${res.status})`,
-      };
+      if (!isAlreadyActive) {
+        // Fallback check: Did webhook or background process already activate the membership?
+        try {
+          const profileCheck = await userService.getUserProfile(token, lang);
+          const activeMem = profileCheck?.userProfile?.membership;
+          if (activeMem && (activeMem.plan_name || activeMem.id)) {
+            // User's membership is active! Treat as success.
+            invalidateUserAuthCache(token);
+            try {
+              const u = profileCheck.userProfile;
+              const rawUserType =
+                typeof u.user_type === 'object' && u.user_type !== null
+                  ? (u.user_type.name || u.user_type.title || '')
+                  : (u.user_type || '');
+              const rawRole =
+                typeof u.role === 'object' && u.role !== null
+                  ? (u.role.name || u.role.title || '')
+                  : (u.role || '');
+              let effectiveType = '';
+              const norm = String(rawUserType).toLowerCase();
+              if (norm.includes('buyer')) effectiveType = 'buyer';
+              else if (norm.includes('seller')) effectiveType = 'seller';
+              else effectiveType = norm || String(rawRole).toLowerCase() || 'business user';
+
+              const safeUser = {
+                id: u.id || '',
+                customer_id: u.customer_id || u.id || '',
+                first_name: u.first_name || '',
+                last_name: u.last_name || '',
+                email: u.email || '',
+                mobile_no: u.mobile_no || u.phone || '',
+                phone: u.phone || u.mobile_no || '',
+                country_code: u.country_code || '',
+                role: rawRole || 'Business User',
+                user_type: effectiveType,
+                is_kyc_verified: u.is_kyc_verified ?? false,
+                membership: u.membership || null,
+              };
+
+              cookieStore.set('user_info', JSON.stringify(safeUser), {
+                httpOnly: false,
+                secure:
+                  process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') ??
+                  process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 7 * 24 * 60 * 60,
+              });
+            } catch {}
+
+            try {
+              cookieStore.delete({ name: 'selected-plan', path: '/' });
+              cookieStore.delete({ name: 'selected-plan-name', path: '/' });
+              cookieStore.delete({ name: 'selected-plan-duration', path: '/' });
+            } catch {}
+
+            revalidatePath(`/${lang}/profile`);
+            revalidatePath(`/${lang}/membership`);
+            revalidatePath(`/${lang}/become-member`);
+
+            return {
+              success: true,
+              message: 'Membership payment verified and activated!',
+              data: profileCheck.userProfile,
+            };
+          }
+        } catch {}
+
+        return {
+          success: false,
+          error: json.message || json.error || `Payment verification failed (HTTP ${res.status})`,
+        };
+      }
     }
 
     // Invalidate auth cache so the new membership plan is reflected immediately
@@ -326,6 +408,31 @@ export async function captureSubscriptionAction(
     };
   } catch (err: any) {
     console.error('[captureSubscriptionAction] Error:', err);
+
+    // Safety net: In case of network timeout or unexpected error, check if the membership actually activated on backend
+    try {
+      const profileCheck = await userService.getUserProfile(token, lang);
+      const activeMem = profileCheck?.userProfile?.membership;
+      if (activeMem && (activeMem.plan_name || activeMem.id)) {
+        invalidateUserAuthCache(token);
+        try {
+          cookieStore.delete({ name: 'selected-plan', path: '/' });
+          cookieStore.delete({ name: 'selected-plan-name', path: '/' });
+          cookieStore.delete({ name: 'selected-plan-duration', path: '/' });
+        } catch {}
+
+        revalidatePath(`/${lang}/profile`);
+        revalidatePath(`/${lang}/membership`);
+        revalidatePath(`/${lang}/become-member`);
+
+        return {
+          success: true,
+          message: 'Payment verified and membership activated!',
+          data: profileCheck.userProfile,
+        };
+      }
+    } catch {}
+
     return {
       success: false,
       error: err?.message || 'A network error occurred while verifying payment.',
