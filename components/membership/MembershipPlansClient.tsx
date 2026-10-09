@@ -162,7 +162,7 @@ export default function MembershipPlansClient({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="relative w-[82vw] max-w-[325px] mx-auto min-h-[660px] flex items-stretch justify-center"
+          className="grid w-[82vw] max-w-[325px] mx-auto min-h-[660px]"
         >
           {sortedPlans.map((plan, index) => {
             const isCurrentPlan =
@@ -181,7 +181,7 @@ export default function MembershipPlansClient({
                     setActiveIndex(index);
                   }
                 }}
-                className={`absolute inset-0 w-full h-full transition-transform duration-300 ease-out ${transformClass}`}
+                className={`col-start-1 row-start-1 w-full transition-transform duration-300 ease-out ${transformClass}`}
               >
                 <PlanCard
                   plan={plan}
