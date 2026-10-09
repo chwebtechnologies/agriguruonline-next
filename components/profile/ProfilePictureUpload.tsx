@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/lib/cropImage';
+import { useScrollLock } from '@/lib/scroll-lock';
 import { toast } from 'sonner';
 import { getAssetsUrl } from '@/lib/api-utils';
 
@@ -13,8 +15,29 @@ export default function ProfilePictureUpload({ currentImage }: { currentImage?: 
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [isCropping, setIsCropping] = useState(false);
-  
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useScrollLock(isCropping && Boolean(imageSrc));
+
+  useEffect(() => {
+    if (!isCropping) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsCropping(false);
+        setImageSrc(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCropping]);
 
   const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
@@ -71,6 +94,82 @@ export default function ProfilePictureUpload({ currentImage }: { currentImage?: 
     }
   }, [imageSrc, croppedAreaPixels]);
 
+  const cropModal = isCropping && imageSrc && mounted && typeof document !== 'undefined' ? createPortal(
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+      onClick={() => { setIsCropping(false); setImageSrc(null); }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div 
+        className="bg-background rounded-2xl w-full max-w-md shadow-2xl border border-foreground/10 overflow-hidden flex flex-col my-auto max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center p-5 border-b border-foreground/5 bg-foreground/[0.02]">
+          <h3 className="text-lg font-bold text-foreground">Crop Image</h3>
+          <button 
+            type="button"
+            onClick={() => {setIsCropping(false); setImageSrc(null);}} 
+            className="text-foreground/50 hover:text-foreground cursor-pointer"
+            aria-label="Close dialog"
+          >
+            <i className="fa-solid fa-times"></i>
+          </button>
+        </div>
+        
+        <div className="p-5 overflow-y-auto">
+          <div className="relative w-full h-[300px] bg-foreground/[0.02] rounded-xl overflow-hidden mb-5 border border-foreground/5">
+            <Cropper
+              image={imageSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={true}
+              onCropChange={setCrop}
+              onCropComplete={onCropComplete}
+              onZoomChange={setZoom}
+              objectFit="contain"
+            />
+          </div>
+          
+          <div className="flex items-center gap-3 mb-2 px-1">
+            <i className="fa-solid fa-image text-foreground/30 text-sm"></i>
+            <input
+              type="range"
+              value={zoom}
+              min={1}
+              max={3}
+              step={0.1}
+              aria-labelledby="Zoom"
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="w-full h-1 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-brand-blue"
+            />
+            <i className="fa-solid fa-image text-foreground/50 text-lg"></i>
+          </div>
+        </div>
+        
+        <div className="p-5 border-t border-foreground/5 bg-foreground/[0.02] flex justify-end gap-3">
+          <button 
+            type="button"
+            onClick={() => {setIsCropping(false); setImageSrc(null);}} 
+            className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-foreground/5 border border-foreground/10 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button 
+            type="button"
+            onClick={showCroppedImage}
+            className="px-5 py-2 rounded-xl bg-brand-blue text-white text-sm font-medium hover:bg-brand-blue-hover transition-colors cursor-pointer"
+          >
+            Apply Crop
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   return (
     <div className="flex flex-col items-center gap-1.5 shrink-0 z-20">
       <div 
@@ -110,11 +209,12 @@ export default function ProfilePictureUpload({ currentImage }: { currentImage?: 
       </div>
       
       <button 
+        type="button"
         onClick={(e) => {
           e.stopPropagation();
           fileInputRef.current?.click();
         }}
-        className="text-[10px] font-bold text-white/70 hover:text-white transition-colors uppercase tracking-wider drop-shadow-sm"
+        className="text-[10px] font-bold text-white/70 hover:text-white transition-colors uppercase tracking-wider drop-shadow-sm cursor-pointer"
       >
         Change Photo
       </button>
@@ -126,67 +226,8 @@ export default function ProfilePictureUpload({ currentImage }: { currentImage?: 
         ref={fileInputRef} 
         onChange={handleFileChange} 
       />
-      
-      {/* Standard Modal */}
-      {isCropping && imageSrc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="bg-background rounded-2xl w-full max-w-md shadow-xl border border-foreground/10 overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-5 border-b border-foreground/5 bg-foreground/[0.02]">
-              <h3 className="text-lg font-bold text-foreground">Crop Image</h3>
-              <button onClick={() => {setIsCropping(false); setImageSrc(null);}} className="text-foreground/50 hover:text-foreground">
-                <i className="fa-solid fa-times"></i>
-              </button>
-            </div>
-            
-            <div className="p-5">
-              <div className="relative w-full h-[300px] bg-foreground/[0.02] rounded-xl overflow-hidden mb-5 border border-foreground/5">
-                <Cropper
-                  image={imageSrc}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={1}
-                  cropShape="round"
-                  showGrid={true}
-                  onCropChange={setCrop}
-                  onCropComplete={onCropComplete}
-                  onZoomChange={setZoom}
-                  objectFit="contain"
-                />
-              </div>
-              
-              <div className="flex items-center gap-3 mb-2 px-1">
-                <i className="fa-solid fa-image text-foreground/30 text-sm"></i>
-                <input
-                  type="range"
-                  value={zoom}
-                  min={1}
-                  max={3}
-                  step={0.1}
-                  aria-labelledby="Zoom"
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="w-full h-1 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-brand-blue"
-                />
-                <i className="fa-solid fa-image text-foreground/50 text-lg"></i>
-              </div>
-            </div>
-            
-            <div className="p-5 border-t border-foreground/5 bg-foreground/[0.02] flex justify-end gap-3">
-              <button 
-                onClick={() => {setIsCropping(false); setImageSrc(null);}}
-                className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-foreground/5 border border-foreground/10 transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={showCroppedImage}
-                className="px-5 py-2 rounded-xl bg-brand-blue text-white text-sm font-medium hover:bg-brand-blue-hover transition-colors"
-              >
-                Apply Crop
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
+      {cropModal}
     </div>
   );
 }

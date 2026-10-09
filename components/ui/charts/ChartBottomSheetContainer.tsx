@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useScrollLock } from '@/lib/scroll-lock';
 import dynamic from 'next/dynamic';
 
 const MobileCommodityChart = dynamic(() => import('@/components/product-charts/MobileCommodityChart'), {
@@ -53,10 +55,9 @@ export function ChartBottomSheetContainer({
   const [headerHeight, setHeaderHeight] = useState(0);
 
   // Lock document body scroll while modal is open
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+  useScrollLock(true);
 
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
@@ -65,7 +66,6 @@ export function ChartBottomSheetContainer({
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [onClose]);
@@ -92,10 +92,13 @@ export function ChartBottomSheetContainer({
     };
   }, []);
 
-  if (!activeItem) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  return (
-    <div className="fixed inset-0 z-[500] flex flex-col items-center justify-center pointer-events-auto select-none bg-background lg:bg-black/40 lg:backdrop-blur-sm lg:p-4 xl:p-8">
+  if (!activeItem || !mounted) return null;
+
+  const content = (
+    <div className="fixed inset-0 z-[500] flex flex-col items-center justify-center pointer-events-auto select-none bg-background lg:bg-black/40 lg:backdrop-blur-sm lg:p-4 xl:p-8 overscroll-contain">
       <div
         className="relative z-10 w-full h-full lg:h-[92vh] lg:max-h-[880px] lg:max-w-6xl xl:max-w-7xl bg-background lg:rounded-2xl xl:rounded-3xl lg:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] lg:border lg:border-border flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -112,6 +115,8 @@ export function ChartBottomSheetContainer({
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }
 
 export default ChartBottomSheetContainer;

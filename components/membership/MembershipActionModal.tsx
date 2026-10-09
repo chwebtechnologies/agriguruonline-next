@@ -1,7 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useScrollLock } from '@/lib/scroll-lock';
 import type { MembershipPlan } from '@/lib/api/user.service';
 
 interface MembershipActionModalProps {
@@ -25,7 +27,23 @@ export default function MembershipActionModal({
   userProfile,
   dict,
 }: MembershipActionModalProps) {
-  if (!isOpen || !selectedPlan) return null;
+  useScrollLock(isOpen);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!isOpen || !selectedPlan || !mounted || typeof document === 'undefined') return null;
 
   const planNameLower = selectedPlan.plan_name.toLowerCase();
   const isSilver = planNameLower.includes('silver');
@@ -84,15 +102,15 @@ export default function MembershipActionModal({
     } Plan (${billingInterval.toUpperCase()} Billing - ${currency} ${price}).\nAccount: ${accountIdentifier}`
   );
 
-  return (
+  const content = (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg bg-card text-foreground rounded-3xl border border-border shadow-2xl p-6 sm:p-8 overflow-hidden"
+        className="relative w-full max-w-lg bg-card text-foreground rounded-3xl border border-border shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[90vh] my-auto animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Accent Ribbon */}
@@ -276,4 +294,6 @@ export default function MembershipActionModal({
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }

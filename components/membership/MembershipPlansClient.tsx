@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { MembershipPlan } from '@/lib/api/user.service';
+import { getNormalizedUserType } from '@/lib/api-utils';
 import PlanCard from './PlanCard';
 import MembershipFaq from './MembershipFaq';
 import MembershipActionModal from './MembershipActionModal';
@@ -19,14 +21,73 @@ export default function MembershipPlansClient({
   userProfile,
   dict,
 }: MembershipPlansClientProps) {
+  const searchParams = useSearchParams();
+  const notice = searchParams?.get('notice');
+  const isRegular =
+    getNormalizedUserType(userProfile?.user_type) === 'regular' ||
+    (typeof userProfile?.user_type === 'object' &&
+      userProfile?.user_type?.name?.toLowerCase() === 'regular') ||
+    userProfile?.role?.name?.toLowerCase() === 'regular' ||
+    userProfile?.membership?.plan_name?.toLowerCase() === 'guest' ||
+    userProfile?.membership?.plan_name?.toLowerCase() === 'regular';
+
+  const showNoticeBanner = notice === 'become_member' || (!!userProfile && isRegular);
+
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('yearly');
   const currency: 'USD' | 'INR' = 'USD';
   const [selectedPlanForModal, setSelectedPlanForModal] = useState<MembershipPlan | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [activeIndex, setActiveIndex] = useState<number>(1); // Default to Gold (center)
 
   const safePlans = Array.isArray(plans) ? plans : [];
   // Sort plans by sequence (Silver: 2, Gold: 3, Platinum: 4)
   const sortedPlans = [...safePlans].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  const totalPlans = sortedPlans.length;
+
+  // Touch gesture handling for mobile swipe
+  const touchStartX = useRef<number | null>(null);
+  const touchDeltaX = useRef<number>(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null) return;
+    if (touchDeltaX.current < -35 && totalPlans > 0) {
+      // Swiped Left -> Forward in circle
+      setActiveIndex((prev) => (prev + 1) % totalPlans);
+    } else if (touchDeltaX.current > 35 && totalPlans > 0) {
+      // Swiped Right -> Backward in circle
+      setActiveIndex((prev) => (prev - 1 + totalPlans) % totalPlans);
+    }
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+  };
+
+  // Calculates side-by-side position without any 3D overlapping stack
+  const getCardTransformClass = (index: number) => {
+    if (totalPlans <= 1) return 'translate-x-0 z-20 opacity-100';
+
+    const diff = (index - activeIndex + totalPlans) % totalPlans;
+
+    if (diff === 0) {
+      // Active center card
+      return 'translate-x-0 z-20 opacity-100 pointer-events-auto';
+    } else if (diff === 1 || (totalPlans === 2 && diff === 1)) {
+      // Right card (Next in infinite circle, placed cleanly to the right with 12px gap)
+      return 'translate-x-[calc(100%+12px)] z-10 opacity-95 scale-[0.98] cursor-pointer pointer-events-auto';
+    } else {
+      // Left card (Previous in infinite circle, placed cleanly to the left with 12px gap)
+      return '-translate-x-[calc(100%+12px)] z-10 opacity-95 scale-[0.98] cursor-pointer pointer-events-auto';
+    }
+  };
 
   const silverPlan =
     sortedPlans.find((p) => p?.plan_name?.toLowerCase().includes('silver')) ||
@@ -54,7 +115,24 @@ export default function MembershipPlansClient({
 
   return (
     <div className="w-full">
-      {/* Streamlined Controls & Title - Full width aligned with category layout */}
+      {/* Notice Banner for Regular / Guest Users attempting to access restricted features */}
+      {showNoticeBanner && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-foreground flex items-start gap-3.5 shadow-sm animate-in fade-in duration-300 max-w-3xl mx-auto text-left">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+            <i className="fa-solid fa-crown text-base"></i>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-bold text-foreground">
+              Membership Required for Trader Profile
+            </h4>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              Your account is currently active under the <strong>Regular (Guest)</strong> plan. Upgrade to an active Membership tier or claim the 90-day Free Trial to manage your company profile, submit KYC verification, and access live market inquiries.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Streamlined Controls & Title */}
       <div className="text-center w-full mt-1 mb-6 sm:mb-8">
         <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
           Verified commodity market intelligence, AI predictive forecasting, and direct counterparty trade network.
@@ -93,8 +171,64 @@ export default function MembershipPlansClient({
         </div>
       </div>
 
-      {/* Dynamic Membership Plan Cards Grid - Balanced max-w-6xl container */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch max-w-6xl mx-auto">
+      {/* MOBILE CIRCULAR CAROUSEL (Infinite loop, cards peek on both sides with zero overlap) */}
+      <div className="block md:hidden w-full overflow-hidden py-2">
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="relative w-[82vw] max-w-[325px] mx-auto min-h-[660px] flex items-stretch justify-center"
+        >
+          {sortedPlans.map((plan, index) => {
+            const isCurrentPlan =
+              !!userCurrentPlanName &&
+              !!plan.plan_name &&
+              userCurrentPlanName.includes(plan.plan_name.toLowerCase());
+
+            const transformClass = getCardTransformClass(index);
+            const isCenter = (index - activeIndex + totalPlans) % totalPlans === 0;
+
+            return (
+              <div
+                key={plan.id || plan.plan_name}
+                onClick={() => {
+                  if (!isCenter) {
+                    setActiveIndex(index);
+                  }
+                }}
+                className={`absolute inset-0 w-full h-full transition-transform duration-300 ease-out ${transformClass}`}
+              >
+                <PlanCard
+                  plan={plan}
+                  billingInterval={billingInterval}
+                  currency={currency}
+                  isCurrentPlan={isCurrentPlan}
+                  onSelect={handleSelectPlan}
+                  dict={dict}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Clean Pagination Dots */}
+        <div className="flex justify-center items-center gap-2 mt-4">
+          {sortedPlans.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setActiveIndex(idx)}
+              className={`h-2 rounded-full transition-all cursor-pointer ${
+                activeIndex === idx ? 'w-6 bg-brand-blue' : 'w-2 bg-muted-foreground/30'
+              }`}
+              aria-label={`Go to plan ${idx + 1}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* DESKTOP GRID (Clean 3-column layout) */}
+      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 items-stretch max-w-6xl mx-auto">
         {sortedPlans.map((plan) => {
           const isCurrentPlan =
             !!userCurrentPlanName &&
@@ -102,15 +236,16 @@ export default function MembershipPlansClient({
             userCurrentPlanName.includes(plan.plan_name.toLowerCase());
 
           return (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
-              billingInterval={billingInterval}
-              currency={currency}
-              isCurrentPlan={isCurrentPlan}
-              onSelect={handleSelectPlan}
-              dict={dict}
-            />
+            <div key={plan.id || plan.plan_name} className="flex h-full">
+              <PlanCard
+                plan={plan}
+                billingInterval={billingInterval}
+                currency={currency}
+                isCurrentPlan={isCurrentPlan}
+                onSelect={handleSelectPlan}
+                dict={dict}
+              />
+            </div>
           );
         })}
       </div>
@@ -125,7 +260,7 @@ export default function MembershipPlansClient({
         </div>
       </div>
 
-      {/* High-Converting 100% Risk-Free Free Trial Banner - Silver Tier Theming */}
+      {/* High-Converting 100% Risk-Free Free Trial Banner */}
       <div className="mt-8 rounded-3xl bg-gradient-to-br from-slate-200/40 via-card to-card dark:from-slate-800/40 dark:via-card dark:to-card border border-slate-300/80 dark:border-slate-700/80 p-6 sm:p-8 shadow-xl relative overflow-hidden w-full">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="max-w-2xl">
@@ -203,7 +338,7 @@ export default function MembershipPlansClient({
         </div>
       </div>
 
-      {/* Trust & Guarantee Ribbon - w-full */}
+      {/* Trust & Guarantee Ribbon */}
       <div className="mt-6 py-3.5 px-4 rounded-xl bg-muted/30 border border-border/70 text-center w-full">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="flex items-center justify-center gap-1.5 text-foreground font-semibold text-[11px] sm:text-xs">
@@ -242,4 +377,3 @@ export default function MembershipPlansClient({
     </div>
   );
 }
-

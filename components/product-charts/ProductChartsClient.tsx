@@ -18,6 +18,7 @@ import { ProductInquiryModal } from '@/components/marketed-products/ProductInqui
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
 import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist } from '@/lib/watchlist-utils';
+import { useScrollLock } from '@/lib/scroll-lock';
 
 
 
@@ -163,6 +164,8 @@ export default function ProductChartsClient({
   const [activeBottomSheetId, setActiveBottomSheetId] = useState<number | string | null>(null);
   const [isInitialFullScreen, setIsInitialFullScreen] = useState(false);
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
+
+  useScrollLock(showMobileAddForm);
 
   // Buy/Sell Action States
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
@@ -1579,7 +1582,7 @@ export default function ProductChartsClient({
 
       {/* Full Screen Mobile Add Product Form */}
       {showMobileAddForm && (
-        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 ">
+        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 overscroll-contain">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <button 

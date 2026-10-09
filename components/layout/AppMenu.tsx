@@ -1,8 +1,13 @@
-'use client'
+'use client';
 
-import React, { useState, useEffect, useRef, useId } from 'react'
-import Link from 'next/link'
-import { logoutUser } from '@/app/actions/auth'
+import React, { useState, useEffect, useRef, useId } from 'react';
+import { createPortal } from 'react-dom';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { logoutUser } from '@/app/actions/auth';
+import { useScrollLock } from '@/lib/scroll-lock';
+import { useTheme } from '@/components/providers/ThemeProvider';
+import BecomeMemberModal from '@/components/membership/BecomeMemberModal';
 
 interface MenuItem {
   label: string;
@@ -19,10 +24,8 @@ interface AppMenuProps {
   dict?: any;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onOpenBecomeMemberModal?: () => void;
 }
-
-import { useParams } from 'next/navigation'
-import { useTheme } from '@/components/providers/ThemeProvider'
 
 export function AppMenu({ 
   children, 
@@ -48,8 +51,11 @@ export function AppMenu({
 
   const { theme, setTheme } = useTheme();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isBecomeMemberOpen, setIsBecomeMemberOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useScrollLock(showLogoutConfirm);
 
   useEffect(() => {
     setMounted(true);
@@ -125,9 +131,15 @@ export function AppMenu({
     return String(typeData).toLowerCase();
   };
 
+  const isRegular = getNormalizedType(profile?.user_type) === 'regular' || 
+                    (typeof profile?.user_type === 'object' && profile?.user_type?.name?.toLowerCase() === 'regular') ||
+                    profile?.role?.name?.toLowerCase() === 'regular' ||
+                    profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
+                    profile?.membership?.plan_name?.toLowerCase() === 'regular';
+
   // Determine dynamic label for My Inquiries / My Offers
   const isSeller = getNormalizedType(profile?.user_type) === 'seller' || getNormalizedType(profile?.role) === 'seller';
-  const isMember = !!profile?.membership;
+  const isMember = !!profile?.membership && !isRegular;
   const inquiriesLabel = (isMember && isSeller) ? 'My Offers' : 'My Inquiries';
   const inquiriesHref = (isMember && isSeller) ? `/${lang}/my-offers` : `/${lang}/my-inquiries`;
 
@@ -234,11 +246,11 @@ export function AppMenu({
 
             {/* Premium Upgrade Banner (Mobile & Tablet) */}
             <div className="lg:hidden flex justify-center my-1.5 mb-3.5">
-              <Link prefetch={false} onClick={() => setIsOpen(false)} href="#" className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
+              <Link prefetch={false} onClick={() => setIsOpen(false)} href={`/${lang}/membership`} className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
                 <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
                 <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[13px] min-[390px]:text-[14px]"></i>
                 <span className="tracking-wider uppercase text-[12px] min-[390px]:text-[13px] relative z-10 drop-shadow-md whitespace-nowrap">
-                  {profile ? 'Upgrade Plan' : 'Membership Plan'}
+                  {profile && !isRegular ? 'Upgrade Plan' : 'Membership Plan'}
                 </span>
                 <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-[14px] min-[390px]:text-[16px]"></i>
               </Link>
@@ -249,27 +261,44 @@ export function AppMenu({
               {MENU_GROUPS.map((group, groupIndex) => (
                 <div key={`group-${groupIndex}`} className="contents lg:block lg:bg-background lg:rounded-[10px] lg:overflow-hidden lg:border lg:border-border/50 lg:shadow-sm">
                   <ul className="contents lg:flex lg:flex-col">
-                    {group.map((item, index) => (
-                      <li key={`item-${item.label}-${index}`} className="contents lg:block lg:relative lg:group">
-                        <Link prefetch={false} href={item.href} onClick={() => setIsOpen(false)} className="
-                          flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden
-                          lg:justify-between lg:px-3 lg:py-1.5 lg:hover:bg-muted lg:border-none lg:rounded-none lg:shadow-none
-                        ">
-                          <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3">
-                            <div className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 lg:w-6 lg:h-6 rounded-md lg:rounded-[5px] shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
-                              <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] lg:text-[12px] text-white`}></i>
+                    {group.map((item, index) => {
+                      const isProfileLink = item.href === `/${lang}/profile`;
+                      const handleItemClick = (e: React.MouseEvent) => {
+                        if (isProfileLink && isRegular) {
+                          e.preventDefault();
+                          setIsOpen(false);
+                          if (onOpenBecomeMemberModal) {
+                            onOpenBecomeMemberModal();
+                          } else {
+                            setIsBecomeMemberOpen(true);
+                          }
+                          return;
+                        }
+                        setIsOpen(false);
+                      };
+
+                      return (
+                        <li key={`item-${item.label}-${index}`} className="contents lg:block lg:relative lg:group">
+                          <Link prefetch={false} href={item.href} onClick={handleItemClick} className="
+                            flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden
+                            lg:justify-between lg:px-3 lg:py-1.5 lg:hover:bg-muted lg:border-none lg:rounded-none lg:shadow-none
+                          ">
+                            <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3">
+                              <div className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 lg:w-6 lg:h-6 rounded-md lg:rounded-[5px] shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}>
+                                <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] lg:text-[12px] text-white`}></i>
+                              </div>
+                              <span className={`font-semibold text-[12.5px] min-[375px]:text-[13.5px] lg:text-[13.5px] lg:tracking-tight ${item.textColor || 'text-foreground'} tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0`}>
+                                {item.label}
+                              </span>
                             </div>
-                            <span className={`font-semibold text-[12.5px] min-[375px]:text-[13.5px] lg:text-[13.5px] lg:tracking-tight ${item.textColor || 'text-foreground'} tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0`}>
-                              {item.label}
-                            </span>
-                          </div>
-                          <i className="hidden lg:block fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
-                        </Link>
-                        {index !== group.length - 1 && (
-                          <div className="hidden lg:block absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
-                        )}
-                      </li>
-                    ))}
+                            <i className="hidden lg:block fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                          </Link>
+                          {index !== group.length - 1 && (
+                            <div className="hidden lg:block absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}
@@ -311,13 +340,15 @@ export function AppMenu({
       )}
 
       {/* Logout Confirmation Popup */}
-      {showLogoutConfirm && (
+      {showLogoutConfirm && mounted && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 px-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 overflow-y-auto overscroll-contain"
           onClick={() => setShowLogoutConfirm(false)}
+          role="dialog"
+          aria-modal="true"
         >
           <div 
-            className="bg-background rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200"
+            className="bg-background rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex gap-4 items-center mb-6">
@@ -333,20 +364,30 @@ export function AppMenu({
             <div className="flex w-full gap-3">
               <button 
                 onClick={handleLogout}
-                className="flex-1 py-2.5 rounded-xl bg-brand-red text-white font-semibold text-[15px] shadow-sm hover:bg-brand-red-hover active:scale-[0.98] transition-all"
+                className="flex-1 py-2.5 rounded-xl bg-brand-red text-white font-semibold text-[15px] shadow-sm hover:bg-brand-red-hover active:scale-[0.98] transition-all cursor-pointer"
               >
                 Logout
               </button>
               <button 
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all"
+                className="flex-1 py-2.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all cursor-pointer"
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
+      {/* Become Member Modal for Regular Users */}
+      <BecomeMemberModal
+        isOpen={isBecomeMemberOpen}
+        onClose={() => setIsBecomeMemberOpen(false)}
+        lang={lang}
+        userProfile={profile}
+        dict={dict}
+      />
     </div>
-  )
+  );
 }

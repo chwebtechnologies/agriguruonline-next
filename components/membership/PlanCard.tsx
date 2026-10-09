@@ -256,7 +256,7 @@ export default function PlanCard({
 
   // Distinct metallic colors
   const cardBorderClass = isGold
-    ? 'border-amber-500/70 dark:border-amber-400/60 shadow-xl shadow-amber-500/10 ring-2 ring-amber-500/30 lg:-translate-y-1'
+    ? 'border-amber-500/70 dark:border-amber-400/60 shadow-xl shadow-amber-500/10 ring-1 ring-amber-500/30'
     : isPlatinum
     ? 'border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 shadow-xl shadow-zinc-900/5 dark:shadow-black/20 ring-1 ring-zinc-300/80 dark:ring-zinc-700/80'
     : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/30 ring-1 ring-slate-300/70 dark:ring-slate-700/70';
@@ -285,7 +285,7 @@ export default function PlanCard({
 
   return (
     <div
-      className={`relative rounded-3xl text-foreground border flex flex-col justify-between transition-all duration-300 hover:shadow-2xl overflow-hidden ${cardBorderClass} ${cardBgClass} p-4 sm:p-5`}
+      className={`relative rounded-3xl text-foreground border flex flex-col justify-between transition-all duration-300 hover:shadow-2xl overflow-hidden h-full w-full ${cardBorderClass} ${cardBgClass} p-4 sm:p-5`}
     >
       {/* Top Metallic Color Ribbon */}
       <div className={`absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r ${topGlowBar}`} />
@@ -303,8 +303,8 @@ export default function PlanCard({
       )}
 
       {/* Top Header & Identity */}
-      <div>
-        <div className="flex items-center gap-3 mb-2">
+      <div className="w-full">
+        <div className="h-11 sm:h-12 flex items-center gap-3 mb-2.5">
           <div
             className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border shadow-xs ${
               isGold
@@ -321,40 +321,41 @@ export default function PlanCard({
             ></i>
           </div>
 
-          <div>
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+          <div className="min-w-0 pr-2">
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight text-foreground truncate">
               {plan.plan_name}
             </h3>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block truncate">
               {tierCategory}
             </span>
           </div>
         </div>
 
-        <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+        {/* Uniform 2-line Description Area */}
+        <p className="text-xs text-muted-foreground leading-snug h-9 sm:h-10 flex items-center mb-3.5">
           {tierDescription}
         </p>
 
-        {/* Pricing Display */}
-        <div className="mb-4 p-3 sm:p-3.5 rounded-2xl bg-muted/40 border border-border/80">
+        {/* Pricing Display - Synchronized Fixed Height */}
+        <div className="h-[76px] p-3 sm:p-3.5 rounded-2xl bg-muted/40 border border-border/80 flex flex-col justify-center mb-4">
           {hasTrial ? (
             <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-black text-foreground">
+              <div className="flex items-baseline justify-between gap-2 leading-none">
+                <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
                   Free Access
                 </span>
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25">
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 shrink-0">
                   {trialDays} Days Free
                 </span>
               </div>
-              <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                <i className="fa-solid fa-shield-halved text-[11px]"></i>
-                <span>100% Risk-Free • No card or banking details required</span>
+              <p className="mt-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 truncate">
+                <i className="fa-solid fa-shield-halved text-[11px] shrink-0"></i>
+                <span className="truncate">100% Risk-Free • No card required</span>
               </p>
             </div>
           ) : (
             <div>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-1 leading-none">
                 <span className="text-lg sm:text-xl font-black text-foreground/70">
                   {currencySymbol}
                 </span>
@@ -366,17 +367,19 @@ export default function PlanCard({
                 </span>
               </div>
 
-              <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                {billingInterval === 'yearly' && monthlyEquivalent ? (
-                  <span>
-                    ≈ <strong className="text-foreground">{currencySymbol}{monthlyEquivalent}</strong>/mo billed annually
-                  </span>
-                ) : (
-                  <span>Billed monthly • Cancel anytime</span>
-                )}
+              <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground w-full font-medium">
+                <span className="truncate">
+                  {billingInterval === 'yearly' && monthlyEquivalent ? (
+                    <>
+                      ≈ <strong className="text-foreground">{currencySymbol}{monthlyEquivalent}</strong>/mo billed annually
+                    </>
+                  ) : (
+                    'Billed monthly • Cancel anytime'
+                  )}
+                </span>
 
                 {billingInterval === 'yearly' && annualSavings > 0 && (
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 shrink-0 ml-2">
                     Save {currencySymbol}{annualSavings.toLocaleString()}
                   </span>
                 )}
@@ -385,13 +388,13 @@ export default function PlanCard({
           )}
         </div>
 
-        {/* Primary Call to Action Button */}
+        {/* Primary Call to Action Button - Synchronized Fixed Height */}
         <div className="mb-4">
           <button
             type="button"
             onClick={() => !isCurrentPlan && onSelect(plan)}
             disabled={isCurrentPlan}
-            className={`w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${buttonClass}`}
+            className={`w-full h-11 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${buttonClass}`}
           >
             {isCurrentPlan ? (
               <>
@@ -412,19 +415,19 @@ export default function PlanCard({
           </button>
         </div>
 
-        {/* Deliverables Section - Exactly as ordered in API response, fully visible with no inner scrollbar */}
-        <div className="pt-3 border-t border-border/70">
-          <div className="flex items-center justify-between mb-2.5">
+        {/* Deliverables Section - Exactly as ordered in API response */}
+        <div className="pt-3.5 border-t border-border/70">
+          <div className="h-6 flex items-center justify-between mb-2.5">
             <span className="text-xs sm:text-[12.5px] font-black uppercase tracking-wider text-foreground">
               {(plan.features || []).filter((f) => f.is_enabled).length} Features Included
             </span>
-            <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5 shrink-0">
               <i className="fa-solid fa-arrows-rotate text-[10px] text-emerald-500"></i>
               Monthly Reset
             </span>
           </div>
 
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {(plan.features || []).map((feature) => {
               const quota = getFeatureQuota(feature);
               const details = getFeatureDetails(feature);
@@ -432,13 +435,13 @@ export default function PlanCard({
               return (
                 <div
                   key={feature.id || feature.name}
-                  className={`group relative hover:z-50 flex items-center justify-between gap-2.5 py-2 px-2 -mx-2 rounded-xl transition-all duration-150 ${
+                  className={`group relative hover:z-50 flex items-center justify-between gap-2.5 h-8 sm:h-[34px] px-2 -mx-2 rounded-xl transition-all duration-150 ${
                     quota.isEnabled
                       ? 'hover:bg-muted/40 text-foreground cursor-pointer'
                       : 'opacity-55 hover:opacity-85 text-muted-foreground hover:bg-muted/20 cursor-pointer'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 pr-1">
+                  <div className="flex items-center gap-2.5 min-w-0 pr-1 flex-1">
                     {quota.isEnabled ? (
                       <i className="fa-solid fa-check text-emerald-500 dark:text-emerald-400 text-sm sm:text-[15px] font-black shrink-0 w-4 text-left"></i>
                     ) : (
@@ -478,10 +481,10 @@ export default function PlanCard({
                     {quota.text}
                   </span>
 
-                  {/* Interactive Feature Detail Tooltip on Hover - Solid Pure Color (Zero Glass/Blur) */}
+                  {/* Interactive Feature Detail Tooltip on Hover - Desktop Only */}
                   <div
                     role="tooltip"
-                    className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-68 sm:w-72 max-w-[calc(100%-16px)] p-3 rounded-2xl bg-zinc-900 dark:bg-black text-white border border-zinc-700/80 dark:border-zinc-800 shadow-2xl shadow-black/70 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1 transition-all duration-200 z-50"
+                    className="pointer-events-none hidden md:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-68 sm:w-72 max-w-[calc(100%-16px)] p-3 rounded-2xl bg-zinc-900 dark:bg-black text-white border border-zinc-700/80 dark:border-zinc-800 shadow-2xl shadow-black/70 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1 transition-all duration-200 z-50"
                   >
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center justify-between gap-2 border-b border-zinc-800 pb-1.5">

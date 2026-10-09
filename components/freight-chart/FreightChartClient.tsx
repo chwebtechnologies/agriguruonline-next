@@ -20,6 +20,7 @@ import {
   deleteFavoritePortAction,
   getFavoritePortsAction
 } from '@/app/actions/freight';
+import { useScrollLock } from '@/lib/scroll-lock';
 
 // --- Shared Interfaces ---
 export interface ShippingContainer {
@@ -181,6 +182,8 @@ export default function FreightChartClient({
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [disclaimerPos, setDisclaimerPos] = useState<'top' | 'bottom'>('bottom');
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
+
+  useScrollLock(showMobileAddForm);
 
   const handleDisclaimerClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -914,7 +917,7 @@ export default function FreightChartClient({
 
       {/* Full-Screen Mobile Add Freight Form (Matching Product Charts) */}
       {showMobileAddForm && (
-        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 ">
+        <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 overscroll-contain">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <button

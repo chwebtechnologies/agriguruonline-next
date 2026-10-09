@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { useScrollLock } from '@/lib/scroll-lock'
 import { Document, Page, pdfjs } from 'react-pdf'
 import HTMLFlipBook from 'react-pageflip'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
@@ -39,10 +41,10 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose, dic
     ? fileUrl 
     : `${baseUrl.replace(/\/$/, '')}/${fileUrl.replace(/^\//, '')}`
 
+  useScrollLock(isOpen)
+
   useEffect(() => {
     if (!isOpen) return
-
-    document.body.style.overflow = 'hidden'
 
     const updateDimensions = () => {
       const isMob = window.innerWidth < 768
@@ -78,7 +80,6 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose, dic
     updateDimensions()
     window.addEventListener('resize', updateDimensions)
     return () => {
-      document.body.style.overflow = ''
       window.removeEventListener('resize', updateDimensions)
     }
   }, [isOpen])
@@ -241,7 +242,10 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose, dic
     }
   }, [numPages, dimensions])
 
-  if (!isOpen) return null
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  if (!isOpen || !mounted) return null
 
   // Route the URL through our internal proxy to completely bypass CORS restrictions
   const pdfUrl = `/api/proxy-pdf?url=${encodeURIComponent(finalFileUrl)}`;
@@ -264,8 +268,8 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose, dic
     (dimensions.isMobile ? pageNumber >= numPages : pageNumber >= numPages - 1)
   )
 
-  return (
-    <div className="fixed inset-0 z-[500] flex flex-col items-center justify-between bg-black/95 select-none animate-in fade-in duration-200">
+  const content = (
+    <div className="fixed inset-0 z-[500] flex flex-col items-center justify-between bg-black/95 select-none animate-in fade-in duration-200 overscroll-contain">
       
       {/* Top Bar */}
       <div className="w-full h-14 flex items-center justify-between px-3 sm:px-6 bg-black/80 border-b border-white/10 shrink-0 z-[510]">
@@ -436,4 +440,6 @@ export default function ReportReaderModal({ fileUrl, title, isOpen, onClose, dic
       )}
     </div>
   )
+
+  return createPortal(content, document.body)
 }

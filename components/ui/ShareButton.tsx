@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useScrollLock } from '@/lib/scroll-lock'
 
 export function ShareButton({ 
   title, 
@@ -17,6 +18,8 @@ export function ShareButton({
   const [copied, setCopied] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  useScrollLock(showModal)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -119,11 +122,11 @@ export function ShareButton({
 
   const shareModal = mounted && showModal ? createPortal(
     <div 
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80" 
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto overscroll-contain" 
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowModal(false); }}
     >
       <div 
-        className="bg-card w-full sm:max-w-sm rounded-t-[32px] sm:rounded-3xl p-6 sm:p-7 shadow-2xl border-t sm:border border-border animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300" 
+        className="bg-card w-full sm:max-w-sm rounded-t-[32px] sm:rounded-3xl p-6 sm:p-7 shadow-2xl border-t sm:border border-border animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300 my-auto" 
         onClick={e => { e.preventDefault(); e.stopPropagation(); }}
       >
         {/* Mobile Drag Handle Pill */}

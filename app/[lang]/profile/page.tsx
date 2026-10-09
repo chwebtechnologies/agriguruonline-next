@@ -13,7 +13,7 @@ import { ForceLogout } from '@/components/auth/ForceLogout';
 import { tradingService } from '@/lib/api/trading.service';
 import { userService } from '@/lib/api/user.service';
 import { getUserProfile } from '@/lib/user-data';
-import { withTimeout } from '@/lib/api-utils';
+import { withTimeout, getNormalizedUserType } from '@/lib/api-utils';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -98,6 +98,18 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
   // 100% Security: If there is no profile data or we marked for logout, redirect immediately
   if (shouldLogout || !profileData) {
     redirect(`/${lang}/login`);
+  }
+
+  // Regular users cannot access the trader profile page -> Redirect to membership
+  const userTypeNorm = getNormalizedUserType(profileData.user_type);
+  const isRegular = userTypeNorm === 'regular' || 
+                    (typeof profileData.user_type === 'object' && profileData.user_type?.name?.toLowerCase() === 'regular') ||
+                    profileData?.role?.name?.toLowerCase() === 'regular' ||
+                    profileData?.membership?.plan_name?.toLowerCase() === 'guest' ||
+                    profileData?.membership?.plan_name?.toLowerCase() === 'regular';
+
+  if (isRegular) {
+    redirect(`/${lang}/membership?notice=become_member`);
   }
 
   // Parallel Fetching for Categories, Countries, and KYC using Centralized Services with timeout protection

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, useTransition, useId } from 'react'
 import { createPortal } from 'react-dom'
+import { useScrollLock } from '@/lib/scroll-lock'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { SearchProduct, SearchApiResponse } from '@/types/search'
@@ -51,6 +52,8 @@ export function HeaderSearch({
   const [isMac, setIsMac] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<SearchProduct | null>(null)
   const [selectedSpecsProduct, setSelectedSpecsProduct] = useState<SearchProduct | null>(null)
+
+  useScrollLock(isMobileSearchOpen || Boolean(selectedSpecsProduct))
 
   // Reset query and close views on page navigation
   useEffect(() => {
@@ -599,7 +602,7 @@ export function HeaderSearch({
       {/* 4. MOBILE / TABLET FULL-SCREEN SEARCH VIEW (Portaled to document.body)     */}
       {/* ========================================================================= */}
       {isMobileSearchOpen && mounted && typeof document !== 'undefined' && createPortal(
-        <div className="lg:hidden fixed inset-0 z-[999999] bg-background text-foreground flex flex-col animate-in fade-in duration-150">
+        <div className="lg:hidden fixed inset-0 z-[999999] bg-background text-foreground flex flex-col animate-in fade-in duration-150 overscroll-contain">
           {/* Mobile Header Bar matching main header bg-card, border-border, text-foreground */}
           <header className="sticky top-0 z-20 w-full bg-card text-foreground border-b border-border py-2.5 px-3 sm:px-4 flex items-center gap-3 shadow-sm">
             {/* Back Button '<' */}
@@ -725,14 +728,16 @@ export function HeaderSearch({
       {/* ========================================================================= */}
       {selectedSpecsProduct && mounted && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[1000000] flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-[1000000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
           onClick={(e) => {
             e.stopPropagation()
             setSelectedSpecsProduct(null)
           }}
+          role="dialog"
+          aria-modal="true"
         >
           <div
-            className="bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-150"
+            className="bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col my-auto max-h-[85vh] animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-card">

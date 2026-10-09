@@ -19,6 +19,7 @@ import { FreightAlertCard } from '@/components/alerts/FreightAlertCard'
 import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard'
 import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard'
 import { ChartBottomSheetContainer, ChartBottomSheetItem } from '@/components/ui/charts/ChartBottomSheetContainer'
+import BecomeMemberModal from '@/components/membership/BecomeMemberModal'
 
 import { SearchProduct } from '@/types/search'
 
@@ -90,8 +91,15 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [profile, setProfile] = useState<any>(initialProfile || null)
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isBecomeMemberOpen, setIsBecomeMemberOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [activeNotificationTab, setActiveNotificationTab] = useState<'notifications' | 'alerts' | 'ai_predicts'>('notifications')
+
+  const isRegular = getNormalizedUserType(profile?.user_type) === 'regular' || 
+                    (typeof profile?.user_type === 'object' && profile?.user_type?.name?.toLowerCase() === 'regular') ||
+                    profile?.role?.name?.toLowerCase() === 'regular' ||
+                    profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
+                    profile?.membership?.plan_name?.toLowerCase() === 'regular';
 
   // Notification and alert state initialized from SSR props with client-side refresh capability
   const [notificationsData, setNotificationsData] = useState<any[]>(initialNotifications)
@@ -533,7 +541,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   }
 
   return (
-    <div id="site-header" className="w-full flex flex-col z-50 bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
+    <div id="site-header" className="w-full flex flex-col z-[70] bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar (Always sticky) */}
       <header className="relative w-full bg-card text-foreground py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
@@ -545,7 +553,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
             <div className="flex items-center shrink-0 lg:w-[110px] rtl:lg:w-[130px] w-auto">
               {/* On Mobile & Tablet (< 1024px): Always show Hamburger Menu */}
               <div className="lg:hidden">
-                <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen} onOpenBecomeMemberModal={() => setIsBecomeMemberOpen(true)}>
                   <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                     <i className="fa-solid fa-bars text-3xl"></i>
                   </div>
@@ -554,7 +562,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               {/* On Desktop / Laptop (>= 1024px): Only show Hamburger Menu when scrolled (replacing Logo) */}
               {isScrolled && (
                 <div className="hidden lg:block animate-in fade-in duration-300">
-                  <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                  <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen} onOpenBecomeMemberModal={() => setIsBecomeMemberOpen(true)}>
                     <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                       <i className="fa-solid fa-bars text-3xl"></i>
                       <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
@@ -628,10 +636,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               <div className="flex items-center gap-3">
                 <Link
                   prefetch={false}
-                  href="#"
+                  href={`/${activeLang}/membership`}
                   className="h-10 px-5 hidden lg:inline-flex items-center justify-center rounded-lg bg-primary-gradient text-[15px] font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
                 >
-                  {profile?.membership ? (dict.header.upgrade_plan || 'Upgrade Plan') : (dict.header.free_trial || 'Free Trial')}
+                  {profile?.membership && !isRegular ? (dict.header.upgrade_plan || 'Upgrade Plan') : (dict.header.free_trial || 'Free Trial')}
                 </Link>
 
                 <div className="relative" ref={notificationsRef}>
@@ -936,7 +944,19 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   )}
                 </div>
 
-                <Link href={`/${activeLang}/profile`} prefetch={false}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (isRegular) {
+                      setIsBecomeMemberOpen(true);
+                    } else {
+                      router.push(`/${activeLang}/profile`);
+                    }
+                  }}
+                  className="focus:outline-none cursor-pointer"
+                  aria-label={dict.navigation.profile || "User Profile"}
+                >
                   <div
                     className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-muted text-foreground hover:opacity-80 transition-all border border-border shadow-lg hover:scale-105 active:scale-95 duration-200"
                   >
@@ -968,7 +988,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                     
                     <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ag-header-bg ring-2 ring-emerald-500/20" />
                   </div>
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -985,7 +1005,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
         <div className="mx-auto w-full max-w-7xl flex items-center justify-between gap-6">
           {/* Left-aligned Menu Trigger */}
           <div className="shrink-0 border-e border-border pe-5 flex items-center">
-            <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen} onOpenBecomeMemberModal={() => setIsBecomeMemberOpen(true)}>
               <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
                 <i className="fa-solid fa-bars text-3xl"></i>
                 <span className="font-bold text-[21px] tracking-wide leading-none">{dict.header.menu}</span>
@@ -1047,6 +1067,15 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           initialExpandedPredictId={initialExpandedPredictId}
         />
       )}
+
+      {/* Become Member Modal for Regular Users */}
+      <BecomeMemberModal
+        isOpen={isBecomeMemberOpen}
+        onClose={() => setIsBecomeMemberOpen(false)}
+        lang={activeLang}
+        userProfile={profile}
+        dict={dict}
+      />
     </div>
   )
 }

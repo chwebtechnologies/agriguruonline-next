@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import InquiryListCard from './InquiryListCard';
 import InquiryDetailsPanel from './InquiryDetailsPanel';
+import { useScrollLock } from '@/lib/scroll-lock';
 
 interface MyInquiriesClientProps {
   lang: string;
@@ -52,6 +53,8 @@ export default function MyInquiriesClient({
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
+
+  useScrollLock(isMobileDetailView);
 
   // Derive current selected item or fallback to first item
   const selectedItem = useMemo(() => {
@@ -233,7 +236,7 @@ export default function MyInquiriesClient({
         </div>
 
         {/* Right Column: Complete Details & Negotiation Panel */}
-        <div className={`lg:col-span-7 xl:col-span-8 ${isMobileDetailView ? 'fixed inset-0 z-[100] bg-background overflow-y-auto p-3 sm:p-4 block lg:static lg:z-auto lg:bg-transparent lg:p-0 lg:overflow-visible lg:h-full' : 'hidden lg:block h-full'}`}>
+        <div className={`lg:col-span-7 xl:col-span-8 ${isMobileDetailView ? 'fixed inset-0 z-[100] bg-background overflow-y-auto overscroll-contain p-3 sm:p-4 block lg:static lg:z-auto lg:bg-transparent lg:p-0 lg:overflow-visible lg:h-full' : 'hidden lg:block h-full'}`}>
           <InquiryDetailsPanel
             selectedItem={selectedItem}
             selectedItemId={selectedItemId || (selectedItem?.id || selectedItem?._id || null)}

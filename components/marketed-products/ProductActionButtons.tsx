@@ -15,10 +15,7 @@ const AddFavoriteProductModal = dynamic(
   () => import('./AddFavoriteProductModal').then(m => m.AddFavoriteProductModal),
   { ssr: false }
 );
-const ActionIndicationModal = dynamic(
-  () => import('@/components/ui/charts/ActionIndicationModal').then(m => m.ActionIndicationModal),
-  { ssr: false }
-);
+import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
 
 interface ProductActionButtonsProps {
   productSlugOrId: string;

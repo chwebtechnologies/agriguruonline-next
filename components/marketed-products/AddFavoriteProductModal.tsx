@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useScrollLock } from '@/lib/scroll-lock';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { 
   getShippingContainersAction, 
@@ -152,14 +153,18 @@ export function AddFavoriteProductModal({
     }
   }, [isOpen, lang, productsData, shippingTerms]);
 
-  // Handle escape key
+  // Handle scroll lock and escape key
+  useScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   // 1. Derived Categories
@@ -585,7 +590,7 @@ export function AddFavoriteProductModal({
   return createPortal(
     <>
       <div 
-        className="fixed inset-0 z-[9999] flex flex-col sm:items-center sm:justify-center bg-background sm:bg-black/80 sm:backdrop-blur-xs p-0 sm:p-4 overflow-y-auto"
+        className="fixed inset-0 z-[9999] flex flex-col sm:items-center sm:justify-center bg-background sm:bg-black/80 sm:backdrop-blur-xs p-0 sm:p-4 overflow-y-auto overscroll-contain"
         role="dialog"
         aria-modal="true"
         onClick={(e) => {

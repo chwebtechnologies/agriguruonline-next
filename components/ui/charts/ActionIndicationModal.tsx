@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useScrollLock } from '@/lib/scroll-lock';
 
 interface ActionIndicationModalProps {
   isOpen: boolean;
@@ -21,16 +23,25 @@ export function ActionIndicationModal({
   indicationText = 'Confirm',
   type = 'error'
 }: ActionIndicationModalProps) {
+  useScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const getTypeStyles = () => {
     switch (type) {
@@ -64,15 +75,19 @@ export function ActionIndicationModal({
 
   const { bgClass, textClass, iconClass } = getTypeStyles();
 
-  return (
+  const content = (
     <div 
-      className="fixed inset-0 z-[600] flex items-center justify-center bg-background/60 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
       role="dialog"
       aria-modal="true"
       aria-labelledby="action-modal-title"
       aria-describedby="action-modal-desc"
+      onClick={onClose}
     >
-      <div className="bg-card rounded-3xl p-6 sm:p-7 w-[92vw] sm:w-[420px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 mx-auto flex flex-col items-center text-center">
+      <div 
+        className="bg-card rounded-3xl p-6 sm:p-7 w-[92vw] sm:w-[420px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 mx-auto flex flex-col items-center text-center my-auto max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={`w-16 h-16 ${bgClass} rounded-full flex items-center justify-center shrink-0 ${textClass} mb-4`}>
           <i className={`${iconClass} text-3xl`}></i>
         </div>
@@ -105,6 +120,8 @@ export function ActionIndicationModal({
       </div>
     </div>
   );
+
+  return createPortal(content, document.body);
 }
 
 export default ActionIndicationModal;

@@ -20,6 +20,7 @@ import { toPng } from 'html-to-image';
 import DOMPurify from 'isomorphic-dompurify';
 import { marked } from 'marked';
 import { tradingService } from '@/lib/api/trading.service';
+import { useScrollLock } from '@/lib/scroll-lock';
 
 export interface CommodityItemData {
   id: number | string;
@@ -178,6 +179,8 @@ export default function MobileCommodityChart({
   const [hoveredPoint, setHoveredPoint] = useState<PriceHistoryItem | null>(null);
   const [selectedCommentPoint, setSelectedCommentPoint] = useState<PriceHistoryItem | null>(null);
   const [showSpecsModal, setShowSpecsModal] = useState<boolean>(false);
+
+  useScrollLock(showSpecsModal);
   const [historicalFilter, setHistoricalFilter] = useState<'all' | 'notes_only' | 'product_only' | 'freight_only'>('all');
   const [historicalSearch, setHistoricalSearch] = useState<string>('');
 
@@ -3206,7 +3209,7 @@ export default function MobileCommodityChart({
       {/* 4. Specifications & Description Information Icon Popup Modal */}
       {showSpecsModal && (
         <div
-          className="fixed inset-0 z-[550] flex items-center justify-center p-3 sm:p-4"
+          className="fixed inset-0 z-[550] flex items-center justify-center p-3 sm:p-4 overscroll-contain"
         >
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/40 backdrop-blur-md transform-gpu" />

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useScrollLock } from '@/lib/scroll-lock';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { fetchLoadingPorts, fetchDestinationPorts, fetchTradingPrice, submitTradingInquiry } from '@/app/actions/product';
@@ -100,6 +102,8 @@ export function ProductInquiryModal({
   const selectedShippingTermObj = shippingTermOptions.find(t => t.id === formData.shippingTerm);
   const isFobSelected = selectedShippingTermObj?.name?.toUpperCase() === 'FOB';
 
+  useScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) {
       setKycErrorMsg('');
@@ -109,7 +113,9 @@ export function ProductInquiryModal({
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   useEffect(() => {
@@ -437,15 +443,22 @@ export function ProductInquiryModal({
     }
   };
 
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  return (
+  if (!isOpen || !mounted || typeof document === 'undefined') return null;
+
+  return createPortal(
     <div 
-      className="fixed inset-0 z-[600] flex items-center justify-center bg-black/80 px-4 py-6 overflow-y-auto"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 py-6 overflow-y-auto overscroll-contain"
       role="dialog"
       aria-modal="true"
+      onClick={onClose}
     >
-      <div className="bg-card rounded-2xl w-full max-w-[800px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 flex flex-col my-auto max-h-[90vh]">
+      <div 
+        className="bg-card rounded-2xl w-full max-w-[800px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 flex flex-col my-auto max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
@@ -831,7 +844,7 @@ export function ProductInquiryModal({
 
       </div>
     </div>
-  );
+  , document.body);
 }
 
 export default ProductInquiryModal;

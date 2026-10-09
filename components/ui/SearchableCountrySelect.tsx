@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useScrollLock } from "@/lib/scroll-lock";
 import flags from "react-phone-number-input/flags";
 import { getCountries, getCountryCallingCode, type Country } from "react-phone-number-input";
 import en from "react-phone-number-input/locale/en.json";
@@ -169,14 +170,8 @@ export default function SearchableCountrySelect({
   }, [isOpen]);
 
   // Prevent background scroll on mobile when modal is open
-  useEffect(() => {
-    if (isOpen && typeof window !== "undefined" && window.innerWidth < 640) {
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "";
-      };
-    }
-  }, [isOpen]);
+  const isMobileLocked = isOpen && typeof window !== "undefined" && window.innerWidth < 640;
+  useScrollLock(Boolean(isMobileLocked));
 
   const handleSelect = (countryCode: string) => {
     onChange(countryCode);
@@ -259,7 +254,7 @@ export default function SearchableCountrySelect({
 
       {/* Dropdown / Mobile Sheet Overlay */}
       {isOpen && (
-        <div className="fixed sm:absolute inset-0 sm:inset-auto sm:top-full sm:left-0 sm:mt-2 z-50 bg-black/80 sm:bg-transparent flex items-end sm:items-start justify-center p-0">
+        <div className="fixed sm:absolute inset-0 sm:inset-auto sm:top-full sm:left-0 sm:mt-2 z-50 bg-black/80 sm:bg-transparent flex items-end sm:items-start justify-center p-0 overscroll-contain">
           <div
             className="w-full sm:w-80 md:w-96 bg-background border border-foreground/15 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[440px] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
             onKeyDown={handleKeyDown}
@@ -301,7 +296,7 @@ export default function SearchableCountrySelect({
             </div>
 
             {/* Scrollable Country List */}
-            <div ref={listRef} className="overflow-y-auto p-1.5 custom-scrollbar flex-1 space-y-1">
+            <div ref={listRef} className="overflow-y-auto p-1.5 custom-scrollbar flex-1 space-y-1 overscroll-contain">
               {/* Popular Countries (when not searching) */}
               {!search.trim() && popularCountries.length > 0 && (
                 <div className="mb-2">
