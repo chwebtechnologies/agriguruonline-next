@@ -148,7 +148,7 @@ export function AppMenu({
   // Grouped like Agriguru Online Settings
   const MENU_GROUPS: MenuItem[][] = [
     [
-      { label: dict?.header?.dashboard || 'Dashboard', icon: 'fa-solid fa-table-cells-large', href: '#', iconBg: 'bg-blue-500' },      
+      { label: dict?.header?.dashboard || 'Dashboard', icon: 'fa-solid fa-table-cells-large', href: `/${lang}/dashboard`, iconBg: 'bg-blue-500' },      
     ],
     [
       { label: inquiriesLabel, icon: 'fa-solid fa-comments', href: inquiriesHref, iconBg: 'bg-indigo-500' },
@@ -168,6 +168,7 @@ export function AppMenu({
       { label: dict?.header?.messages || 'Messages', icon: 'fa-solid fa-comment-dots', href: 'https://wa.me/918980131000?text=Hey%2C%20I%20want%20to%20connect%21', iconBg: 'bg-green-500' },
       { label: dict?.header?.my_settings || 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-slate-500' },
       { label: dict?.header?.my_profile || 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${lang}/profile`, iconBg: 'bg-slate-500' },
+      { label: dict?.header?.payment_history || 'Payment History', icon: 'fa-solid fa-receipt', href: `/${lang}/profile/payment-history`, iconBg: 'bg-indigo-500' },
     ]
   ];
 

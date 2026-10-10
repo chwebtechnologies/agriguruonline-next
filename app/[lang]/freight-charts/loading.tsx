@@ -1,5 +1,5 @@
 import React from 'react';
-import { FreightChartGridSkeleton } from './page';
+import { FreightChartGridSkeleton } from '@/components/freight-chart/FreightChartGridSkeleton';
 
 export default function FreightChartsLoading() {
   return (

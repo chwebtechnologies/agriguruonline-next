@@ -545,3 +545,50 @@ export async function getCurrentUserProfileAction(lang: string = 'en'): Promise<
   }
 }
 
+/**
+ * Securely fetch subscription tax invoice PDF.
+ */
+export async function getSubscriptionInvoiceAction(
+  id: string,
+  lang: string = 'en'
+): Promise<ActionResult<{ file_name: string; pdf_buffer: string }>> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+
+  if (!token) {
+    return {
+      success: false,
+      error: 'Please sign in to download invoice.',
+    };
+  }
+
+  if (!id) {
+    return {
+      success: false,
+      error: 'Invoice identifier is missing.',
+    };
+  }
+
+  try {
+    const res = await userService.getSubscriptionInvoice(token, id, lang);
+    if (res?.success === 1 && res.data?.pdf_buffer) {
+      return {
+        success: true,
+        message: res.message || 'Payment Invoice generated successfully',
+        data: res.data,
+      };
+    }
+
+    return {
+      success: false,
+      error: res?.message || 'Failed to generate payment invoice',
+    };
+  } catch (err: any) {
+    console.error('[getSubscriptionInvoiceAction] Error:', err);
+    return {
+      success: false,
+      error: err?.message || 'Failed to download invoice',
+    };
+  }
+}
+

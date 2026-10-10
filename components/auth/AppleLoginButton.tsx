@@ -138,7 +138,7 @@ export default function AppleLoginButton({ lang, onSuccess }: AppleLoginButtonPr
               return;
             }
           } catch {}
-          window.location.href = `/${lang}/profile`;
+          window.location.href = `/${lang}/dashboard`;
         }
       } catch (error) {
         toast.error("Network error during Apple Login");

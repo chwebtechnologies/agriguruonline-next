@@ -727,5 +727,124 @@ export const userService = {
       body: JSON.stringify(payload),
     });
     return res;
-  }
+  },
+
+  /**
+   * Fetch payment transaction history securely.
+   */
+  getPaymentHistory: cache(async (token: string, lang: string = 'en', page: number = 1, limit: number = 25): Promise<any[]> => {
+    if (!token) return [];
+
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const baseUrl = getUserApiUrl();
+    if (!baseUrl) {
+      console.error('[userService.getPaymentHistory] User API base URL is not configured');
+      return [];
+    }
+
+    const url = `${baseUrl}/subscription/payment/history?page=${page}&limit=${limit}&lang_code=${safeLang}&source=web`;
+
+    try {
+      const res = await customFetch(url, { token });
+      if (res.ok) {
+        const result = await res.json();
+        if (!result) return [];
+
+        // 1. Direct array response
+        if (Array.isArray(result)) return result;
+        if (Array.isArray(result.data)) return result.data;
+
+        // 2. Check prioritized keys inside result.data or result
+        const target = (result.data && typeof result.data === 'object' && !Array.isArray(result.data))
+          ? result.data
+          : result;
+
+        const candidateKeys = [
+          'payment_history',
+          'docs',
+          'history',
+          'transactions',
+          'payments',
+          'subscriptions',
+          'records',
+          'rows',
+          'results',
+          'list',
+          'items',
+          'data',
+          'subscription_history',
+          'paymentHistory',
+          'subscriptionHistory',
+        ];
+
+        for (const key of candidateKeys) {
+          if (Array.isArray(target[key])) {
+            return target[key];
+          }
+        }
+
+        // 3. Fallback: Check if target has any array property
+        for (const key of Object.keys(target)) {
+          if (Array.isArray(target[key])) {
+            return target[key];
+          }
+        }
+
+        // 4. Fallback: Check top-level result for any array property
+        for (const key of Object.keys(result)) {
+          if (Array.isArray(result[key])) {
+            return result[key];
+          }
+        }
+      } else {
+        console.error(`[userService.getPaymentHistory] API responded with HTTP ${res.status}`);
+      }
+    } catch (err) {
+      console.error('[userService.getPaymentHistory] Fetch error:', err);
+    }
+
+    return [];
+  }),
+
+  /**
+   * Fetch subscription payment invoice PDF
+   * Endpoint: /subscription/invoice/:id?lang_code=:lang&source=web
+   */
+  getSubscriptionInvoice: async (
+    token: string,
+    id: string,
+    lang: string = 'en'
+  ): Promise<{ success: number; message?: string; data?: { file_name: string; pdf_buffer: string } }> => {
+    if (!token || !id) {
+      return { success: 0, message: 'Invalid token or invoice identifier' };
+    }
+
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const baseUrl = getUserApiUrl();
+    if (!baseUrl) {
+      console.error('[userService.getSubscriptionInvoice] User API base URL is not configured');
+      return { success: 0, message: 'API base URL is not configured' };
+    }
+
+    const url = `${baseUrl}/subscription/invoice/${encodeURIComponent(id)}?lang_code=${safeLang}&source=web`;
+
+    try {
+      const res = await customFetch(url, { token });
+      if (res.ok) {
+        const json = await res.json();
+        return json;
+      }
+      const errJson = await res.json().catch(() => null);
+      return {
+        success: 0,
+        message: errJson?.message || `Invoice generation failed (HTTP ${res.status})`,
+      };
+    } catch (err: any) {
+      console.error('[userService.getSubscriptionInvoice] Error:', err);
+      return {
+        success: 0,
+        message: err?.message || 'Failed to download invoice',
+      };
+    }
+  },
 };

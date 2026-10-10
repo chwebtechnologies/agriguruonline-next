@@ -81,7 +81,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         return `/${lang}/become-member`;
       }
     } catch {}
-    return redirectUrl || `/${lang}/profile`;
+    return redirectUrl || `/${lang}/dashboard`;
   };
 
   const handleOtpVerify = (otp: string, nextStep: string | null) => {

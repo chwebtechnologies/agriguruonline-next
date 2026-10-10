@@ -148,18 +148,22 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
+    const tradingUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || process.env.TRADING_API_URL || '';
+    const cmsUrl = process.env.NEXT_PUBLIC_CMS_API_URL || process.env.CMS_API_URL || '';
+    const userUrl = process.env.NEXT_PUBLIC_USER_API_URL || process.env.USER_API_URL || '';
+
     return [
       {
         source: '/api/proxy-trading/:path*',
-        destination: `${process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.com'}/:path*`,
+        destination: `${tradingUrl.replace(/\/$/, '')}/:path*`,
       },
       {
         source: '/api/proxy-cms/:path*',
-        destination: `${process.env.NEXT_PUBLIC_CMS_API_URL || 'https://cms-api.agriguruonline.com'}/:path*`,
+        destination: `${cmsUrl.replace(/\/$/, '')}/:path*`,
       },
       {
         source: '/api/proxy-user/:path*',
-        destination: `${process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.com'}/:path*`,
+        destination: `${userUrl.replace(/\/$/, '')}/:path*`,
       }
     ]
   },

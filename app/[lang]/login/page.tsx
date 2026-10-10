@@ -49,7 +49,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
     } else if (redirectUrl) {
       redirect(redirectUrl);
     } else {
-      redirect(`/${lang}/profile`);
+      redirect(`/${lang}/dashboard`);
     }
   }
 
