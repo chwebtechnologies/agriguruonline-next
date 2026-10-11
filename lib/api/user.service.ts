@@ -123,7 +123,7 @@ export function extractPredicts(data: any | null): any[] {
   if (Array.isArray(data?.data?.items)) return data.data.items;
 
   const prodArr = Array.isArray(data?.data?.product) ? data.data.product : (Array.isArray(data?.data?.products) ? data.data.products : []);
-  const freightArr = Array.isArray(data?.data?.freight) ? data.data.freight : (Array.isArray(data?.data?.freights) ? data.data.freights : []);
+  const freightArr = Array.isArray(data?.data?.freight) ? data.data.freight : (Array.isArray(data?.data?.freights) ? data.data.freights : (Array.isArray(data?.data?.ports) ? data.data.ports : (Array.isArray(data?.data?.favourite_ports) ? data.data.favourite_ports : [])));
   if (prodArr.length > 0 || freightArr.length > 0) {
     return [...prodArr, ...freightArr];
   }
@@ -136,6 +136,39 @@ export function extractPredicts(data: any | null): any[] {
   if (Array.isArray(data?.results)) return data.results;
   if (Array.isArray(data?.analysis)) return data.analysis;
   if (Array.isArray(data?.predictions)) return data.predictions;
+
+  if (typeof data === 'object') {
+    const arrays = Object.values(data).filter(v => Array.isArray(v)) as any[][];
+    if (arrays.length > 0) return arrays.flat();
+  }
+
+  return [];
+}
+
+export function extractAlerts(data: any | null): any[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.data?.alerts)) return data.data.alerts;
+  if (Array.isArray(data?.data?.price_alerts)) return data.data.price_alerts;
+  if (Array.isArray(data?.data?.notifications)) return data.data.notifications;
+  if (Array.isArray(data?.data?.results)) return data.data.results;
+  if (Array.isArray(data?.data?.data)) return data.data.data;
+
+  const prodArr = Array.isArray(data?.data?.product) ? data.data.product : (Array.isArray(data?.data?.products) ? data.data.products : []);
+  const freightArr = Array.isArray(data?.data?.freight) ? data.data.freight : (Array.isArray(data?.data?.freights) ? data.data.freights : (Array.isArray(data?.data?.ports) ? data.data.ports : (Array.isArray(data?.data?.favourite_ports) ? data.data.favourite_ports : [])));
+  if (prodArr.length > 0 || freightArr.length > 0) {
+    return [...prodArr, ...freightArr];
+  }
+
+  if (data?.data && typeof data.data === 'object') {
+    const arrays = Object.values(data.data).filter(v => Array.isArray(v)) as any[][];
+    if (arrays.length > 0) return arrays.flat();
+  }
+
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.alerts)) return data.alerts;
+  if (Array.isArray(data?.notifications)) return data.notifications;
 
   if (typeof data === 'object') {
     const arrays = Object.values(data).filter(v => Array.isArray(v)) as any[][];
@@ -263,15 +296,7 @@ export const userService = {
       const res = await customFetch(url, { token });
       if (res.ok) {
         const data = await res.json();
-        return Array.isArray(data) ? data :
-          (Array.isArray(data?.data?.alerts) ? data.data.alerts :
-          (Array.isArray(data?.data?.notifications) ? data.data.notifications :
-          (Array.isArray(data?.data?.data) ? data.data.data :
-          (Array.isArray(data?.data?.results) ? data.data.results :
-          (Array.isArray(data?.results) ? data.results :
-          (Array.isArray(data?.data) ? data.data :
-          (Array.isArray(data?.alerts) ? data.alerts :
-          (Array.isArray(data?.notifications) ? data.notifications : []))))))));
+        return extractAlerts(data);
       }
     } catch (err) {
       console.error('[userService.getUserAlerts] Fetch error:', err);
@@ -385,6 +410,12 @@ export const userService = {
       shouldLogout: profileRes.shouldLogout,
       alertsData: alertsData.map((a: any) => ({
         id: a.id,
+        favourite_product_id: a.favourite_product_id,
+        favorite_product_id: a.favorite_product_id,
+        favourite_port_id: a.favourite_port_id,
+        favorite_port_id: a.favorite_port_id,
+        favourite_record_id: a.favourite_record_id,
+        freight_id: a.freight_id,
         alert_type: a.alert_type,
         type: a.type,
         url: a.url,
@@ -401,16 +432,26 @@ export const userService = {
         current_price: a.current_price,
         price: a.price,
         threshold: a.threshold,
+        freight_pmt: a.freight_pmt,
+        target_freight: a.target_freight,
+        freight_rate: a.freight_rate,
+        pmt_price: a.pmt_price,
         shipping_container: a.shipping_container,
         container_type: a.container_type,
         shipping_term: a.shipping_term,
         incoterm: typeof a.incoterm === 'string' ? a.incoterm : (a.incoterm ? { name: a.incoterm.name } : undefined),
         loading_port: a.loading_port ? { name: a.loading_port.name, country: a.loading_port.country ? { flag: a.loading_port.country.flag } : undefined } : undefined,
+        pol: a.pol ? { name: a.pol.name, country: a.pol.country ? { flag: a.pol.country.flag } : undefined } : undefined,
+        pol_name: a.pol_name,
         origin: a.origin ? { name: a.origin.name, country: a.origin.country ? { flag: a.origin.country.flag } : undefined } : undefined,
         origin_name: a.origin_name,
         destination_port: a.destination_port ? { name: a.destination_port.name, country: a.destination_port.country ? { flag: a.destination_port.country.flag } : undefined } : undefined,
+        pod: a.pod ? { name: a.pod.name, country: a.pod.country ? { flag: a.pod.country.flag } : undefined } : undefined,
+        pod_name: a.pod_name,
         destination: a.destination ? { name: a.destination.name, country: a.destination.country ? { flag: a.destination.country.flag } : undefined } : undefined,
         destination_name: a.destination_name,
+        status: a.status,
+        is_triggered: a.is_triggered,
         created_at: a.created_at
       })),
       notificationsData: notificationsData.map((n: any) => ({

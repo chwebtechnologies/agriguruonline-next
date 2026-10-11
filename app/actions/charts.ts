@@ -4,12 +4,14 @@ import { cookies } from "next/headers";
 import { getSafeLang } from "@/lib/api-utils";
 import { tradingService } from "@/lib/api";
 import { encryptData } from "@/lib/crypto-utils";
+import { getUserProfile } from "@/lib/user-data";
 export interface ServerActionResponse<T = any> {
   success: boolean;
   message?: string;
   data?: T;
   error?: string;
   response_indication?: string;
+  is_free_trial_applicable?: boolean;
 }
 
 /**
@@ -226,7 +228,8 @@ export async function getFavoriteProductsAction(
  */
 export async function getPriceHistoryAction(
   id: string | number,
-  lang: string = "en"
+  lang: string = "en",
+  type: string = "product"
 ): Promise<ServerActionResponse> {
   try {
     if (!id) return { success: false, data: null };
@@ -235,21 +238,38 @@ export async function getPriceHistoryAction(
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
     const safeLang = getSafeLang(lang);
 
-    const res = await tradingService.getPriceHistory(id, token, safeLang);
-    
-    if (res.success && res.data?.price_history && Array.isArray(res.data.price_history)) {
-      // Data Minimization: only keep required fields
-      const filteredHistory = res.data.price_history.map((item: any) => ({
-        date: item.date,
-        price: item.price,
-        product_comment: item.product_comment || item.product_remarks || item.productComment || undefined,
-        freight_comment: item.freight_comment || item.freight_remarks || item.freightComment || undefined,
-        comment: item.comment || item.remarks || item.note || undefined,
-        remarks: item.remarks || undefined,
-      }));
+    const isFreight = type === "freight" || String(type).toLowerCase().includes("freight");
+    let res = isFreight
+      ? await tradingService.getFreightPriceHistory(id, token, safeLang)
+      : await tradingService.getPriceHistory(id, token, safeLang);
 
-      const encryptedData = encryptData(filteredHistory);
-      return { success: true, data: { ...res.data, price_history: encryptedData, is_encrypted: true } };
+    // Fallback if initial fetch failed
+    if (!res?.success || !res?.data) {
+      if (isFreight) {
+        const altRes = await tradingService.getPriceHistory(id, token, safeLang);
+        if (altRes?.success && altRes?.data) res = altRes;
+      } else {
+        const altRes = await tradingService.getFreightPriceHistory(id, token, safeLang);
+        if (altRes?.success && altRes?.data) res = altRes;
+      }
+    }
+    
+    if (res.success && res.data) {
+      const rawList = res.data?.price_history || res.data?.history || res.data?.freight_history || (Array.isArray(res.data) ? res.data : []);
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        // Data Minimization: only keep required fields
+        const filteredHistory = rawList.map((item: any) => ({
+          date: item.date || item.created_at || item.updated_at,
+          price: Number(item.price ?? item.freight ?? item.freight_pmt ?? item.freightPMT ?? 0),
+          product_comment: item.product_comment || item.product_remarks || item.productComment || (!isFreight ? (item.comment || item.remarks) : undefined) || undefined,
+          freight_comment: item.freight_comment || item.freight_remarks || item.freightComment || (isFreight ? (item.comment || item.remarks) : undefined) || undefined,
+          comment: item.comment || item.remarks || item.note || undefined,
+          remarks: item.remarks || undefined,
+        }));
+
+        const encryptedData = encryptData(filteredHistory);
+        return { success: true, data: { ...res.data, price_history: encryptedData, is_encrypted: true } };
+      }
     }
 
     return res;
@@ -274,7 +294,24 @@ export async function savePriceAlertAction(
     if (!token) return { success: false, error: "Not authenticated" };
 
     const safeLang = getSafeLang(lang);
-    return await tradingService.savePriceAlert(payload, token, safeLang);
+    const result = await tradingService.savePriceAlert(payload, token, safeLang);
+
+    if (!result.success) {
+      try {
+        const profileResult = await getUserProfile(token, safeLang);
+        const profile = profileResult?.userProfile;
+        const isTrialApplicable = profile ? (profile.is_free_trial_applicable !== false && !profile.membership?.plan_name) : true;
+        return {
+          ...result,
+          is_free_trial_applicable: isTrialApplicable,
+          data: profile || result.data
+        };
+      } catch {
+        // Fallback
+      }
+    }
+
+    return result;
   } catch (err: any) {
     console.error("savePriceAlertAction error:", err);
     return { success: false, error: err.message };
@@ -297,7 +334,24 @@ export async function updatePriceAlertAction(
     if (!token) return { success: false, error: "Not authenticated" };
 
     const safeLang = getSafeLang(lang);
-    return await tradingService.updatePriceAlert(id, payload, token, safeLang);
+    const result = await tradingService.updatePriceAlert(id, payload, token, safeLang);
+
+    if (!result.success) {
+      try {
+        const profileResult = await getUserProfile(token, safeLang);
+        const profile = profileResult?.userProfile;
+        const isTrialApplicable = profile ? (profile.is_free_trial_applicable !== false && !profile.membership?.plan_name) : true;
+        return {
+          ...result,
+          is_free_trial_applicable: isTrialApplicable,
+          data: profile || result.data
+        };
+      } catch {
+        // Fallback
+      }
+    }
+
+    return result;
   } catch (err: any) {
     console.error("updatePriceAlertAction error:", err);
     return { success: false, error: err.message };
@@ -354,7 +408,7 @@ export async function getAiPredictsAction(
  * Fetch price analysis details on server side
  */
 export async function getPriceAnalysisDetailsAction(
-  type: "product" | "freight",
+  type: string,
   id: string | number,
   lang: string = "en"
 ): Promise<ServerActionResponse> {
@@ -366,8 +420,9 @@ export async function getPriceAnalysisDetailsAction(
     if (!token) return { success: false, error: "Not authenticated", data: null };
 
     const safeLang = getSafeLang(lang);
+    const safeType = String(type || 'product').toLowerCase().includes('freight') ? 'freight' : 'product';
     const { getTradingApiUrl } = await import("@/lib/api-utils");
-    const url = `${getTradingApiUrl()}/price-analysis/details/${type}/${id}?lang_code=${safeLang}&source=web`;
+    const url = `${getTradingApiUrl()}/price-analysis/details/${safeType}/${id}?lang_code=${safeLang}&source=web`;
     
     const res = await fetch(url, {
       headers: {

@@ -12,6 +12,7 @@ interface ActionIndicationModalProps {
   description?: string;
   indicationText?: string;
   type?: 'error' | 'warning' | 'info' | 'success';
+  icon?: string;
 }
 
 export function ActionIndicationModal({
@@ -21,7 +22,8 @@ export function ActionIndicationModal({
   title = 'Action Required',
   description = 'An error occurred.',
   indicationText = 'Confirm',
-  type = 'error'
+  type = 'error',
+  icon
 }: ActionIndicationModalProps) {
   useScrollLock(isOpen);
 
@@ -74,6 +76,7 @@ export function ActionIndicationModal({
   };
 
   const { bgClass, textClass, iconClass } = getTypeStyles();
+  const effectiveIconClass = icon || iconClass;
 
   const content = (
     <div 
@@ -85,11 +88,11 @@ export function ActionIndicationModal({
       onClick={onClose}
     >
       <div 
-        className="bg-card rounded-3xl p-6 sm:p-7 w-[92vw] sm:w-[420px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 mx-auto flex flex-col items-center text-center my-auto max-h-[90vh] overflow-y-auto"
+        className="bg-card text-foreground rounded-3xl p-6 sm:p-7 w-[92vw] sm:w-[420px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 mx-auto flex flex-col items-center text-center my-auto max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`w-16 h-16 ${bgClass} rounded-full flex items-center justify-center shrink-0 ${textClass} mb-4`}>
-          <i className={`${iconClass} text-3xl`}></i>
+          <i className={`${effectiveIconClass} text-3xl`}></i>
         </div>
         
         <h3 id="action-modal-title" className="text-[19px] font-bold text-foreground mb-2 leading-none">
@@ -103,18 +106,18 @@ export function ActionIndicationModal({
         <div className="flex w-full gap-3">
           <button
             type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
             onClick={onConfirm}
             className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-brand-blue to-brand-green text-white font-semibold text-[15px] shadow-sm hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer relative overflow-hidden group"
           >
             <span className="relative z-10 capitalize">{indicationText.replace(/_/g, ' ')}</span>
             <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-button-shine" />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all cursor-pointer"
-          >
-            Cancel
           </button>
         </div>
       </div>

@@ -7,12 +7,16 @@ interface ChartMobileItemCardProps {
   row1Right: React.ReactNode;
   title: React.ReactNode;
   priceDisplay: React.ReactNode;
-  onOptionsClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onOptionsClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  actionButton?: React.ReactNode;
   row3Left: React.ReactNode;
   row3Middle?: React.ReactNode;
   changeValue: string | number;
   isPositive: boolean;
   className?: string;
+  priceClassName?: string;
+  titleClassName?: string;
+  onCardClick?: () => void;
 }
 
 export function ChartMobileItemCard({
@@ -21,16 +25,23 @@ export function ChartMobileItemCard({
   title,
   priceDisplay,
   onOptionsClick,
+  actionButton,
   row3Left,
   row3Middle,
   changeValue,
   isPositive,
-  className = ''
+  className = '',
+  priceClassName,
+  titleClassName,
+  onCardClick
 }: ChartMobileItemCardProps) {
   const numericChange = Number(changeValue) || 0;
 
   return (
-    <div className={`flex flex-col p-2 select-none ${className}`}>
+    <div 
+      className={`flex flex-col p-2.5 select-none ${onCardClick ? 'cursor-pointer' : ''} ${className}`}
+      onClick={onCardClick}
+    >
       {/* Row 1: Left / Right Badges with Flags */}
       <div className="flex justify-between items-center text-[12px] text-foreground/75">
         <div className="flex items-center gap-1.5 font-medium min-w-0">
@@ -42,25 +53,29 @@ export function ChartMobileItemCard({
       </div>
 
       {/* Row 2: Title / Pricing & Options Menu */}
-      <div className="flex justify-between items-center gap-3 mt-1">
-        <div className="font-bold text-[14px] leading-tight text-foreground truncate min-w-0">
+      <div className="flex justify-between items-center gap-3 mt-1.5">
+        <div className={titleClassName || "font-bold text-[14px] sm:text-[15px] leading-tight text-foreground truncate min-w-0"}>
           {title}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="font-bold text-[16px] text-brand-blue dark:text-blue-400 whitespace-nowrap">
+          <div className={priceClassName !== undefined ? priceClassName : "font-bold text-[16px] text-brand-blue dark:text-blue-400 whitespace-nowrap"}>
             {priceDisplay}
           </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOptionsClick(e);
-            }}
-            className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground active:bg-muted rounded-full transition-colors cursor-pointer"
-            aria-label="Open item options"
-          >
-            <i className="fa-solid fa-ellipsis-vertical text-[17px]"></i>
-          </button>
+          {actionButton ? (
+            actionButton
+          ) : onOptionsClick ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOptionsClick(e);
+              }}
+              className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground active:bg-muted rounded-full transition-colors cursor-pointer"
+              aria-label="Open item options"
+            >
+              <i className="fa-solid fa-ellipsis-vertical text-[17px]"></i>
+            </button>
+          ) : null}
         </div>
       </div>
 

@@ -225,14 +225,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
     const targetPrice = alert.alert_price || alert.target_price || alert.target_freight || alert.freight_rate || alert.price || alert.threshold || 0;
     
-    const prodName = isFreight 
-      ? 'Freight (PMT)' 
-      : getTitle(alert.product) !== 'N/A' ? getTitle(alert.product) : (alert.product_name || alert.commodity?.name || alert.name || alert.title || 'N/A');
-    
-    const catName = getTitle(alert.category) !== 'N/A' ? getTitle(alert.category) : (alert.category_name || 'N/A');
-    
-    const originPortObj = alert.loading_port || alert.origin;
-    const destPortObj = alert.destination_port || alert.destination;
+    const originPortObj = alert.loading_port || alert.origin || alert.pol;
+    const destPortObj = alert.destination_port || alert.destination || alert.pod;
 
     const pol = getTitle(originPortObj, 'N/A');
     const polFlag = getFlag(originPortObj);
@@ -240,19 +234,25 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     const pod = getTitle(destPortObj, 'N/A');
     const podFlag = getFlag(destPortObj);
 
+    const prodName = isFreight 
+      ? (pol && pod && pol !== 'N/A' && pod !== 'N/A' ? `${pol} → ${pod}` : 'Freight (PMT)') 
+      : getTitle(alert.product) !== 'N/A' ? getTitle(alert.product) : (alert.product_name || alert.commodity?.name || alert.name || alert.title || 'N/A');
+    
+    const catName = getTitle(alert.category) !== 'N/A' ? getTitle(alert.category) : (alert.category_name || 'N/A');
+
     const shipByStr = alert.shipping_container || alert.container_type || alert.equipment_type || '';
     const shipBy = shipByStr.split(' ')[0] || '20FT';
 
     const term = alert.shipping_term || alert.incoterm?.name || alert.incoterm || 'FOB';
 
-    const favId = alert.favourite_product_id || alert.favourite_product?.id || alert.favourite_record_id || alert.favourite_record?.id || alert.favorite_product_id;
+    const favId = alert.favourite_port_id || alert.favorite_port_id || alert.freight_id || alert.favourite_record_id || alert.favourite_record?.id || alert.favourite_product_id || alert.favourite_product?.id || alert.favorite_product_id;
     const prodId = alert.product_id || alert.product?.id;
 
     const chartItem: ChartBottomSheetItem = {
       id: favId || prodId || alert.freight_id || alert.id,
       productId: prodId,
       favoriteProductId: favId,
-      category: catName,
+      category: isFreight ? 'FREIGHT' : catName,
       product: prodName,
       shipBy,
       term,
@@ -289,14 +289,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
 
     const targetPrice = predict.alert_price || predict.target_price || predict.target_freight || predict.freight_rate || predict.price || predict.threshold || 0;
     
-    const prodName = isFreight 
-      ? 'Freight (PMT)' 
-      : getTitle(predict.product) !== 'N/A' ? getTitle(predict.product) : (predict.product_name || predict.commodity?.name || predict.name || predict.title || 'N/A');
-    
-    const catName = getTitle(predict.category) !== 'N/A' ? getTitle(predict.category) : (predict.category_name || 'N/A');
-    
-    const originPortObj = predict.loading_port || predict.origin;
-    const destPortObj = predict.destination_port || predict.destination;
+    const originPortObj = predict.loading_port || predict.origin || predict.pol;
+    const destPortObj = predict.destination_port || predict.destination || predict.pod;
 
     const pol = getTitle(originPortObj, 'N/A');
     const polFlag = getFlag(originPortObj);
@@ -304,19 +298,25 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     const pod = getTitle(destPortObj, 'N/A');
     const podFlag = getFlag(destPortObj);
 
+    const prodName = isFreight 
+      ? (pol && pod && pol !== 'N/A' && pod !== 'N/A' ? `${pol} → ${pod}` : 'Freight (PMT)') 
+      : getTitle(predict.product) !== 'N/A' ? getTitle(predict.product) : (predict.product_name || predict.commodity?.name || predict.name || predict.title || 'N/A');
+    
+    const catName = getTitle(predict.category) !== 'N/A' ? getTitle(predict.category) : (predict.category_name || 'N/A');
+
     const shipByStr = predict.shipping_container || predict.container_type || predict.equipment_type || '';
     const shipBy = shipByStr.split(' ')[0] || '20FT';
 
     const term = predict.shipping_term || predict.incoterm?.name || predict.incoterm || 'FOB';
 
-    const favId = predict.favourite_product_id || predict.favourite_product?.id || predict.favourite_record_id || predict.favourite_record?.id || predict.favorite_product_id;
+    const favId = predict.favourite_port_id || predict.favorite_port_id || predict.freight_id || predict.favourite_record_id || predict.favourite_record?.id || predict.favourite_product_id || predict.favourite_product?.id || predict.favorite_product_id;
     const prodId = predict.product_id || predict.product?.id;
 
     const chartItem: ChartBottomSheetItem = {
       id: favId || prodId || predict.freight_id || predict.id,
       productId: prodId,
       favoriteProductId: favId,
-      category: catName,
+      category: isFreight ? 'FREIGHT' : catName,
       product: prodName,
       shipBy,
       term,
@@ -864,7 +864,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                   if (!item || typeof item !== 'object') return null;
 
                                   const alertType = item.alert_type || item.type || 'Price Alert';
-                                  const isFreight = alertType.toLowerCase().includes('freight');
+                                  const isFreight = alertType.toLowerCase().includes('freight') || !!(item.freight_pmt || item.target_freight || item.freight_rate || item.pmt_price) || (!!item.loading_port && !!item.destination_port && !item.product?.name && !item.product_name && !item.commodity?.name);
 
                                   return (
                                     <div key={item.id || idx} style={{ zoom: 0.85 }} className="w-full">

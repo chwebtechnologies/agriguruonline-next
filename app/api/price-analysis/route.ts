@@ -27,11 +27,15 @@ export async function POST(req: NextRequest) {
       body: formData
     });
 
+    const data = await res.json().catch(() => null);
+
     if (!res.ok) {
-      return NextResponse.json({ success: false, message: 'Failed to create prediction' }, { status: res.status });
+      return NextResponse.json(
+        data || { success: false, message: 'Failed to create prediction' }, 
+        { status: res.status }
+      );
     }
 
-    const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (error: unknown) {
     console.error('Error in price-analysis proxy POST:', error);
@@ -53,7 +57,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
     const lang_code = searchParams.get('lang_code') || 'en';
-    const type = searchParams.get('type') || 'product';
+    const typeParam = searchParams.get('type') || 'product';
+    const type = typeParam.toLowerCase().includes('freight') ? 'freight' : 'product';
     const job_id = searchParams.get('job_id');
 
     if (!job_id) {
@@ -65,7 +70,7 @@ export async function GET(req: NextRequest) {
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       return NextResponse.json(data, { status: res.status });
     } 
     

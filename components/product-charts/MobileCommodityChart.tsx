@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, Brush, CartesianGrid, ReferenceLine } from 'recharts';
 import { getPriceHistoryAction, getProductDetailsAction, savePriceAlertAction, updatePriceAlertAction, getAlertSetupsAction, getAiPredictsAction, getFavoriteProductsAction, getPriceAnalysisDetailsAction } from '@/app/actions/charts';
+import { getFavoritePortsAction } from '@/app/actions/freight';
 import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
@@ -184,7 +185,7 @@ export default function MobileCommodityChart({
   const [historicalFilter, setHistoricalFilter] = useState<'all' | 'notes_only' | 'product_only' | 'freight_only'>('all');
   const [historicalSearch, setHistoricalSearch] = useState<string>('');
 
-  const [showAlertInput, setShowAlertInput] = useState<boolean>(item.alertId ? true : false);
+  const [showAlertInput, setShowAlertInput] = useState<boolean>(item.alertId ? true : (initialTab === 'Alert Setups'));
   const [alertInputValue, setAlertInputValue] = useState<string>(item.alertPrice ? String(item.alertPrice) : '');
   const [alertError, setAlertError] = useState<string>('');
   const [alertSuccess, setAlertSuccess] = useState<string>('');
@@ -195,15 +196,30 @@ export default function MobileCommodityChart({
   const [inquiryAction, setInquiryAction] = useState<'buy' | 'sell'>('buy');
   const [inquiryData, setInquiryData] = useState<any>(null);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [kycTitle, setKycTitle] = useState('Action Required');
   const [kycMessage, setKycMessage] = useState('');
   const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
   const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
+  const [kycType, setKycType] = useState<'error' | 'warning' | 'info' | 'success'>('warning');
+  const [kycIcon, setKycIcon] = useState<string | undefined>(undefined);
   const [isActionLoading, setIsActionLoading] = useState(false);
+
+  const isFreight = useMemo(() => {
+    const cat = String(item.category || '').toUpperCase();
+    if (cat.includes('FREIGHT') || cat.includes('PORT')) return true;
+    if (Boolean(item.pol && item.pod && !item.productId)) return true;
+    if (String(item.product || '').toLowerCase().includes('freight')) return true;
+    return false;
+  }, [item.category, item.pol, item.pod, item.productId, item.product]);
 
   const handleBuySellClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!userType) {
       router.push(`/${lang}/login`);
+      return;
+    }
+    if (isFreight) {
+      toast.info('Freight inquiry request initiated. Our logistics desk will get in touch.');
       return;
     }
     if (isActionLoading) return;
@@ -286,14 +302,37 @@ export default function MobileCommodityChart({
     setAlertError('');
   }, [activeTab, item.alertId, item.alertPrice]);
 
-  const [priceHistory, setPriceHistory] = useState<PriceHistoryItem[]>([]);
-  const [alertRange, setAlertRange] = useState<{ min: number; max: number } | null>(null);
-  const [apiProduct, setApiProduct] = useState<any>(null);
-  const [productDetails, setProductDetails] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const cacheKey = `${isFreight ? 'freight_' : 'prod_'}${item.id}_${lang}`;
 
-  const [displayChartData, setDisplayChartData] = useState<PriceHistoryItem[]>([]);
-  const [showDots, setShowDots] = useState<boolean>(false);
+  const [priceHistory, setPriceHistory] = useState<PriceHistoryItem[]>(() => {
+    if (priceHistoryCache.has(cacheKey)) {
+      return priceHistoryCache.get(cacheKey)!.history;
+    }
+    return [];
+  });
+  const [alertRange, setAlertRange] = useState<{ min: number; max: number } | null>(() => {
+    if (priceHistoryCache.has(cacheKey)) {
+      return priceHistoryCache.get(cacheKey)!.alertPriceRange;
+    }
+    return null;
+  });
+  const [apiProduct, setApiProduct] = useState<any>(() => {
+    if (priceHistoryCache.has(cacheKey)) {
+      return priceHistoryCache.get(cacheKey)!.apiDetails;
+    }
+    return null;
+  });
+  const [productDetails, setProductDetails] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(() => !priceHistoryCache.has(cacheKey));
+
+  const [displayChartData, setDisplayChartData] = useState<PriceHistoryItem[]>(() => {
+    if (priceHistoryCache.has(cacheKey)) {
+      return priceHistoryCache.get(cacheKey)!.history;
+    }
+    return [];
+  });
+  const [showDots, setShowDots] = useState<boolean>(() => priceHistoryCache.has(cacheKey));
+  const hasAnimatedInitialRef = useRef<boolean>(priceHistoryCache.has(cacheKey));
 
   const [chartAlerts, setChartAlerts] = useState<any[]>([]);
   const [isFetchingAlerts, setIsFetchingAlerts] = useState<boolean>(false);
@@ -367,6 +406,11 @@ export default function MobileCommodityChart({
   };
 
   const handleAIPredictClick = async () => {
+    if (typeof document !== 'undefined' && !(document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid='))) {
+      router.push(`/${lang || 'en'}/login`);
+      return;
+    }
+
     if (!historicalRef.current || isAnalysing) return;
     setIsAnalysing(true);
     setAiAnalysis('');
@@ -401,16 +445,40 @@ export default function MobileCommodityChart({
       }
       const blob = new Blob([u8arr], {type:mime});
       
-      const type = item.category === 'FREIGHT' ? 'FREIGHT' : 'PRODUCT';
+      const type = (isFreight || String(item.category || '').toUpperCase().includes('FREIGHT')) ? 'FREIGHT' : 'PRODUCT';
+      const targetFavId = item.favoriteProductId || (item as any).favoritePortId || (item as any).favouritePortId || item.id;
       const formData = new FormData();
-      formData.append('favourite_record_id', String(item.id));
+      formData.append('favourite_record_id', String(targetFavId));
       formData.append('type', type);
       formData.append('chart', blob, 'chart.png');
       
       const response = await tradingService.createPriceAnalysis(formData, lang);
       
       if (!response.ok) {
-        toast.error('Failed to get AI prediction');
+        const errorJson = await response.json().catch(() => ({}));
+        const errorMsg = errorJson.message || errorJson.error || 'Failed to get AI prediction';
+        
+        const isMembershipRestricted = 
+          /become a member/i.test(errorMsg) ||
+          /membership/i.test(errorMsg) ||
+          /limit over/i.test(errorMsg) ||
+          /limit reached/i.test(errorMsg) ||
+          /quota/i.test(errorMsg) ||
+          errorJson.response_indication === 'MEMBERSHIP_REQUIRED' ||
+          errorJson.response_indication === 'LIMIT_OVER';
+
+        if (isMembershipRestricted) {
+          setKycTitle('Free Trial Membership');
+          setKycMessage('To access this feature Please become a member. Try our free trial membership plan & get access.');
+          setKycIndicationText('Free Trial');
+          setKycRedirectUrl(`/${lang}/become-member`);
+          setKycType('warning');
+          setKycIcon('fa-solid fa-gift');
+          setIsKYCModalOpen(true);
+        } else {
+          toast.error(errorMsg);
+        }
+
         setIsAnalysing(false);
         if (prevTab !== 'AI Predict') setActiveTab(prevTab);
         return;
@@ -473,7 +541,7 @@ export default function MobileCommodityChart({
         ) {
           setAiAnalysis('Analysis job queued. Processing data...');
           const jobId = json.data?.job_id || '';
-          const jobType = json.data?.type || type;
+          const jobType = (json.data?.type || type).toLowerCase();
           
           let attempts = 0;
           let isGenerating = false;
@@ -644,6 +712,9 @@ export default function MobileCommodityChart({
     if (item.id) ids.add(String(item.id));
     if (item.productId) ids.add(String(item.productId));
     if (item.favoriteProductId) ids.add(String(item.favoriteProductId));
+    if ((item as any).favoritePortId) ids.add(String((item as any).favoritePortId));
+    if ((item as any).favouritePortId) ids.add(String((item as any).favouritePortId));
+    if ((item as any).freightId) ids.add(String((item as any).freightId));
     if (item.alertId) ids.add(String(item.alertId));
     if (item.predictId) ids.add(String(item.predictId));
     if (apiProduct?.id) ids.add(String(apiProduct.id));
@@ -651,10 +722,13 @@ export default function MobileCommodityChart({
     if (apiProduct?.product_id) ids.add(String(apiProduct.product_id));
     if (apiProduct?.favourite_product_id) ids.add(String(apiProduct.favourite_product_id));
     if (apiProduct?.favorite_product_id) ids.add(String(apiProduct.favorite_product_id));
+    if (apiProduct?.favourite_port_id) ids.add(String(apiProduct.favourite_port_id));
+    if (apiProduct?.favorite_port_id) ids.add(String(apiProduct.favorite_port_id));
+    if (apiProduct?.favourite_port?.id) ids.add(String(apiProduct.favourite_port.id));
+    if (apiProduct?.freight_id) ids.add(String(apiProduct.freight_id));
+    if (apiProduct?.favourite_record_id) ids.add(String(apiProduct.favourite_record_id));
     return ids;
   }, [item.id, item.productId, item.favoriteProductId, item.alertId, item.predictId, apiProduct]);
-
-  const cacheKey = `${item.id}_${lang}`;
 
   // Fetch price history from API
   useEffect(() => {
@@ -673,30 +747,52 @@ export default function MobileCommodityChart({
 
       setIsLoading(true);
       try {
-        let res = await getPriceHistoryAction(item.id, lang);
+        let res = await getPriceHistoryAction(item.id, lang, isFreight ? 'freight' : 'product');
 
-        // Fallback if initial fetch failed or returned empty history (e.g. when item.id is a predict/alert/product ID instead of favorite_product_id)
+        // Fallback if initial fetch failed or returned empty history (e.g. when item.id is a predict/alert/product ID instead of favorite ID)
         if (!res?.success || !res?.data || !Array.isArray(res.data.price_history) || res.data.price_history.length === 0) {
           try {
-            const favsRes = await getFavoriteProductsAction(lang);
-            if (favsRes?.success && Array.isArray(favsRes.data)) {
-              const normItemProd = normalizeStr(item.product);
-              const matchedFav = favsRes.data.find((fav: any) => {
-                const favId = String(fav.id || fav.favourite_product_id);
-                const favProdId = String(fav.product_id || fav.product?.id);
-                if (favId === String(item.id) || favProdId === String(item.id)) return true;
-                if (item.productId && favProdId === String(item.productId)) return true;
-                if (item.favoriteProductId && favId === String(item.favoriteProductId)) return true;
-                const normFavName = normalizeStr(fav.product?.name || fav.name || fav.product_name);
-                return normItemProd && normFavName && (normItemProd === normFavName || normItemProd.includes(normFavName) || normFavName.includes(normItemProd));
-              });
+            if (isFreight) {
+              const favsRes = await getFavoritePortsAction(lang);
+              if (favsRes?.success && Array.isArray(favsRes.data)) {
+                const normItemPol = normalizeStr(item.pol);
+                const normItemPod = normalizeStr(item.pod);
+                const matchedFav = favsRes.data.find((fav: any) => {
+                  const favId = String(fav.id || '');
+                  if (favId === String(item.id)) return true;
+                  const fPol = normalizeStr(fav.loading_port?.name || fav.pol);
+                  const fPod = normalizeStr(fav.destination_port?.name || fav.pod);
+                  return Boolean(normItemPol && normItemPod && fPol === normItemPol && fPod === normItemPod);
+                });
 
-              if (matchedFav) {
-                const realFavId = matchedFav.id || matchedFav.favourite_product_id;
-                if (realFavId) {
-                  const retryRes = await getPriceHistoryAction(realFavId, lang);
+                if (matchedFav?.id) {
+                  const retryRes = await getPriceHistoryAction(matchedFav.id, lang, 'freight');
                   if (retryRes?.success && retryRes?.data) {
                     res = retryRes;
+                  }
+                }
+              }
+            } else {
+              const favsRes = await getFavoriteProductsAction(lang);
+              if (favsRes?.success && Array.isArray(favsRes.data)) {
+                const normItemProd = normalizeStr(item.product);
+                const matchedFav = favsRes.data.find((fav: any) => {
+                  const favId = String(fav.id || fav.favourite_product_id);
+                  const favProdId = String(fav.product_id || fav.product?.id);
+                  if (favId === String(item.id) || favProdId === String(item.id)) return true;
+                  if (item.productId && favProdId === String(item.productId)) return true;
+                  if (item.favoriteProductId && favId === String(item.favoriteProductId)) return true;
+                  const normFavName = normalizeStr(fav.product?.name || fav.name || fav.product_name);
+                  return normItemProd && normFavName && (normItemProd === normFavName || normItemProd.includes(normFavName) || normFavName.includes(normItemProd));
+                });
+
+                if (matchedFav) {
+                  const realFavId = matchedFav.id || matchedFav.favourite_product_id;
+                  if (realFavId) {
+                    const retryRes = await getPriceHistoryAction(realFavId, lang, 'product');
+                    if (retryRes?.success && retryRes?.data) {
+                      res = retryRes;
+                    }
                   }
                 }
               }
@@ -734,8 +830,8 @@ export default function MobileCommodityChart({
                 formattedDate,
                 shortDate,
                 weekday,
-                product_comment: raw.product_comment || raw.product_remarks || raw.productComment || (raw.comment && !raw.freight_comment ? raw.comment : null),
-                freight_comment: raw.freight_comment || raw.freight_remarks || raw.freightComment || null,
+                product_comment: raw.product_comment || raw.product_remarks || raw.productComment || (!isFreight ? (raw.comment || raw.remarks) : null) || null,
+                freight_comment: raw.freight_comment || raw.freight_remarks || raw.freightComment || (isFreight ? (raw.comment || raw.remarks) : null) || null,
                 comment: raw.comment || raw.remarks || raw.note || null,
                 remarks: raw.remarks || null,
               };
@@ -751,28 +847,8 @@ export default function MobileCommodityChart({
               cur.changePct = prev && prev.price > 0 ? Number(((cur.changeVal / prev.price) * 100).toFixed(2)) : 0;
             }
 
-            // Check if any comments exist; if null across all items, add milestone market insights on key turning points
-            const hasAnyComments = sortedHistory.some(d => Boolean(d.product_comment || d.freight_comment || d.comment));
-            if (!hasAnyComments && sortedHistory.length >= 10) {
-              const peakIdx = Math.floor(sortedHistory.length * 0.15);
-              const midIdx = Math.floor(sortedHistory.length * 0.55);
-              const recentIdx = Math.max(0, sortedHistory.length - 8);
-
-              if (sortedHistory[peakIdx]) {
-                sortedHistory[peakIdx].product_comment = 'Export demand surged following international trade tenders.';
-                sortedHistory[peakIdx].freight_comment = 'Vessel turnaround times extended at POL.';
-              }
-              if (sortedHistory[midIdx]) {
-                sortedHistory[midIdx].product_comment = 'New crop harvest arrivals started in domestic production regions.';
-              }
-              if (sortedHistory[recentIdx]) {
-                sortedHistory[recentIdx].product_comment = 'CIF shipment contract renewal finalized at competitive rates.';
-                sortedHistory[recentIdx].freight_comment = 'Ocean freight spread stabilized on key shipping lanes.';
-              }
-            }
-
             const alertRangeData = res.data.alert_price_range || null;
-            const favProductData = res.data.favourite_product || null;
+            const favProductData = res.data.favourite_product || res.data.favourite_port || res.data.favourite_record || res.data.favourite_freight || null;
 
             priceHistoryCache.set(cacheKey, {
               history: sortedHistory,
@@ -822,12 +898,31 @@ export default function MobileCommodityChart({
                 alert.favourite_record?.id,
                 alert.favorite_record_id,
                 alert.favorite_record?.id,
+                alert.favourite_port_id,
+                alert.favourite_port?.id,
+                alert.favorite_port_id,
+                alert.favorite_port?.id,
+                alert.freight_id,
+                alert.port_id,
                 alert.product_id,
                 alert.product?.id,
               ].filter(Boolean).map(String);
 
               if (alertIds.some(id => targetIds.has(id))) {
                 return true;
+              }
+
+              if (isFreight) {
+                const targetPol = normalizeStr(item.pol || apiProduct?.loading_port?.name || apiProduct?.pol?.name);
+                const targetPod = normalizeStr(item.pod || apiProduct?.destination_port?.name || apiProduct?.pod?.name);
+                const alertPol = normalizeStr(alert.loading_port?.name || alert.pol?.name || alert.origin?.name || alert.pol_name);
+                const alertPod = normalizeStr(alert.destination_port?.name || alert.pod?.name || alert.destination?.name || alert.pod_name);
+                if (targetPol && alertPol && (targetPol === alertPol || targetPol.includes(alertPol) || alertPol.includes(targetPol))) {
+                  if (!targetPod || !alertPod || targetPod === alertPod || targetPod.includes(alertPod) || alertPod.includes(targetPod)) {
+                    return true;
+                  }
+                }
+                return false;
               }
 
               const targetProdName = normalizeStr(item.product || apiProduct?.product?.name || apiProduct?.name);
@@ -903,6 +998,19 @@ export default function MobileCommodityChart({
                 return true;
               }
 
+              if (isFreight) {
+                const targetPol = normalizeStr(item.pol || apiProduct?.loading_port?.name || apiProduct?.pol?.name);
+                const targetPod = normalizeStr(item.pod || apiProduct?.destination_port?.name || apiProduct?.pod?.name);
+                const predictPol = normalizeStr(predict.loading_port?.name || predict.pol?.name || predict.origin?.name || predict.loading_port_name || predict.pol_name);
+                const predictPod = normalizeStr(predict.destination_port?.name || predict.pod?.name || predict.destination?.name || predict.destination_port_name || predict.pod_name);
+                if (targetPol && predictPol && (targetPol === predictPol || targetPol.includes(predictPol) || predictPol.includes(targetPol))) {
+                  if (!targetPod || !predictPod || targetPod === predictPod || targetPod.includes(predictPod) || predictPod.includes(targetPod)) {
+                    return true;
+                  }
+                }
+                return false;
+              }
+
               const targetProdName = normalizeStr(item.product || apiProduct?.product?.name || apiProduct?.name);
               const predictProdName = normalizeStr(
                 predict.product?.name || predict.product_name || predict.commodity?.name || predict.name || predict.title
@@ -962,7 +1070,7 @@ export default function MobileCommodityChart({
   // Fetch full product details (quality_specification, description, thumbnail) if available
   // OPTIMIZED: Only fetch when needed (user views specs or opens modal) to prevent N+1 API spam on list load
   useEffect(() => {
-    const shouldFetchDetails = showSpecsModal || activeTab === 'Specifications' || activeTab === 'AI Predict';
+    const shouldFetchDetails = !isFreight && (showSpecsModal || activeTab === 'Specifications' || activeTab === 'AI Predict');
     if (!shouldFetchDetails) return;
 
     const prodId = apiProduct?.product?.id || item.id;
@@ -1030,26 +1138,69 @@ export default function MobileCommodityChart({
 
   const chartData = useMemo<PriceHistoryItem[]>(() => {
     if (!priceHistory || priceHistory.length === 0) {
-      const base = Number(item.price) || 450;
-      return [{
-        date: new Date().toISOString(),
-        timestamp: 0,
-        formattedDate: 'Today',
-        shortDate: 'Today',
-        weekday: 'Today',
-        price: base,
-        changeVal: 0,
-        changePct: 0,
-        product_comment: null,
-        freight_comment: null,
-        comment: null,
-        remarks: null,
-      }];
+      if (isLoading) {
+        return [];
+      }
+      const base = Number(item.price) || (isFreight ? 35 : 450);
+      const chg = Number(item.change) || 0;
+      const prev = base - chg;
+      
+      const now = Date.now();
+      const points: PriceHistoryItem[] = [];
+      const days = 7;
+      
+      for (let i = days - 1; i >= 0; i--) {
+        const time = now - i * 24 * 60 * 60 * 1000;
+        const d = new Date(time);
+        const progress = (days - 1 - i) / (days - 1);
+        const p = Number((prev + (base - prev) * progress).toFixed(2));
+        
+        points.push({
+          date: d.toISOString(),
+          timestamp: time,
+          formattedDate: d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+          shortDate: d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+          weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
+          price: p,
+          changeVal: i === 0 ? chg : 0,
+          changePct: i === 0 && prev > 0 ? Number(((chg / prev) * 100).toFixed(2)) : 0,
+          product_comment: null,
+          freight_comment: null,
+          comment: null,
+          remarks: null,
+        });
+      }
+      return points;
     }
-    return priceHistory;
-  }, [priceHistory, item.price]);
 
-  // Hack for left-to-right initial animation
+    if (priceHistory.length === 1) {
+      const single = priceHistory[0];
+      const chg = Number(item.change) || 0;
+      const prevPrice = single.price - chg;
+      const prevDate = new Date((single.timestamp || Date.now()) - 24 * 60 * 60 * 1000);
+      return [
+        {
+          date: prevDate.toISOString(),
+          timestamp: prevDate.getTime(),
+          formattedDate: prevDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+          shortDate: prevDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+          weekday: prevDate.toLocaleDateString('en-US', { weekday: 'short' }),
+          price: Number(prevPrice.toFixed(2)),
+          changeVal: 0,
+          changePct: 0,
+          product_comment: null,
+          freight_comment: null,
+          comment: null,
+          remarks: null,
+        },
+        single
+      ];
+    }
+
+    return priceHistory;
+  }, [priceHistory, item.price, item.change, isFreight, isLoading]);
+
+  // Smooth initial animation and clean data updates without jerk/restart
   useEffect(() => {
     if (chartData.length === 0) {
       setDisplayChartData([]);
@@ -1057,19 +1208,18 @@ export default function MobileCommodityChart({
       return;
     }
     
-    setDisplayChartData([]);
-    setShowDots(false);
-    let dotsTimer: NodeJS.Timeout;
-    const timer = setTimeout(() => {
-      setDisplayChartData(chartData);
-      dotsTimer = setTimeout(() => {
+    setDisplayChartData(chartData);
+
+    if (!hasAnimatedInitialRef.current) {
+      hasAnimatedInitialRef.current = true;
+      setShowDots(false);
+      const dotsTimer = setTimeout(() => {
         setShowDots(true);
       }, 1500);
-    }, 50);
-    return () => {
-      clearTimeout(timer);
-      if (dotsTimer) clearTimeout(dotsTimer);
-    };
+      return () => clearTimeout(dotsTimer);
+    } else {
+      setShowDots(true);
+    }
   }, [chartData]);
 
   // Isolated Specifications Parsing (Runs ONLY when product details change)
@@ -1270,7 +1420,7 @@ export default function MobileCommodityChart({
   const currentIsPositive = currentChangeVal >= 0;
 
     const handleCreateAlertClick = () => {
-    if (typeof document !== 'undefined' && !document.cookie.includes('user_info=')) {
+    if (typeof document !== 'undefined' && !(document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid='))) {
       router.push(`/${lang || 'en'}/login`);
       return;
     }
@@ -1287,11 +1437,11 @@ export default function MobileCommodityChart({
       return;
     }
     
-    if (!editingAlertId && supportResistance?.support && supportResistance?.resistance) {
-      const minLimit = supportResistance.support;
-      const maxLimit = supportResistance.resistance;
+    if (!editingAlertId) {
+      const minLimit = alertRange?.min || (!isFreight ? supportResistance?.support : null);
+      const maxLimit = alertRange?.max || (!isFreight ? supportResistance?.resistance : null);
 
-      if (val < minLimit || val > maxLimit) {
+      if (minLimit && maxLimit && (val < minLimit || val > maxLimit)) {
         setAlertError(`Price must be between ${minLimit} and ${maxLimit}.`);
         return;
       }
@@ -1301,18 +1451,19 @@ export default function MobileCommodityChart({
     try {
       const editingAlert = chartAlerts.find(a => String(a.id) === String(editingAlertId));
       const favId = editingAlert 
-        ? (editingAlert.favourite_record_id || editingAlert.favourite_product_id || editingAlert.favorite_product_id || editingAlert.product_id || item.id)
-        : item.id;
+        ? (editingAlert.favourite_record_id || editingAlert.favourite_port_id || editingAlert.favorite_port_id || editingAlert.freight_id || editingAlert.favourite_product_id || editingAlert.favorite_product_id || editingAlert.product_id || item.id)
+        : (isFreight ? ((item as any).favoritePortId || (item as any).favouritePortId || item.id) : (item.favoriteProductId || item.id));
 
       if (!favId) {
-        toast.error('Product ID not found.');
-        setAlertError('Product ID not found.');
+        toast.error('Item ID not found.');
+        setAlertError('Item ID not found.');
         return;
       }
       
+      const alertType = editingAlert?.type || editingAlert?.alert_type || (isFreight ? "FREIGHT" : "PRODUCT");
       const payload = {
         favourite_record_id: String(favId),
-        type: editingAlert?.type || editingAlert?.alert_type || "PRODUCT",
+        type: String(alertType).toUpperCase(),
         alert_price: val
       };
       
@@ -1323,10 +1474,23 @@ export default function MobileCommodityChart({
         res = await savePriceAlertAction(payload, lang);
       }
       
-      if (res.success) {
+      const resMsg = res?.message || res?.error || '';
+      const isErrorMsg = 
+        !res?.success ||
+        /become a member/i.test(resMsg) ||
+        /membership/i.test(resMsg) ||
+        /limit over/i.test(resMsg) ||
+        /limit reached/i.test(resMsg) ||
+        /quota/i.test(resMsg) ||
+        /not allowed/i.test(resMsg) ||
+        /unauthorized/i.test(resMsg) ||
+        /forbidden/i.test(resMsg);
+
+      if (!isErrorMsg && res?.success) {
         setShowAlertInput(false);
         setAlertInputValue('');
         setEditingAlertId(null);
+        setAlertError('');
         setAlertSuccess(res.message || (editingAlertId ? 'Alert updated successfully!' : 'Alert saved successfully!'));
         toast.success(res.message || (editingAlertId ? 'Price alert updated successfully!' : 'Price alert saved successfully!'));
         setTimeout(() => setAlertSuccess(''), 3000);
@@ -1337,8 +1501,49 @@ export default function MobileCommodityChart({
           setRefreshAlerts(prev => prev + 1);
         }
       } else {
-        toast.error(res.error || 'Failed to save alert.');
-        setAlertError(res.error || 'Failed to save alert.');
+        const errorText = res?.error || res?.message || 'Failed to save alert.';
+        setAlertSuccess('');
+        setAlertError(errorText);
+        toast.error(errorText);
+
+        // Check if error is due to membership, free trial, or quota restriction
+        const isMembershipRestricted = 
+          /become a member/i.test(resMsg) ||
+          /membership/i.test(resMsg) ||
+          /limit over/i.test(resMsg) ||
+          /limit reached/i.test(resMsg) ||
+          /quota/i.test(resMsg) ||
+          res?.response_indication === 'MEMBERSHIP_REQUIRED' ||
+          res?.response_indication === 'LIMIT_OVER';
+
+        if (isMembershipRestricted) {
+          const isNotAMember = /become a member/i.test(resMsg) || res?.response_indication === 'MEMBERSHIP_REQUIRED';
+          const isQuotaLimitOver = !isNotAMember && (res as any)?.is_free_trial_applicable === false;
+          
+          if (isQuotaLimitOver) {
+            // Quota limit exceeded for existing member
+            setKycTitle('Upgrade Your Plan');
+            setKycMessage(
+              errorText || 'You have already utilized your free trial. Please upgrade your membership plan to create custom price alerts.'
+            );
+            setKycIndicationText('Upgrade Plan');
+            setKycRedirectUrl(`/${lang}/membership`);
+            setKycType('warning');
+            setKycIcon('fa-solid fa-crown');
+            setIsKYCModalOpen(true);
+          } else {
+            // Free Trial Membership Popup (User is not yet a member)
+            setKycTitle('Free Trial Membership');
+            setKycMessage(
+              'To access this feature Please become a member. Try our free trial membership plan & get access.'
+            );
+            setKycIndicationText('Free Trial');
+            setKycRedirectUrl(`/${lang}/become-member`);
+            setKycType('info');
+            setKycIcon('fa-solid fa-gift');
+            setIsKYCModalOpen(true);
+          }
+        }
       }
     } catch (e: any) {
       toast.error('Network error. Please try again.');
@@ -1386,7 +1591,17 @@ export default function MobileCommodityChart({
     return imgPath.startsWith('http') ? imgPath : `${baseUrl}/${imgPath.replace(/^\//, '')}`;
   };
 
-  const tabs = ['Overview', 'Alert Setups', 'AI Predict', 'Historical', 'Specifications'];
+  const tabs = useMemo(() => {
+    return isFreight
+      ? ['Overview', 'Alert Setups', 'AI Predict', 'Historical']
+      : ['Overview', 'Alert Setups', 'AI Predict', 'Historical', 'Specifications'];
+  }, [isFreight]);
+
+  useEffect(() => {
+    if (isFreight && activeTab === 'Specifications') {
+      setActiveTab('Overview');
+    }
+  }, [isFreight, activeTab]);
 
   const timeframeLabel = {
     '1W': '1 week',
@@ -1557,41 +1772,63 @@ export default function MobileCommodityChart({
               </h1>
             </div>
             <div className="flex items-center gap-1.5 text-[10px] min-[390px]:text-[11px] sm:text-[12px] mt-1 whitespace-nowrap overflow-hidden">
-              <span className="font-semibold text-foreground/80 truncate">{item.country || apiProduct?.country?.name || 'Global'}</span>
-              <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
-              <span className="font-semibold text-foreground/80 shrink-0">{item.term || apiProduct?.shipping_term?.title || 'FOB'}</span>
-              <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
-              <span className="font-semibold text-foreground/80 shrink-0">{item.shipBy || apiProduct?.shipping_container?.title || '20FT FCL'}</span>
-              <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
-              <div className="flex items-center gap-1 shrink-0 truncate">
-                <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POL</span>
-                <span className="font-medium text-foreground/80 truncate">{item.pol || apiProduct?.loading_port?.name || 'Port'}</span>
-              </div>
-              {['CNF', 'CIF'].includes(item.term || apiProduct?.shipping_term?.title || '') && (
+              {isFreight ? (
                 <>
+                  <span className="font-semibold text-foreground/80 truncate">Ocean Freight</span>
+                  <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+                  <span className="font-semibold text-foreground/80 shrink-0">{item.shipBy || item.term || 'Container'}</span>
+                  <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+                  <div className="flex items-center gap-1 shrink-0 truncate">
+                    <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POL</span>
+                    <span className="font-medium text-foreground/80 truncate">{item.pol || 'Port'}</span>
+                  </div>
                   <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
                   <div className="flex items-center gap-1 shrink-0 truncate">
                     <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POD</span>
-                    <span className="font-medium text-foreground/80 truncate">{item.pod || apiProduct?.destination_port?.name || 'Port'}</span>
+                    <span className="font-medium text-foreground/80 truncate">{item.pod || 'Port'}</span>
                   </div>
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-foreground/80 truncate">{item.country || apiProduct?.country?.name || 'Global'}</span>
+                  <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+                  <span className="font-semibold text-foreground/80 shrink-0">{item.term || apiProduct?.shipping_term?.title || 'FOB'}</span>
+                  <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+                  <span className="font-semibold text-foreground/80 shrink-0">{item.shipBy || apiProduct?.shipping_container?.title || '20FT FCL'}</span>
+                  <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+                  <div className="flex items-center gap-1 shrink-0 truncate">
+                    <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POL</span>
+                    <span className="font-medium text-foreground/80 truncate">{item.pol || apiProduct?.loading_port?.name || 'Port'}</span>
+                  </div>
+                  {['CNF', 'CIF'].includes(item.term || apiProduct?.shipping_term?.title || '') && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
+                      <div className="flex items-center gap-1 shrink-0 truncate">
+                        <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POD</span>
+                        <span className="font-medium text-foreground/80 truncate">{item.pod || apiProduct?.destination_port?.name || 'Port'}</span>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
           </div>
 
-          {/* Information Icon to trigger Specifications & Description Modal */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowSpecsModal(true);
-            }}
-            className="flex items-center justify-center w-5 h-5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/30 shadow-xs hover:scale-110 active:scale-90 transition-transform cursor-pointer shrink-0 ml-1"
-            title="View Specifications & Description"
-            aria-label="View Specifications & Description"
-          >
-            <i className="fa-solid fa-info text-[9px]"></i>
-          </button>
+          {/* Information Icon to trigger Specifications & Description Modal (Products only) */}
+          {!isFreight && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSpecsModal(true);
+              }}
+              className="flex items-center justify-center w-5 h-5 rounded-full bg-brand-blue/10 text-brand-blue border border-brand-blue/30 shadow-xs hover:scale-110 active:scale-90 transition-transform cursor-pointer shrink-0 ml-1"
+              title="View Specifications & Description"
+              aria-label="View Specifications & Description"
+            >
+              <i className="fa-solid fa-info text-[9px]"></i>
+            </button>
+          )}
         </div>
 
         {/* Center: Desktop Navigation Tabs (Visible on >= lg) */}
@@ -1730,7 +1967,7 @@ export default function MobileCommodityChart({
                 <Image src="/logo.svg" alt="Agriguru Watermark" width={200} height={50} className="w-[60%] max-w-[200px] h-auto grayscale object-contain" />
               </div>
               
-              {isLoading && chartData.length === 0 && (
+              {isLoading && displayChartData.length === 0 && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80 animate-pulse rounded-md">
                    <div className="w-full h-full flex flex-col justify-end p-4 opacity-30 gap-2">
                      <div className="h-1/3 border-b border-border w-full flex items-end"><div className="w-full h-[2px] bg-brand-blue/30 scale-x-75 origin-left rounded-full"></div></div>
@@ -1746,7 +1983,7 @@ export default function MobileCommodityChart({
                 </div>
               )}
 
-              {isLoading && chartData.length > 0 && (
+              {isLoading && displayChartData.length > 0 && (
                 <div className="absolute top-2 right-4 z-10 flex items-center gap-1.5 bg-background/90 px-2 py-1 rounded-full shadow-sm border border-border">
                   <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-[10px]"></i>
                   <span className="text-[10px] font-semibold text-foreground/70">Updating...</span>
@@ -1754,7 +1991,6 @@ export default function MobileCommodityChart({
               )}
               <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
-                    key={displayChartData.length > 0 ? "loaded" : "empty"}
                     data={displayChartData}
                     margin={{ top: 12, right: 6, left: 0, bottom: 0 }}
                     onMouseMove={(e: any) => {
@@ -2069,7 +2305,7 @@ export default function MobileCommodityChart({
             ref={tabContentRef}
             className={`transition-opacity ${isFullScreen ? 'opacity-100' : 'opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto'}`}
           >
-            {activeTab === 'Specifications' ? (
+            {activeTab === 'Specifications' && !isFreight ? (
               /* TAB 3: PRODUCT SPECIFICATIONS VIEW */
               <div className="space-y-3.5">
                 {/* Header / Summary Card */}
@@ -2210,7 +2446,7 @@ export default function MobileCommodityChart({
             ) : activeTab === 'Alert Setups' ? (
               <div className="space-y-3.5">
                 {isFetchingAlerts && chartAlerts.length === 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
                     <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-[100px] sm:h-[110px] animate-pulse">
                       <div className="flex flex-col items-center shrink-0 w-6">
                         <div className="w-6 h-6 sm:w-7 sm:h-7 bg-muted rounded-full"></div>
@@ -2232,18 +2468,26 @@ export default function MobileCommodityChart({
                     </div>
                   </div>
                 ) : chartAlerts.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
                     {chartAlerts.map((alert: any, idx: number) => {
                       const alertType = alert.alert_type || alert.type || 'Price Alert';
                       const isFreight = String(alertType).toLowerCase().includes('freight');
                       const alertPriceVal = alert.alert_price || alert.target_freight || alert.freight_rate || alert.target_price || alert.price || alert.threshold || currentDisplayPrice;
                       const isEditingThisCard = showAlertInput && String(editingAlertId) === String(alert.id);
                       
+                      const alertData = {
+                        ...alert,
+                        product_name: alert.product?.name || alert.product_name || alert.commodity?.name || alert.name || alert.title || item.product,
+                        loading_port: alert.loading_port || (item.pol ? { name: item.pol, country: { flag: item.polFlag } } : undefined),
+                        destination_port: alert.destination_port || (item.pod ? { name: item.pod, country: { flag: item.podFlag } } : undefined),
+                        shipping_container: alert.shipping_container || item.shipBy || item.term
+                      };
+
                       return (
                         <div key={alert.id || idx} id={`alert-card-${alert.id}`} className="space-y-2">
                           {isFreight ? (
                             <FreightAlertCard 
-                              alert={alert} 
+                              alert={alertData} 
                               isDropdownMode={true} 
                               onCardClick={() => {
                                 if (isEditingThisCard) {
@@ -2260,7 +2504,7 @@ export default function MobileCommodityChart({
                             />
                           ) : (
                             <ProductAlertCard 
-                              alert={alert} 
+                              alert={alertData} 
                               isDropdownMode={true} 
                               onCardClick={() => {
                                 if (isEditingThisCard) {
@@ -2296,18 +2540,23 @@ export default function MobileCommodityChart({
                                 </button>
                               </div>
 
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
-                                <input
-                                  type="number"
-                                  value={alertInputValue}
-                                  onChange={handleAlertInputChange}
-                                  className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
-                                  placeholder={common.target_price || "Target Price..."}
-                                  autoFocus
-                                />
-                              </div>
-                              {alertError && <div className="text-brand-red text-[11px] font-medium mt-1 text-center">{alertError}</div>}
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
+                                  <input
+                                    type="number"
+                                    value={alertInputValue}
+                                    onChange={handleAlertInputChange}
+                                    className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
+                                    placeholder={common.target_price || "Target Price..."}
+                                    autoFocus
+                                  />
+                                </div>
+                                {alertError && (
+                                  <div className="text-brand-red text-[11px] font-semibold mt-1.5 text-center flex items-center justify-center gap-1.5 animate-in fade-in duration-150">
+                                    <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                                    <span>{alertError}</span>
+                                  </div>
+                                )}
 
                               <div className="flex items-center gap-2 mt-3.5">
                                 <button
@@ -2364,7 +2613,12 @@ export default function MobileCommodityChart({
                             autoFocus
                           />
                         </div>
-                        {alertError && <div className="text-brand-red text-[11px] font-medium mt-1 text-center">{alertError}</div>}
+                        {alertError && (
+                          <div className="text-brand-red text-[11px] font-semibold mt-1.5 text-center flex items-center justify-center gap-1.5 animate-in fade-in duration-150">
+                            <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                            <span>{alertError}</span>
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-2 mt-3.5">
                           <button
@@ -2398,6 +2652,12 @@ export default function MobileCommodityChart({
                         {alertSuccess}
                       </div>
                     )}
+                    {alertError && !showAlertInput && (
+                      <div className="mt-2 w-full bg-brand-red/10 border border-brand-red/30 text-brand-red text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2 animate-in fade-in duration-150">
+                        <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                        <span>{alertError}</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
@@ -2411,6 +2671,12 @@ export default function MobileCommodityChart({
                       <div className="mt-3 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
                         <i className="fa-solid fa-circle-check"></i>
                         {alertSuccess}
+                      </div>
+                    )}
+                    {alertError && !showAlertInput && (
+                      <div className="mt-3 w-full bg-brand-red/10 border border-brand-red/30 text-brand-red text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2 animate-in fade-in duration-150">
+                        <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                        <span>{alertError}</span>
                       </div>
                     )}
 
@@ -2507,7 +2773,7 @@ export default function MobileCommodityChart({
 
                 {/* 2. AI Predict Records List (matching Alert Setups pattern) */}
                 {isFetchingAiPredicts && chartAiPredicts.length === 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
                     <div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-5 flex items-stretch gap-4 sm:gap-5 h-[100px] sm:h-[110px] animate-pulse">
                       <div className="flex flex-col items-center shrink-0 w-6">
                         <div className="w-6 h-6 sm:w-7 sm:h-7 bg-muted rounded-full"></div>
@@ -2529,10 +2795,18 @@ export default function MobileCommodityChart({
                     </div>
                   </div>
                 ) : chartAiPredicts.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
                     {chartAiPredicts.map((predict: any, idx: number) => {
-                      const predictType = predict.predict_type || predict.type || predict.analysis_type || predict.alert_type || (item.category === 'FREIGHT' ? 'Freight' : 'Product');
+                      const predictType = predict.predict_type || predict.type || predict.analysis_type || predict.alert_type || (String(item.category || '').toUpperCase().includes('FREIGHT') ? 'Freight' : 'Product');
                       const isFreight = predictType.toLowerCase().includes('freight') || !!(predict.freight_pmt || predict.target_freight || predict.pmt_price) || (!!predict.loading_port && !!predict.destination_port && !predict.product?.name && !predict.product_name && !predict.commodity?.name);
+
+                      const predictData = {
+                        ...predict,
+                        product_name: predict.product?.name || predict.product_name || predict.commodity?.name || predict.name || predict.title || item.product,
+                        loading_port: predict.loading_port || (item.pol ? { name: item.pol, country: { flag: item.polFlag } } : undefined),
+                        destination_port: predict.destination_port || (item.pod ? { name: item.pod, country: { flag: item.podFlag } } : undefined),
+                        shipping_container: predict.shipping_container || item.shipBy || item.term
+                      };
 
                       const handleSelectPredict = async () => {
                         const text = predict.analysis || predict.ai_analysis || predict.description || predict.content || predict.analysis_text;
@@ -2561,7 +2835,7 @@ export default function MobileCommodityChart({
                         return (
                           <div key={predict.id || idx} id={`predict-card-${predict.id}`}>
                             <AIPredictFreightCard 
-                              predict={predict} 
+                              predict={predictData} 
                               isDropdownMode={true} 
                               initialExpanded={initialExpandedPredictId === String(predict.id)}
                             />
@@ -2572,7 +2846,7 @@ export default function MobileCommodityChart({
                       return (
                         <div key={predict.id || idx} id={`predict-card-${predict.id}`}>
                           <AIPredictProductCard 
-                            predict={predict} 
+                            predict={predictData} 
                             isDropdownMode={true} 
                             initialExpanded={initialExpandedPredictId === String(predict.id)}
                           />
@@ -2620,16 +2894,18 @@ export default function MobileCommodityChart({
                       >
                         All Notes
                       </button>
-                      <button
-                        onClick={() => setHistoricalFilter('product_only')}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold  shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'product_only'
-                            ? 'bg-foreground text-background shadow-xs'
-                            : 'bg-card text-foreground/80 border border-border hover:bg-muted'
-                          }`}
-                      >
-                        <i className="fa-solid fa-wheat-awn text-[10px]"></i>
-                        Product Remarks
-                      </button>
+                      {!isFreight && (
+                        <button
+                          onClick={() => setHistoricalFilter('product_only')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold  shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'product_only'
+                              ? 'bg-foreground text-background shadow-xs'
+                              : 'bg-card text-foreground/80 border border-border hover:bg-muted'
+                            }`}
+                        >
+                          <i className="fa-solid fa-wheat-awn text-[10px]"></i>
+                          Product Remarks
+                        </button>
+                      )}
                       <button
                         onClick={() => setHistoricalFilter('freight_only')}
                         className={`px-2.5 py-1 rounded-lg text-[11px] font-bold  shrink-0 flex items-center gap-1 cursor-pointer ${historicalFilter === 'freight_only'
@@ -2899,74 +3175,76 @@ export default function MobileCommodityChart({
                   </div>
                 )}
 
-                {/* Enhanced "Commodity Insights" Section on Mobile / Overview */}
-                <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-[14px] text-foreground">Commodity Insights</h3>
-                      <p className="text-[11px] text-foreground/75 mt-0.5">
-                        Verified product specifications, packaging options & trade terms.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowSpecsModal(true)}
-                      className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20 rounded-md flex items-center gap-1 cursor-pointer "
-                    >
-                      <i className="fa-solid fa-info-circle text-[10px]"></i>
-                      <span>Specs</span>
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-brand-blue">
-                      <div className="text-[10px] font-bold text-foreground/50 uppercase">Est. Cargo Value</div>
-                      <div className="text-[13px] min-[390px]:text-[14px] font-bold mt-0.5 text-foreground">
-                        ${(roundedPrice * numericCapacity).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {/* Enhanced "Commodity Insights" Section on Mobile / Overview (Products only) */}
+                {!isFreight && (
+                  <div className="bg-card rounded-2xl border border-border p-3.5 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-[14px] text-foreground">Commodity Insights</h3>
+                        <p className="text-[11px] text-foreground/75 mt-0.5">
+                          Verified product specifications, packaging options & trade terms.
+                        </p>
                       </div>
-                      <div className="text-[10px] text-foreground/50 mt-0.5">Per {loadingCapacity} MT Container</div>
+                      <button
+                        type="button"
+                        onClick={() => setShowSpecsModal(true)}
+                        className="text-[10px] font-bold px-2 py-0.5 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20 rounded-md flex items-center gap-1 cursor-pointer "
+                      >
+                        <i className="fa-solid fa-info-circle text-[10px]"></i>
+                        <span>Specs</span>
+                      </button>
                     </div>
 
-                    <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-emerald-500">
-                      <div className="text-[10px] font-bold text-foreground/50 uppercase">Unit Rate (Per Bag)</div>
-                      <div className="text-[13px] min-[390px]:text-[14px] font-bold mt-0.5 text-foreground">
-                        ${pricePerBag.toFixed(2)}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-brand-blue">
+                        <div className="text-[10px] font-bold text-foreground/50 uppercase">Est. Cargo Value</div>
+                        <div className="text-[13px] min-[390px]:text-[14px] font-bold mt-0.5 text-foreground">
+                          ${(roundedPrice * numericCapacity).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                        <div className="text-[10px] text-foreground/50 mt-0.5">Per {loadingCapacity} MT Container</div>
                       </div>
-                      <div className="text-[10px] text-foreground/50 mt-0.5">For {bagWeight} KG Bag</div>
-                    </div>
-                  </div>
 
-                  <div className="bg-background/50 p-3 rounded-xl border border-border space-y-2">
-                    <div className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">
-                      Available Packaging & Load Capacity
+                      <div className="bg-background/50 p-2.5 rounded-xl border border-border border-l-4 border-l-emerald-500">
+                        <div className="text-[10px] font-bold text-foreground/50 uppercase">Unit Rate (Per Bag)</div>
+                        <div className="text-[13px] min-[390px]:text-[14px] font-bold mt-0.5 text-foreground">
+                          ${pricePerBag.toFixed(2)}
+                        </div>
+                        <div className="text-[10px] text-foreground/50 mt-0.5">For {bagWeight} KG Bag</div>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {packingTypesList.length > 0 ? (
-                        packingTypesList.map((pt: any, idx: number) => (
-                          <span
-                            key={idx}
-                            className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-md ${pt.isDefault
-                                ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30'
-                                : 'bg-muted text-foreground/80'
-                              }`}
-                          >
-                            {pt.title} {pt.isDefault ? '(Default)' : ''}
+                    <div className="bg-background/50 p-3 rounded-xl border border-border space-y-2">
+                      <div className="text-[10px] font-bold text-foreground/50 uppercase tracking-wider">
+                        Available Packaging & Load Capacity
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {packingTypesList.length > 0 ? (
+                          packingTypesList.map((pt: any, idx: number) => (
+                            <span
+                              key={idx}
+                              className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-md ${pt.isDefault
+                                  ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/30'
+                                  : 'bg-muted text-foreground/80'
+                                }`}
+                            >
+                              {pt.title} {pt.isDefault ? '(Default)' : ''}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[11px] font-semibold px-2.5 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
+                            {defaultPacking || '50 kg bag (Standard)'}
                           </span>
-                        ))
-                      ) : (
-                        <span className="text-[11px] font-semibold px-2 py-0.5 bg-brand-blue/10 text-brand-blue rounded-md">
-                          {defaultPacking || '50 kg bag (Standard)'}
-                        </span>
-                      )}
-                    </div>
+                        )}
+                      </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-1.5 border-t border-border">
-                      <span>Container: <strong className="text-foreground">{containerTitle}</strong></span>
-                      <span>Capacity: <strong className="text-foreground">{loadingCapacity} Metric Tons</strong></span>
+                      <div className="flex items-center justify-between text-[11px] text-foreground/75 pt-1.5 border-t border-border">
+                        <span>Container: <strong className="text-foreground">{containerTitle}</strong></span>
+                        <span>Capacity: <strong className="text-foreground">{loadingCapacity} Metric Tons</strong></span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -3010,10 +3288,10 @@ export default function MobileCommodityChart({
                 type="button"
                 onClick={handleBuySellClick}
                 disabled={isActionLoading}
-                variant={userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default'}
-                icon={userType === 'seller' ? 'fa-tag' : userType === 'buyer' ? 'fa-cart-shopping' : ''}
+                variant={isFreight ? 'default' : (userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default')}
+                icon={isFreight ? 'fa-ship' : (userType === 'seller' ? 'fa-tag' : userType === 'buyer' ? 'fa-cart-shopping' : '')}
               >
-                {isActionLoading ? 'WAIT...' : (userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY')}
+                {isActionLoading ? 'WAIT...' : (isFreight ? 'FREIGHT INQUIRY' : (userType === 'seller' ? 'SUBMIT SELL OFFER' : userType === 'buyer' ? 'SEND BUY INQUIRY' : 'BUY / SELL INQUIRY'))}
               </ActionButton>
 
               {showAlertInput ? (
@@ -3047,33 +3325,46 @@ export default function MobileCommodityChart({
                       {editingAlertId ? 'Update' : 'Save'}
                     </button>
                   </div>
-                  {alertError && <div className="text-brand-red text-[11px] font-medium mt-1.5 text-center">{alertError}</div>}
+                  {alertError && (
+                    <div className="text-brand-red text-[11px] min-[390px]:text-[12px] font-semibold mt-1.5 text-center flex items-center justify-center gap-1.5 animate-in fade-in duration-150">
+                      <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                      <span>{alertError}</span>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={handleCreateAlertClick}
-                    className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
-                  >
-                    <i className="fa-solid fa-bell text-amber-500 text-[16px]"></i>
-                    <span className="whitespace-nowrap">Create Alert</span>
-                  </button>
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCreateAlertClick}
+                      className="w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer"
+                    >
+                      <i className="fa-solid fa-bell text-amber-500 text-[16px]"></i>
+                      <span className="whitespace-nowrap">Create Alert</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={handleAIPredictClick}
-                    disabled={isAnalysing}
-                    className={`w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer ${isAnalysing ? 'opacity-50' : ''}`}
-                  >
-                    {isAnalysing ? (
-                      <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-[16px]"></i>
-                    ) : (
-                      <i className="fa-solid fa-microchip text-brand-blue text-[16px]"></i>
-                    )}
-                    <span className="whitespace-nowrap">{common.ai_predict || "AI Predict"}</span>
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={handleAIPredictClick}
+                      disabled={isAnalysing}
+                      className={`w-full py-2.5 bg-card hover:bg-muted active:scale-95 text-foreground font-bold text-[12px] xl:text-[13px] rounded-xl flex items-center justify-center gap-2 shadow-xs border border-border cursor-pointer ${isAnalysing ? 'opacity-50' : ''}`}
+                    >
+                      {isAnalysing ? (
+                        <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-[16px]"></i>
+                      ) : (
+                        <i className="fa-solid fa-microchip text-brand-blue text-[16px]"></i>
+                      )}
+                      <span className="whitespace-nowrap">{common.ai_predict || "AI Predict"}</span>
+                    </button>
+                  </div>
+                  {alertError && !showAlertInput && (
+                    <div className="mt-2 w-full bg-brand-red/10 border border-brand-red/30 text-brand-red text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2 animate-in fade-in duration-150">
+                      <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                      <span>{alertError}</span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -3128,38 +3419,79 @@ export default function MobileCommodityChart({
             )}
           </div>
 
-          {/* Quick Specifications Preview */}
-          <div className="bg-card rounded-2xl border border-border p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <span className="text-[12px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                Commodity Specifications
-              </span>
+          {/* Quick Specifications / Freight Route Details Preview */}
+          {!isFreight ? (
+            <div className="bg-card rounded-2xl border border-border p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-border">
+                <span className="text-[12px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  Commodity Specifications
+                </span>
+                <button
+                  onClick={() => setShowSpecsModal(true)}
+                  className="text-[11px] font-bold text-brand-blue hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  <span>Full View</span>
+                  <i className="fa-solid fa-arrow-right text-[10px]"></i>
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {parsedSpecs.tableData.slice(0, 4).map((row, i) => (
+                  <div key={i} className="flex justify-between items-center text-xs py-1 border-b border-zinc-100 dark:border-zinc-800/60 last:border-0">
+                    <span className="text-zinc-500 dark:text-zinc-400 font-medium">{row.key}</span>
+                    <span className="font-bold text-zinc-900 dark:text-white">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
               <button
                 onClick={() => setShowSpecsModal(true)}
-                className="text-[11px] font-bold text-brand-blue hover:underline cursor-pointer flex items-center gap-1"
+                className="w-full py-2 bg-blue-50 dark:bg-blue-900/20 text-brand-blue dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-bold text-xs rounded-xl border border-blue-200/80 dark:border-blue-800/60  cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>Full View</span>
-                <i className="fa-solid fa-arrow-right text-[10px]"></i>
+                <i className="fa-solid fa-file-lines text-xs"></i>
+                <span>View All Quality Specs</span>
               </button>
             </div>
+          ) : (
+            <div className="bg-card rounded-2xl border border-border p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-border">
+                <span className="text-[12px] font-bold text-foreground/70 uppercase tracking-wider">
+                  Freight Route Summary
+                </span>
+                <span className="text-[11px] font-bold text-brand-blue flex items-center gap-1">
+                  <i className="fa-solid fa-ship text-[11px]"></i>
+                  <span>{item.shipBy || 'Container'}</span>
+                </span>
+              </div>
 
-            <div className="space-y-2">
-              {parsedSpecs.tableData.slice(0, 4).map((row, i) => (
-                <div key={i} className="flex justify-between items-center text-xs py-1 border-b border-zinc-100 dark:border-zinc-800/60 last:border-0">
-                  <span className="text-zinc-500 dark:text-zinc-400 font-medium">{row.key}</span>
-                  <span className="font-bold text-zinc-900 dark:text-white">{row.value}</span>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between items-center py-1 border-b border-border/50">
+                  <span className="text-foreground/70 font-medium">Loading Port (POL)</span>
+                  <span className="font-bold text-foreground flex items-center gap-1">
+                    {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="" className="w-3.5 h-2.5 object-cover rounded-[1px]" />}
+                    {item.pol || 'N/A'}
+                  </span>
                 </div>
-              ))}
+                <div className="flex justify-between items-center py-1 border-b border-border/50">
+                  <span className="text-foreground/70 font-medium">Destination Port (POD)</span>
+                  <span className="font-bold text-foreground flex items-center gap-1">
+                    {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="" className="w-3.5 h-2.5 object-cover rounded-[1px]" />}
+                    {item.pod || 'N/A'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-border/50">
+                  <span className="text-foreground/70 font-medium">Ship By Equipment</span>
+                  <span className="font-bold text-foreground">{item.shipBy || item.term || 'Container'}</span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-foreground/70 font-medium">Indicative Freight Rate</span>
+                  <span className="font-bold text-brand-blue dark:text-blue-400">
+                    ${item.price} / PMT
+                  </span>
+                </div>
+              </div>
             </div>
-
-            <button
-              onClick={() => setShowSpecsModal(true)}
-              className="w-full py-2 bg-blue-50 dark:bg-blue-900/20 text-brand-blue dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 font-bold text-xs rounded-xl border border-blue-200/80 dark:border-blue-800/60  cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <i className="fa-solid fa-file-lines text-xs"></i>
-              <span>View All Quality Specs</span>
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
@@ -3177,15 +3509,15 @@ export default function MobileCommodityChart({
               <span className="whitespace-nowrap">Create Alert</span>
             </button>
 
-            {/* 2. Buy / Sell Action Button (Center) */}
+            {/* 2. Buy / Sell / Freight Action Button (Center) */}
             <ActionButton
               type="button"
               onClick={handleBuySellClick}
               disabled={isActionLoading}
-              variant={userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default'}
+              variant={isFreight ? 'default' : (userType === 'seller' ? 'sell' : userType === 'buyer' ? 'buy' : 'default')}
               className="flex-1 py-2 min-[390px]:py-2.5 text-[12px] min-[390px]:text-[14px]"
             >
-              {isActionLoading ? 'WAIT...' : (userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL')}
+              {isActionLoading ? 'WAIT...' : (isFreight ? 'FREIGHT INQUIRY' : (userType === 'seller' ? 'SELL OFFER' : userType === 'buyer' ? 'BUY INQUIRY' : 'BUY / SELL'))}
             </ActionButton>
 
             {/* 3. AI Predict (Right) */}
@@ -3206,8 +3538,8 @@ export default function MobileCommodityChart({
         </div>
       )}
 
-      {/* 4. Specifications & Description Information Icon Popup Modal */}
-      {showSpecsModal && (
+      {/* 4. Specifications & Description Information Icon Popup Modal (Products only) */}
+      {!isFreight && showSpecsModal && (
         <div
           className="fixed inset-0 z-[550] flex items-center justify-center p-3 sm:p-4 overscroll-contain"
         >
@@ -3406,10 +3738,11 @@ export default function MobileCommodityChart({
           setIsKYCModalOpen(false);
           router.push(kycRedirectUrl);
         }}
-        title="Action Required"
+        title={kycTitle}
         description={kycMessage}
         indicationText={kycIndicationText}
-        type="warning"
+        type={kycType}
+        icon={kycIcon}
       />
     </div>
   );

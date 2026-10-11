@@ -164,24 +164,24 @@ export function AlertsClient({ initialAlerts, lang, dict }: { initialAlerts: any
             if (isFreight) {
               return (
                 <FreightAlertCard 
+                  key={alert.id || idx} 
+                  alert={alert} 
+                  isSelected={selectedIds.has(alert.id)} 
+                  onSelect={toggleSelect} 
+                  onCardClick={() => handleOpenChart(alert, true)}
+                />
+              );
+            }
+
+            return (
+              <ProductAlertCard 
                 key={alert.id || idx} 
                 alert={alert} 
                 isSelected={selectedIds.has(alert.id)} 
                 onSelect={toggleSelect} 
-                onCardClick={() => handleOpenChart(alert, true)}
+                onCardClick={() => handleOpenChart(alert, false)}
               />
             );
-          }
-
-          return (
-            <ProductAlertCard 
-              key={alert.id || idx} 
-              alert={alert} 
-              isSelected={selectedIds.has(alert.id)} 
-              onSelect={toggleSelect} 
-              onCardClick={() => handleOpenChart(alert, false)}
-            />
-          );
           })}
         </div>
       )}
@@ -192,7 +192,7 @@ export function AlertsClient({ initialAlerts, lang, dict }: { initialAlerts: any
           onClose={() => setActiveChartData(null)} 
           lang={lang}
           swipeText={dict?.swipe_up_details || "Swipe up for Commodity Details"}
-          initialTab={dict?.alerts_setups || "Alert Setups"}
+          initialTab="Alert Setups"
         />
       )}
     </div>

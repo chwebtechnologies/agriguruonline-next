@@ -106,6 +106,7 @@ import { SwipeableCard } from '@/components/ui/charts/SwipeableCard';
 import { ChartMobileEmptyCard } from '@/components/ui/charts/ChartMobileEmptyCard';
 import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard';
 import { ChartBottomSheetContainer } from '@/components/ui/charts/ChartBottomSheetContainer';
+import { ChartCardOptionsBottomSheet } from '@/components/ui/charts/ChartCardOptionsBottomSheet';
 
 
 const openNextDropdown = (mobileId: string, desktopId: string) => {
@@ -162,6 +163,8 @@ export default function ProductChartsClient({
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [disclaimerPos, setDisclaimerPos] = useState<'top' | 'bottom'>('bottom');
   const [activeBottomSheetId, setActiveBottomSheetId] = useState<number | string | null>(null);
+  const [selectedInitialTab, setSelectedInitialTab] = useState<string>('Overview');
+  const [selectedOptionsItem, setSelectedOptionsItem] = useState<FavoriteItem | null>(null);
   const [isInitialFullScreen, setIsInitialFullScreen] = useState(false);
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
 
@@ -179,8 +182,8 @@ export default function ProductChartsClient({
   const [actionItemId, setActionItemId] = useState<number | string | null>(null);
   const [actionItem, setActionItem] = useState<FavoriteItem | null>(null);
 
-  const handleBuySellClick = async (item: FavoriteItem, e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleBuySellClick = async (item: FavoriteItem, e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
     if (!userType) {
       router.push(`/${lang}/login`);
       return;
@@ -270,9 +273,26 @@ export default function ProductChartsClient({
 
   // Open / Close bottom sheet
 
-  const openBottomSheet = (id: number | string) => {
+  const openBottomSheet = (id: number | string, tab: string = 'Overview') => {
+    setSelectedInitialTab(tab);
     setActiveBottomSheetId(id);
     setIsInitialFullScreen(false);
+  };
+
+  const handleOptionSelect = (optionKey: 'inquiry' | 'alert' | 'predict' | 'chart') => {
+    if (!selectedOptionsItem) return;
+    const item = selectedOptionsItem;
+    setSelectedOptionsItem(null);
+
+    if (optionKey === 'inquiry') {
+      handleBuySellClick(item);
+    } else if (optionKey === 'alert') {
+      openBottomSheet(item.id, 'Alert Setups');
+    } else if (optionKey === 'predict') {
+      openBottomSheet(item.id, 'AI Predict');
+    } else if (optionKey === 'chart') {
+      openBottomSheet(item.id, 'Overview');
+    }
   };
 
   const closeBottomSheet = () => {
@@ -1392,7 +1412,7 @@ export default function ProductChartsClient({
                     {/* Mobile/Tablet Card Layout */}
                     <SwipeableCard 
                       onDelete={() => confirmDelete(item.id)}
-                      onChart={() => openBottomSheet(item.id)}
+                      onChart={() => openBottomSheet(item.id, 'Overview')}
                     >
                       <ChartMobileItemCard
                         row1Left={
@@ -1409,7 +1429,12 @@ export default function ProductChartsClient({
                         }
                         title={item.product}
                         priceDisplay={`${item.term}: $${item.price}`}
-                        onOptionsClick={() => openBottomSheet(item.id)}
+                        onCardClick={() => {
+                          if (item.chartStatus) {
+                            openBottomSheet(item.id, 'Overview');
+                          }
+                        }}
+                        onOptionsClick={() => setSelectedOptionsItem(item)}
                         row3Left={`POL: ${item.pol}`}
                         row3Middle={`(${item.shipBy} - PMT)`}
                         changeValue={item.change}
@@ -1575,10 +1600,59 @@ export default function ProductChartsClient({
             userType={userType} 
             defaultFullScreen={isInitialFullScreen}
             lang={lang}
+            initialTab={selectedInitialTab}
             swipeText="Swipe up for Commodity Details"
           />
         );
       })()}
+
+      {/* 3-Dots Options Bottom Sheet for Swipable Cards */}
+      <ChartCardOptionsBottomSheet
+        isOpen={selectedOptionsItem !== null}
+        onClose={() => setSelectedOptionsItem(null)}
+        itemType="product"
+        userType={userType}
+        onSelectOption={handleOptionSelect}
+        isChartAvailable={selectedOptionsItem?.chartStatus !== false}
+        isActionLoading={isActionLoading && actionItemId === selectedOptionsItem?.id}
+        cardNode={selectedOptionsItem && (() => {
+          const item = selectedOptionsItem;
+          const changeVal = Number(item.change) || 0;
+          const isPositive = changeVal >= 0;
+          return (
+            <ChartMobileItemCard
+              row1Left={
+                <>
+                  {item.countryFlag && <FlagIcon src={getFlagUrl(item.countryFlag)} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-[16px] h-[12px]" />}
+                  <span>{item.country}</span>
+                </>
+              }
+              row1Right={
+                <>
+                  <span>{item.pod && item.pod !== 'N/A' ? 'POD' : 'POL'}: {item.pod && item.pod !== 'N/A' ? item.pod : item.pol}</span>
+                  {(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag) && <FlagIcon src={getFlagUrl(item.pod && item.pod !== 'N/A' ? item.podFlag : item.polFlag)} alt={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} title={`${item.pod && item.pod !== 'N/A' ? item.pod : item.pol} Flag`} className="w-[16px] h-[12px]" />}
+                </>
+              }
+              title={item.product}
+              priceDisplay={`${item.term}: $${item.price}`}
+              actionButton={
+                <button
+                  type="button"
+                  onClick={() => setSelectedOptionsItem(null)}
+                  className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground active:bg-muted rounded-full transition-colors cursor-pointer"
+                  aria-label="Close options"
+                >
+                  <i className="fa-solid fa-xmark text-[16px]"></i>
+                </button>
+              }
+              row3Left={`POL: ${item.pol}`}
+              row3Middle={`(${item.shipBy} - PMT)`}
+              changeValue={item.change}
+              isPositive={isPositive}
+            />
+          );
+        })()}
+      />
 
       {/* Full Screen Mobile Add Product Form */}
       {showMobileAddForm && (

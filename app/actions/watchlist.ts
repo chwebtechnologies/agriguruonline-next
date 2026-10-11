@@ -207,8 +207,29 @@ export async function getWatchlistFreightAction(lang: string = 'en') {
           if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
           return true;
         };
+        const isExplicitlyTrue = (val: any) => {
+          if (val === true || val === 1 || val === '1' || val === 'on' || val === 'true' || val === 'active' || val === 'enable' || val === 'enabled') return true;
+          return false;
+        };
 
-        const chartStatus = isChart(item.chart_status) && isChart(item.chartStatus);
+        let chartStatus = true;
+        if (
+          !isChart(item.chart_status) ||
+          !isChart(item.chartStatus) ||
+          !isChart(item.is_chart) ||
+          !isChart(item.shipping_container?.chart_status) ||
+          !isChart(item.shippingContainer?.chart_status)
+        ) {
+          chartStatus = false;
+        } else if (
+          isExplicitlyTrue(item.chart_status) ||
+          isExplicitlyTrue(item.chartStatus) ||
+          isExplicitlyTrue(item.is_chart) ||
+          isExplicitlyTrue(item.shipping_container?.chart_status) ||
+          isExplicitlyTrue(item.shippingContainer?.chart_status)
+        ) {
+          chartStatus = true;
+        }
         const loadCapacity = item.shipping_container?.default_load_capacity || item.load_capacity || 26;
         const loadUnit = item.shipping_container?.default_unit?.title || item.load_unit || 'MT';
 

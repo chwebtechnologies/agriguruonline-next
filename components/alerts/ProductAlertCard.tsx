@@ -18,7 +18,7 @@ export function ProductAlertCard({
   const dateStr = alert.created_at ? new Date(alert.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently';
   const alertType = alert.alert_type || alert.type || 'Price Alert';
 
-  const title = alert.product?.name || alert.product_name || alert.commodity?.name || alert.category?.name || alert.commodity_name || alert.name || alert.title || 'Unknown Commodity';
+  const title = alert.product?.name || alert.product_name || alert.favourite_product?.product?.name || alert.favourite_record?.product?.name || alert.commodity?.name || alert.category?.name || alert.commodity_name || alert.name || alert.title || 'Unknown Commodity';
   const price = alert.alert_price || alert.target_price || alert.price || alert.threshold || 0;
   
   const incotermStr = alert.shipping_term || alert.incoterm?.name || alert.incoterm || 'FOB';

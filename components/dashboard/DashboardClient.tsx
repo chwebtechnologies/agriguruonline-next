@@ -218,7 +218,7 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center">
-              <i className="fa-solid fa-wand-magic-sparkles text-sm"></i>
+              <i className="fa-solid fa-microchip text-sm"></i>
             </div>
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">AI Predictor</span>
           </div>

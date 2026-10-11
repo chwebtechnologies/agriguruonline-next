@@ -158,7 +158,7 @@ export function AIPredictClient({ initialPredicts, lang, dict }: { initialPredic
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {predicts.map((predict: any, idx: number) => {
             const predictType = predict.predict_type || predict.type || predict.analysis_type || predict.alert_type || 'Product';
-            const isFreight = predictType.toLowerCase().includes('freight') || !!(predict.freight_pmt || predict.target_freight || predict.pmt_price) || (!!predict.loading_port && !!predict.destination_port && !predict.product?.name && !predict.product_name && !predict.commodity?.name);
+            const isFreight = predictType.toLowerCase().includes('freight');
 
             if (isFreight) {
               return (
@@ -191,7 +191,7 @@ export function AIPredictClient({ initialPredicts, lang, dict }: { initialPredic
           onClose={() => setActiveChartData(null)} 
           lang={lang}
           swipeText={dict?.swipe_up_details || "Swipe up for Commodity Details"}
-          initialTab={dict?.ai_predict || "AI Predict"}
+          initialTab="AI Predict"
           initialExpandedPredictId={activeChartData.predictId ? String(activeChartData.predictId) : undefined}
         />
       )}

@@ -786,62 +786,32 @@ export const tradingService = {
       body: JSON.stringify(payload),
     });
     const json = await res.json().catch(() => ({}));
-    
-    // FORCE success if backend explicitly returns success flag
-    if (json.success === 1 || json.success === '1' || json.success === true || json.status === 1 || json.status === '1' || json.status === true) {
-      return { success: true, data: json, message: json.message || 'Alert saved successfully' };
-    }
-
+    const msg = json.message || json.error || '';
     const responseIndication = json.response_indication || json.data?.response_indication;
-    if (responseIndication) {
+
+    // Detect error / restriction messages regardless of HTTP 200/201 status code
+    const isExplicitError = 
+      /become a member/i.test(msg) ||
+      /membership/i.test(msg) ||
+      /limit over/i.test(msg) ||
+      /limit reached/i.test(msg) ||
+      /quota/i.test(msg) ||
+      /not allowed/i.test(msg) ||
+      /unauthorized/i.test(msg) ||
+      /forbidden/i.test(msg) ||
+      (responseIndication && responseIndication !== 'CREATED' && responseIndication !== 'SUCCESS');
+
+    if (isExplicitError) {
       return { 
         success: false, 
-        error: json.message || json.error || 'Failed', 
-        response_indication: responseIndication 
+        error: msg || 'Please become a member to create price alert', 
+        response_indication: responseIndication || (/member/i.test(msg) ? 'MEMBERSHIP_REQUIRED' : undefined)
       };
     }
 
-        const isSuccess = (
-      json.success === 1 || 
-      json.success === '1' ||
-      json.success === true || 
-      json.status === 1 || 
-      json.status === '1' ||
-      json.status === true ||
-      (res.ok && json.success === undefined && json.status === undefined)
-    );
-    
-    
-    
-    if (isSuccess) {
-      return { success: true, data: json, message: json.message || 'Alert saved successfully' };
-    }
-    return { success: false, error: json.message || json.error || 'Failed' };
-  },
-
-  updatePriceAlert: async (id: string | number, payload: any, token?: string, lang: string = 'en') => {
-    const url = `${getTradingApiUrl()}/price-alert/${encodeURIComponent(String(id))}`;
-    const res = await customFetch(url, {
-      method: 'PATCH',
-      token,
-      headers: { 'Content-Type': 'application/json' },
-      params: { lang_code: lang, source: 'web' },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json().catch(() => ({}));
-    
-    // FORCE success if backend explicitly returns success flag
-    if (json.success === 1 || json.success === '1' || json.success === true || json.status === 1 || json.status === '1' || json.status === true) {
-      return { success: true, data: json, message: json.message || 'Alert updated successfully' };
-    }
-
-    const responseIndication = json.response_indication || json.data?.response_indication;
-    if (responseIndication) {
-      return { 
-        success: false, 
-        error: json.message || json.error || 'Failed', 
-        response_indication: responseIndication 
-      };
+    // Backend returned explicit failure status
+    if (json.success === 0 || json.success === '0' || json.success === false || json.status === 0 || json.status === '0' || json.status === false) {
+      return { success: false, error: msg || 'Failed to save alert' };
     }
 
     const isSuccess = (
@@ -855,9 +825,63 @@ export const tradingService = {
     );
     
     if (isSuccess) {
-      return { success: true, data: json, message: json.message || 'Alert updated successfully' };
+      return { success: true, data: json, message: msg || 'Alert saved successfully' };
     }
-    return { success: false, error: json.message || json.error || 'Failed' };
+    return { success: false, error: msg || 'Failed' };
+  },
+
+  updatePriceAlert: async (id: string | number, payload: any, token?: string, lang: string = 'en') => {
+    const url = `${getTradingApiUrl()}/price-alert/${encodeURIComponent(String(id))}`;
+    const res = await customFetch(url, {
+      method: 'PATCH',
+      token,
+      headers: { 'Content-Type': 'application/json' },
+      params: { lang_code: lang, source: 'web' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    const msg = json.message || json.error || '';
+    const responseIndication = json.response_indication || json.data?.response_indication;
+
+    // Detect error / restriction messages regardless of HTTP 200/201 status code
+    const isExplicitError = 
+      /become a member/i.test(msg) ||
+      /membership/i.test(msg) ||
+      /limit over/i.test(msg) ||
+      /limit reached/i.test(msg) ||
+      /quota/i.test(msg) ||
+      /not allowed/i.test(msg) ||
+      /unauthorized/i.test(msg) ||
+      /forbidden/i.test(msg) ||
+      (responseIndication && responseIndication !== 'CREATED' && responseIndication !== 'SUCCESS');
+
+    if (isExplicitError) {
+      return { 
+        success: false, 
+        error: msg || 'Failed to update alert', 
+        response_indication: responseIndication || (/member/i.test(msg) ? 'MEMBERSHIP_REQUIRED' : undefined)
+      };
+    }
+
+    // Backend returned explicit failure status
+    if (json.success === 0 || json.success === '0' || json.success === false || json.status === 0 || json.status === '0' || json.status === false) {
+      return { success: false, error: msg || 'Failed to update alert' };
+    }
+
+    const isSuccess = (
+      json.success === 1 || 
+      json.success === '1' ||
+      json.success === true || 
+      json.status === 1 || 
+      json.status === '1' ||
+      json.status === true ||
+      (res.ok && json.success === undefined && json.status === undefined)
+    );
+    
+    if (isSuccess) {
+      return { success: true, data: json, message: msg || 'Alert updated successfully' };
+    }
+    return { success: false, error: msg || 'Failed' };
   },
 
   addFavoriteProduct: async (payload: any, token?: string, lang: string = 'en') => {
@@ -877,13 +901,14 @@ export const tradingService = {
     const msg = json.message || '';
     
     const isSuccessMessage = msg.toLowerCase().includes('successfully') || msg.toLowerCase().includes('added');
-    const isErrorIndication = responseIndication && responseIndication !== 'CREATED' && !isSuccessMessage;
+    const isExplicitMemberOrLimitError = /become a member/i.test(msg) || /membership/i.test(msg) || /limit over/i.test(msg) || /limit reached/i.test(msg) || /quota/i.test(msg);
+    const isErrorIndication = ((responseIndication && responseIndication !== 'CREATED') || isExplicitMemberOrLimitError) && !isSuccessMessage;
 
     if (isErrorIndication) {
       return { 
         success: false, 
         error: msg || 'Action failed',
-        response_indication: responseIndication 
+        response_indication: responseIndication || (isExplicitMemberOrLimitError ? 'LIMIT_OVER' : undefined) 
       };
     }
 
@@ -968,6 +993,23 @@ export const tradingService = {
   }),
 
   /**
+   * Freight port price history
+   */
+  getFreightPriceHistory: cache(async (id: string | number, token?: string, lang: string = 'en') => {
+    const safeId = encodeURIComponent(String(id));
+    const url = `${getTradingApiUrl()}/favourite-port/price-history/${safeId}`;
+    const res = await customFetch(url, {
+      token,
+      params: { lang_code: lang, source: 'web' },
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok || json.success === 1 || json.success === true || Boolean(json.data)) {
+      return { success: true, data: json.data };
+    }
+    return { success: false, data: null, error: json.message };
+  }),
+
+  /**
    * Freight loading ports
    */
   getFreightLoadingPorts: cache(async (containerId: string, lang: string = 'en'): Promise<any[]> => {
@@ -1032,13 +1074,14 @@ export const tradingService = {
     const msg = json.message || '';
     
     const isSuccessMessage = msg.toLowerCase().includes('successfully') || msg.toLowerCase().includes('added');
-    const isErrorIndication = responseIndication && responseIndication !== 'CREATED' && !isSuccessMessage;
+    const isExplicitMemberOrLimitError = /become a member/i.test(msg) || /membership/i.test(msg) || /limit over/i.test(msg) || /limit reached/i.test(msg) || /quota/i.test(msg);
+    const isErrorIndication = ((responseIndication && responseIndication !== 'CREATED') || isExplicitMemberOrLimitError) && !isSuccessMessage;
 
     if (isErrorIndication) {
       return { 
         success: false, 
         error: msg || 'Action failed',
-        response_indication: responseIndication 
+        response_indication: responseIndication || (isExplicitMemberOrLimitError ? 'LIMIT_OVER' : undefined)
       };
     }
 

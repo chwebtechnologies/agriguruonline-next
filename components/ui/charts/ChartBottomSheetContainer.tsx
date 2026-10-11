@@ -104,6 +104,7 @@ export function ChartBottomSheetContainer({
         onClick={(e) => e.stopPropagation()}
       >
         <MobileCommodityChart
+          key={`${activeItem.id}-${initialTab || 'Overview'}`}
           item={activeItem}
           isFullScreen={true}
           onClose={onClose}

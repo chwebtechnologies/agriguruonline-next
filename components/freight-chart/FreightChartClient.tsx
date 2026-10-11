@@ -13,6 +13,7 @@ import { SwipeableCard } from '@/components/ui/charts/SwipeableCard';
 import { ChartMobileEmptyCard } from '@/components/ui/charts/ChartMobileEmptyCard';
 import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard';
 import { ChartBottomSheetContainer } from '@/components/ui/charts/ChartBottomSheetContainer';
+import { ChartCardOptionsBottomSheet } from '@/components/ui/charts/ChartCardOptionsBottomSheet';
 import {
   getFreightLoadingPortsAction,
   getFreightDestinationPortsAction,
@@ -123,11 +124,10 @@ export default function FreightChartClient({
             const freight = (item.freight != null ? Math.round(Number(item.freight)) : (item.current_freight != null ? Math.round(Number(item.current_freight)) : 0)).toString();
             const freightPmt = (item.freightPMT != null ? Math.round(Number(item.freightPMT)) : (item.freight_pmt != null ? Math.round(Number(item.freight_pmt)) : (item.price != null ? Math.round(Number(item.price)) : 0))).toString();
             const change = (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString();
-            const isChart = (val: any) => {
-              if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
-              return true;
+            const isExplicitlyDisabled = (val: any) => {
+              return val === false || val === 'false' || val === 'off' || val === 'disable' || val === 'disabled';
             };
-            const chartStatus = isChart(item.chart_status) && isChart(item.chartStatus);
+            const chartStatus = !(isExplicitlyDisabled(item.chart_status) || isExplicitlyDisabled(item.chartStatus) || isExplicitlyDisabled(item.is_chart));
             const loadCapacity = item.shipping_container?.default_load_capacity || item.load_capacity || 26;
             const loadUnit = item.shipping_container?.default_unit?.title || item.load_unit || 'MT';
             return {
@@ -179,6 +179,8 @@ export default function FreightChartClient({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [actionIndication, setActionIndication] = useState<{ isOpen: boolean; message: string; indication: string } | null>(null);
   const [activeBottomSheetId, setActiveBottomSheetId] = useState<string | null>(null);
+  const [selectedInitialTab, setSelectedInitialTab] = useState<string>('Overview');
+  const [selectedOptionsItem, setSelectedOptionsItem] = useState<any | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [disclaimerPos, setDisclaimerPos] = useState<'top' | 'bottom'>('bottom');
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
@@ -204,6 +206,21 @@ export default function FreightChartClient({
     if (!flagPath) return '';
     const baseUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com';
     return flagPath.startsWith('http') ? flagPath : `${baseUrl}/${flagPath.replace(/^\//, '')}`;
+  };
+
+  // Helper to render flag (supports images and emojis)
+  const renderFlag = (flagPath?: string, alt = '', className = 'w-[16px] h-[12px] object-cover rounded-[2px] shrink-0 border border-border') => {
+    if (!flagPath) return null;
+    if (!flagPath.includes('/') && !flagPath.includes('.') && !flagPath.startsWith('http')) {
+      return <span className="text-[14px] leading-none shrink-0">{flagPath}</span>;
+    }
+    return (
+      <img
+        src={getFlagUrl(flagPath)}
+        alt={alt}
+        className={className}
+      />
+    );
   };
 
   // 1. Handle Ship By selection -> dynamically fetch Loading Ports
@@ -373,7 +390,30 @@ export default function FreightChartClient({
   };
 
   const handleBooking = () => {
-    toast.info('Freight booking request initiated. Our logistics desk will get in touch.');
+    if (!initialUserType) {
+      router.push(`/${lang}/login`);
+      return;
+    }
+    toast.info('Freight inquiry request initiated. Our logistics desk will get in touch.');
+  };
+
+  const handleFreightOptionSelect = (optionKey: 'inquiry' | 'alert' | 'predict' | 'chart') => {
+    if (!selectedOptionsItem) return;
+    const item = selectedOptionsItem;
+    setSelectedOptionsItem(null);
+
+    if (optionKey === 'inquiry') {
+      handleBooking();
+    } else if (optionKey === 'alert') {
+      setSelectedInitialTab('Alert Setups');
+      setActiveBottomSheetId(String(item.id));
+    } else if (optionKey === 'predict') {
+      setSelectedInitialTab('AI Predict');
+      setActiveBottomSheetId(String(item.id));
+    } else if (optionKey === 'chart') {
+      setSelectedInitialTab('Overview');
+      setActiveBottomSheetId(String(item.id));
+    }
   };
 
   return (
@@ -678,41 +718,81 @@ export default function FreightChartClient({
                   const isPositive = changeVal >= 0;
                   const desktopRowBg = 'bg-card hover:bg-muted';
 
+                  // Determine Vessel/Bulk vs Container
+                  const isVesselOrBulk = Boolean(
+                    /vessel|bulk|break/i.test(item.shipBy || '') ||
+                    /vessel|bulk|break/i.test((item as any).originalItem?.shipping_container?.title || '') ||
+                    /vessel|bulk|break/i.test((item as any).originalItem?.shipping_container?.name || '') ||
+                    /vessel|bulk|break/i.test((item as any).originalItem?.shipment_type || '') ||
+                    /vessel|bulk|break/i.test((item as any).originalItem?.load_type || '')
+                  );
+
+                  // 1. Title: Vessel Ocean Freight or Container Ocean Freight
+                  const cardTitle = isVesselOrBulk ? 'Vessel Ocean Freight' : 'Container Ocean Freight';
+
+                  // 2. Subtitle (Row 3 Left):
+                  // For Vessel: "Vessel: Break Bulk"
+                  // For Container: "20ft FCL: 26 MT"
+                  let row3Left = '';
+                  if (isVesselOrBulk) {
+                    row3Left = 'Vessel: Break Bulk';
+                  } else {
+                    let containerPrefix = '20ft FCL';
+                    if (/40\s*(?:ft|foot)/i.test(item.shipBy || '')) {
+                      containerPrefix = '40ft FCL';
+                    } else if (/20\s*(?:ft|foot)/i.test(item.shipBy || '')) {
+                      containerPrefix = '20ft FCL';
+                    } else if (item.shipBy && item.shipBy !== 'N/A' && !/container/i.test(item.shipBy)) {
+                      containerPrefix = item.shipBy.includes('FCL') ? item.shipBy : `${item.shipBy} FCL`;
+                    }
+                    row3Left = `${containerPrefix}: ${item.loadCapacity || 26} ${item.loadUnit || 'MT'}`;
+                  }
+
+                  // 3. Price Display (Row 2 Right): "( PMT ) $60"
+                  const displayPrice = item.freightPmt && item.freightPmt !== '0' ? item.freightPmt : (item.freight || '0');
+
                   return (
                     <div key={item.id || index}>
-                      {/* Mobile/Tablet Card Layout (Matching Screenshot 2 Exactly) */}
+                      {/* Mobile/Tablet Card Layout */}
                       <SwipeableCard
                         onDelete={() => setDeleteConfirmId(item.id)}
+                        onChart={item.chartStatus ? () => {
+                          setSelectedInitialTab('Overview');
+                          setActiveBottomSheetId(String(item.id));
+                        } : undefined}
                       >
                         <ChartMobileItemCard
                           row1Left={
                             <>
-                              {item.polFlag && (
-                                <img
-                                  src={getFlagUrl(item.polFlag)}
-                                  alt="POL"
-                                  className="w-[16px] h-[12px] object-cover rounded-[2px] shrink-0 border border-border"
-                                />
-                              )}
-                              <span>POL: {item.pol}</span>
+                              {renderFlag(item.polFlag, 'POL')}
+                              <span className="truncate">POL : {item.pol}</span>
                             </>
                           }
                           row1Right={
                             <>
-                              <span>POD: {item.pod}</span>
-                              {item.podFlag && (
-                                <img
-                                  src={getFlagUrl(item.podFlag)}
-                                  alt="POD"
-                                  className="w-[16px] h-[12px] object-cover rounded-[2px] shrink-0 border border-border"
-                                />
-                              )}
+                              <span className="truncate">POD: {item.pod}</span>
+                              {renderFlag(item.podFlag, 'POD')}
                             </>
                           }
-                          title={`Freight (PMT): $${item.freightPmt}`}
-                          priceDisplay={`(${item.shipBy}) $${item.freight}`}
-                          onOptionsClick={() => setDeleteConfirmId(item.id)}
-                          row3Left={`FCL: ${item.loadCapacity || 26} ${item.loadUnit || 'MT'}`}
+                          title={cardTitle}
+                          titleClassName="font-bold text-[15px] leading-tight text-foreground truncate min-w-0"
+                          priceDisplay={
+                            <span className="flex items-center gap-1 font-bold">
+                              <span className="text-muted-foreground font-normal text-[13px] sm:text-[14px] tracking-tight">( PMT )</span>
+                              <span className="text-[15px] sm:text-[16px] text-foreground font-bold tracking-tight">${displayPrice}</span>
+                            </span>
+                          }
+                          priceClassName="text-foreground shrink-0"
+                          onCardClick={() => {
+                            if (item.chartStatus) {
+                              setSelectedInitialTab('Overview');
+                              setActiveBottomSheetId(String(item.id));
+                            }
+                          }}
+                          onOptionsClick={() => {
+                            setSelectedOptionsItem(item);
+                          }}
+                          row3Left={row3Left}
                           changeValue={item.change}
                           isPositive={isPositive}
                         />
@@ -727,25 +807,13 @@ export default function FreightChartClient({
 
                         {/* 2. Loading Port with Flag */}
                         <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.pol}>
-                          {item.polFlag && (
-                            <img
-                              src={getFlagUrl(item.polFlag)}
-                              alt="POL Flag"
-                              className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border"
-                            />
-                          )}
+                          {renderFlag(item.polFlag, 'POL Flag', 'w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border')}
                           <span className="truncate min-w-0 font-medium">{item.pol}</span>
                         </div>
 
                         {/* 3. Destination Port with Flag */}
                         <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.pod}>
-                          {item.podFlag && (
-                            <img
-                              src={getFlagUrl(item.podFlag)}
-                              alt="POD Flag"
-                              className="w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border"
-                            />
-                          )}
+                          {renderFlag(item.podFlag, 'POD Flag', 'w-5 h-3.5 object-cover rounded-[2px] shrink-0 border border-border')}
                           <span className="truncate min-w-0 font-medium">{item.pod}</span>
                         </div>
 
@@ -765,12 +833,17 @@ export default function FreightChartClient({
                           <span className="truncate">{isPositive ? `+${changeVal}$` : `${changeVal}$`}</span>
                         </div>
 
-                        {/* 7. Chart Icon (Disabled for now as requested) */}
+                        {/* 7. Chart Icon */}
                         <div
-                          className="w-full flex items-center justify-center text-center cursor-not-allowed opacity-35 min-w-0 select-none"
-                          title="Chart coming soon"
+                          role="button"
+                          tabIndex={item.chartStatus ? 0 : -1}
+                          aria-label={item.chartStatus ? `View ${item.shipBy} chart` : "Chart not available"}
+                          className={`w-full flex items-center justify-center text-center transition-transform min-w-0 ${item.chartStatus ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed opacity-50'}`}
+                          onClick={() => { if (item.chartStatus) { setSelectedInitialTab('Overview'); setActiveBottomSheetId(String(item.id)); } }}
+                          onKeyDown={(e) => { if (item.chartStatus && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setSelectedInitialTab('Overview'); setActiveBottomSheetId(String(item.id)); } }}
+                          title={item.chartStatus ? (common?.view_freight_chart || "View Freight Chart") : (common?.chart_not_available || "Chart Not Available")}
                         >
-                          <i className="fa-solid fa-chart-area text-[18px] text-zinc-400 dark:text-zinc-600"></i>
+                          <i className={`fa-solid fa-chart-area text-[16px] xl:text-[18px] ${item.chartStatus ? 'text-brand-blue dark:text-blue-400' : 'text-zinc-400'}`}></i>
                         </div>
 
                         {/* 8. Reusable Action Buttons (Book & Delete) */}
@@ -801,7 +874,7 @@ export default function FreightChartClient({
             onClick={handleBooking}
             className="w-full md:w-auto inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
           >
-            Inquiry / Booking <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+            Freight Inquiry <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
           </button>
           
           <div className="relative flex items-center justify-center gap-4 px-2">
@@ -853,7 +926,7 @@ export default function FreightChartClient({
           />
           {/* Empty Placeholder for Desktop to keep Warning centered */}
           <div className="hidden lg:inline-flex px-4 py-2 sm:px-5 sm:py-2.5 invisible pointer-events-none select-none" aria-hidden="true">
-            Inquiry / Booking <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+            Freight Inquiry <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
           </div>
         </div>
       </div>
@@ -899,8 +972,8 @@ export default function FreightChartClient({
           podFlag: activeItem.podFlag,
           price: activeItem.freightPmt,
           change: activeItem.change,
-          chartStatus: activeItem.chartStatus,
-          category: 'Ocean Freight',
+          chartStatus: true,
+          category: 'FREIGHT',
           country: activeItem.pol,
           countryFlag: activeItem.polFlag
         };
@@ -910,10 +983,86 @@ export default function FreightChartClient({
             onClose={() => setActiveBottomSheetId(null)}
             userType={initialUserType}
             lang={lang}
+            initialTab={selectedInitialTab}
             swipeText="Swipe up for Freight Details"
           />
         );
       })()}
+
+      {/* 3-Dots Options Bottom Sheet for Swipable Cards */}
+      <ChartCardOptionsBottomSheet
+        isOpen={selectedOptionsItem !== null}
+        onClose={() => setSelectedOptionsItem(null)}
+        itemType="freight"
+        userType={initialUserType}
+        onSelectOption={handleFreightOptionSelect}
+        isChartAvailable={selectedOptionsItem?.chartStatus !== false}
+        cardNode={selectedOptionsItem && (() => {
+          const item = selectedOptionsItem;
+          const changeVal = Number(item.change) || 0;
+          const isPositive = changeVal >= 0;
+          const isVesselOrBulk = Boolean(
+            /vessel|bulk|break/i.test(item.shipBy || '') ||
+            /vessel|bulk|break/i.test((item as any).originalItem?.shipment_type || '') ||
+            /vessel|bulk|break/i.test((item as any).originalItem?.load_type || '')
+          );
+          const cardTitle = isVesselOrBulk ? 'Vessel Ocean Freight' : 'Container Ocean Freight';
+          let row3Left = '';
+          if (isVesselOrBulk) {
+            row3Left = 'Vessel: Break Bulk';
+          } else {
+            let containerPrefix = '20ft FCL';
+            if (/40\s*(?:ft|foot)/i.test(item.shipBy || '')) {
+              containerPrefix = '40ft FCL';
+            } else if (/20\s*(?:ft|foot)/i.test(item.shipBy || '')) {
+              containerPrefix = '20ft FCL';
+            } else if (item.shipBy && item.shipBy !== 'N/A' && !/container/i.test(item.shipBy)) {
+              containerPrefix = item.shipBy.includes('FCL') ? item.shipBy : `${item.shipBy} FCL`;
+            }
+            row3Left = `${containerPrefix}: ${item.loadCapacity || 26} ${item.loadUnit || 'MT'}`;
+          }
+          const displayPrice = item.freightPmt && item.freightPmt !== '0' ? item.freightPmt : (item.freight || '0');
+
+          return (
+            <ChartMobileItemCard
+              row1Left={
+                <>
+                  {renderFlag(item.polFlag, 'POL')}
+                  <span className="truncate">POL : {item.pol}</span>
+                </>
+              }
+              row1Right={
+                <>
+                  <span className="truncate">POD: {item.pod}</span>
+                  {renderFlag(item.podFlag, 'POD')}
+                </>
+              }
+              title={cardTitle}
+              titleClassName="font-bold text-[15px] leading-tight text-foreground truncate min-w-0"
+              priceDisplay={
+                <span className="flex items-center gap-1 font-bold">
+                  <span className="text-muted-foreground font-normal text-[13px] sm:text-[14px] tracking-tight">( PMT )</span>
+                  <span className="text-[15px] sm:text-[16px] text-foreground font-bold tracking-tight">${displayPrice}</span>
+                </span>
+              }
+              priceClassName="text-foreground shrink-0"
+              actionButton={
+                <button
+                  type="button"
+                  onClick={() => setSelectedOptionsItem(null)}
+                  className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground active:bg-muted rounded-full transition-colors cursor-pointer"
+                  aria-label="Close options"
+                >
+                  <i className="fa-solid fa-xmark text-[16px]"></i>
+                </button>
+              }
+              row3Left={row3Left}
+              changeValue={item.change}
+              isPositive={isPositive}
+            />
+          );
+        })()}
+      />
 
       {/* Full-Screen Mobile Add Freight Form (Matching Product Charts) */}
       {showMobileAddForm && (

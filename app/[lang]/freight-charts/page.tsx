@@ -98,12 +98,10 @@ async function getFreightInitialData(lang: string = 'en') {
         const freightPmt = (item.freightPMT != null ? Math.round(Number(item.freightPMT)) : (item.freight_pmt != null ? Math.round(Number(item.freight_pmt)) : (item.price != null ? Math.round(Number(item.price)) : 0))).toString();
         const change = (item.change != null ? Math.round(Number(item.change)) : (item.price_change != null ? Math.round(Number(item.price_change)) : (item.change_percentage != null ? Math.round(Number(item.change_percentage)) : 0))).toString();
 
-        const isChart = (val: any) => {
-          if (val === false || val === 0 || val === '0' || val === 'off' || val === 'false' || val === 'disable' || val === 'disabled') return false;
-          return true;
+        const isExplicitlyDisabled = (val: any) => {
+          return val === false || val === 'false' || val === 'off' || val === 'disable' || val === 'disabled';
         };
-
-        const chartStatus = isChart(item.chart_status) && isChart(item.chartStatus);
+        const chartStatus = !(isExplicitlyDisabled(item.chart_status) || isExplicitlyDisabled(item.chartStatus) || isExplicitlyDisabled(item.is_chart));
 
         const loadCapacity = item.shipping_container?.default_load_capacity || item.load_capacity || 26;
         const loadUnit = item.shipping_container?.default_unit?.title || item.load_unit || 'MT';
