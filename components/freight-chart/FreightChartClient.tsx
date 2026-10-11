@@ -994,7 +994,7 @@ export default function FreightChartClient({
                       <i className="fa-solid fa-circle-info text-blue-500 mt-1"></i>
                       <div className="space-y-1 text-sm">
                         <div className="font-semibold text-foreground/80">Ocean Freight Details:</div>
-                        <div className="text-foreground/80">Rate type: USD/PMT & Total FCL Container Cost</div>
+                        <div className="text-foreground/80">Rate type: USD/PMT</div>
                       </div>
                     </div>
                   </div>

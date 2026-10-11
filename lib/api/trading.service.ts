@@ -388,11 +388,17 @@ export const tradingService = {
     const url = `${tradingApiUrl}/favourite-port`;
 
     try {
-      const json = await customFetchJSON<any>(url, {
+      let json = await customFetchJSON<any>(url, {
         token,
         params: { lang_code: lang, source: 'web' },
         cache: 'no-store',
       });
+      if (!json && token) {
+        json = await customFetchJSON<any>(url, {
+          params: { lang_code: lang, source: 'web' },
+          cache: 'no-store',
+        });
+      }
       const rawFavs = json?.data?.favourite_ports || json?.data?.favorite_ports || json?.data?.favourite_port || json?.data?.favorite_port || json?.data?.ports || (Array.isArray(json?.data) ? json.data : []);
       return Array.isArray(rawFavs) ? rawFavs : [];
     } catch (error) {
@@ -895,6 +901,19 @@ export const tradingService = {
       return { success: true, data: json.data || json, message: msg || 'Product added successfully!' };
     }
     
+    if (!res.ok && res.status === 401 && token) {
+      const retryRes = await customFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        params: { lang_code: lang, source: 'web' },
+        body: JSON.stringify(payload),
+      });
+      const retryJson = await retryRes.json().catch(() => ({}));
+      if (retryRes.ok || retryJson.success === 1 || retryJson.status === true) {
+        return { success: true, data: retryJson.data || retryJson, message: retryJson.message || 'Product added successfully!' };
+      }
+    }
+
     return { 
       success: false, 
       error: msg || json.error || 'Failed to add favorite product. Please check your selection.' 
@@ -1036,6 +1055,19 @@ export const tradingService = {
       return { success: true, data: json.data || json, message: msg || 'Freight added successfully' };
     }
     
+    if (!res.ok && res.status === 401 && token) {
+      const retryRes = await customFetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        params: { lang_code: lang, source: 'web' },
+        body: JSON.stringify(payload),
+      });
+      const retryJson = await retryRes.json().catch(() => ({}));
+      if (retryRes.ok || retryJson.success === 1 || retryJson.status === true) {
+        return { success: true, data: retryJson.data || retryJson, message: retryJson.message || 'Freight added successfully' };
+      }
+    }
+
     return { 
       success: false, 
       error: msg || json.error || 'Failed to add freight. Please check your selection.' 

@@ -131,6 +131,8 @@ export async function getShippingTermsAction(
   }
 }
 
+import { refreshTokensAction } from "@/app/actions/auth";
+
 /**
  * Add favorite product on server side
  */
@@ -142,9 +144,24 @@ export async function addFavoriteProductAction(
     const cookieStore = await cookies();
     let token = cookieStore.get("auth_token")?.value;
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        token = refreshRes.access_token;
+      }
+    }
     const safeLang = getSafeLang(lang);
 
-    return await tradingService.addFavoriteProduct(payload, token, safeLang);
+    const result = await tradingService.addFavoriteProduct(payload, token, safeLang);
+    if (!result.success && result.error && /unauthori/i.test(result.error)) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        return await tradingService.addFavoriteProduct(payload, refreshRes.access_token, safeLang);
+      } else {
+        return await tradingService.addFavoriteProduct(payload, undefined, safeLang);
+      }
+    }
+    return result;
   } catch (err: any) {
     console.error("addFavoriteProductAction error:", err);
     return { success: false, error: err.message };
@@ -162,9 +179,22 @@ export async function deleteFavoriteProductAction(
     const cookieStore = await cookies();
     let token = cookieStore.get("auth_token")?.value;
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        token = refreshRes.access_token;
+      }
+    }
     const safeLang = getSafeLang(lang);
 
-    return await tradingService.deleteFavoriteProduct(id, token, safeLang);
+    const result = await tradingService.deleteFavoriteProduct(id, token, safeLang);
+    if (!result.success && result.error && /unauthori/i.test(result.error)) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        return await tradingService.deleteFavoriteProduct(id, refreshRes.access_token, safeLang);
+      }
+    }
+    return result;
   } catch (err: any) {
     console.error("deleteFavoriteProductAction error:", err);
     return { success: false, error: err.message };

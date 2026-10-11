@@ -10,6 +10,7 @@ import SearchableCountrySelect from "@/components/ui/SearchableCountrySelect";
 import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput"; 
 import type { Category } from "@/lib/category";
 import { updateProfile } from "@/app/actions/profile";
+import { getDefaultUserCountry } from "@/lib/country";
 
 interface ProfileFormProps {
   categories?: Category[];
@@ -369,7 +370,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                 <label className={`text-sm font-semibold pl-0.5 ${errors.phone ? 'text-red-500' : 'text-foreground/90'}`}>Mobile Number <span className="text-red-500">*</span></label>
                 <div className={errors.phone ? 'border border-red-500 rounded-xl focus-within:ring-2 focus-within:ring-red-500/20' : ''}>
                   <SearchablePhoneInput
-                    defaultCountry="AE"
+                    defaultCountry={getDefaultUserCountry()}
                     value={phone}
                     onChange={(val) => {
                       setPhone(val || "");
@@ -384,7 +385,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                 <label className={`text-sm font-semibold pl-0.5 ${errors.altNumber ? 'text-red-500' : 'text-foreground/90'}`}>Alternate Number <span className={`font-normal text-xs ${errors.altNumber ? 'text-red-500/60' : 'text-foreground/40'}`}>(Optional)</span></label>
                 <div className={errors.altNumber ? 'border border-red-500 rounded-xl focus-within:ring-2 focus-within:ring-red-500/20' : ''}>
                   <SearchablePhoneInput
-                    defaultCountry="AE"
+                    defaultCountry={getDefaultUserCountry()}
                     value={altNumber}
                     onChange={(val) => {
                       setAltNumber(val || "");

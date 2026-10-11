@@ -58,6 +58,8 @@ export async function getFreightDestinationPortsAction(
   }
 }
 
+import { refreshTokensAction } from "@/app/actions/auth";
+
 /**
  * Fetch favourite freight ports for user
  */
@@ -68,6 +70,12 @@ export async function getFavoritePortsAction(
     const cookieStore = await cookies();
     let token = cookieStore.get("auth_token")?.value;
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        token = refreshRes.access_token;
+      }
+    }
     const safeLang = getSafeLang(lang);
 
     const ports = await tradingService.getFavoritePorts(token || "", safeLang);
@@ -93,9 +101,25 @@ export async function addFavoritePortAction(
     const cookieStore = await cookies();
     let token = cookieStore.get("auth_token")?.value;
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        token = refreshRes.access_token;
+      }
+    }
     const safeLang = getSafeLang(lang);
 
-    return await tradingService.addFavoritePort(payload, token, safeLang);
+    const result = await tradingService.addFavoritePort(payload, token, safeLang);
+    if (!result.success && result.error && /unauthori/i.test(result.error)) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        return await tradingService.addFavoritePort(payload, refreshRes.access_token, safeLang);
+      } else {
+        // Fallback to guest add if token is expired/invalid
+        return await tradingService.addFavoritePort(payload, undefined, safeLang);
+      }
+    }
+    return result;
   } catch (err: any) {
     console.error("addFavoritePortAction error:", err);
     return { success: false, error: err.message };
@@ -113,9 +137,22 @@ export async function deleteFavoritePortAction(
     const cookieStore = await cookies();
     let token = cookieStore.get("auth_token")?.value;
     if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        token = refreshRes.access_token;
+      }
+    }
     const safeLang = getSafeLang(lang);
 
-    return await tradingService.deleteFavoritePort(id, token, safeLang);
+    const result = await tradingService.deleteFavoritePort(id, token, safeLang);
+    if (!result.success && result.error && /unauthori/i.test(result.error)) {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes.success && refreshRes.access_token) {
+        return await tradingService.deleteFavoritePort(id, refreshRes.access_token, safeLang);
+      }
+    }
+    return result;
   } catch (err: any) {
     console.error("deleteFavoritePortAction error:", err);
     return { success: false, error: err.message };

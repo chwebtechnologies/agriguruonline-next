@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import PhoneInput, { isValidPhoneNumber, parsePhoneNumber, type Country } from "react-phone-number-input";
+import { isValidPhoneNumber, parsePhoneNumber, type Country } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { toast } from "sonner";
 import { createSession } from "@/app/actions/auth";
 import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput";
 import { authService } from "@/lib/api";
+import { getDefaultUserCountry, getCountryName, fetchGeoCountry } from "@/lib/country";
 
 interface RegisterStepProps {
   email: string;
@@ -19,15 +20,18 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
-  const [country, setCountry] = useState<Country | undefined>("AE" as Country);
+  const [country, setCountry] = useState<Country>(getDefaultUserCountry());
+  const [isPhoneTouched, setIsPhoneTouched] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    // Optionally fetch timezone based country code if needed using Intl API
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      // Default to AE, could map timezone to country if really needed without external API
-    } catch (e) {}
+    // Attempt asynchronous geo refinement if available
+    fetchGeoCountry().then((geo) => {
+      if (geo) {
+        setCountry((prev) => (prev === "IN" || prev === "AE" ? geo : prev));
+      }
+    });
 
     // Pre-fill from Apple if available
     const appleFirstName = localStorage.getItem("apple_first_name") || "";
@@ -37,13 +41,23 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
     }
   }, []);
 
-  const phoneError = phone.length > 0 && !isValidPhoneNumber(phone);
-  const isFormValid = fullName.trim() !== "" && companyName.trim() !== "" && phone && !phoneError;
+  const isPhoneValid = Boolean(phone && isValidPhoneNumber(phone));
+  // Show error only after blur, submit attempt, or typing a complete number length that is invalid
+  const phoneDigitsLength = phone.replace(/\D/g, "").length;
+  const showPhoneError = Boolean(
+    phone.length > 0 &&
+    (isPhoneTouched || hasSubmitted || phoneDigitsLength >= 10) &&
+    !isPhoneValid
+  );
+
+  const isFormValid = fullName.trim() !== "" && companyName.trim() !== "" && isPhoneValid;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setHasSubmitted(true);
     if (!phone || !isValidPhoneNumber(phone)) {
-      toast.error("Please enter a valid mobile number.");
+      setIsPhoneTouched(true);
+      toast.error(`Please enter a valid mobile number for ${getCountryName(country)}.`);
       return;
     }
     
@@ -127,7 +141,7 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
         </span>
       </div>
 
-      <form onSubmit={handleSubmit} className="w-full">
+      <form onSubmit={handleSubmit} noValidate className="w-full">
         <div className="mb-5">
           <label htmlFor="fullName" className="block text-[13px] font-bold text-foreground mb-1.5">
             Full Name <span className="text-brand-red">*</span>
@@ -174,13 +188,17 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
           </label>
           <div className="custom-phone-wrapper">
             <SearchablePhoneInput
-              defaultCountry={country}
+              country={country}
+              onCountryChange={setCountry}
               value={phone}
-              onChange={(val) => setPhone(val || "")}
+              onChange={(val) => {
+                setPhone(val || "");
+              }}
+              onBlur={() => setIsPhoneTouched(true)}
             />
-            {phoneError && (
+            {showPhoneError && (
               <p className="text-red-500 text-sm mt-1.5 font-medium animate-in fade-in slide-in-from-top-1">
-                Please enter a valid mobile number for {country || "this country"}.
+                Please enter a valid mobile number for {getCountryName(country)}.
               </p>
             )}
           </div>

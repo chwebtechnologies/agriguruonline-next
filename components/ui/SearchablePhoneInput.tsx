@@ -1,30 +1,45 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { getCountryCallingCode, parsePhoneNumber, type Country } from "react-phone-number-input";
 import { AsYouType } from "libphonenumber-js";
 import SearchableCountrySelect from "./SearchableCountrySelect";
+import { getDefaultUserCountry } from "@/lib/country";
 
 export interface SearchablePhoneInputProps {
   value?: string;
   onChange: (value: string) => void;
+  country?: Country;
+  onCountryChange?: (country: Country) => void;
   defaultCountry?: Country;
   className?: string;
   placeholder?: string;
   disabled?: boolean;
   required?: boolean;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }
 
 export default function SearchablePhoneInput({
   value = "",
   onChange,
-  defaultCountry = "AE",
+  country: controlledCountry,
+  onCountryChange,
+  defaultCountry,
   className,
   placeholder,
   disabled = false,
+  onBlur,
+  onFocus,
 }: SearchablePhoneInputProps) {
-  // Determine initial country and national number digits from value
+  // Determine effective default country (user detected location or prop)
+  const resolvedDefaultCountry = useMemo<Country>(() => {
+    return defaultCountry || getDefaultUserCountry();
+  }, [defaultCountry]);
+
+  // Determine initial country from value or default
   const initialCountry = useMemo<Country>(() => {
+    if (controlledCountry) return controlledCountry;
     if (value) {
       try {
         const parsed = parsePhoneNumber(value);
@@ -33,10 +48,17 @@ export default function SearchablePhoneInput({
         }
       } catch {}
     }
-    return defaultCountry;
-  }, [value, defaultCountry]);
+    return resolvedDefaultCountry;
+  }, [value, controlledCountry, resolvedDefaultCountry]);
 
   const [country, setCountry] = useState<Country>(initialCountry);
+
+  // Sync controlled country prop if provided
+  useEffect(() => {
+    if (controlledCountry && controlledCountry !== country) {
+      setCountry(controlledCountry);
+    }
+  }, [controlledCountry, country]);
 
   // Extract initial national digits
   const getNationalDigitsFromValue = (val: string, c: Country) => {
@@ -49,12 +71,16 @@ export default function SearchablePhoneInput({
     } catch {}
 
     // Fallback: remove non-digits and strip country code if present
-    const callingCode = getCountryCallingCode(c);
-    let clean = val.replace(/\D/g, "");
-    if (clean.startsWith(callingCode)) {
-      clean = clean.slice(callingCode.length);
+    try {
+      const callingCode = getCountryCallingCode(c);
+      let clean = val.replace(/\D/g, "");
+      if (clean.startsWith(callingCode)) {
+        clean = clean.slice(callingCode.length);
+      }
+      return clean;
+    } catch {
+      return val.replace(/\D/g, "");
     }
-    return clean;
   };
 
   const [nationalDigits, setNationalDigits] = useState(() =>
@@ -62,41 +88,46 @@ export default function SearchablePhoneInput({
   );
 
   const [prevValue, setPrevValue] = useState(value);
-  const [prevDefaultCountry, setPrevDefaultCountry] = useState(defaultCountry);
 
+  // Sync when parent value prop changes
   if (value !== prevValue) {
     setPrevValue(value);
-    if (value) {
+    if (!value) {
+      setNationalDigits("");
+    } else {
       try {
         const parsed = parsePhoneNumber(value);
         if (parsed?.country) {
-          setCountry(parsed.country as Country);
+          if (parsed.country !== country) {
+            setCountry(parsed.country as Country);
+            onCountryChange?.(parsed.country as Country);
+          }
           setNationalDigits(parsed.nationalNumber);
         }
       } catch {}
     }
   }
 
-  if (defaultCountry !== prevDefaultCountry) {
-    setPrevDefaultCountry(defaultCountry);
-    if (!value && defaultCountry) {
-      setCountry(defaultCountry);
-    }
-  }
-
   // Format national number for display
   const formattedDisplay = useMemo(() => {
     if (!nationalDigits) return "";
-    const formatter = new AsYouType(country);
-    return formatter.input(nationalDigits);
+    try {
+      const formatter = new AsYouType(country);
+      return formatter.input(nationalDigits);
+    } catch {
+      return nationalDigits;
+    }
   }, [nationalDigits, country]);
 
   // Dynamic placeholder for current country
   const dynamicPlaceholder = useMemo(() => {
     if (placeholder) return placeholder;
-    // Generate example national placeholder
-    const sample = new AsYouType(country).input("501234567");
-    return sample || "Enter mobile number";
+    try {
+      const sample = new AsYouType(country).input("501234567");
+      return sample || "Enter mobile number";
+    } catch {
+      return "Enter mobile number";
+    }
   }, [country, placeholder]);
 
   // Update country from dropdown selection
@@ -104,35 +135,68 @@ export default function SearchablePhoneInput({
     if (!newCountryCode) return;
     const newCountry = newCountryCode as Country;
     setCountry(newCountry);
+    onCountryChange?.(newCountry);
 
     // Emit updated E.164 phone string if digits exist
     if (nationalDigits) {
-      const callingCode = getCountryCallingCode(newCountry);
-      const fullValue = `+${callingCode}${nationalDigits}`;
-      onChange(fullValue);
+      try {
+        const callingCode = getCountryCallingCode(newCountry);
+        const fullValue = `+${callingCode}${nationalDigits}`;
+        onChange(fullValue);
+      } catch {}
     }
   };
 
-  // Handle typing inside phone input box (NUMBERS ONLY)
+  // Handle typing or pasting inside phone input box
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value;
-    // Strictly extract numeric digits only
-    const digitsOnly = rawVal.replace(/\D/g, "");
-    setNationalDigits(digitsOnly);
 
-    if (!digitsOnly) {
-      onChange("");
-      return;
+    // Check if user pasted an international number starting with '+'
+    if (rawVal.trim().startsWith("+")) {
+      try {
+        const parsed = parsePhoneNumber(rawVal.trim());
+        if (parsed?.country) {
+          const newCountry = parsed.country as Country;
+          setCountry(newCountry);
+          onCountryChange?.(newCountry);
+          setNationalDigits(parsed.nationalNumber);
+          onChange(parsed.number);
+          return;
+        }
+      } catch {}
     }
 
-    const callingCode = getCountryCallingCode(country);
-    const fullValue = `+${callingCode}${digitsOnly}`;
-    onChange(fullValue);
+    // Extract numeric digits only
+    let digitsOnly = rawVal.replace(/\D/g, "");
+
+    try {
+      const callingCode = getCountryCallingCode(country);
+      // If user pasted or typed national number with calling code already attached
+      if (digitsOnly.startsWith(callingCode) && digitsOnly.length > callingCode.length + 5) {
+        digitsOnly = digitsOnly.slice(callingCode.length);
+      }
+      // If user typed domestic leading 0 (e.g. 09876543210 in India)
+      if (digitsOnly.startsWith("0") && digitsOnly.length > 10) {
+        digitsOnly = digitsOnly.replace(/^0+/, "");
+      }
+
+      setNationalDigits(digitsOnly);
+
+      if (!digitsOnly) {
+        onChange("");
+        return;
+      }
+
+      const fullValue = `+${callingCode}${digitsOnly}`;
+      onChange(fullValue);
+    } catch {
+      setNationalDigits(digitsOnly);
+      onChange(digitsOnly);
+    }
   };
 
   // Restrict keypresses to numbers, backspace, navigation keys
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Allow navigation, delete, tab, enter, copy-paste
     if (
       [
         "Backspace",
@@ -153,8 +217,8 @@ export default function SearchablePhoneInput({
       return;
     }
 
-    // Prevent non-numeric characters (like '+', '-', letters, symbols)
-    if (!/^[0-9]$/.test(e.key)) {
+    // Prevent non-numeric characters (allow numbers and '+' for pasting)
+    if (!/^[0-9+]$/.test(e.key)) {
       e.preventDefault();
     }
   };
@@ -173,15 +237,16 @@ export default function SearchablePhoneInput({
         showDialCode={true}
       />
 
-      {/* Number Input (Strictly digits, no duplicate country code) */}
+      {/* Number Input (No HTML pattern validation to avoid browser popups with formatted spaces) */}
       <input
         type="tel"
         aria-label="Phone number"
         inputMode="numeric"
-        pattern="[0-9]*"
         value={formattedDisplay}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
+        onBlur={onBlur}
+        onFocus={onFocus}
         placeholder={dynamicPlaceholder}
         disabled={disabled}
         className="w-full bg-transparent outline-none text-foreground text-sm font-medium placeholder:text-foreground/30 pl-1"

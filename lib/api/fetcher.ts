@@ -128,43 +128,74 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
         continue;
       }
 
-      // 401 Interceptor for client-side fetches
-      if (res.status === 401 && typeof window !== 'undefined' && isAuthRequest && !finalUrl.includes('/auth/refresh-token')) {
-        if (!isRefreshing) {
-          isRefreshing = true;
-          try {
-            const result = await refreshTokensAction();
-            if (result.success && result.access_token) {
-              onRefreshed(result.access_token);
-            } else {
+      // 401 Interceptor for both server-side and client-side fetches
+      if (res.status === 401 && isAuthRequest && !finalUrl.includes('/auth/refresh-token')) {
+        if (typeof window !== 'undefined') {
+          if (!isRefreshing) {
+            isRefreshing = true;
+            try {
+              const result = await refreshTokensAction();
+              if (result.success && result.access_token) {
+                onRefreshed(result.access_token);
+              } else {
+                onRefreshed('');
+                window.location.href = '/en/login';
+              }
+            } catch (error) {
               onRefreshed('');
               window.location.href = '/en/login';
+            } finally {
+              isRefreshing = false;
+            }
+          }
+
+          // Wait for the token refresh to finish before retrying
+          const retryPromise = new Promise((resolve) => {
+            addRefreshSubscriber(async (newTokenStatus) => {
+              if (newTokenStatus) {
+                if (headers.has('Authorization')) {
+                  headers.set('Authorization', `Bearer ${newTokenStatus}`);
+                  fetchInit.headers = headers;
+                }
+                resolve(await fetch(finalUrl, fetchInit));
+              } else {
+                resolve(res); // Return original 401 if refresh failed
+              }
+            });
+          });
+          
+          clearTimeout(timeoutId);
+          return (await retryPromise) as Response;
+        } else {
+          // Server-side (Server Components and Server Actions)
+          try {
+            const refreshRes = await refreshTokensAction();
+            if (refreshRes.success && refreshRes.access_token) {
+              const retryHeaders = new Headers(fetchInit.headers);
+              retryHeaders.set('Authorization', `Bearer ${refreshRes.access_token}`);
+              fetchInit.headers = retryHeaders;
+              clearTimeout(timeoutId);
+              const retriedRes = await fetch(finalUrl, fetchInit);
+              if (retriedRes.status !== 401) {
+                return retriedRes;
+              }
             }
           } catch (error) {
-            onRefreshed('');
-            window.location.href = '/en/login';
-          } finally {
-            isRefreshing = false;
+            console.error('[customFetch] Server-side token refresh error:', error);
+          }
+
+          // If token refresh failed or retried 401, but this endpoint supports guest access (favourite-port or favorite-product)
+          if (finalUrl.includes('/favourite-port') || finalUrl.includes('/favorite-product')) {
+            const guestHeaders = new Headers(fetchInit.headers);
+            guestHeaders.delete('Authorization');
+            fetchInit.headers = guestHeaders;
+            clearTimeout(timeoutId);
+            const guestRes = await fetch(finalUrl, fetchInit);
+            if (guestRes.ok) {
+              return guestRes;
+            }
           }
         }
-
-        // Wait for the token refresh to finish before retrying
-        const retryPromise = new Promise((resolve) => {
-          addRefreshSubscriber(async (newTokenStatus) => {
-            if (newTokenStatus) {
-              if (headers.has('Authorization')) {
-                headers.set('Authorization', `Bearer ${newTokenStatus}`);
-                fetchInit.headers = headers;
-              }
-              resolve(await fetch(finalUrl, fetchInit));
-            } else {
-              resolve(res); // Return original 401 if refresh failed
-            }
-          });
-        });
-        
-        clearTimeout(timeoutId);
-        return (await retryPromise) as Response;
       }
       
       clearTimeout(timeoutId);
