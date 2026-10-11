@@ -168,7 +168,6 @@ export function AppMenu({
       { label: dict?.header?.messages || 'Messages', icon: 'fa-solid fa-comment-dots', href: 'https://wa.me/918980131000?text=Hey%2C%20I%20want%20to%20connect%21', iconBg: 'bg-green-500' },
       { label: dict?.header?.my_settings || 'My Settings', icon: 'fa-solid fa-gear', href: '#', iconBg: 'bg-slate-500' },
       { label: dict?.header?.my_profile || 'My Profile', icon: 'fa-solid fa-circle-user', href: `/${lang}/profile`, iconBg: 'bg-slate-500' },
-      { label: dict?.header?.payment_history || 'Payment History', icon: 'fa-solid fa-receipt', href: `/${lang}/profile/payment-history`, iconBg: 'bg-indigo-500' },
     ]
   ];
 
