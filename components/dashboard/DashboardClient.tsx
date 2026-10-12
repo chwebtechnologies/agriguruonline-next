@@ -5,8 +5,54 @@ import Link from 'next/link';
 import { 
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
+import { toast } from 'sonner';
+import { getSubscriptionInvoiceAction } from '@/app/actions/membership';
 
 import type { DashboardStats } from '@/lib/api/trading.service';
+
+// Helper to convert base64 PDF buffer into downloadable file in browser
+function downloadPdfBuffer(pdfBuffer: string, fileName: string): boolean {
+  try {
+    const base64Data = pdfBuffer.includes(';base64,')
+      ? pdfBuffer.split(';base64,')[1]
+      : pdfBuffer;
+
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = fileName || 'invoice.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl);
+    }, 1500);
+    return true;
+  } catch (err) {
+    console.error('Failed to parse and download PDF buffer:', err);
+    return false;
+  }
+}
+
+function formatShortDate(dStr: any): string {
+  if (!dStr) return '';
+  const d = new Date(dStr);
+  if (isNaN(d.getTime())) return String(dStr);
+  return d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -74,7 +120,46 @@ export default function DashboardClient({
   userType = 'buyer'
 }: DashboardClientProps) {
   const [isMounted, setIsMounted] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const displayLabel = userType === 'buyer' ? 'Inquiries' : 'Offers';
+
+  const handleDownloadInvoice = async (tx: any, fallbackId: string) => {
+    // 1. If direct downloadable URL is provided
+    const directUrl = tx.download || tx.download_url || tx.invoice_url || tx.invoice_pdf || tx.invoice_file || tx.receipt_url;
+    if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('http')) {
+      window.open(directUrl, '_blank');
+      return;
+    }
+
+    // 2. Extract record ID for official invoice API
+    const invoiceIdentifier = tx.id || tx._id || tx.subscription_id || tx.payment_id || fallbackId;
+    if (!invoiceIdentifier || invoiceIdentifier === 'N/A' || invoiceIdentifier === '-') {
+      toast.error('Invoice identifier not found for this transaction.');
+      return;
+    }
+
+    setDownloadingId(fallbackId);
+    try {
+      const res = await getSubscriptionInvoiceAction(String(invoiceIdentifier), lang);
+      if (res.success && res.data?.pdf_buffer) {
+        const invoiceNo = tx.invoice_id || tx.invoice_no || tx.invoiceNo || tx.invoice_number || tx.receipt_no;
+        const fileName = res.data.file_name || `${invoiceNo || 'invoice'}.pdf`;
+        const ok = downloadPdfBuffer(res.data.pdf_buffer, fileName);
+        if (ok) {
+          toast.success(res.message || 'Payment invoice downloaded successfully!');
+        } else {
+          toast.error('Unable to create PDF file. Please try again.');
+        }
+      } else {
+        toast.error(res.error || 'Failed to generate payment invoice.');
+      }
+    } catch (err: any) {
+      console.error('Invoice download error:', err);
+      toast.error(err?.message || 'Error occurred while downloading invoice.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -384,26 +469,28 @@ export default function DashboardClient({
 
       {/* Recent Activity Table */}
       <div className="bg-card border border-border shadow-xs rounded-2xl overflow-hidden mt-2">
-        <div className="p-5 border-b border-border flex justify-between items-center">
+        <div className="p-4 sm:p-5 border-b border-border flex justify-between items-center gap-2">
           <div>
-            <h3 className="text-lg font-bold text-foreground">Recent Transactions</h3>
-            <p className="text-sm text-muted-foreground mt-0.5">Your latest payment activities</p>
+            <h3 className="text-base sm:text-lg font-bold text-foreground">Recent Transactions</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Your latest payment activities</p>
           </div>
-          <Link href={`/${lang}/profile/payment-history`} className="text-sm font-medium text-brand-blue hover:text-brand-blue/80 transition-colors">
+          <Link href={`/${lang}/profile/payment-history`} className="text-xs sm:text-sm font-medium text-brand-blue hover:text-brand-blue/80 transition-colors shrink-0">
             View All <i className="fa-solid fa-arrow-right ml-1 text-[11px]"></i>
           </Link>
         </div>
-        {/* Desktop Table View - No forced min-w scroll */}
-        <div className="hidden sm:block w-full">
-          <table className="w-full text-left border-collapse table-fixed">
+        {/* Desktop Table View (>= 1024px) */}
+        <div className="hidden lg:block w-full overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-muted/40 text-muted-foreground text-[12px] uppercase tracking-wider border-b border-border">
-                <th className="px-5 py-3 font-semibold w-[22%]">Transaction ID</th>
-                <th className="px-5 py-3 font-semibold w-[24%]">Plan & Amount</th>
-                <th className="px-5 py-3 font-semibold w-[14%]">Plan Type</th>
-                <th className="px-5 py-3 font-semibold w-[15%]">Payment Method</th>
-                <th className="px-5 py-3 font-semibold w-[15%]">Date & Time</th>
-                <th className="px-5 py-3 font-semibold w-[10%] text-right">Status</th>
+                <th className="px-4 py-3 font-semibold">Transaction ID</th>
+                <th className="px-4 py-3 font-semibold">Plan & Amount</th>
+                <th className="px-4 py-3 font-semibold">Plan Period</th>
+                <th className="px-4 py-3 font-semibold">Plan Type</th>
+                <th className="px-4 py-3 font-semibold">Payment Method</th>
+                <th className="px-4 py-3 font-semibold">Date & Time</th>
+                <th className="px-4 py-3 font-semibold text-center">Status</th>
+                <th className="px-4 py-3 font-semibold text-right">Invoice</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -415,6 +502,21 @@ export default function DashboardClient({
                   const curr = tx.currency || tx.currency_code || (tx.usd_amount ? 'USD' : 'INR');
                   const sym = curr === 'INR' ? '₹' : curr === 'USD' ? '$' : curr === 'EUR' ? '€' : `${curr} `;
                   const amountDisplay = amountVal !== undefined && amountVal !== null ? `${sym}${Number(amountVal).toLocaleString('en-IN')}` : null;
+
+                  // Plan Period calculation
+                  const startDateRaw = tx.user_membership_history?.start_date || tx.start_date || tx.startDate;
+                  const expiryDateRaw = tx.user_membership_history?.expiry_date || tx.expiry_date || tx.expiryDate || tx.valid_till;
+
+                  let period = '-';
+                  if (startDateRaw && expiryDateRaw) {
+                    period = `${formatShortDate(startDateRaw)} - ${formatShortDate(expiryDateRaw)}`;
+                  } else if (expiryDateRaw) {
+                    period = `Till ${formatShortDate(expiryDateRaw)}`;
+                  } else if (startDateRaw) {
+                    period = `From ${formatShortDate(startDateRaw)}`;
+                  } else if (tx.period || tx.duration || tx.validity) {
+                    period = String(tx.period || tx.duration || tx.validity);
+                  }
 
                   // Plan Type (Monthly / Yearly / Quarterly)
                   const rawDuration =
@@ -470,36 +572,32 @@ export default function DashboardClient({
                   
                   return (
                     <tr key={txId !== 'N/A' ? `${txId}-${i}` : i} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-5 py-3.5 text-xs font-mono font-medium text-foreground truncate" title={txId}>{txId}</td>
-                      <td className="px-5 py-3.5 text-xs">
-                        <div className="font-bold text-foreground/90 truncate" title={rawPlan}>{rawPlan}</div>
+                      <td className="px-4 py-3.5 text-xs font-mono font-medium text-foreground whitespace-nowrap">
+                        <span className="truncate max-w-[150px] inline-block align-bottom" title={txId}>{txId}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-xs">
+                        <div className="font-bold text-foreground/90 truncate max-w-[200px]" title={rawPlan}>{rawPlan}</div>
                         {amountDisplay && (
                           <div className="text-[11px] font-semibold text-muted-foreground mt-0.5">{amountDisplay}</div>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-xs">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
-                          planType.toLowerCase().includes('year')
-                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                            : planType.toLowerCase().includes('quarter')
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                        }`}>
-                          <i className={`fa-solid ${planType.toLowerCase().includes('year') ? 'fa-calendar-days' : 'fa-calendar'} text-[9px]`}></i>
-                          {planType}
-                        </span>
+                      <td className="px-4 py-3.5 text-xs whitespace-nowrap">
+                        {period !== '-' ? (
+                          <div className="flex items-center gap-1.5 text-foreground font-medium">
+                            <i className="fa-regular fa-calendar text-[11px] text-muted-foreground opacity-70"></i>
+                            <span>{period}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </td>
-                      <td className="px-5 py-3.5 text-xs">
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                          category.toLowerCase().includes('card') ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                          category.toLowerCase().includes('razor') ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' :
-                          category.toLowerCase().includes('paypal') ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' :
-                          'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                        }`}>
-                          {category}
-                        </span>
+                      <td className="px-4 py-3.5 text-xs text-foreground font-medium whitespace-nowrap">
+                        {planType}
                       </td>
-                      <td className="px-5 py-3.5 text-xs text-muted-foreground">
+                      <td className="px-4 py-3.5 text-xs text-foreground font-medium whitespace-nowrap">
+                        {category}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
                         <div className="flex flex-col">
                           <span className="font-medium text-foreground">{formattedDate}</span>
                           {formattedTime && (
@@ -510,7 +608,7 @@ export default function DashboardClient({
                           )}
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
                         <span className={`inline-flex items-center justify-center px-2.5 py-1 text-[11px] font-bold rounded-full ${
                           status.toLowerCase() === 'success' || status.toLowerCase() === 'completed' || status.toLowerCase() === 'paid' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                           status.toLowerCase() === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
@@ -519,12 +617,32 @@ export default function DashboardClient({
                           {status}
                         </span>
                       </td>
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => handleDownloadInvoice(tx, txId)}
+                          disabled={downloadingId === txId}
+                          className="h-7 px-2.5 rounded-lg border border-brand-blue/30 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1.5 font-semibold text-[11px] shadow-2xs"
+                          title="Download Official PDF Invoice"
+                        >
+                          {downloadingId === txId ? (
+                            <>
+                              <i className="fa-solid fa-circle-notch fa-spin text-[10px]"></i>
+                              <span>PDF...</span>
+                            </>
+                          ) : (
+                            <>
+                              <i className="fa-solid fa-file-arrow-down text-[11px]"></i>
+                              <span>Download</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-8 text-center text-xs text-muted-foreground">
                     No recent transactions found
                   </td>
                 </tr>
@@ -533,8 +651,8 @@ export default function DashboardClient({
           </table>
         </div>
 
-        {/* Mobile Cards View - No Horizontal Scroll */}
-        <div className="block sm:hidden divide-y divide-border">
+        {/* Tablet & Mobile Card View (< 1024px) */}
+        <div className="block lg:hidden divide-y divide-border">
           {transactions && transactions.length > 0 ? (
             transactions.slice(0, 5).map((tx, i) => {
               const txId = tx.payment_id || tx.id || tx.transaction_id || tx.subscription_id || tx.order_id || tx.razorpay_payment_id || tx.razorpay_order_id || tx.paypal_order_id || tx.paypal_subscription_id || tx._id || tx.txn_id || tx.reference_no || 'N/A';
@@ -543,6 +661,21 @@ export default function DashboardClient({
               const curr = tx.currency || tx.currency_code || (tx.usd_amount ? 'USD' : 'INR');
               const sym = curr === 'INR' ? '₹' : curr === 'USD' ? '$' : curr === 'EUR' ? '€' : `${curr} `;
               const amountDisplay = amountVal !== undefined && amountVal !== null ? `${sym}${Number(amountVal).toLocaleString('en-IN')}` : null;
+
+              // Plan Period calculation
+              const startDateRaw = tx.user_membership_history?.start_date || tx.start_date || tx.startDate;
+              const expiryDateRaw = tx.user_membership_history?.expiry_date || tx.expiry_date || tx.expiryDate || tx.valid_till;
+
+              let period = '-';
+              if (startDateRaw && expiryDateRaw) {
+                period = `${formatShortDate(startDateRaw)} - ${formatShortDate(expiryDateRaw)}`;
+              } else if (expiryDateRaw) {
+                period = `Till ${formatShortDate(expiryDateRaw)}`;
+              } else if (startDateRaw) {
+                period = `From ${formatShortDate(startDateRaw)}`;
+              } else if (tx.period || tx.duration || tx.validity) {
+                period = String(tx.period || tx.duration || tx.validity);
+              }
 
               // Plan Type (Monthly / Yearly / Quarterly)
               const rawDuration =
@@ -597,9 +730,13 @@ export default function DashboardClient({
               const status = getStr(tx.status || tx.payment_status || tx.order_status || tx.state, 'SUCCESS');
 
               return (
-                <div key={txId !== 'N/A' ? `${txId}-${i}` : i} className="p-3.5 flex flex-col gap-2.5">
+                <div key={txId !== 'N/A' ? `${txId}-${i}` : i} className="p-3.5 sm:p-4 flex flex-col gap-2.5 hover:bg-muted/10 transition-colors">
+                  {/* Top Row: ID & Status */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-bold text-foreground truncate max-w-[180px]" title={txId}>{txId}</span>
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">ID:</span>
+                      <span className="truncate" title={txId}>{txId}</span>
+                    </div>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                       status.toLowerCase() === 'success' || status.toLowerCase() === 'completed' || status.toLowerCase() === 'paid' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                       status.toLowerCase() === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
@@ -609,43 +746,65 @@ export default function DashboardClient({
                     </span>
                   </div>
 
-                  <div className="flex justify-between items-center text-xs gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-bold text-foreground">{rawPlan}</span>
-                      {amountDisplay && <span className="font-semibold text-muted-foreground">({amountDisplay})</span>}
+                  {/* Middle Row: Plan Name, Duration/Period, and Amount */}
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-sm text-foreground truncate" title={rawPlan}>
+                        {rawPlan}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                        <span className="font-medium text-foreground">{planType}</span>
+                        {period !== '-' && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <i className="fa-regular fa-calendar text-[10px] opacity-70"></i>
+                              <span>{period}</span>
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                      planType.toLowerCase().includes('year')
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                        : planType.toLowerCase().includes('quarter')
-                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                    }`}>
-                      {planType}
-                    </span>
+                    {amountDisplay && (
+                      <div className="text-right shrink-0">
+                        <span className="font-extrabold text-sm sm:text-base text-foreground tracking-tight">
+                          {amountDisplay}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/50">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      category.toLowerCase().includes('card') ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                      category.toLowerCase().includes('razor') ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' :
-                      category.toLowerCase().includes('paypal') ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' :
-                      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                    }`}>
-                      {category}
-                    </span>
-                    <div className="flex items-center gap-1.5">
+                  {/* Bottom Row: Payment Method, Date/Time & Download Action */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                      <span className="font-medium text-foreground">{category}</span>
+                      <span>•</span>
                       <span>{formattedDate}</span>
                       {formattedTime && (
-                        <>
-                          <span className="w-1 h-1 rounded-full bg-border"></span>
-                          <span className="flex items-center gap-1">
-                            <i className="fa-regular fa-clock text-[10px] opacity-70"></i>
-                            {formattedTime}
-                          </span>
-                        </>
+                        <span className="hidden sm:inline-flex items-center gap-1 opacity-70">
+                          ({formattedTime})
+                        </span>
                       )}
                     </div>
+
+                    <button
+                      onClick={() => handleDownloadInvoice(tx, txId)}
+                      disabled={downloadingId === txId}
+                      className="h-7 px-2.5 rounded-lg border border-brand-blue/30 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all inline-flex items-center gap-1.5 font-semibold text-[11px] shadow-2xs shrink-0"
+                      title="Download Official PDF Invoice"
+                    >
+                      {downloadingId === txId ? (
+                        <>
+                          <i className="fa-solid fa-circle-notch fa-spin text-[10px]"></i>
+                          <span>PDF...</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fa-solid fa-file-arrow-down text-[10px]"></i>
+                          <span>Download</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               );
