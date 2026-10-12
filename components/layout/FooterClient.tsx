@@ -14,8 +14,10 @@ interface FooterProps {
       membership_plans: string
       regulatory_norms: string
       contact_us: string
+      get_in_touch?: string
       about_us: string
       founder_profile: string
+      career?: string
       user_manual: string
       user_guide: string
       disclaimer: string
@@ -126,8 +128,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.company_details}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link prefetch={false} href={`/${activeLang}/about`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.about_us}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/founder`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.founder_profile}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/about-us`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.about_us}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/founder-profile`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.founder_profile}</Link></li>
             </ul>
           </div>
 
@@ -135,8 +137,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           <div>
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.trade_services}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link prefetch={false} href={`/${activeLang}/manual`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_manual}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/guide`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_guide}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/user-manual`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_manual}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/user-guide`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_guide}</Link></li>
             </ul>
           </div>
 
@@ -153,17 +155,18 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
             <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.regulatory_norms}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
               <li><Link prefetch={false} href={`/${activeLang}/disclaimer`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.disclaimer}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/terms`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.terms_conditions}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/refund`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.refund_cancellation}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/privacy`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.privacy_policy}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/terms-conditions`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.terms_conditions}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/refund-cancellation-policy`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.refund_cancellation}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/privacy-policy`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.privacy_policy}</Link></li>
             </ul>
           </div>
 
-          {/* Column 5: Contact Us */}
+          {/* Column 5: Get In Touch */}
           <div>
-            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.contact_us}</h2>
+            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.get_in_touch || 'Get In Touch'}</h2>
             <ul className="space-y-1.5 text-muted-foreground">
               <li><Link prefetch={false} href={`/${activeLang}/contact-us`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/career`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.career || 'Career'}</Link></li>
             </ul>
           </div>
         </div>
@@ -178,8 +181,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
               <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link prefetch={false} href={`/${activeLang}/about`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.about_us}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/founder`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.founder_profile}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/about-us`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.about_us}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/founder-profile`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.founder_profile}</Link></li>
             </ul>
           </details>
 
@@ -190,8 +193,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
               <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link prefetch={false} href={`/${activeLang}/manual`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_manual}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/guide`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_guide}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/user-manual`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_manual}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/user-guide`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_guide}</Link></li>
             </ul>
           </details>
 
@@ -214,20 +217,21 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
               <li><Link prefetch={false} href={`/${activeLang}/disclaimer`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.disclaimer}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/terms`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.terms_conditions}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/refund`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.refund_cancellation}</Link></li>
-              <li><Link prefetch={false} href={`/${activeLang}/privacy`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.privacy_policy}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/terms-conditions`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.terms_conditions}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/refund-cancellation-policy`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.refund_cancellation}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/privacy-policy`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.privacy_policy}</Link></li>
             </ul>
           </details>
 
-          {/* Accordion 5: Contact Us */}
+          {/* Accordion 5: Get In Touch */}
           <details className="group border-b border-border pb-1">
             <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <span>{dict.footer.contact_us}</span>
+              <span>{dict.footer.get_in_touch || 'Get In Touch'}</span>
               <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
             </summary>
             <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
               <li><Link prefetch={false} href={`/${activeLang}/contact-us`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.contact_us}</Link></li>
+              <li><Link prefetch={false} href={`/${activeLang}/career`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.career || 'Career'}</Link></li>
             </ul>
           </details>
 

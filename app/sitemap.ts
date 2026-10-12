@@ -23,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 1. Static Routes
   const staticRoutes = [
     '',
-    '/about',
+    '/about-us',
     '/contact-us',
     '/download-application',
     '/marketed-products',
@@ -36,7 +36,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/video-gallery',
     '/participation-gallery',
     '/latest-offers-for-buyers',
-    '/latest-inquiries-for-sellers'
+    '/latest-inquiries-for-sellers',
+    '/founder-profile',
+    '/career',
+    '/privacy-policy',
+    '/refund-cancellation-policy',
+    '/disclaimer',
+    '/terms-conditions',
+    '/user-manual',
+    '/user-guide'
   ]
 
   const currentDate = new Date().toISOString()

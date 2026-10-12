@@ -147,6 +147,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/:lang/about',
+        destination: '/:lang/about-us',
+        permanent: true,
+      },
+      {
+        source: '/about',
+        destination: '/en/about-us',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     const tradingUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || process.env.TRADING_API_URL || '';
     const cmsUrl = process.env.NEXT_PUBLIC_CMS_API_URL || process.env.CMS_API_URL || '';

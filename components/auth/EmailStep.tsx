@@ -237,11 +237,11 @@ export default function EmailStep({
 
       <p className="mt-8 text-xs text-center text-foreground/80">
         {dict?.by_continuing || "By continuing, you accept AgriGuru Online"} {" "}
-        <Link href={`/${lang}/terms`} className="font-bold hover:underline text-foreground">
+        <Link href={`/${lang}/terms-conditions`} className="font-bold hover:underline text-foreground">
           {dict?.terms_of_service || "Terms of Service"}
         </Link>{" "}
         {dict?.and || "and"} {" "}
-        <Link href={`/${lang}/privacy`} className="font-bold hover:underline text-foreground">
+        <Link href={`/${lang}/privacy-policy`} className="font-bold hover:underline text-foreground">
           {dict?.privacy_policy || "Privacy Policy"}
         </Link>.
       </p>

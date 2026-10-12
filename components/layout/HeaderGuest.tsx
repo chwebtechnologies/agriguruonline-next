@@ -95,7 +95,7 @@ export function HeaderGuestBase({
 
 
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
-  const isAboutActive = pathname === `/${activeLang}/about` || pathname === `/about`
+  const isAboutActive = pathname === `/${activeLang}/about-us` || pathname === `/about-us` || pathname === `/${activeLang}/about` || pathname === `/about`
   
   const [hideInsights, setHideInsights] = useState(false)
   const isNewsActive = pathname === `/${activeLang}/news` || pathname === `/news`
@@ -323,7 +323,7 @@ export function HeaderGuestBase({
                     {dict.header.home}
                   </Link>
                   <Link
-                    href={`/${activeLang}/about`}
+                    href={`/${activeLang}/about-us`}
                     className={`transition-colors duration-150 font-extrabold ${isAboutActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {dict.header.about_us}

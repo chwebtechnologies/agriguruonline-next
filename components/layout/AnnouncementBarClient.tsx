@@ -105,7 +105,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   return (
     <div
-      className="w-full bg-primary-gradient text-white text-sm font-semibold shadow-sm flex items-center relative z-[60] border-b border-emerald-950/20 max-h-[40px] h-10 py-2 overflow-visible"
+      className="w-full bg-primary-gradient text-white text-sm font-semibold shadow-sm flex items-center relative z-[75] border-b border-emerald-950/20 max-h-[40px] h-10 py-2 overflow-visible"
       style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}
       dir={dir}
     >
@@ -174,7 +174,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
                 <i className="fa-solid fa-chevron-down text-[10px] ml-0.5 text-emerald-300 transition-transform duration-200 group-hover:rotate-180"></i>
               )}
             </button>
-            <div className={`invisible opacity-0 group-hover:visible group-hover:opacity-100 absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} top-full mt-0 pt-2 w-36 transition-all duration-150 z-50`}>
+            <div className={`invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} top-full mt-0 pt-2 w-36 transition-all duration-150 z-50`}>
               <div className="rounded-lg bg-card border border-border shadow-xl overflow-hidden">
                 <div className="py-1">
                   {languages.map((l) => (

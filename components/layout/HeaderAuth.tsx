@@ -406,7 +406,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const router = useRouter()
   const pathname = usePathname()
   const isHomeActive = pathname === `/${activeLang}` || pathname === `/` || pathname === `/${activeLang}/`
-  const isAboutActive = pathname === `/${activeLang}/about` || pathname === `/about`
+  const isAboutActive = pathname === `/${activeLang}/about-us` || pathname === `/about-us` || pathname === `/${activeLang}/about` || pathname === `/about`
   const isDashboardActive = pathname === `/${activeLang}/dashboard` || pathname === `/dashboard`
   
   const [hideInsights, setHideInsights] = useState(false)

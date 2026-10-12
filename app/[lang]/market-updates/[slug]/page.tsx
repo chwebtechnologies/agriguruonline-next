@@ -333,7 +333,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
                 </h1>
 
                 <div 
-                  className="editorial-body text-foreground flex-1 w-full max-w-full overflow-hidden"
+                  className="editorial-body text-justify text-foreground flex-1 w-full max-w-full overflow-hidden"
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formattedContent) }}
                 />
 
@@ -397,12 +397,23 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
                     overflow-wrap: break-word;
                     word-wrap: break-word;
                     max-width: 100%;
-                  }
-
-                  .editorial-body p {
                     text-align: justify !important;
                     text-justify: inter-word !important;
                     text-align-last: left !important;
+                    text-align-last: start !important;
+                  }
+
+                  .editorial-body p,
+                  .editorial-body div,
+                  .editorial-body span,
+                  .editorial-body li {
+                    text-align: justify !important;
+                    text-justify: inter-word !important;
+                    text-align-last: left !important;
+                    text-align-last: start !important;
+                  }
+
+                  .editorial-body p {
                     margin-bottom: 1.25rem;
                     line-height: 1.85;
                     font-weight: 500;
@@ -415,6 +426,15 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
 
                   .editorial-body p:last-child {
                     margin-bottom: 0 !important;
+                  }
+
+                  [dir="rtl"] .editorial-body,
+                  [dir="rtl"] .editorial-body p,
+                  [dir="rtl"] .editorial-body div,
+                  [dir="rtl"] .editorial-body span,
+                  [dir="rtl"] .editorial-body li,
+                  [dir="rtl"] .article-title {
+                    text-align-last: right !important;
                   }
 
                   .editorial-callout {

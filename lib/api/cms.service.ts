@@ -12,6 +12,7 @@ import type {
   ParticipationCategory,
 } from '@/types/participationGallery';
 import type { AssociatePartnersResponse } from '@/types/associatePartners';
+import type { CmsPageData, CmsContentResponse } from '@/types/cms';
 
 export interface CollectionVideoData {
   category: {
@@ -450,4 +451,24 @@ export const cmsService = {
       return null;
     }
   }),
+  /**
+   * Generic CMS Page Content by Slug (e.g. founder-profile, user-guide, etc.)
+   */
+  getContentBySlug: cache(async (slug: string, lang: string = 'en'): Promise<CmsPageData | null> => {
+    const cmsApiUrl = getCmsApiUrl();
+    const url = `${cmsApiUrl}/content/${slug}`;
+    try {
+      const json = await customFetchJSON<CmsContentResponse>(url, {
+        params: { lang_code: lang, source: 'web' },
+      });
+      if (json?.success === 1 && json.data) {
+        return json.data;
+      }
+      return null;
+    } catch (err) {
+      console.error(`[cmsService.getContentBySlug] error for slug '${slug}':`, err);
+      return null;
+    }
+  }),
 };
+

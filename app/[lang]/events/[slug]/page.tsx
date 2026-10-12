@@ -479,11 +479,11 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
                 {/* Event Editorial Content */}
                 {formattedContent ? (
                   <div 
-                    className="prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-img:rounded-xl prose-img:shadow-sm prose-a:text-brand-blue hover:prose-a:text-blue-500 prose-headings:text-foreground prose-p:text-foreground/80 leading-relaxed tracking-wide"
+                    className="editorial-body prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-img:rounded-xl prose-img:shadow-sm prose-a:text-brand-blue hover:prose-a:text-blue-500 prose-headings:text-foreground prose-p:text-foreground/80 prose-p:text-justify leading-relaxed tracking-wide"
                     dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formattedContent) }}
                   />
                 ) : (
-                  <p className="text-foreground/80 text-sm leading-relaxed flex-1">
+                  <p className="text-foreground/80 text-sm leading-relaxed flex-1 text-justify">
                     Stay tuned for more updates and scheduling details about this event.
                   </p>
                 )}
@@ -700,12 +700,23 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
               overflow-wrap: break-word;
               word-wrap: break-word;
               max-width: 100%;
-            }
-
-            .editorial-body p {
               text-align: justify !important;
               text-justify: inter-word !important;
               text-align-last: left !important;
+              text-align-last: start !important;
+            }
+
+            .editorial-body p,
+            .editorial-body div,
+            .editorial-body span,
+            .editorial-body li {
+              text-align: justify !important;
+              text-justify: inter-word !important;
+              text-align-last: left !important;
+              text-align-last: start !important;
+            }
+
+            .editorial-body p {
               margin-bottom: 1.25rem;
               line-height: 1.85;
               font-weight: 500;
@@ -718,6 +729,15 @@ export default async function EventDetailPage(props: { params: Promise<{ lang: s
 
             .editorial-body p:last-child {
               margin-bottom: 0 !important;
+            }
+
+            [dir="rtl"] .editorial-body,
+            [dir="rtl"] .editorial-body p,
+            [dir="rtl"] .editorial-body div,
+            [dir="rtl"] .editorial-body span,
+            [dir="rtl"] .editorial-body li,
+            [dir="rtl"] .article-title {
+              text-align-last: right !important;
             }
 
             .editorial-callout {
