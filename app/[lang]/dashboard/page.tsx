@@ -6,6 +6,9 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import DashboardClient from '@/components/dashboard/DashboardClient'
 import { getSafeLanguage, getStandardMetadata } from '@/lib/seo'
 import { userService } from '@/lib/api/user.service'
+import { tradingService } from '@/lib/api/trading.service'
+import { getUserProfile } from '@/lib/user-data'
+import { getNormalizedUserType } from '@/lib/api-utils'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -33,10 +36,14 @@ export default async function DashboardPage(props: { params: Promise<{ lang: str
     redirect(`/${lang}/login?redirectUrl=/${lang}/dashboard`);
   }
 
-  const [dict, transactions] = await Promise.all([
+  const [dict, transactions, userProfile, stats] = await Promise.all([
     getDictionary(lang as any),
-    userService.getPaymentHistory(token, lang, 1, 25)
+    userService.getPaymentHistory(token, lang, 1, 25),
+    getUserProfile(token, lang),
+    tradingService.getDashboardStats(token, lang),
   ]);
+
+  const userType = getNormalizedUserType(userProfile?.userProfile?.user_type) || 'buyer';
 
   return (
     <div className="bg-background text-foreground min-h-screen">
@@ -45,7 +52,13 @@ export default async function DashboardPage(props: { params: Promise<{ lang: str
           <PageHeader title="Dashboard Overview" backText="Back" />
           
           <div className="mt-4">
-            <DashboardClient lang={lang} common={dict?.common} transactions={transactions} />
+            <DashboardClient 
+              lang={lang} 
+              common={dict?.common} 
+              transactions={transactions} 
+              stats={stats}
+              userType={userType}
+            />
           </div>
         </div>
       </div>

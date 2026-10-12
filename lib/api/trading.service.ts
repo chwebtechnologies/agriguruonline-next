@@ -24,6 +24,27 @@ export interface ShippingTerm {
   title?: string;
 }
 
+export interface DashboardStats {
+  trading_inquiries_count: number;
+  freight_inquiries_count: number;
+  favourite_product_count_limit: number;
+  favourite_product_count: number;
+  favourite_port_count_limit: number;
+  favourite_port_count: number;
+  alert_count: number;
+  ai_analysis_count: number;
+  markter_report_count: number;
+  instruction_count: number;
+  smart_doc_count: number;
+}
+
+export interface DashboardStatsResponse {
+  success: number | boolean;
+  message: string;
+  data: DashboardStats;
+  response_time?: string;
+}
+
 export interface ProductTranslation {
   name: string;
   lang_code: string;
@@ -1169,5 +1190,26 @@ export const tradingService = {
    */
   getPriceAnalysisStreamUrl: (type: string, jobId: string, lang: string = 'en') => {
     return `/api/price-analysis?action=stream&lang_code=${lang}&type=${type}&job_id=${jobId}`;
+  },
+
+  /**
+   * Get dashboard counts and metrics
+   */
+  getDashboardStats: async (token?: string, lang: string = 'en'): Promise<DashboardStats | null> => {
+    const tradingApiUrl = getTradingApiUrl();
+    const url = `${tradingApiUrl}/dashboard/website`;
+    try {
+      const json = await customFetchJSON<DashboardStatsResponse>(url, {
+        token,
+        params: { lang_code: lang, source: 'web' },
+      });
+      if (json && (json.success === 1 || json.success === true) && json.data) {
+        return json.data;
+      }
+      return null;
+    } catch (error) {
+      console.error('[tradingService.getDashboardStats] error:', error);
+      return null;
+    }
   },
 };

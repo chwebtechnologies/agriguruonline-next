@@ -6,6 +6,8 @@ import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
 
+import type { DashboardStats } from '@/lib/api/trading.service';
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -36,6 +38,8 @@ interface DashboardClientProps {
   lang: string;
   common?: any;
   transactions?: any[];
+  stats?: DashboardStats | null;
+  userType?: string;
 }
 
 const categoryData = [
@@ -62,10 +66,14 @@ const recentInquiries = [
   { id: 'INQ-5039', product: 'Fresh Cavendish Bananas', type: 'Product', status: 'Active', date: '06 Oct 2026' },
 ];
 
-export default function DashboardClient({ lang, common, transactions = [] }: DashboardClientProps) {
+export default function DashboardClient({ 
+  lang, 
+  common, 
+  transactions = [],
+  stats,
+  userType = 'buyer'
+}: DashboardClientProps) {
   const [isMounted, setIsMounted] = useState(false);
-  // Mocking user type for display: 'buyer' -> shows Inquiries, 'seller' -> shows Offers
-  const userType = 'buyer'; 
   const displayLabel = userType === 'buyer' ? 'Inquiries' : 'Offers';
 
   useEffect(() => {
@@ -82,20 +90,20 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
         {/* Card 1: Product Inquiries/Offers */}
         <div className="bg-card border border-border shadow-xs hover:shadow-md transition-shadow rounded-2xl p-5 flex flex-col justify-between overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i className="fa-solid fa-box-open text-6xl text-blue-500"></i>
+            <i className="fa-solid fa-dollar-sign text-6xl text-blue-500"></i>
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/20 text-brand-blue flex items-center justify-center">
-              <i className="fa-solid fa-box text-sm"></i>
+              <i className="fa-solid fa-dollar-sign text-sm"></i>
             </div>
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Product {displayLabel}</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">24</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.trading_inquiries_count ?? 0}</h3>
             <div className="text-sm font-medium text-muted-foreground">
-              Active in marketplace
+              Product {displayLabel}
             </div>
-            <Link href={`/${lang}/dashboard/product-inquiries`} className="mt-3 flex items-center text-[13px] font-medium text-brand-blue hover:text-brand-blue/80 transition-colors w-fit relative z-10">
+            <Link href={`/${lang}/${userType === 'seller' ? 'my-offers' : 'my-inquiries'}`} className="mt-3 flex items-center text-[13px] font-medium text-brand-blue hover:text-brand-blue/80 transition-colors w-fit relative z-10">
               View Details <i className="fa-solid fa-arrow-right ml-1"></i>
             </Link>
           </div>
@@ -104,20 +112,20 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
         {/* Card 2: Freight Inquiries/Offers */}
         <div className="bg-card border border-border shadow-xs hover:shadow-md transition-shadow rounded-2xl p-5 flex flex-col justify-between overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i className="fa-solid fa-ship text-6xl text-emerald-500"></i>
+            <i className="fa-solid fa-anchor-circle-check text-6xl text-emerald-500"></i>
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 flex items-center justify-center">
-              <i className="fa-solid fa-truck-fast text-sm"></i>
+              <i className="fa-solid fa-anchor-circle-check text-sm"></i>
             </div>
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Freight {displayLabel}</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">8</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.freight_inquiries_count ?? 0}</h3>
             <div className="text-sm font-medium text-muted-foreground">
-              Active logistics requests
+              Active logistics inquiries
             </div>
-            <Link href={`/${lang}/dashboard/freight-inquiries`} className="mt-3 flex items-center text-[13px] font-medium text-emerald-600 dark:text-emerald-500 hover:opacity-80 transition-colors w-fit relative z-10">
+            <Link href={`/${lang}/${userType === 'seller' ? 'my-offers' : 'my-inquiries'}`} className="mt-3 flex items-center text-[13px] font-medium text-emerald-600 dark:text-emerald-500 hover:opacity-80 transition-colors w-fit relative z-10">
               View Details <i className="fa-solid fa-arrow-right ml-1"></i>
             </Link>
           </div>
@@ -126,21 +134,26 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
         {/* Card 3: Product Watchlist */}
         <div className="bg-card border border-border shadow-xs hover:shadow-md transition-shadow rounded-2xl p-5 flex flex-col justify-between overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i className="fa-solid fa-binoculars text-6xl text-amber-500"></i>
+            <i className="fa-solid fa-box-open text-6xl text-amber-500"></i>
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-500 flex items-center justify-center">
-              <i className="fa-solid fa-eye text-sm"></i>
+              <i className="fa-solid fa-box-open text-sm"></i>
             </div>
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Product Watchlist</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">15</h3>
-            <div className="text-sm font-medium text-muted-foreground">
-              Tracking market prices
+            <div className="flex items-baseline gap-1.5 mb-1">
+              <h3 className="text-3xl font-bold text-foreground leading-none">{stats?.favourite_product_count ?? 0}</h3>
+              <span className="text-base font-normal text-muted-foreground">
+                / {stats?.favourite_product_count_limit ?? 10}
+              </span>
             </div>
-            <Link href={`/${lang}/dashboard/watchlist`} className="mt-3 flex items-center text-[13px] font-medium text-amber-600 dark:text-amber-500 hover:opacity-80 transition-colors w-fit relative z-10">
-              View Details <i className="fa-solid fa-arrow-right ml-1"></i>
+            <div className="text-sm font-medium text-muted-foreground">
+              {stats?.favourite_product_count ?? 0} of {stats?.favourite_product_count_limit ?? 10} products added
+            </div>
+            <Link href={`/${lang}/product-charts`} className="mt-3 flex items-center text-[13px] font-medium text-amber-600 dark:text-amber-500 hover:opacity-80 transition-colors w-fit relative z-10">
+              View Watchlist <i className="fa-solid fa-arrow-right ml-1"></i>
             </Link>
           </div>
         </div>
@@ -148,21 +161,26 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
         {/* Card 4: Freight Watchlist */}
         <div className="bg-card border border-border shadow-xs hover:shadow-md transition-shadow rounded-2xl p-5 flex flex-col justify-between overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i className="fa-solid fa-map-location-dot text-6xl text-purple-500"></i>
+            <i className="fa-solid fa-ship text-6xl text-purple-500"></i>
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-500 flex items-center justify-center">
-              <i className="fa-solid fa-route text-sm"></i>
+              <i className="fa-solid fa-ship text-sm"></i>
             </div>
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Freight Watchlist</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">6</h3>
-            <div className="text-sm font-medium text-muted-foreground">
-              Tracking route rates
+            <div className="flex items-baseline gap-1.5 mb-1">
+              <h3 className="text-3xl font-bold text-foreground leading-none">{stats?.favourite_port_count ?? 0}</h3>
+              <span className="text-base font-normal text-muted-foreground">
+                / {stats?.favourite_port_count_limit ?? 10}
+              </span>
             </div>
-            <Link href={`/${lang}/dashboard/freight-watchlist`} className="mt-3 flex items-center text-[13px] font-medium text-purple-600 dark:text-purple-500 hover:opacity-80 transition-colors w-fit relative z-10">
-              View Details <i className="fa-solid fa-arrow-right ml-1"></i>
+            <div className="text-sm font-medium text-muted-foreground">
+              {stats?.favourite_port_count ?? 0} of {stats?.favourite_port_count_limit ?? 10} routes added
+            </div>
+            <Link href={`/${lang}/freight-charts`} className="mt-3 flex items-center text-[13px] font-medium text-purple-600 dark:text-purple-500 hover:opacity-80 transition-colors w-fit relative z-10">
+              View Watchlist <i className="fa-solid fa-arrow-right ml-1"></i>
             </Link>
           </div>
         </div>
@@ -174,12 +192,12 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-cyan-50 dark:bg-cyan-900/20 text-cyan-500 flex items-center justify-center">
-              <i className="fa-solid fa-file-contract text-sm"></i>
+              <i className="fa-solid fa-file-signature text-sm"></i>
             </div>
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">My Contracts</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">3</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.instruction_count ?? 0}</h3>
             <div className="text-sm font-medium text-muted-foreground">
               Active Contracts
             </div>
@@ -196,12 +214,12 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-500 flex items-center justify-center">
-              <i className="fa-solid fa-folder-open text-sm"></i>
+              <i className="fa-solid fa-list-check text-sm"></i>
             </div>
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Smart Docs</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">12</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.smart_doc_count ?? 0}</h3>
             <div className="text-sm font-medium text-muted-foreground">
               Documents Created
             </div>
@@ -214,7 +232,7 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
         {/* Card 7: AI Market Predictor */}
         <div className="bg-card border border-border shadow-xs hover:shadow-md transition-shadow rounded-2xl p-5 flex flex-col justify-between overflow-hidden relative group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i className="fa-solid fa-brain text-6xl text-indigo-500"></i>
+            <i className="fa-solid fa-microchip text-6xl text-indigo-500"></i>
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center">
@@ -223,11 +241,11 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">AI Predictor</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">5</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.ai_analysis_count ?? 0}</h3>
             <div className="text-sm font-medium text-muted-foreground">
               New insights ready
             </div>
-            <Link href={`/${lang}/dashboard/ai-predictor`} className="mt-3 flex items-center text-[13px] font-medium text-indigo-600 dark:text-indigo-500 hover:opacity-80 transition-colors w-fit relative z-10">
+            <Link href={`/${lang}/ai-predict`} className="mt-3 flex items-center text-[13px] font-medium text-indigo-600 dark:text-indigo-500 hover:opacity-80 transition-colors w-fit relative z-10">
               View Insights <i className="fa-solid fa-arrow-right ml-1"></i>
             </Link>
           </div>
@@ -240,16 +258,16 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
           </div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-500 flex items-center justify-center">
-              <i className="fa-solid fa-bolt text-sm"></i>
+              <i className="fa-solid fa-bell text-sm"></i>
             </div>
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Active Alerts</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">3</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.alert_count ?? 0}</h3>
             <div className="text-sm font-medium text-muted-foreground">
               Triggers configured
             </div>
-            <Link href={`/${lang}/dashboard/alerts`} className="mt-3 flex items-center text-[13px] font-medium text-orange-600 dark:text-orange-500 hover:opacity-80 transition-colors w-fit relative z-10">
+            <Link href={`/${lang}/alerts-setups`} className="mt-3 flex items-center text-[13px] font-medium text-orange-600 dark:text-orange-500 hover:opacity-80 transition-colors w-fit relative z-10">
               Manage Alerts <i className="fa-solid fa-arrow-right ml-1"></i>
             </Link>
           </div>
@@ -380,11 +398,12 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
           <table className="w-full text-left border-collapse table-fixed">
             <thead>
               <tr className="bg-muted/40 text-muted-foreground text-[12px] uppercase tracking-wider border-b border-border">
-                <th className="px-5 py-3 font-semibold w-[28%]">Transaction ID</th>
-                <th className="px-5 py-3 font-semibold w-[28%]">Plan & Amount</th>
-                <th className="px-5 py-3 font-semibold w-[18%]">Payment Method</th>
-                <th className="px-5 py-3 font-semibold w-[14%]">Date</th>
-                <th className="px-5 py-3 font-semibold w-[12%] text-right">Status</th>
+                <th className="px-5 py-3 font-semibold w-[22%]">Transaction ID</th>
+                <th className="px-5 py-3 font-semibold w-[24%]">Plan & Amount</th>
+                <th className="px-5 py-3 font-semibold w-[14%]">Plan Type</th>
+                <th className="px-5 py-3 font-semibold w-[15%]">Payment Method</th>
+                <th className="px-5 py-3 font-semibold w-[15%]">Date & Time</th>
+                <th className="px-5 py-3 font-semibold w-[10%] text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -396,18 +415,80 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
                   const curr = tx.currency || tx.currency_code || (tx.usd_amount ? 'USD' : 'INR');
                   const sym = curr === 'INR' ? '₹' : curr === 'USD' ? '$' : curr === 'EUR' ? '€' : `${curr} `;
                   const amountDisplay = amountVal !== undefined && amountVal !== null ? `${sym}${Number(amountVal).toLocaleString('en-IN')}` : null;
-                  const requirement = amountDisplay ? `${rawPlan} (${amountDisplay})` : rawPlan;
+
+                  // Plan Type (Monthly / Yearly / Quarterly)
+                  const rawDuration =
+                    tx.user_membership_history?.membership_duration ||
+                    tx.user_membership_history?.duration ||
+                    tx.membership_duration ||
+                    tx.duration ||
+                    tx.plan_type ||
+                    tx.planType ||
+                    tx.duration_type ||
+                    tx.billing_cycle ||
+                    tx.interval ||
+                    tx.subscription_type ||
+                    (tx.is_yearly ? 'YEARLY' : tx.is_monthly ? 'MONTHLY' : '') ||
+                    (typeof tx.type === 'string' && /month|year|quarter/i.test(tx.type) ? tx.type : '');
+
+                  let planType = '';
+                  if (rawDuration) {
+                    const norm = String(rawDuration).trim().toLowerCase();
+                    if (norm.includes('month')) planType = 'Monthly';
+                    else if (norm.includes('year') || norm.includes('annual')) planType = 'Yearly';
+                    else if (norm.includes('quarter')) planType = 'Quarterly';
+                    else if (norm !== '-' && norm !== 'null' && norm !== 'undefined') {
+                      planType = String(rawDuration).charAt(0).toUpperCase() + String(rawDuration).slice(1).toLowerCase();
+                    }
+                  }
+
+                  if (!planType) {
+                    if (/yearly|annual/i.test(rawPlan)) planType = 'Yearly';
+                    else if (/monthly/i.test(rawPlan)) planType = 'Monthly';
+                    else if (/quarterly/i.test(rawPlan)) planType = 'Quarterly';
+                    else planType = 'Monthly';
+                  }
 
                   const getStr = (v: any, def: string) => typeof v === 'string' ? v : (v?.name || v?.title || v?.gateway || def);
                   const category = getStr(tx.payment_gateway || tx.payment_method || tx.payment_type || tx.gateway || tx.payment_mode || tx.mode || tx.type, 'Online');
-                  const dateVal = tx.date || tx.created_at || tx.createdAt || tx.payment_date || tx.timestamp || tx.updated_at || tx.updatedAt;
-                  const date = dateVal ? new Date(dateVal).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+                  
+                  // Date & Time formatting
+                  const dateVal = tx.date || tx.transact_at || tx.transacted_at || tx.created_at || tx.createdAt || tx.payment_date || tx.timestamp || tx.updated_at || tx.updatedAt;
+                  let formattedDate = 'N/A';
+                  let formattedTime = '';
+                  if (dateVal) {
+                    const d = new Date(dateVal);
+                    if (!isNaN(d.getTime())) {
+                      formattedDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                      formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    } else {
+                      formattedDate = String(dateVal);
+                    }
+                  }
+
                   const status = getStr(tx.status || tx.payment_status || tx.order_status || tx.state, 'SUCCESS');
                   
                   return (
                     <tr key={txId !== 'N/A' ? `${txId}-${i}` : i} className="hover:bg-muted/20 transition-colors">
                       <td className="px-5 py-3.5 text-xs font-mono font-medium text-foreground truncate" title={txId}>{txId}</td>
-                      <td className="px-5 py-3.5 text-xs font-bold text-foreground/90 truncate" title={requirement}>{requirement}</td>
+                      <td className="px-5 py-3.5 text-xs">
+                        <div className="font-bold text-foreground/90 truncate" title={rawPlan}>{rawPlan}</div>
+                        {amountDisplay && (
+                          <div className="text-[11px] font-semibold text-muted-foreground mt-0.5">{amountDisplay}</div>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
+                          planType.toLowerCase().includes('year')
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                            : planType.toLowerCase().includes('quarter')
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                        }`}>
+                          <i className={`fa-solid ${planType.toLowerCase().includes('year') ? 'fa-calendar-days' : 'fa-calendar'} text-[9px]`}></i>
+                          {planType}
+                        </span>
+                      </td>
                       <td className="px-5 py-3.5 text-xs">
                         <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
                           category.toLowerCase().includes('card') ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
@@ -418,7 +499,17 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
                           {category}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-xs text-muted-foreground">{date}</td>
+                      <td className="px-5 py-3.5 text-xs text-muted-foreground">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">{formattedDate}</span>
+                          {formattedTime && (
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <i className="fa-regular fa-clock text-[10px] opacity-70"></i>
+                              {formattedTime}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-5 py-3.5 text-right">
                         <span className={`inline-flex items-center justify-center px-2.5 py-1 text-[11px] font-bold rounded-full ${
                           status.toLowerCase() === 'success' || status.toLowerCase() === 'completed' || status.toLowerCase() === 'paid' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
@@ -433,7 +524,7 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                  <td colSpan={6} className="px-5 py-8 text-center text-xs text-muted-foreground">
                     No recent transactions found
                   </td>
                 </tr>
@@ -452,19 +543,64 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
               const curr = tx.currency || tx.currency_code || (tx.usd_amount ? 'USD' : 'INR');
               const sym = curr === 'INR' ? '₹' : curr === 'USD' ? '$' : curr === 'EUR' ? '€' : `${curr} `;
               const amountDisplay = amountVal !== undefined && amountVal !== null ? `${sym}${Number(amountVal).toLocaleString('en-IN')}` : null;
-              const requirement = amountDisplay ? `${rawPlan} (${amountDisplay})` : rawPlan;
+
+              // Plan Type (Monthly / Yearly / Quarterly)
+              const rawDuration =
+                tx.user_membership_history?.membership_duration ||
+                tx.user_membership_history?.duration ||
+                tx.membership_duration ||
+                tx.duration ||
+                tx.plan_type ||
+                tx.planType ||
+                tx.duration_type ||
+                tx.billing_cycle ||
+                tx.interval ||
+                tx.subscription_type ||
+                (tx.is_yearly ? 'YEARLY' : tx.is_monthly ? 'MONTHLY' : '') ||
+                (typeof tx.type === 'string' && /month|year|quarter/i.test(tx.type) ? tx.type : '');
+
+              let planType = '';
+              if (rawDuration) {
+                const norm = String(rawDuration).trim().toLowerCase();
+                if (norm.includes('month')) planType = 'Monthly';
+                else if (norm.includes('year') || norm.includes('annual')) planType = 'Yearly';
+                else if (norm.includes('quarter')) planType = 'Quarterly';
+                else if (norm !== '-' && norm !== 'null' && norm !== 'undefined') {
+                  planType = String(rawDuration).charAt(0).toUpperCase() + String(rawDuration).slice(1).toLowerCase();
+                }
+              }
+
+              if (!planType) {
+                if (/yearly|annual/i.test(rawPlan)) planType = 'Yearly';
+                else if (/monthly/i.test(rawPlan)) planType = 'Monthly';
+                else if (/quarterly/i.test(rawPlan)) planType = 'Quarterly';
+                else planType = 'Monthly';
+              }
 
               const getStr = (v: any, def: string) => typeof v === 'string' ? v : (v?.name || v?.title || v?.gateway || def);
               const category = getStr(tx.payment_gateway || tx.payment_method || tx.payment_type || tx.gateway || tx.payment_mode || tx.mode || tx.type, 'Online');
-              const dateVal = tx.date || tx.created_at || tx.createdAt || tx.payment_date || tx.timestamp || tx.updated_at || tx.updatedAt;
-              const date = dateVal ? new Date(dateVal).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+              
+              // Date & Time formatting
+              const dateVal = tx.date || tx.transact_at || tx.transacted_at || tx.created_at || tx.createdAt || tx.payment_date || tx.timestamp || tx.updated_at || tx.updatedAt;
+              let formattedDate = 'N/A';
+              let formattedTime = '';
+              if (dateVal) {
+                const d = new Date(dateVal);
+                if (!isNaN(d.getTime())) {
+                  formattedDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                  formattedTime = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                } else {
+                  formattedDate = String(dateVal);
+                }
+              }
+
               const status = getStr(tx.status || tx.payment_status || tx.order_status || tx.state, 'SUCCESS');
 
               return (
-                <div key={txId !== 'N/A' ? `${txId}-${i}` : i} className="p-3.5 flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-foreground truncate max-w-[200px]">{txId}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                <div key={txId !== 'N/A' ? `${txId}-${i}` : i} className="p-3.5 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-bold text-foreground truncate max-w-[180px]" title={txId}>{txId}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
                       status.toLowerCase() === 'success' || status.toLowerCase() === 'completed' || status.toLowerCase() === 'paid' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                       status.toLowerCase() === 'pending' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                       'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
@@ -472,9 +608,44 @@ export default function DashboardClient({ lang, common, transactions = [] }: Das
                       {status}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-foreground">{requirement}</span>
-                    <span className="text-muted-foreground">{date}</span>
+
+                  <div className="flex justify-between items-center text-xs gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-foreground">{rawPlan}</span>
+                      {amountDisplay && <span className="font-semibold text-muted-foreground">({amountDisplay})</span>}
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                      planType.toLowerCase().includes('year')
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                        : planType.toLowerCase().includes('quarter')
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                    }`}>
+                      {planType}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/50">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      category.toLowerCase().includes('card') ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                      category.toLowerCase().includes('razor') ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                      category.toLowerCase().includes('paypal') ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' :
+                      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                    }`}>
+                      {category}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span>{formattedDate}</span>
+                      {formattedTime && (
+                        <>
+                          <span className="w-1 h-1 rounded-full bg-border"></span>
+                          <span className="flex items-center gap-1">
+                            <i className="fa-regular fa-clock text-[10px] opacity-70"></i>
+                            {formattedTime}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
