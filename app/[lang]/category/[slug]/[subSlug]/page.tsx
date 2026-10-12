@@ -210,6 +210,8 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
   const userType = null;
   const commonDict = (dict as Record<string, any>)?.common || {}
   const common = {
+    coming_soon: commonDict.coming_soon || "Coming Soon!",
+    exciting_updates: commonDict.exciting_updates || "Exciting updates are on the way.",
     no_products_found: commonDict.no_products_found || "No products found",
     back: commonDict.back || "Back",
     addProduct: commonDict.add_product || "Add Product",
@@ -221,68 +223,71 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
 
   const assetsUrl = getAssetsUrl(); const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
-  if (!data || !data.products || data.products.length === 0) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center bg-background text-foreground">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">{common.no_products_found}</h1>
-          <Link href={`/${lang}/category/${slug}`} className="text-sky-700 dark:text-sky-400 hover:underline">
-            Return to Category
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  const pageTitle = data.sub_category?.name ? `${data.sub_category.name} ${common.productList}` : common.productList;
+  const pageTitle = data?.sub_category?.name
+    ? `${data.sub_category.name} ${common.productList}`
+    : subSlug
+      ? `${subSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} ${common.productList}`
+      : common.productList;
 
   return (
     <>
       <PageHeader title={pageTitle} backText={common.back} backHref={`/${lang}/category/${slug}`} />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
-        {data.products.map((product: any, index: number) => {
-          const mappedProduct = {
-            id: product.id,
-            name: product.name || product.slug || 'Agricultural Commodity',
-            product_code: product.product_code || '',
-            slug: product.slug,
-            image: product.image,
-            thumbnail: product.thumbnail,
-            quality_specification: product.quality_specification,
-            category: product.category ? {
-              id: product.category.id || '',
-              name: product.category.name || ''
-            } : undefined,
-            country: product.country ? {
-              id: product.country.id || '',
-              name: product.country.name || '',
-              flag: product.country.flag || '',
-              iso2: product.country.iso2 || ''
-            } : undefined,
-            loading_ports: product.loading_ports?.map((lp: any) => ({
-              price: lp.price,
-              port: lp.port ? { name: lp.port.name } : undefined
-            }))
-          };
+      {data && data.products && data.products.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+          {data.products.map((product: any, index: number) => {
+            const mappedProduct = {
+              id: product.id,
+              name: product.name || product.slug || 'Agricultural Commodity',
+              product_code: product.product_code || '',
+              slug: product.slug,
+              image: product.image,
+              thumbnail: product.thumbnail,
+              quality_specification: product.quality_specification,
+              category: product.category ? {
+                id: product.category.id || '',
+                name: product.category.name || ''
+              } : undefined,
+              country: product.country ? {
+                id: product.country.id || '',
+                name: product.country.name || '',
+                flag: product.country.flag || '',
+                iso2: product.country.iso2 || ''
+              } : undefined,
+              loading_ports: product.loading_ports?.map((lp: any) => ({
+                price: lp.price,
+                port: lp.port ? { name: lp.port.name } : undefined
+              }))
+            };
 
-          return (
-            <div key={product.id} className="h-full flex flex-col" style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
-              <MarketedProductCard
-                product={mappedProduct as any}
-                lang={lang}
-                common={common}
-                imageBaseUrl={imageBaseUrl}
-                isLCP={index < 2}
-                userType={userType}
-                hideInfoIcon={true}
-                hideFlag={true}
-                showViewDetails={true}
-              />
+            return (
+              <div key={product.id} className="h-full flex flex-col" style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
+                <MarketedProductCard
+                  product={mappedProduct as any}
+                  lang={lang}
+                  common={common}
+                  imageBaseUrl={imageBaseUrl}
+                  isLCP={index < 2}
+                  userType={userType}
+                  hideInfoIcon={true}
+                  hideFlag={true}
+                  showViewDetails={true}
+                />
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center py-12 px-4 bg-card/30 rounded-2xl border border-dashed border-border/50 my-6">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-brand-blue/10 mb-1">
+              <i className="fa-solid fa-hourglass-half text-2xl text-brand-blue animate-pulse"></i>
             </div>
-          )
-        })}
-      </div>
+            <h2 className="text-xl font-bold text-foreground">{common.coming_soon}</h2>
+            <p className="text-sm text-foreground/60">{common.exciting_updates}</p>
+          </div>
+        </div>
+      )}
 
       <script
         type="application/ld+json"
@@ -307,28 +312,30 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
                 {
                   "@type": "ListItem",
                   "position": 3,
-                  "name": data.sub_category?.name || subSlug,
+                  "name": data?.sub_category?.name || subSlug,
                   "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${slug}/${subSlug}`
                 }
               ]
             },
-            {
-              "@context": "https://schema.org",
-              "@type": "ItemList",
-              "itemListElement": data.products?.map((product: any, index: number) => {
-                const p = product as any;
-                const productName = p.translations?.find((t: any) => t.lang_code === lang)?.name || p.name || p.slug || 'Product'
-                return {
-                  "@type": "ListItem",
-                  "position": index + 1,
-                  "item": {
-                    "@type": "Product",
-                    "name": productName,
-                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/product/${p.slug}`
+            ...(data?.products && data.products.length > 0 ? [
+              {
+                "@context": "https://schema.org",
+                "@type": "ItemList",
+                "itemListElement": data.products.map((product: any, index: number) => {
+                  const p = product as any;
+                  const productName = p.translations?.find((t: any) => t.lang_code === lang)?.name || p.name || p.slug || 'Product'
+                  return {
+                    "@type": "ListItem",
+                    "position": index + 1,
+                    "item": {
+                      "@type": "Product",
+                      "name": productName,
+                      "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/product/${p.slug}`
+                    }
                   }
-                }
-              }) || []
-            }
+                })
+              }
+            ] : [])
           ]).replace(/</g, '\\u003c')
         }}
       />

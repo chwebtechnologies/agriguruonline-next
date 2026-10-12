@@ -35,16 +35,17 @@ export function MarketedProductCardClient({
 }: MarketedProductCardClientProps) {
   const router = useRouter()
   const [showSpecs, setShowSpecs] = useState(false)
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  useScrollLock(showSpecs)
+  useScrollLock(showSpecs && !isSubModalOpen)
 
   useEffect(() => {
-    if (!showSpecs) return
+    if (!showSpecs || isSubModalOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setShowSpecs(false)
     }
@@ -52,11 +53,11 @@ export function MarketedProductCardClient({
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [showSpecs])
+  }, [showSpecs, isSubModalOpen])
 
   const specsModal = showSpecs && mounted && typeof document !== 'undefined' ? createPortal(
     <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+      className={`fixed inset-0 z-[9990] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain transition-opacity duration-200 ${isSubModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       onClick={() => setShowSpecs(false)}
       role="dialog"
       aria-modal="true"
@@ -198,6 +199,11 @@ export function MarketedProductCardClient({
             productName={product.name}
             countryName={product.country?.name || 'Unknown'}
             price={product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 ? product.loading_ports[0].price : '0.00'}
+            onActionSuccess={() => {
+              setShowSpecs(false);
+              setIsSubModalOpen(false);
+            }}
+            onModalOpenChange={(isOpen) => setIsSubModalOpen(isOpen)}
           />
         </div>
       </div>

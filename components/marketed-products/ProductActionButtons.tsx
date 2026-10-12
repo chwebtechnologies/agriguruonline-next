@@ -28,6 +28,8 @@ interface ProductActionButtonsProps {
   productName?: string;
   countryName?: string;
   price?: number | string;
+  onActionSuccess?: () => void;
+  onModalOpenChange?: (isOpen: boolean) => void;
 }
 
 export function ProductActionButtons({
@@ -40,7 +42,9 @@ export function ProductActionButtons({
   size = 'md',
   productName = 'Product',
   countryName = 'Unknown',
-  price = '0.00'
+  price = '0.00',
+  onActionSuccess,
+  onModalOpenChange
 }: ProductActionButtonsProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,6 +56,17 @@ export function ProductActionButtons({
   const [kycMessage, setKycMessage] = useState('');
   const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
   const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
+
+  useEffect(() => {
+    onModalOpenChange?.(isModalOpen || isAddModalOpen || isKYCModalOpen);
+  }, [isModalOpen, isAddModalOpen, isKYCModalOpen, onModalOpenChange]);
+
+  const handleActionSuccess = () => {
+    setIsModalOpen(false);
+    setIsAddModalOpen(false);
+    setIsKYCModalOpen(false);
+    onActionSuccess?.();
+  };
 
   // Client-side user type detection from cookies or prop
   const [clientUserType, setClientUserType] = useState<string | null>(() => {
@@ -113,6 +128,7 @@ export function ProductActionButtons({
 
     // If not logged in, redirect to login ONLY for buy/sell
     if (!hasAuth && action !== 'add') {
+      onActionSuccess?.();
       router.push(`/${lang}/login`);
       return;
     }
@@ -296,6 +312,7 @@ export function ProductActionButtons({
         <ProductInquiryModal 
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
+          onSuccess={handleActionSuccess}
           productId={modalData?.product?.id || productSlugOrId}
           lang={lang}
           common={common}
@@ -314,6 +331,7 @@ export function ProductActionButtons({
         <AddFavoriteProductModal 
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
+          onSuccess={handleActionSuccess}
           productId={modalData?.product?.id || productSlugOrId}
           categoryId={modalData?.product?.category?.id}
           countryId={modalData?.product?.country?.id}
@@ -331,7 +349,7 @@ export function ProductActionButtons({
           isOpen={isKYCModalOpen}
           onClose={() => setIsKYCModalOpen(false)}
           onConfirm={() => {
-            setIsKYCModalOpen(false);
+            handleActionSuccess();
             router.push(kycRedirectUrl);
           }}
           title="Action Required"

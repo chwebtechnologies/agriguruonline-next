@@ -6,6 +6,7 @@ import { ProductInquiryModal } from './ProductInquiryModal';
 interface ChartProductInquiryModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   item: any; // The favorite/chart item containing fixed details
   actionType?: 'buy' | 'sell';
   lang?: string;
@@ -19,6 +20,7 @@ interface ChartProductInquiryModalProps {
 export function ChartProductInquiryModal({
   isOpen,
   onClose,
+  onSuccess,
   item,
   actionType = 'buy',
   lang = 'en',
@@ -35,6 +37,7 @@ export function ChartProductInquiryModal({
       common={common}
       isOpen={isOpen}
       onClose={onClose}
+      onSuccess={onSuccess}
       productName={item.product || item.productName || ''}
       countryName={item.country || item.countryName || ''}
       price={item.price || 0}

@@ -3713,6 +3713,10 @@ export default function MobileCommodityChart({
       <ChartProductInquiryModal 
         isOpen={isInquiryModalOpen}
         onClose={() => setIsInquiryModalOpen(false)}
+        onSuccess={() => {
+          setIsInquiryModalOpen(false);
+          onClose?.();
+        }}
         item={{
           ...item,
           productId: inquiryData?.product?.id || item.productId || item.id,

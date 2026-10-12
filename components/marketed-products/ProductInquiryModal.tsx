@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 export interface ProductInquiryModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   productName: string;
   countryName: string;
   price: number | string;
@@ -44,6 +45,7 @@ export interface ProductInquiryModalProps {
 export function ProductInquiryModal({
   isOpen,
   onClose,
+  onSuccess,
   productName,
   countryName,
   price,
@@ -428,6 +430,9 @@ export function ProductInquiryModal({
       if (res?.success) {
         toast.success(actionType === 'sell' ? "Offer submitted successfully!" : "Inquiry submitted successfully!");
         onClose();
+        if (onSuccess) {
+          onSuccess();
+        }
         router.push(`/${lang}/${actionType === 'sell' ? 'my-offers' : 'my-inquiries'}`);
       } else {
         const errorMsg = res?.message || "Failed to submit. Please try again.";
