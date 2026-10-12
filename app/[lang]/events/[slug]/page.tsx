@@ -8,6 +8,7 @@ import { ShareButton } from '@/components/ui/ShareButton'
 import { getAssetsUrl } from '@/lib/api-utils'
 import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
+import ArticleAudioPlayer from '@/components/news/ArticleAudioPlayer'
 import type { EventDetail, EventItem, EventsResponse, EventDetailResponse } from '@/types/events'
 import { cache, Suspense } from 'react'
 
@@ -196,10 +197,11 @@ function EventDetailSkeleton() {
           </div>
           <div className="grid-area-content w-full max-w-full min-w-0 mt-6 md:mt-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8">
              <div className="w-3/4 h-8 bg-muted animate-pulse rounded mb-6"></div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 mb-5">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 mb-4">
                <div className="h-16 bg-muted animate-pulse rounded-xl border border-border"></div>
                <div className="h-16 bg-muted animate-pulse rounded-xl border border-border"></div>
              </div>
+             <div className="w-full h-16 bg-muted/60 animate-pulse rounded-xl border border-border/60 mb-4"></div>
              <div className="space-y-4">
                <div className="w-full h-4 bg-muted animate-pulse rounded"></div>
                <div className="w-full h-4 bg-muted animate-pulse rounded"></div>
@@ -475,6 +477,15 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
                     </div>
                   </div>
                 </div>
+
+                {/* AUDIO PLAYER (Text to Speech for Event) */}
+                <ArticleAudioPlayer
+                  title={title}
+                  content={rawContent}
+                  lang={lang}
+                  contentType="event"
+                  label={dict.common?.listen_event || "Listen to this event now"}
+                />
 
                 {/* Event Editorial Content */}
                 {formattedContent ? (

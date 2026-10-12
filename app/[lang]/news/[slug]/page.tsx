@@ -10,6 +10,7 @@ import Image from 'next/image'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { NewsArticle, NewsResponse } from '@/types/news'
 import { cache, Suspense } from 'react'
+import ArticleAudioPlayer from '@/components/news/ArticleAudioPlayer'
 
 export const revalidate = 60;
 
@@ -216,7 +217,8 @@ function NewsDetailSkeleton() {
              <div className="w-full h-80 bg-muted animate-pulse rounded-2xl border border-border"></div>
           </div>
           <div className="grid-area-content w-full max-w-full min-w-0 mt-6 md:mt-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8">
-             <div className="w-3/4 h-8 bg-muted animate-pulse rounded mb-6"></div>
+             <div className="w-3/4 h-8 bg-muted animate-pulse rounded mb-2"></div>
+             <div className="w-full h-16 bg-muted/60 animate-pulse rounded-xl border border-border/60 mb-4"></div>
              <div className="space-y-4">
                <div className="w-full h-4 bg-muted animate-pulse rounded"></div>
                <div className="w-full h-4 bg-muted animate-pulse rounded"></div>
@@ -444,12 +446,21 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
               {/* ARTICLE CONTENT (Mobile: Middle, Desktop: Right Column, matches layout) */}
               <div className="grid-area-content w-full max-w-full min-w-0 bg-card rounded-b-2xl rounded-t-none md:rounded-2xl border border-border p-4 sm:p-7 md:p-8 shadow-xs flex flex-col overflow-hidden self-start md:h-auto">
                 
-                {/* Title with reduced bottom margin */}
+                {/* Title with minimal bottom margin for flush player placement */}
                 <h1 
-                  className="article-title text-xl sm:text-2xl md:text-[25px] font-bold text-foreground mb-3 pb-2.5 border-b border-border leading-[1.3] tracking-tight"
+                  className="article-title text-xl sm:text-2xl md:text-[25px] font-bold text-foreground mb-1.5 pb-2 border-b border-border leading-[1.3] tracking-tight"
                 >
                   {title}
                 </h1>
+
+                {/* AUDIO PLAYER (Text to Speech with lady voice, scrub bar, 10s forward/backward & speed controls) */}
+                <ArticleAudioPlayer
+                  title={title}
+                  content={rawContent}
+                  lang={lang}
+                  contentType="news"
+                  label={dict.common?.listen_news || "Listen to this news now"}
+                />
 
                 <div 
                   className="editorial-body prose prose-sm sm:prose-base dark:prose-invert max-w-none prose-img:rounded-xl prose-img:shadow-sm prose-a:text-brand-blue hover:prose-a:text-blue-500 prose-headings:text-foreground prose-p:text-foreground/80 prose-p:text-justify leading-relaxed tracking-wide"

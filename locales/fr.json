@@ -101,6 +101,9 @@
     "no_ai_predictions_desc": "Vous n'avez pas encore exécuté de prédictions de prix par IA pour ce produit."
   },
   "common": {
+    "listen_article": "Écoutez cet article maintenant",
+    "listen_news": "Écoutez cette actualité maintenant",
+    "listen_event": "Écoutez cet événement maintenant",
     "add_product": "Ajouter un Produit",
     "address_placeholder": "Bâtiment, Rue, Ville",
     "ai_predict": "Prédiction IA",

@@ -101,6 +101,9 @@
     "no_ai_predictions_desc": "您尚未对该商品运行任何 AI 价格预测。"
   },
   "common": {
+    "listen_article": "立即收听本文",
+    "listen_news": "立即收听本条新闻",
+    "listen_event": "立即收听本场活动",
     "add_product": "添加产品",
     "address_placeholder": "建筑、街道、城市",
     "ai_predict": "AI 预测",

@@ -111,6 +111,9 @@
     "no_ai_predictions_desc": "You haven't run any AI price predictions for this commodity yet."
   },
   "common": {
+    "listen_article": "Listen to this article now",
+    "listen_news": "Listen to this news now",
+    "listen_event": "Listen to this event now",
     "add_product": "Add Product",
     "address_placeholder": "Building, Street, City",
     "ai_predict": "AI Predict",
