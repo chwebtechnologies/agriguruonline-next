@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { getWatchlistFreightAction } from '@/app/actions/watchlist';
 import ProductChartsClient from '@/components/product-charts/ProductChartsClient';
 import FreightChartClient from '@/components/freight-chart/FreightChartClient';
+import { FreightChartGridSkeleton } from '@/components/freight-chart/FreightChartGridSkeleton';
 import { WATCHLIST_SCROLL_KEY, WATCHLIST_SCROLL_EVENT, WATCHLIST_REFRESH_EVENT } from '@/lib/watchlist-utils';
 
 interface WatchlistSectionClientProps {
@@ -104,8 +105,8 @@ export default function WatchlistSectionClient({ dict, lang = 'en', initialProdu
           </div>
         ) : (
           isFreightLoading || !freightData ? (
-            <div className="p-8 w-full flex items-center justify-center min-h-[300px]">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="w-full">
+              <FreightChartGridSkeleton />
             </div>
           ) : (
             <div className="animate-in fade-in zoom-in-95 duration-300 w-full">
