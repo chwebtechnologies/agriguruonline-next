@@ -10,20 +10,32 @@ interface InquiryListCardProps {
 }
 
 export default function InquiryListCard({ item, type, isActive, isChecked, onClick, onCheck }: InquiryListCardProps) {
+  // Port name helper
+  const getPortName = (p: any) => {
+    if (!p) return '';
+    if (typeof p === 'string') return p;
+    return p.name || p.port_name || p.title || '';
+  };
+
+  const loadingPortName = getPortName(item?.loading_port || item?.port_of_loading || item?.pol);
+  const dischargePortName = getPortName(item?.discharge_port || item?.destination_port || item?.port_of_destination || item?.pod);
+
   // Title extraction with exhaustive fallbacks
   const title = 
-    item?.product?.name ||
-    item?.product_name ||
-    item?.commodity?.name ||
-    item?.commodity_name ||
-    item?.crop_name ||
-    item?.variety ||
-    item?.title ||
-    item?.name ||
-    item?.inquiry_title ||
-    (type === 'freight' 
-      ? (item?.loading_port && item?.discharge_port ? `${item.loading_port} ➔ ${item.discharge_port}` : 'Freight Route')
-      : 'Product Inquiry');
+    (type === 'freight' && loadingPortName && dischargePortName)
+      ? `${loadingPortName} ➔ ${dischargePortName}`
+      : (item?.product?.name ||
+        item?.product_name ||
+        item?.commodity?.name ||
+        item?.commodity_name ||
+        item?.crop_name ||
+        item?.variety ||
+        item?.title ||
+        item?.name ||
+        item?.inquiry_title ||
+        (type === 'freight' 
+          ? (loadingPortName || dischargePortName ? `${loadingPortName || 'Port'} ➔ ${dischargePortName || 'Port'}` : 'Freight Inquiry')
+          : 'Product Offer'));
 
   // Status badge formatting
   const rawStatus = item?.status || item?.status_text || item?.inquiry_status || item?.state || 'Negotiation';
@@ -92,15 +104,21 @@ export default function InquiryListCard({ item, type, isActive, isChecked, onCli
     subtitle = parts.slice(0, 4).join(' • ');
   } else {
     const parts = [];
-    if (item?.loading_port && item?.discharge_port) {
-      parts.push(`${item.loading_port} ➔ ${item.discharge_port}`);
-    } else if (item?.pol && item?.pod) {
-      parts.push(`${item.pol} ➔ ${item.pod}`);
+    // Date first as requested (DD-MM-YYYY)
+    if (dateStr) parts.push(dateStr);
+    const inqType = item?.inquiry_type || item?.type;
+    if (inqType && typeof inqType === 'string' && inqType.toUpperCase() !== 'ACTUAL') {
+      parts.push(inqType.toUpperCase());
     }
-    if (item?.container_type || item?.shipping_container?.name) {
-      parts.push(item?.container_type || item?.shipping_container?.name);
+    if (item?.product?.name || item?.product_name) {
+      parts.push(item?.product?.name || item?.product_name);
     }
-    subtitle = parts.join(' • ');
+    const container = item?.shipping_container?.title || item?.shipping_container?.name || item?.container_type;
+    if (container) parts.push(container);
+    if (item?.quantity) parts.push(`${item.quantity} ${item.quantity_type || item.quantity_unit || 'MT'}`);
+    const term = item?.shipping_term?.title || item?.shipping_term?.name || item?.shipping_term || item?.shipment_term;
+    if (term && typeof term === 'string') parts.push(term.toUpperCase());
+    subtitle = parts.slice(0, 3).join(' • ');
   }
 
   return (
@@ -149,12 +167,12 @@ export default function InquiryListCard({ item, type, isActive, isChecked, onCli
           )}
         </div>
         <p 
-          title={subtitle ? `${subtitle} • ${dateStr}` : dateStr}
+          title={type === 'freight' ? subtitle : (subtitle ? `${subtitle} • ${dateStr}` : dateStr)}
           className={`text-[11px] sm:text-[12px] truncate mt-1 ${
             isActive ? 'text-white/80' : 'text-foreground/60'
           }`}
         >
-          {subtitle ? `${subtitle} • ${dateStr}` : dateStr}
+          {type === 'freight' ? subtitle : (subtitle ? `${subtitle} • ${dateStr}` : dateStr)}
         </p>
       </div>
 

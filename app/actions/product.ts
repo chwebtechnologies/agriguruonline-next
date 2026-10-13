@@ -14,7 +14,7 @@ export async function fetchProductDetails(productId: string, langCode: string) {
     return { success: false, message: "Unauthorized", data: null };
   }
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  const tradingApiUrl = getTradingApiUrl();
   const url = `${tradingApiUrl}/product/${productId}?lang_code=${langCode}&source=web`;
   
   try {
@@ -34,7 +34,7 @@ export async function fetchShippingTerms(langCode: string) {
     return { success: false, message: "Unauthorized", data: null };
   }
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  const tradingApiUrl = getTradingApiUrl();
   const url = `${tradingApiUrl}/shipping-term?is_active=true&lang_code=${langCode}&source=web`;
   
   try {
@@ -54,7 +54,7 @@ export async function fetchLoadingPorts(productId: string, containerId: string, 
     return { success: false, message: "Unauthorized", data: null };
   }
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  const tradingApiUrl = getTradingApiUrl();
   const url = `${tradingApiUrl}/favorite-product/loading-port/${productId}/${containerId}/${shippingTermId}?lang_code=${langCode}&source=web`;
   
   try {
@@ -74,7 +74,7 @@ export async function fetchDestinationPorts(productId: string, containerId: stri
     return { success: false, message: "Unauthorized", data: null };
   }
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  const tradingApiUrl = getTradingApiUrl();
   const url = `${tradingApiUrl}/favorite-product/destination-port/${productId}/${containerId}/${loadingPortId}?lang_code=${langCode}&source=web`;
   
   try {
@@ -94,7 +94,7 @@ export async function fetchPaymentTerms(langCode: string) {
     return { success: false, message: "Unauthorized", data: null };
   }
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  const tradingApiUrl = getTradingApiUrl();
   const url = `${tradingApiUrl}/payment-term?is_active=true&lang_code=${langCode}&source=web`;
   
   try {
@@ -125,7 +125,7 @@ export async function fetchTradingPrice(params: {
 
   let user_id = '';
   try {
-    const userApiUrl = process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud';
+    const userApiUrl = getUserApiUrl();
     const profileUrl = `${userApiUrl}/user/my-profile?lang_code=${params.lang_code}&source=web`;
     const profileRes = await customFetchJSON<any>(profileUrl, { token });
     if (profileRes && profileRes.data && profileRes.data.id) {
@@ -155,7 +155,7 @@ export async function fetchTradingPrice(params: {
     queryParams.append('user_id', user_id);
   }
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  const tradingApiUrl = getTradingApiUrl();
   const url = `${tradingApiUrl}/trading-inquiry/price?${queryParams.toString()}`;
   
   try {
@@ -181,7 +181,7 @@ export async function submitTradingInquiry(payload: any) {
   let user_id = payload.user_id;
   if (!user_id) {
     try {
-      const userApiUrl = process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud';
+      const userApiUrl = getUserApiUrl();
       const profileUrl = `${userApiUrl}/user/my-profile?lang_code=${payload.lang_code || 'en'}&source=web`;
       const profileRes = await customFetchJSON<any>(profileUrl, { token });
       if (profileRes && profileRes.data && profileRes.data.id) {
@@ -197,7 +197,7 @@ export async function submitTradingInquiry(payload: any) {
 
   if (!category_id || !origin_country_id) {
     try {
-      const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+      const tradingApiUrl = getTradingApiUrl();
       const productUrl = `${tradingApiUrl}/product/${payload.product_id}?lang_code=${payload.lang_code || 'en'}&source=web`;
       const productRes = await customFetchJSON<any>(productUrl, { token });
       if (productRes && productRes.data) {
@@ -213,7 +213,7 @@ export async function submitTradingInquiry(payload: any) {
   payload.category_id = category_id;
   payload.origin_country_id = origin_country_id;
 
-  const tradingApiUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || 'https://trading-api.agriguruonline.cloud';
+  const tradingApiUrl = getTradingApiUrl();
   const url = `${tradingApiUrl}/trading-inquiry?type=${payload.type}&lang_code=${payload.lang_code || 'en'}&source=web`;
   
   try {
@@ -321,3 +321,4 @@ export async function checkKYCStatus(langCode: string, type: string) {
     return { success: false, message: "Failed to check KYC status", data: null, is_kyc_verified: isKycVerified };
   }
 }
+

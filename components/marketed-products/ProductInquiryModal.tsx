@@ -433,7 +433,7 @@ export function ProductInquiryModal({
         if (onSuccess) {
           onSuccess();
         }
-        router.push(`/${lang}/${actionType === 'sell' ? 'my-offers' : 'my-inquiries'}`);
+        router.push(`/${lang}/${actionType === 'sell' ? 'my-offers' : 'my-inquiries'}?tab=product`);
       } else {
         const errorMsg = res?.message || "Failed to submit. Please try again.";
         toast.error(errorMsg);

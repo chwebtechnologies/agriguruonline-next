@@ -194,17 +194,16 @@ export default function InquiryDetailsPanel({
   const [localOffers, setLocalOffers] = useState<any[]>([]);
   const [offerStatus, setOfferStatus] = useState<'normal' | 'confirmed' | 'rejected'>('normal');
 
-  // Reset state when selected item changes
+  // Reset local state when selected item changes
   useEffect(() => {
     setUserPriceInput('');
     setIsRenegotiating(false);
     setActionNotice(null);
     setLocalOffers([]);
     setOfferStatus('normal');
-    setApiData(null);
   }, [selectedItemId]);
 
-  // Fetch complete details from backend API
+  // Fetch complete details from backend API (always fresh on card select)
   useEffect(() => {
     const idToFetch = selectedItemId || selectedItem?.id || selectedItem?._id;
     if (!idToFetch) return;
@@ -239,6 +238,7 @@ export default function InquiryDetailsPanel({
       ...(apiData?.details || {}),
       ...(apiData?.inquiry || {}),
       ...(apiData?.trading_inquiry || {}),
+      ...(apiData?.freight_inquiry || {}),
     };
   }, [selectedItem, apiData]);
 
@@ -246,7 +246,16 @@ export default function InquiryDetailsPanel({
   const currencySymbol = details?.currency?.symbol || (typeof details?.currency === 'string' ? details.currency : '$');
 
   // Title
-  const title = resolveStringValue(
+  const freightPortTitle = (() => {
+    if (activeTab !== 'freight') return null;
+    const loadPort = resolveStringValue(details?.loading_port || details?.port_of_loading || details?.pol, '');
+    const dischPort = resolveStringValue(details?.destination_port || details?.discharge_port || details?.port_of_destination || details?.pod, '');
+    if (loadPort && dischPort) return `${loadPort} ➔ ${dischPort}`;
+    if (loadPort || dischPort) return `${loadPort || 'Port'} ➔ ${dischPort || 'Port'}`;
+    return null;
+  })();
+
+  const title = freightPortTitle || resolveStringValue(
     details?.product_name ||
     details?.product?.name ||
     selectedItem?.product?.name ||
@@ -256,7 +265,7 @@ export default function InquiryDetailsPanel({
     details?.crop_name ||
     details?.title ||
     details?.name ||
-    (activeTab === 'freight' ? 'Freight Route Inquiry' : 'Product Inquiry')
+    (activeTab === 'freight' ? 'Freight Inquiry' : 'Product Inquiry')
   );
 
   // Status calculation
@@ -354,11 +363,16 @@ export default function InquiryDetailsPanel({
   const portOfDestinationVal = resolveStringValue(details?.destination_port || details?.discharge_port || details?.pod);
 
   const shipmentPeriodVal = (() => {
-    if (details?.shipment_start_date && details?.shipment_end_date) {
-      return `${formatDateSimple(details.shipment_start_date)} – ${formatDateSimple(details.shipment_end_date)}`;
+    const startDate = details?.shipping_start_date || details?.shipment_start_date || details?.start_date;
+    const endDate = details?.shipping_end_date || details?.shipment_end_date || details?.end_date;
+    if (startDate && endDate) {
+      return `${formatDateSimple(startDate)} – ${formatDateSimple(endDate)}`;
     }
+    if (startDate) return formatDateSimple(startDate);
+    if (endDate) return formatDateSimple(endDate);
     if (details?.shipment_period) return resolveStringValue(details.shipment_period);
     if (details?.delivery_period) return resolveStringValue(details.delivery_period);
+    if (details?.shipping_period) return resolveStringValue(details.shipping_period);
     return '—';
   })();
 
@@ -371,8 +385,19 @@ export default function InquiryDetailsPanel({
 
   const containerRaw = resolveStringValue(details?.fcl ?? details?.container_count ?? details?.container_fcl);
   const containerFclVal = containerRaw !== '—' ? `${containerRaw} FCLs` : '—';
+  const linerTermVal = resolveStringValue(details?.liner_term || details?.liner_terms || details?.liner_term_name);
+  const freightProductNameVal = resolveStringValue(
+    details?.product_name ||
+    details?.product?.name ||
+    selectedItem?.product?.name ||
+    selectedItem?.product_name ||
+    details?.commodity?.name ||
+    details?.commodity_name ||
+    details?.crop_name,
+    '—'
+  );
   const paymentTermVal = resolveStringValue(details?.payment_term || details?.payment_terms || details?.payment_type);
-  const descriptionVal = resolveStringValue(details?.description || details?.desc || details?.note, '—');
+  const descriptionVal = resolveStringValue(details?.comment || details?.description || details?.desc || details?.note, '—');
 
   // Last User offer
   const lastUser = combinedHistory
@@ -578,17 +603,17 @@ export default function InquiryDetailsPanel({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-          <span
-            className={`text-xs px-3 py-1 rounded-full border font-bold uppercase tracking-wider ${
-              offerStatus === 'confirmed' || currentStep === 3 || currentStep === 4
-                ? 'border-brand-green/30 bg-brand-green/10 text-brand-green'
-                : offerStatus === 'rejected'
-                ? 'border-brand-red/30 bg-brand-red/10 text-brand-red'
-                : 'border-brand-blue/30 bg-brand-blue/10 text-brand-blue'
-            }`}
-          >
-            {displayStatus}
-          </span>
+            <span
+              className={`text-xs px-3 py-1 rounded-full border font-bold uppercase tracking-wider ${
+                offerStatus === 'confirmed' || currentStep === 3 || currentStep === 4
+                  ? 'border-brand-green/30 bg-brand-green/10 text-brand-green'
+                  : offerStatus === 'rejected'
+                  ? 'border-brand-red/30 bg-brand-red/10 text-brand-red'
+                  : 'border-brand-blue/30 bg-brand-blue/10 text-brand-blue'
+              }`}
+            >
+              {displayStatus}
+            </span>
           </div>
         </div>
 
@@ -650,76 +675,145 @@ export default function InquiryDetailsPanel({
       {/* 3. Collapsible Specifications Table */}
       {showDetails && (
         <>
-          {/* Mobile View: 2 columns (1 Key, 1 Value) per row */}
-          <div className="block sm:hidden border border-border rounded-xl mb-3 shadow-sm overflow-hidden">
-            <table className="w-full text-left text-[13px]">
-              <tbody className="divide-y divide-border">
-                {[
-                  { label: 'Product Name', value: productNameVal },
-                  { label: 'Country', value: countryVal },
-                  { label: 'Ship By', value: shipByVal },
-                  { label: 'Shipping Term', value: shippingTermVal },
-                  { label: 'Port of Loading', value: portOfLoadingVal },
-                  { label: 'Port of Dest.', value: portOfDestinationVal },
-                  { label: 'Shipment Period', value: shipmentPeriodVal },
-                  { label: 'Packing Type', value: packingTypeVal },
-                  { label: 'Quantity (MT)', value: quantityVal },
-                  { label: 'Container (FCL)', value: containerFclVal },
-                  { label: 'Payment Term', value: paymentTermVal },
-                  { label: 'Description', value: descriptionVal },
-                ].map((item, idx) => (
-                  <tr key={idx} className="divide-x divide-border hover:bg-foreground/[0.01]">
-                    <td className="px-3 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[40%]">{item.label}</td>
-                    <td className="px-3 py-2.5 font-semibold text-foreground w-[60%]">{item.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {activeTab === 'freight' ? (
+            <>
+              {/* Mobile View for Freight: 2 columns (1 Key, 1 Value) per row */}
+              <div className="block sm:hidden border border-border rounded-xl mb-3 shadow-sm overflow-hidden">
+                <table className="w-full text-left text-[13px]">
+                  <tbody className="divide-y divide-border">
+                    {[
+                      { label: 'Port of Loading', value: portOfLoadingVal },
+                      { label: 'Port of Destination', value: portOfDestinationVal },
+                      { label: 'Ship By', value: shipByVal },
+                      { label: 'Quantity (MT)', value: quantityVal },
+                      { label: 'Shipping Term', value: shippingTermVal },
+                      { label: 'Shipment Period', value: shipmentPeriodVal },
+                      { label: 'Product Name', value: freightProductNameVal },
+                      { label: 'Liner Term', value: linerTermVal },
+                      { label: 'Payment Term', value: paymentTermVal },
+                      { label: 'Description', value: descriptionVal },
+                    ].map((item, idx) => (
+                      <tr key={idx} className="divide-x divide-border hover:bg-foreground/[0.01]">
+                        <td className="px-3 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[45%]">{item.label}</td>
+                        <td className="px-3 py-2.5 font-semibold text-foreground w-[55%]">{item.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Desktop View: Original 4 columns (2 Keys, 2 Values) per row */}
-          <div className="hidden sm:block border border-border rounded-xl mb-3 overflow-x-auto shadow-sm">
-            <table className="w-full text-left text-sm min-w-[600px]">
-              <tbody className="divide-y divide-border">
-                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Product Name</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground w-[30%]">{productNameVal}</td>
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Country</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground w-[30%]">{countryVal}</td>
-                </tr>
-                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Ship By</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{shipByVal}</td>
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipping Term</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{shippingTermVal}</td>
-                </tr>
-                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Loading</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{portOfLoadingVal}</td>
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Dest.</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{portOfDestinationVal}</td>
-                </tr>
-                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipment Period</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{shipmentPeriodVal}</td>
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Packing Type</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{packingTypeVal}</td>
-                </tr>
-                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Quantity (MT)</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{quantityVal}</td>
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Container (FCL)</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{containerFclVal}</td>
-                </tr>
-                <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Payment Term</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{paymentTermVal}</td>
-                  <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Description</td>
-                  <td className="px-4 py-2.5 font-semibold text-foreground">{descriptionVal}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+              {/* Desktop View for Freight: 4 columns (2 Keys, 2 Values) per row */}
+              <div className="hidden sm:block border border-border rounded-xl mb-3 overflow-x-auto shadow-sm">
+                <table className="w-full text-left text-sm min-w-[600px]">
+                  <tbody className="divide-y divide-border">
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[22%]">Port of Loading</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground w-[28%]">{portOfLoadingVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[22%]">Port of Destination</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground w-[28%]">{portOfDestinationVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Ship By</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{shipByVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Quantity (MT)</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{quantityVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipping Term</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{shippingTermVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipment Period</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{shipmentPeriodVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Product Name</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{freightProductNameVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Liner Term</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{linerTermVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Payment Term</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{paymentTermVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Description</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{descriptionVal}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Mobile View for Product: 2 columns (1 Key, 1 Value) per row */}
+              <div className="block sm:hidden border border-border rounded-xl mb-3 shadow-sm overflow-hidden">
+                <table className="w-full text-left text-[13px]">
+                  <tbody className="divide-y divide-border">
+                    {[
+                      { label: 'Product Name', value: productNameVal },
+                      { label: 'Country', value: countryVal },
+                      { label: 'Ship By', value: shipByVal },
+                      { label: 'Shipping Term', value: shippingTermVal },
+                      { label: 'Port of Loading', value: portOfLoadingVal },
+                      { label: 'Port of Dest.', value: portOfDestinationVal },
+                      { label: 'Shipment Period', value: shipmentPeriodVal },
+                      { label: 'Packing Type', value: packingTypeVal },
+                      { label: 'Quantity (MT)', value: quantityVal },
+                      { label: 'Container (FCL)', value: containerFclVal },
+                      { label: 'Payment Term', value: paymentTermVal },
+                      { label: 'Description', value: descriptionVal },
+                    ].map((item, idx) => (
+                      <tr key={idx} className="divide-x divide-border hover:bg-foreground/[0.01]">
+                        <td className="px-3 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[40%]">{item.label}</td>
+                        <td className="px-3 py-2.5 font-semibold text-foreground w-[60%]">{item.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Desktop View for Product: Original 4 columns (2 Keys, 2 Values) per row */}
+              <div className="hidden sm:block border border-border rounded-xl mb-3 overflow-x-auto shadow-sm">
+                <table className="w-full text-left text-sm min-w-[600px]">
+                  <tbody className="divide-y divide-border">
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Product Name</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground w-[30%]">{productNameVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium w-[20%]">Country</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground w-[30%]">{countryVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Ship By</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{shipByVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipping Term</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{shippingTermVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Loading</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{portOfLoadingVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Port of Dest.</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{portOfDestinationVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Shipment Period</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{shipmentPeriodVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Packing Type</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{packingTypeVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Quantity (MT)</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{quantityVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Container (FCL)</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{containerFclVal}</td>
+                    </tr>
+                    <tr className="divide-x divide-border hover:bg-foreground/[0.01]">
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Payment Term</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{paymentTermVal}</td>
+                      <td className="px-4 py-2.5 bg-foreground/[0.02] text-foreground/70 font-medium">Description</td>
+                      <td className="px-4 py-2.5 font-semibold text-foreground">{descriptionVal}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -772,8 +866,8 @@ export default function InquiryDetailsPanel({
           </div>
 
           {/* User Header */}
-          <div className="flex items-center justify-end sm:justify-start gap-1.5 px-1">
-            <span className="text-xs sm:text-[13px] font-bold text-foreground text-right sm:text-left">
+          <div className="flex items-center gap-1.5 px-1">
+            <span className="text-xs sm:text-[13px] font-bold text-foreground">
               Your Asking Price
             </span>
           </div>
@@ -812,18 +906,18 @@ export default function InquiryDetailsPanel({
 
                 {/* Right Column: User Asking Price */}
                 {userOffer ? (
-                  <div className="bg-foreground/[0.04] dark:bg-card border border-border/80 rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row sm:items-center items-end sm:items-start text-right sm:text-left gap-1 sm:gap-3 transition-all shadow-2xs">
+                  <div className="bg-foreground/[0.04] dark:bg-card border border-border/80 rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 transition-all shadow-2xs">
                     <UserAvatar
                       src={resolvedUserAvatar}
                       name={userCounterName}
                       className="w-6 h-6 sm:w-9 sm:h-9 hidden sm:flex"
                     />
-                    <div className="flex-1 min-w-0 w-full">
+                    <div className="flex-1 min-w-0">
                       <p className="text-[10px] sm:text-xs font-semibold text-foreground/85 truncate" suppressHydrationWarning>
                         {userTime.full}
                       </p>
                     </div>
-                    <div className="text-right sm:text-left shrink-0">
+                    <div className="text-left sm:text-right shrink-0">
                       <span className="text-sm sm:text-base font-black text-brand-blue tracking-tight">
                         {currencySymbol}{formatPrice(userOffer.price)}
                       </span>

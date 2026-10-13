@@ -1,8 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import InquiryListCard from './InquiryListCard';
 import InquiryDetailsPanel from './InquiryDetailsPanel';
+import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
+import { deleteInquiriesAction, fetchInquiriesListAction } from '@/app/actions/inquiries';
 import { useScrollLock } from '@/lib/scroll-lock';
 
 interface MyInquiriesClientProps {
@@ -12,26 +16,88 @@ interface MyInquiriesClientProps {
   dict: any;
   token?: string;
   userProfile?: any;
+  tabLabels?: {
+    product?: string;
+    freight?: string;
+  };
 }
 
 export default function MyInquiriesClient({
   lang,
-  productInquiries = [],
-  freightInquiries = [],
+  productInquiries: initialProductInquiries = [],
+  freightInquiries: initialFreightInquiries = [],
   dict,
   token,
   userProfile,
+  tabLabels: customTabLabels,
 }: MyInquiriesClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
+
+  const [productInquiriesList, setProductInquiriesList] = useState<any[]>(initialProductInquiries);
+  const [freightInquiriesList, setFreightInquiriesList] = useState<any[]>(initialFreightInquiries);
+  const [isLoadingTab, setIsLoadingTab] = useState(false);
+
+  useEffect(() => {
+    setProductInquiriesList(initialProductInquiries);
+  }, [initialProductInquiries]);
+
+  useEffect(() => {
+    setFreightInquiriesList(initialFreightInquiries);
+  }, [initialFreightInquiries]);
+
   const [activeTab, setActiveTab] = useState<'product' | 'freight'>('product');
   const [searchQuery, setSearchQuery] = useState('');
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [isMobileDetailView, setIsMobileDetailView] = useState(false);
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const activeList = activeTab === 'product' ? productInquiries : freightInquiries;
+  // Helper to fetch and update listing for a given tab
+  const refreshTabList = async (tab: 'product' | 'freight') => {
+    try {
+      setIsLoadingTab(true);
+      const res = await fetchInquiriesListAction(tab, lang, token);
+      if (res.success && Array.isArray(res.data)) {
+        if (tab === 'product') {
+          setProductInquiriesList(res.data);
+        } else {
+          setFreightInquiriesList(res.data);
+        }
+      }
+    } catch (err) {
+      console.error('[MyInquiriesClient] Error refreshing tab:', err);
+    } finally {
+      setIsLoadingTab(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tabParam === 'freight' || tabParam === 'product') {
+      if (tabParam !== activeTab) {
+        setActiveTab(tabParam);
+        setSelectedItemId(null);
+        setCheckedItems([]);
+        setIsMobileDetailView(false);
+        refreshTabList(tabParam);
+      }
+    }
+  }, [tabParam]);
+
+  const activeList = activeTab === 'product' ? productInquiriesList : freightInquiriesList;
 
   const filteredList = useMemo(() => {
     if (!searchQuery.trim()) return activeList;
     const q = searchQuery.toLowerCase().trim();
     return activeList.filter((item) => {
+      const getStr = (val: any) => {
+        if (!val) return '';
+        if (typeof val === 'string') return val;
+        return val.name || val.title || val.port_name || '';
+      };
       const title = (
         item?.product?.name ||
         item?.product_name ||
@@ -46,15 +112,26 @@ export default function MyInquiriesClient({
       ).toLowerCase();
       const status = (item?.status || item?.status_text || '').toLowerCase();
       const type = (item?.type || '').toLowerCase();
-      const ports = `${item?.loading_port || item?.pol || ''} ${item?.discharge_port || item?.pod || ''}`.toLowerCase();
+      const loadPort = getStr(item?.loading_port || item?.port_of_loading || item?.pol).toLowerCase();
+      const dischPort = getStr(item?.discharge_port || item?.destination_port || item?.port_of_destination || item?.pod).toLowerCase();
+      const ports = `${loadPort} ${dischPort}`;
       return title.includes(q) || status.includes(q) || type.includes(q) || ports.includes(q);
     });
   }, [activeList, searchQuery]);
 
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [isMobileDetailView, setIsMobileDetailView] = useState(false);
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobileScreen(window.innerWidth < 1024);
+      if (window.innerWidth >= 1024) {
+        setIsMobileDetailView(false);
+      }
+    };
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
 
-  useScrollLock(isMobileDetailView);
+  useScrollLock(isMobileDetailView && isMobileScreen);
 
   // Derive current selected item or fallback to first item
   const selectedItem = useMemo(() => {
@@ -66,11 +143,18 @@ export default function MyInquiriesClient({
   }, [activeList, filteredList, selectedItemId]);
 
   const handleTabChange = (tab: 'product' | 'freight') => {
+    if (tab === activeTab) return;
     setActiveTab(tab);
     setSearchQuery('');
     setSelectedItemId(null);
     setCheckedItems([]);
     setIsMobileDetailView(false);
+    refreshTabList(tab);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState(null, '', url.toString());
+    } catch (e) {}
   };
 
   const handleCheckItem = (itemId: string) => {
@@ -89,17 +173,63 @@ export default function MyInquiriesClient({
   };
 
   const handleDeleteSelected = () => {
-    if (confirm(`Are you sure you want to delete ${checkedItems.length} selected items?`)) {
-      console.log('Deleting items:', checkedItems);
-      setCheckedItems([]);
-      // In a real application, make API call here and refresh list
+    if (checkedItems.length === 0) return;
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (checkedItems.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      const actualInquiryIds: string[] = [];
+      const freshInquiryIds: string[] = [];
+
+      checkedItems.forEach((id) => {
+        const item = activeList.find((it) => (it?.id || it?._id) === id);
+        const inquiryType = String(item?.inquiry_type || item?.type || '').toUpperCase();
+        if (inquiryType.includes('FRESH')) {
+          freshInquiryIds.push(id);
+        } else {
+          actualInquiryIds.push(id);
+        }
+      });
+
+      const payload = {
+        actual_inquiry_ids: actualInquiryIds,
+        fresh_inquiry_ids: freshInquiryIds,
+      };
+
+      const result = await deleteInquiriesAction(activeTab, payload, lang, token);
+
+      if (result.success) {
+        toast.success(result.message || 'Inquiries deleted successfully');
+        
+        // Optimistically update list
+        if (activeTab === 'product') {
+          setProductInquiriesList((prev) => prev.filter((item) => !checkedItems.includes(item?.id || item?._id)));
+        } else {
+          setFreightInquiriesList((prev) => prev.filter((item) => !checkedItems.includes(item?.id || item?._id)));
+        }
+
+        setCheckedItems([]);
+        setIsDeleteModalOpen(false);
+        router.refresh();
+      } else {
+        toast.error(result.error || 'Failed to delete inquiries');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Error occurred while deleting inquiries');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
+
   // Safe dictionary labels
   const tabLabels = {
-    product: dict?.product_inquiries || 'Product Inquiry',
-    freight: dict?.freight_inquiries || 'Freight Inquiry',
+    product: customTabLabels?.product || dict?.product_inquiries || 'Product Inquiry',
+    freight: customTabLabels?.freight || dict?.freight_inquiries || 'Freight Inquiry',
   };
 
   return (
@@ -167,9 +297,9 @@ export default function MyInquiriesClient({
                 }`}
               >
                 <span>{tabLabels.product}</span>
-                {productInquiries.length > 0 && (
+                {productInquiriesList.length > 0 && (
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === 'product' ? 'bg-brand-blue/15 text-brand-blue' : 'bg-foreground/10 text-foreground/60'}`}>
-                    {productInquiries.length}
+                    {productInquiriesList.length}
                   </span>
                 )}
               </button>
@@ -182,9 +312,9 @@ export default function MyInquiriesClient({
                 }`}
               >
                 <span>{tabLabels.freight}</span>
-                {freightInquiries.length > 0 && (
+                {freightInquiriesList.length > 0 && (
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === 'freight' ? 'bg-brand-blue/15 text-brand-blue' : 'bg-foreground/10 text-foreground/60'}`}>
-                    {freightInquiries.length}
+                    {freightInquiriesList.length}
                   </span>
                 )}
               </button>
@@ -249,6 +379,22 @@ export default function MyInquiriesClient({
           />
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        title={dict?.common?.delete_item || "Delete Inquiries"}
+        description={
+          checkedItems.length === 1
+            ? `Are you sure you want to delete this selected ${activeTab === 'product' ? 'product' : 'freight'} inquiry?`
+            : `Are you sure you want to delete ${checkedItems.length} selected ${activeTab === 'product' ? 'product' : 'freight'} inquiries?`
+        }
+        common={dict?.common || {}}
+      />
     </div>
   );
 }
+

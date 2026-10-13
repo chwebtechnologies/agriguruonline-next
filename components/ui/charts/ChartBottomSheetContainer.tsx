@@ -40,6 +40,7 @@ interface ChartBottomSheetContainerProps {
   swipeText?: string;
   initialTab?: string;
   initialExpandedPredictId?: string;
+  onFreightInquiry?: (item: ChartBottomSheetItem) => void;
 }
 
 export function ChartBottomSheetContainer({
@@ -50,7 +51,8 @@ export function ChartBottomSheetContainer({
   lang = 'en',
   swipeText = 'Swipe up for Details',
   initialTab,
-  initialExpandedPredictId
+  initialExpandedPredictId,
+  onFreightInquiry
 }: ChartBottomSheetContainerProps) {
   const [headerHeight, setHeaderHeight] = useState(0);
 
@@ -112,6 +114,7 @@ export function ChartBottomSheetContainer({
           lang={lang}
           initialTab={initialTab}
           initialExpandedPredictId={initialExpandedPredictId}
+          onFreightInquiry={onFreightInquiry}
         />
       </div>
     </div>

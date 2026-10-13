@@ -155,6 +155,7 @@ export default function MobileCommodityChart({
   initialTab = 'Overview',
   initialExpandedPredictId,
   common = {},
+  onFreightInquiry,
 }: {
   item: CommodityItemData;
   isFullScreen?: boolean;
@@ -167,6 +168,7 @@ export default function MobileCommodityChart({
   initialTab?: string;
   initialExpandedPredictId?: string;
   common?: any;
+  onFreightInquiry?: (item: CommodityItemData) => void;
 }) {
   const router = useRouter();
   // Timeframe filters: 1W, 1M, 6M, 1Y, 5Y, ALL (Default is 1Y)
@@ -219,7 +221,11 @@ export default function MobileCommodityChart({
       return;
     }
     if (isFreight) {
-      toast.info('Freight inquiry request initiated. Our logistics desk will get in touch.');
+      if (onFreightInquiry) {
+        onFreightInquiry(item);
+      } else {
+        toast.info('Freight inquiry request initiated. Our logistics desk will get in touch.');
+      }
       return;
     }
     if (isActionLoading) return;
@@ -232,11 +238,23 @@ export default function MobileCommodityChart({
       const type = action === 'buy' ? 'BUYER' : 'SELLER';
       const kycResponse = await checkKYCStatus(lang, type);
       
-      const canCreate = kycResponse?.data?.can_create;
+      const canCreate = kycResponse?.data?.can_create ?? kycResponse?.can_create;
       const indication = kycResponse?.response_indication || kycResponse?.data?.response_indication;
       const isVerifiedInProfile = Boolean(kycResponse?.is_kyc_verified);
+      const canCreateByMsg = /can create/i.test(kycResponse?.message || '');
 
-      const isBlocked = canCreate === false || (indication && indication !== 'SUCCESS');
+      // If explicitly permitted to create, do NOT block - open the offer/inquiry form!
+      const isPermitted = canCreate === true || canCreate === 1 || canCreateByMsg;
+
+      const isBlocked = !isPermitted && (
+        canCreate === false ||
+        canCreate === 0 ||
+        (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) ||
+        indication === 'MEMBERSHIP_REQUIRED' ||
+        indication === 'LIMIT_OVER' ||
+        indication === 'KYC_REQUIRED' ||
+        ((kycResponse?.success === false || kycResponse?.success === 0 || kycResponse?.status === false || kycResponse?.status === 0) && Boolean(indication || kycResponse?.message))
+      );
 
       if (isBlocked) {
         if (indication === 'NOT_VERIFIED' && isVerifiedInProfile) {

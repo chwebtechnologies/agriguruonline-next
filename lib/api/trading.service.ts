@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { getTradingApiUrl } from '@/lib/api-utils';
+import { getTradingApiUrl, getSafeLang } from '@/lib/api-utils';
 import { customFetch, customFetchJSON } from './fetcher';
 import type { Category } from '@/lib/category';
 
@@ -170,12 +170,16 @@ export interface MarketedProductsData {
 function extractArray(data: any | null): any[] {
   if (!data) return [];
   if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data?.freight_inquiries)) return data.data.freight_inquiries;
+  if (Array.isArray(data?.data?.freightInquiries)) return data.data.freightInquiries;
   if (Array.isArray(data?.data?.inquiries)) return data.data.inquiries;
   if (Array.isArray(data?.data?.trade_inquiries)) return data.data.trade_inquiries;
   if (Array.isArray(data?.data?.items)) return data.data.items;
   if (Array.isArray(data?.data?.results)) return data.data.results;
   if (Array.isArray(data?.data?.rows)) return data.data.rows;
   if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.freight_inquiries)) return data.freight_inquiries;
+  if (Array.isArray(data?.freightInquiries)) return data.freightInquiries;
   if (Array.isArray(data?.inquiries)) return data.inquiries;
   if (Array.isArray(data?.results)) return data.results;
   if (Array.isArray(data?.items)) return data.items;
@@ -469,6 +473,49 @@ export const tradingService = {
   }),
 
   /**
+   * Fetch products for dropdowns / inquiries.
+   * API: /product?is_active=true&lang_code=${lang}&source=web
+   */
+  getProducts: cache(async (lang: string = 'en', isActive: boolean = true): Promise<any[]> => {
+    const tradingApiUrl = getTradingApiUrl();
+    const url = `${tradingApiUrl}/product`;
+
+    try {
+      const json = await customFetchJSON<any>(url, {
+        params: { is_active: String(isActive), lang_code: lang, source: 'web' },
+        cache: 'no-store',
+      });
+      const raw = json?.data?.products || json?.data?.product || (Array.isArray(json?.data) ? json.data : []);
+      return Array.isArray(raw) ? raw : [];
+    } catch (error) {
+      console.error('[tradingService.getProducts] error:', error);
+      return [];
+    }
+  }),
+
+  /**
+   * Fetch liner terms for freight inquiries.
+   * API: /liner-term?is_active=true&lang_code=${lang}&source=web
+   */
+  getLinerTerms: cache(async (lang: string = 'en', isActive: boolean = true): Promise<any[]> => {
+    const tradingApiUrl = getTradingApiUrl();
+    const url = `${tradingApiUrl}/liner-term`;
+
+    try {
+      const json = await customFetchJSON<any>(url, {
+        params: { is_active: String(isActive), lang_code: lang, source: 'web' },
+        cache: 'no-store',
+      });
+      const raw = json?.data?.liner_term || json?.data?.liner_terms || (Array.isArray(json?.data) ? json.data : []);
+      return Array.isArray(raw) ? raw : [];
+    } catch (error) {
+      console.error('[tradingService.getLinerTerms] error:', error);
+      return [];
+    }
+  }),
+
+
+  /**
    * Fetch user inquiries/offers with dual-domain fallback (.cloud vs .com).
    */
   getInquiryList: cache(async (endpoint: string, token: string, lang: string = 'en'): Promise<any[]> => {
@@ -608,6 +655,52 @@ export const tradingService = {
       }
     }
     return { success: false, error: lastError };
+  },
+
+  /**
+   * Submit Freight Inquiry
+   * POST /freight-inquiry?lang_code=${lang}&source=web
+   */
+  createFreightInquiry: async (
+    payload: any,
+    token: string,
+    lang: string = 'en'
+  ) => {
+    const tradingApiUrl = getTradingApiUrl();
+    const safeLang = getSafeLang(lang);
+    const url = `${tradingApiUrl}/freight-inquiry?lang_code=${safeLang}&source=web`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => null);
+      const isSuccess = data?.success === 1 || data?.success === true || (res.ok && data?.success !== 0 && data?.success !== false);
+
+      if (!res.ok || !isSuccess) {
+        return {
+          success: false,
+          error: data?.message || data?.error || 'Failed to submit freight inquiry'
+        };
+      }
+
+      return {
+        success: true,
+        data: data?.data || data,
+        message: data?.message || 'Freight inquiry created successfully'
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Failed to submit freight inquiry'
+      };
+    }
   },
 
   /**
@@ -1212,4 +1305,64 @@ export const tradingService = {
       return null;
     }
   },
+
+  /**
+   * Delete product or freight inquiries
+   * DELETE /product-inquiry/?lang_code=${lang}&source=web or /freight-inquiry/?lang_code=${lang}&source=web
+   */
+  deleteInquiries: async (
+    type: 'product' | 'freight',
+    payload: { actual_inquiry_ids: string[]; fresh_inquiry_ids: string[] },
+    token?: string,
+    lang: string = 'en'
+  ) => {
+    const tradingApiUrl = getTradingApiUrl();
+    const safeLang = getSafeLang(lang);
+    const endpointsToTry: string[] = [];
+
+    if (type === 'freight') {
+      endpointsToTry.push(`/freight-inquiry/`);
+      endpointsToTry.push(`/freight-inquiry`);
+    } else {
+      endpointsToTry.push(`/product-inquiry/`);
+      endpointsToTry.push(`/product-inquiry`);
+      endpointsToTry.push(`/trading-inquiry/`);
+      endpointsToTry.push(`/trading-inquiry`);
+    }
+
+    let lastError = 'Failed to delete inquiry';
+
+    for (const ep of endpointsToTry) {
+      const url = `${tradingApiUrl}${ep}`;
+      try {
+        const res = await customFetch(url, {
+          method: 'DELETE',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          params: { lang_code: safeLang, source: 'web' },
+          body: JSON.stringify(payload),
+        });
+
+        const json = await res.json().catch(() => null);
+        if (res.ok || json?.success === 1 || json?.success === true) {
+          return {
+            success: true,
+            message: json?.message || 'Deleted successfully',
+            data: json?.data,
+          };
+        }
+
+        if (json?.message) {
+          lastError = json.message;
+        } else {
+          lastError = `Failed to delete (Status: ${res.status})`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Network error';
+      }
+    }
+
+    return { success: false, error: lastError };
+  },
 };
+

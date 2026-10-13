@@ -28,7 +28,10 @@ export async function generateMetadata(
 
 import { Suspense } from 'react';
 
-export default async function MyOffersPage(props: { params: Promise<{ lang: string }> }) {
+export default async function MyOffersPage(props: {
+  params: Promise<{ lang: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
   
@@ -36,7 +39,9 @@ export default async function MyOffersPage(props: { params: Promise<{ lang: stri
   const lang = params.lang || 'en';
 
   if (!token) {
-    redirect(`/${lang}/login?redirectUrl=/${lang}/my-offers`);
+    const sp = await props.searchParams;
+    const query = new URLSearchParams(sp as any).toString();
+    redirect(`/${lang}/login?redirectUrl=/${lang}/my-offers${query ? `?${query}` : ''}`);
   }
 
   return (
@@ -44,7 +49,7 @@ export default async function MyOffersPage(props: { params: Promise<{ lang: stri
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <Suspense fallback={<MyOffersSkeleton />}>
-            <MyOffersContent lang={lang} token={token} />
+            <MyOffersContent lang={lang} token={token} searchParams={props.searchParams} />
           </Suspense>
         </div>
       </div>
@@ -61,7 +66,15 @@ function MyOffersSkeleton() {
   )
 }
 
-async function MyOffersContent({ lang, token }: { lang: string, token: string }) {
+async function MyOffersContent({
+  lang,
+  token,
+  searchParams
+}: {
+  lang: string;
+  token: string;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
   
   if (shouldLogout || !profileData) {
@@ -77,7 +90,9 @@ async function MyOffersContent({ lang, token }: { lang: string, token: string })
 
   const isSeller = getNormalizedType(profileData.user_type) === 'seller' || getNormalizedType(profileData.role) === 'seller';
   if (!isSeller) {
-    redirect(`/${lang}/my-inquiries`);
+    const sp = await searchParams;
+    const query = new URLSearchParams(sp as any).toString();
+    redirect(`/${lang}/my-inquiries${query ? `?${query}` : ''}`);
   }
 
   const dict = await getDictionary(lang);
@@ -177,6 +192,7 @@ async function MyOffersContent({ lang, token }: { lang: string, token: string })
       description: item.description,
       desc: item.desc,
       note: item.note,
+      comment: item.comment,
     };
   };
 
@@ -193,6 +209,10 @@ async function MyOffersContent({ lang, token }: { lang: string, token: string })
           freightInquiries={sanitizedFreightInquiries}
           dict={dict}
           token={token}
+          tabLabels={{
+            product: 'Product Offer',
+            freight: (dict as any)?.freight_inquiries || 'Freight Inquiry',
+          }}
           userProfile={profileData ? {
             name: profileData.name,
             profile_image: profileData.profile_image || profileData.profile_picture || profileData.avatar,

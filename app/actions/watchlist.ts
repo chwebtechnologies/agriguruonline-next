@@ -234,7 +234,7 @@ export async function getWatchlistFreightAction(lang: string = 'en') {
         const loadUnit = item.shipping_container?.default_unit?.title || item.load_unit || 'MT';
 
         return {
-          id: item.id || Date.now().toString(),
+          id: item.id || item.favourite_freight_id || item.favourite_port_id || item.favorite_port_id || item._id || Date.now().toString(),
           shipBy,
           pol,
           polFlag,
@@ -245,7 +245,8 @@ export async function getWatchlistFreightAction(lang: string = 'en') {
           change,
           chartStatus,
           loadCapacity,
-          loadUnit
+          loadUnit,
+          originalItem: item
         };
       });
     }

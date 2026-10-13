@@ -143,11 +143,23 @@ export function ProductActionButtons({
         const type = action === 'buy' ? 'BUYER' : 'SELLER';
         const kycResponse = await checkKYCStatus(lang, type);
         
-        const canCreate = kycResponse?.data?.can_create;
+        const canCreate = kycResponse?.data?.can_create ?? kycResponse?.can_create;
         const indication = kycResponse?.response_indication || kycResponse?.data?.response_indication;
         const isVerifiedInProfile = Boolean(kycResponse?.is_kyc_verified);
+        const canCreateByMsg = /can create/i.test(kycResponse?.message || '');
 
-        const isBlocked = canCreate === false || (indication && indication !== 'SUCCESS');
+        // If explicitly permitted to create, do NOT block - open the offer/inquiry form!
+        const isPermitted = canCreate === true || canCreate === 1 || canCreateByMsg;
+
+        const isBlocked = !isPermitted && (
+          canCreate === false ||
+          canCreate === 0 ||
+          (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) ||
+          indication === 'MEMBERSHIP_REQUIRED' ||
+          indication === 'LIMIT_OVER' ||
+          indication === 'KYC_REQUIRED' ||
+          ((kycResponse?.success === false || kycResponse?.success === 0 || kycResponse?.status === false || kycResponse?.status === 0) && Boolean(indication || kycResponse?.message))
+        );
 
         if (isBlocked) {
           // If indication is NOT_VERIFIED but user is already verified in profile, DO NOT block!

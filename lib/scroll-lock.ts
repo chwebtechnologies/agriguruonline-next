@@ -34,6 +34,13 @@ function releaseLock() {
     document.documentElement.style.overflow = originalHtmlOverflow || '';
     document.body.style.overflow = originalBodyOverflow || '';
     document.body.style.paddingRight = originalBodyPaddingRight || '';
+    // Extra safety: ensure neither html nor body remains stuck with 'hidden'
+    if (document.documentElement.style.overflow === 'hidden') {
+      document.documentElement.style.overflow = '';
+    }
+    if (document.body.style.overflow === 'hidden') {
+      document.body.style.overflow = '';
+    }
   }
 }
 

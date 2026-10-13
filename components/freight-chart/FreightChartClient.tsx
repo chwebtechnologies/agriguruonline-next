@@ -19,9 +19,11 @@ import {
   getFreightDestinationPortsAction,
   addFavoritePortAction,
   deleteFavoritePortAction,
-  getFavoritePortsAction
+  getFavoritePortsAction,
+  checkFreightKYCStatus
 } from '@/app/actions/freight';
 import { useScrollLock } from '@/lib/scroll-lock';
+import { FreightInquiryModal } from '@/components/freight-chart/FreightInquiryModal';
 
 // --- Shared Interfaces ---
 export interface ShippingContainer {
@@ -54,6 +56,8 @@ export interface FavoriteFreightItem {
   chartStatus?: boolean;
   loadCapacity?: number;
   loadUnit?: string;
+  originalItem?: any;
+  favourite_freight_id?: string;
 }
 
 interface FreightChartClientProps {
@@ -131,7 +135,7 @@ export default function FreightChartClient({
             const loadCapacity = item.shipping_container?.default_load_capacity || item.load_capacity || 26;
             const loadUnit = item.shipping_container?.default_unit?.title || item.load_unit || 'MT';
             return {
-              id: item.id || Date.now(),
+              id: item.id || item.favourite_freight_id || item.favourite_port_id || item.favorite_port_id || item._id || String(Date.now()),
               shipBy,
               pol,
               polFlag,
@@ -184,6 +188,15 @@ export default function FreightChartClient({
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [disclaimerPos, setDisclaimerPos] = useState<'top' | 'bottom'>('bottom');
   const [showMobileAddForm, setShowMobileAddForm] = useState(false);
+  const [isFreightInquiryModalOpen, setIsFreightInquiryModalOpen] = useState(false);
+  const [selectedFreightInquiryItem, setSelectedFreightInquiryItem] = useState<FavoriteFreightItem | null>(null);
+  const [freightPriceLimits, setFreightPriceLimits] = useState<{ min?: number; max?: number } | null>(null);
+  const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [kycMessage, setKycMessage] = useState('');
+  const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
+  const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
+  const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [bookingLoadingId, setBookingLoadingId] = useState<string | number | null>(null);
 
   useScrollLock(showMobileAddForm);
 
@@ -324,7 +337,7 @@ export default function FreightChartClient({
         const podObj = destinationPorts.find(p => p.id === selectedPOD);
 
         const fallbackItem: FavoriteFreightItem = {
-          id: result.data?.id || Date.now().toString(),
+          id: result.data?.id || result.data?.favourite_freight_id || result.data?.favourite_port_id || result.data?._id || String(Date.now()),
           shipBy: shipByObj?.title || '20FT FCL',
           pol: polObj?.name || 'Mundra',
           polFlag: polObj?.country?.flag || polObj?.flag || '',
@@ -335,7 +348,8 @@ export default function FreightChartClient({
           change: (result.data?.change != null ? Math.round(Number(result.data.change)) : (result.data?.price_change != null ? Math.round(Number(result.data.price_change)) : 25)).toString(),
           chartStatus: true,
           loadCapacity: shipByObj?.default_load_capacity || 26,
-          loadUnit: 'MT'
+          loadUnit: 'MT',
+          originalItem: result.data
         };
         setAddedFreights(prev => [fallbackItem, ...prev]);
 
@@ -389,12 +403,124 @@ export default function FreightChartClient({
     }
   };
 
-  const handleBooking = () => {
-    if (!initialUserType) {
+  const handleBooking = async (item?: FavoriteFreightItem, triggerId?: string | number) => {
+    const hasAuth = Boolean(
+      initialUserType ||
+      (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=')))
+    );
+
+    if (!hasAuth) {
       router.push(`/${lang}/login`);
       return;
     }
-    toast.info('Freight inquiry request initiated. Our logistics desk will get in touch.');
+
+    if (isBookingLoading) return;
+
+    // Resolve target freight item
+    const targetItem = item || (addedFreights.length > 0 ? (addedFreights.find(f => 
+      (selectedShipBy && f.shipBy?.toLowerCase().includes(selectedShipBy.toLowerCase())) ||
+      (selectedPOL && f.pol?.toLowerCase().includes(selectedPOL.toLowerCase()))
+    ) || addedFreights[0]) : null);
+
+    const favFreightId = (
+      targetItem?.id ? String(targetItem.id) :
+      (targetItem as any)?.favourite_freight_id ? String((targetItem as any).favourite_freight_id) :
+      (targetItem as any)?.favourite_port_id ? String((targetItem as any).favourite_port_id) :
+      (targetItem as any)?.originalItem?.id ? String((targetItem as any).originalItem.id) :
+      (targetItem as any)?.originalItem?.favourite_freight_id ? String((targetItem as any).originalItem.favourite_freight_id) :
+      (targetItem as any)?.originalItem?.favourite_port_id ? String((targetItem as any).originalItem.favourite_port_id) :
+      (targetItem as any)?.originalItem?._id ? String((targetItem as any).originalItem._id) :
+      ''
+    );
+
+    if (!favFreightId) {
+      toast.error('Please add or select a freight route first.');
+      return;
+    }
+
+    setIsBookingLoading(true);
+    setBookingLoadingId(triggerId || (item ? item.id : 'bottom'));
+
+    try {
+      let kycResponse: any = null;
+      try {
+        const kycResRaw = await fetch(`/api/freight-options?type=check-kyc&favFreightId=${encodeURIComponent(favFreightId)}&lang=${lang}`);
+        kycResponse = await kycResRaw.json();
+      } catch {
+        kycResponse = await checkFreightKYCStatus(favFreightId, lang).catch(() => null);
+      }
+
+      if (kycResponse?.isUnauthorized) {
+        toast.error('Session expired. Please log in.');
+        router.push(`/${lang}/login`);
+        return;
+      }
+
+      const canCreate = kycResponse?.data?.can_create ?? kycResponse?.can_create;
+      const indication = kycResponse?.response_indication || kycResponse?.data?.response_indication;
+      const isVerifiedInProfile = Boolean(kycResponse?.is_kyc_verified);
+      const canCreateByMsg = /can create/i.test(kycResponse?.message || '');
+
+      // If explicitly permitted to create, do NOT block - open the inquiry modal!
+      const isPermitted = canCreate === true || canCreate === 1 || canCreateByMsg;
+
+      const isBlocked = !isPermitted && (
+        canCreate === false ||
+        canCreate === 0 ||
+        (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) ||
+        indication === 'MEMBERSHIP_REQUIRED' ||
+        indication === 'LIMIT_OVER' ||
+        indication === 'KYC_REQUIRED' ||
+        ((kycResponse?.success === false || kycResponse?.success === 0 || kycResponse?.status === false || kycResponse?.status === 0) && Boolean(indication))
+      );
+
+      if (isBlocked) {
+        if (indication === 'NOT_VERIFIED' && isVerifiedInProfile) {
+          // User is verified in profile, proceed smoothly
+        } else {
+          setKycMessage(kycResponse?.message || "You cannot proceed with freight inquiry.");
+          if (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            setKycIndicationText('Upgrade Plan');
+            setKycRedirectUrl(`/${lang}/profile`);
+          }
+          setIsKYCModalOpen(true);
+          return;
+        }
+      }
+
+      if (!isPermitted && (kycResponse?.success === false || kycResponse?.status === false)) {
+        toast.error(kycResponse?.message || "Unable to proceed with freight booking");
+        return;
+      }
+
+      const minBid = kycResponse?.data?.min_price_bid ?? kycResponse?.min_price_bid ?? kycResponse?.data?.min_price ?? kycResponse?.min_price ?? kycResponse?.data?.min_rate;
+      const maxBid = kycResponse?.data?.max_price_bid ?? kycResponse?.max_price_bid ?? kycResponse?.data?.max_price ?? kycResponse?.max_price ?? kycResponse?.data?.max_rate;
+      if (minBid !== undefined || maxBid !== undefined) {
+        setFreightPriceLimits({
+          min: minBid != null && !isNaN(Number(minBid)) ? Number(minBid) : undefined,
+          max: maxBid != null && !isNaN(Number(maxBid)) ? Number(maxBid) : undefined
+        });
+      } else {
+        setFreightPriceLimits(null);
+      }
+
+      if (targetItem) {
+        setSelectedFreightInquiryItem(targetItem);
+      } else {
+        setSelectedFreightInquiryItem(null);
+      }
+
+      setIsFreightInquiryModalOpen(true);
+    } catch (err: any) {
+      console.error("Error checking freight inquiry status:", err);
+      toast.error(err?.message || "Failed to verify inquiry permissions");
+    } finally {
+      setIsBookingLoading(false);
+      setBookingLoadingId(null);
+    }
   };
 
   const handleFreightOptionSelect = (optionKey: 'inquiry' | 'alert' | 'predict' | 'chart') => {
@@ -403,7 +529,7 @@ export default function FreightChartClient({
     setSelectedOptionsItem(null);
 
     if (optionKey === 'inquiry') {
-      handleBooking();
+      handleBooking(item, item.id);
     } else if (optionKey === 'alert') {
       setSelectedInitialTab('Alert Setups');
       setActiveBottomSheetId(String(item.id));
@@ -849,9 +975,10 @@ export default function FreightChartClient({
                         {/* 8. Reusable Action Buttons (Book & Delete) */}
                         <div className="flex items-center justify-end gap-2.5 min-w-0 pr-3">
                           <ChartActionButton
-                            onClick={handleBooking}
+                            onClick={() => handleBooking(item, item.id)}
                             mode="freight"
                             label="Book"
+                            isLoading={isBookingLoading && bookingLoadingId === item.id}
                           />
                           <ChartDeleteButton
                             onClick={() => setDeleteConfirmId(item.id)}
@@ -871,10 +998,19 @@ export default function FreightChartClient({
         <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto md:flex md:justify-between lg:static lg:bottom-auto lg:bg-transparent lg:border-none lg:shadow-none lg:px-0 lg:mx-0 lg:mt-4">
           <button
             type="button"
-            onClick={handleBooking}
-            className="w-full md:w-auto inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap"
+            onClick={() => handleBooking(undefined, 'bottom')}
+            disabled={isBookingLoading}
+            className="w-full md:w-auto inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap disabled:opacity-70 disabled:pointer-events-none"
           >
-            Freight Inquiry <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+            {isBookingLoading && bookingLoadingId === 'bottom' ? (
+              <>
+                <i className="fa-solid fa-spinner fa-spin mr-2 text-xs"></i> Loading...
+              </>
+            ) : (
+              <>
+                Freight Inquiry <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+              </>
+            )}
           </button>
           
           <div className="relative flex items-center justify-center gap-4 px-2">
@@ -985,6 +1121,10 @@ export default function FreightChartClient({
             lang={lang}
             initialTab={selectedInitialTab}
             swipeText="Swipe up for Freight Details"
+            onFreightInquiry={() => {
+              setActiveBottomSheetId(null);
+              handleBooking(activeItem, activeItem.id);
+            }}
           />
         );
       })()}
@@ -1166,6 +1306,71 @@ export default function FreightChartClient({
           </div>
         </div>
       )}
+
+      {/* Freight Inquiry Modal */}
+      {isFreightInquiryModalOpen && (
+        <FreightInquiryModal
+          isOpen={isFreightInquiryModalOpen}
+          onClose={() => {
+            setIsFreightInquiryModalOpen(false);
+            setSelectedFreightInquiryItem(null);
+          }}
+          onSuccess={() => {
+            setIsFreightInquiryModalOpen(false);
+            setSelectedFreightInquiryItem(null);
+          }}
+          lang={lang}
+          common={common}
+          shipBy={selectedFreightInquiryItem?.shipBy || shippingContainers.find(c => c.id === selectedShipBy)?.title || selectedShipBy}
+          portOfLoading={selectedFreightInquiryItem?.pol || loadingPorts.find(p => p.id === selectedPOL)?.name || selectedPOL}
+          portOfDestination={selectedFreightInquiryItem?.pod || destinationPorts.find(p => p.id === selectedPOD)?.name || selectedPOD}
+          freightRate={selectedFreightInquiryItem?.freight || selectedFreightInquiryItem?.freightPmt}
+          loadCapacity={selectedFreightInquiryItem?.loadCapacity || 26}
+          shippingContainerId={
+            (selectedFreightInquiryItem as any)?.originalItem?.shipping_container?.id ||
+            (selectedFreightInquiryItem as any)?.originalItem?.shipping_container_id ||
+            (selectedFreightInquiryItem as any)?.shipping_container_id ||
+            shippingContainers.find(c => c.title === selectedFreightInquiryItem?.shipBy || c.id === selectedShipBy)?.id ||
+            selectedShipBy
+          }
+          loadingPortId={
+            (selectedFreightInquiryItem as any)?.originalItem?.loading_port?.id ||
+            (selectedFreightInquiryItem as any)?.originalItem?.loading_port_id ||
+            (selectedFreightInquiryItem as any)?.loading_port_id ||
+            selectedPOL
+          }
+          destinationPortId={
+            (selectedFreightInquiryItem as any)?.originalItem?.destination_port?.id ||
+            (selectedFreightInquiryItem as any)?.originalItem?.destination_port_id ||
+            (selectedFreightInquiryItem as any)?.destination_port_id ||
+            selectedPOD
+          }
+          initialMinPrice={freightPriceLimits?.min}
+          initialMaxPrice={freightPriceLimits?.max}
+          favouriteFreightId={
+            (selectedFreightInquiryItem as any)?.id ||
+            (selectedFreightInquiryItem as any)?.favourite_freight_id ||
+            (selectedFreightInquiryItem as any)?.favourite_port_id ||
+            (selectedFreightInquiryItem as any)?.originalItem?.id ||
+            (selectedFreightInquiryItem as any)?.originalItem?.favourite_freight_id ||
+            (selectedFreightInquiryItem as any)?.originalItem?.favourite_port_id
+          }
+        />
+      )}
+
+      {/* Freight KYC / Permission Action Indication Modal */}
+      <ActionIndicationModal
+        isOpen={isKYCModalOpen}
+        onClose={() => setIsKYCModalOpen(false)}
+        onConfirm={() => {
+          setIsKYCModalOpen(false);
+          router.push(kycRedirectUrl);
+        }}
+        title="Action Required"
+        description={kycMessage}
+        indicationText={kycIndicationText}
+        type="warning"
+      />
     </>
   );
 }
