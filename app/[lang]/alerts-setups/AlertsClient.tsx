@@ -45,14 +45,18 @@ export function AlertsClient({ initialAlerts, lang, dict }: { initialAlerts: any
 
     const term = alert.shipping_term || alert.incoterm?.name || alert.incoterm || 'FOB';
 
-    const favId = alert.favourite_product_id || alert.favourite_product?.id || alert.favourite_record_id || alert.favourite_record?.id || alert.favorite_product_id;
+    const favPortId = alert.favourite_port_id || alert.favorite_port_id || alert.favourite_record_id || alert.favourite_record?.id || alert.freight_id;
+    const favId = isFreight ? favPortId : (alert.favourite_product_id || alert.favourite_product?.id || alert.favourite_record_id || alert.favourite_record?.id || alert.favorite_product_id);
     const prodId = alert.product_id || alert.product?.id;
 
-    const chartItem: ChartBottomSheetItem = {
+    const chartItem: any = {
       id: favId || prodId || alert.freight_id || alert.id,
       productId: prodId,
-      favoriteProductId: favId,
-      category: catName,
+      favoriteProductId: !isFreight ? favId : undefined,
+      favoritePortId: isFreight ? favPortId : undefined,
+      favouritePortId: isFreight ? favPortId : undefined,
+      freightId: alert.freight_id,
+      category: isFreight ? 'FREIGHT' : catName,
       product: prodName,
       shipBy,
       term,

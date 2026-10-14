@@ -225,6 +225,25 @@ export default function MyInquiriesClient({
     }
   };
 
+  const handleStatusUpdate = (inquiryId: string, newStatus: string) => {
+    if (activeTab === 'product') {
+      setProductInquiriesList((prev) =>
+        prev.map((item) =>
+          (item?.id || item?._id) === inquiryId
+            ? { ...item, status: newStatus, status_text: newStatus, inquiry_status: newStatus }
+            : item
+        )
+      );
+    } else {
+      setFreightInquiriesList((prev) =>
+        prev.map((item) =>
+          (item?.id || item?._id) === inquiryId
+            ? { ...item, status: newStatus, status_text: newStatus, inquiry_status: newStatus }
+            : item
+        )
+      );
+    }
+  };
 
   // Safe dictionary labels
   const tabLabels = {
@@ -376,6 +395,7 @@ export default function MyInquiriesClient({
             userProfile={userProfile}
             dict={dict}
             onBack={() => setIsMobileDetailView(false)}
+            onStatusUpdate={handleStatusUpdate}
           />
         </div>
       </div>

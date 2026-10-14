@@ -333,7 +333,7 @@ export function ProductActionButtons({
           price={price}
           actionType={modalAction === 'add' ? 'buy' : modalAction} // fallback
           shippingTerms={modalData?.shippingTerms || []}
-          packingTypes={modalData?.product?.packing_types || []}
+          packingTypes={modalData?.product?.packing_types || modalData?.product?.packingTypes || []}
           containers={modalData?.product?.containers || []}
           paymentTerms={modalData?.paymentTerms || []}
         />

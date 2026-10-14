@@ -11,7 +11,7 @@ import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
-import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
+import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails } from '@/app/actions/product';
 import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
 import { FreightAlertCard } from '@/components/alerts/FreightAlertCard';
 import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard';
@@ -188,7 +188,13 @@ export default function MobileCommodityChart({
   const [historicalSearch, setHistoricalSearch] = useState<string>('');
 
   const [showAlertInput, setShowAlertInput] = useState<boolean>(item.alertId ? true : (initialTab === 'Alert Setups'));
-  const [alertInputValue, setAlertInputValue] = useState<string>(item.alertPrice ? String(item.alertPrice) : '');
+  const [alertInputValue, setAlertInputValue] = useState<string>(
+    item.alertPrice
+      ? String(item.alertPrice)
+      : (item.price && !isNaN(Number(item.price)))
+        ? String(Number(item.price))
+        : ''
+  );
   const [alertError, setAlertError] = useState<string>('');
   const [alertSuccess, setAlertSuccess] = useState<string>('');
   const [editingAlertId, setEditingAlertId] = useState<string | null>(item.alertId ? String(item.alertId) : null);
@@ -236,7 +242,8 @@ export default function MobileCommodityChart({
 
     try {
       const type = action === 'buy' ? 'BUYER' : 'SELLER';
-      const kycResponse = await checkKYCStatus(lang, type);
+      const favoriteId = item.favoriteProductId || item.id;
+      const kycResponse = await checkKYCStatus(lang, type, favoriteId);
       
       const canCreate = kycResponse?.data?.can_create ?? kycResponse?.can_create;
       const indication = kycResponse?.response_indication || kycResponse?.data?.response_indication;
@@ -274,28 +281,48 @@ export default function MobileCommodityChart({
         }
       }
       
-      const productId = apiProduct?.product?.id || apiProduct?.product_id || item.productId || item.favoriteProductId || item.id;
-      const [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
-        fetchProductDetails(String(productId), lang),
+      const favProd = kycResponse?.data?.favorite_product;
+      const nextBtnPackingTypes = favProd?.product?.packing_types || favProd?.packing_types || kycResponse?.data?.packing_types || [];
+      const resolvedProductId = favProd?.product?.id || favProd?.product_id || apiProduct?.product?.id || apiProduct?.product_id || item.productId || '';
+      const resolvedShipById = favProd?.shipping_container?.id || item.shipById || apiProduct?.shipping_container?.id || '';
+      const resolvedTermId = favProd?.shipping_term?.id || item.termId || apiProduct?.shipping_term?.id || '';
+      const resolvedPolId = favProd?.loading_port?.id || item.polId || apiProduct?.loading_port?.id || '';
+      const resolvedPodId = favProd?.destination_port?.id || item.podId || apiProduct?.destination_port?.id || '';
+
+      const productIdToFetch = resolvedProductId || (typeof favoriteId === 'string' && !String(favoriteId).includes('-') ? favoriteId : '');
+      const [productResponse, termsResponse, paymentTermsResponse, favDetailsRes] = await Promise.all([
+        productIdToFetch ? fetchProductDetails(String(productIdToFetch), lang) : Promise.resolve(null),
         fetchShippingTerms(lang),
-        fetchPaymentTerms(lang)
+        fetchPaymentTerms(lang),
+        (!resolvedProductId && favoriteId) ? fetchFavoriteProductDetails(favoriteId, lang) : Promise.resolve(null)
       ]);
       
+      const favDetailsProd = favDetailsRes?.success ? (favDetailsRes.data?.favorite_product || favDetailsRes.data) : null;
+      const favDetailsProductObj = favDetailsProd?.product || favDetailsProd;
+
+      const combinedPackingTypes = (nextBtnPackingTypes && nextBtnPackingTypes.length > 0)
+        ? nextBtnPackingTypes
+        : ((productResponse?.success && productResponse?.data?.packing_types?.length)
+            ? productResponse.data.packing_types
+            : (favDetailsProductObj?.packing_types || (item as any).packingTypes || []));
+
+      const resolvedContainers = (productResponse?.success && productResponse?.data?.containers?.length)
+        ? productResponse.data.containers
+        : (favProd?.product?.containers || favDetailsProductObj?.containers || apiProduct?.containers || []);
+
       const combinedData: any = {
-        itemPrice: item.price
+        itemPrice: favProd?.price || item.price,
+        shippingTerms: termsResponse && termsResponse.success ? (termsResponse.data?.shipping_term || []) : [],
+        paymentTerms: paymentTermsResponse && paymentTermsResponse.success ? (paymentTermsResponse.data?.payment_term || []) : [],
+        product: {
+          ...(productResponse?.data || favProd?.product || favDetailsProductObj || {}),
+          id: resolvedProductId || productResponse?.data?.id || favDetailsProductObj?.id || item.productId || item.id,
+          name: favProd?.product?.name || productResponse?.data?.name || favDetailsProductObj?.name || item.product,
+          country: favProd?.country || productResponse?.data?.country || favDetailsProductObj?.country || { name: item.country },
+          packing_types: combinedPackingTypes,
+          containers: resolvedContainers,
+        }
       };
-      
-      if (productResponse && productResponse.success) {
-        combinedData.product = productResponse.data;
-      } else {
-        combinedData.product = { id: productId, name: item.product, country: { name: item.country } };
-      }
-      if (termsResponse && termsResponse.success) {
-        combinedData.shippingTerms = termsResponse.data?.shipping_term || [];
-      }
-      if (paymentTermsResponse && paymentTermsResponse.success) {
-        combinedData.paymentTerms = paymentTermsResponse.data?.payment_term || [];
-      }
       
       setInquiryData(combinedData);
       setIsInquiryModalOpen(true);
@@ -307,17 +334,17 @@ export default function MobileCommodityChart({
     }
   };
 
-  // Automatically reset alert edit/create input form when user changes active tab unless item.alertId is present on Alert Setups tab
+  // Automatically reset alert edit/create input form when user changes active tab away from Alert Setups
   useEffect(() => {
     if (activeTab === 'Alert Setups' && item.alertId) {
       setEditingAlertId(String(item.alertId));
       setShowAlertInput(true);
       if (item.alertPrice) setAlertInputValue(String(item.alertPrice));
-    } else {
+    } else if (activeTab !== 'Alert Setups') {
       setShowAlertInput(false);
       setEditingAlertId(null);
+      setAlertError('');
     }
-    setAlertError('');
   }, [activeTab, item.alertId, item.alertPrice]);
 
   const cacheKey = `${isFreight ? 'freight_' : 'prod_'}${item.id}_${lang}`;
@@ -1437,15 +1464,22 @@ export default function MobileCommodityChart({
   const currentChangePct = hoveredPoint ? (hoveredPoint.changePct || 0) : (basePrice > 0 && baseChange !== 0 ? (baseChange / basePrice) * 100 : 0);
   const currentIsPositive = currentChangeVal >= 0;
 
-    const handleCreateAlertClick = () => {
+  const handleCreateAlertClick = () => {
     if (typeof document !== 'undefined' && !(document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid='))) {
       router.push(`/${lang || 'en'}/login`);
       return;
     }
     setEditingAlertId(null);
-    setAlertInputValue(String(currentDisplayPrice));
+    const defaultPrice = (currentDisplayPrice && !isNaN(Number(currentDisplayPrice)))
+      ? String(currentDisplayPrice)
+      : (item.price && !isNaN(Number(item.price)))
+        ? String(Number(item.price))
+        : '';
+    setAlertInputValue(defaultPrice);
     setShowAlertInput(true);
     setAlertSuccess('');
+    setAlertError('');
+    setActiveTab('Alert Setups');
   };
 
   const handleAlertSubmit = async () => {
@@ -1456,10 +1490,10 @@ export default function MobileCommodityChart({
     }
     
     if (!editingAlertId) {
-      const minLimit = alertRange?.min || (!isFreight ? supportResistance?.support : null);
-      const maxLimit = alertRange?.max || (!isFreight ? supportResistance?.resistance : null);
+      const minLimit = alertRange?.min || (!isFreight ? supportResistance?.support : undefined);
+      const maxLimit = alertRange?.max || (!isFreight ? supportResistance?.resistance : undefined);
 
-      if (minLimit && maxLimit && (val < minLimit || val > maxLimit)) {
+      if (minLimit !== undefined && maxLimit !== undefined && (val < minLimit || val > maxLimit)) {
         setAlertError(`Price must be between ${minLimit} and ${maxLimit}.`);
         return;
       }
@@ -1470,7 +1504,7 @@ export default function MobileCommodityChart({
       const editingAlert = chartAlerts.find(a => String(a.id) === String(editingAlertId));
       const favId = editingAlert 
         ? (editingAlert.favourite_record_id || editingAlert.favourite_port_id || editingAlert.favorite_port_id || editingAlert.freight_id || editingAlert.favourite_product_id || editingAlert.favorite_product_id || editingAlert.product_id || item.id)
-        : (isFreight ? ((item as any).favoritePortId || (item as any).favouritePortId || item.id) : (item.favoriteProductId || item.id));
+        : (isFreight ? ((item as any).favoritePortId || (item as any).favouritePortId || (item as any).freightId || item.id) : (item.favoriteProductId || item.id));
 
       if (!favId) {
         toast.error('Item ID not found.');
@@ -1479,11 +1513,15 @@ export default function MobileCommodityChart({
       }
       
       const alertType = editingAlert?.type || editingAlert?.alert_type || (isFreight ? "FREIGHT" : "PRODUCT");
-      const payload = {
+      const payload: any = {
         favourite_record_id: String(favId),
         type: String(alertType).toUpperCase(),
         alert_price: val
       };
+      if (isFreight) {
+        payload.favourite_port_id = String(favId);
+        payload.shipping_container = item.shipBy || item.term;
+      }
       
       let res;
       if (editingAlertId) {
@@ -1515,9 +1553,8 @@ export default function MobileCommodityChart({
         
         if (activeTab !== 'Alert Setups') {
           setActiveTab('Alert Setups');
-        } else {
-          setRefreshAlerts(prev => prev + 1);
         }
+        setRefreshAlerts(prev => prev + 1);
       } else {
         const errorText = res?.error || res?.message || 'Failed to save alert.';
         setAlertSuccess('');
@@ -1579,10 +1616,10 @@ export default function MobileCommodityChart({
     }
     
     const val = Number(valStr);
-    if (!editingAlertId && supportResistance?.support && supportResistance?.resistance) {
-      const minLimit = supportResistance.support;
-      const maxLimit = supportResistance.resistance;
-      
+    const minLimit = alertRange?.min || (!isFreight ? supportResistance?.support : undefined);
+    const maxLimit = alertRange?.max || (!isFreight ? supportResistance?.resistance : undefined);
+
+    if (!editingAlertId && minLimit !== undefined && maxLimit !== undefined) {
       if (val < minLimit || val > maxLimit) {
         setAlertError(`Alert limit reached! Allowed range: $${minLimit} - $${maxLimit}`);
       } else {
@@ -1614,6 +1651,75 @@ export default function MobileCommodityChart({
       ? ['Overview', 'Alert Setups', 'AI Predict', 'Historical']
       : ['Overview', 'Alert Setups', 'AI Predict', 'Historical', 'Specifications'];
   }, [isFreight]);
+
+  const renderFlagIcon = (
+    flagPath?: string,
+    alt = '',
+    className = 'w-4 h-3 lg:w-5 lg:h-3.5 object-cover rounded-[2px] border border-border shrink-0'
+  ) => {
+    if (!flagPath) return null;
+    if (!flagPath.includes('/') && !flagPath.includes('.') && !flagPath.startsWith('http')) {
+      return <span className="text-[13px] sm:text-[14px] leading-none shrink-0">{flagPath}</span>;
+    }
+    const url = getFlagUrl(flagPath);
+    if (!url) return null;
+    return (
+      <Image
+        src={url}
+        alt={alt}
+        title={alt}
+        width={20}
+        height={14}
+        className={className}
+        unoptimized={url.startsWith('data:') || url.startsWith('blob:')}
+      />
+    );
+  };
+
+  const freightRoute = useMemo(() => {
+    if (!isFreight) return null;
+
+    let pol = item.pol || apiProduct?.loading_port?.name || (apiProduct as any)?.origin?.name || '';
+    let pod = item.pod || apiProduct?.destination_port?.name || (apiProduct as any)?.destination?.name || '';
+
+    const prodTitle = String(item.product || apiProduct?.product?.name || apiProduct?.name || '');
+    if ((!pol || !pod) && prodTitle) {
+      if (prodTitle.includes('→')) {
+        const parts = prodTitle.split('→');
+        if (!pol) pol = parts[0]?.trim() || '';
+        if (!pod) pod = parts[1]?.trim() || '';
+      } else if (prodTitle.includes('->')) {
+        const parts = prodTitle.split('->');
+        if (!pol) pol = parts[0]?.trim() || '';
+        if (!pod) pod = parts[1]?.trim() || '';
+      }
+    }
+
+    if (!pol) pol = 'Origin';
+    if (!pod) pod = 'Destination';
+
+    const polFlag =
+      item.polFlag ||
+      item.countryFlag ||
+      apiProduct?.loading_port?.country?.flag ||
+      apiProduct?.loading_port?.flag ||
+      apiProduct?.country?.flag ||
+      '';
+    const podFlag =
+      item.podFlag ||
+      apiProduct?.destination_port?.country?.flag ||
+      apiProduct?.destination_port?.flag ||
+      (apiProduct as any)?.pod?.country?.flag ||
+      (apiProduct as any)?.pod_flag ||
+      '';
+
+    return {
+      pol,
+      pod,
+      polFlag,
+      podFlag,
+    };
+  }, [isFreight, item.pol, item.pod, item.polFlag, item.countryFlag, item.podFlag, item.product, apiProduct]);
 
   useEffect(() => {
     if (isFreight && activeTab === 'Specifications') {
@@ -1774,37 +1880,41 @@ export default function MobileCommodityChart({
             </Link>
           )}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0 w-full flex-wrap sm:flex-nowrap">
-              {(item.countryFlag || apiProduct?.country?.flag) && (
-                <Image
-                  src={getFlagUrl(item.countryFlag || apiProduct?.country?.flag)!}
-                  alt={`${item.country || 'Country'} Flag`}
-                  title={`${item.country || 'Country'} Flag`}
-                  width={20}
-                  height={14}
-                  className="w-4 h-3 lg:w-5 lg:h-3.5 object-cover rounded-[2px] border border-border shrink-0"
-                />
-              )}
-              <h1 className="font-extrabold text-[13px] min-[390px]:text-[15px] sm:text-[16px] lg:text-[18px] xl:text-[19px] tracking-tight leading-tight text-foreground uppercase line-clamp-1 flex-1 min-w-0">
-                {item.product || apiProduct?.product?.name}
+            {isFreight && freightRoute ? (
+              <h1 className="font-extrabold text-[13px] min-[390px]:text-[15px] sm:text-[16px] lg:text-[18px] xl:text-[19px] tracking-tight leading-tight text-foreground uppercase truncate flex items-center gap-1.5 min-w-0">
+                <span className="flex items-center gap-1.5 truncate min-w-0 shrink">
+                  {renderFlagIcon(freightRoute.polFlag, `${freightRoute.pol} Flag`)}
+                  <span className="truncate">{freightRoute.pol}</span>
+                </span>
+                <i className="fa-solid fa-arrow-right text-[10px] sm:text-[12px] text-muted-foreground shrink-0 mx-0.5"></i>
+                <span className="flex items-center gap-1.5 truncate min-w-0 shrink">
+                  {renderFlagIcon(freightRoute.podFlag, `${freightRoute.pod} Flag`)}
+                  <span className="truncate">{freightRoute.pod}</span>
+                </span>
               </h1>
-            </div>
+            ) : (
+              <div className="flex items-center gap-1.5 min-w-0 w-full flex-wrap sm:flex-nowrap">
+                {(item.countryFlag || apiProduct?.country?.flag) && (
+                  <Image
+                    src={getFlagUrl(item.countryFlag || apiProduct?.country?.flag)!}
+                    alt={`${item.country || 'Country'} Flag`}
+                    title={`${item.country || 'Country'} Flag`}
+                    width={20}
+                    height={14}
+                    className="w-4 h-3 lg:w-5 lg:h-3.5 object-cover rounded-[2px] border border-border shrink-0"
+                  />
+                )}
+                <h1 className="font-extrabold text-[13px] min-[390px]:text-[15px] sm:text-[16px] lg:text-[18px] xl:text-[19px] tracking-tight leading-tight text-foreground uppercase line-clamp-1 flex-1 min-w-0">
+                  {item.product || apiProduct?.product?.name}
+                </h1>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-[10px] min-[390px]:text-[11px] sm:text-[12px] mt-1 whitespace-nowrap overflow-hidden">
               {isFreight ? (
                 <>
                   <span className="font-semibold text-foreground/80 truncate">Ocean Freight</span>
                   <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
                   <span className="font-semibold text-foreground/80 shrink-0">{item.shipBy || item.term || 'Container'}</span>
-                  <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
-                  <div className="flex items-center gap-1 shrink-0 truncate">
-                    <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POL</span>
-                    <span className="font-medium text-foreground/80 truncate">{item.pol || 'Port'}</span>
-                  </div>
-                  <span className="w-1 h-1 rounded-full bg-border shrink-0"></span>
-                  <div className="flex items-center gap-1 shrink-0 truncate">
-                    <span className="bg-muted text-foreground/70 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold tracking-wider">POD</span>
-                    <span className="font-medium text-foreground/80 truncate">{item.pod || 'Port'}</span>
-                  </div>
                 </>
               ) : (
                 <>
@@ -2485,123 +2595,11 @@ export default function MobileCommodityChart({
                       </div>
                     </div>
                   </div>
-                ) : chartAlerts.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                    {chartAlerts.map((alert: any, idx: number) => {
-                      const alertType = alert.alert_type || alert.type || 'Price Alert';
-                      const isFreight = String(alertType).toLowerCase().includes('freight');
-                      const alertPriceVal = alert.alert_price || alert.target_freight || alert.freight_rate || alert.target_price || alert.price || alert.threshold || currentDisplayPrice;
-                      const isEditingThisCard = showAlertInput && String(editingAlertId) === String(alert.id);
-                      
-                      const alertData = {
-                        ...alert,
-                        product_name: alert.product?.name || alert.product_name || alert.commodity?.name || alert.name || alert.title || item.product,
-                        loading_port: alert.loading_port || (item.pol ? { name: item.pol, country: { flag: item.polFlag } } : undefined),
-                        destination_port: alert.destination_port || (item.pod ? { name: item.pod, country: { flag: item.podFlag } } : undefined),
-                        shipping_container: alert.shipping_container || item.shipBy || item.term
-                      };
-
-                      return (
-                        <div key={alert.id || idx} id={`alert-card-${alert.id}`} className="space-y-2">
-                          {isFreight ? (
-                            <FreightAlertCard 
-                              alert={alertData} 
-                              isDropdownMode={true} 
-                              onCardClick={() => {
-                                if (isEditingThisCard) {
-                                  setShowAlertInput(false);
-                                  setEditingAlertId(null);
-                                } else {
-                                  setEditingAlertId(alert.id);
-                                  setAlertInputValue(String(alertPriceVal));
-                                  setShowAlertInput(true);
-                                  setAlertSuccess('');
-                                  setAlertError('');
-                                }
-                              }}
-                            />
-                          ) : (
-                            <ProductAlertCard 
-                              alert={alertData} 
-                              isDropdownMode={true} 
-                              onCardClick={() => {
-                                if (isEditingThisCard) {
-                                  setShowAlertInput(false);
-                                  setEditingAlertId(null);
-                                } else {
-                                  setEditingAlertId(alert.id);
-                                  setAlertInputValue(String(alertPriceVal));
-                                  setShowAlertInput(true);
-                                  setAlertSuccess('');
-                                  setAlertError('');
-                                }
-                              }}
-                            />
-                          )}
-
-                          {/* Inline Edit Input Form directly under the clicked card (Mobile only) */}
-                          {isEditingThisCard && (
-                            <div id="active-alert-edit-form" className="lg:hidden bg-card rounded-2xl border border-brand-blue/50 p-4 shadow-md mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                              <div className="flex items-center justify-between mb-3 border-b border-border pb-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xs font-bold">
-                                    <i className="fa-solid fa-pen"></i>
-                                  </div>
-                                  <h4 className="font-extrabold text-[14px] text-foreground">Set Target Price</h4>
-                                </div>
-                                <button 
-                                  type="button" 
-                                  onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
-                                  className="text-foreground/50 hover:text-foreground text-xs font-bold cursor-pointer"
-                                >
-                                  <i className="fa-solid fa-xmark text-sm"></i>
-                                </button>
-                              </div>
-
-                                <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
-                                  <input
-                                    type="number"
-                                    value={alertInputValue}
-                                    onChange={handleAlertInputChange}
-                                    className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
-                                    placeholder={common.target_price || "Target Price..."}
-                                    autoFocus
-                                  />
-                                </div>
-                                {alertError && (
-                                  <div className="text-brand-red text-[11px] font-semibold mt-1.5 text-center flex items-center justify-center gap-1.5 animate-in fade-in duration-150">
-                                    <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
-                                    <span>{alertError}</span>
-                                  </div>
-                                )}
-
-                              <div className="flex items-center gap-2 mt-3.5">
-                                <button
-                                  type="button"
-                                  onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
-                                  className="flex-1 py-2 bg-muted text-foreground font-bold rounded-xl text-[13px] hover:bg-muted/80 active:scale-95 cursor-pointer"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleAlertSubmit}
-                                  disabled={!!alertError || !alertInputValue}
-                                  className={`flex-1 py-2 font-bold rounded-xl text-[13px] shadow-md transition-colors ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
-                                >
-                                  Update
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    
-                    {/* Create New Alert Input Form if adding a new alert (Mobile only) */}
+                ) : (
+                  <div className="space-y-3.5">
+                    {/* Create New Alert Input Form if adding a new alert */}
                     {showAlertInput && !editingAlertId && (
-                      <div className="lg:hidden bg-card rounded-2xl border border-brand-blue/50 p-4 shadow-md mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="bg-card rounded-2xl border border-brand-blue/50 p-4 shadow-md mb-3 animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="flex items-center justify-between mb-3 border-b border-border pb-2">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xs font-bold">
@@ -2622,8 +2620,8 @@ export default function MobileCommodityChart({
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
                           <input
                             type="number"
-                            min={supportResistance.support}
-                            max={supportResistance.resistance}
+                            min={!isFreight ? supportResistance.support : undefined}
+                            max={!isFreight ? supportResistance.resistance : undefined}
                             value={alertInputValue}
                             onChange={handleAlertInputChange}
                             className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
@@ -2658,52 +2656,170 @@ export default function MobileCommodityChart({
                       </div>
                     )}
 
-                    <button 
-                      onClick={handleCreateAlertClick}
-                      className="mt-2 w-full py-3 bg-brand-blue/10 text-brand-blue text-[13px] font-bold rounded-xl border border-brand-blue/20 shadow-xs hover:bg-brand-blue/20 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <i className="fa-solid fa-plus"></i> Create New Alert
-                    </button>
-                    {alertSuccess && (
-                      <div className="mt-2 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
-                        <i className="fa-solid fa-circle-check"></i>
-                        {alertSuccess}
-                      </div>
-                    )}
-                    {alertError && !showAlertInput && (
-                      <div className="mt-2 w-full bg-brand-red/10 border border-brand-red/30 text-brand-red text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2 animate-in fade-in duration-150">
-                        <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
-                        <span>{alertError}</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
-                    <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
-                      <i className="fa-regular fa-bell-slash"></i>
-                    </div>
-                    <h2 className="font-extrabold text-[16px] text-foreground">No Alerts Set</h2>
-                    <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't configured any price alerts for this commodity yet.</p>
-                    
-                    {alertSuccess && (
-                      <div className="mt-3 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
-                        <i className="fa-solid fa-circle-check"></i>
-                        {alertSuccess}
-                      </div>
-                    )}
-                    {alertError && !showAlertInput && (
-                      <div className="mt-3 w-full bg-brand-red/10 border border-brand-red/30 text-brand-red text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2 animate-in fade-in duration-150">
-                        <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
-                        <span>{alertError}</span>
-                      </div>
-                    )}
+                    {chartAlerts.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                        {chartAlerts.map((alert: any, idx: number) => {
+                          const alertType = alert.alert_type || alert.type || 'Price Alert';
+                          const isFreight = String(alertType).toLowerCase().includes('freight');
+                          const alertPriceVal = alert.alert_price || alert.target_freight || alert.freight_rate || alert.target_price || alert.price || alert.threshold || currentDisplayPrice;
+                          const isEditingThisCard = showAlertInput && String(editingAlertId) === String(alert.id);
+                          
+                          const alertData = {
+                            ...alert,
+                            product_name: alert.product?.name || alert.product_name || alert.commodity?.name || alert.name || alert.title || item.product,
+                            loading_port: alert.loading_port || (item.pol ? { name: item.pol, country: { flag: item.polFlag } } : undefined),
+                            destination_port: alert.destination_port || (item.pod ? { name: item.pod, country: { flag: item.podFlag } } : undefined),
+                            shipping_container: alert.shipping_container || item.shipBy || item.term
+                          };
 
-                    <button 
-                      onClick={handleCreateAlertClick}
-                      className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 cursor-pointer flex items-center gap-2"
-                    >
-                      <i className="fa-solid fa-bell"></i> Create Alert
-                    </button>
+                          return (
+                            <div key={alert.id || idx} id={`alert-card-${alert.id}`} className="space-y-2">
+                              {isFreight ? (
+                                <FreightAlertCard 
+                                  alert={alertData} 
+                                  isDropdownMode={true} 
+                                  onCardClick={() => {
+                                    if (isEditingThisCard) {
+                                      setShowAlertInput(false);
+                                      setEditingAlertId(null);
+                                    } else {
+                                      setEditingAlertId(alert.id);
+                                      setAlertInputValue(String(alertPriceVal));
+                                      setShowAlertInput(true);
+                                      setAlertSuccess('');
+                                      setAlertError('');
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <ProductAlertCard 
+                                  alert={alertData} 
+                                  isDropdownMode={true} 
+                                  onCardClick={() => {
+                                    if (isEditingThisCard) {
+                                      setShowAlertInput(false);
+                                      setEditingAlertId(null);
+                                    } else {
+                                      setEditingAlertId(alert.id);
+                                      setAlertInputValue(String(alertPriceVal));
+                                      setShowAlertInput(true);
+                                      setAlertSuccess('');
+                                      setAlertError('');
+                                    }
+                                  }}
+                                />
+                              )}
+
+                              {/* Inline Edit Input Form directly under the clicked card */}
+                              {isEditingThisCard && (
+                                <div id="active-alert-edit-form" className="bg-card rounded-2xl border border-brand-blue/50 p-4 shadow-md mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                  <div className="flex items-center justify-between mb-3 border-b border-border pb-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xs font-bold">
+                                        <i className="fa-solid fa-pen"></i>
+                                      </div>
+                                      <h4 className="font-extrabold text-[14px] text-foreground">Set Target Price</h4>
+                                    </div>
+                                    <button 
+                                      type="button" 
+                                      onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
+                                      className="text-foreground/50 hover:text-foreground text-xs font-bold cursor-pointer"
+                                    >
+                                      <i className="fa-solid fa-xmark text-sm"></i>
+                                    </button>
+                                  </div>
+
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
+                                    <input
+                                      type="number"
+                                      value={alertInputValue}
+                                      onChange={handleAlertInputChange}
+                                      className={`w-full pl-7 pr-3 py-2.5 bg-background border rounded-xl text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
+                                      placeholder={common.target_price || "Target Price..."}
+                                      autoFocus
+                                    />
+                                  </div>
+                                  {alertError && (
+                                    <div className="text-brand-red text-[11px] font-semibold mt-1.5 text-center flex items-center justify-center gap-1.5 animate-in fade-in duration-150">
+                                      <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                                      <span>{alertError}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="flex items-center gap-2 mt-3.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
+                                      className="flex-1 py-2 bg-muted text-foreground font-bold rounded-xl text-[13px] hover:bg-muted/80 active:scale-95 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleAlertSubmit}
+                                      disabled={!!alertError || !alertInputValue}
+                                      className={`flex-1 py-2 font-bold rounded-xl text-[13px] shadow-md transition-colors ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
+                                    >
+                                      Update
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {!showAlertInput && (
+                          <button 
+                            onClick={handleCreateAlertClick}
+                            className="mt-2 w-full py-3 bg-brand-blue/10 text-brand-blue text-[13px] font-bold rounded-xl border border-brand-blue/20 shadow-xs hover:bg-brand-blue/20 active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            <i className="fa-solid fa-plus"></i> Create New Alert
+                          </button>
+                        )}
+                        {alertSuccess && (
+                          <div className="mt-2 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
+                            <i className="fa-solid fa-circle-check"></i>
+                            {alertSuccess}
+                          </div>
+                        )}
+                        {alertError && !showAlertInput && (
+                          <div className="mt-2 w-full bg-brand-red/10 border border-brand-red/30 text-brand-red text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2 animate-in fade-in duration-150">
+                            <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                            <span>{alertError}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : !showAlertInput ? (
+                      <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col items-center justify-center py-12">
+                        <div className="w-12 h-12 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-xl font-bold mb-3 shadow-xs">
+                          <i className="fa-regular fa-bell-slash"></i>
+                        </div>
+                        <h2 className="font-extrabold text-[16px] text-foreground">No Alerts Set</h2>
+                        <p className="text-[13px] text-foreground/60 mt-1.5 text-center max-w-[260px]">You haven't configured any price alerts for this commodity yet.</p>
+                        
+                        {alertSuccess && (
+                          <div className="mt-3 w-full bg-brand-green/10 border border-brand-green/30 text-brand-green text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2">
+                            <i className="fa-solid fa-circle-check"></i>
+                            {alertSuccess}
+                          </div>
+                        )}
+                        {alertError && !showAlertInput && (
+                          <div className="mt-3 w-full bg-brand-red/10 border border-brand-red/30 text-brand-red text-[12px] font-bold px-3 py-2 rounded-lg flex items-center justify-center gap-2 animate-in fade-in duration-150">
+                            <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                            <span>{alertError}</span>
+                          </div>
+                        )}
+
+                        <button 
+                          onClick={handleCreateAlertClick}
+                          className="mt-5 px-5 py-2.5 bg-brand-blue text-white text-[13px] font-bold rounded-xl shadow-xs hover:bg-brand-blue/90 active:scale-95 cursor-pointer flex items-center gap-2"
+                        >
+                          <i className="fa-solid fa-bell"></i> Create Alert
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -3486,15 +3602,15 @@ export default function MobileCommodityChart({
                 <div className="flex justify-between items-center py-1 border-b border-border/50">
                   <span className="text-foreground/70 font-medium">Loading Port (POL)</span>
                   <span className="font-bold text-foreground flex items-center gap-1">
-                    {item.polFlag && <img src={getFlagUrl(item.polFlag)!} alt="" className="w-3.5 h-2.5 object-cover rounded-[1px]" />}
-                    {item.pol || 'N/A'}
+                    {renderFlagIcon(freightRoute?.polFlag || item.polFlag, `${freightRoute?.pol || item.pol} Flag`, 'w-3.5 h-2.5 object-cover rounded-[1px]')}
+                    <span>{freightRoute?.pol || item.pol || 'N/A'}</span>
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-border/50">
                   <span className="text-foreground/70 font-medium">Destination Port (POD)</span>
                   <span className="font-bold text-foreground flex items-center gap-1">
-                    {item.podFlag && <img src={getFlagUrl(item.podFlag)!} alt="" className="w-3.5 h-2.5 object-cover rounded-[1px]" />}
-                    {item.pod || 'N/A'}
+                    {renderFlagIcon(freightRoute?.podFlag || item.podFlag, `${freightRoute?.pod || item.pod} Flag`, 'w-3.5 h-2.5 object-cover rounded-[1px]')}
+                    <span>{freightRoute?.pod || item.pod || 'N/A'}</span>
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-border/50">
@@ -3514,9 +3630,49 @@ export default function MobileCommodityChart({
       </div>
 
       {/* 3. Sticky Bottom Action Bar (Shrink-0 / Always pinned in Half-Sheet & Full-Screen on Mobile) */}
-      {!showAlertInput && (
-        <div className="lg:hidden shrink-0 bg-card/95 border-t border-border px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30 flex items-center justify-between gap-2">
-          <>
+      <div className="lg:hidden shrink-0 bg-card/95 border-t border-border px-2.5 min-[390px]:px-3.5 pt-2 min-[390px]:pt-2.5 pb-3.5 min-[390px]:pb-4 sm:pb-3 pb-safe z-30">
+        {showAlertInput ? (
+          <div className="w-full animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="flex w-full items-center gap-2">
+              <button 
+                type="button"
+                onClick={() => { setShowAlertInput(false); setAlertError(''); setAlertSuccess(''); setEditingAlertId(null); }}
+                className="w-9 h-9 min-[390px]:w-10 min-[390px]:h-10 shrink-0 bg-muted border border-border text-foreground hover:bg-muted/80 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition-colors"
+                aria-label="Cancel"
+              >
+                <i className="fa-solid fa-xmark text-[14px]"></i>
+              </button>
+              <div className="relative flex-1">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground/50 font-bold">$</span>
+                <input
+                  type="number"
+                  min={!isFreight ? supportResistance.support : undefined}
+                  max={!isFreight ? supportResistance.resistance : undefined}
+                  value={alertInputValue}
+                  onChange={handleAlertInputChange}
+                  className={`w-full pl-6 pr-2 py-2 min-[390px]:py-2.5 bg-background border rounded-xl text-[13px] min-[390px]:text-[14px] font-bold outline-hidden transition-colors ${alertError ? 'border-brand-red focus:border-brand-red' : 'border-border focus:border-brand-blue'}`}
+                  placeholder={common.target_price || "Target Price..."}
+                  autoFocus
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleAlertSubmit}
+                disabled={!!alertError || !alertInputValue}
+                className={`px-3.5 min-[390px]:px-5 py-2 min-[390px]:py-2.5 rounded-xl font-bold text-[12px] min-[390px]:text-[14px] shadow-md transition-all ${alertError || !alertInputValue ? 'bg-muted-foreground/50 text-white/70 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-brand-blue/90 active:scale-95 cursor-pointer'}`}
+              >
+                {editingAlertId ? 'Update' : 'Save'}
+              </button>
+            </div>
+            {alertError && (
+              <div className="text-brand-red text-[11px] min-[390px]:text-[12px] font-semibold mt-1.5 text-center flex items-center justify-center gap-1.5 animate-in fade-in duration-150">
+                <i className="fa-solid fa-circle-exclamation text-brand-red"></i>
+                <span>{alertError}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2 w-full">
             {/* 1. Create Alert (Left) */}
             <button
               type="button"
@@ -3552,9 +3708,9 @@ export default function MobileCommodityChart({
               )}
               <span className="whitespace-nowrap">{common.ai_predict || "AI Predict"}</span>
             </button>
-          </>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* 4. Specifications & Description Information Icon Popup Modal (Products only) */}
       {!isFreight && showSpecsModal && (
@@ -3748,7 +3904,7 @@ export default function MobileCommodityChart({
         }}
         lang={lang}
         actionType={inquiryAction}
-        packingTypes={inquiryData?.product?.packing_types || []}
+        packingTypes={inquiryData?.product?.packing_types || (item as any).packingTypes || []}
         containers={inquiryData?.product?.containers || []}
         paymentTerms={inquiryData?.paymentTerms || []}
       />

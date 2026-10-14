@@ -128,6 +128,10 @@ export function FreightInquiryModal({
   const hasInitialProducts = Boolean(initialProducts && initialProducts.length > 0);
   const hasInitialLinerTerms = Boolean(initialLinerTerms && initialLinerTerms.length > 0);
 
+  const isVesselOrBulk = Boolean(
+    shipBy && /vessel|bulk|break/i.test(shipBy)
+  );
+
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null
@@ -135,7 +139,7 @@ export function FreightInquiryModal({
 
   const [formData, setFormData] = useState({
     quantity: '',
-    quantityUnit: loadUnit || 'MT',
+    quantityUnit: isVesselOrBulk ? 'MT' : (loadUnit || 'MT'),
     shippingTerm: '',
     productName: '',
     linerTerm: '',
@@ -143,6 +147,23 @@ export function FreightInquiryModal({
     askingFreightRate: '',
     comments: ''
   });
+
+  // When ShipBy is Vessel/Bulk, strictly enforce unit to MT
+  useEffect(() => {
+    if (isVesselOrBulk && formData.quantityUnit !== 'MT') {
+      setFormData((prev) => ({ ...prev, quantityUnit: 'MT' }));
+    }
+  }, [isVesselOrBulk, formData.quantityUnit]);
+
+  // Synchronize unit when modal opens or shipBy/loadUnit changes
+  useEffect(() => {
+    if (isOpen) {
+      setFormData((prev) => ({
+        ...prev,
+        quantityUnit: isVesselOrBulk ? 'MT' : (prev.quantityUnit || loadUnit || 'MT')
+      }));
+    }
+  }, [isOpen, isVesselOrBulk, loadUnit]);
 
   const [minPrice, setMinPrice] = useState<number | null>(() => (initialMinPrice != null && !isNaN(Number(initialMinPrice)) ? Number(initialMinPrice) : null));
   const [maxPrice, setMaxPrice] = useState<number | null>(() => (initialMaxPrice != null && !isNaN(Number(initialMaxPrice)) ? Number(initialMaxPrice) : null));
@@ -485,6 +506,11 @@ export function FreightInquiryModal({
 
   // Input change handler with strict sequential reset and autoOpenNext
   const handleInputChange = (field: string, value: string) => {
+    // If Vessel/Bulk cargo, quantityUnit is strictly locked to MT
+    if (field === 'quantityUnit' && isVesselOrBulk) {
+      return;
+    }
+
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
 
@@ -599,9 +625,6 @@ export function FreightInquiryModal({
   // Format freight rate display
   const formattedFreightRate = (() => {
     if (!freightRate) return '$0';
-    const isVesselOrBulk = Boolean(
-      shipBy && /vessel|bulk/i.test(shipBy)
-    );
     const unitSuffix = isVesselOrBulk ? '/ PMT' : '/ FCL';
     const rateNum = Number(freightRate);
     if (!isNaN(rateNum)) {
@@ -620,9 +643,11 @@ export function FreightInquiryModal({
     try {
       const qtyNum = Number(formData.quantity);
       const capacity = Number(loadCapacity) > 0 ? Number(loadCapacity) : 26;
-      const calculatedFcl = formData.quantityUnit === 'MT'
+      const calculatedFcl = isVesselOrBulk
         ? Math.ceil(qtyNum / capacity)
-        : qtyNum;
+        : (formData.quantityUnit === 'MT'
+            ? Math.ceil(qtyNum / capacity)
+            : qtyNum);
       const finalFcl = Math.max(1, Math.round(calculatedFcl) || 1);
 
       let shippingStartDateIso = '';
@@ -655,7 +680,7 @@ export function FreightInquiryModal({
         product_id: formData.productName,
         price_bid: Number(formData.askingFreightRate),
         quantity: qtyNum,
-        quantity_type: formData.quantityUnit || 'MT',
+        quantity_type: isVesselOrBulk ? 'MT' : (formData.quantityUnit || 'MT'),
         shipping_start_date: shippingStartDateIso,
         shipping_end_date: shippingEndDateIso,
         comment: formData.comments ? formData.comments.trim() : ''
@@ -816,6 +841,7 @@ export function FreightInquiryModal({
                   Quantity <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 {(() => {
+                  if (isVesselOrBulk) return null;
                   if (!formData.quantity || isNaN(Number(formData.quantity)) || !formData.quantityUnit) return null;
                   const qty = Number(formData.quantity);
                   if (qty <= 0) return null;
@@ -836,18 +862,27 @@ export function FreightInquiryModal({
               <div className="flex w-full">
                 <div className="w-[100px] shrink-0">
                   <SearchableSelect
-                    value={formData.quantityUnit}
+                    value={isVesselOrBulk ? 'MT' : formData.quantityUnit}
                     onChange={(val) => handleInputChange('quantityUnit', val)}
-                    options={[
-                      { id: 'MT', name: 'MT' },
-                      { id: 'FCL', name: 'FCL' }
-                    ]}
+                    options={
+                      isVesselOrBulk
+                        ? [{ id: 'MT', name: 'MT' }]
+                        : [
+                            { id: 'MT', name: 'MT' },
+                            { id: 'FCL', name: 'FCL' }
+                          ]
+                    }
                     placeholder={common.unit || 'Unit'}
                     variant="mobile"
-                    customTriggerClass={`py-2.5 px-3 text-sm font-semibold rounded-l-xl border border-r-0 ${
-                      formData.quantityUnit && formData.quantity
-                        ? 'bg-brand-blue border-brand-blue text-white shadow-sm'
-                        : 'bg-card text-foreground border-border'
+                    disabled={isVesselOrBulk}
+                    customTriggerClass={`py-2.5 px-3 text-sm font-semibold rounded-l-xl border border-r-0 transition-colors ${
+                      isVesselOrBulk
+                        ? (formData.quantityUnit && formData.quantity
+                            ? 'bg-brand-blue border-brand-blue text-white shadow-sm cursor-not-allowed select-none [&_.fa-chevron-right]:opacity-40 [&_.fa-chevron-right]:cursor-not-allowed'
+                            : 'bg-muted/70 text-foreground border-border cursor-not-allowed select-none [&_.fa-chevron-right]:opacity-40 [&_.fa-chevron-right]:cursor-not-allowed')
+                        : (formData.quantityUnit && formData.quantity
+                            ? 'bg-brand-blue border-brand-blue text-white shadow-sm cursor-pointer'
+                            : 'bg-card text-foreground border-border cursor-pointer')
                     }`}
                   />
                 </div>

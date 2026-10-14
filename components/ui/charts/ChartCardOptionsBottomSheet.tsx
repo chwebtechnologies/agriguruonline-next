@@ -156,7 +156,13 @@ export function ChartCardOptionsBottomSheet({
                   {opt.title}
                 </span>
               </div>
-              <i className="fa-solid fa-chevron-right text-[11px] text-muted-foreground/60"></i>
+              {opt.disabled && !isActionLoading ? (
+                <span className="text-[11px] font-semibold text-muted-foreground/80 px-2 py-0.5 rounded bg-muted/60 border border-border/40">
+                  Not Available
+                </span>
+              ) : (
+                <i className="fa-solid fa-chevron-right text-[11px] text-muted-foreground/60"></i>
+              )}
             </button>
           ))}
         </div>

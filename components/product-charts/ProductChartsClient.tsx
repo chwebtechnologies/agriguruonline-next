@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { FlagIcon } from '@/components/ui/FlagIcon';
 import { ProductInquiryModal } from '@/components/marketed-products/ProductInquiryModal';
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
-import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
+import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails } from '@/app/actions/product';
 import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist } from '@/lib/watchlist-utils';
 import { useScrollLock } from '@/lib/scroll-lock';
 
@@ -94,6 +94,7 @@ interface FavoriteItem {
   podId?: string;
   termId?: string;
   shipById?: string;
+  packingTypes?: any[];
 }
 
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -198,7 +199,7 @@ export default function ProductChartsClient({
 
     try {
       const type = action === 'buy' ? 'BUYER' : 'SELLER';
-      const kycResponse = await checkKYCStatus(lang, type);
+      const kycResponse = await checkKYCStatus(lang, type, item.id);
       
       const canCreate = kycResponse?.data?.can_create ?? kycResponse?.can_create;
       const indication = kycResponse?.response_indication || kycResponse?.data?.response_indication;
@@ -237,28 +238,59 @@ export default function ProductChartsClient({
         }
       }
       
-      const productId = item.productId || '';
-      const [productResponse, termsResponse, paymentTermsResponse] = await Promise.all([
-        fetchProductDetails(String(productId), lang),
+      const favProd = kycResponse?.data?.favorite_product;
+      const nextBtnPackingTypes = favProd?.product?.packing_types || favProd?.packing_types || kycResponse?.data?.packing_types || [];
+      const resolvedProductId = favProd?.product?.id || favProd?.product_id || item.productId || '';
+      const resolvedShipById = favProd?.shipping_container?.id || item.shipById || '';
+      const resolvedTermId = favProd?.shipping_term?.id || item.termId || '';
+      const resolvedPolId = favProd?.loading_port?.id || item.polId || '';
+      const resolvedPodId = favProd?.destination_port?.id || item.podId || '';
+
+      const productIdToFetch = resolvedProductId || (typeof item.id === 'string' && !String(item.id).includes('-') ? item.id : '');
+      const [productResponse, termsResponse, paymentTermsResponse, favDetailsRes] = await Promise.all([
+        productIdToFetch ? fetchProductDetails(String(productIdToFetch), lang) : Promise.resolve(null),
         fetchShippingTerms(lang),
-        fetchPaymentTerms(lang)
+        fetchPaymentTerms(lang),
+        (!resolvedProductId && item.id) ? fetchFavoriteProductDetails(item.id, lang) : Promise.resolve(null)
       ]);
       
-      const combinedData: any = {
-        itemPrice: item.price
+      const favDetailsProd = favDetailsRes?.success ? (favDetailsRes.data?.favorite_product || favDetailsRes.data) : null;
+      const favDetailsProductObj = favDetailsProd?.product || favDetailsProd;
+
+      const combinedPackingTypes = (nextBtnPackingTypes && nextBtnPackingTypes.length > 0)
+        ? nextBtnPackingTypes
+        : ((productResponse?.success && productResponse?.data?.packing_types?.length)
+            ? productResponse.data.packing_types
+            : (favDetailsProductObj?.packing_types || item.packingTypes || []));
+
+      const updatedActionItem: FavoriteItem = {
+        ...item,
+        productId: resolvedProductId || favDetailsProductObj?.id || item.productId || '',
+        shipById: resolvedShipById || item.shipById,
+        termId: resolvedTermId || item.termId,
+        polId: resolvedPolId || item.polId,
+        podId: resolvedPodId || item.podId,
+        packingTypes: combinedPackingTypes
       };
-      
-      if (productResponse && productResponse.success) {
-        combinedData.product = productResponse.data;
-      } else {
-        combinedData.product = { id: productId, name: item.product, country: { name: item.country } };
-      }
-      if (termsResponse && termsResponse.success) {
-        combinedData.shippingTerms = termsResponse.data?.shipping_term || [];
-      }
-      if (paymentTermsResponse && paymentTermsResponse.success) {
-        combinedData.paymentTerms = paymentTermsResponse.data?.payment_term || [];
-      }
+      setActionItem(updatedActionItem);
+
+      const resolvedContainers = (productResponse?.success && productResponse?.data?.containers?.length)
+        ? productResponse.data.containers
+        : (favProd?.product?.containers || favDetailsProductObj?.containers || []);
+
+      const combinedData: any = {
+        itemPrice: favProd?.price || item.price,
+        shippingTerms: termsResponse && termsResponse.success ? (termsResponse.data?.shipping_term || []) : [],
+        paymentTerms: paymentTermsResponse && paymentTermsResponse.success ? (paymentTermsResponse.data?.payment_term || []) : [],
+        product: {
+          ...(productResponse?.data || favProd?.product || favDetailsProductObj || {}),
+          id: resolvedProductId || productResponse?.data?.id || favDetailsProductObj?.id || item.productId || item.id,
+          name: favProd?.product?.name || productResponse?.data?.name || favDetailsProductObj?.name || item.product,
+          country: favProd?.country || productResponse?.data?.country || favDetailsProductObj?.country || { name: item.country },
+          packing_types: combinedPackingTypes,
+          containers: resolvedContainers,
+        }
+      };
       
       setInquiryData(combinedData);
       setIsInquiryModalOpen(true);
@@ -298,12 +330,14 @@ export default function ProductChartsClient({
 
     if (optionKey === 'inquiry') {
       handleBuySellClick(item);
-    } else if (optionKey === 'alert') {
-      openBottomSheet(item.id, 'Alert Setups');
-    } else if (optionKey === 'predict') {
-      openBottomSheet(item.id, 'AI Predict');
-    } else if (optionKey === 'chart') {
-      openBottomSheet(item.id, 'Overview');
+    } else if (item.chartStatus) {
+      if (optionKey === 'alert') {
+        openBottomSheet(item.id, 'Alert Setups');
+      } else if (optionKey === 'predict') {
+        openBottomSheet(item.id, 'AI Predict');
+      } else if (optionKey === 'chart') {
+        openBottomSheet(item.id, 'Overview');
+      }
     }
   };
 
@@ -423,7 +457,8 @@ export default function ProductChartsClient({
             podFlag,
             price,
             change,
-            chartStatus: isChart(item.chart_status) && isChart(item.chartStatus) && isChart(item.product?.chart_status)
+            chartStatus: isChart(item.chart_status) && isChart(item.chartStatus) && isChart(item.product?.chart_status),
+            packingTypes: item.product?.packing_types || item.packing_types || []
           };
         });
         setAddedProducts(mapped);
@@ -1424,7 +1459,7 @@ export default function ProductChartsClient({
                     {/* Mobile/Tablet Card Layout */}
                     <SwipeableCard 
                       onDelete={() => confirmDelete(item.id)}
-                      onChart={() => openBottomSheet(item.id, 'Overview')}
+                      onChart={item.chartStatus ? () => openBottomSheet(item.id, 'Overview') : undefined}
                     >
                       <ChartMobileItemCard
                         row1Left={
@@ -1444,6 +1479,8 @@ export default function ProductChartsClient({
                         onCardClick={() => {
                           if (item.chartStatus) {
                             openBottomSheet(item.id, 'Overview');
+                          } else {
+                            setSelectedOptionsItem(item);
                           }
                         }}
                         onOptionsClick={() => setSelectedOptionsItem(item)}
@@ -1625,7 +1662,7 @@ export default function ProductChartsClient({
         itemType="product"
         userType={userType}
         onSelectOption={handleOptionSelect}
-        isChartAvailable={selectedOptionsItem?.chartStatus !== false}
+        isChartAvailable={Boolean(selectedOptionsItem?.chartStatus)}
         isActionLoading={isActionLoading && actionItemId === selectedOptionsItem?.id}
         cardNode={selectedOptionsItem && (() => {
           const item = selectedOptionsItem;
@@ -1861,7 +1898,7 @@ export default function ProductChartsClient({
         item={actionItem}
         lang={lang}
         actionType={inquiryAction}
-        packingTypes={inquiryData?.product?.packing_types || []}
+        packingTypes={inquiryData?.product?.packing_types || actionItem?.packingTypes || []}
         containers={inquiryData?.product?.containers || []}
         paymentTerms={inquiryData?.paymentTerms || []}
       />

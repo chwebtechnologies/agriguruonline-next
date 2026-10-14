@@ -45,14 +45,18 @@ export function AIPredictClient({ initialPredicts, lang, dict }: { initialPredic
 
     const term = predict.shipping_term || predict.incoterm?.name || predict.incoterm || 'FOB';
 
-    const favId = predict.favourite_product_id || predict.favourite_product?.id || predict.favourite_record_id || predict.favourite_record?.id || predict.favorite_product_id;
+    const favPortId = predict.favourite_port_id || predict.favorite_port_id || predict.favourite_record_id || predict.favourite_record?.id || predict.freight_id;
+    const favId = isFreight ? favPortId : (predict.favourite_product_id || predict.favourite_product?.id || predict.favourite_record_id || predict.favourite_record?.id || predict.favorite_product_id);
     const prodId = predict.product_id || predict.product?.id;
 
-    const chartItem: ChartBottomSheetItem = {
+    const chartItem: any = {
       id: favId || prodId || predict.freight_id || predict.id,
       productId: prodId,
-      favoriteProductId: favId,
-      category: catName,
+      favoriteProductId: !isFreight ? favId : undefined,
+      favoritePortId: isFreight ? favPortId : undefined,
+      favouritePortId: isFreight ? favPortId : undefined,
+      freightId: predict.freight_id,
+      category: isFreight ? 'FREIGHT' : catName,
       product: prodName,
       shipBy,
       term,

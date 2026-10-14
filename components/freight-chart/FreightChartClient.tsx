@@ -530,15 +530,17 @@ export default function FreightChartClient({
 
     if (optionKey === 'inquiry') {
       handleBooking(item, item.id);
-    } else if (optionKey === 'alert') {
-      setSelectedInitialTab('Alert Setups');
-      setActiveBottomSheetId(String(item.id));
-    } else if (optionKey === 'predict') {
-      setSelectedInitialTab('AI Predict');
-      setActiveBottomSheetId(String(item.id));
-    } else if (optionKey === 'chart') {
-      setSelectedInitialTab('Overview');
-      setActiveBottomSheetId(String(item.id));
+    } else if (item.chartStatus) {
+      if (optionKey === 'alert') {
+        setSelectedInitialTab('Alert Setups');
+        setActiveBottomSheetId(String(item.id));
+      } else if (optionKey === 'predict') {
+        setSelectedInitialTab('AI Predict');
+        setActiveBottomSheetId(String(item.id));
+      } else if (optionKey === 'chart') {
+        setSelectedInitialTab('Overview');
+        setActiveBottomSheetId(String(item.id));
+      }
     }
   };
 
@@ -660,7 +662,7 @@ export default function FreightChartClient({
                             Step 1: Container
                           </span>
                         </div>
-                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${selectedShipBy ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words text-foreground`}>
                           {selectedShipBy ? (shippingContainers.find(c => String(c.id) === String(selectedShipBy))?.title || 'Container') : 'Select Container'}
                         </div>
                       </div>
@@ -675,20 +677,20 @@ export default function FreightChartClient({
                       }}
                       className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                         !selectedShipBy
-                          ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                          ? 'opacity-60 cursor-not-allowed bg-card border border-dashed border-border text-muted-foreground shadow-xs'
                           : !selectedPOL
                             ? 'cursor-pointer bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                             : 'cursor-pointer bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                       }`}
                     >
                       <div className="shrink-0 px-1 flex items-center justify-center">
-                        <i className={`fa-solid ${selectedPOL ? 'fa-check text-brand-green dark:text-emerald-400' : selectedShipBy ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
+                        <i className={`fa-solid ${selectedPOL ? 'fa-check text-brand-green dark:text-emerald-400' : selectedShipBy ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-muted-foreground'} text-[18px]`}></i>
                       </div>
                       <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
                         <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                          <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedShipBy ? 'text-zinc-400' : !selectedPOL ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 2: POL</span>
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedShipBy ? 'text-muted-foreground' : !selectedPOL ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 2: POL</span>
                         </div>
-                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedShipBy ? 'text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedShipBy ? 'text-muted-foreground' : 'text-foreground'}`}>
                           {selectedPOL ? (loadingPorts.find(p => String(p.id) === String(selectedPOL))?.name || 'Port') : 'Select Port'}
                         </div>
                       </div>
@@ -704,77 +706,77 @@ export default function FreightChartClient({
                       }}
                       className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                         !selectedPOL
-                          ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                          ? 'opacity-60 cursor-not-allowed bg-card border border-dashed border-border text-muted-foreground shadow-xs'
                           : !selectedPOD
                             ? 'cursor-pointer bg-blue-50 dark:bg-blue-900/20 border-brand-blue text-brand-blue shadow-md ring-2 ring-brand-blue/20 hover:bg-blue-100 dark:hover:bg-blue-900/40'
                             : 'cursor-pointer bg-brand-green/10 dark:bg-brand-green/20 border-brand-green/30 text-brand-green dark:text-emerald-400'
                       }`}
                     >
                       <div className="shrink-0 px-1 flex items-center justify-center">
-                        <i className={`fa-solid ${selectedPOD ? 'fa-check text-brand-green dark:text-emerald-400' : selectedPOL ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
+                        <i className={`fa-solid ${selectedPOD ? 'fa-check text-brand-green dark:text-emerald-400' : selectedPOL ? 'fa-arrow-up animate-bounce text-brand-blue' : 'fa-lock text-muted-foreground'} text-[18px]`}></i>
                       </div>
                       <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
                         <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                          <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedPOL ? 'text-zinc-400' : !selectedPOD ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 3: POD</span>
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${!selectedPOL ? 'text-muted-foreground' : !selectedPOD ? 'text-brand-blue' : 'text-emerald-800 dark:text-emerald-300'}`}>Step 3: POD</span>
                         </div>
-                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedPOL ? 'text-zinc-400' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${!selectedPOL ? 'text-muted-foreground' : 'text-foreground'}`}>
                           {selectedPOD ? (destinationPorts.find(p => String(p.id) === String(selectedPOD))?.name || 'Destination') : 'Destination Port'}
                         </div>
                       </div>
                     </div>
 
                     {/* Col 4: Freight Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5 flex flex-col items-center justify-center text-center border border-dashed border-border bg-muted/40 text-muted-foreground select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className="fa-solid fa-dollar-sign text-zinc-400 text-[11px]"></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500">Total</span>
+                        <i className="fa-solid fa-dollar-sign text-muted-foreground text-[11px]"></i>
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">Total</span>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-600 dark:text-zinc-400">
+                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
                         Freight
                       </div>
-                      <div className="text-[9.5px] text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-muted-foreground mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         Total rate
                       </div>
                     </div>
 
                     {/* Col 5: Freight (PMT) Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5 flex flex-col items-center justify-center text-center border border-dashed border-border bg-muted/40 text-muted-foreground select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className="fa-solid fa-scale-balanced text-zinc-400 text-[11px]"></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500">PMT</span>
+                        <i className="fa-solid fa-scale-balanced text-muted-foreground text-[11px]"></i>
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">PMT</span>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-600 dark:text-zinc-400">
+                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
                         Freight (PMT)
                       </div>
-                      <div className="text-[9.5px] text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-muted-foreground mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         Per MT rate
                       </div>
                     </div>
 
                     {/* Col 6: Change Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5 flex flex-col items-center justify-center text-center border border-dashed border-border bg-muted/40 text-muted-foreground select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                        <i className="fa-solid fa-arrow-trend-up text-zinc-400 text-[11px]"></i>
-                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500">Trend</span>
+                        <i className="fa-solid fa-arrow-trend-up text-muted-foreground text-[11px]"></i>
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">Trend</span>
                       </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-600 dark:text-zinc-400">
+                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
                         Change
                       </div>
-                      <div className="text-[9.5px] text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-muted-foreground mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         Daily shift
                       </div>
                     </div>
 
                     {/* Col 7: Chart Preview */}
-                    <div className="h-[74px] rounded-xl p-1.5  flex flex-col items-center justify-center text-center border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 select-none w-full min-w-0 overflow-hidden">
+                    <div className="h-[74px] rounded-xl p-1.5 flex flex-col items-center justify-center text-center border border-dashed border-border bg-muted/40 text-muted-foreground select-none w-full min-w-0 overflow-hidden">
                       <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                      <i className="fa-solid fa-chart-area text-zinc-400 text-[11px]"></i>
-                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-zinc-500">Chart</span>
+                      <i className="fa-solid fa-chart-area text-muted-foreground text-[11px]"></i>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-muted-foreground">Chart</span>
                     </div>
-                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-zinc-600 dark:text-zinc-400">
+                      <div className="font-bold text-[11px] truncate w-full text-center px-0.5 leading-tight text-foreground/80">
                         Chart
                       </div>
-                      <div className="text-[9.5px] text-zinc-400 mt-0.5 truncate w-full text-center px-0.5 leading-tight">
+                      <div className="text-[9.5px] text-muted-foreground mt-0.5 truncate w-full text-center px-0.5 leading-tight">
                         Rate history
                       </div>
                     </div>
@@ -787,18 +789,18 @@ export default function FreightChartClient({
                       }}
                       className={`group h-[74px] rounded-xl p-1 flex items-center justify-center border select-none w-full min-w-0 overflow-hidden transition-all ${
                         !isAddFreightEnabled
-                          ? 'opacity-60 cursor-not-allowed bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 shadow-sm'
+                          ? 'opacity-60 cursor-not-allowed bg-card border border-dashed border-border text-muted-foreground shadow-xs'
                           : 'cursor-pointer bg-primary-gradient text-white border-none shadow-md hover:shadow-lg active:scale-[0.98]'
                       }`}
                     >
                       <div className="shrink-0 px-1 flex items-center justify-center">
-                        <i className={`fa-solid ${isAddFreightEnabled ? 'fa-arrow-up animate-bounce text-white' : 'fa-lock text-zinc-400 dark:text-zinc-500'} text-[18px]`}></i>
+                        <i className={`fa-solid ${isAddFreightEnabled ? 'fa-arrow-up animate-bounce text-white' : 'fa-lock text-muted-foreground'} text-[18px]`}></i>
                       </div>
                       <div className="flex flex-col items-center justify-center flex-1 min-w-0 pr-1">
                         <div className="flex items-center justify-center gap-1 mb-0.5 shrink-0">
-                          <span className={`text-[9px] font-bold uppercase tracking-wider ${isAddFreightEnabled ? 'text-white' : 'text-zinc-400'}`}>Final</span>
+                          <span className={`text-[9px] font-bold uppercase tracking-wider ${isAddFreightEnabled ? 'text-white' : 'text-muted-foreground'}`}>Final</span>
                         </div>
-                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${isAddFreightEnabled ? 'text-white' : 'text-zinc-400'}`}>
+                        <div className={`font-bold text-[11px] w-full text-center leading-tight line-clamp-2 break-words ${isAddFreightEnabled ? 'text-white' : 'text-muted-foreground'}`}>
                           Add Freight
                         </div>
                       </div>
@@ -913,6 +915,8 @@ export default function FreightChartClient({
                             if (item.chartStatus) {
                               setSelectedInitialTab('Overview');
                               setActiveBottomSheetId(String(item.id));
+                            } else {
+                              setSelectedOptionsItem(item);
                             }
                           }}
                           onOptionsClick={() => {
@@ -1097,21 +1101,39 @@ export default function FreightChartClient({
       {activeBottomSheetId !== null && (() => {
         const activeItem = addedFreights.find(f => String(f.id) === String(activeBottomSheetId));
         if (!activeItem) return null;
+        const favPortId = (activeItem as any).originalItem?.favourite_port_id || 
+                          (activeItem as any).originalItem?.favorite_port_id || 
+                          (activeItem as any).originalItem?.favourite_record_id ||
+                          (activeItem as any).originalItem?.id || 
+                          activeItem.id;
+        const freightId = (activeItem as any).originalItem?.freight_id || 
+                          (activeItem as any).originalItem?.id || 
+                          activeItem.id;
+
+        const orig = (activeItem as any).originalItem;
+        const resolvedPolFlag = activeItem.polFlag || orig?.loading_port?.country?.flag || orig?.loading_port?.flag || orig?.pol_flag || '';
+        const resolvedPodFlag = activeItem.podFlag || orig?.destination_port?.country?.flag || orig?.destination_port?.flag || orig?.pod_flag || '';
+
         const chartItem = {
-          id: activeItem.id,
+          id: favPortId || activeItem.id,
           product: `${activeItem.pol} → ${activeItem.pod}`,
           shipBy: activeItem.shipBy,
           term: activeItem.shipBy,
           pol: activeItem.pol,
-          polFlag: activeItem.polFlag,
+          polFlag: resolvedPolFlag,
           pod: activeItem.pod,
-          podFlag: activeItem.podFlag,
+          podFlag: resolvedPodFlag,
           price: activeItem.freightPmt,
           change: activeItem.change,
           chartStatus: true,
           category: 'FREIGHT',
           country: activeItem.pol,
-          countryFlag: activeItem.polFlag
+          countryFlag: resolvedPolFlag,
+          favoritePortId: favPortId,
+          favouritePortId: favPortId,
+          favoriteProductId: favPortId,
+          freightId: freightId,
+          originalItem: orig
         };
         return (
           <ChartBottomSheetContainer
@@ -1136,7 +1158,7 @@ export default function FreightChartClient({
         itemType="freight"
         userType={initialUserType}
         onSelectOption={handleFreightOptionSelect}
-        isChartAvailable={selectedOptionsItem?.chartStatus !== false}
+        isChartAvailable={Boolean(selectedOptionsItem?.chartStatus)}
         cardNode={selectedOptionsItem && (() => {
           const item = selectedOptionsItem;
           const changeVal = Number(item.change) || 0;
@@ -1208,7 +1230,7 @@ export default function FreightChartClient({
       {showMobileAddForm && (
         <div className="fixed inset-0 z-[700] bg-background flex flex-col animate-in slide-in-from-bottom-2 overscroll-contain">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <button
               type="button"
               onClick={() => setShowMobileAddForm(false)}
@@ -1292,7 +1314,7 @@ export default function FreightChartClient({
             </div>
 
             {/* Sticky Add Button */}
-            <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-background z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
+            <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-border bg-background z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
               <div className="flex justify-center">
                 <ChartAddButton
                   onClick={handleAddFreight}
@@ -1321,11 +1343,20 @@ export default function FreightChartClient({
           }}
           lang={lang}
           common={common}
-          shipBy={selectedFreightInquiryItem?.shipBy || shippingContainers.find(c => c.id === selectedShipBy)?.title || selectedShipBy}
+          shipBy={
+            selectedFreightInquiryItem?.shipBy ||
+            (selectedFreightInquiryItem as any)?.originalItem?.shipping_container?.title ||
+            (selectedFreightInquiryItem as any)?.originalItem?.shipping_container?.name ||
+            (selectedFreightInquiryItem as any)?.originalItem?.shipment_type ||
+            shippingContainers.find(c => c.id === ((selectedFreightInquiryItem as any)?.shipping_container_id || (selectedFreightInquiryItem as any)?.originalItem?.shipping_container_id))?.title ||
+            shippingContainers.find(c => c.id === selectedShipBy)?.title ||
+            selectedShipBy
+          }
           portOfLoading={selectedFreightInquiryItem?.pol || loadingPorts.find(p => p.id === selectedPOL)?.name || selectedPOL}
           portOfDestination={selectedFreightInquiryItem?.pod || destinationPorts.find(p => p.id === selectedPOD)?.name || selectedPOD}
           freightRate={selectedFreightInquiryItem?.freight || selectedFreightInquiryItem?.freightPmt}
           loadCapacity={selectedFreightInquiryItem?.loadCapacity || 26}
+          loadUnit={selectedFreightInquiryItem?.loadUnit || 'MT'}
           shippingContainerId={
             (selectedFreightInquiryItem as any)?.originalItem?.shipping_container?.id ||
             (selectedFreightInquiryItem as any)?.originalItem?.shipping_container_id ||

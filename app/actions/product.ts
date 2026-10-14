@@ -241,7 +241,7 @@ export async function submitTradingInquiry(payload: any) {
   }
 }
 
-export async function checkKYCStatus(langCode: string, type: string) {
+export async function checkKYCStatus(langCode: string, type: string, favoriteProductId?: string | number) {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
 
@@ -286,6 +286,14 @@ export async function checkKYCStatus(langCode: string, type: string) {
   const url = `${tradingApiUrl}/trading-inquiry/next-button?lang_code=${langCode}&source=web`;
   
   try {
+    const bodyPayload: any = {
+      type: type,
+      user_id: user_id
+    };
+    if (favoriteProductId) {
+      bodyPayload.favorite_product_id = favoriteProductId;
+    }
+
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -294,14 +302,11 @@ export async function checkKYCStatus(langCode: string, type: string) {
         'source': 'web',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({
-        type: type,
-        user_id: user_id
-      })
+      body: JSON.stringify(bodyPayload)
     });
     
     const data = await res.json().catch(() => null);
-    console.log("KYC API Response:", data, "Status:", res.status);
+    console.log("KYC / next-button API Response:", data, "Status:", res.status);
     
     if (data) {
        return {
@@ -319,6 +324,26 @@ export async function checkKYCStatus(langCode: string, type: string) {
   } catch (error) {
     console.error("Error checking KYC status:", error);
     return { success: false, message: "Failed to check KYC status", data: null, is_kyc_verified: isKycVerified };
+  }
+}
+
+export async function fetchFavoriteProductDetails(favoriteProductId: string | number, langCode: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+
+  if (!token) {
+    return { success: false, message: "Unauthorized", data: null };
+  }
+
+  const tradingApiUrl = getTradingApiUrl();
+  const url = `${tradingApiUrl}/favorite-product/${favoriteProductId}?lang_code=${langCode}&source=web`;
+  
+  try {
+    const data = await customFetchJSON<any>(url, { token });
+    return data;
+  } catch (error) {
+    console.error("Error fetching favorite product details:", error);
+    return { success: false, message: "Failed to fetch favorite product details", data: null };
   }
 }
 

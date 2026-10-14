@@ -109,15 +109,21 @@ export async function getWatchlistProductsAction(lang: string = 'en') {
           country: countryName,
           countryFlag,
           product: prodName,
+          productId: item.product?.id || item.product_id || item.productId || '',
           shipBy,
+          shipById: item.shipping_container?.id || item.shippingContainer?.id || item.shipping_container_id || item.shipById || '',
           term,
+          termId: item.shipping_term?.id || item.shippingTerm?.id || item.shipping_term_id || item.termId || '',
           pol,
+          polId: item.loading_port?.id || item.loadingPort?.id || item.loading_port_id || item.polId || '',
           polFlag,
           pod,
+          podId: item.destination_port?.id || item.destinationPort?.id || item.destination_port_id || item.podId || '',
           podFlag,
           price,
           change,
           chartStatus,
+          packingTypes: item.product?.packing_types || item.packing_types || [],
         };
       });
     }

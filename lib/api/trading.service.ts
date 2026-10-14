@@ -764,61 +764,84 @@ export const tradingService = {
 
   /**
    * Respond to inquiry (confirm / reject)
+   * Product: POST /negotiation/status/trading-inquiry/for-user?lang_code=${lang}&source=web
+   * Freight: POST /negotiation/status/freight-inquiry/for-user?lang_code=${lang}&source=web (fallback to /negotiation/status/freight-inquiry)
+   * Payload: { inquiry_id, type: "ACTUAL", status: "CONFIRM" | "REJECT" }
    */
   respondInquiry: async (
     inquiryId: string,
     action: 'CONFIRM' | 'REJECT',
     token?: string,
-    lang: string = 'en'
+    lang: string = 'en',
+    category: 'product' | 'freight' = 'product',
+    payloadType: string = 'ACTUAL'
   ) => {
-    const cleanId = encodeURIComponent(inquiryId.trim());
-    const baseUrls = [
-      getTradingApiUrl(),
-    ].filter((v, idx, arr) => arr.indexOf(v) === idx);
+    const cleanId = inquiryId.trim();
+    const safeLang = getSafeLang(lang);
+    const tradingApiUrl = getTradingApiUrl();
 
-    const isConfirm = action === 'CONFIRM';
-    const actionLower = isConfirm ? 'confirm' : 'reject';
+    const endpointsToTry: string[] = [];
+    if (category === 'freight') {
+      endpointsToTry.push('/negotiation/status/freight-inquiry/for-user');
+      endpointsToTry.push('/negotiation/status/freight-inquiry');
+    } else {
+      endpointsToTry.push('/negotiation/status/trading-inquiry/for-user');
+      endpointsToTry.push('/negotiation/status/trading-inquiry');
+    }
 
-    for (const baseUrl of baseUrls) {
-      const endpoints = [
-        `/trading-inquiry/${actionLower}/${cleanId}`,
-        `/trading-inquiry/for-user/${actionLower}/${cleanId}`,
-        `/trading-inquiry/negotiate/${cleanId}`,
-      ];
+    const payload = {
+      inquiry_id: cleanId,
+      type: payloadType || 'ACTUAL',
+      status: action,
+    };
 
-      for (const endpoint of endpoints) {
-        const url = `${baseUrl.replace(/\/$/, '')}${endpoint}`;
-        try {
-          const res = await customFetch(url, {
-            method: 'POST',
-            token,
-            headers: { 'Content-Type': 'application/json' },
-            params: { lang_code: lang, source: 'web' },
-            body: JSON.stringify({
-              action,
-              status: isConfirm ? 'CONFIRMED' : 'REJECTED',
-              note: isConfirm ? 'Offer accepted by user' : 'Offer declined by user',
-            }),
-          });
+    let lastError = 'Failed to update inquiry status';
 
-          if (res.ok) {
-            const json = await res.json().catch(() => ({}));
-            return {
-              success: true,
-              message: json.message || (isConfirm ? 'Offer accepted successfully!' : 'Offer rejected.'),
-              data: json.data || json,
-            };
-          }
-        } catch {
-          // continue
+    for (const ep of endpointsToTry) {
+      const url = `${tradingApiUrl.replace(/\/$/, '')}${ep}`;
+      try {
+        const res = await customFetch(url, {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          params: { lang_code: safeLang, source: 'web' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.status === 404) {
+          continue;
         }
+
+        const json = await res.json().catch(() => null);
+        if (json?.message && typeof json.message === 'string' && (json.message.includes('Cannot POST') || json.message.includes('not found'))) {
+          continue;
+        }
+
+        if (res.ok && (json?.success === 1 || json?.success === true || json?.status === 'success' || (json && !('success' in json)))) {
+          return {
+            success: true,
+            message: json?.message || (action === 'CONFIRM' ? 'Offer confirmed successfully!' : 'Offer rejected successfully.'),
+            data: json?.data || json,
+          };
+        }
+
+        if (json?.message) {
+          lastError = json.message;
+        } else {
+          lastError = `Server responded with ${res.status}: ${res.statusText}`;
+        }
+
+        if (res.status === 401 || res.status === 403 || res.status === 400) {
+          break;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Network error';
       }
     }
 
     return {
-      success: true,
-      message: isConfirm ? 'Offer accepted successfully!' : 'Offer rejected.',
-      data: { status: isConfirm ? 'CONFIRMED' : 'REJECTED', timestamp: new Date().toISOString() },
+      success: false,
+      error: lastError,
     };
   },
 

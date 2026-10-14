@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
-import { fetchLoadingPorts, fetchDestinationPorts, fetchTradingPrice, submitTradingInquiry } from '@/app/actions/product';
+import { fetchLoadingPorts, fetchDestinationPorts, fetchTradingPrice, submitTradingInquiry, fetchProductDetails } from '@/app/actions/product';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
@@ -86,6 +86,64 @@ export function ProductInquiryModal({
 
   const [dynamicDestinationPorts, setDynamicDestinationPorts] = useState<any[]>([]);
   const [isLoadingDestPorts, setIsLoadingDestPorts] = useState(false);
+
+  const [dynamicPackingTypes, setDynamicPackingTypes] = useState<any[]>(packingTypes || []);
+
+  useEffect(() => {
+    if (packingTypes && packingTypes.length > 0) {
+      setDynamicPackingTypes(packingTypes);
+    }
+  }, [packingTypes]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if ((!dynamicPackingTypes || dynamicPackingTypes.length === 0) && productId) {
+      let isCancelled = false;
+      fetchProductDetails(String(productId), lang).then((res) => {
+        if (isCancelled) return;
+        if (res && res.success && res.data) {
+          const pts = res.data.packing_types || res.data.packingTypes || [];
+          if (pts.length > 0) {
+            setDynamicPackingTypes(pts);
+          }
+        }
+      }).catch(console.error);
+      return () => { isCancelled = true; };
+    }
+  }, [isOpen, productId, lang, dynamicPackingTypes.length]);
+
+  const normalizedPackingTypes = React.useMemo(() => {
+    const rawList = (dynamicPackingTypes && dynamicPackingTypes.length > 0) 
+      ? dynamicPackingTypes 
+      : (packingTypes && packingTypes.length > 0 ? packingTypes : []);
+      
+    const seen = new Set<string>();
+    const result: Array<{ id: string; name: string; isDefault: boolean }> = [];
+
+    for (const p of rawList) {
+      if (!p) continue;
+      if (typeof p === 'string') {
+        if (!seen.has(p)) {
+          seen.add(p);
+          result.push({ id: p, name: p, isDefault: false });
+        }
+        continue;
+      }
+      const id = String(p.packing_type?.id || p.packing_type_id || p.id || p.value || '');
+      const name = String(p.packing_type?.title || p.packing_type?.name || p.title || p.name || p.label || (typeof p.packing_type === 'string' ? p.packing_type : '') || id);
+      const isDefault = Boolean(
+        p.is_default === true || p.is_default === 1 || p.is_default === 'true' || p.is_default === '1' ||
+        p.packing_type?.is_default === true || p.packing_type?.is_default === 1 ||
+        p.isDefault === true
+      );
+
+      if (id && name && !seen.has(id)) {
+        seen.add(id);
+        result.push({ id, name, isDefault });
+      }
+    }
+    return result;
+  }, [dynamicPackingTypes, packingTypes]);
 
   const [minPrice, setMinPrice] = useState<number | null>(null);
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
@@ -338,10 +396,15 @@ export function ProductInquiryModal({
   }, [isPortOfDestEnabled, dynamicDestinationPorts.length, formData.portOfDestination, isLoadingDestPorts]);
 
   useEffect(() => {
-    if (isPackingTypeEnabled && packingTypes.length === 1 && !formData.packingType) {
-      handleInputChange('packingType', packingTypes[0].id);
+    if (isPackingTypeEnabled && normalizedPackingTypes.length > 0 && !formData.packingType) {
+      const defaultOption = normalizedPackingTypes.find(p => p.isDefault);
+      if (defaultOption) {
+        handleInputChange('packingType', defaultOption.id);
+      } else if (normalizedPackingTypes.length === 1) {
+        handleInputChange('packingType', normalizedPackingTypes[0].id);
+      }
     }
-  }, [isPackingTypeEnabled, packingTypes.length, formData.packingType]);
+  }, [isPackingTypeEnabled, normalizedPackingTypes, formData.packingType]);
 
   useEffect(() => {
     if (isPaymentTermEnabled && paymentTermOptions.length === 1 && !formData.paymentTerm) {
@@ -662,11 +725,11 @@ export function ProductInquiryModal({
               <SearchableSelect 
                 value={formData.packingType}
                 onChange={(val) => handleInputChange('packingType', val)}
-                options={packingTypes.length ? packingTypes.map((p: any) => ({ id: p.id, name: p.title || p.name })) : [{ id: '1', name: 'Bags' }]}
+                options={normalizedPackingTypes.length ? normalizedPackingTypes : [{ id: '1', name: 'Bags' }]}
                 placeholder={common.select_packing || "Select Packing"}
                 variant="mobile"
                 disabled={!isPackingTypeEnabled}
-                autoOpen={autoOpenNext === 'packingType' && packingTypes.length > 1}
+                autoOpen={autoOpenNext === 'packingType' && normalizedPackingTypes.length > 1}
               />
             </div>
             

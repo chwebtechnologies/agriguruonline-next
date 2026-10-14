@@ -31,17 +31,17 @@ export function FreightAlertCard({
   
   const bottomTag = containerParts[1] || alert.load_type || alert.shipment_type || 'FCL';
   
-  const polName = alert.loading_port?.name || alert.pol?.name || alert.pol_name || 'Mundra';
-  const podName = alert.destination_port?.name || alert.pod?.name || alert.pod_name || 'Mombasa';
+  const polName = alert.loading_port?.name || (typeof alert.loading_port === 'string' ? alert.loading_port : null) || alert.pol?.name || (typeof alert.pol === 'string' ? alert.pol : null) || alert.pol_name || 'Mundra';
+  const podName = alert.destination_port?.name || (typeof alert.destination_port === 'string' ? alert.destination_port : null) || alert.pod?.name || (typeof alert.pod === 'string' ? alert.pod : null) || alert.pod_name || 'Mombasa';
   
   const imageBaseUrl = process.env.NEXT_PUBLIC_ASSETS_URL || 'https://assets.agriguruonline.com/';
   const base = imageBaseUrl.endsWith('/') ? imageBaseUrl : `${imageBaseUrl}/`;
   
-  const rawPolFlag = alert.loading_port?.country?.flag || alert.pol?.country?.flag || '🇮🇳';
-  const polFlag = rawPolFlag.endsWith('.png') && !rawPolFlag.startsWith('http') ? `${base}${rawPolFlag}` : rawPolFlag;
+  const rawPolFlag = (typeof alert.loading_port?.country?.flag === 'string' ? alert.loading_port?.country?.flag : (typeof alert.pol?.country?.flag === 'string' ? alert.pol?.country?.flag : (typeof alert.polFlag === 'string' ? alert.polFlag : null))) || '🇮🇳';
+  const polFlag = typeof rawPolFlag === 'string' && rawPolFlag.endsWith('.png') && !rawPolFlag.startsWith('http') ? `${base}${rawPolFlag}` : (typeof rawPolFlag === 'string' ? rawPolFlag : '🇮🇳');
   
-  const rawPodFlag = alert.destination_port?.country?.flag || alert.pod?.country?.flag || '🇰🇪';
-  const podFlag = rawPodFlag.endsWith('.png') && !rawPodFlag.startsWith('http') ? `${base}${rawPodFlag}` : rawPodFlag;
+  const rawPodFlag = (typeof alert.destination_port?.country?.flag === 'string' ? alert.destination_port?.country?.flag : (typeof alert.pod?.country?.flag === 'string' ? alert.pod?.country?.flag : (typeof alert.podFlag === 'string' ? alert.podFlag : null))) || '🇰🇪';
+  const podFlag = typeof rawPodFlag === 'string' && rawPodFlag.endsWith('.png') && !rawPodFlag.startsWith('http') ? `${base}${rawPodFlag}` : (typeof rawPodFlag === 'string' ? rawPodFlag : '🇰🇪');
 
   const routeDisplay = (
     <div className="flex flex-row items-center gap-1.5 sm:gap-3 text-[12px] sm:text-[15px] font-medium text-muted-foreground min-w-0">

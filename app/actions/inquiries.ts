@@ -71,7 +71,9 @@ export async function respondInquiryAction(
   inquiryId: string,
   action: "CONFIRM" | "REJECT",
   lang: string = "en",
-  passedToken?: string
+  passedToken?: string,
+  category: "product" | "freight" = "product",
+  payloadType: string = "ACTUAL"
 ): Promise<ServerActionResponse> {
   try {
     if (!inquiryId) return { success: false, error: "Inquiry ID is required" };
@@ -83,7 +85,14 @@ export async function respondInquiryAction(
       cookieStore.get("__Secure-uid")?.value;
 
     const safeLang = getSafeLang(lang);
-    return await tradingService.respondInquiry(inquiryId, action, token, safeLang);
+    return await tradingService.respondInquiry(
+      inquiryId,
+      action,
+      token,
+      safeLang,
+      category,
+      payloadType
+    );
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to update inquiry status" };
   }
