@@ -463,3 +463,31 @@ export async function refreshTokensAction() {
     return { success: false, message: 'Internal server error' };
   }
 }
+
+/**
+ * Server Action to immediately register/sync the FCM token with the backend.
+ * Directly reads the HttpOnly auth_token from cookies for 100% security and reliability.
+ */
+export async function syncFcmTokenAction(fcmToken: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+    if (!token) {
+      return { success: false, message: "User is not authenticated" };
+    }
+    if (!fcmToken) {
+      return { success: false, message: "Missing FCM token" };
+    }
+    const res = await authService.setFcmToken(fcmToken, token);
+    if (res.ok) {
+      console.log('[FCM Action] FCM token successfully registered with backend');
+      return { success: true };
+    } else {
+      console.warn('[FCM Action] Backend returned error status:', res.status);
+      return { success: false, message: `Failed with status ${res.status}` };
+    }
+  } catch (error: any) {
+    console.error('[FCM Action] Error registering FCM token:', error);
+    return { success: false, message: error?.message || 'Error registering FCM token' };
+  }
+}

@@ -91,6 +91,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
       setStep("REGISTER");
     } else {
       if (typeof window !== "undefined") {
+        try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
         window.dispatchEvent(new Event("auth-state-change"));
       }
       const targetUrl = getPostAuthTargetUrl();
@@ -100,6 +101,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
 
   const handleRegisterComplete = () => {
     if (typeof window !== "undefined") {
+      try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
       window.dispatchEvent(new Event("auth-state-change"));
     }
     const targetUrl = getPostAuthTargetUrl();
@@ -128,6 +130,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     } else {
       setIsAppleFlow(false);
       if (typeof window !== "undefined") {
+        try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
         window.dispatchEvent(new Event("auth-state-change"));
       }
       const targetUrl = getPostAuthTargetUrl();

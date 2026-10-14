@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { getUnreadStatusFromIndexedDB, setUnreadStatusInIndexedDB } from '@/lib/notificationStorage';
+import { isUserLoggedIn } from '@/lib/auth-client';
+import { syncFcmTokenAction } from '@/app/actions/auth';
 import { toast } from 'sonner';
 
 interface NotificationContextType {
@@ -157,8 +159,10 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     const init = async () => {
       if (typeof window === 'undefined' || !('Notification' in window)) return;
 
+      // Only initialize FCM for authenticated users — never for guests
+      if (!isUserLoggedIn()) return;
+
       // Defer Firebase initialization until browser is idle (TBT reduction)
-      // Falls back to setTimeout(4000) if requestIdleCallback not supported
       await new Promise<void>(resolve => {
         if ('requestIdleCallback' in window) {
           (window as any).requestIdleCallback(() => resolve(), { timeout: 5000 });
@@ -167,7 +171,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         }
       });
 
-      if (!isMounted) return;
+      if (!isMounted || !isUserLoggedIn()) return;
 
       // Dynamically import firebase functions — only now, after idle time
       const { requestForToken, subscribeToForegroundMessages } = await import('@/lib/firebase');
@@ -187,36 +191,37 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         console.warn('[FCM] Error subscribing to foreground messages:', err);
       }
 
-      // 6. Request permission if needed
-      let permission = Notification.permission;
-      if (permission === 'default') {
+      // If notification permission is already granted, retrieve token and sync to backend
+      if (Notification.permission === 'granted') {
         try {
-          permission = await Notification.requestPermission();
-        } catch {
-          console.warn('[FCM] requestPermission() failed.');
+          const token = await requestForToken();
+          if (token && isMounted) {
+            setFcmToken(token);
+            syncFcmTokenAction(token).catch(err => {
+              console.warn('[FCM] Background token sync warning:', err);
+            });
+            console.log('[FCM] Token active and synced:', token);
+          }
+        } catch (err) {
+          console.warn('[FCM] Token retrieval failed:', err);
         }
-      }
-
-      if (permission !== 'granted') return;
-
-      // 7. Retrieve FCM token and set in context
-      try {
-        const token = await requestForToken();
-        if (token && isMounted) {
-          setFcmToken(token);
-          console.log('[FCM] Token active:', token);
-        }
-      } catch (err) {
-        console.warn('[FCM] Token retrieval failed:', err);
       }
     };
 
     init();
 
+    const handleAuthChange = () => {
+      if (isUserLoggedIn()) {
+        init();
+      }
+    };
+    window.addEventListener('auth-state-change', handleAuthChange);
+
     return () => {
       isMounted = false;
       if (channel) channel.close();
       if (unsubscribeFn) unsubscribeFn();
+      window.removeEventListener('auth-state-change', handleAuthChange);
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleSwMessage);
       }

@@ -544,7 +544,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     <div id="site-header" className="w-full flex flex-col z-[70] bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar (Always sticky) */}
-      <header className="relative w-full bg-card text-foreground py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
+      <header data-auth="true" className="relative w-full bg-card text-foreground py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
         <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
 
           {/* Left side group containing Logo/Menu and Search bar with short spacing */}

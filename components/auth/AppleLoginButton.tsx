@@ -117,6 +117,7 @@ export default function AppleLoginButton({ lang, onSuccess }: AppleLoginButtonPr
         if (nextStep === "LOGGED_IN" && token) {
           await createSession(token, refreshToken, user);
           if (typeof window !== "undefined") {
+            try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
             window.dispatchEvent(new Event("auth-state-change"));
           }
           toast.success(successData?.message || "Logged in successfully");
