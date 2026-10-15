@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getTradingApiUrl } from '@/lib/api-utils';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -85,15 +88,24 @@ export async function GET(req: NextRequest) {
     if (action === 'stream') {
       const url = `${getTradingApiUrl()}/price-analysis/stream/${type}/${job_id}?lang_code=${lang_code}&source=web`;
       const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'text/event-stream'
+        }
       });
       
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Stream connection failed' }));
+        return NextResponse.json(errorData, { status: res.status });
+      }
+
       return new NextResponse(res.body, {
         status: res.status,
         headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
           'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
         },
       });
     }

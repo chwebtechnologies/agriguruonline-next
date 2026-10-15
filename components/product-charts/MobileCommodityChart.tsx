@@ -86,6 +86,14 @@ const priceHistoryCache = new Map<string, {
 
 const productDetailsCache = new Map<string, any>();
 
+const AI_LOADING_MESSAGES = [
+  'AgriGuru Online AI is analyzing chart patterns...',
+  'Evaluating price momentum & historical trends...',
+  'Analyzing supply, demand & seasonal indicators...',
+  'Synthesizing global trade dynamics...',
+  'Generating predictive commodity intelligence...',
+];
+
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -495,53 +503,124 @@ export default function MobileCommodityChart({
   const [isAnalysing, setIsAnalysing] = useState<boolean>(false);
   const [aiAnalysis, setAiAnalysis] = useState<string>('');
   const historicalRef = useRef<HTMLDivElement>(null);
-  const aiScrollRef = useRef<HTMLDivElement>(null);
+  const chartCardRef = useRef<HTMLDivElement>(null);
+  const mainScrollContainerRef = useRef<HTMLDivElement>(null);
+  const aiCardRef = useRef<HTMLDivElement>(null);
   const aiBottomRef = useRef<HTMLDivElement>(null);
   const tabContentRef = useRef<HTMLDivElement>(null);
-  const isUserScrollingUp = useRef<boolean>(false);
-  const touchStartY = useRef<number>(0);
+  const lastScrollTimeRef = useRef<number>(0);
 
-  const handleUserWheel = (e: React.WheelEvent) => {
-    if (e.deltaY < 0) {
-      isUserScrollingUp.current = true;
-    } else if (aiScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = aiScrollRef.current;
-      if (scrollHeight - scrollTop - clientHeight < 60) {
-        isUserScrollingUp.current = false;
+  const [aiLoadingMessageIndex, setAiLoadingMessageIndex] = useState<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Typewriter streaming queue refs
+  const streamQueueRef = useRef<string>('');
+  const isTypewritingRef = useRef<boolean>(false);
+  const streamFinishedRef = useRef<boolean>(false);
+  const streamRafRef = useRef<number | null>(null);
+
+  // Cycle loading messages when analysing and no text has arrived yet
+  useEffect(() => {
+    if (isAnalysing && !aiAnalysis) {
+      const timer = setInterval(() => {
+        setAiLoadingMessageIndex(prev => (prev + 1) % AI_LOADING_MESSAGES.length);
+      }, 2200);
+      return () => clearInterval(timer);
+    } else {
+      setAiLoadingMessageIndex(0);
+    }
+  }, [isAnalysing, aiAnalysis]);
+
+  const scrollToBottom = useCallback((smooth = false) => {
+    // 1. Scroll desktop container
+    if (historicalRef.current && historicalRef.current.scrollHeight > historicalRef.current.clientHeight) {
+      if (smooth) {
+        historicalRef.current.scrollTo({ top: historicalRef.current.scrollHeight, behavior: 'smooth' });
+      } else {
+        historicalRef.current.scrollTop = historicalRef.current.scrollHeight;
       }
     }
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const touchY = e.touches[0].clientY;
-    if (touchY - touchStartY.current > 15) {
-      isUserScrollingUp.current = true;
-    } else if (touchStartY.current - touchY > 15 && aiScrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = aiScrollRef.current;
-      if (scrollHeight - scrollTop - clientHeight < 60) {
-        isUserScrollingUp.current = false;
+    // 2. Scroll mobile container
+    if (mainScrollContainerRef.current && mainScrollContainerRef.current.scrollHeight > mainScrollContainerRef.current.clientHeight) {
+      if (smooth) {
+        mainScrollContainerRef.current.scrollTo({ top: mainScrollContainerRef.current.scrollHeight, behavior: 'smooth' });
+      } else {
+        mainScrollContainerRef.current.scrollTop = mainScrollContainerRef.current.scrollHeight;
       }
     }
-  };
-
-  const scrollToBottom = useCallback((instant = true) => {
-    if (aiScrollRef.current) {
-      aiScrollRef.current.scrollTop = aiScrollRef.current.scrollHeight;
-    }
+    // 3. Fallback element scroll
     if (aiBottomRef.current) {
-      aiBottomRef.current.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'end' });
+      aiBottomRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
     }
   }, []);
 
-  useEffect(() => {
-    if (isAnalysing && !isUserScrollingUp.current) {
-      scrollToBottom(true);
+  // Push incoming chunk/text into typewriter stream queue
+  const pushToStreamQueue = useCallback((text: string) => {
+    if (!text) return;
+    streamQueueRef.current += text;
+    if (!isTypewritingRef.current) {
+      isTypewritingRef.current = true;
+      runTypewriterTick();
     }
-  }, [aiAnalysis, isAnalysing, scrollToBottom]);
+  }, []);
+
+  const runTypewriterTick = useCallback(() => {
+    if (streamRafRef.current) cancelAnimationFrame(streamRafRef.current);
+
+    const step = () => {
+      const qLen = streamQueueRef.current.length;
+      if (qLen > 0) {
+        let sliceSize = 2;
+        if (qLen > 800) {
+          sliceSize = Math.min(45, Math.ceil(qLen / 20));
+        } else if (qLen > 300) {
+          sliceSize = 20;
+        } else if (qLen > 100) {
+          sliceSize = 8;
+        } else if (qLen > 25) {
+          sliceSize = 4;
+        }
+
+        const nextChars = streamQueueRef.current.slice(0, sliceSize);
+        streamQueueRef.current = streamQueueRef.current.slice(sliceSize);
+
+        setAiAnalysis(prev => prev + nextChars);
+
+        // Auto-scroll follow
+        const now = Date.now();
+        if (now - lastScrollTimeRef.current > 100) {
+          lastScrollTimeRef.current = now;
+          scrollToBottom(false);
+        }
+
+        streamRafRef.current = requestAnimationFrame(step);
+      } else {
+        isTypewritingRef.current = false;
+        if (streamFinishedRef.current) {
+          setIsAnalysing(false);
+          setTimeout(() => scrollToBottom(true), 100);
+        }
+      }
+    };
+
+    streamRafRef.current = requestAnimationFrame(step);
+  }, [scrollToBottom]);
+
+  const finishStream = useCallback(() => {
+    streamFinishedRef.current = true;
+    if (!isTypewritingRef.current && streamQueueRef.current.length === 0) {
+      setIsAnalysing(false);
+      setTimeout(() => scrollToBottom(true), 100);
+    }
+  }, [scrollToBottom]);
+
+  // Cleanup typewriter on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRafRef.current) cancelAnimationFrame(streamRafRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, []);
 
   const renderMarkdown = (text: string) => {
     if (!text) return { __html: '' };
@@ -558,55 +637,79 @@ export default function MobileCommodityChart({
   };
 
   const handleAIPredictClick = async () => {
-    if (typeof document !== 'undefined' && !(document.cookie.includes('auth_token=') || document.cookie.includes('user_info=') || document.cookie.includes('__Secure-uid='))) {
-      router.push(`/${lang || 'en'}/login`);
-      return;
-    }
-
-    if (!historicalRef.current || isAnalysing) return;
+    if (isAnalysing) return;
+    
+    // 1. Immediately switch to AI Predict tab so user sees ai.gif with 0ms delay!
+    setActiveTab('AI Predict');
     setIsAnalysing(true);
     setAiAnalysis('');
-    isUserScrollingUp.current = false;
-    const prevTab = activeTab;
+
+    // Reset typewriter queue & any previous stream
+    if (streamRafRef.current) cancelAnimationFrame(streamRafRef.current);
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    streamQueueRef.current = '';
+    isTypewritingRef.current = false;
+    streamFinishedRef.current = false;
+
+    // Smoothly scroll down so the AI Predict card is in view
+    setTimeout(() => {
+      if (aiCardRef.current) {
+        aiCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
 
     try {
-      if (activeTab !== 'Historical') {
-        setActiveTab('Historical');
-        await new Promise(resolve => setTimeout(resolve, 400));
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 300));
+      // 2. Safe background snapshot of chart
+      let chartBlob: Blob | null = null;
+      try {
+        const targetNode = chartCardRef.current || historicalRef.current;
+        if (targetNode) {
+          const dataUrl = await Promise.race([
+            toPng(targetNode, {
+              cacheBust: true,
+              backgroundColor: '#ffffff',
+              pixelRatio: 1,
+              filter: (node: any) => !node?.classList?.contains('no-export'),
+            }),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1200))
+          ]).catch(() => null);
+
+          if (dataUrl && typeof dataUrl === 'string' && dataUrl.includes(',')) {
+            const arr = dataUrl.split(',');
+            const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            chartBlob = new Blob([u8arr], { type: mime });
+          }
+        }
+      } catch (snapshotErr) {
+        console.warn('[PriceAnalysis] Snapshot bypassed:', snapshotErr);
       }
-      
-      const dataUrl = await toPng(historicalRef.current, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-        pixelRatio: 1,
-        filter: (node: any) => !node?.classList?.contains('no-export'),
-        height: historicalRef.current.scrollHeight,
-      });
-      
-      setActiveTab('AI Predict');
-      
-      const arr = dataUrl.split(',');
-      const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
-      const bstr = atob(arr[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while(n--){
-          u8arr[n] = bstr.charCodeAt(n);
+
+      if (!chartBlob) {
+        chartBlob = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99, 0, 1, 0, 0, 5, 0, 1, 13, 10, 45, 180, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130])], { type: 'image/png' });
       }
-      const blob = new Blob([u8arr], {type:mime});
-      
+
       const type = (isFreight || String(item.category || '').toUpperCase().includes('FREIGHT')) ? 'FREIGHT' : 'PRODUCT';
       const targetFavId = item.favoriteProductId || (item as any).favoritePortId || (item as any).favouritePortId || item.id;
       const formData = new FormData();
       formData.append('favourite_record_id', String(targetFavId));
       formData.append('type', type);
-      formData.append('chart', blob, 'chart.png');
+      formData.append('chart', chartBlob, 'chart.png');
       
       const response = await tradingService.createPriceAnalysis(formData, lang);
       
       if (!response.ok) {
+        if (response.status === 401) {
+          router.push(`/${lang || 'en'}/login`);
+          setIsAnalysing(false);
+          return;
+        }
+
         const errorJson = await response.json().catch(() => ({}));
         const errorMsg = errorJson.message || errorJson.error || 'Failed to get AI prediction';
         
@@ -632,230 +735,193 @@ export default function MobileCommodityChart({
         }
 
         setIsAnalysing(false);
-        if (prevTab !== 'AI Predict') setActiveTab(prevTab);
         return;
       }
 
       const contentType = response.headers.get('content-type') || '';
       
-      const handleStreamResponse = async (streamRes: Response) => {
-        if (!streamRes.body) return;
-        const reader = streamRes.body.getReader();
+      const parseStreamReader = async (body: ReadableStream<Uint8Array>) => {
+        const reader = body.getReader();
         const decoder = new TextDecoder();
-        
         let buffer = '';
+        let receivedAny = false;
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
+
           buffer += decoder.decode(value, { stream: true });
+          buffer = buffer.replace(/\r\n/g, '\n');
+
           const lines = buffer.split('\n');
-          
           buffer = lines.pop() || '';
-          
-          for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine.startsWith('data:')) {
-               const dataStr = trimmedLine.substring(5).trim();
-               if (dataStr === '[DONE]') break;
-               
-               try {
-                 const dataJson = JSON.parse(dataStr);
-                 if (dataJson.data && dataJson.data.details) {
-                    setAiAnalysis(dataJson.data.details);
-                 } else if (dataJson.chunk) {
-                    setAiAnalysis(prev => prev + dataJson.chunk);
-                 } else if (dataJson.details) {
-                    setAiAnalysis(prev => prev + dataJson.details);
-                 } else if (typeof dataJson === 'string') {
-                    setAiAnalysis(prev => prev + dataJson);
-                 }
-               } catch(e) {
-                 setAiAnalysis(prev => prev + dataStr.replace(/\\n/g, '\n'));
-               }
+
+          let currentEvent = 'message';
+          for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line) continue;
+
+            if (line.startsWith('event:')) {
+              currentEvent = line.substring(6).trim();
+              continue;
+            }
+
+            if (line.startsWith('data:')) {
+              const dataStr = line.substring(5).trim();
+              if (!dataStr) continue;
+
+              if (dataStr === '[DONE]' || dataStr === '"[DONE]"') {
+                return true;
+              }
+
+              receivedAny = true;
+
+              try {
+                const dataObj = JSON.parse(dataStr);
+                const parsedType = dataObj.type || currentEvent;
+
+                if (parsedType === 'replay' || dataObj.is_cached) {
+                  const replayText = dataObj.content ?? dataObj.details ?? dataObj.data?.details ?? '';
+                  if (replayText) pushToStreamQueue(replayText);
+                  continue;
+                }
+
+                if (parsedType === 'done') {
+                  return true;
+                }
+
+                if (parsedType === 'error') {
+                  pushToStreamQueue(`\n\n**Error:** ${dataObj.message || 'Stream error'}`);
+                  return true;
+                }
+
+                const chunkContent = 
+                  dataObj.chunk ?? 
+                  dataObj.content ?? 
+                  dataObj.text ?? 
+                  dataObj.delta?.content ?? 
+                  dataObj.choices?.[0]?.delta?.content ?? 
+                  dataObj.data?.chunk ?? 
+                  dataObj.data?.content ?? 
+                  '';
+
+                if (chunkContent) {
+                  pushToStreamQueue(chunkContent);
+                } else if (dataObj.details || dataObj.data?.details) {
+                  pushToStreamQueue(dataObj.details || dataObj.data?.details);
+                } else if (typeof dataObj === 'string') {
+                  pushToStreamQueue(dataObj);
+                }
+              } catch {
+                pushToStreamQueue(dataStr.replace(/\\n/g, '\n'));
+              }
             }
           }
         }
+
+        // Check leftover in buffer
+        if (buffer.trim().startsWith('data:')) {
+          const dataStr = buffer.trim().substring(5).trim();
+          if (dataStr && dataStr !== '[DONE]') {
+            try {
+              const dataObj = JSON.parse(dataStr);
+              const chunk = dataObj.chunk ?? dataObj.content ?? dataObj.details ?? '';
+              if (chunk) pushToStreamQueue(chunk);
+            } catch {
+              pushToStreamQueue(dataStr.replace(/\\n/g, '\n'));
+            }
+          }
+        }
+
+        return receivedAny;
       };
 
       if (contentType.includes('application/json')) {
         const json = await response.json();
         
-        // Cached response
+        // 1. Cached response or instant details
         if (json.data && (json.data.is_cached || !json.data.job_id) && json.data.details) {
-          setAiAnalysis(json.data.details);
-          setTimeout(() => scrollToBottom(true), 50);
+          pushToStreamQueue(json.data.details);
+          finishStream();
           return;
-        } else if (
-            json.message?.includes('Price analysis job created') || 
-            json.data?.response_indication === 'CREATED' || 
-            json.data?.job_id
+        } 
+        
+        // 2. Job created with job_id -> Connect SSE stream immediately
+        if (
+          json.message?.includes('Price analysis job created') || 
+          json.data?.response_indication === 'CREATED' || 
+          json.data?.job_id
         ) {
-          setAiAnalysis('Analysis job queued. Processing data...');
           const jobId = json.data?.job_id || '';
           const jobType = (json.data?.type || type).toLowerCase();
           
-          let attempts = 0;
-          let isGenerating = false;
-          let isCompleted = false;
+          const abortController = new AbortController();
+          abortControllerRef.current = abortController;
           
-          // Poll for status
-          while (attempts < 15 && !isGenerating && !isCompleted) {
-             await new Promise(resolve => setTimeout(resolve, 1500));
-             attempts++;
-             
-             try {
+          let sseSuccess = false;
+          try {
+            const streamUrl = tradingService.getPriceAnalysisStreamUrl(jobType, jobId, lang);
+            const streamResponse = await fetch(streamUrl, {
+              headers: { 'Accept': 'text/event-stream' },
+              signal: abortController.signal
+            });
+            
+            if (streamResponse.ok && streamResponse.body) {
+              const received = await parseStreamReader(streamResponse.body);
+              sseSuccess = Boolean(received || streamQueueRef.current);
+            }
+          } catch (e: any) {
+            if (e.name !== 'AbortError') {
+              console.warn('[PriceAnalysis] Immediate SSE Stream connection failed:', e);
+            }
+          }
+
+          // Fallback to polling if stream didn't deliver data
+          if (!sseSuccess && !streamQueueRef.current) {
+            let attempts = 0;
+            while (attempts < 15) {
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              attempts++;
+              try {
                 const pollRes = await tradingService.getPriceAnalysisStatus(jobType, jobId, lang);
                 if (pollRes.ok) {
-                   const pollJson = await pollRes.json();
-                   console.log('[PriceAnalysis] poll status response:', pollJson);
-                   
-                   const status = String(
-                     pollJson.data?.phase || 
-                     pollJson.phase || 
-                     pollJson.data?.status || 
-                     pollJson.status || 
-                     pollJson.data?.job_status || 
-                     ''
-                   ).toUpperCase();
-                   
-                   if (status === 'GENERATING' || status === 'IN_PROGRESS' || status === 'PROCESSING') {
-                      isGenerating = true;
-                   } else if (status === 'COMPLETED' || status === 'FINISHED' || pollJson.data?.is_cached) {
-                      isCompleted = true;
-                      if (pollJson.data?.details) {
-                         setAiAnalysis(pollJson.data.details);
-                         setTimeout(() => scrollToBottom(true), 50);
-                         return;
-                      }
-                   } else if (status === 'ERROR' || status === 'FAILED') {
-                      setAiAnalysis('An error occurred during analysis: ' + (pollJson.message || pollJson.data?.error || 'Failed'));
-                      return;
-                   }
-                } else {
-                   console.warn('[PriceAnalysis] poll failed with status:', pollRes.status);
+                  const pollJson = await pollRes.json();
+                  const status = String(
+                    pollJson.data?.phase || 
+                    pollJson.phase || 
+                    pollJson.data?.status || 
+                    pollJson.status || 
+                    pollJson.data?.job_status || 
+                    ''
+                  ).toUpperCase();
+
+                  if (status === 'COMPLETED' || status === 'FINISHED' || pollJson.data?.details) {
+                    if (pollJson.data?.details) {
+                      pushToStreamQueue(pollJson.data.details);
+                    }
+                    break;
+                  } else if (status === 'ERROR' || status === 'FAILED') {
+                    pushToStreamQueue('An error occurred during analysis: ' + (pollJson.message || pollJson.data?.error || 'Failed'));
+                    break;
+                  }
                 }
-             } catch (e) {
-                console.error("[PriceAnalysis] Status polling error:", e);
-             }
-             
-             // After 2 attempts (~3s), if not completed or error, start stream anyway so user is never stuck
-             if (attempts >= 2 && !isCompleted) {
-                isGenerating = true;
-                break;
-             }
-          }
-          
-          // Start SSE
-          setAiAnalysis(''); 
-          const abortController = new AbortController();
-          
-          try {
-             const streamUrl = tradingService.getPriceAnalysisStreamUrl(jobType, jobId, lang);
-             const streamResponse = await fetch(streamUrl, {
-                headers: { 'Accept': 'text/event-stream' },
-                signal: abortController.signal
-             });
-             
-             if (!streamResponse.body) {
-                setAiAnalysis('Failed to open live stream.');
-                return;
-             }
-             
-             const reader = streamResponse.body.getReader();
-             const decoder = new TextDecoder();
-             
-             let buffer = '';
-             let isStreamFinished = false;
-             
-             while (!isStreamFinished) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                buffer += decoder.decode(value, { stream: true });
-                buffer = buffer.replace(/\r\n/g, '\n');
-                
-                // Parse complete SSE events separated by \n\n
-                let boundary = buffer.indexOf('\n\n');
-                while (boundary !== -1) {
-                   const chunk = buffer.substring(0, boundary).trim();
-                   buffer = buffer.substring(boundary + 2);
-                   
-                   if (chunk) {
-                      const lines = chunk.split('\n');
-                      let eventType = 'message';
-                      const dataLines: string[] = [];
-                      
-                      for (const line of lines) {
-                         if (line.startsWith('event:')) {
-                            eventType = line.substring(6).trim();
-                         } else if (line.startsWith('data:')) {
-                            dataLines.push(line.substring(5).trim());
-                         }
-                      }
-                      
-                      const eventDataStr = dataLines.join('\n');
-                      
-                      if (eventDataStr) {
-                         if (eventDataStr === '[DONE]') {
-                            isStreamFinished = true;
-                            break;
-                         }
-                         
-                         let chunkContent = '';
-                         try {
-                            const dataObj = JSON.parse(eventDataStr);
-                            const parsedType = dataObj.type || eventType;
-                            
-                            if (parsedType === 'replay') {
-                               const replayText = dataObj.content ?? dataObj.details ?? dataObj.data?.details ?? '';
-                               if (replayText) setAiAnalysis(replayText);
-                               continue;
-                            } else if (parsedType === 'done') {
-                               isStreamFinished = true;
-                               break;
-                            } else if (parsedType === 'error') {
-                               setAiAnalysis(prev => prev + `\n\n**Error:** ${dataObj.message || 'Stream error'}`);
-                               isStreamFinished = true;
-                               break;
-                            }
-                            
-                            chunkContent = dataObj.content ?? dataObj.chunk ?? dataObj.details ?? dataObj.text ?? dataObj.data?.content ?? dataObj.data?.details ?? '';
-                            if (!chunkContent && typeof dataObj === 'string') {
-                               chunkContent = dataObj;
-                            }
-                         } catch (e) {
-                            chunkContent = eventDataStr.replace(/\\n/g, '\n');
-                         }
-                         
-                         if (chunkContent) {
-                            setAiAnalysis(prev => prev + chunkContent);
-                         }
-                      }
-                   }
-                   boundary = buffer.indexOf('\n\n');
-                }
-             }
-          } catch (e: any) {
-             if (e.name !== 'AbortError') {
-                console.error('[PriceAnalysis] SSE Stream Error:', e);
-                setAiAnalysis(prev => prev || 'Stream disconnected.');
-             }
+              } catch (pollErr) {
+                console.error('[PriceAnalysis] Fallback poll error:', pollErr);
+              }
+            }
           }
         } else {
-          setAiAnalysis(json.message || 'No analysis available.');
+          pushToStreamQueue(json.message || 'No analysis available.');
         }
-      } else {
-        await handleStreamResponse(response);
+      } else if (response.body) {
+        await parseStreamReader(response.body);
       }
     } catch (err: any) {
       console.error('Failed to analyze chart:', err);
       toast.error(`Failed to analyze chart: ${err.message || 'Unknown error'}`);
-      if (prevTab !== 'AI Predict') setActiveTab(prevTab);
     } finally {
-      setIsAnalysing(false);
+      finishStream();
       setRefreshAiPredicts(prev => prev + 1);
-      setTimeout(() => scrollToBottom(true), 100);
     }
   };
 
@@ -1952,15 +2018,6 @@ export default function MobileCommodityChart({
         if (selectedCommentPoint) setSelectedCommentPoint(null);
       }}
     >
-      {/* Full-Screen Loading Overlay during Export/Analysis (Prevents user from seeing tab switch) */}
-      {isAnalysing && activeTab === 'Historical' && !aiAnalysis && (
-        <div className="fixed inset-0 z-[99999] bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center no-export touch-none">
-          <i className="fa-solid fa-circle-notch fa-spin text-4xl text-brand-blue mb-4"></i>
-          <p className="font-bold text-foreground text-[16px]">Preparing AI Analysis...</p>
-          <p className="text-[12px] text-foreground/60 mt-1">Please wait a moment while we process your chart.</p>
-        </div>
-      )}
-
       {/* 1. Header (Sticky Top / Shrink-0) - Fully Draggable on Mobile */}
       <div
         className="shrink-0 px-2.5 min-[390px]:px-4 lg:px-6 py-2 min-[390px]:py-2.5 lg:py-3.5 flex items-center justify-between border-b border-border bg-card z-20 cursor-grab lg:cursor-default active:cursor-grabbing touch-none select-none gap-2 lg:gap-4"
@@ -2162,14 +2219,18 @@ export default function MobileCommodityChart({
       </div>
 
       {/* 2. Scrollable Body Content (Responsive Split: Left Main Area + Right Sidebar on Desktop) */}
-      <div className={`flex-1 px-2.5 min-[390px]:px-3.5 lg:p-5 pt-2.5 min-[390px]:pt-3 pb-4 scrollbar-hide lg:flex lg:flex-row lg:gap-5 min-h-0 ${isFullScreen
+      <div 
+        ref={mainScrollContainerRef}
+        className={`flex-1 px-2.5 min-[390px]:px-3.5 lg:p-5 pt-2.5 min-[390px]:pt-3 pb-4 scrollbar-hide lg:flex lg:flex-row lg:gap-5 min-h-0 ${isFullScreen
           ? 'overflow-y-auto overscroll-contain'
           : 'overflow-hidden'
         }`}>
         {/* LEFT COLUMN: Chart + Dynamic Tab Content */}
         <div className="w-full lg:flex-1 lg:overflow-y-auto lg:pr-2.5 space-y-3.5 scrollbar-thin min-w-0 bg-background" ref={historicalRef}>
           {/* Chart Card */}
-          <div className={`w-full bg-card rounded-2xl border border-border p-2.5 min-[390px]:p-3.5 lg:p-4 shadow-xs ${
+          <div 
+            ref={chartCardRef}
+            className={`w-full bg-card rounded-2xl border border-border p-2.5 min-[390px]:p-3.5 lg:p-4 shadow-xs ${
             activeTab === 'Alert Setups'
               ? 'sticky top-0 z-20 bg-background/95 backdrop-blur-xs lg:static lg:top-auto'
               : ''
@@ -2941,9 +3002,9 @@ export default function MobileCommodityChart({
               <div className="space-y-3.5">
                 {/* 1. Live/Active AI Price Analysis Box (when analysing OR analysis is available) */}
                 {(isAnalysing || aiAnalysis) && (
-                  <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs flex flex-col min-h-[300px]">
+                  <div ref={aiCardRef} className="bg-card rounded-2xl border border-border p-3.5 sm:p-5 shadow-xs flex flex-col transition-all">
                     <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-                       <div className="flex items-center gap-2">
+                       <div className="flex items-center gap-2.5">
                          <div className="w-8 h-8 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center text-sm font-bold shadow-xs shrink-0">
                            <i className="fa-solid fa-microchip"></i>
                          </div>
@@ -2954,65 +3015,73 @@ export default function MobileCommodityChart({
                        </div>
                        <div className="flex items-center gap-2">
                          {aiAnalysis && !isAnalysing && (
-                           <>
-                             <button 
-                               onClick={() => setAiAnalysis('')} 
-                               className="text-[11px] font-bold bg-muted hover:bg-muted/80 text-foreground px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-                               title="Close analysis"
-                             >
-                               <i className="fa-solid fa-xmark"></i>
-                             </button>
-                             <button 
-                               onClick={handleAIPredictClick} 
-                               className="text-[11px] font-bold bg-muted hover:bg-muted/80 text-foreground px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-                             >
-                               <i className="fa-solid fa-rotate-right"></i> Refresh
-                             </button>
-                           </>
+                           <button 
+                             onClick={() => {
+                               setAiAnalysis('');
+                               if (streamRafRef.current) cancelAnimationFrame(streamRafRef.current);
+                               streamQueueRef.current = '';
+                             }} 
+                             className="text-[11px] font-bold bg-muted hover:bg-muted/80 text-foreground px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                             title="Close analysis"
+                           >
+                             <i className="fa-solid fa-xmark"></i>
+                           </button>
                          )}
                        </div>
                     </div>
                     
                     {isAnalysing && !aiAnalysis ? (
-                      <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-70">
-                         <i className="fa-solid fa-circle-notch fa-spin text-3xl text-brand-blue mb-4"></i>
-                         <p className="font-bold text-[14px] text-foreground animate-pulse">Analyzing Market Patterns...</p>
-                         <p className="text-[12px] text-foreground/60 mt-1">This might take a few seconds.</p>
-                      </div>
-                    ) : aiAnalysis ? (
-                      <div className="relative flex-1 flex flex-col min-h-0">
-                        <div 
-                          ref={aiScrollRef} 
-                          onWheel={handleUserWheel}
-                          onTouchStart={handleTouchStart}
-                          onTouchMove={handleTouchMove}
-                          className="flex-1 max-h-[520px] sm:max-h-[620px] overflow-y-auto pr-1.5 text-[13px] leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:text-foreground/80 prose-headings:text-foreground prose-strong:text-foreground prose-a:text-brand-blue"
-                        >
-                          <div dangerouslySetInnerHTML={renderMarkdown(aiAnalysis)} />
-                          {isAnalysing && (
-                            <div className="flex items-center gap-2 mt-3 pt-2 text-xs text-brand-blue font-semibold not-prose">
-                              <span className="relative flex h-2.5 w-2.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-blue"></span>
-                              </span>
-                              <span className="animate-pulse">Thinking & generating analysis...</span>
-                            </div>
-                          )}
-                          <div ref={aiBottomRef} className="h-4" />
+                      <div className="flex-1 flex flex-col items-center justify-center py-6 sm:py-10 px-3 text-center animate-in fade-in duration-300">
+                        {/* Centered Transparent GIF with Soft Glow */}
+                        <div className="relative w-full max-w-[280px] sm:max-w-[340px] aspect-[16/9] mx-auto flex items-center justify-center mb-3">
+                          <div className="absolute inset-0 bg-brand-blue/15 dark:bg-brand-blue/25 blur-2xl rounded-full scale-90 animate-pulse pointer-events-none" />
+                          <Image
+                            src="/ai.gif"
+                            alt="AgriGuru Online AI Analysis"
+                            width={340}
+                            height={191}
+                            unoptimized
+                            priority
+                            className="relative z-10 w-full h-auto object-contain drop-shadow-md select-none pointer-events-none"
+                          />
                         </div>
 
-                        {/* Floating scroll to bottom button if user scrolled up during analysis */}
-                        {isAnalysing && isUserScrollingUp.current && (
-                          <button 
-                            onClick={() => {
-                              isUserScrollingUp.current = false;
-                              scrollToBottom(true);
-                            }}
-                            className="absolute bottom-2 right-2 bg-brand-blue text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg hover:bg-brand-blue/90 transition-all flex items-center gap-1.5 z-10 animate-bounce cursor-pointer"
-                          >
-                            <i className="fa-solid fa-arrow-down"></i> Scroll to bottom
-                          </button>
+                        {/* Animated AI Badge */}
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-blue/10 border border-brand-blue/20 text-brand-blue text-[11px] sm:text-[12px] font-bold mb-2 shadow-xs">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-blue"></span>
+                          </span>
+                          <span>AgriGuru Online AI</span>
+                        </div>
+
+                        {/* Dynamic Rotating Message */}
+                        <h3 className="font-extrabold text-[15px] sm:text-[16px] text-foreground tracking-tight transition-all duration-300 min-h-[24px]">
+                          {AI_LOADING_MESSAGES[aiLoadingMessageIndex]}
+                        </h3>
+                        <p className="text-[12px] text-foreground/60 mt-1 max-w-[320px]">
+                          Synthesizing real-time price signals, trade indicators & market patterns...
+                        </p>
+
+                        {/* Shimmering Progress Line */}
+                        <div className="w-44 sm:w-56 h-1 bg-muted rounded-full mt-4 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-transparent via-brand-blue to-transparent w-full animate-[shimmer_1.5s_infinite]" />
+                        </div>
+                      </div>
+                    ) : aiAnalysis ? (
+                      /* Non-scrollable result part: card expands naturally, whole modal scrolls! */
+                      <div className="w-full text-[13px] leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:text-foreground/80 prose-headings:text-foreground prose-strong:text-foreground prose-a:text-brand-blue">
+                        <div dangerouslySetInnerHTML={renderMarkdown(aiAnalysis)} />
+                        {isAnalysing && (
+                          <div className="flex items-center gap-2 mt-3 pt-2 text-xs text-brand-blue font-semibold not-prose">
+                            <span className="relative flex h-2.5 w-2.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-blue"></span>
+                            </span>
+                            <span className="animate-pulse">Thinking & writing analysis...</span>
+                          </div>
                         )}
+                        <div ref={aiBottomRef} className="h-2" />
                       </div>
                     ) : null}
                   </div>
