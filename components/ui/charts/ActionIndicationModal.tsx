@@ -13,6 +13,8 @@ interface ActionIndicationModalProps {
   indicationText?: string;
   type?: 'error' | 'warning' | 'info' | 'success';
   icon?: string;
+  secondaryActionText?: string;
+  onSecondaryAction?: () => void;
 }
 
 export function ActionIndicationModal({
@@ -23,7 +25,9 @@ export function ActionIndicationModal({
   description = 'An error occurred.',
   indicationText = 'Confirm',
   type = 'error',
-  icon
+  icon,
+  secondaryActionText,
+  onSecondaryAction
 }: ActionIndicationModalProps) {
   useScrollLock(isOpen);
 
@@ -88,9 +92,19 @@ export function ActionIndicationModal({
       onClick={onClose}
     >
       <div 
-        className="bg-card text-foreground rounded-3xl p-6 sm:p-7 w-[92vw] sm:w-[420px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 mx-auto flex flex-col items-center text-center my-auto max-h-[90vh] overflow-y-auto"
+        className="relative bg-card text-foreground rounded-3xl p-6 sm:p-7 w-[92vw] sm:w-[420px] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 mx-auto flex flex-col items-center text-center my-auto max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+          aria-label="Close"
+        >
+          <i className="fa-solid fa-xmark text-sm"></i>
+        </button>
+
         <div className={`w-16 h-16 ${bgClass} rounded-full flex items-center justify-center shrink-0 ${textClass} mb-4`}>
           <i className={`${effectiveIconClass} text-3xl`}></i>
         </div>
@@ -104,13 +118,23 @@ export function ActionIndicationModal({
         </p>
 
         <div className="flex w-full gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all cursor-pointer"
-          >
-            Cancel
-          </button>
+          {secondaryActionText && onSecondaryAction ? (
+            <button
+              type="button"
+              onClick={onSecondaryAction}
+              className="flex-1 py-2.5 rounded-xl border border-brand-blue/30 bg-card hover:bg-brand-blue/5 text-brand-blue font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+            >
+              {secondaryActionText}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
           <button
             type="button"
             onClick={onConfirm}

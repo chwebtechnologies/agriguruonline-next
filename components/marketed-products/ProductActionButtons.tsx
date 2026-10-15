@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { useRouter } from 'next/navigation';
-import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus } from '@/app/actions/product';
+import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, checkFavoriteProductLimit } from '@/app/actions/product';
 import { getProductDetailsAction, getShippingContainersAction, getShippingTermsAction } from '@/app/actions/charts';
 
 const ProductInquiryModal = dynamic(
@@ -53,9 +53,12 @@ export function ProductActionButtons({
   const [isLoading, setIsLoading] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [kycTitle, setKycTitle] = useState('Action Required');
   const [kycMessage, setKycMessage] = useState('');
   const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
   const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
+  const [kycSecondaryText, setKycSecondaryText] = useState<string | undefined>();
+  const [kycSecondaryUrl, setKycSecondaryUrl] = useState<string | undefined>();
 
   useEffect(() => {
     onModalOpenChange?.(isModalOpen || isAddModalOpen || isKYCModalOpen);
@@ -139,7 +142,50 @@ export function ProductActionButtons({
     setIsLoading(true);
     
     try {
-      if (action !== 'add') {
+      if (action === 'add') {
+        if (!hasAuth) {
+          setKycTitle('Watchlist Access');
+          setKycMessage('Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
+          setKycIndicationText('Start Free Trial');
+          setKycRedirectUrl(`/${lang}/pricing`);
+          setKycSecondaryText('Log In');
+          setKycSecondaryUrl(`/${lang}/login`);
+          setIsKYCModalOpen(true);
+          setIsLoading(false);
+          return;
+        }
+
+        const limitResponse = await checkFavoriteProductLimit(lang);
+        const canCreate = limitResponse?.data?.can_create ?? limitResponse?.can_create;
+        const indication = limitResponse?.response_indication || limitResponse?.data?.response_indication;
+        const isPermitted = canCreate === true || canCreate === 1;
+
+        if (!isPermitted) {
+          if (limitResponse?.isUnauthorized) {
+            setKycTitle('Watchlist Access');
+            setKycMessage('Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
+            setKycIndicationText('Start Free Trial');
+            setKycRedirectUrl(`/${lang}/pricing`);
+            setKycSecondaryText('Log In');
+            setKycSecondaryUrl(`/${lang}/login`);
+          } else {
+            setKycTitle('Action Required');
+            setKycMessage(limitResponse?.message || "You have reached your favorite product limit. Please upgrade your membership plan to continue.");
+            if (indication === 'NOT_VERIFIED' || indication === 'KYC_REQUIRED') {
+              setKycIndicationText('Submit Documents');
+              setKycRedirectUrl(`/${lang}/profile`);
+            } else {
+              setKycIndicationText('Upgrade Plan');
+              setKycRedirectUrl(`/${lang}/pricing`);
+            }
+            setKycSecondaryText(undefined);
+            setKycSecondaryUrl(undefined);
+          }
+          setIsKYCModalOpen(true);
+          setIsLoading(false);
+          return;
+        }
+      } else {
         const type = action === 'buy' ? 'BUYER' : 'SELLER';
         const kycResponse = await checkKYCStatus(lang, type);
         
@@ -166,6 +212,7 @@ export function ProductActionButtons({
           if (indication === 'NOT_VERIFIED' && isVerifiedInProfile) {
             // User is verified in profile, proceed smoothly
           } else {
+            setKycTitle('Action Required');
             setKycMessage(kycResponse.message || "You cannot proceed with this action.");
             
             if (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) {
@@ -175,6 +222,8 @@ export function ProductActionButtons({
               setKycIndicationText('Upgrade Plan');
               setKycRedirectUrl(`/${lang}/profile`);
             }
+            setKycSecondaryText(undefined);
+            setKycSecondaryUrl(undefined);
             
             setIsKYCModalOpen(true);
             setIsLoading(false);
@@ -364,10 +413,15 @@ export function ProductActionButtons({
             handleActionSuccess();
             router.push(kycRedirectUrl);
           }}
-          title="Action Required"
+          title={kycTitle}
           description={kycMessage}
           indicationText={kycIndicationText}
           type="warning"
+          secondaryActionText={kycSecondaryText}
+          onSecondaryAction={kycSecondaryText ? () => {
+            handleActionSuccess();
+            router.push(kycSecondaryUrl || `/${lang}/login`);
+          } : undefined}
         />
       )}
     </>

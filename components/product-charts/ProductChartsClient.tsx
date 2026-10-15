@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { FlagIcon } from '@/components/ui/FlagIcon';
 import { ProductInquiryModal } from '@/components/marketed-products/ProductInquiryModal';
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
-import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails } from '@/app/actions/product';
+import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails, checkFavoriteProductLimit } from '@/app/actions/product';
 import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist } from '@/lib/watchlist-utils';
 import { useScrollLock } from '@/lib/scroll-lock';
 
@@ -176,12 +176,76 @@ export default function ProductChartsClient({
   const [inquiryAction, setInquiryAction] = useState<'buy' | 'sell'>('buy');
   const [inquiryData, setInquiryData] = useState<any>(null);
   const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
+  const [kycTitle, setKycTitle] = useState('Action Required');
   const [kycMessage, setKycMessage] = useState('');
   const [kycIndicationText, setKycIndicationText] = useState('Submit Documents');
   const [kycRedirectUrl, setKycRedirectUrl] = useState(`/${lang}/profile`);
+  const [kycSecondaryText, setKycSecondaryText] = useState<string | undefined>();
+  const [kycSecondaryUrl, setKycSecondaryUrl] = useState<string | undefined>();
+  const [isCheckingLimit, setIsCheckingLimit] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionItemId, setActionItemId] = useState<number | string | null>(null);
   const [actionItem, setActionItem] = useState<FavoriteItem | null>(null);
+
+  const handleOpenMobileAdd = async () => {
+    const hasAuth = Boolean(
+      userType ||
+      (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=')))
+    );
+
+    if (!hasAuth) {
+      setKycTitle('Watchlist Access');
+      setKycMessage('Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
+      setKycIndicationText('Start Free Trial');
+      setKycRedirectUrl(`/${lang}/pricing`);
+      setKycSecondaryText('Log In');
+      setKycSecondaryUrl(`/${lang}/login`);
+      setIsKYCModalOpen(true);
+      return;
+    }
+
+    if (isCheckingLimit) return;
+    setIsCheckingLimit(true);
+
+    try {
+      const limitRes = await checkFavoriteProductLimit(lang);
+      const canCreate = limitRes?.data?.can_create ?? limitRes?.can_create;
+      const isPermitted = canCreate === true || canCreate === 1;
+
+      if (!isPermitted) {
+        if (limitRes?.isUnauthorized) {
+          setKycTitle('Watchlist Access');
+          setKycMessage('Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
+          setKycIndicationText('Start Free Trial');
+          setKycRedirectUrl(`/${lang}/pricing`);
+          setKycSecondaryText('Log In');
+          setKycSecondaryUrl(`/${lang}/login`);
+        } else {
+          const indication = limitRes?.response_indication || limitRes?.data?.response_indication;
+          setKycTitle('Action Required');
+          setKycMessage(limitRes?.message || 'You have reached your favorite product limit. Please upgrade your membership plan to continue.');
+          if (indication === 'NOT_VERIFIED' || indication === 'KYC_REQUIRED') {
+            setKycIndicationText('Submit Documents');
+            setKycRedirectUrl(`/${lang}/profile`);
+          } else {
+            setKycIndicationText('Upgrade Plan');
+            setKycRedirectUrl(`/${lang}/pricing`);
+          }
+          setKycSecondaryText(undefined);
+          setKycSecondaryUrl(undefined);
+        }
+        setIsKYCModalOpen(true);
+        return;
+      }
+
+      setShowMobileAddForm(true);
+    } catch (err) {
+      console.error('Error checking product limit:', err);
+      setShowMobileAddForm(true);
+    } finally {
+      setIsCheckingLimit(false);
+    }
+  };
 
   const handleBuySellClick = async (item: FavoriteItem, e?: React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -223,6 +287,7 @@ export default function ProductChartsClient({
         if (indication === 'NOT_VERIFIED' && isVerifiedInProfile) {
           // User is verified in profile, proceed smoothly
         } else {
+          setKycTitle('Action Required');
           setKycMessage(kycResponse.message || "You cannot proceed with this action.");
           if (indication === 'NOT_VERIFIED' && !isVerifiedInProfile) {
             setKycIndicationText('Submit Documents');
@@ -231,6 +296,8 @@ export default function ProductChartsClient({
             setKycIndicationText('Upgrade Plan');
             setKycRedirectUrl(`/${lang}/profile`);
           }
+          setKycSecondaryText(undefined);
+          setKycSecondaryUrl(undefined);
           setIsKYCModalOpen(true);
           setIsActionLoading(false);
           setActionItemId(null);
@@ -1045,7 +1112,7 @@ export default function ProductChartsClient({
                       onClick={() => {
                         handleProductSelect(p.id);
                         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-                          setShowMobileAddForm(true);
+                          handleOpenMobileAdd();
                         }
                       }}
                       aria-label={`Add ${p.name} to chart`}
@@ -1193,7 +1260,7 @@ export default function ProductChartsClient({
             <>
               {/* Mobile/Tablet Compact Card Empty State */}
               <ChartMobileEmptyCard
-                onClick={() => setShowMobileAddForm(true)}
+                onClick={handleOpenMobileAdd}
                 icon="fa-solid fa-chart-area"
                 badgeLabel="Watchlist"
                 countLabel="0 Products"
@@ -1598,7 +1665,8 @@ export default function ProductChartsClient({
 
           {/* Right Action (Add Product) - Mobile Only */}
           <ChartAddButton
-            onClick={() => setShowMobileAddForm(true)}
+            onClick={handleOpenMobileAdd}
+            loading={isCheckingLimit}
             label="Add Product"
             variant="mobile-sticky"
             className="lg:hidden !max-w-none !w-full md:!w-auto h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
@@ -1910,10 +1978,15 @@ export default function ProductChartsClient({
           setIsKYCModalOpen(false);
           router.push(kycRedirectUrl);
         }}
-        title="Action Required"
+        title={kycTitle}
         description={kycMessage}
         indicationText={kycIndicationText}
         type="warning"
+        secondaryActionText={kycSecondaryText}
+        onSecondaryAction={kycSecondaryText ? () => {
+          setIsKYCModalOpen(false);
+          router.push(kycSecondaryUrl || `/${lang}/login`);
+        } : undefined}
       />
     </>
   );

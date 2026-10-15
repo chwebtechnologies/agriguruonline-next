@@ -4,6 +4,7 @@ import { customFetch, customFetchJSON } from "@/lib/api/fetcher";
 import { cookies } from "next/headers";
 import { getTradingApiUrl, getUserApiUrl } from "@/lib/api-utils";
 import { getUserProfile } from "@/lib/user-data";
+import { refreshTokensAction } from "@/app/actions/auth";
 import fs from "fs";
 
 export async function fetchProductDetails(productId: string, langCode: string) {
@@ -344,6 +345,133 @@ export async function fetchFavoriteProductDetails(favoriteProductId: string | nu
   } catch (error) {
     console.error("Error fetching favorite product details:", error);
     return { success: false, message: "Failed to fetch favorite product details", data: null };
+  }
+}
+
+/**
+ * Check favorite product limit status before opening the Add Product modal/form
+ * Endpoint: /favorite-product/check-limit?lang_code=${safeLang}&source=web
+ */
+export async function checkFavoriteProductLimit(langCode: string = 'en') {
+  const safeLang = langCode || 'en';
+  const cookieStore = await cookies();
+  let token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+
+  if (!token && cookieStore.get("refresh_token")?.value) {
+    try {
+      const refreshRes = await refreshTokensAction();
+      if (refreshRes && refreshRes.success && refreshRes.access_token) {
+        token = refreshRes.access_token;
+      }
+    } catch (refreshErr) {
+      console.error("Token refresh failed in checkFavoriteProductLimit:", refreshErr);
+    }
+  }
+
+  if (!token) {
+    return {
+      success: false,
+      isUnauthorized: true,
+      message: "Please log in or start a free trial to add products to your watchlist.",
+      data: {
+        can_create: false,
+        response_indication: "LOGIN_REQUIRED"
+      }
+    };
+  }
+
+  let user_id = '';
+  let isKycVerified = false;
+  let userType: any = null;
+
+  try {
+    const profileResult = await getUserProfile(token, safeLang);
+    const profile = profileResult?.userProfile;
+    if (profile) {
+      user_id = profile.id || profile._id || profile.customer_id || '';
+      isKycVerified = Boolean(profile.is_kyc_verified);
+      userType = profile.user_type;
+    }
+  } catch (e) {
+    console.error("Error retrieving user profile in checkFavoriteProductLimit:", e);
+  }
+
+  if (!user_id) {
+    const userInfoCookie = cookieStore.get("user_info")?.value;
+    if (userInfoCookie) {
+      try {
+        const u = JSON.parse(decodeURIComponent(userInfoCookie));
+        user_id = u?.id || u?._id || u?.customer_id || '';
+        if (u?.is_kyc_verified !== undefined) {
+          isKycVerified = Boolean(u.is_kyc_verified);
+        }
+        if (u?.user_type) {
+          userType = u.user_type;
+        }
+      } catch {}
+    }
+  }
+
+  const tradingApiUrl = getTradingApiUrl();
+  const url = `${tradingApiUrl}/favorite-product/check-limit?lang_code=${safeLang}&source=web`;
+
+  try {
+    const bodyPayload: any = {};
+    if (user_id) {
+      bodyPayload.user_id = user_id;
+    }
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+        'x-app-source': 'web',
+        'source': 'web',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(bodyPayload),
+      cache: 'no-store'
+    });
+
+    const data = await res.json().catch(() => null);
+    console.log("Favorite product check-limit API Response:", data, "Status:", res.status);
+
+    if (res.status === 401 || data?.message === 'Unauthorized' || data?.isUnauthorized) {
+      return {
+        success: false,
+        isUnauthorized: true,
+        message: "Please log in or start a free trial to add products to your watchlist.",
+        data: {
+          can_create: false,
+          response_indication: "LOGIN_REQUIRED"
+        }
+      };
+    }
+
+    if (data) {
+      const canCreate = data?.data?.can_create ?? data?.can_create;
+      const indication = data?.data?.response_indication || data?.response_indication;
+      return {
+        ...data,
+        can_create: canCreate === true || canCreate === 1,
+        response_indication: indication,
+        is_kyc_verified: isKycVerified,
+        user_type: userType
+      };
+    }
+
+    return {
+      success: false,
+      message: "Failed to check product limit",
+      data: { can_create: false }
+    };
+  } catch (error: any) {
+    console.error("Error checking favorite product limit:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to check product limit",
+      data: { can_create: false }
+    };
   }
 }
 

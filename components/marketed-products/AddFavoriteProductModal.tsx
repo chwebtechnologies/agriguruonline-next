@@ -870,11 +870,15 @@ export function AddFavoriteProductModal({
         onClose={() => setActionIndication(prev => ({ ...prev, isOpen: false }))}
         onConfirm={() => {
           setActionIndication(prev => ({ ...prev, isOpen: false }));
-          router.push(`/${lang}/profile`);
+          if (actionIndication.indication === 'NOT_VERIFIED' || actionIndication.indication === 'KYC_REQUIRED') {
+            router.push(`/${lang}/profile`);
+          } else {
+            router.push(`/${lang}/pricing`);
+          }
         }}
         title="Action Required"
         description={actionIndication.message}
-        indicationText={actionIndication.indication || 'Upgrade Plan'}
+        indicationText={actionIndication.indication === 'NOT_VERIFIED' || actionIndication.indication === 'KYC_REQUIRED' ? 'Submit Documents' : 'Upgrade Plan'}
         type="warning"
       />
     </>,
