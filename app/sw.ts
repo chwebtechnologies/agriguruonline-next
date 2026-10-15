@@ -5,6 +5,7 @@ import {
   Serwist,
   StaleWhileRevalidate,
   CacheFirst,
+  NetworkFirst,
   ExpirationPlugin,
   CacheableResponsePlugin,
 } from "serwist";
@@ -70,38 +71,33 @@ const serwist = new Serwist({
         ],
       }),
     },
-    // 2. Next.js RSC payloads (the data fetched during client-side navigation)
-    // StaleWhileRevalidate will serve the page INSTANTLY from cache, then update in background.
+    // 2. Next.js RSC payloads
+    // NetworkFirst guarantees fresh chunk hashes from server when online, falling back to cache if offline
     {
       matcher: ({ url }) => url.searchParams.has('_rsc'),
-      handler: new StaleWhileRevalidate({
+      handler: new NetworkFirst({
         cacheName: 'rsc-payloads',
+        networkTimeoutSeconds: 3,
         plugins: [
-          {
-            cacheWillUpdate: async ({ response }) => {
-              if (response && response.status === 200) {
-                return response;
-              }
-              return null;
-            },
-          },
+          new ExpirationPlugin({
+            maxEntries: 100,
+            maxAgeSeconds: 24 * 60 * 60, // 1 day
+          }),
         ],
       }),
     },
     // 3. Page navigations
+    // NetworkFirst guarantees the latest HTML referencing valid chunks is fetched online, avoiding 404 chunk errors
     {
       matcher: ({ request }) => request.mode === 'navigate',
-      handler: new StaleWhileRevalidate({
+      handler: new NetworkFirst({
         cacheName: 'pages',
+        networkTimeoutSeconds: 3,
         plugins: [
-          {
-            cacheWillUpdate: async ({ response }) => {
-              if (response && response.status === 200) {
-                return response;
-              }
-              return null;
-            },
-          },
+          new ExpirationPlugin({
+            maxEntries: 50,
+            maxAgeSeconds: 24 * 60 * 60,
+          }),
         ],
       }),
     },

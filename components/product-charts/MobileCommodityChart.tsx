@@ -86,6 +86,74 @@ const priceHistoryCache = new Map<string, {
 
 const productDetailsCache = new Map<string, any>();
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+export const fastFormatDate = (d: Date, curYear: number) => {
+  const day = d.getDate();
+  const month = MONTH_NAMES[d.getMonth()] || '';
+  const year = d.getFullYear();
+  const weekday = WEEKDAY_NAMES[d.getDay()] || '';
+  const formattedDate = `${day} ${month} ${year}`;
+  const shortDate = year === curYear ? `${day} ${month}` : `${month} '${String(year).slice(-2)}`;
+  return { formattedDate, shortDate, weekday };
+};
+
+export const formatHistoryItem = (raw: any, curYear: number, isFreight: boolean): PriceHistoryItem => {
+  const d = new Date(raw.date);
+  const timestamp = isNaN(d.getTime()) ? Date.now() : d.getTime();
+  const { formattedDate, shortDate, weekday } = fastFormatDate(d, curYear);
+  return {
+    ...raw,
+    date: raw.date,
+    timestamp,
+    price: Number(Number(raw.price).toFixed(2)),
+    formattedDate,
+    shortDate,
+    weekday,
+    product_comment: raw.product_comment || raw.product_remarks || raw.productComment || (!isFreight ? (raw.comment || raw.remarks) : null) || null,
+    freight_comment: raw.freight_comment || raw.freight_remarks || raw.freightComment || (isFreight ? (raw.comment || raw.remarks) : null) || null,
+    comment: raw.comment || raw.remarks || raw.note || null,
+    remarks: raw.remarks || null,
+  };
+};
+
+/**
+ * Pre-populates the in-memory cache on user interaction (e.g. card hover/touch),
+ * guaranteeing instant 0ms chart opening.
+ */
+export const prefetchPriceHistory = async (id: string | number, lang: string = 'en', isFreight: boolean = false) => {
+  if (!id) return;
+  const cacheKey = `${isFreight ? 'freight_' : 'prod_'}${id}_${lang}`;
+  if (priceHistoryCache.has(cacheKey)) return;
+  try {
+    const res = await getPriceHistoryAction(id, lang, isFreight ? 'freight' : 'product');
+    let raw = res?.data?.price_history || res?.data?.history || res?.data?.freight_history;
+    if (res?.data?.is_encrypted && typeof raw === 'string') {
+      raw = decryptData(raw);
+    }
+    if (Array.isArray(raw) && raw.length > 0) {
+      const curYear = new Date().getFullYear();
+      const mapped = raw.map((item: any) => formatHistoryItem(item, curYear, isFreight));
+      mapped.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      for (let i = 0; i < mapped.length; i++) {
+        const cur = mapped[i];
+        const prev = i > 0 ? mapped[i - 1] : null;
+        cur.changeVal = prev ? Number((cur.price - prev.price).toFixed(2)) : 0;
+        cur.changePct = prev && prev.price > 0 ? Number(((cur.changeVal / prev.price) * 100).toFixed(2)) : 0;
+      }
+      priceHistoryCache.set(cacheKey, {
+        history: mapped,
+        apiDetails: res.data.favourite_product || res.data.favourite_port || res.data.favourite_record || res.data.favourite_freight || null,
+        alertPriceRange: res.data.alert_price_range || null,
+        fetchedAt: Date.now(),
+      });
+    }
+  } catch (e) {
+    // Ignore background prefetch errors
+  }
+};
+
 // Helper to parse quality specifications from HTML string
 export const parseSpecifications = (html?: string) => {
   if (!html) return { tableData: [], otherData: [] };
@@ -156,6 +224,9 @@ export default function MobileCommodityChart({
   initialExpandedPredictId,
   common = {},
   onFreightInquiry,
+  initialPriceHistory,
+  initialAlertRange,
+  initialApiDetails,
 }: {
   item: CommodityItemData;
   isFullScreen?: boolean;
@@ -169,6 +240,9 @@ export default function MobileCommodityChart({
   initialExpandedPredictId?: string;
   common?: any;
   onFreightInquiry?: (item: CommodityItemData) => void;
+  initialPriceHistory?: PriceHistoryItem[];
+  initialAlertRange?: { min: number; max: number } | null;
+  initialApiDetails?: any;
 }) {
   const router = useRouter();
   // Timeframe filters: 1W, 1M, 6M, 1Y, 5Y, ALL (Default is 1Y)
@@ -349,35 +423,68 @@ export default function MobileCommodityChart({
 
   const cacheKey = `${isFreight ? 'freight_' : 'prod_'}${item.id}_${lang}`;
 
+  // If initialPriceHistory is supplied by server or prefetch, populate module cache right away
+  if (initialPriceHistory && initialPriceHistory.length > 0 && !priceHistoryCache.has(cacheKey)) {
+    priceHistoryCache.set(cacheKey, {
+      history: initialPriceHistory,
+      apiDetails: initialApiDetails || null,
+      alertPriceRange: initialAlertRange || null,
+      fetchedAt: Date.now(),
+    });
+  }
+
   const [priceHistory, setPriceHistory] = useState<PriceHistoryItem[]>(() => {
+    if (initialPriceHistory && initialPriceHistory.length > 0) {
+      return initialPriceHistory;
+    }
     if (priceHistoryCache.has(cacheKey)) {
       return priceHistoryCache.get(cacheKey)!.history;
     }
     return [];
   });
   const [alertRange, setAlertRange] = useState<{ min: number; max: number } | null>(() => {
+    if (initialAlertRange) return initialAlertRange;
     if (priceHistoryCache.has(cacheKey)) {
       return priceHistoryCache.get(cacheKey)!.alertPriceRange;
     }
     return null;
   });
   const [apiProduct, setApiProduct] = useState<any>(() => {
+    if (initialApiDetails) return initialApiDetails;
     if (priceHistoryCache.has(cacheKey)) {
       return priceHistoryCache.get(cacheKey)!.apiDetails;
     }
     return null;
   });
   const [productDetails, setProductDetails] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(() => !priceHistoryCache.has(cacheKey));
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (initialPriceHistory && initialPriceHistory.length > 0) return false;
+    return !priceHistoryCache.has(cacheKey);
+  });
 
   const [displayChartData, setDisplayChartData] = useState<PriceHistoryItem[]>(() => {
+    if (initialPriceHistory && initialPriceHistory.length > 0) {
+      return initialPriceHistory;
+    }
     if (priceHistoryCache.has(cacheKey)) {
       return priceHistoryCache.get(cacheKey)!.history;
     }
     return [];
   });
-  const [showDots, setShowDots] = useState<boolean>(() => priceHistoryCache.has(cacheKey));
-  const hasAnimatedInitialRef = useRef<boolean>(priceHistoryCache.has(cacheKey));
+  const [showDots, setShowDots] = useState<boolean>(true);
+  const [isChartDrawn, setIsChartDrawn] = useState<boolean>(false);
+  const hasAnimatedInitialRef = useRef<boolean>(true);
+
+  // Trigger smooth left-to-right drawing animation on initial open and when timeRange changes
+  useEffect(() => {
+    if (displayChartData.length > 0) {
+      setIsChartDrawn(false);
+      const timer = setTimeout(() => {
+        setIsChartDrawn(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [displayChartData.length, timeRange, item?.id]);
 
   const [chartAlerts, setChartAlerts] = useState<any[]>([]);
   const [isFetchingAlerts, setIsFetchingAlerts] = useState<boolean>(false);
@@ -790,12 +897,29 @@ export default function MobileCommodityChart({
         return;
       }
 
+      if (initialPriceHistory && initialPriceHistory.length > 0) {
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       try {
         let res = await getPriceHistoryAction(item.id, lang, isFreight ? 'freight' : 'product');
 
-        // Fallback if initial fetch failed or returned empty history (e.g. when item.id is a predict/alert/product ID instead of favorite ID)
-        if (!res?.success || !res?.data || !Array.isArray(res.data.price_history) || res.data.price_history.length === 0) {
+        // Helper to safely extract & decrypt raw list
+        const extractList = (r: any) => {
+          if (!r?.success || !r?.data) return null;
+          let list = r.data.price_history || r.data.history || r.data.freight_history || (Array.isArray(r.data) ? r.data : null);
+          if (r.data.is_encrypted && typeof list === 'string') {
+            list = decryptData(list);
+          }
+          return Array.isArray(list) && list.length > 0 ? list : null;
+        };
+
+        let rawHistoryArray = extractList(res);
+
+        // Fallback ONLY IF initial fetch returned null or empty array
+        if (!rawHistoryArray) {
           try {
             if (isFreight) {
               const favsRes = await getFavoritePortsAction(lang);
@@ -812,8 +936,10 @@ export default function MobileCommodityChart({
 
                 if (matchedFav?.id) {
                   const retryRes = await getPriceHistoryAction(matchedFav.id, lang, 'freight');
-                  if (retryRes?.success && retryRes?.data) {
+                  const retryList = extractList(retryRes);
+                  if (retryList) {
                     res = retryRes;
+                    rawHistoryArray = retryList;
                   }
                 }
               }
@@ -835,8 +961,10 @@ export default function MobileCommodityChart({
                   const realFavId = matchedFav.id || matchedFav.favourite_product_id;
                   if (realFavId) {
                     const retryRes = await getPriceHistoryAction(realFavId, lang, 'product');
-                    if (retryRes?.success && retryRes?.data) {
+                    const retryList = extractList(retryRes);
+                    if (retryList) {
                       res = retryRes;
+                      rawHistoryArray = retryList;
                     }
                   }
                 }
@@ -847,65 +975,32 @@ export default function MobileCommodityChart({
           }
         }
 
-        if (res.success && res.data) {
-          if (isMounted) {
-            let rawHistoryArray = res.data.price_history;
-            if (res.data.is_encrypted && typeof rawHistoryArray === 'string') {
-              rawHistoryArray = decryptData(rawHistoryArray) || [];
-            }
-            const rawHistory = Array.isArray(rawHistoryArray) ? rawHistoryArray : [];
-            const curYear = new Date().getFullYear();
+        if (rawHistoryArray && rawHistoryArray.length > 0 && isMounted) {
+          const curYear = new Date().getFullYear();
+          const mappedHistory: PriceHistoryItem[] = rawHistoryArray.map((raw: any) => formatHistoryItem(raw, curYear, isFreight));
+          mappedHistory.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-            // Pre-parse dates and values once to make filtering and rendering 0ms instant
-            const mappedHistory: PriceHistoryItem[] = rawHistory.map((raw: any) => {
-              const d = new Date(raw.date);
-              const timestamp = isNaN(d.getTime()) ? Date.now() : d.getTime();
-              const isCurrentYear = d.getFullYear() === curYear;
-              const formattedDate = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-              const shortDate = isCurrentYear
-                ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-                : d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-              const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-
-              return {
-                ...raw,
-                date: raw.date,
-                timestamp,
-                price: Number(Number(raw.price).toFixed(2)),
-                formattedDate,
-                shortDate,
-                weekday,
-                product_comment: raw.product_comment || raw.product_remarks || raw.productComment || (!isFreight ? (raw.comment || raw.remarks) : null) || null,
-                freight_comment: raw.freight_comment || raw.freight_remarks || raw.freightComment || (isFreight ? (raw.comment || raw.remarks) : null) || null,
-                comment: raw.comment || raw.remarks || raw.note || null,
-                remarks: raw.remarks || null,
-              };
-            });
-
-            const sortedHistory = [...mappedHistory].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-            // Precompute day-over-day price deltas once
-            for (let i = 0; i < sortedHistory.length; i++) {
-              const cur = sortedHistory[i];
-              const prev = i > 0 ? sortedHistory[i - 1] : null;
-              cur.changeVal = prev ? Number((cur.price - prev.price).toFixed(2)) : 0;
-              cur.changePct = prev && prev.price > 0 ? Number(((cur.changeVal / prev.price) * 100).toFixed(2)) : 0;
-            }
-
-            const alertRangeData = res.data.alert_price_range || null;
-            const favProductData = res.data.favourite_product || res.data.favourite_port || res.data.favourite_record || res.data.favourite_freight || null;
-
-            priceHistoryCache.set(cacheKey, {
-              history: sortedHistory,
-              apiDetails: favProductData,
-              alertPriceRange: alertRangeData,
-              fetchedAt: Date.now(),
-            });
-
-            setPriceHistory(sortedHistory);
-            setAlertRange(alertRangeData);
-            setApiProduct(favProductData);
+          // Precompute day-over-day price deltas once
+          for (let i = 0; i < mappedHistory.length; i++) {
+            const cur = mappedHistory[i];
+            const prev = i > 0 ? mappedHistory[i - 1] : null;
+            cur.changeVal = prev ? Number((cur.price - prev.price).toFixed(2)) : 0;
+            cur.changePct = prev && prev.price > 0 ? Number(((cur.changeVal / prev.price) * 100).toFixed(2)) : 0;
           }
+
+          const alertRangeData = res?.data?.alert_price_range || null;
+          const favProductData = res?.data?.favourite_product || res?.data?.favourite_port || res?.data?.favourite_record || res?.data?.favourite_freight || null;
+
+          priceHistoryCache.set(cacheKey, {
+            history: mappedHistory,
+            apiDetails: favProductData,
+            alertPriceRange: alertRangeData,
+            fetchedAt: Date.now(),
+          });
+
+          setPriceHistory(mappedHistory);
+          setAlertRange(alertRangeData);
+          setApiProduct(favProductData);
         }
       } catch (err) {
         console.error('Failed to fetch price history for chart:', err);
@@ -921,7 +1016,7 @@ export default function MobileCommodityChart({
     return () => {
       isMounted = false;
     };
-  }, [item.id, item.productId, item.favoriteProductId, item.product, lang, cacheKey]);
+  }, [item.id, item.productId, item.favoriteProductId, item.product, lang, cacheKey, initialPriceHistory]);
 
   // Fetch alert setups when tab is active
   useEffect(() => {
@@ -1245,26 +1340,14 @@ export default function MobileCommodityChart({
     return priceHistory;
   }, [priceHistory, item.price, item.change, isFreight, isLoading]);
 
-  // Smooth initial animation and clean data updates without jerk/restart
+  // Clean data updates without artificial timer delay
   useEffect(() => {
     if (chartData.length === 0) {
       setDisplayChartData([]);
-      setShowDots(false);
       return;
     }
-    
     setDisplayChartData(chartData);
-
-    if (!hasAnimatedInitialRef.current) {
-      hasAnimatedInitialRef.current = true;
-      setShowDots(false);
-      const dotsTimer = setTimeout(() => {
-        setShowDots(true);
-      }, 1500);
-      return () => clearTimeout(dotsTimer);
-    } else {
-      setShowDots(true);
-    }
+    setShowDots(true);
   }, [chartData]);
 
   // Isolated Specifications Parsing (Runs ONLY when product details change)
@@ -1764,7 +1847,10 @@ export default function MobileCommodityChart({
     return null;
   }, [hoveredPoint, selectedCommentPoint]);
 
-  // Lightweight 60fps Custom Dot Renderer (Only renders for points with comments)
+  const activeCommentDateRef = useRef<string | null>(null);
+  activeCommentDateRef.current = activeCommentItem?.date || null;
+
+  // Lightweight 60fps Custom Dot Renderer (zero raster/pulse GPU thrashing)
   const renderCustomDot = useCallback((props: any) => {
     if (!showDots) return null;
     const { cx, cy, payload } = props;
@@ -1779,7 +1865,7 @@ export default function MobileCommodityChart({
 
     if (!hasComment) return null;
 
-    const isSelected = (activeCommentItem?.date === payload.date);
+    const isSelected = (activeCommentDateRef.current === payload.date);
 
     return (
       <g
@@ -1793,29 +1879,59 @@ export default function MobileCommodityChart({
         <circle
           cx={cx}
           cy={cy}
-          r={isSelected ? 10 : 8}
+          r={isSelected ? 8 : 6}
           fill="var(--brand-blue)"
-          opacity={0.3}
-          className="animate-pulse"
+          opacity={0.35}
         />
         <circle
           cx={cx}
           cy={cy}
-          r={isSelected ? 5.5 : 4.5}
+          r={isSelected ? 4.5 : 3.5}
           fill="var(--brand-blue)"
-          stroke="var(--ag-card-bg)"
+          stroke="var(--card)"
           strokeWidth={1.5}
-          style={{ filter: 'drop-shadow(0px 0px 3px rgba(29, 146, 235, 0.8))' }}
         />
         <circle
           cx={cx}
           cy={cy}
-          r={1.5}
+          r={1.2}
           fill="var(--foreground)"
         />
       </g>
     );
-  }, [activeCommentItem?.date, showDots]);
+  }, [showDots]);
+
+  // Throttled mouse move to prevent 60fps re-renders of the entire 4,000-line component
+  const lastHoveredDateRef = useRef<string | null>(null);
+
+  const handleChartMouseMove = useCallback((e: any) => {
+    if (e && e.activePayload && e.activePayload.length) {
+      const d = e.activePayload[0].payload;
+      if (d && d.date !== lastHoveredDateRef.current) {
+        lastHoveredDateRef.current = d.date;
+        setHoveredPoint(d);
+      }
+    }
+  }, []);
+
+  const handleChartMouseLeave = useCallback(() => {
+    if (lastHoveredDateRef.current !== null) {
+      lastHoveredDateRef.current = null;
+      setHoveredPoint(null);
+    }
+  }, []);
+
+  // Throttled Brush onChange via requestAnimationFrame
+  const brushRafRef = useRef<number | null>(null);
+
+  const handleBrushChange = useCallback((newIndex: any) => {
+    if (!newIndex || newIndex.startIndex === undefined) return;
+    if (brushRafRef.current) cancelAnimationFrame(brushRafRef.current);
+    brushRafRef.current = requestAnimationFrame(() => {
+      setBrushStartIndex(newIndex.startIndex);
+      setBrushEndIndex(newIndex.endIndex);
+    });
+  }, []);
 
   return (
     <div
@@ -2090,7 +2206,7 @@ export default function MobileCommodityChart({
             </div>
 
             {/* Area / Line Chart with Range Slider Brush & Direct Tooltip Comments */}
-            <div className="w-full h-[140px] min-[390px]:h-[175px] sm:h-[210px] lg:h-[270px] xl:h-[300px] relative animate-in fade-in duration-1000 ease-in-out">
+            <div className="w-full h-[140px] min-[390px]:h-[175px] sm:h-[210px] lg:h-[270px] xl:h-[300px] relative animate-in fade-in duration-200">
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-[0.1] dark:opacity-[0.00] z-0 select-none">
                 <Image src="/logo.svg" alt="Agriguru Watermark" width={200} height={50} className="w-[60%] max-w-[200px] h-auto grayscale object-contain" />
               </div>
@@ -2121,20 +2237,10 @@ export default function MobileCommodityChart({
                   <AreaChart
                     data={displayChartData}
                     margin={{ top: 12, right: 6, left: 0, bottom: 0 }}
-                    onMouseMove={(e: any) => {
-                      if (e && e.activePayload && e.activePayload.length) {
-                        const d = e.activePayload[0].payload;
-                        setHoveredPoint(d);
-                      }
-                    }}
-                    onMouseLeave={() => setHoveredPoint(null)}
-                    onTouchMove={(e: any) => {
-                      if (e && e.activePayload && e.activePayload.length) {
-                        const d = e.activePayload[0].payload;
-                        setHoveredPoint(d);
-                      }
-                    }}
-                    onTouchEnd={() => setHoveredPoint(null)}
+                    onMouseMove={handleChartMouseMove}
+                    onMouseLeave={handleChartMouseLeave}
+                    onTouchMove={handleChartMouseMove}
+                    onTouchEnd={handleChartMouseLeave}
                   >
                     <defs>
                       <linearGradient id="colorPriceGreen" x1="0" y1="0" x2="0" y2="1">
@@ -2157,9 +2263,7 @@ export default function MobileCommodityChart({
                       tickFormatter={(val) => {
                         const d = new Date(val);
                         if (isNaN(d.getTime())) return val;
-                        return d.getFullYear() === new Date().getFullYear()
-                          ? d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
-                          : d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                        return fastFormatDate(d, new Date().getFullYear()).shortDate;
                       }}
                     />
                     <YAxis 
@@ -2270,18 +2374,20 @@ export default function MobileCommodityChart({
                     )}
 
                     <Area
+                      key={`area-${item?.id || ''}-${timeRange}-${displayChartData.length}`}
                       type="monotone"
                       dataKey="price"
                       stroke={strokeColor}
                       strokeWidth={2.5}
                       fillOpacity={1}
                       fill={`url(#${fillColorId})`}
-                      activeDot={{ r: 5.5, fill: strokeColor, stroke: "var(--ag-card-bg)", strokeWidth: 2 }}
-                      dot={renderCustomDot}
-                      isAnimationActive={true}
-                      animationDuration={1500}
+                      activeDot={isChartDrawn ? { r: 5, fill: strokeColor, stroke: "var(--card)", strokeWidth: 2 } : false}
+                      dot={isChartDrawn ? renderCustomDot : false}
+                      isAnimationActive={!isChartDrawn}
+                      animationDuration={900}
                       animationEasing="ease-out"
-                      animationBegin={0}
+                      animationBegin={70}
+                      onAnimationEnd={() => setIsChartDrawn(true)}
                     />
 
                     {/* Interactive Chart Range Slider Brush */}
@@ -2294,20 +2400,15 @@ export default function MobileCommodityChart({
                       tickFormatter={() => ''}
                       startIndex={brushStartIndex}
                       endIndex={brushEndIndex}
-                      onChange={(newIndex: any) => {
-                        if (newIndex && newIndex.startIndex !== undefined) {
-                          setBrushStartIndex(newIndex.startIndex);
-                          setBrushEndIndex(newIndex.endIndex);
-                        }
-                      }}
+                      onChange={handleBrushChange}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
             </div>
 
             {/* Highlighting Blue Blinking Dot Notice */}
-            {commentPointsCount > 0 && (
-              <div className="flex items-center justify-between text-[11px] text-brand-blue font-semibold pt-2 pb-0.5 px-1.5">
+            {commentPointsCount > 0 && isChartDrawn && (
+              <div className="flex items-center justify-between text-[11px] text-brand-blue font-semibold pt-2 pb-0.5 px-1.5 animate-in fade-in duration-300">
                 <div className="flex items-center gap-1.5">
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { cache } from 'react';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -7,6 +7,8 @@ import { cookies } from 'next/headers';
 import { getSafeLang, getAssetsUrl, withTimeout } from '@/lib/api-utils';
 import { tradingService } from '@/lib/api/trading.service';
 import { getUserProfile } from '@/lib/user-data';
+import { decryptData } from '@/lib/crypto-utils';
+import { formatHistoryItem } from '@/components/product-charts/MobileCommodityChart';
 
 import { getAlternates, getSafeLanguage } from '@/lib/seo';
 
@@ -98,7 +100,7 @@ export async function generateMetadata(
   };
 }
 
-async function getChartProductData(id: string, lang: string = 'en', dict: any = {}) {
+const getChartProductData = cache(async (id: string, lang: string = 'en', dict: any = {}) => {
   let token = '';
   try {
     const cookieStore = await cookies();
@@ -161,19 +163,19 @@ async function getChartProductData(id: string, lang: string = 'en', dict: any = 
       if (pData) {
         itemData = {
           id: pData.id || id,
-            category: pData.category?.name || dict.common?.not_available || 'N/A',
-            country: pData.country?.name || dict.common?.not_available || 'N/A',
-            countryFlag: pData.country?.flag || '',
-            product: pData.name || dict.common?.product_chart || 'Product Chart',
-            shipBy: pData.shipping_containers?.[0]?.title || '20 FT',
-            term: 'FOB',
-            pol: pData.loading_ports?.[0]?.port?.name || dict.common?.port || 'Port',
-            polFlag: pData.country?.flag || '',
-            pod: dict.common?.not_available || 'N/A',
-            podFlag: '',
-            price: (pData.loading_ports?.[0]?.price != null ? Math.round(Number(pData.loading_ports[0].price)) : 0).toString(),
-            change: (pData.change != null ? Math.round(Number(pData.change)) : 0).toString(),
-            chartStatus: true,
+          category: pData.category?.name || dict.common?.not_available || 'N/A',
+          country: pData.country?.name || dict.common?.not_available || 'N/A',
+          countryFlag: pData.country?.flag || '',
+          product: pData.name || dict.common?.product_chart || 'Product Chart',
+          shipBy: pData.shipping_containers?.[0]?.title || '20 FT',
+          term: 'FOB',
+          pol: pData.loading_ports?.[0]?.port?.name || dict.common?.port || 'Port',
+          polFlag: pData.country?.flag || '',
+          pod: dict.common?.not_available || 'N/A',
+          podFlag: '',
+          price: (pData.loading_ports?.[0]?.price != null ? Math.round(Number(pData.loading_ports[0].price)) : 0).toString(),
+          change: (pData.change != null ? Math.round(Number(pData.change)) : 0).toString(),
+          chartStatus: true,
         };
       }
     } catch (e) {
@@ -182,13 +184,54 @@ async function getChartProductData(id: string, lang: string = 'en', dict: any = 
   }
 
   return { itemData, userType };
-}
+});
 
 export default async function DedicatedChartPage(props: { params: Promise<{ lang: string, id: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en';
   const dict = await getDictionary(lang as any);
-  const { itemData, userType } = await getChartProductData(params.id, lang, dict);
+  
+  let token = '';
+  try {
+    const cookieStore = await cookies();
+    token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value || '';
+  } catch (e) {
+    // Ignore cookie read error
+  }
+  const safeLang = getSafeLang(lang);
+
+  // Concurrently fetch product metadata and price history on server
+  const [productDataRes, rawPriceHistoryRes] = await Promise.all([
+    getChartProductData(params.id, lang, dict),
+    tradingService.getPriceHistory(params.id, token, safeLang).catch(() => null)
+  ]);
+
+  const { itemData, userType } = productDataRes;
+
+  let initialPriceHistory: any[] | undefined = undefined;
+  let initialAlertRange: { min: number; max: number } | null = null;
+  let initialApiDetails: any = null;
+
+  if (rawPriceHistoryRes?.success && rawPriceHistoryRes?.data) {
+    let rawHistory = rawPriceHistoryRes.data.price_history || rawPriceHistoryRes.data.history;
+    if (rawPriceHistoryRes.data.is_encrypted && typeof rawHistory === 'string') {
+      rawHistory = decryptData(rawHistory);
+    }
+    if (Array.isArray(rawHistory) && rawHistory.length > 0) {
+      const curYear = new Date().getFullYear();
+      const mapped = rawHistory.map((item: any) => formatHistoryItem(item, curYear, false));
+      mapped.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      for (let i = 0; i < mapped.length; i++) {
+        const cur = mapped[i];
+        const prev = i > 0 ? mapped[i - 1] : null;
+        cur.changeVal = prev ? Number((cur.price - prev.price).toFixed(2)) : 0;
+        cur.changePct = prev && prev.price > 0 ? Number(((cur.changeVal / prev.price) * 100).toFixed(2)) : 0;
+      }
+      initialPriceHistory = mapped;
+      initialAlertRange = rawPriceHistoryRes.data.alert_price_range || null;
+      initialApiDetails = rawPriceHistoryRes.data.favourite_product || rawPriceHistoryRes.data.favourite_record || null;
+    }
+  }
   
   return (
     <div className="bg-background text-foreground">
@@ -200,6 +243,9 @@ export default async function DedicatedChartPage(props: { params: Promise<{ lang
             common={dict?.common}
             initialItemData={itemData} 
             initialUserType={userType} 
+            initialPriceHistory={initialPriceHistory}
+            initialAlertRange={initialAlertRange}
+            initialApiDetails={initialApiDetails}
           />
         </div>
       </div>

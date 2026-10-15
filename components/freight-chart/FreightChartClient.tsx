@@ -24,6 +24,7 @@ import {
 } from '@/app/actions/freight';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { FreightInquiryModal } from '@/components/freight-chart/FreightInquiryModal';
+import { prefetchPriceHistory } from '@/components/product-charts/MobileCommodityChart';
 
 // --- Shared Interfaces ---
 export interface ShippingContainer {
@@ -880,7 +881,11 @@ export default function FreightChartClient({
                   const displayPrice = item.freightPmt && item.freightPmt !== '0' ? item.freightPmt : (item.freight || '0');
 
                   return (
-                    <div key={item.id || index}>
+                    <div 
+                      key={item.id || index}
+                      onMouseEnter={() => { if (item.chartStatus) prefetchPriceHistory(item.id, lang, true); }}
+                      onTouchStart={() => { if (item.chartStatus) prefetchPriceHistory(item.id, lang, true); }}
+                    >
                       {/* Mobile/Tablet Card Layout */}
                       <SwipeableCard
                         onDelete={() => setDeleteConfirmId(item.id)}
@@ -929,7 +934,10 @@ export default function FreightChartClient({
                       </SwipeableCard>
 
                       {/* Desktop Row Layout (Matching Screenshot 1 Exactly) */}
-                      <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm text-[16px] font-semibold px-0`}>
+                      <div 
+                        onMouseEnter={() => { if (item.chartStatus) prefetchPriceHistory(item.id, lang, true); }}
+                        className={`hidden lg:grid ${gridCols} gap-1.5 items-center py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm text-[16px] font-semibold px-0`}
+                      >
                         {/* 1. Ship by */}
                         <div className="truncate text-foreground/90 font-bold min-w-0 pl-3" title={item.shipBy}>
                           {item.shipBy}

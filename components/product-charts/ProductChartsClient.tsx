@@ -19,6 +19,7 @@ import { ChartProductInquiryModal } from '@/components/marketed-products/ChartPr
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails, checkFavoriteProductLimit } from '@/app/actions/product';
 import { WATCHLIST_REFRESH_EVENT, WATCHLIST_SCROLL_KEY, scrollToMarketWatchlist } from '@/lib/watchlist-utils';
 import { useScrollLock } from '@/lib/scroll-lock';
+import { prefetchPriceHistory } from '@/components/product-charts/MobileCommodityChart';
 
 
 
@@ -1522,7 +1523,11 @@ export default function ProductChartsClient({
                 const desktopRowBg = 'bg-card hover:bg-muted';
                 
                 return (
-                  <div key={item.id || index}>
+                  <div 
+                    key={item.id || index}
+                    onMouseEnter={() => { if (item.chartStatus) prefetchPriceHistory(item.id, lang, false); }}
+                    onTouchStart={() => { if (item.chartStatus) prefetchPriceHistory(item.id, lang, false); }}
+                  >
                     {/* Mobile/Tablet Card Layout */}
                     <SwipeableCard 
                       onDelete={() => confirmDelete(item.id)}
@@ -1559,7 +1564,10 @@ export default function ProductChartsClient({
                     </SwipeableCard>
 
                     {/* Desktop Row Layout */}
-                    <div className={`hidden lg:grid ${gridCols} gap-1.5 items-center py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm text-[13px] xl:text-[16px] font-semibold px-0`}>
+                    <div 
+                      onMouseEnter={() => { if (item.chartStatus) prefetchPriceHistory(item.id, lang, false); }}
+                      className={`hidden lg:grid ${gridCols} gap-1.5 items-center py-3 rounded-lg ${desktopRowBg} shadow-xs border border-border hover:shadow-sm text-[13px] xl:text-[16px] font-semibold px-0`}
+                    >
                       <div className="truncate text-foreground/90 min-w-0 pl-3" title={item.category}>{item.category}</div>
                       <div className="flex items-center gap-2 truncate text-foreground/90 min-w-0" title={item.country}>
                         {item.countryFlag && <FlagIcon src={getFlagUrl(item.countryFlag)} alt={`${item.country} Flag`} title={`${item.country} Flag`} className="w-5 h-3.5 shrink-0 border border-border" />}

@@ -3,11 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '@/lib/scroll-lock';
-import dynamic from 'next/dynamic';
-
-const MobileCommodityChart = dynamic(() => import('@/components/product-charts/MobileCommodityChart'), {
-  loading: () => <div className="flex-1 flex items-center justify-center min-h-[300px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
-});
+import MobileCommodityChart from '@/components/product-charts/MobileCommodityChart';
 
 export interface ChartBottomSheetItem {
   id: number | string;

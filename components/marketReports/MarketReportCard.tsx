@@ -4,9 +4,10 @@ import { useState } from 'react'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { MarketReportItem } from '@/types/marketReports'
 import dynamic from 'next/dynamic'
+import { lazyWithRetry } from '@/lib/dynamic-import'
 import { getAssetsUrl } from '@/lib/api-utils';
 
-const ReportReaderModal = dynamic(() => import('./ReportReaderModal'), {
+const ReportReaderModal = dynamic(() => lazyWithRetry(() => import('./ReportReaderModal')), {
   ssr: false,
 })
 

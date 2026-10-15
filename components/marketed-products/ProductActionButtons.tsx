@@ -2,17 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { lazyWithRetry } from '@/lib/dynamic-import';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { useRouter } from 'next/navigation';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, checkFavoriteProductLimit } from '@/app/actions/product';
 import { getProductDetailsAction, getShippingContainersAction, getShippingTermsAction } from '@/app/actions/charts';
 
 const ProductInquiryModal = dynamic(
-  () => import('./ProductInquiryModal').then(m => m.ProductInquiryModal),
+  () => lazyWithRetry(() => import('./ProductInquiryModal').then(m => m.ProductInquiryModal)),
   { ssr: false }
 );
 const AddFavoriteProductModal = dynamic(
-  () => import('./AddFavoriteProductModal').then(m => m.AddFavoriteProductModal),
+  () => lazyWithRetry(() => import('./AddFavoriteProductModal').then(m => m.AddFavoriteProductModal)),
   { ssr: false }
 );
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';

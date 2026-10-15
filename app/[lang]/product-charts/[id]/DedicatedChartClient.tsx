@@ -1,18 +1,16 @@
 'use client';
 
 import React from 'react';
-import { CommodityItemData } from '@/components/product-charts/MobileCommodityChart';
-import dynamic from 'next/dynamic';
-
-const MobileCommodityChart = dynamic(() => import('@/components/product-charts/MobileCommodityChart'), {
-  loading: () => <div className="flex-1 flex items-center justify-center min-h-[300px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
-});
+import MobileCommodityChart, { CommodityItemData } from '@/components/product-charts/MobileCommodityChart';
 
 interface DedicatedChartClientProps {
   productId: string;
   lang: string;
   initialItemData?: CommodityItemData;
   initialUserType?: string | null;
+  initialPriceHistory?: any[];
+  initialAlertRange?: { min: number; max: number } | null;
+  initialApiDetails?: any;
   common?: any;
 }
 
@@ -21,6 +19,9 @@ export default function DedicatedChartClient({
   lang, 
   initialItemData, 
   initialUserType,
+  initialPriceHistory,
+  initialAlertRange,
+  initialApiDetails,
   common = {}
 }: DedicatedChartClientProps) {
   const item = initialItemData || {
@@ -41,13 +42,16 @@ export default function DedicatedChartClient({
   };
 
   return (
-    <div className="w-full min-h-[100dvh] flex flex-col bg-background">
+    <div className="w-full flex flex-col bg-background">
       <MobileCommodityChart 
         item={item} 
         isFullScreen={true} 
         userType={initialUserType} 
         lang={lang}
         common={common}
+        initialPriceHistory={initialPriceHistory}
+        initialAlertRange={initialAlertRange}
+        initialApiDetails={initialApiDetails}
       />
     </div>
   );

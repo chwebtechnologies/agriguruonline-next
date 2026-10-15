@@ -10,9 +10,36 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const errorMsg = String(error?.message || '')
+  const isChunkError =
+    error?.name === 'ChunkLoadError' ||
+    /loading chunk/i.test(errorMsg) ||
+    /failed to fetch dynamically imported module/i.test(errorMsg) ||
+    /dynamically imported module/i.test(errorMsg)
+
+  // Auto-reload immediately and silently if this is a chunk load mismatch (e.g. new build/deployment)
   useEffect(() => {
-    console.error('Application error:', error)
-  }, [error])
+    if (isChunkError && typeof window !== 'undefined') {
+      const reloadKey = `chunk_reload_${window.location.pathname}`
+      const alreadyReloaded = sessionStorage.getItem(reloadKey)
+      if (!alreadyReloaded) {
+        sessionStorage.setItem(reloadKey, String(Date.now()))
+        window.location.reload()
+      }
+    } else {
+      console.error('Application error:', error)
+    }
+  }, [error, isChunkError])
+
+  // If chunk error, show a seamless silent loading state while the page automatically reloads
+  if (isChunkError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 py-24 text-center">
+        <div className="w-10 h-10 border-3 border-brand-blue border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-muted-foreground text-sm font-medium">Loading...</p>
+      </div>
+    )
+  }
 
   const [lang, setLang] = useState<'en'|'ar'|'fr'|'zh'>('en')
   useEffect(() => {
@@ -54,8 +81,8 @@ export default function Error({
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 py-24 text-center">
       <div className="space-y-6 max-w-md w-full">
-        <div className="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-6">
-          <i className="fa-solid fa-triangle-exclamation text-2xl text-red-600 dark:text-red-400" />
+        <div className="mx-auto w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center mb-6">
+          <i className="fa-solid fa-triangle-exclamation text-2xl" />
         </div>
         <div className="space-y-2">
           <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
@@ -74,14 +101,14 @@ export default function Error({
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <button
             onClick={() => reset()}
-            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full bg-brand-blue text-white hover:bg-brand-blue-hover hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 dark:focus:ring-offset-zinc-950"
+            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full bg-brand-blue text-white hover:bg-brand-blue-hover hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 dark:focus:ring-offset-zinc-950 cursor-pointer"
           >
             <i className="fa-solid fa-rotate-right mr-2" />
             {t.retry}
           </button>
           <Link
             href="/"
-            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full border border-border bg-card text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2"
+            className="w-full sm:w-auto inline-flex items-center justify-center h-12 px-8 text-sm font-medium transition-all duration-200 rounded-full border border-border bg-card text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-2 cursor-pointer"
           >
             <i className="fa-solid fa-home mr-2" />
             {t.home}
