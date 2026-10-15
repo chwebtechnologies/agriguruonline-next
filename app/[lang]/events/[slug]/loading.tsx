@@ -6,7 +6,7 @@ export default function EventDetailLoading() {
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Events" backText="Back" />
-          <div className="mt-3 w-full max-w-full overflow-hidden">
+          <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
             <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
               <div className="grid-area-image w-full max-w-full min-w-0 space-y-4">
                 <div className="w-full aspect-[3/2] bg-muted animate-pulse rounded-2xl border border-border"></div>

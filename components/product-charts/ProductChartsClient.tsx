@@ -109,6 +109,7 @@ import { ChartMobileEmptyCard } from '@/components/ui/charts/ChartMobileEmptyCar
 import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard';
 import { ChartBottomSheetContainer } from '@/components/ui/charts/ChartBottomSheetContainer';
 import { ChartCardOptionsBottomSheet } from '@/components/ui/charts/ChartCardOptionsBottomSheet';
+import { ProductChartsRowsSkeleton } from '@/components/product-charts/ProductChartsGridSkeleton';
 
 
 const openNextDropdown = (mobileId: string, desktopId: string) => {
@@ -1250,13 +1251,9 @@ export default function ProductChartsClient({
         </div>
 
         {/* Data Rows */}
-        <div className={`mt-0 lg:mt-2 ${addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
+        <div className={`mt-0 lg:mt-2 ${!isFetchingFavorites && addedProducts.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
           {isFetchingFavorites && addedProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 lg:py-16 text-center bg-card border border-border border-dashed rounded-xl h-full lg:min-h-[220px]">
-              <i className="fa-solid fa-spinner fa-spin text-brand-blue text-3xl mb-4"></i>
-              <h3 className="text-lg font-bold text-foreground">Loading Your Charts...</h3>
-              <p className="text-muted-foreground text-sm mt-2">Please wait while we fetch your data</p>
-            </div>
+            <ProductChartsRowsSkeleton count={4} />
           ) : addedProducts.length === 0 ? (
             <>
               {/* Mobile/Tablet Compact Card Empty State */}

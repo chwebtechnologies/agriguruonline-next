@@ -225,8 +225,13 @@ export function FreightInquiryModal({
       lang: lang
     });
 
-    fetch(`/api/freight-options?${query.toString()}`)
-      .then((res) => res.json())
+    const priceAbort = new AbortController();
+    const priceTimer = setTimeout(() => priceAbort.abort(), 8000);
+    fetch(`/api/freight-options?${query.toString()}`, { signal: priceAbort.signal })
+      .then((res) => {
+        clearTimeout(priceTimer);
+        return res.json();
+      })
       .then((res) => {
         if (!isMounted) return;
         if (res && (res.success === 1 || res.success === true || res.data)) {
@@ -300,8 +305,13 @@ export function FreightInquiryModal({
     if (hasFetchedShippingTermsRef.current) return;
     hasFetchedShippingTermsRef.current = true;
 
-    fetch(`/api/freight-options?type=shipping-terms&lang=${lang}`)
-      .then((res) => res.json())
+    const stAbort = new AbortController();
+    const stTimer = setTimeout(() => stAbort.abort(), 8000);
+    fetch(`/api/freight-options?type=shipping-terms&lang=${lang}`, { signal: stAbort.signal })
+      .then((res) => {
+        clearTimeout(stTimer);
+        return res.json();
+      })
       .then((res) => {
         if (res && res.success && res.data) {
           const list = res.data.shipping_term || res.data || [];
@@ -346,8 +356,13 @@ export function FreightInquiryModal({
     if (hasFetchedPaymentTermsRef.current) return;
     hasFetchedPaymentTermsRef.current = true;
 
-    fetch(`/api/freight-options?type=payment-terms&lang=${lang}`)
-      .then((res) => res.json())
+    const ptAbort = new AbortController();
+    const ptTimer = setTimeout(() => ptAbort.abort(), 8000);
+    fetch(`/api/freight-options?type=payment-terms&lang=${lang}`, { signal: ptAbort.signal })
+      .then((res) => {
+        clearTimeout(ptTimer);
+        return res.json();
+      })
       .then((res) => {
         if (res && res.success && res.data) {
           const list = res.data.payment_term || res.data || [];
@@ -688,11 +703,15 @@ export function FreightInquiryModal({
 
       let res: any = null;
       try {
+        const submitAbort = new AbortController();
+        const submitTimer = setTimeout(() => submitAbort.abort(), 15000);
         const submitRaw = await fetch(`/api/freight-options?type=submit-inquiry&lang=${lang}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: submitAbort.signal
         });
+        clearTimeout(submitTimer);
         res = await submitRaw.json();
       } catch {
         res = await submitFreightInquiryAction(payload, lang);

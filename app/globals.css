@@ -458,6 +458,12 @@ a, button, input, select, textarea, label, [role="button"] {
   padding-right: var(--ag-container-px);
 }
 
+/* Compact, space-saving page top container spacing below header */
+.pad-for-badges > .max-w-7xl,
+.pad-for-badges > div > .max-w-7xl {
+  padding-top: 0.25rem !important; /* Tight 4px top spacing instead of 12px */
+}
+
 /* Premium Membership Plan Gradients */
 .bg-plan-silver {
   background: linear-gradient(269.31deg, rgb(93, 93, 93) 0.52%, rgb(0, 0, 0) 48.98%, rgb(97, 97, 97) 99.34%);

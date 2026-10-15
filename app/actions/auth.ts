@@ -5,6 +5,19 @@ import { cookies } from "next/headers";
 import { authService, userService, invalidateUserAuthCache } from "@/lib/api";
 import { getUserApiUrl } from "@/lib/api-utils";
 
+/**
+ * Internal timeout wrapper for auth requests to prevent hanging when User API is slow.
+ */
+async function authFetch(url: string, init: RequestInit, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function validateEmailDomain(email: string): Promise<{ isValid: boolean; error?: string }> {
   const domain = email.split("@")[1]?.toLowerCase();
   
@@ -99,7 +112,7 @@ export async function serverVerifyOtp(email: string, otp: string, lang: string) 
   const apiUrl = getUserApiUrl();
   const url = `${apiUrl}/auth/verify-otp?lang_code=${lang}&source=web`;
   
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, otp, source: "WEB" }),
@@ -160,7 +173,7 @@ export async function serverGoogleLogin(idToken: string, lang: string) {
   const apiUrl = getUserApiUrl();
   const url = `${apiUrl}/auth/google-login?lang_code=${lang}&source=web`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id_token: idToken, source: "WEB" }),
@@ -203,7 +216,7 @@ export async function serverAppleLogin(applePayload: any, lang: string) {
   const apiUrl = getUserApiUrl();
   const url = `${apiUrl}/auth/apple-login?lang_code=${lang}&source=web`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...applePayload, source: "WEB" }),
@@ -246,7 +259,7 @@ export async function serverVerifyAppleOtp(email: string, otp: string, transacti
   const apiUrl = getUserApiUrl();
   const url = `${apiUrl}/auth/verify-otp-apple?lang_code=${lang}&source=web`;
 
-  const response = await fetch(url, {
+  const response = await authFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ transaction_id: transactionId, otp, ...(email ? { email } : {}), source: "WEB" }),
@@ -396,7 +409,7 @@ export async function refreshTokensAction() {
     const apiUrl = getUserApiUrl();
     const bodyPayload = { refresh_token: tokenToRefresh, source: 'WEB' };
 
-    const response = await fetch(`${apiUrl}/auth/refresh-token?lang_code=en&source=web`, {
+    const response = await authFetch(`${apiUrl}/auth/refresh-token?lang_code=en&source=web`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

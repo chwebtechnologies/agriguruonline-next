@@ -196,7 +196,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
           <PageHeader title="Market Updates" backText="Back" backHref={`/${lang}/market-updates`} />
 
           {/* 50-50 Split Layout using CSS Grid Areas */}
-          <div className="mt-3 w-full max-w-full overflow-hidden">
+          <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
             {/* Screen Reader Only H1 to enforce descending heading hierarchy for Accessibility & SEO */}
 
             <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">

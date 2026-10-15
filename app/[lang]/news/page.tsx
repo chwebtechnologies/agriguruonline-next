@@ -34,7 +34,7 @@ function NewsGridSkeleton() {
   return (
     <>
       <PageHeader title="Latest News" backText="Back" />
-      <div className="w-full h-12 bg-muted rounded-xl animate-pulse mt-4 mb-4"></div>
+      <div className="w-full h-10 bg-muted rounded-xl animate-pulse mt-0.5 mb-1.5"></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
@@ -50,6 +50,7 @@ function NewsGridSkeleton() {
 }
 
 import { withTimeout } from '@/lib/api-utils'
+import { ServerTimeoutRetry } from '@/components/ui/ServerTimeoutRetry'
 
 /* ---------- News Feed Component ---------- */
 async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, matchedCategory, dict }: any) {
@@ -58,6 +59,16 @@ async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, mat
     2500,
     null
   )
+
+  if (!newsData) {
+    return (
+      <ServerTimeoutRetry
+        lang={lang}
+        className="my-4"
+      />
+    )
+  }
+
   const articles = newsData?.data?.news || []
   const totalItems = newsData?.data?.total || 0
   const totalPages = Math.ceil(totalItems / limit)

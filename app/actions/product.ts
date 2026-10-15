@@ -218,12 +218,13 @@ export async function submitTradingInquiry(payload: any) {
   const url = `${tradingApiUrl}/trading-inquiry?type=${payload.type}&lang_code=${payload.lang_code || 'en'}&source=web`;
   
   try {
-    // Add headers specifically for JSON content type
-    const res = await fetch(url, {
+    // Use customFetch with mutation timeout and auto-retry
+    const res = await customFetch(url, {
       method: "POST",
+      token,
+      timeout: 25000,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(payload)
     });
@@ -295,19 +296,17 @@ export async function checkKYCStatus(langCode: string, type: string, favoritePro
       bodyPayload.favorite_product_id = favoriteProductId;
     }
 
-    const res = await fetch(url, {
+    const res = await customFetch(url, {
       method: "POST",
+      token,
+      timeout: 15000,
       headers: {
         'Content-Type': 'application/json',
-        'x-app-source': 'web',
-        'source': 'web',
-        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(bodyPayload)
     });
     
     const data = await res.json().catch(() => null);
-    console.log("KYC / next-button API Response:", data, "Status:", res.status);
     
     if (data) {
        return {
@@ -421,20 +420,18 @@ export async function checkFavoriteProductLimit(langCode: string = 'en') {
       bodyPayload.user_id = user_id;
     }
 
-    const res = await fetch(url, {
+    const res = await customFetch(url, {
       method: "POST",
+      token,
+      timeout: 15000,
       headers: {
         'Content-Type': 'application/json',
-        'x-app-source': 'web',
-        'source': 'web',
-        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(bodyPayload),
       cache: 'no-store'
     });
 
     const data = await res.json().catch(() => null);
-    console.log("Favorite product check-limit API Response:", data, "Status:", res.status);
 
     if (res.status === 401 || data?.message === 'Unauthorized' || data?.isUnauthorized) {
       return {

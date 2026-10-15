@@ -161,7 +161,7 @@ export default async function FreightChartsPage(props: { params: Promise<{ lang:
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader title="Freight Charts" backText="Back" />
 
-          <div className="mt-4">
+          <div className="mt-1 sm:mt-1.5">
             <Suspense fallback={<FreightChartGridSkeleton />}>
               <FreightChartContent lang={lang} common={dict?.common} />
             </Suspense>

@@ -3,9 +3,10 @@ import { PageHeader } from '@/components/ui/PageHeader';
 export default function PaymentHistoryLoading() {
   return (
     <div className="bg-background text-foreground">
-      <div className="max-w-7xl mx-auto pt-3 pb-5 px-3 sm:px-0">
-        <PageHeader title="Payment History" backText="Back" />
-        <div className="mt-4 flex flex-col gap-4 animate-pulse">
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5 px-3 sm:px-0">
+          <PageHeader title="Payment History" backText="Back" />
+          <div className="mt-1 sm:mt-1.5 flex flex-col gap-4 animate-pulse">
           {/* Skeleton Stats Overview Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
             {[...Array(4)].map((_, i) => (
@@ -65,6 +66,7 @@ export default function PaymentHistoryLoading() {
                 </div>
               ))}
             </div>
+          </div>
           </div>
         </div>
       </div>

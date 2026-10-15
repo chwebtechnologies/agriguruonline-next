@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(url)
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
     
     if (!response.ok) {
       console.error(`PDF proxy upstream failed for ${url} with status ${response.status}`);

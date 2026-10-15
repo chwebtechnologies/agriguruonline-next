@@ -60,7 +60,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
   }
 
   return (
-    <form method="GET" action="" className={`flex flex-row gap-2 sm:gap-3 w-full mt-1 mb-2 ${categories.length === 0 ? 'justify-end' : ''}`}>
+    <form method="GET" action="" className={`flex flex-row gap-2 sm:gap-3 w-full mt-0.5 mb-1.5 ${categories.length === 0 ? 'justify-end' : ''}`}>
       {/* Category Filter - LEFT */}
       {categories.length > 0 && (
         <div className="relative w-1/2">
@@ -123,7 +123,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
 
 export default function ListingFilters(props: ListingFiltersProps) {
   const FallbackUI = (
-    <form method="GET" action="" className={`flex flex-row gap-2 sm:gap-3 w-full mt-1 mb-2 ${!props.categories || props.categories.length === 0 ? 'justify-end' : ''}`}>
+    <form method="GET" action="" className={`flex flex-row gap-2 sm:gap-3 w-full mt-0.5 mb-1.5 ${!props.categories || props.categories.length === 0 ? 'justify-end' : ''}`}>
       {props.categories && props.categories.length > 0 && (
         <div className="relative w-1/2">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

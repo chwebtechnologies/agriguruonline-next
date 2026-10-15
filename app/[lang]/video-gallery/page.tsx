@@ -6,6 +6,7 @@ import { cache, Suspense } from 'react'
 import { cmsService } from '@/lib/api/cms.service';
 import { getDictionary } from '../dictionaries'
 import { Pagination } from '@/components/ui/Pagination'
+import { ServerTimeoutRetry } from '@/components/ui/ServerTimeoutRetry'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -33,6 +34,16 @@ import { withTimeout } from '@/lib/api-utils'
 /* ---------- Async component that fetches and renders video grid ---------- */
 async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPage: number }) {
   const data = await withTimeout(cmsService.getVideoCategories().catch(() => null), 2500, null)
+  
+  if (!data) {
+    return (
+      <ServerTimeoutRetry
+        lang={lang}
+        className="my-4"
+      />
+    )
+  }
+
   const categories = data?.data?.categories || []
 
   if (categories.length === 0) {

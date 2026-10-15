@@ -254,7 +254,10 @@ export async function fetchGeoCountry(): Promise<Country | null> {
   if (typeof window === "undefined") return null;
 
   try {
-    const res = await fetch("/api/geo");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch("/api/geo", { signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) return null;
     const data = await res.json();
     if (data?.country && isSupportedCountry(data.country)) {

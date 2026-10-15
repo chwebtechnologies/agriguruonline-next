@@ -195,7 +195,7 @@ function ProductDetailSkeleton({ slug }: { slug: string }) {
   return (
     <>
       <PageHeader title={productName} backText="Back" />
-      <div className="mt-4 sm:mt-5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+      <div className="mt-1 sm:mt-1.5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 p-4 sm:p-5 md:p-6">
           <div className="flex flex-row md:flex-col gap-4 md:gap-0 md:space-y-4 md:col-span-5 lg:col-span-4">
             <div className="relative w-2/5 md:w-full aspect-square bg-muted animate-pulse rounded-xl border border-border flex-shrink-0"></div>
@@ -301,7 +301,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
     <>
       <PageHeader title={productName} backText={common.back} />
 
-      <div className="mt-4 sm:mt-5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+      <div className="mt-1 sm:mt-1.5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 p-4 sm:p-5 md:p-6">
           
           {/* Product Image Section (Side-by-side with title on mobile) */}

@@ -1013,8 +1013,20 @@ export default function MobileCommodityChart({
 
     fetchPriceHistory();
 
+    const handleOnlineRefetch = () => {
+      if (isMounted) {
+        priceHistoryCache.delete(cacheKey);
+        fetchPriceHistory();
+      }
+    };
+
+    window.addEventListener('online', handleOnlineRefetch);
+    window.addEventListener('app:online', handleOnlineRefetch);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('online', handleOnlineRefetch);
+      window.removeEventListener('app:online', handleOnlineRefetch);
     };
   }, [item.id, item.productId, item.favoriteProductId, item.product, lang, cacheKey, initialPriceHistory]);
 

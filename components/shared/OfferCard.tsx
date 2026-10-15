@@ -93,7 +93,6 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType, di
               </div>
             ) : (
               <Link 
-                prefetch={false} 
                 href={href} 
                 className={`${buttonColorClass} px-3 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded text-[11px] sm:text-[12px] md:text-[13px] font-bold shadow-sm transition-colors`}
               >

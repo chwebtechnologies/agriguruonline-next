@@ -4,7 +4,7 @@ export default function DisclaimerLoading() {
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           {/* Header Skeleton */}
-          <div className="py-2 sm:py-2.5 flex items-center justify-between w-full mb-2">
+          <div className="py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5">
             <div className="w-9 h-9 rounded-full bg-muted animate-pulse border border-border" />
             <div className="h-8 sm:h-9 bg-muted animate-pulse rounded-lg w-48 sm:w-64 mx-auto" />
             <div className="w-9 h-9" />

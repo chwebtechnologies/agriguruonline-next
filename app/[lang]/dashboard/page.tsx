@@ -51,7 +51,7 @@ export default async function DashboardPage(props: { params: Promise<{ lang: str
         <div className="max-w-7xl mx-auto pt-3 pb-5 px-3 sm:px-0">
           <PageHeader title="Dashboard Overview" backText="Back" />
           
-          <div className="mt-4">
+          <div className="mt-1 sm:mt-1.5">
             <DashboardClient 
               lang={lang} 
               common={dict?.common} 

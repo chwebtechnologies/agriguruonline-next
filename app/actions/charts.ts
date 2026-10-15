@@ -422,20 +422,21 @@ export async function getPriceAnalysisDetailsAction(
     const safeLang = getSafeLang(lang);
     const safeType = String(type || 'product').toLowerCase().includes('freight') ? 'freight' : 'product';
     const { getTradingApiUrl } = await import("@/lib/api-utils");
+    const { customFetchJSON } = await import("@/lib/api/fetcher");
     const url = `${getTradingApiUrl()}/price-analysis/details/${safeType}/${id}?lang_code=${safeLang}&source=web`;
     
-    const res = await fetch(url, {
+    const json: any = await customFetchJSON(url, {
+      token,
+      timeout: 15000,
       headers: {
-        "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     });
 
-    if (!res.ok) {
-      return { success: false, error: "Failed to fetch details", data: null };
+    if (!json) {
+      return { success: false, error: "Failed to fetch details or server timeout", data: null };
     }
 
-    const json = await res.json();
     return { success: true, data: json.data || json };
   } catch (err: any) {
     console.error("getPriceAnalysisDetailsAction error:", err);

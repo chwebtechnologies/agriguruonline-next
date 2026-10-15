@@ -94,11 +94,15 @@ async function translateTextBlock(text: string, targetLang: string): Promise<str
   for (const client of googleClients) {
     try {
       const gUrl = `https://translate.googleapis.com/translate_a/single?client=${client}&sl=auto&tl=${targetCode}&dt=t&q=${encodeURIComponent(text)}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
       const res = await fetch(gUrl, {
+        signal: controller.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         },
       });
+      clearTimeout(timer);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data?.[0])) {
@@ -117,7 +121,10 @@ async function translateTextBlock(text: string, targetLang: string): Promise<str
   // 2. Secondary fallback: MyMemory API
   try {
     const mUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 500))}&langpair=en|${targetCode}`;
-    const res = await fetch(mUrl);
+    const mController = new AbortController();
+    const mTimer = setTimeout(() => mController.abort(), 4000);
+    const res = await fetch(mUrl, { signal: mController.signal });
+    clearTimeout(mTimer);
     if (res.ok) {
       const data = await res.json();
       if (data?.responseData?.translatedText) {
@@ -222,12 +229,16 @@ export async function GET(req: NextRequest) {
 
     for (const chunk of chunks) {
       const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${targetCode}&client=tw-ob`;
+      const ttsController = new AbortController();
+      const ttsTimer = setTimeout(() => ttsController.abort(), 5000);
       const res = await fetch(ttsUrl, {
+        signal: ttsController.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Referer': 'https://translate.google.com/',
         },
       });
+      clearTimeout(ttsTimer);
 
       if (res.ok) {
         const arr = await res.arrayBuffer();

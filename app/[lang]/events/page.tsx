@@ -35,7 +35,7 @@ function EventsGridSkeleton() {
   return (
     <>
       <PageHeader title="Latest Events" backText="Back" />
-      <div className="w-full h-12 bg-muted rounded-xl animate-pulse mt-4 mb-4"></div>
+      <div className="w-full h-10 bg-muted rounded-xl animate-pulse mt-0.5 mb-1.5"></div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {[...Array(8)].map((_, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
@@ -51,6 +51,7 @@ function EventsGridSkeleton() {
 }
 
 import { withTimeout } from '@/lib/api-utils'
+import { ServerTimeoutRetry } from '@/components/ui/ServerTimeoutRetry'
 
 async function EventsPageContent({ lang, searchParams }: { lang: string, searchParams: { [key: string]: string | string[] | undefined } }) {
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
@@ -75,16 +76,29 @@ async function EventsPageContent({ lang, searchParams }: { lang: string, searchP
     2500,
     null
   )
-  const eventsList = eventsData?.data?.events || []
-  const totalItems = eventsData?.data?.total || 0
-  const totalPages = Math.ceil(totalItems / limit)
-
   const categoryOptions = apiCategories
     .filter(cat => cat.is_active !== false)
     .map(cat => {
       const translation = cat.translations?.find(t => t.lang_code === lang)
       return { slug: cat.slug, name: translation ? translation.name : cat.name }
     })
+
+  if (!eventsData) {
+    return (
+      <>
+        <PageHeader title={dict.header?.events || "Latest Events"} backText={dict.common?.back || "Back"} />
+        <ListingFilters categories={categoryOptions} />
+        <ServerTimeoutRetry
+          lang={lang}
+          className="my-4"
+        />
+      </>
+    )
+  }
+
+  const eventsList = eventsData?.data?.events || []
+  const totalItems = eventsData?.data?.total || 0
+  const totalPages = Math.ceil(totalItems / limit)
 
   return (
     <>

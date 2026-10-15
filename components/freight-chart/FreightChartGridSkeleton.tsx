@@ -1,28 +1,16 @@
 import React from 'react';
 
-export function FreightChartGridSkeleton() {
-  const gridCols = 'grid-cols-[1.2fr_1.4fr_1.4fr_0.9fr_1fr_0.9fr_0.7fr_1.3fr]';
+export const FREIGHT_CHART_GRID_COLS = 'grid-cols-[1.2fr_1.4fr_1.4fr_0.9fr_1fr_0.9fr_0.7fr_1.3fr]';
 
+export function FreightChartRowsSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="w-full overflow-visible">
-      {/* Desktop Filter Row Skeleton */}
-      <div className={`hidden lg:grid ${gridCols} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0 animate-pulse`}>
-        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
-        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
-        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
-        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
-        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
-        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
-        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
-        <div className="w-full h-[45px] rounded-lg bg-muted"></div>
-      </div>
-
+    <div className="w-full">
       {/* Mobile/Tablet List Skeleton (lg:hidden) */}
       <div className="flex flex-col gap-[7px] lg:hidden">
-        {[...Array(4)].map((_, i) => (
+        {[...Array(count)].map((_, i) => (
           <div
             key={`mob-${i}`}
-            className="flex flex-col p-3 bg-card rounded-2xl border border-border shadow-xs animate-pulse"
+            className="flex flex-col p-3 bg-card rounded-2xl border border-border shadow-xs animate-pulse space-y-2"
           >
             <div className="flex justify-between items-center">
               <div className="h-3.5 w-24 bg-muted rounded"></div>
@@ -42,10 +30,10 @@ export function FreightChartGridSkeleton() {
 
       {/* Desktop Table Rows Skeleton (hidden lg:flex) */}
       <div className="hidden lg:flex flex-col gap-[7px] lg:gap-2 mt-0.5 lg:mt-1">
-        {[...Array(4)].map((_, i) => (
+        {[...Array(count)].map((_, i) => (
           <div
             key={`desk-${i}`}
-            className={`grid ${gridCols} gap-1.5 items-center py-3.5 rounded-lg bg-card shadow-xs border border-border text-sm animate-pulse px-0`}
+            className={`grid ${FREIGHT_CHART_GRID_COLS} gap-1.5 items-center py-3.5 rounded-lg bg-card shadow-xs border border-border text-sm animate-pulse px-0`}
           >
             <div className="h-4 w-24 bg-muted rounded min-w-0 pl-3"></div>
             <div className="flex items-center gap-2 min-w-0">
@@ -70,3 +58,25 @@ export function FreightChartGridSkeleton() {
     </div>
   );
 }
+
+export function FreightChartGridSkeleton() {
+  return (
+    <div className="w-full overflow-visible">
+      {/* Desktop Filter Row Skeleton */}
+      <div className={`hidden lg:grid ${FREIGHT_CHART_GRID_COLS} gap-1.5 mb-1.5 items-end pt-1 pb-1 px-0 animate-pulse`}>
+        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
+        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
+        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
+        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
+        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
+        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
+        <div className="w-full h-[45px] rounded-lg border border-border bg-card"></div>
+        <div className="w-full h-[45px] rounded-lg bg-muted"></div>
+      </div>
+
+      {/* Rows Skeleton */}
+      <FreightChartRowsSkeleton count={4} />
+    </div>
+  );
+}
+

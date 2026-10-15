@@ -14,6 +14,7 @@ import { ChartMobileEmptyCard } from '@/components/ui/charts/ChartMobileEmptyCar
 import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard';
 import { ChartBottomSheetContainer } from '@/components/ui/charts/ChartBottomSheetContainer';
 import { ChartCardOptionsBottomSheet } from '@/components/ui/charts/ChartCardOptionsBottomSheet';
+import { FreightChartRowsSkeleton } from '@/components/freight-chart/FreightChartGridSkeleton';
 import {
   getFreightLoadingPortsAction,
   getFreightDestinationPortsAction,
@@ -445,7 +446,12 @@ export default function FreightChartClient({
     try {
       let kycResponse: any = null;
       try {
-        const kycResRaw = await fetch(`/api/freight-options?type=check-kyc&favFreightId=${encodeURIComponent(favFreightId)}&lang=${lang}`);
+        const abortCtrl = new AbortController();
+        const timeoutId = setTimeout(() => abortCtrl.abort(), 8000);
+        const kycResRaw = await fetch(`/api/freight-options?type=check-kyc&favFreightId=${encodeURIComponent(favFreightId)}&lang=${lang}`, {
+          signal: abortCtrl.signal
+        });
+        clearTimeout(timeoutId);
         kycResponse = await kycResRaw.json();
       } catch {
         kycResponse = await checkFreightKYCStatus(favFreightId, lang).catch(() => null);
@@ -621,13 +627,9 @@ export default function FreightChartClient({
           </div>
 
           {/* Data Rows */}
-          <div className={`mt-0 lg:mt-2 ${addedFreights.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
+          <div className={`mt-0 lg:mt-2 ${!isFetchingFavorites && addedFreights.length === 0 ? 'lg:min-h-[220px]' : ''}`}>
             {isFetchingFavorites && addedFreights.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 lg:py-16 text-center bg-card border border-border border-dashed rounded-xl h-full lg:min-h-[220px]">
-                <i className="fa-solid fa-spinner fa-spin text-brand-blue text-3xl mb-4"></i>
-                <h3 className="text-lg font-bold text-foreground">Loading Your Charts...</h3>
-                <p className="text-muted-foreground text-sm mt-2">Please wait while we fetch your data</p>
-              </div>
+              <FreightChartRowsSkeleton count={4} />
             ) : addedFreights.length === 0 ? (
               <>
                 {/* Mobile/Tablet Compact Card Empty State */}

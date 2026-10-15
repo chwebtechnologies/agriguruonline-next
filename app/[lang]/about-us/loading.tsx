@@ -3,9 +3,16 @@ export default function AboutLoading() {
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <div className="h-10 w-48 bg-muted rounded animate-pulse mb-6"></div>
+          {/* Header Skeleton */}
+          <div className="py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5 border-b border-border/40">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+              <div className="w-40 h-6 bg-muted rounded-md animate-pulse" />
+            </div>
+            <div className="w-20 h-8 bg-muted rounded-full animate-pulse" />
+          </div>
           {/* First Section Skeleton */}
-          <div className="mt-6 md:mt-10">
+          <div className="mt-2 sm:mt-3">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
               <div className="space-y-4 md:space-y-6">
                 <div className="space-y-2 sm:space-y-3">

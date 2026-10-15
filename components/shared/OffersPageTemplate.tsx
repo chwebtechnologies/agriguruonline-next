@@ -76,11 +76,11 @@ function OffersPageSkeleton({ pageTitle }: { pageTitle: string }) {
     <>
       <PageHeader title={pageTitle} backText="Back" />
       
-      <div className="mt-2 mb-4">
+      <div className="mt-0.5 mb-1.5 sm:mb-2">
         <div className="h-10 bg-muted animate-pulse rounded-lg max-w-sm"></div>
       </div>
 
-      <div className="bg-card border border-border rounded-2xl p-3 sm:p-5 lg:p-6 mt-4">
+      <div className="bg-card border border-border rounded-2xl p-3 sm:p-5 lg:p-6 mt-1 sm:mt-1.5">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="flex gap-4 p-4 border border-border rounded-2xl animate-pulse bg-muted/50">
@@ -137,11 +137,11 @@ async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: O
     <>
       <PageHeader title={pageTitle} backText={common.back} />
       
-      <div className="mt-2 mb-4">
+      <div className="mt-0.5 mb-1.5 sm:mb-2">
         <ListingFilters categories={categoryOptions} />
       </div>
 
-      <div className="bg-card border border-border rounded-2xl p-3 sm:p-5 lg:p-6 mt-4">
+      <div className="bg-card border border-border rounded-2xl p-3 sm:p-5 lg:p-6 mt-1 sm:mt-1.5">
         {inquiries.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             {inquiries.map((inquiry, index) => (

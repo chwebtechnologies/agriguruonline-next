@@ -61,7 +61,7 @@ function MyOffersSkeleton() {
   return (
     <>
       <PageHeader title="My Offers" backText="Back" />
-      <div className="w-full mt-4 bg-card border border-border rounded-2xl h-[600px] animate-pulse"></div>
+      <div className="w-full mt-1 sm:mt-1.5 bg-card border border-border rounded-2xl h-[600px] animate-pulse"></div>
     </>
   )
 }

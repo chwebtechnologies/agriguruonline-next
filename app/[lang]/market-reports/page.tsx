@@ -66,6 +66,7 @@ function MarketReportsGridSkeleton() {
 }
 
 import { withTimeout } from '@/lib/api-utils'
+import { ServerTimeoutRetry } from '@/components/ui/ServerTimeoutRetry'
 
 /* ---------- Async component that fetches and renders market reports grid ---------- */
 async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, token, categoryId, dict }: {
@@ -83,6 +84,15 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
     2500,
     null
   )
+
+  if (!reportsData) {
+    return (
+      <ServerTimeoutRetry
+        lang={lang}
+        className="my-4"
+      />
+    )
+  }
   
   // Try to safely extract array of reports and total
   let reports = (reportsData?.data as any)?.market_reports || (reportsData?.data as any) || []

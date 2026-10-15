@@ -11,11 +11,13 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
     const updateHeaderHeight = () => {
       const header = document.getElementById('site-header')
       if (header) {
-        const mainHeader = header.querySelector('header')
-        if (mainHeader && mainHeader.offsetHeight > 0) {
-          setHeaderHeight(mainHeader.offsetHeight)
-        } else if (header.offsetHeight > 0) {
+        if (header.offsetHeight > 0) {
           setHeaderHeight(header.offsetHeight)
+        } else {
+          const mainHeader = header.querySelector('header')
+          if (mainHeader && mainHeader.offsetHeight > 0) {
+            setHeaderHeight(mainHeader.offsetHeight)
+          }
         }
       }
     }
@@ -52,7 +54,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
   return (
     <div
       style={{ top: `${headerHeight}px` }}
-      className="sticky top-[63px] z-40 py-2 sm:py-2.5 flex items-center justify-between w-full mb-2 bg-background relative"
+      className="sticky top-[63px] z-40 py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5 bg-background relative"
     >
       {/* Full-width background bleed to hide scrolling content behind PageHeader */}
       <div className="absolute inset-y-0 w-screen left-1/2 -translate-x-1/2 bg-background z-0 pointer-events-none border-b border-border/40 shadow-xs" />

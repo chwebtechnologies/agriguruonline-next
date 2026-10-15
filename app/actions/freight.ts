@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { getSafeLang, getTradingApiUrl, getUserApiUrl } from "@/lib/api-utils";
 import { tradingService } from "@/lib/api";
 import { ServerActionResponse } from "./charts";
-import { customFetchJSON } from "@/lib/api/fetcher";
+import { customFetch, customFetchJSON } from "@/lib/api/fetcher";
 import { refreshTokensAction } from "@/app/actions/auth";
 import { getUserProfile } from "@/lib/user-data";
 
@@ -224,17 +224,17 @@ export async function fetchFreightPriceAction(params: {
     const tradingApiUrl = getTradingApiUrl();
     const url = `${tradingApiUrl}/freight-inquiry/price?${queryParams.toString()}`;
 
-    const res = await fetch(url, {
+    const data: any = await customFetchJSON(url, {
+      token,
+      timeout: 15000,
       headers: {
-        "Authorization": `Bearer ${token}`,
         "Accept": "application/json",
         "x-app-source": "web"
       }
     });
 
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      return { success: false, error: data?.message || "Failed to fetch price", data: null };
+    if (!data) {
+      return { success: false, error: "Failed to fetch price or server timeout", data: null };
     }
 
     return { success: true, data: data?.data || data };
@@ -409,19 +409,17 @@ export async function checkFreightKYCStatus(
       favourite_freight_id: String(favouriteFreightId)
     };
 
-    const res = await fetch(url, {
+    const res = await customFetch(url, {
       method: "POST",
+      token,
+      timeout: 15000,
       headers: {
         'Content-Type': 'application/json',
-        'x-app-source': 'web',
-        'source': 'web',
-        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(body)
     });
 
     const data = await res.json().catch(() => null);
-    console.log("Freight Inquiry next-button API Response:", data, "Status:", res.status);
 
     if (!res.ok) {
       const errorMsg = Array.isArray(data?.message)

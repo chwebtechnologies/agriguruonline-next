@@ -180,7 +180,7 @@ function SubCategoryProductsSkeleton({ subSlug, slug, lang, dict }: { subSlug: s
   return (
     <>
       <PageHeader title={pageTitle} backText={dict?.back || "Back"} backHref={`/${lang}/category/${slug}`} />
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-1 sm:mt-1.5">
         {[...Array(10)].map((_, i) => (
           <div key={i} className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden shadow-xs">
             <div className="relative w-full aspect-square bg-muted animate-pulse border-b border-border"></div>
@@ -234,7 +234,7 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
       <PageHeader title={pageTitle} backText={common.back} backHref={`/${lang}/category/${slug}`} />
 
       {data && data.products && data.products.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mt-1 sm:mt-1.5">
           {data.products.map((product: any, index: number) => {
             const mappedProduct = {
               id: product.id,

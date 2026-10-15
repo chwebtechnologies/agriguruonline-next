@@ -13,13 +13,16 @@ export default function FastLink({
   const router = useRouter()
 
   const handleWarmup = (e: React.PointerEvent<HTMLAnchorElement> | React.TouchEvent<HTMLAnchorElement>) => {
-    // Disabled manual prefetch to save network bandwidth on 2G connections
+    try {
+      if (href) {
+        router.prefetch(String(href))
+      }
+    } catch {}
   }
 
   return (
     <Link 
       href={href}
-      prefetch={false}
       onPointerEnter={(e) => {
         handleWarmup(e)
         if (onPointerEnter) onPointerEnter(e)

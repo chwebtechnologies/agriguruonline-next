@@ -19,13 +19,17 @@ export async function POST(req: NextRequest) {
     
     const url = `${getTradingApiUrl()}/price-analysis?lang_code=${lang_code}&source=web`;
     
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25000);
     const res = await fetch(url, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Authorization': `Bearer ${token}`
       },
       body: formData
     });
+    clearTimeout(timer);
 
     const data = await res.json().catch(() => null);
 
@@ -67,9 +71,13 @@ export async function GET(req: NextRequest) {
 
     if (action === 'status') {
       const url = `${getTradingApiUrl()}/price-analysis/status/${type}/${job_id}?lang_code=${lang_code}&source=web`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(url, {
+        signal: controller.signal,
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      clearTimeout(timer);
       const data = await res.json().catch(() => ({}));
       return NextResponse.json(data, { status: res.status });
     } 

@@ -66,7 +66,7 @@ function ProfilePageSkeleton() {
   return (
     <>
       <PageHeader title="My Profile" backText="Back" />
-      <div className="mt-4">
+      <div className="mt-1 sm:mt-1.5">
         {/* Banner Skeleton */}
         <div className="w-full h-12 bg-muted rounded-xl animate-pulse mb-4"></div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-6 items-start">
@@ -217,7 +217,7 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
     <>
       <PageHeader title={(common as any).profile || 'My Profile'} backText={common.back || 'Back'} />
 
-      <div className="mt-4">
+      <div className="mt-1 sm:mt-1.5">
         
         {/* Dynamic KYC Alert Banner */}
         <KycAlertBanner initialIsKycVerified={isKycVerified} initialKycStatus={kycStatus} userId={userId} lang={lang} />

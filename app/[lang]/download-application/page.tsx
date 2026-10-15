@@ -44,7 +44,7 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
           <PageHeader title={dict.header?.download_app || "Download App"} backText={backText} />
 
           {/* SECTION 1: HERO - 2 Column Layout */}
-          <section className="relative pt-4 sm:pt-6 lg:pt-8 pb-8 lg:pb-12">
+          <section className="relative pt-1 sm:pt-2 pb-8 lg:pb-12">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
               
               {/* Left: Text & CTA with QR codes */}

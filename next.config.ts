@@ -220,7 +220,7 @@ const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
   disable: process.env.NODE_ENV !== "production", // Disabled in dev due to Turbopack, enabled in prod for caching
-  reloadOnOnline: true,
+  reloadOnOnline: false, // Disabled to prevent forced hard page reload; handled gracefully via silent client-side re-fetch
 });
 
 export default withSerwist(nextConfig);

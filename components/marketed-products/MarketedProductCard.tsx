@@ -100,7 +100,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
   return (
     <div className="group flex flex-col h-full rounded-md bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs relative">
       <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border shrink-0">
-        <Link prefetch={false} href={`/${lang}/product/${product.slug}`} aria-label={product.name} className="block w-full h-full">
+        <Link href={`/${lang}/product/${product.slug}`} aria-label={product.name} className="block w-full h-full">
           {isLCP ? (
             <Image
               src={imageUrl}
@@ -166,7 +166,6 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
           </div>
           <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 leading-snug h-[38px] sm:h-[44px] flex items-center justify-center">
             <Link 
-              prefetch={false} 
               href={`/${lang}/product/${product.slug}`} 
               title={product.name}
               className="hover:text-brand-blue transition-colors line-clamp-2 break-words text-center"

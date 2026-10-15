@@ -49,7 +49,7 @@ async function AboutPageContent({ lang }: { lang: string }) {
       <PageHeader title={aboutDict.title || 'About Us'} backText={backText} />
 
       {/* First Section: Hero / Introduction */}
-      <section className="mt-6 md:mt-10">
+      <section className="mt-2 sm:mt-3">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Left Column: Heading, Subtitle, and Desc 1 */}
           <div className="flex flex-col justify-center space-y-4 md:space-y-5">

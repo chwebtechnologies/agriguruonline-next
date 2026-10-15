@@ -85,8 +85,11 @@ export async function GET(req: NextRequest) {
           favourite_freight_id: String(favFreightId)
         };
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
         const res = await fetch(url, {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             'x-app-source': 'web',
@@ -95,6 +98,7 @@ export async function GET(req: NextRequest) {
           },
           body: JSON.stringify(body)
         });
+        clearTimeout(timeout);
 
         const data = await res.json().catch(() => null);
 
@@ -174,13 +178,17 @@ export async function GET(req: NextRequest) {
         if (user_id) queryParams.append('user_id', user_id);
 
         const priceUrl = `${tradingApiUrl}/freight-inquiry/price?${queryParams.toString()}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
         const res = await fetch(priceUrl, {
+          signal: controller.signal,
           headers: {
             'Authorization': `Bearer ${token}`,
             'Accept': 'application/json',
             'x-app-source': 'web'
           }
         });
+        clearTimeout(timeout);
 
         const data = await res.json().catch(() => null);
         return NextResponse.json(data || { success: false, message: 'No price data' });

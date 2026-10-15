@@ -117,12 +117,29 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
     
     fetchInit.signal = controller.signal;
 
+    let slowTimer: NodeJS.Timeout | null = null;
+    let didEmitSlow = false;
+    if (typeof window !== 'undefined') {
+      slowTimer = setTimeout(() => {
+        didEmitSlow = true;
+        window.dispatchEvent(new CustomEvent('app:slow-connection', { detail: { url: finalUrl } }));
+      }, 3500);
+    }
+
+    const cleanupTimers = () => {
+      clearTimeout(timeoutId);
+      if (slowTimer) clearTimeout(slowTimer);
+      if (didEmitSlow && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app:slow-connection-resolved'));
+      }
+    };
+
     try {
       const res = await fetch(finalUrl, fetchInit);
       
       // Retry for 5xx Server Errors (Temporary backend issues)
       if (res.status >= 500 && res.status <= 599 && attempt < maxRetries) {
-        clearTimeout(timeoutId);
+        cleanupTimers();
         attempt++;
         await delay(500); // 500ms retry delay (was 1.5s)
         continue;
@@ -189,7 +206,7 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
             const guestHeaders = new Headers(fetchInit.headers);
             guestHeaders.delete('Authorization');
             fetchInit.headers = guestHeaders;
-            clearTimeout(timeoutId);
+            cleanupTimers();
             const guestRes = await fetch(finalUrl, fetchInit);
             if (guestRes.ok) {
               return guestRes;
@@ -198,10 +215,10 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
         }
       }
       
-      clearTimeout(timeoutId);
+      cleanupTimers();
       return res;
     } catch (error: any) {
-      clearTimeout(timeoutId);
+      cleanupTimers();
       
       // Only retry on pure network failures, NOT timeouts (AbortError) — retrying a timed-out request wastes more time
       if (attempt < maxRetries && error.name !== 'AbortError' && (error.message?.includes('fetch') || error.message?.includes('network'))) {
