@@ -190,22 +190,6 @@ export default function ProductChartsClient({
   const [actionItem, setActionItem] = useState<FavoriteItem | null>(null);
 
   const handleOpenMobileAdd = async () => {
-    const hasAuth = Boolean(
-      userType ||
-      (typeof document !== 'undefined' && (document.cookie.includes('auth_token=') || document.cookie.includes('user_info=')))
-    );
-
-    if (!hasAuth) {
-      setKycTitle('Watchlist Access');
-      setKycMessage('Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
-      setKycIndicationText('Start Free Trial');
-      setKycRedirectUrl(`/${lang}/pricing`);
-      setKycSecondaryText('Log In');
-      setKycSecondaryUrl(`/${lang}/login`);
-      setIsKYCModalOpen(true);
-      return;
-    }
-
     if (isCheckingLimit) return;
     setIsCheckingLimit(true);
 
@@ -217,7 +201,7 @@ export default function ProductChartsClient({
       if (!isPermitted) {
         if (limitRes?.isUnauthorized) {
           setKycTitle('Watchlist Access');
-          setKycMessage('Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
+          setKycMessage(limitRes?.message || 'Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
           setKycIndicationText('Start Free Trial');
           setKycRedirectUrl(`/${lang}/pricing`);
           setKycSecondaryText('Log In');
@@ -246,6 +230,19 @@ export default function ProductChartsClient({
       setShowMobileAddForm(true);
     } finally {
       setIsCheckingLimit(false);
+    }
+  };
+
+  const handleGlobalInquiryClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!userType) {
+      router.push(`/${lang}/login`);
+      return;
+    }
+    if (addedProducts.length > 0) {
+      handleBuySellClick(addedProducts[0]);
+    } else {
+      router.push(`/${lang}/category`);
     }
   };
 
@@ -1618,23 +1615,28 @@ export default function ProductChartsClient({
         </div>
       </div>
 
-        {/* Global Actions Bar - Sticky on Mobile, Static on Desktop */}
-        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto md:flex md:justify-between lg:static lg:bottom-auto lg:bg-transparent lg:border-none lg:shadow-none lg:px-0 lg:mx-0 lg:mt-4">
+        {/* Global Actions Bar */}
+        <div className="w-full flex items-center justify-between gap-2 sm:gap-3 mt-1.5 sm:mt-2 pointer-events-auto">
           
           {/* Left Action (Inquiry/Offer) */}
-          <button className="w-full md:w-auto inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap">
-             Inquiry / Offer <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+          <button 
+            type="button"
+            onClick={handleGlobalInquiryClick}
+            className="flex-1 min-w-0 lg:flex-none lg:w-auto inline-flex items-center justify-center gap-1.5 h-[42px] px-3 sm:px-5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer select-none"
+          >        
+             <span className="truncate whitespace-nowrap">Inquiry / Offer</span>
+             <i className="fa-solid fa-arrow-right text-[10px] sm:text-xs shrink-0 hidden min-[360px]:inline-block"></i>
           </button>
 
           {/* Center Action (Disclaimer Icon) */}
-          <div className="flex items-center justify-center gap-4 relative px-2">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 relative px-1 sm:px-2 shrink-0">
             <button 
               type="button"
               onClick={handleDisclaimerClick} 
               aria-label="Standard Market Rate Disclaimer"
-              className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center transition-colors min-w-[36px] min-h-[36px] p-2 rounded-lg cursor-pointer"
+              className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-muted/60 hover:bg-muted border border-border/80 flex items-center justify-center transition-colors w-9 h-[42px] sm:w-10 rounded-xl cursor-pointer"
             >
-              <i className="fa-solid fa-triangle-exclamation text-[22px]"></i>
+              <i className="fa-solid fa-triangle-exclamation text-[19px]"></i>
             </button>
 
             {/* View All Button - Desktop Only */}
@@ -1653,7 +1655,7 @@ export default function ProductChartsClient({
                 <div className={`absolute ${disclaimerPos === 'top' ? '-bottom-[7px]' : '-top-[7px]'} left-1/2 -translate-x-1/2 w-[14px] h-[14px] bg-card ${disclaimerPos === 'top' ? 'border-b border-r' : 'border-t border-l'} border-brand-blue transform rotate-45`}></div>
                 
                 <h3 className="text-foreground text-center font-semibold text-[16px] mb-3">Standard Market Rate</h3>
-                <p className="text-zinc-600 text-[13px] leading-relaxed text-justify mb-4">
+                <p className="text-zinc-600 dark:text-zinc-300 text-[13px] leading-relaxed text-justify mb-4">
                   The displayed prices/rates reflect standard market rates between buyers and sellers which may or may not buy or sell at. They are subject to reconfirmation as per AgriGuru’s Terms, conditions.
                 </p>
                 <div className="border-t border-border pt-3 text-center">
@@ -1669,13 +1671,15 @@ export default function ProductChartsClient({
           </div>
 
           {/* Right Action (Add Product) - Mobile Only */}
-          <ChartAddButton
-            onClick={handleOpenMobileAdd}
-            loading={isCheckingLimit}
-            label="Add Product"
-            variant="mobile-sticky"
-            className="lg:hidden !max-w-none !w-full md:!w-auto h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
-          />
+          <div className="flex-1 min-w-0 lg:hidden">
+            <ChartAddButton
+              onClick={handleOpenMobileAdd}
+              loading={isCheckingLimit}
+              label="Add Product"
+              variant="mobile-sticky"
+              className="!max-w-none !w-full h-[42px] flex items-center justify-center m-0 py-0 !rounded-xl !text-xs sm:!text-sm font-bold whitespace-nowrap shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+            />
+          </div>
 
           {/* Right Action (Freight Inquiry) - Desktop Only */}
           <button 

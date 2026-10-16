@@ -78,7 +78,7 @@ export async function generateMetadata(
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   
-  const sourceImage = article.image || article.thumbnail
+  const sourceImage = article.thumbnail || article.image
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http') 
     ? sourceImage 
@@ -293,7 +293,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
                                 fill
                                 sizes="(max-width: 640px) 100px, 120px"
                                 style={{ objectFit: 'contain' }}
-                                className="!object-contain group-hover:scale-105 transition-transform duration-300"
+                                className="!object-contain"
                               />
                             </div>
 

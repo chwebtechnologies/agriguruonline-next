@@ -451,7 +451,7 @@ export function HeaderSearch({
                               <img
                                 src={imageUrl}
                                 alt={product.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.currentTarget.src = '/logo.svg'
                                 }}
@@ -520,7 +520,7 @@ export function HeaderSearch({
                                 <img
                                   src={imageUrl}
                                   alt={product.name}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                  className="w-full h-full object-cover"
                                   onError={(e) => {
                                     e.currentTarget.src = '/logo.svg'
                                   }}
@@ -559,7 +559,7 @@ export function HeaderSearch({
                                 <img
                                   src={imageUrl}
                                   alt={product.name}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                  className="w-full h-full object-cover"
                                   onError={(e) => {
                                     e.currentTarget.src = '/logo.svg'
                                   }}

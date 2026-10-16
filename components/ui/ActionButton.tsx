@@ -50,12 +50,12 @@ export function ActionButton({
   const hasTextSize = className.includes('text-');
   const baseTextSize = hasTextSize ? '' : 'text-[14px]';
 
-  const combinedClassName = `${basePadding} ${baseTextSize} font-extrabold tracking-wide rounded shadow-md flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer transition-all ${bgClass} ${className}`;
+  const combinedClassName = `${basePadding} ${baseTextSize} font-extrabold tracking-wide rounded shadow-md flex items-center justify-center gap-1 sm:gap-1.5 active:scale-[0.98] cursor-pointer transition-all whitespace-nowrap overflow-hidden select-none ${bgClass} ${className}`;
   
   const content = (
     <>
-      {finalIcon && <i className={`fa-solid ${finalIcon}`}></i>}
-      <span>{children}</span>
+      {finalIcon && <i className={`fa-solid ${finalIcon} shrink-0 text-[10px] sm:text-xs`}></i>}
+      <span className="whitespace-nowrap truncate select-none leading-none">{children}</span>
     </>
   );
 

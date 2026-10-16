@@ -56,91 +56,60 @@ interface OffersPageTemplateProps {
 
 import { Suspense } from 'react'
 
-export function OffersPageTemplate({ lang, searchParams, offerType, pageTitle }: OffersPageTemplateProps) {
+function OffersInquiriesGridSkeleton() {
   return (
-    <div className="bg-background text-foreground">
-      {/* Main Content */}
-      <div className="w-full pad-for-badges">
-        <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense fallback={<OffersPageSkeleton pageTitle={pageTitle} />}>
-            <OffersPageContent lang={lang} searchParams={searchParams} offerType={offerType} pageTitle={pageTitle} />
-          </Suspense>
-        </div>
+    <div className="bg-card border border-border rounded-2xl p-3 sm:p-5 lg:p-6 mt-1 sm:mt-1.5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="flex gap-4 p-4 border border-border rounded-2xl animate-pulse bg-muted/50">
+            <div className="w-20 h-20 bg-muted rounded-full shrink-0"></div>
+            <div className="flex-1 space-y-3">
+              <div className="h-4 bg-muted rounded w-3/4"></div>
+              <div className="h-4 bg-muted rounded w-1/2"></div>
+              <div className="h-4 bg-muted rounded w-full"></div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-function OffersPageSkeleton({ pageTitle }: { pageTitle: string }) {
-  return (
-    <>
-      <PageHeader title={pageTitle} backText="Back" />
-      
-      <div className="mt-0.5 mb-1.5 sm:mb-2">
-        <div className="h-10 bg-muted animate-pulse rounded-lg max-w-sm"></div>
-      </div>
+async function OffersInquiriesFeed({
+  lang,
+  searchStr,
+  categoryId,
+  offerType,
+  pageTitle,
+  dict,
+  matchedCategory,
+}: {
+  lang: string
+  searchStr?: string
+  categoryId?: string
+  offerType: 'BUYER' | 'SELLER'
+  pageTitle: string
+  dict: any
+  matchedCategory?: any
+}) {
+  const [data, authData] = await Promise.all([
+    getLatestOffers(lang, offerType, { search: searchStr, categoryId: categoryId }),
+    getClientAuthData(lang).catch(() => ({ userProfile: null })),
+  ])
 
-      <div className="bg-card border border-border rounded-2xl p-3 sm:p-5 lg:p-6 mt-1 sm:mt-1.5">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="flex gap-4 p-4 border border-border rounded-2xl animate-pulse bg-muted/50">
-              <div className="w-20 h-20 bg-muted rounded-full shrink-0"></div>
-              <div className="flex-1 space-y-3">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-4 bg-muted rounded w-1/2"></div>
-                <div className="h-4 bg-muted rounded w-full"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
-  )
-}
-
-async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: OffersPageTemplateProps) {
-  const searchStr = searchParams.search;
-  const categoryStr = searchParams.category;
-
-  const [apiCategories, dict, authData] = await Promise.all([
-    tradingService.getCategories(lang).catch(() => []),
-    getDictionary(lang).catch(() => ({} as any)),
-    getClientAuthData(lang).catch(() => ({ userProfile: null }))
-  ]);
-
-  // Resolve slug to ID server-side so ID never leaks to the client
-  const matchedCategory = categoryStr ? apiCategories.find(cat => cat.slug === categoryStr) : undefined
-  const categoryId = matchedCategory?.id
-
-  const data = await getLatestOffers(lang, offerType, { search: searchStr, categoryId: categoryId });
-  
-  const userType = authData.userProfile?.user_type ? (typeof authData.userProfile.user_type === 'string' ? authData.userProfile.user_type.toLowerCase() : String(authData.userProfile.user_type.name || '').toLowerCase()) : null;
-
-  const categoryOptions = apiCategories
-    .filter(cat => cat.is_active !== false)
-    .map(cat => {
-      const translation = cat.translations?.find(t => t.lang_code === lang)
-      return { slug: cat.slug, name: translation ? translation.name : cat.name }
-    })
-  
-  const commonDict = (dict as Record<string, any>).common || {}
-  const common = {
-    back: commonDict.back || "Back"
-  }
+  const userType = authData.userProfile?.user_type
+    ? typeof authData.userProfile.user_type === 'string'
+      ? authData.userProfile.user_type.toLowerCase()
+      : String(authData.userProfile.user_type.name || '').toLowerCase()
+    : null
 
   const inquiries = data?.data?.inquiries || []
-
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+  const commonDict = (dict as Record<string, any>).common || {}
 
   return (
     <>
-      <PageHeader title={pageTitle} backText={common.back} />
-      
-      <div className="mt-0.5 mb-1.5 sm:mb-2">
-        <ListingFilters categories={categoryOptions} />
-      </div>
-
       <div className="bg-card border border-border rounded-2xl p-3 sm:p-5 lg:p-6 mt-1 sm:mt-1.5">
         {inquiries.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
@@ -223,5 +192,55 @@ async function OffersPageContent({ lang, searchParams, offerType, pageTitle }: O
         }}
       />
     </>
+  )
+}
+
+export async function OffersPageTemplate({ lang, searchParams, offerType, pageTitle }: OffersPageTemplateProps) {
+  const searchStr = searchParams.search;
+  const categoryStr = searchParams.category;
+
+  const [apiCategories, dict] = await Promise.all([
+    tradingService.getCategories(lang).catch(() => []),
+    getDictionary(lang).catch(() => ({} as any)),
+  ]);
+
+  const categoryOptions = apiCategories
+    .filter(cat => cat.is_active !== false)
+    .map(cat => {
+      const translation = cat.translations?.find(t => t.lang_code === lang)
+      return { slug: cat.slug, name: translation ? translation.name : cat.name }
+    })
+
+  const commonDict = (dict as Record<string, any>).common || {}
+  const common = {
+    back: commonDict.back || "Back"
+  }
+
+  const matchedCategory = categoryStr ? apiCategories.find(cat => cat.slug === categoryStr) : undefined
+  const categoryId = matchedCategory?.id
+
+  return (
+    <div className="bg-background text-foreground">
+      {/* Main Content */}
+      <div className="w-full pad-for-badges">
+        <div className="max-w-7xl mx-auto pt-3 pb-5">
+          <PageHeader title={pageTitle} backText={common.back} />
+          <div className="mt-0.5 mb-1.5 sm:mb-2">
+            <ListingFilters categories={categoryOptions} />
+          </div>
+          <Suspense key={`${lang}-${categoryStr || ''}-${searchStr || ''}`} fallback={<OffersInquiriesGridSkeleton />}>
+            <OffersInquiriesFeed 
+              lang={lang} 
+              searchStr={searchStr} 
+              categoryId={categoryId} 
+              offerType={offerType} 
+              pageTitle={pageTitle}
+              dict={dict}
+              matchedCategory={matchedCategory}
+            />
+          </Suspense>
+        </div>
+      </div>
+    </div>
   )
 }

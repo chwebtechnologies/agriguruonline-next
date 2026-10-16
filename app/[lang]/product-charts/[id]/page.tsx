@@ -50,7 +50,7 @@ export async function generateMetadata(
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
   const assetsUrl = getAssetsUrl();
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
-  const productImg = itemData?.image || itemData?.thumbnail;
+  const productImg = itemData?.thumbnail || itemData?.image;
   const imagePath = productImg?.startsWith('/') ? productImg.slice(1) : productImg;
   const imageUrl = productImg?.startsWith('http')
     ? productImg

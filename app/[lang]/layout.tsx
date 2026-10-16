@@ -70,7 +70,7 @@ export async function generateMetadata(props: {
       locale: activeLang,
       images: [
         {
-          url: '/logo.png',
+          url: `${getSiteUrl()}/logo.png`,
           width: 1200,
           height: 630,
           alt: 'AgriGuru Online Logo',
@@ -81,7 +81,7 @@ export async function generateMetadata(props: {
       card: 'summary_large_image',
       title: seo.title,
       description: seo.description,
-      images: ['/logo.png'],
+      images: [`${getSiteUrl()}/logo.png`],
       site: '@AgriGuruOnline',
       creator: '@AgriGuruOnline',
     },
@@ -101,6 +101,9 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 }
 
 export default async function LocalizedRootLayout(props: {
@@ -206,6 +209,21 @@ export default async function LocalizedRootLayout(props: {
                   }
                 } catch(e) {}
               })()
+            `,
+          }}
+        />
+        <script
+          id="text-scale-enforcer"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var d = document.documentElement;
+                  d.style.fontSize = '16px';
+                  d.style.webkitTextSizeAdjust = '100%';
+                  d.style.textSizeAdjust = '100%';
+                } catch(e) {}
+              })();
             `,
           }}
         />

@@ -136,7 +136,7 @@ async function AboutPageContent({ lang }: { lang: string }) {
                 }
                 width={330}
                 height={151}
-                className="max-h-full max-w-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="max-h-full max-w-full w-auto h-auto object-contain"
               />
             </div>
 
@@ -170,7 +170,7 @@ async function AboutPageContent({ lang }: { lang: string }) {
                 }
                 width={271}
                 height={182}
-                className="max-h-full max-w-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="max-h-full max-w-full w-auto h-auto object-contain"
               />
             </div>
 
@@ -204,7 +204,7 @@ async function AboutPageContent({ lang }: { lang: string }) {
                 }
                 width={202}
                 height={161}
-                className="max-h-full max-w-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="max-h-full max-w-full w-auto h-auto object-contain"
               />
             </div>
 

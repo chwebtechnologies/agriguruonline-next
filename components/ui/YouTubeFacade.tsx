@@ -51,7 +51,7 @@ export default function YouTubeFacade({ videoId, title, className = '' }: YouTub
         height={360}
         loading="lazy"
         decoding="async"
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-90 group-hover:opacity-100"
+        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
       />
 
       {/* Subtle Dark Gradient Overlay */}

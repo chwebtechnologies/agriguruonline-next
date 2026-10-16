@@ -367,32 +367,22 @@ export async function checkFavoriteProductLimit(langCode: string = 'en') {
     }
   }
 
-  if (!token) {
-    return {
-      success: false,
-      isUnauthorized: true,
-      message: "Please log in or start a free trial to add products to your watchlist.",
-      data: {
-        can_create: false,
-        response_indication: "LOGIN_REQUIRED"
-      }
-    };
-  }
-
   let user_id = '';
   let isKycVerified = false;
   let userType: any = null;
 
-  try {
-    const profileResult = await getUserProfile(token, safeLang);
-    const profile = profileResult?.userProfile;
-    if (profile) {
-      user_id = profile.id || profile._id || profile.customer_id || '';
-      isKycVerified = Boolean(profile.is_kyc_verified);
-      userType = profile.user_type;
+  if (token) {
+    try {
+      const profileResult = await getUserProfile(token, safeLang);
+      const profile = profileResult?.userProfile;
+      if (profile) {
+        user_id = profile.id || profile._id || profile.customer_id || '';
+        isKycVerified = Boolean(profile.is_kyc_verified);
+        userType = profile.user_type;
+      }
+    } catch (e) {
+      console.error("Error retrieving user profile in checkFavoriteProductLimit:", e);
     }
-  } catch (e) {
-    console.error("Error retrieving user profile in checkFavoriteProductLimit:", e);
   }
 
   if (!user_id) {

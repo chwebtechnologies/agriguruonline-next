@@ -103,7 +103,7 @@ export default function MarketReportCard({ report, lang, priority = false, dict 
             alt={title}
             title={title}
             fill
-            className="transition-transform duration-500 group-hover:scale-105"
+            className="object-contain"
             style={{ objectFit: 'contain' }}
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 20vw"
             priority={priority}

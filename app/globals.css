@@ -20,13 +20,31 @@
 }
 
 html {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100% !important;
+  -moz-text-size-adjust: 100% !important;
+  -ms-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+  max-width: 100vw;
+  overflow-x: clip;
   scrollbar-gutter: stable;
 }
 
 body {
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100% !important;
+  -moz-text-size-adjust: 100% !important;
+  -ms-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+  max-width: 100vw;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+main {
+  max-width: 100%;
 }
 
 /* Zero CLS baseline sizing for all FontAwesome icons */
@@ -46,11 +64,19 @@ i[class*="fa-"] {
      Agriguru Online Unified Layout Container Token
      Used by BOTH header and page content to guarantee pixel-perfect alignment.
      ========================================================================== */
-  --ag-container-px: 1rem; /* 16px */
+  --ag-container-px: 0.75rem; /* 12px for mobile screens to avoid edge overflow */
+  --site-header-height: 57px; /* Mobile header height */
+  }
+  @media (min-width: 640px) {
+    :root {
+      --ag-container-px: 1rem; /* 16px */
+      --site-header-height: 63px; /* Tablet header height */
+    }
   }
   @media (min-width: 1024px) {
     :root {
       --ag-container-px: 3.5rem; /* 56px padding on laptops */
+      --site-header-height: 97px; /* Desktop header height */
     }
   }
   @media (min-width: 1280px) {

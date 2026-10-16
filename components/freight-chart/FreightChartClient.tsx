@@ -62,6 +62,17 @@ export interface FavoriteFreightItem {
   favourite_freight_id?: string;
 }
 
+const openNextDropdown = (mobileId: string, desktopId: string) => {
+  setTimeout(() => {
+    if (typeof window !== 'undefined') {
+      const isDesktop = window.innerWidth >= 1024;
+      const targetId = isDesktop ? desktopId : mobileId;
+      const el = document.getElementById(targetId) || document.getElementById(mobileId) || document.getElementById(desktopId);
+      el?.click();
+    }
+  }, 100);
+};
+
 interface FreightChartClientProps {
   initialShippingContainers?: ShippingContainer[];
   initialFavorites?: FavoriteFreightItem[];
@@ -263,12 +274,16 @@ export default function FreightChartClient({
             .then(dRes => {
               if (dRes.success && Array.isArray(dRes.data)) {
                 setDestinationPorts(dRes.data);
-                setTimeout(() => document.getElementById('desktop-pod-select')?.click(), 100);
+                if (dRes.data.length === 1) {
+                  setSelectedPOD(dRes.data[0].id);
+                } else {
+                  openNextDropdown('mobile-pod', 'desktop-pod-select');
+                }
               }
             })
             .finally(() => setPodLoading(false));
         } else {
-          setTimeout(() => document.getElementById('desktop-pol-select')?.click(), 100);
+          openNextDropdown('mobile-pol', 'desktop-pol-select');
         }
       } else {
         setLoadingPorts([]);
@@ -297,7 +312,7 @@ export default function FreightChartClient({
         if (res.data.length === 1) {
           setSelectedPOD(res.data[0].id);
         } else {
-          setTimeout(() => document.getElementById('desktop-pod-select')?.click(), 100);
+          openNextDropdown('mobile-pod', 'desktop-pod-select');
         }
       } else {
         setDestinationPorts([]);
@@ -317,6 +332,19 @@ export default function FreightChartClient({
 
   // Validation
   const isAddFreightEnabled = Boolean(selectedShipBy && selectedPOL && selectedPOD);
+
+  // Auto-scroll to the note element of the mobile form when all required fields are selected
+  useEffect(() => {
+    if (isAddFreightEnabled && showMobileAddForm) {
+      const scrollTimer = setTimeout(() => {
+        const noteEl = document.getElementById('mobile-add-freight-note');
+        if (noteEl) {
+          noteEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 200);
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [isAddFreightEnabled, showMobileAddForm]);
 
   // 4. Handle Add Freight
   const handleAddFreight = async () => {
@@ -1008,33 +1036,36 @@ export default function FreightChartClient({
           </div>
         </div>
 
-        {/* Global Actions Bar - Sticky on Mobile, Static on Desktop */}
-        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:gap-3 items-center py-3 px-3 sm:px-4 -mx-4 sticky bottom-[68px] z-40 bg-background/95 border-t border-border shadow-xs mt-3 pointer-events-auto md:flex md:justify-between lg:static lg:bottom-auto lg:bg-transparent lg:border-none lg:shadow-none lg:px-0 lg:mx-0 lg:mt-4">
+        {/* Global Actions Bar */}
+        <div className="w-full flex items-center justify-between gap-2 sm:gap-3 mt-1.5 sm:mt-2 pointer-events-auto">
           <button
             type="button"
             onClick={() => handleBooking(undefined, 'bottom')}
             disabled={isBookingLoading}
-            className="w-full md:w-auto inline-flex items-center justify-center h-[42px] px-4 py-2 sm:px-5 sm:py-2.5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all whitespace-nowrap disabled:opacity-70 disabled:pointer-events-none"
+            className="flex-1 min-w-0 lg:flex-none lg:w-auto inline-flex items-center justify-center gap-1.5 h-[42px] px-3 sm:px-5 bg-card hover:bg-primary hover:border-primary hover:text-white border border-border text-foreground font-bold rounded-xl text-xs sm:text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer select-none disabled:opacity-70 disabled:pointer-events-none"
           >
             {isBookingLoading && bookingLoadingId === 'bottom' ? (
               <>
-                <i className="fa-solid fa-spinner fa-spin mr-2 text-xs"></i> Loading...
+                <i className="fa-solid fa-spinner fa-spin mr-1.5 text-xs shrink-0"></i>
+                <span className="truncate">Loading...</span>
               </>
             ) : (
               <>
-                Freight Inquiry <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
+                <i className="fa-solid fa-ship text-xs text-primary shrink-0"></i>
+                <span className="truncate whitespace-nowrap">Freight Inquiry</span>
+                <i className="fa-solid fa-arrow-right text-[10px] sm:text-xs shrink-0 hidden min-[360px]:inline-block"></i>
               </>
             )}
           </button>
           
-          <div className="relative flex items-center justify-center gap-4 px-2">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 relative px-1 sm:px-2 shrink-0">
             <button
               type="button"
               onClick={handleDisclaimerClick}
-              className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center cursor-pointer min-w-[36px] min-h-[36px] p-2 rounded-lg transition-colors"
-              aria-label="Standard Market Rate Disclaimer"
+              className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-muted/60 hover:bg-muted border border-border/80 flex items-center justify-center transition-colors w-9 h-[42px] sm:w-10 rounded-xl cursor-pointer"
+              aria-label="Standard Market Freight Disclaimer"
             >
-              <i className="fa-solid fa-triangle-exclamation text-[22px]"></i>
+              <i className="fa-solid fa-triangle-exclamation text-[19px]"></i>
             </button>
 
             {/* View All Button - Desktop Only */}
@@ -1068,12 +1099,14 @@ export default function FreightChartClient({
           </div>
 
           {/* Right Action (Add Freight) - Mobile Only */}
-          <ChartAddButton
-            onClick={() => setShowMobileAddForm(true)}
-            label="Add Freight"
-            variant="mobile-sticky"
-            className="lg:hidden !max-w-none !w-full md:!w-auto h-[42px] flex items-center justify-center m-0 py-0 rounded-lg !text-[13px] sm:!text-[14px] whitespace-nowrap"
-          />
+          <div className="flex-1 min-w-0 lg:hidden">
+            <ChartAddButton
+              onClick={() => setShowMobileAddForm(true)}
+              label="Add Freight"
+              variant="mobile-sticky"
+              className="!max-w-none !w-full h-[42px] flex items-center justify-center m-0 py-0 !rounded-xl !text-xs sm:!text-sm font-bold whitespace-nowrap shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+            />
+          </div>
           {/* Empty Placeholder for Desktop to keep Warning centered */}
           <div className="hidden lg:inline-flex px-4 py-2 sm:px-5 sm:py-2.5 invisible pointer-events-none select-none" aria-hidden="true">
             Freight Inquiry <i className="fa-solid fa-arrow-right ml-2 text-[10px] sm:text-xs"></i>
@@ -1262,55 +1295,61 @@ export default function FreightChartClient({
           </div>
 
           {/* Form Fields */}
-          <div className="flex-1 overflow-y-auto relative bg-background scroll-smooth scroll-pb-32">
+          <div id="mobile-add-freight-scroll-container" className="flex-1 overflow-y-auto relative bg-background scroll-smooth scroll-pb-32">
             <div className="px-5 pt-3 pb-8 space-y-4 min-h-full flex flex-col">
               <div className="flex-1 space-y-4">
                 {/* 1. Ship by */}
                 <div>
                   <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Ship by</label>
-                  <SearchableSelect
-                    id="mobile-shipby"
-                    value={selectedShipBy}
-                    onChange={handleShipBySelect}
-                    options={shippingContainers}
-                    placeholder={common.select_ship_by || "Select Ship By"}
-                    variant="mobile"
-                  />
+                  <div className="mobile-add-select">
+                    <SearchableSelect
+                      id="mobile-shipby"
+                      value={selectedShipBy}
+                      onChange={handleShipBySelect}
+                      options={shippingContainers}
+                      placeholder={common.select_ship_by || "Select Ship By"}
+                      variant="mobile"
+                    />
+                  </div>
                 </div>
 
                 {/* 2. Loading Port */}
                 <div>
                   <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Loading Port (POL)</label>
-                  <SearchableSelect
-                    id="mobile-pol"
-                    value={selectedPOL}
-                    onChange={handlePOLSelect}
-                    options={loadingPorts}
-                    placeholder={!selectedShipBy ? "Select Loading Port" : polLoading ? "Loading..." : loadingPorts.length === 0 ? "No Ports Found" : "Select Loading Port"}
-                    disabled={!selectedShipBy || polLoading}
-                    loading={polLoading}
-                    variant="mobile"
-                  />
+                  <div className="mobile-add-select">
+                    <SearchableSelect
+                      id="mobile-pol"
+                      value={selectedPOL}
+                      onChange={handlePOLSelect}
+                      options={loadingPorts}
+                      placeholder={!selectedShipBy ? "Select Loading Port" : polLoading ? "Loading..." : loadingPorts.length === 0 ? "No Ports Found" : "Select Loading Port"}
+                      disabled={!selectedShipBy || polLoading}
+                      loading={polLoading}
+                      variant="mobile"
+                    />
+                  </div>
                 </div>
 
                 {/* 3. Destination Port */}
                 <div>
                   <label className="block text-foreground font-semibold mb-1.5 text-[14px]">Destination Port (POD)</label>
-                  <SearchableSelect
-                    id="mobile-pod"
-                    value={selectedPOD}
-                    onChange={handlePODSelect}
-                    options={destinationPorts}
-                    placeholder={!selectedPOL ? "Select Destination Port" : podLoading ? "Loading..." : destinationPorts.length === 0 ? "No Destination Ports" : "Select Destination Port"}
-                    disabled={!selectedPOL || podLoading}
-                    loading={podLoading}
-                    variant="mobile"
-                  />
+                  <div className="mobile-add-select">
+                    <SearchableSelect
+                      id="mobile-pod"
+                      value={selectedPOD}
+                      onChange={handlePODSelect}
+                      options={destinationPorts}
+                      placeholder={!selectedPOL ? "Select Destination Port" : podLoading ? "Loading..." : destinationPorts.length === 0 ? "No Destination Ports" : "Select Destination Port"}
+                      disabled={!selectedPOL || podLoading}
+                      loading={podLoading}
+                      variant="mobile"
+                    />
+                  </div>
                 </div>
 
                 {/* Notes card when all are selected */}
                 {selectedShipBy && selectedPOL && selectedPOD && (
-                  <div className="mt-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30">
+                  <div id="mobile-add-freight-note" className="mt-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30">
                     <div className="flex items-start gap-3">
                       <i className="fa-solid fa-circle-info text-blue-500 mt-1"></i>
                       <div className="space-y-1 text-sm">
@@ -1327,7 +1366,12 @@ export default function FreightChartClient({
             <div className="sticky bottom-0 left-0 w-full px-6 py-4 border-t border-border bg-background z-40 pb-safe shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.1)]">
               <div className="flex justify-center">
                 <ChartAddButton
-                  onClick={handleAddFreight}
+                  onClick={async () => {
+                    await handleAddFreight();
+                    if (isAddFreightEnabled) {
+                      setShowMobileAddForm(false);
+                    }
+                  }}
                   disabled={!isAddFreightEnabled}
                   loading={isAdding}
                   label="Add Freight"
@@ -1336,6 +1380,23 @@ export default function FreightChartClient({
               </div>
             </div>
           </div>
+
+          <style dangerouslySetInnerHTML={{__html: `
+            .mobile-add-select .h-10 {
+              height: 48px !important;
+              border-radius: 10px !important;
+              font-weight: 500 !important;
+              border: none !important;
+            }
+            .mobile-add-select .h-10:not(.bg-\[\#1D92EB\]) {
+              background-color: var(--muted) !important;
+              color: var(--muted-foreground) !important;
+            }
+            .dark .mobile-add-select .h-10:not(.bg-\[\#1D92EB\]) {
+              background-color: var(--muted) !important;
+              color: var(--muted-foreground) !important;
+            }
+          `}} />
         </div>
       )}
 

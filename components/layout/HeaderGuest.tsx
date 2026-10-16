@@ -157,10 +157,13 @@ export function HeaderGuestBase({
     common: rawDict?.common || {}
   }
 
-  // Scroll listener for sticky collapse behavior
+  // Scroll listener for sticky collapse behavior (desktop only)
   useEffect(() => {
     let scrolled = false
     const handleScroll = () => {
+      // isScrolled only controls collapsing the categories bar and switching logo on desktop (>= 1024px)
+      if (window.innerWidth < 1024) return
+
       const sy = window.scrollY
 
       if (scrolled) {
@@ -249,16 +252,16 @@ export function HeaderGuestBase({
     <div id="site-header" className="w-full flex flex-col z-[70] bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar */}
-      <header className="relative w-full bg-card text-foreground py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
-        <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
+      <header className="relative w-full bg-card text-foreground py-2 sm:py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
+        <div className="mx-auto max-w-7xl flex items-center justify-between gap-2 sm:gap-4">
           
-          <div className="flex items-center flex-1 gap-3 md:gap-4">
-            <div className="flex items-center shrink-0 lg:w-[110px] rtl:lg:w-[130px] w-auto">
+          <div className="flex items-center flex-1 gap-2 sm:gap-3 md:gap-4 min-w-0">
+            <div className="flex items-center shrink-0 w-auto">
               {/* On Mobile & Tablet (< 1024px): Always show Hamburger Menu */}
-              <div className="lg:hidden w-[44px] h-[42px] flex items-center shrink-0">
+              <div className="lg:hidden w-[38px] h-[38px] sm:w-[44px] sm:h-[42px] flex items-center shrink-0">
                 <AppMenu dict={dict} align="left" isOpen={isMenuOpen} onOpenChange={setIsMenuOpen}>
-                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors w-[44px] h-[42px] justify-center">
-                    <i className="fa-solid fa-bars text-3xl w-[30px] h-[30px] flex items-center justify-center"></i>
+                  <div className="flex items-center gap-2 text-foreground hover:text-primary p-1 -ml-1 rounded transition-colors w-[38px] h-[38px] sm:w-[44px] sm:h-[42px] justify-center cursor-pointer">
+                    <i className="fa-solid fa-bars text-2xl sm:text-3xl flex items-center justify-center"></i>
                   </div>
                 </AppMenu>
               </div>
@@ -277,21 +280,17 @@ export function HeaderGuestBase({
               {/* Logo:
                   On Desktop / Laptop (>= 1024px): Show only when NOT scrolled.
                   On Mobile & Tablet (< 1024px): Always show. */}
-              {!isScrolled ? (
-                <Link href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
-                  <AgriGuruLogo size={42} />
-                </Link>
-              ) : (
-                <div className="lg:hidden">
-                  <Link href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
-                    <AgriGuruLogo size={42} />
-                  </Link>
-                </div>
-              )}
+              <Link 
+                href={`/${activeLang}`} 
+                aria-label="AgriGuru Online Home" 
+                className={`flex items-center gap-1 sm:gap-1.5 focus:outline-none rounded shrink-0 ${isScrolled ? 'lg:hidden' : ''}`}
+              >
+                <AgriGuruLogo size={36} />
+              </Link>
             </div>
 
             {/* Search bar next to logo */}
-            <div className="flex-1 max-w-sm md:max-w-md lg:max-w-lg">
+            <div className="flex-1 min-w-0 max-w-sm md:max-w-md lg:max-w-lg">
               {loading ? (
                 <div className="w-full h-10 rounded-full bg-muted border border-border animate-pulse" />
               ) : (
@@ -346,14 +345,14 @@ export function HeaderGuestBase({
             </nav>
 
             {/* Simple profile links area (Guest/Auth) */}
-            <div className="flex items-center gap-4 select-none border-l border-border pl-4 dir-none">
+            <div className="flex items-center gap-2 sm:gap-4 select-none border-l border-border pl-2 sm:pl-4 dir-none shrink-0">
               {loading ? (
-                <div className="flex items-center gap-3 animate-pulse">
-                  <div className="h-10 w-28 bg-muted rounded-lg border border-border/40" />
-                  <div className="w-12 h-12 rounded-full bg-muted" />
+                <div className="flex items-center gap-2 sm:gap-3 animate-pulse">
+                  <div className="h-9 w-20 sm:h-10 sm:w-28 bg-muted rounded-lg border border-border/40 hidden sm:block" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-muted" />
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Link
                     href={`/${activeLang}/register`}
                     className="h-10 px-5 hidden lg:inline-flex items-center justify-center rounded-lg bg-primary-gradient text-[15px] font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
@@ -362,10 +361,10 @@ export function HeaderGuestBase({
                   </Link>
                   <Link
                     href={`/${activeLang}/login`}
-                    className="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-muted text-foreground hover:bg-muted hover:text-foreground transition-all border border-border shadow-sm hover:scale-105 active:scale-95 duration-200"
+                    className="flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-muted text-foreground hover:bg-muted hover:text-foreground transition-all border border-border shadow-sm hover:scale-105 active:scale-95 duration-200 shrink-0"
                   >
-                    <i className="fa-solid fa-user text-[15px] w-[15px] h-[15px] flex items-center justify-center mb-0.5"></i>
-                    <span className="text-[9px] font-extrabold leading-none mt-0.5 h-[9px] flex items-center justify-center">{dict.navigation.login}</span>
+                    <i className="fa-solid fa-user text-[13px] sm:text-[15px] w-[15px] h-[15px] flex items-center justify-center mb-0.5"></i>
+                    <span className="text-[8px] sm:text-[9px] font-extrabold leading-none mt-0.5 h-[9px] flex items-center justify-center whitespace-nowrap">{dict.navigation.login}</span>
                   </Link>
                 </div>
               )}

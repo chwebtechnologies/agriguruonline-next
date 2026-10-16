@@ -801,6 +801,26 @@ export const SEO_DICTIONARY: Record<
   },
 }
 
+// Dedicated social preview images mapping for static / listing pages (from public/social-preview/)
+const SOCIAL_PREVIEW_PAGE_IMAGES: Record<string, { file: string; width: number; height: number }> = {
+  'about': { file: 'about-us.png', width: 700, height: 368 },
+  'about_us': { file: 'about-us.png', width: 700, height: 368 },
+  'contact': { file: 'contact-us.png', width: 700, height: 368 },
+  'contact_us': { file: 'contact-us.png', width: 700, height: 368 },
+  'events': { file: 'events.png', width: 700, height: 368 },
+  'latest_inquiries': { file: 'inquiries-for-sellers.png', width: 700, height: 368 },
+  'login': { file: 'login-register.png', width: 700, height: 368 },
+  'register': { file: 'login-register.png', width: 700, height: 368 },
+  'market_reports': { file: 'market-reports.png', width: 700, height: 368 },
+  'marketed_products': { file: 'marketed-products.png', width: 700, height: 368 },
+  'membership': { file: 'membership-plan.png', width: 700, height: 368 },
+  'news': { file: 'news.png', width: 700, height: 368 },
+  'latest_offers': { file: 'offers-for-buyers.png', width: 700, height: 368 },
+  'participation_gallery': { file: 'photo-gallery.png', width: 700, height: 368 },
+  'market_updates': { file: 'updates.png', width: 700, height: 368 },
+  'video_gallery': { file: 'video-gallery.png', width: 700, height: 368 },
+}
+
 /**
  * Helper to construct standard metadata for any page
  */
@@ -813,6 +833,8 @@ export function getStandardMetadata({
   overrideKeywords,
   noIndex = false,
   ogImage,
+  ogImageWidth,
+  ogImageHeight,
 }: {
   pageKey?: keyof typeof SEO_DICTIONARY
   pathname: string
@@ -822,6 +844,8 @@ export function getStandardMetadata({
   overrideKeywords?: string[]
   noIndex?: boolean
   ogImage?: string
+  ogImageWidth?: number
+  ogImageHeight?: number
 }): Metadata {
   const safeLang = getSafeLanguage(lang)
   const siteUrl = getSiteUrl()
@@ -833,7 +857,12 @@ export function getStandardMetadata({
 
   const alternates = getAlternates(pathname, safeLang)
   const fullTitle = `${title} | AgriGuru Online`
-  const imageUrl = ogImage || `${siteUrl}/logo.png`
+  
+  // Resolve social preview image & dimensions
+  const socialConfig = pageKey ? SOCIAL_PREVIEW_PAGE_IMAGES[pageKey] : undefined
+  const imageUrl = ogImage || (socialConfig ? `${siteUrl}/social-preview/${socialConfig.file}` : `${siteUrl}/logo.png`)
+  const imageWidth = ogImageWidth || (socialConfig ? socialConfig.width : 1200)
+  const imageHeight = ogImageHeight || (socialConfig ? socialConfig.height : 630)
 
   return {
     title,
@@ -862,8 +891,8 @@ export function getStandardMetadata({
       images: [
         {
           url: imageUrl,
-          width: 1200,
-          height: 630,
+          width: imageWidth,
+          height: imageHeight,
           alt: title,
         },
       ],

@@ -38,19 +38,19 @@ export default function NewsCard({ article, lang, dict = {}, priority = false }:
           title={title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          className="object-cover"
           priority={priority}
         />
       </FastLink>
       
-      <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-1 justify-between">
+      <div className="px-3.5 py-3 sm:px-4 sm:py-4 flex flex-col flex-1 justify-between">
         <div>
-          <div className="flex items-center text-xs text-foreground/80 font-medium mb-2 h-4">
+          <div className="flex items-center text-xs text-foreground/80 font-medium mb-1.5 sm:mb-2 h-4">
             <i className="fa-regular fa-calendar mr-1.5 text-foreground/70"></i>
             <time dateTime={article.posting_date}>{formattedDate}</time>
           </div>
           
-          <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 leading-snug h-[44px] sm:h-[50px] flex items-center">
+          <h2 className="text-[15px] sm:text-[18px] font-semibold text-foreground mb-1.5 sm:mb-2 leading-snug h-[42px] sm:h-[50px] flex items-center">
             <FastLink 
               href={`/${lang}/news/${article.slug}`} 
               title={title}
@@ -60,7 +60,7 @@ export default function NewsCard({ article, lang, dict = {}, priority = false }:
             </FastLink>
           </h2>
           
-          <p className="text-[13px] text-foreground/80 mb-4 line-clamp-2 break-words leading-relaxed h-[40px] overflow-hidden">
+          <p className="text-[13px] text-foreground/80 mb-3 sm:mb-4 line-clamp-2 break-words leading-relaxed h-[38px] sm:h-[40px] overflow-hidden">
             {excerpt}
           </p>
         </div>

@@ -29,23 +29,19 @@ export async function generateMetadata(
   });
 }
 
-/* ---------- Skeleton Component ---------- */
-function NewsGridSkeleton() {
+/* ---------- Skeleton Component for News Cards Feed ---------- */
+function NewsFeedGridSkeleton() {
   return (
-    <>
-      <PageHeader title="Latest News" backText="Back" />
-      <div className="w-full h-10 bg-muted rounded-xl animate-pulse mt-0.5 mb-1.5"></div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
-            <div className="w-full aspect-[4/3] bg-muted rounded-xl"></div>
-            <div className="h-4 bg-muted w-3/4 mt-2 rounded"></div>
-            <div className="h-4 bg-muted w-1/2 rounded"></div>
-            <div className="h-3 bg-muted w-1/4 mt-auto rounded"></div>
-          </div>
-        ))}
-      </div>
-    </>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
+      {[...Array(8)].map((_, i) => (
+        <div key={i} className="flex flex-col gap-2 rounded-2xl border border-border p-3 animate-pulse bg-card">
+          <div className="w-full aspect-[4/3] bg-muted rounded-xl"></div>
+          <div className="h-4 bg-muted w-3/4 mt-2 rounded"></div>
+          <div className="h-4 bg-muted w-1/2 rounded"></div>
+          <div className="h-3 bg-muted w-1/4 mt-auto rounded"></div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -168,7 +164,15 @@ async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, mat
   )
 }
 
-async function NewsPageContent({ lang, searchParams }: { lang: string, searchParams: { [key: string]: string | string[] | undefined } }) {
+/* ---------- Main page component ---------- */
+export default async function LatestNewsPage(props: {
+  params: Promise<{ lang: string }>,
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
+  const lang = params.lang || 'en'
+
   const page = typeof searchParams.page === 'string' ? parseInt(searchParams.page, 10) : 1
   const currentPage = !isNaN(page) && page > 0 ? page : 1
   const limit = 12
@@ -189,38 +193,27 @@ async function NewsPageContent({ lang, searchParams }: { lang: string, searchPar
     .filter(cat => cat.is_active !== false)
     .map(cat => ({ slug: cat.slug, name: cat.name }))
 
-  return (
-    <>
-      <PageHeader title={dict.header?.news || "Latest News"} backText={dict.common?.back || "Back"} />
-      <ListingFilters categories={categoryOptions} />
-      <NewsFeed 
-        lang={lang} 
-        currentPage={currentPage} 
-        limit={limit} 
-        searchQuery={searchQuery} 
-        categoryId={categoryId} 
-        matchedCategory={matchedCategory} 
-        dict={dict} 
-      />
-    </>
-  )
-}
-
-/* ---------- Main page component ---------- */
-export default async function LatestNewsPage(props: {
-  params: Promise<{ lang: string }>,
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const params = await props.params;
-  const searchParams = await props.searchParams;
-  const lang = params.lang || 'en'
+  const pageTitle = dict.header?.latest_news || "Latest News"
 
   return (
     <div className="bg-background text-foreground">
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
-          <Suspense key={`${lang}-${searchParams?.page || 1}-${searchParams?.category || ''}`} fallback={<NewsGridSkeleton />}>
-            <NewsPageContent lang={lang} searchParams={searchParams} />
+          <PageHeader title={pageTitle} backText={dict.common?.back || "Back"} />
+          <ListingFilters categories={categoryOptions} />
+          <Suspense 
+            key={`${lang}-${currentPage}-${categorySlug || ''}-${searchQuery || ''}`} 
+            fallback={<NewsFeedGridSkeleton />}
+          >
+            <NewsFeed 
+              lang={lang} 
+              currentPage={currentPage} 
+              limit={limit} 
+              searchQuery={searchQuery} 
+              categoryId={categoryId} 
+              matchedCategory={matchedCategory} 
+              dict={dict} 
+            />
           </Suspense>
         </div>
       </div>

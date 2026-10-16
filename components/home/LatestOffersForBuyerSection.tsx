@@ -51,13 +51,13 @@ export default function LatestOffersForBuyerSection({
           </div>
 
           {/* Right Column: Vertical Auto Scrolling Offers */}
-          <div className="w-full lg:w-1/2 bg-muted/20 relative flex flex-col p-4 sm:p-6 lg:p-8 overflow-hidden min-h-[500px]">
+          <div className="w-full lg:w-1/2 bg-muted/20 relative flex flex-col p-3 sm:p-6 lg:p-8 overflow-hidden h-[440px] sm:h-[480px] lg:h-auto lg:min-h-[500px]">
             {/* Gradient Mask Top */}
-            <div className="absolute top-0 left-0 w-full h-12 sm:h-16 z-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(to bottom, var(--ag-card-bg) 0%, transparent 100%)' }}></div>
+            <div className="absolute top-0 left-0 w-full h-10 sm:h-14 z-10 pointer-events-none bg-gradient-to-b from-card via-card/60 to-transparent"></div>
             
-            <div className="flex-1 w-full relative overflow-hidden">
+            <div className="w-full h-full relative overflow-hidden flex-1">
               <div 
-                className="animate-marquee-vertical flex flex-col gap-4 absolute top-0 left-0 w-full h-max"
+                className="animate-marquee-vertical flex flex-col gap-3 sm:gap-4 absolute top-0 left-0 w-full"
                 style={{ animationDuration: `${Math.max(offers.length * 6, 25)}s` }}
               >
                 {/* Double the list for seamless looping */}
@@ -76,7 +76,7 @@ export default function LatestOffersForBuyerSection({
             </div>
             
             {/* Gradient Mask Bottom */}
-            <div className="absolute bottom-0 left-0 w-full h-12 sm:h-16 z-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(to top, var(--ag-card-bg) 0%, transparent 100%)' }}></div>
+            <div className="absolute bottom-0 left-0 w-full h-10 sm:h-14 z-10 pointer-events-none bg-gradient-to-t from-card via-card/60 to-transparent"></div>
           </div>
         </div>
       </div>

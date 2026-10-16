@@ -359,9 +359,11 @@ export default async function LocalizedHomePage() {
       <div className="bg-background text-foreground transition-theme" dir={dir}>
         <div className="w-full pad-for-badges">
           <div className="max-w-7xl mx-auto pt-3 pb-5">
-            <HeroCarousel lang={activeLang} dict={dict} />
+            <div className="hidden md:block">
+              <HeroCarousel lang={activeLang} dict={dict} />
+            </div>
             
-            <section id="market-watchlist" className="w-full pt-6 pb-2 scroll-mt-20 md:scroll-mt-24">
+            <section id="market-watchlist" className="w-full pt-1 md:pt-6 pb-2 scroll-mt-14 md:scroll-mt-24">
               <WatchlistScrollHandler />
               <div className="max-w-3xl mx-auto text-center px-4">
                 <div className="inline-block mb-4">
@@ -374,7 +376,7 @@ export default async function LocalizedHomePage() {
                   {dict?.home?.watchlist_desc || 'Easily track FOB, CNF/CFR, and CIF product prices. Monitor live Ocean Port-to-Port freight rates to stay updated on global market trends effortlessly.'}
                 </p>
               </div>
-              <Suspense fallback={<div className="w-full min-h-[300px] mt-5 flex flex-col gap-4 animate-pulse"><div className="flex gap-4 w-full h-14 bg-muted/30 rounded-xl"/><div className="w-full h-72 bg-muted/20 rounded-xl" /></div>}>
+              <Suspense fallback={<div className="w-full min-h-[300px] mt-5 flex flex-col gap-2 md:gap-6 animate-pulse"><div className="flex gap-4 w-full h-14 bg-muted/30 rounded-xl"/><div className="w-full h-72 bg-muted/20 rounded-xl" /></div>}>
                 <WatchlistSection dict={dict} lang={activeLang} />
               </Suspense>
             </section>

@@ -100,7 +100,7 @@ export async function generateMetadata(
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   
-  const sourceImage = article.image || article.thumbnail
+  const sourceImage = article.thumbnail || article.image
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http') 
     ? sourceImage 
@@ -404,7 +404,7 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                                   title={itemTitle}
                                   fill
                                   sizes="(max-width: 640px) 110px, 130px"
-                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                  className="object-cover"
                                 />
                               </div>
 

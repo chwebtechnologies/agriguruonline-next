@@ -5,30 +5,27 @@ import { useState, useEffect } from 'react'
 
 export function PageHeader({ title, backText = "Back", hideBack = false, backHref, onBackClick }: { title: string, backText?: string, hideBack?: boolean, backHref?: string, onBackClick?: () => void }) {
   const router = useRouter()
-  const [headerHeight, setHeaderHeight] = useState<number>(65)
+  // Only track dynamic header height on desktop when the categories subheader bar collapses
+  const [dynamicDesktopTop, setDynamicDesktopTop] = useState<number | null>(null)
 
   useEffect(() => {
+    // Only desktop has a collapsible subheader that changes height on scroll
+    if (window.innerWidth < 1024) return
+
     const updateHeaderHeight = () => {
       const header = document.getElementById('site-header')
-      if (header) {
-        if (header.offsetHeight > 0) {
-          setHeaderHeight(header.offsetHeight)
-        } else {
-          const mainHeader = header.querySelector('header')
-          if (mainHeader && mainHeader.offsetHeight > 0) {
-            setHeaderHeight(mainHeader.offsetHeight)
-          }
-        }
+      if (header && header.offsetHeight > 0) {
+        setDynamicDesktopTop(header.offsetHeight)
       }
     }
-
-    updateHeaderHeight()
 
     const header = document.getElementById('site-header')
     let observer: ResizeObserver | null = null
     if (header && typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(() => {
-        updateHeaderHeight()
+        if (window.innerWidth >= 1024) {
+          updateHeaderHeight()
+        }
       })
       observer.observe(header)
     }
@@ -53,11 +50,11 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
 
   return (
     <div
-      style={{ top: `${headerHeight}px` }}
-      className="sticky top-[63px] z-40 py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5 bg-background relative"
+      style={dynamicDesktopTop ? { top: `${dynamicDesktopTop}px` } : undefined}
+      className="sticky top-[57px] sm:top-[63px] lg:top-[97px] z-40 py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5 bg-background"
     >
       {/* Full-width background bleed to hide scrolling content behind PageHeader */}
-      <div className="absolute inset-y-0 w-screen left-1/2 -translate-x-1/2 bg-background z-0 pointer-events-none border-b border-border/40 shadow-xs" />
+      <div className="absolute inset-y-0 -top-px -left-4 -right-4 sm:-left-8 sm:-right-8 lg:-left-14 lg:-right-14 xl:-left-20 xl:-right-20 bg-background z-0 pointer-events-none border-b border-border/40 shadow-xs" />
       
       {/* Left Column: Back Button */}
       <div className="flex-none flex items-center justify-start relative z-20">

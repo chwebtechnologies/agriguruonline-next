@@ -96,7 +96,10 @@ export async function generateMetadata(
   const description = (rawDescription && rawDescription.length > 10 ? rawDescription.substring(0, 160) : fallbackDescriptions[lang]) || fallbackDescriptions.en
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  const imageUrl = data?.image ? `${getAssetsUrl()}/${data.image}` : `${siteUrl}/logo.png`
+  const rawImage = data?.thumbnail || data?.image
+  const imageUrl = rawImage 
+    ? (rawImage.startsWith('http') ? rawImage : `${getAssetsUrl()}/${rawImage.replace(/^\/+/, '')}`) 
+    : `${siteUrl}/logo.png`
   const alternates = getAlternates(`product/${params.slug}`, lang)
 
   return {
@@ -118,7 +121,14 @@ export async function generateMetadata(
       description,
       url: alternates.canonical,
       siteName: 'AgriGuru Online',
-      images: [{ url: imageUrl, width: 1200, height: 630, alt: productName }],
+      images: [
+        { 
+          url: imageUrl, 
+          width: rawImage ? 800 : 1200, 
+          height: rawImage ? 800 : 630, 
+          alt: productName 
+        }
+      ],
       locale: lang,
       type: 'website',
     },
@@ -561,7 +571,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
                       title={simProductName}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="object-cover"
                     />
                   </Link>
 

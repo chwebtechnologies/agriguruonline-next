@@ -31,9 +31,20 @@ export function ChartAddButton({
         id={id}
         type="button"
         onClick={onClick}
-        className={`w-full max-w-[200px] py-[10px] bg-brand-green hover:bg-brand-green-hover text-white rounded-md text-[14px] shadow-sm transition-colors cursor-pointer ${className}`}
+        disabled={disabled || loading}
+        className={`w-full max-w-[200px] py-[10px] bg-brand-green hover:bg-brand-green-hover text-white rounded-md text-[14px] font-bold whitespace-nowrap select-none shrink-0 shadow-sm transition-colors cursor-pointer disabled:opacity-70 disabled:pointer-events-none ${className}`}
       >
-        {label}
+        {loading ? (
+          <span className="flex items-center justify-center gap-1.5 leading-none">
+            <i className="fa-solid fa-circle-notch fa-spin text-xs"></i>
+            <span className="truncate">{common?.adding || 'Checking...'}</span>
+          </span>
+        ) : (
+          <span className="whitespace-nowrap truncate select-none leading-none flex items-center justify-center gap-1.5">
+            <i className="fa-solid fa-plus text-xs"></i>
+            <span>{label}</span>
+          </span>
+        )}
       </button>
     );
   }

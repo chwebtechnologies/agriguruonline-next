@@ -57,18 +57,18 @@ export function MarketedProductCardClient({
 
   const specsModal = showSpecs && mounted && typeof document !== 'undefined' ? createPortal(
     <div 
-      className={`fixed inset-0 z-[9990] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain transition-opacity duration-200 ${isSubModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[9990] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4 overflow-hidden overscroll-contain transition-opacity duration-200 ${isSubModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       onClick={() => setShowSpecs(false)}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="bg-background text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] my-auto animate-in zoom-in-95 duration-200"
+        className="bg-background text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[92vh] sm:max-h-[85vh] my-auto animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-card shrink-0">
-          <h2 className="font-bold text-lg text-brand-blue flex items-center gap-2">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border flex items-center justify-between bg-card shrink-0">
+          <h2 className="font-bold text-base sm:text-lg text-brand-blue flex items-center gap-2">
             <i className="fa-solid fa-file-lines"></i>
             Specifications
           </h2>
@@ -83,9 +83,9 @@ export function MarketedProductCardClient({
         </div>
 
         {/* Modal Body */}
-        <div className="px-5 py-5 overflow-y-auto bg-[#fdfdfd] dark:bg-background">
-          <div className="mb-6 flex flex-row items-center gap-4">
-            <div className="w-16 h-16 rounded-lg overflow-hidden border border-brand-blue/20 shadow-sm relative flex-shrink-0">
+        <div className="px-3.5 py-3 sm:px-5 sm:py-4 overflow-y-auto bg-[#fdfdfd] dark:bg-background">
+          <div className="mb-3.5 sm:mb-5 flex flex-row items-center gap-3 sm:gap-4">
+            <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-brand-blue/20 shadow-sm relative flex-shrink-0">
               <ImageWithSkeleton
                 src={imageUrl}
                 alt={product.name}
@@ -188,7 +188,7 @@ export function MarketedProductCardClient({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-4 py-4 border-t border-border bg-card/50 shrink-0">
+        <div className="px-3 py-2.5 sm:px-4 sm:py-3.5 border-t border-border bg-card/50 shrink-0">
           <ProductActionButtons 
             productSlugOrId={product.slug || product.id}
             lang={lang}

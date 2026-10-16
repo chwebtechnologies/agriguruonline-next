@@ -42,7 +42,7 @@ export default function MarketUpdateCard({ update, lang, dict = {}, priority = f
           fetchPriority={priority ? 'high' : 'low'}
           decoding="async"
           quality={65}
-          className="object-contain transition-transform duration-500 group-hover:scale-105"
+          className="object-contain"
           sizes="(max-width: 640px) 92vw, (max-width: 1024px) 33vw, 25vw"
         />
       </div>

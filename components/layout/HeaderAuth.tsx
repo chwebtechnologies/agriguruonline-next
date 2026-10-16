@@ -426,10 +426,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   // SSR props are used directly for state initialization above.
   // No useEffect needed to sync them — they are passed once at mount time from the Server Component.
 
-  // Scroll listener for sticky collapse behavior with hysteresis to prevent blinking loops
+  // Scroll listener for sticky collapse behavior with hysteresis to prevent blinking loops (desktop only)
   useEffect(() => {
     let scrolled = false
     const handleScroll = () => {
+      // isScrolled only controls collapsing the categories bar and switching logo on desktop (>= 1024px)
+      if (window.innerWidth < 1024) return
+
       const sy = window.scrollY
 
       if (scrolled) {
@@ -544,18 +547,18 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     <div id="site-header" className="w-full flex flex-col z-[70] bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar (Always sticky) */}
-      <header data-auth="true" className="relative w-full bg-card text-foreground py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
-        <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
+      <header data-auth="true" className="relative w-full bg-card text-foreground py-2 sm:py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
+        <div className="mx-auto max-w-7xl flex items-center justify-between gap-2 sm:gap-4">
 
           {/* Left side group containing Logo/Menu and Search bar with short spacing */}
-          <div className="flex items-center flex-1 gap-3 md:gap-4">
+          <div className="flex items-center flex-1 gap-2 sm:gap-3 md:gap-4 min-w-0">
             {/* Mobile & Desktop Menu Trigger and Logo inline */}
-            <div className="flex items-center shrink-0 lg:w-[110px] rtl:lg:w-[130px] w-auto">
+            <div className="flex items-center shrink-0 w-auto">
               {/* On Mobile & Tablet (< 1024px): Always show Hamburger Menu */}
-              <div className="lg:hidden">
+              <div className="lg:hidden w-[38px] h-[38px] sm:w-[44px] sm:h-[42px] flex items-center shrink-0">
                 <AppMenu dict={dict} align="left" profile={profile} isOpen={isMenuOpen} onOpenChange={setIsMenuOpen} onOpenBecomeMemberModal={() => setIsBecomeMemberOpen(true)}>
-                  <div className="flex items-center gap-3 text-foreground hover:text-primary p-1.5 -ml-1.5 rounded transition-colors">
-                    <i className="fa-solid fa-bars text-3xl"></i>
+                  <div className="flex items-center gap-2 text-foreground hover:text-primary p-1 -ml-1 rounded transition-colors w-[38px] h-[38px] sm:w-[44px] sm:h-[42px] justify-center cursor-pointer">
+                    <i className="fa-solid fa-bars text-2xl sm:text-3xl flex items-center justify-center"></i>
                   </div>
                 </AppMenu>
               </div>
@@ -574,21 +577,17 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               {/* Logo:
                   On Desktop / Laptop (>= 1024px): Show only when NOT scrolled.
                   On Mobile & Tablet (< 1024px): Always show. */}
-              {!isScrolled ? (
-                <Link href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
-                  <AgriGuruLogo size={42} />
-                </Link>
-              ) : (
-                <div className="lg:hidden">
-                  <Link href={`/${activeLang}`} aria-label="AgriGuru Online Home" className="flex items-center gap-1.5 focus:outline-none rounded shrink-0">
-                    <AgriGuruLogo size={42} />
-                  </Link>
-                </div>
-              )}
+              <Link 
+                href={`/${activeLang}`} 
+                aria-label="AgriGuru Online Home" 
+                className={`flex items-center gap-1 sm:gap-1.5 focus:outline-none rounded shrink-0 ${isScrolled ? 'lg:hidden' : ''}`}
+              >
+                <AgriGuruLogo size={36} />
+              </Link>
             </div>
 
             {/* Search bar next to logo */}
-            <div className="flex-1 max-w-sm md:max-w-md lg:max-w-lg">
+            <div className="flex-1 min-w-0 max-w-sm md:max-w-md lg:max-w-lg">
               <HeaderSearch
                 placeholder={dict.header?.search_placeholder}
                 lang={activeLang}
@@ -601,7 +600,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
           </div>
 
           {/* Right Section: Navigation Links & Profile */}
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             {/* Desktop link shortcuts - matching category styling but in main header */}
             <nav className="hidden lg:flex items-center gap-8 text-[18px] whitespace-nowrap">
               <Link
@@ -632,8 +631,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               </div>
             </nav>
 
-            <div className="flex items-center gap-4 select-none border-l border-border pl-4 dir-none">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-4 select-none border-l border-border pl-2 sm:pl-4 dir-none">
+              <div className="flex items-center gap-1.5 sm:gap-3">
                 <Link
                   href={`/${activeLang}/membership`}
                   className="h-10 px-5 hidden lg:inline-flex items-center justify-center rounded-lg bg-primary-gradient text-[15px] font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
@@ -673,11 +672,11 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                         }
                       }
                     }}
-                    className="relative flex items-center justify-center p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200 cursor-pointer"
+                    className="relative flex items-center justify-center p-1 sm:p-2 text-muted-foreground hover:text-primary transition-colors focus:outline-none hover:scale-110 active:scale-95 duration-200 cursor-pointer"
                     aria-label="Open notifications"
                   >
                     <div className="relative inline-flex items-center justify-center">
-                      <i className="fa-solid fa-bell text-[28px]"></i>
+                      <i className="fa-solid fa-bell text-[22px] sm:text-[28px]"></i>
                       {showUnreadDot && (
                         <span className="absolute -top-1 -right-1 w-3 h-3 md:w-3.5 md:h-3.5 rounded-full bg-red-600 border-2 border-background animate-notif-blink z-30 pointer-events-none" />
                       )}
@@ -957,7 +956,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   aria-label={dict.navigation.profile || "User Profile"}
                 >
                   <div
-                    className="relative flex flex-col items-center justify-center w-12 h-12 shrink-0 rounded-full bg-muted text-foreground hover:opacity-80 transition-all border border-border shadow-lg hover:scale-105 active:scale-95 duration-200"
+                    className="relative flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-muted text-foreground hover:opacity-80 transition-all border border-border shadow-sm hover:scale-105 active:scale-95 duration-200"
                   >
                     {profile?.profile_image ? (
                       <Image
@@ -981,8 +980,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                       className="flex flex-col items-center justify-center w-full h-full"
                       style={{ display: profile?.profile_image ? 'none' : 'flex' }}
                     >
-                      <i className="fa-solid fa-user text-[15px] mb-0.5"></i>
-                      <span className="text-[9px] font-extrabold leading-none mt-0.5">{dict.navigation.profile || 'Profile'}</span>
+                      <i className="fa-solid fa-user text-[13px] sm:text-[15px] mb-0.5"></i>
+                      <span className="text-[8px] sm:text-[9px] font-extrabold leading-none mt-0.5 whitespace-nowrap">{dict.navigation.profile || 'Profile'}</span>
                     </div>
                     
                     <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ag-header-bg ring-2 ring-emerald-500/20" />

@@ -63,7 +63,7 @@ export default function WatchlistSectionClient({ dict, lang = 'en', initialProdu
   return (
     <div className="mt-5 relative w-full">
       {/* Tabs */}
-      <div className="flex w-full items-center gap-2 sm:gap-4 mb-6">
+      <div className="flex w-full items-center gap-2 sm:gap-4 mb-2 md:mb-6">
         <button
           onClick={() => setActiveTab('products')}
           className={`flex-1 py-3 sm:py-4 px-4 rounded-xl text-sm sm:text-base font-bold transition-all duration-300 ${

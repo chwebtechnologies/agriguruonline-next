@@ -83,7 +83,7 @@ export async function generateMetadata(
     }
   }
 
-  const rawImageUrl = targetPhoto?.image || targetPhoto?.thumbnail || photos[0]?.image || photos[0]?.thumbnail
+  const rawImageUrl = targetPhoto?.thumbnail || targetPhoto?.image || photos[0]?.thumbnail || photos[0]?.image
   const specificImage = rawImageUrl
     ? (rawImageUrl.startsWith('http') ? rawImageUrl : `${imageBaseUrl}${rawImageUrl}`)
     : `${siteUrl}/logo.png`

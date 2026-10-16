@@ -4,7 +4,7 @@ export default function HomeLoading() {
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           {/* Hero Carousel Skeleton */}
-          <div className="w-full h-[290px] sm:h-[300px] md:h-[310px] lg:h-[320px] xl:h-[340px] rounded-2xl bg-card border border-border animate-pulse mb-4 flex items-center justify-center p-6 sm:p-12">
+          <div className="w-full hidden md:flex h-[290px] sm:h-[300px] md:h-[310px] lg:h-[320px] xl:h-[340px] rounded-2xl bg-card border border-border animate-pulse mb-4 items-center justify-center p-6 sm:p-12">
             <div className="max-w-2xl w-full space-y-4">
               <div className="h-6 w-32 bg-muted rounded-full" />
               <div className="h-8 sm:h-10 w-3/4 bg-muted rounded-xl" />
@@ -15,7 +15,7 @@ export default function HomeLoading() {
           </div>
 
           {/* Section Skeleton (News / Feeds) */}
-          <div className="w-full pt-4 pb-2 space-y-4">
+          <div className="w-full pt-1 md:pt-4 pb-2 space-y-4">
             <div className="flex flex-col items-center space-y-2">
               <div className="h-8 w-64 bg-muted rounded-lg animate-pulse" />
               <div className="h-4 w-96 max-w-full bg-muted/60 rounded-md animate-pulse" />

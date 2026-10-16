@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { lazyWithRetry } from '@/lib/dynamic-import';
 import { ActionButton } from '@/components/ui/ActionButton';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, checkFavoriteProductLimit } from '@/app/actions/product';
 import { getProductDetailsAction, getShippingContainersAction, getShippingTermsAction } from '@/app/actions/charts';
 
@@ -61,9 +61,23 @@ export function ProductActionButtons({
   const [kycSecondaryText, setKycSecondaryText] = useState<string | undefined>();
   const [kycSecondaryUrl, setKycSecondaryUrl] = useState<string | undefined>();
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     onModalOpenChange?.(isModalOpen || isAddModalOpen || isKYCModalOpen);
   }, [isModalOpen, isAddModalOpen, isKYCModalOpen, onModalOpenChange]);
+
+  // Handle URL query trigger (?action=buy or ?action=sell)
+  useEffect(() => {
+    const actionQuery = searchParams?.get('action');
+    if (actionQuery === 'buy' || actionQuery === 'sell') {
+      const syntheticEvent = {
+        preventDefault: () => {},
+        stopPropagation: () => {},
+      } as unknown as React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>;
+      handleActionClick(syntheticEvent, actionQuery, `/${lang}/product/${encodeURIComponent(productSlugOrId)}`);
+    }
+  }, [searchParams, productSlugOrId]);
 
   const handleActionSuccess = () => {
     setIsModalOpen(false);
@@ -114,11 +128,11 @@ export function ProductActionButtons({
   const buyHref = `/${lang}/product/${encodeURIComponent(productSlugOrId)}?action=buy`;
   const sellHref = `/${lang}/product/${encodeURIComponent(productSlugOrId)}?action=sell`;
 
-  let sizeClass = 'min-h-[44px] py-2.5 sm:py-3 px-4 text-sm md:text-base rounded-xl'; // lg/md
+  let sizeClass = 'min-h-[44px] py-2.5 sm:py-3 px-4 text-sm md:text-base rounded-xl whitespace-nowrap'; // lg/md
   if (size === 'sm') {
-    sizeClass = 'min-h-[36px] py-1.5 sm:py-2 px-1.5 sm:px-2.5 text-[13px] sm:text-[15px] rounded-lg';
+    sizeClass = 'min-h-[32px] sm:min-h-[36px] py-1 sm:py-1.5 px-1 sm:px-2 text-[11px] min-[390px]:text-xs sm:text-xs rounded-md whitespace-nowrap';
   } else if (size === 'md') {
-    sizeClass = 'min-h-[40px] py-2 sm:py-2.5 px-2 text-[13px] sm:text-sm rounded-lg';
+    sizeClass = 'min-h-[36px] sm:min-h-[40px] py-1.5 sm:py-2 px-1.5 sm:px-2.5 text-xs sm:text-sm rounded-lg whitespace-nowrap';
   }
 
   const handleActionClick = async (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>, action: 'buy' | 'sell' | 'add', fallbackHref: string) => {
@@ -144,18 +158,6 @@ export function ProductActionButtons({
     
     try {
       if (action === 'add') {
-        if (!hasAuth) {
-          setKycTitle('Watchlist Access');
-          setKycMessage('Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
-          setKycIndicationText('Start Free Trial');
-          setKycRedirectUrl(`/${lang}/pricing`);
-          setKycSecondaryText('Log In');
-          setKycSecondaryUrl(`/${lang}/login`);
-          setIsKYCModalOpen(true);
-          setIsLoading(false);
-          return;
-        }
-
         const limitResponse = await checkFavoriteProductLimit(lang);
         const canCreate = limitResponse?.data?.can_create ?? limitResponse?.can_create;
         const indication = limitResponse?.response_indication || limitResponse?.data?.response_indication;
@@ -280,11 +282,23 @@ export function ProductActionButtons({
   const renderButtons = () => {
     if (layout === 'grid') {
       return (
-        <div className={`grid grid-cols-3 gap-2.5 ${className}`}>
+        <div className={`grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2.5 w-full ${className}`}>
+          {/* Add Product: Top row on mobile (order-1 col-span-2), Middle column on desktop (sm:order-2 sm:col-span-1) */}
+          <ActionButton 
+            variant="add" 
+            href={undefined}
+            onClick={(e) => handleActionClick(e, 'add', addProductHref)}
+            className={`${sizeClass} shadow-sm order-1 col-span-2 sm:order-2 sm:col-span-1 w-full ${isLoading && modalAction === 'add' ? 'opacity-70 pointer-events-none' : ''}`}
+            disabled={isLoading && modalAction === 'add'}
+          >
+            {isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}
+          </ActionButton>
+
+          {/* Buy: Bottom-left on mobile (order-2 col-span-1), 1st column on desktop (sm:order-1 sm:col-span-1) */}
           <ActionButton 
             variant="buy" 
             href={isBuyer ? undefined : buyHref}
-            className={`${sizeClass} shadow-sm ${isSeller ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`}
+            className={`${sizeClass} shadow-sm order-2 col-span-1 sm:order-1 sm:col-span-1 w-full ${isSeller ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`}
             disabled={isSeller || (isLoading && modalAction === 'buy')}
             title={isSeller ? (common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : undefined}
             onClick={(e) => !isSeller ? handleActionClick(e, 'buy', buyHref) : undefined}
@@ -292,20 +306,11 @@ export function ProductActionButtons({
             {isLoading && modalAction === 'buy' ? 'Loading...' : common.buy}
           </ActionButton>
 
-          <ActionButton 
-            variant="add" 
-            href={undefined}
-            onClick={(e) => handleActionClick(e, 'add', addProductHref)}
-            className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'add' ? 'opacity-70 pointer-events-none' : ''}`}
-            disabled={isLoading && modalAction === 'add'}
-          >
-            {isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}
-          </ActionButton>
-
+          {/* Sell: Bottom-right on mobile (order-3 col-span-1), 3rd column on desktop (sm:order-3 sm:col-span-1) */}
           <ActionButton 
             variant="sell" 
             href={isSeller ? undefined : sellHref}
-            className={`${sizeClass} shadow-sm ${isBuyer ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`}
+            className={`${sizeClass} shadow-sm order-3 col-span-1 sm:order-3 sm:col-span-1 w-full ${isBuyer ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`}
             disabled={isBuyer || (isLoading && modalAction === 'sell')}
             title={isBuyer ? (common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.") : undefined}
             onClick={(e) => !isBuyer ? handleActionClick(e, 'sell', sellHref) : undefined}
@@ -318,7 +323,7 @@ export function ProductActionButtons({
 
     if (layout === 'stacked') {
       return (
-        <div className={`flex flex-col gap-2 ${className}`}>
+        <div className={`flex flex-col gap-1.5 sm:gap-2 w-full ${className}`}>
           <ActionButton 
             variant="add" 
             href={undefined}
@@ -329,11 +334,11 @@ export function ProductActionButtons({
             {isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}
           </ActionButton>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 w-full">
             <ActionButton 
               variant="buy" 
               href={isBuyer ? undefined : buyHref}
-              className={`${sizeClass} shadow-sm ${isSeller ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`}
+              className={`${sizeClass} shadow-sm w-full ${isSeller ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`}
               disabled={isSeller || (isLoading && modalAction === 'buy')}
               title={isSeller ? (common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : undefined}
               onClick={(e) => !isSeller ? handleActionClick(e, 'buy', buyHref) : undefined}
@@ -344,7 +349,7 @@ export function ProductActionButtons({
             <ActionButton 
               variant="sell" 
               href={isSeller ? undefined : sellHref}
-              className={`${sizeClass} shadow-sm ${isBuyer ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`}
+              className={`${sizeClass} shadow-sm w-full ${isBuyer ? 'opacity-50 cursor-not-allowed' : ''} ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`}
               disabled={isBuyer || (isLoading && modalAction === 'sell')}
               title={isBuyer ? (common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.") : undefined}
               onClick={(e) => !isBuyer ? handleActionClick(e, 'sell', sellHref) : undefined}
@@ -358,10 +363,10 @@ export function ProductActionButtons({
 
     // fallback / inline
     return (
-      <div className={`flex gap-2 ${className}`}>
-        <ActionButton variant="add" href={undefined} onClick={(e) => handleActionClick(e, 'add', addProductHref)} disabled={isLoading && modalAction === 'add'} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'add' ? 'opacity-70 pointer-events-none' : ''}`}>{isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}</ActionButton>
-        <ActionButton variant="buy" href={isBuyer ? undefined : buyHref} disabled={isSeller || (isLoading && modalAction === 'buy')} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`} title={isSeller ? (common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : undefined} onClick={(e) => !isSeller ? handleActionClick(e, 'buy', buyHref) : undefined}>{isLoading && modalAction === 'buy' ? 'Loading...' : common.buy}</ActionButton>
-        <ActionButton variant="sell" href={isSeller ? undefined : sellHref} disabled={isBuyer || (isLoading && modalAction === 'sell')} className={`${sizeClass} shadow-sm ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`} title={isBuyer ? (common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.") : undefined} onClick={(e) => !isBuyer ? handleActionClick(e, 'sell', sellHref) : undefined}>{isLoading && modalAction === 'sell' ? 'Loading...' : common.sell}</ActionButton>
+      <div className={`flex items-center gap-1.5 sm:gap-2 w-full flex-nowrap ${className}`}>
+        <ActionButton variant="add" href={undefined} onClick={(e) => handleActionClick(e, 'add', addProductHref)} disabled={isLoading && modalAction === 'add'} className={`flex-1 min-w-0 ${sizeClass} shadow-sm ${isLoading && modalAction === 'add' ? 'opacity-70 pointer-events-none' : ''}`}>{isLoading && modalAction === 'add' ? 'Loading...' : common.addProduct}</ActionButton>
+        <ActionButton variant="buy" href={isBuyer ? undefined : buyHref} disabled={isSeller || (isLoading && modalAction === 'buy')} className={`flex-1 min-w-0 ${sizeClass} shadow-sm ${isLoading && modalAction === 'buy' ? 'opacity-70 pointer-events-none' : ''}`} title={isSeller ? (common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : undefined} onClick={(e) => !isSeller ? handleActionClick(e, 'buy', buyHref) : undefined}>{isLoading && modalAction === 'buy' ? 'Loading...' : common.buy}</ActionButton>
+        <ActionButton variant="sell" href={isSeller ? undefined : sellHref} disabled={isBuyer || (isLoading && modalAction === 'sell')} className={`flex-1 min-w-0 ${sizeClass} shadow-sm ${isLoading && modalAction === 'sell' ? 'opacity-70 pointer-events-none' : ''}`} title={isBuyer ? (common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.") : undefined} onClick={(e) => !isBuyer ? handleActionClick(e, 'sell', sellHref) : undefined}>{isLoading && modalAction === 'sell' ? 'Loading...' : common.sell}</ActionButton>
       </div>
     );
   };

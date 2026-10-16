@@ -45,7 +45,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
         const len = searchTerm?.length || 0
         if (len === 0 || len >= 3) {
           startTransition(() => {
-            router.push(pushParams({ search: searchTerm || '' }))
+            router.push(pushParams({ search: searchTerm || '' }), { scroll: false })
           })
         }
       }
@@ -55,7 +55,7 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
 
   const handleCategoryChange = (slug: string) => {
     startTransition(() => {
-      router.push(pushParams({ category: slug }))
+      router.push(pushParams({ category: slug }), { scroll: false })
     })
   }
 

@@ -3897,17 +3897,17 @@ export default function MobileCommodityChart({
       {/* 4. Specifications & Description Information Icon Popup Modal (Products only) */}
       {!isFreight && showSpecsModal && (
         <div
-          className="fixed inset-0 z-[550] flex items-center justify-center p-3 sm:p-4 overscroll-contain"
+          className="fixed inset-0 z-[550] flex items-center justify-center p-2 sm:p-4 overscroll-contain overflow-hidden"
         >
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/40 backdrop-blur-md transform-gpu" />
           
           <div
-            className="relative z-10 bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[85vh] animate-in zoom-in-95 "
+            className="relative z-10 bg-card text-foreground rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-border flex flex-col max-h-[92vh] sm:max-h-[85vh] animate-in zoom-in-95 "
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="px-5 py-3.5 border-b border-border flex items-center justify-between bg-background/50">
+            <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-border flex items-center justify-between bg-background/50">
               <h3 className="font-extrabold text-base sm:text-lg text-brand-blue flex items-center gap-2">
                 <i className="fa-solid fa-file-lines"></i>
                 <span>Specifications & Details</span>
@@ -3922,7 +3922,7 @@ export default function MobileCommodityChart({
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="px-4 sm:px-5 py-4 overflow-y-auto space-y-4">
+            <div className="px-3.5 sm:px-5 py-3 sm:py-4 overflow-y-auto space-y-3 sm:space-y-4">
               {/* Product Profile Top Banner */}
               <div className="flex flex-row items-center gap-3.5 p-3 rounded-xl bg-background/50 border border-border">
                 {(productDetails?.thumbnail || productDetails?.image || item.countryFlag) && (

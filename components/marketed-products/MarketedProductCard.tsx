@@ -122,7 +122,7 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
               title={product.name}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              className="object-cover"
               priority={false}
             />
           )}
@@ -159,12 +159,12 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
 
       <div className="p-2 sm:p-2.5 flex flex-col flex-1 justify-between">
         <div>
-          <div className="flex justify-center mb-1 h-4 items-center">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider line-clamp-1 text-center">
+          <div className="flex justify-center mb-1 h-4 items-center overflow-hidden">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider whitespace-nowrap truncate max-w-full text-center block">
               {product.category?.name || 'Product'} {product.country?.name ? `• ${product.country.name}` : ''}
             </span>
           </div>
-          <h2 className="text-[14px] sm:text-[16px] font-bold text-center text-foreground mb-1.5 leading-snug h-[38px] sm:h-[44px] flex items-center justify-center">
+          <h2 className="text-[13px] sm:text-[15px] font-bold text-center text-foreground mb-1.5 leading-snug h-[38px] sm:h-[44px] flex items-center justify-center">
             <Link 
               href={`/${lang}/product/${product.slug}`} 
               title={product.name}
@@ -177,19 +177,19 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
 
         <div className="mt-auto">
           {product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0 ? (
-            <div className="flex items-baseline justify-center gap-1 mt-0.5 mb-2.5 h-6">
-              <span className="text-[16px] sm:text-[18px] font-extrabold text-foreground/85 mr-0.5 leading-none tracking-tight">
+            <div className="flex items-baseline justify-center gap-1 mt-0.5 mb-2 h-5 sm:h-6 whitespace-nowrap flex-nowrap shrink-0 overflow-hidden">
+              <span className="text-[13px] min-[360px]:text-[14px] sm:text-[17px] font-extrabold text-foreground/85 mr-0.5 leading-none tracking-tight shrink-0">
                 FOB
               </span>
-              <span className="text-[16px] sm:text-[18px] font-extrabold text-emerald-700 dark:text-brand-green leading-none tracking-tight">
+              <span className="text-[13px] min-[360px]:text-[15px] sm:text-[17px] font-extrabold text-emerald-700 dark:text-brand-green leading-none tracking-tight shrink-0">
                 ${product.loading_ports[0].price}
               </span>
-              <span className="text-[10px] sm:text-[11px] text-foreground/80 font-semibold uppercase">
+              <span className="text-[9px] sm:text-[10px] text-foreground/80 font-semibold uppercase shrink-0">
                 / MT
               </span>
             </div>
           ) : (
-            <div className="h-6 mt-0.5 mb-2.5" />
+            <div className="h-5 sm:h-6 mt-0.5 mb-2" />
           )}
 
           <div className="space-y-1.5">
@@ -213,9 +213,9 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
                 title={`${common.viewDetails} - ${product.name}`}
                 tabIndex={-1}
                 aria-hidden="true"
-                className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5"
+                className="w-full block text-center border border-border bg-background hover:bg-muted text-foreground font-semibold py-1.5 px-2 rounded-lg text-[13px] sm:text-[15px] transition-colors mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis"
               >
-                <span aria-hidden="true">{common.viewDetails}</span>
+                <span aria-hidden="true" className="whitespace-nowrap truncate">{common.viewDetails}</span>
                 <span className="sr-only">{common.viewDetails} {product.name}</span>
               </Link>
             )}

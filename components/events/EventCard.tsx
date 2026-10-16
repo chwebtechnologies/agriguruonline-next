@@ -42,14 +42,14 @@ export default function EventCard({ event, lang, dict = {}, priority = false }: 
           title={title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          className="object-cover"
           priority={priority}
         />
       </FastLink>
       
-      <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-1 justify-between">
+      <div className="px-3.5 py-3 sm:px-4 sm:py-4 flex flex-col flex-1 justify-between">
         <div>
-          <div className="flex items-center justify-between mb-2 h-5">
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2 h-5">
             <div className="flex items-center text-xs text-foreground/80 font-medium">
               <i className="fa-regular fa-calendar mr-1.5 text-foreground/70"></i>
               <time dateTime={event.start_date}>{dateDisplay}</time>
@@ -66,7 +66,7 @@ export default function EventCard({ event, lang, dict = {}, priority = false }: 
             </span>
           </div>
           
-          <h2 className="text-[16px] sm:text-[18px] font-semibold text-foreground mb-2 leading-snug h-[44px] sm:h-[50px] flex items-center">
+          <h2 className="text-[15px] sm:text-[18px] font-semibold text-foreground mb-1.5 sm:mb-2 leading-snug h-[42px] sm:h-[50px] flex items-center">
             <FastLink 
               href={`/${lang}/events/${event.slug}`} 
               title={title}

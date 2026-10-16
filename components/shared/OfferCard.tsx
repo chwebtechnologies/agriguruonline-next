@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { getProductSlugByName } from '@/lib/product-slug-utils'
 
 interface Inquiry {
   id: string
@@ -46,15 +47,19 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType, di
     ? 'bg-[var(--brand-green)] hover:bg-[var(--brand-green-hover)] text-white'
     : 'bg-[var(--brand-red)] hover:bg-[var(--brand-red-hover)] text-white'
 
-  // Adjust href based on mode if needed, for now we keep it generic or point to the inquiry details
-  const href = isForBuyer ? `/${lang}/latest-offers-for-buyers` : `/${lang}/latest-inquiries-for-sellers`
+  // Resolve target product slug so user is taken directly to the product inquiry/offer action
+  const matchedSlug = getProductSlugByName(inquiry.product.name)
+  const actionParam = isForBuyer ? 'buy' : 'sell'
+  const href = matchedSlug 
+    ? `/${lang}/product/${encodeURIComponent(matchedSlug)}?action=${actionParam}`
+    : (isForBuyer ? `/${lang}/latest-offers-for-buyers` : `/${lang}/latest-inquiries-for-sellers`)
 
   const isDisabled = (buttonText === 'Buy' && userType === 'seller') || (buttonText === 'Sell' && userType === 'buyer');
 
   return (
-    <div className="group flex flex-col h-full rounded-md bg-muted/40 border border-border/50 overflow-hidden hover:shadow-sm transition-shadow duration-300">
-      <div className="px-4 py-3 sm:py-4 flex-1 flex flex-col justify-between">
-        <div className="grid grid-cols-[65px_1fr] sm:grid-cols-[75px_1fr] gap-x-2 gap-y-3">
+    <div className="group flex flex-col w-full flex-shrink-0 min-h-[110px] sm:min-h-[120px] rounded-lg bg-card border border-border/60 overflow-hidden hover:shadow-sm transition-shadow duration-300">
+      <div className="px-3.5 py-2.5 sm:px-4 sm:py-3.5 flex-1 flex flex-col justify-between">
+        <div className="grid grid-cols-[65px_1fr] sm:grid-cols-[75px_1fr] gap-x-2 gap-y-2.5 sm:gap-y-3">
           {/* Row 1: Country */}
           <div className="text-muted-foreground font-medium text-[12px] sm:text-[13px] self-center">{dict?.common?.country || 'Country'}:</div>
           <div className="flex items-center justify-between">
@@ -88,13 +93,13 @@ export function OfferCard({ inquiry, lang, imageBaseUrl, offerType, userType, di
           <div className="flex items-center justify-between">
             <span className="text-foreground font-bold text-[14px] sm:text-[15px]">{inquiry.market_range}</span>
             {isDisabled ? (
-              <div title={userType === 'seller' ? (dict?.common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : (dict?.common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.")} className={`${buttonColorClass} px-3 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded text-[11px] sm:text-[12px] md:text-[13px] font-bold shadow-sm transition-colors opacity-50 cursor-not-allowed text-center`}>
+              <div title={userType === 'seller' ? (dict?.common?.only_buyer_can_buy || "Only Buyer accounts can purchase products.") : (dict?.common?.only_seller_can_sell || "Only Seller accounts can offer products for sale.")} className={`${buttonColorClass} px-3 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded text-[11px] sm:text-[12px] md:text-[13px] font-bold shadow-sm transition-colors opacity-50 cursor-not-allowed text-center whitespace-nowrap shrink-0 select-none`}>
                 {buttonText}
               </div>
             ) : (
               <Link 
                 href={href} 
-                className={`${buttonColorClass} px-3 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded text-[11px] sm:text-[12px] md:text-[13px] font-bold shadow-sm transition-colors`}
+                className={`${buttonColorClass} px-3 sm:px-4 md:px-5 py-1 sm:py-1.5 rounded text-[11px] sm:text-[12px] md:text-[13px] font-bold shadow-sm transition-colors whitespace-nowrap shrink-0 select-none`}
               >
                 {buttonText}
               </Link>
