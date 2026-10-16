@@ -106,6 +106,10 @@ const nextConfig: NextConfig = {
           {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
+          },
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow, noarchive, nosnippet, noimageindex',
           }
         ],
       },

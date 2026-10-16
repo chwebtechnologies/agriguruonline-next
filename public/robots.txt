@@ -1,9 +1,54 @@
 User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /*/profile
-Disallow: /*/login
-Disallow: /*/register
+Disallow: /
 
-Sitemap: https://agriguruonline.com/sitemap.xml
-Sitemap: https://agriguruonline.com/image-sitemap.xml
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Applebot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Cohere-ai
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
