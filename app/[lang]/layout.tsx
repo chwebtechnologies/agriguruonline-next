@@ -174,13 +174,12 @@ export default async function LocalizedRootLayout(props: {
       className={`h-full antialiased ${inter.variable}`}
       suppressHydrationWarning
     >
-      <head>
-        <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
-        <link rel="preload" href="/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="preload" href="/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="preload" href="/webfonts/fa-regular-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="stylesheet" href="/fa-all.min.css" />
+      <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />
+      <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
+      <link rel="preload" href="/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      <link rel="preload" href="/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      <link rel="preload" href="/webfonts/fa-regular-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      <link rel="stylesheet" href="/fa-all.min.css" />
 
         <Script
           id="trusted-types-policy"
@@ -259,7 +258,6 @@ export default async function LocalizedRootLayout(props: {
           }}
         />
 
-      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>
           <NotificationProvider>

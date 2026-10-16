@@ -309,12 +309,12 @@ export function HeaderGuestBase({
           <div className="flex items-center gap-4 shrink-0">
             <nav className="hidden lg:flex items-center gap-8 text-[19px] whitespace-nowrap">
               {loading ? (
-                <>
+                <div className="flex items-center gap-8">
                   <div className="h-5 w-16 bg-muted animate-pulse rounded" />
                   <div className="h-5 w-16 bg-muted animate-pulse rounded" />
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center gap-8">
                   <Link
                     href={`/${activeLang}`}
                     className={`transition-colors duration-150 font-extrabold ${isHomeActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
@@ -340,7 +340,7 @@ export function HeaderGuestBase({
                       <Link href={`/${activeLang}/participation-gallery`} onClick={() => setHideInsights(true)} className={`block px-3.5 py-2.5 text-sm font-semibold rounded transition-colors ${isParticipationGalleryActive ? 'bg-primary text-white' : 'text-foreground hover:bg-muted hover:text-foreground'}`}>{dict.header.participation_gallery || 'Participation Gallery'}</Link>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </nav>
 
@@ -398,17 +398,17 @@ export function HeaderGuestBase({
           <div ref={categoriesRef} className="flex-1 flex justify-end items-center gap-6 overflow-visible">
             <nav className="flex items-center gap-5 text-[16px] font-bold tracking-wide whitespace-nowrap">
               {loading ? (
-                <>
+                <div className="flex items-center gap-5">
                   <div className="h-4 w-12 bg-muted animate-pulse rounded" />
                   <div className="h-4 w-14 bg-muted animate-pulse rounded" />
                   <div className="h-4 w-10 bg-muted animate-pulse rounded" />
-                </>
+                </div>
               ) : (
-                displayCategories.map((category, index) => {
+                displayCategories.map((category) => {
                   const isActive = pathname === category.href
                   return (
                     <CategoryLink
-                      key={index}
+                      key={category.href || category.name}
                       href={category.href}
                       isActive={isActive}
                       baseClassName="transition-colors border-y-2 border-t-transparent pt-1 pb-1"
@@ -428,9 +428,9 @@ export function HeaderGuestBase({
                     <i className="fa-solid fa-chevron-down text-[11px] ml-1 text-muted-foreground group-hover:text-foreground"></i>
                   </button>
                   <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3.5 w-48 rounded-md bg-card border border-border p-1.5 shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-155 z-50`}>
-                    {dropdownCategories.map((category, index) => (
+                    {dropdownCategories.map((category) => (
                       <Link
-                        key={index}
+                        key={category.href || category.name}
                         href={category.href}
                         className="block px-3.5 py-2.5 text-sm text-foreground hover:bg-muted hover:text-foreground rounded transition-colors"
                       >

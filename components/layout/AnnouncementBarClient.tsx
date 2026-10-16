@@ -35,6 +35,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
   const [isPending, startTransition] = useTransition()
   const { theme, setTheme } = useTheme()
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [isLangOpen, setIsLangOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [currentQuery, setCurrentQuery] = useState('')
 
@@ -142,7 +143,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
         </div>
 
         {/* Right: Sub actions */}
-        <div className="flex items-center gap-4 text-[13.5px] shrink-0 font-bold">
+        <div className="hidden md:flex items-center gap-4 text-[13.5px] shrink-0 font-bold">
           <Link href={`/${activeLang}/download-application`} className="hidden lg:flex items-center gap-2 hover:text-emerald-300 transition-colors">
             <i className="fa-solid fa-mobile-screen-button text-[14px]"></i>
             <span>{dict.header.download_app}</span>
@@ -153,9 +154,11 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
             <span>{dict.header.contact_us}</span>
           </Link>
 
-          {/* Language Dropdown */}
+          {/* Language Dropdown - Visible on Tablet and Desktop */}
           <div className="relative inline-block text-left group">
             <button
+              type="button"
+              onClick={() => setIsLangOpen(!isLangOpen)}
               className="flex items-center gap-2 text-white hover:text-emerald-300 transition-colors focus:outline-none cursor-pointer select-none py-1"
               aria-label="Select Language"
               onMouseEnter={() => {
@@ -171,10 +174,16 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
               {isPending ? (
                 <i className="fa-solid fa-circle-notch fa-spin text-[11px] text-emerald-300"></i>
               ) : (
-                <i className="fa-solid fa-chevron-down text-[10px] ml-0.5 text-emerald-300 transition-transform duration-200 group-hover:rotate-180"></i>
+                <i className={`fa-solid fa-chevron-down text-[10px] ml-0.5 text-emerald-300 transition-transform duration-200 ${isLangOpen ? 'rotate-180' : 'group-hover:rotate-180'}`}></i>
               )}
             </button>
-            <div className={`invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} top-full mt-0 pt-2 w-36 transition-all duration-150 z-50`}>
+            {isLangOpen && (
+              <div 
+                className="fixed inset-0 z-[105]" 
+                onClick={() => setIsLangOpen(false)} 
+              />
+            )}
+            <div className={`${isLangOpen ? 'visible opacity-100' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100'} absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} top-full mt-0 pt-2 w-36 transition-all duration-150 z-[110]`}>
               <div className="rounded-lg bg-card border border-border shadow-xl overflow-hidden">
                 <div className="py-1">
                   {languages.map((l) => (
@@ -183,8 +192,11 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
                       href={getLangUrl(l.code)}
                       scroll={false}
                       onMouseEnter={() => router.prefetch(getLangUrl(l.code))}
-                      onClick={(e) => handleLanguageSelect(e, l.code)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[13px] hover:bg-muted transition-colors ${activeLang === l.code ? 'text-primary bg-primary/10 font-bold' : 'text-muted-foreground font-semibold'
+                      onClick={(e) => {
+                        setIsLangOpen(false);
+                        handleLanguageSelect(e, l.code);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[13px] hover:bg-muted transition-colors ${activeLang === l.code ? 'text-primary bg-primary/10 font-bold' : 'text-foreground font-semibold'
                         }`}
                     >
                       <span className="text-[16px]">{l.flag}</span>
@@ -197,7 +209,7 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
           </div>
 
           {/* Theme Switcher Bar */}
-          <div className="hidden md:flex items-center gap-1.5 bg-black/35 p-0.5 rounded-full border border-white/10 shadow-inner select-none">
+          <div className="flex items-center gap-1.5 bg-black/35 p-0.5 rounded-full border border-white/10 shadow-inner select-none">
             <button
               onClick={() => changeTheme('system')}
               className={`p-1 rounded-full transition-all focus:outline-none flex items-center justify-center w-5 h-5 ${currentTheme === 'system' ? 'bg-white text-zinc-950 scale-105 shadow-sm' : 'text-white/80 hover:text-white hover:scale-105'

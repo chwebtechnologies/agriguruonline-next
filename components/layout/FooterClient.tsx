@@ -269,11 +269,11 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       </Link>
 
       {/* ======================================================== */}
-      {/* 5. Floating Action Buttons (bottom of viewport)          */}
+      {/* 5. Floating Action Buttons (desktop only)                 */}
       {/* ======================================================== */}
 
-      {/* Bottom Left: Email Mail Floater */}
-      <a href="mailto:support@agriguru.online" className="fixed bottom-20 lg:bottom-6 left-6 z-45 flex h-11 w-11 items-center justify-center rounded-full bg-brand-blue text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-blue-400/20" aria-label="Mail Support">
+      {/* Bottom Left: Email Mail Floater (Hidden on mobile, visible on desktop) */}
+      <a href="mailto:support@agriguru.online" className="hidden lg:flex fixed bottom-6 left-6 z-45 h-11 w-11 items-center justify-center rounded-full bg-brand-blue text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-blue-400/20" aria-label="Mail Support">
         <i className="fa-solid fa-envelope text-lg"></i>
       </a>
 
@@ -290,8 +290,8 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
           </button>
         )}
 
-        {/* WhatsApp Chat Floater */}
-        <a href="https://wa.me/123456789" className="flex h-11 w-11 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-green-400/20" aria-label="WhatsApp support">
+        {/* WhatsApp Chat Floater (Hidden on mobile, visible on desktop) */}
+        <a href="https://wa.me/123456789" className="hidden lg:flex h-11 w-11 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl hover:scale-110 active:scale-95 duration-200 transition-all border border-green-400/20" aria-label="WhatsApp support">
           <i className="fa-brands fa-whatsapp text-2xl"></i>
         </a>
       </div>
