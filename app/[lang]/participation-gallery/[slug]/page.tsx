@@ -51,7 +51,8 @@ export async function generateMetadata(
 
   const data = await withTimeout(cmsService.getParticipationAlbumDetails(slug, lang).catch(() => null), 2500, null)
   const category = data?.data?.category
-  const photos = data?.data?.images || data?.data?.galleries || []
+  const rawPhotos = data?.data?.images || data?.data?.galleries
+  const photos = Array.isArray(rawPhotos) ? rawPhotos : []
 
   let albumTitle = category?.category_name || slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   if (category?.translations && Array.isArray(category.translations)) {
@@ -164,7 +165,8 @@ export default async function ParticipationAlbumPage(props: {
     getDictionary(lang).catch(() => ({} as any))
   ]);
   const category = data?.data?.category
-  const photos = data?.data?.images || data?.data?.galleries || []
+  const rawPhotos = data?.data?.images || data?.data?.galleries
+  const photos = Array.isArray(rawPhotos) ? rawPhotos : []
 
   let albumTitle = category?.category_name || slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   if (category?.translations && Array.isArray(category.translations)) {

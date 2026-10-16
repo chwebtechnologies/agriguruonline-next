@@ -4,6 +4,7 @@ import { getSiteUrl, SUPPORTED_LANGUAGES } from '@/lib/seo'
 import { cmsService } from '@/lib/api/cms.service'
 import { tradingService } from '@/lib/api/trading.service'
 
+export const dynamic = 'force-dynamic'
 export const revalidate = 86400 // Revalidate daily
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

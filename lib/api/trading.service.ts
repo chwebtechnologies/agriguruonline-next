@@ -320,7 +320,7 @@ export const tradingService = {
     try {
       const json = await customFetchJSON<any>(url, {
         params: { is_active: 'true', lang_code: lang, source: 'web' },
-        cache: 'no-store',
+        revalidate: 3600,
       });
       return json?.data?.products || (Array.isArray(json?.data) ? json.data : []);
     } catch (error) {
