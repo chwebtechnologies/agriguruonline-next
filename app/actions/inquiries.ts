@@ -38,6 +38,40 @@ export async function getInquiryDetailsAction(
 }
 
 /**
+ * Fetches latest inquiry/offer details for homepage & listings cards with KYC and negotiation bid range checks:
+ * GET /trading-inquiry/latest/details/${id}?lang_code=${lang}&source=web
+ */
+export async function getLatestInquiryDetailsAction(
+  id: string,
+  lang: string = "en"
+): Promise<{
+  success: number | boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  isUnauthorized?: boolean;
+}> {
+  try {
+    if (!id) return { success: 0, message: "Inquiry ID is required" };
+
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: 0, message: "Unauthorized", isUnauthorized: true };
+    }
+
+    const safeLang = getSafeLang(lang);
+    return await tradingService.getLatestInquiryDetails(id, token, safeLang);
+  } catch (err: any) {
+    console.error("[getLatestInquiryDetailsAction] Exception:", err);
+    return { success: 0, message: err.message || "Failed to fetch inquiry details" };
+  }
+}
+
+/**
  * Submits a counter/renegotiation offer using centralized tradingService.
  */
 export async function submitInquiryNegotiationAction(

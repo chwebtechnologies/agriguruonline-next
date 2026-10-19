@@ -424,6 +424,10 @@ a, button, input, select, textarea, label, [role="button"] {
   flex-direction: column;
   animation: scrollTickerVertical 25s linear infinite;
   will-change: transform;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 .animate-marquee-vertical:hover {

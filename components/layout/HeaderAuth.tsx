@@ -544,7 +544,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   }
 
   return (
-    <div id="site-header" className="w-full flex flex-col z-[70] bg-background transition-all duration-300 ease-in-out sticky top-0" dir={dir}>
+    <div id="site-header" className="w-full flex flex-col z-[70] bg-background sticky top-0" dir={dir}>
 
         {/* 2. Main Header Bar (Always sticky) */}
       <header data-auth="true" className="relative w-full bg-card text-foreground py-2 sm:py-2.5 border-b border-border shadow-sm transition-all duration-300" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>

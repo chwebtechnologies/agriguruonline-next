@@ -374,6 +374,12 @@ export async function uploadProfileImage(formData: FormData) {
       
       if (res.ok) {
         const data = await res.json();
+        // Invalidate cache and revalidate profile page
+        const { invalidateUserAuthCache } = await import("@/lib/api");
+        invalidateUserAuthCache(token);
+        const { revalidatePath } = await import("next/cache");
+        revalidatePath("/[lang]/profile", "page");
+        revalidatePath("/", "layout");
         return { success: true, data };
       }
       
@@ -383,12 +389,24 @@ export async function uploadProfileImage(formData: FormData) {
       // If the error is NOT 'Unexpected field', then the field name was correct but something else failed.
       if (!errorText.includes("Unexpected field")) {
         console.error(`Profile upload failed with field '${fieldName}':`, res.status, errorText);
-        return { success: false, error: "Failed to upload image" };
+        let parsedMessage = "";
+        try {
+          const parsedJson = JSON.parse(errorText);
+          parsedMessage = parsedJson.message || parsedJson.error;
+        } catch (_) {}
+        return { success: false, error: parsedMessage || "Failed to upload image" };
       }
     }
 
     console.error("Profile upload failed: exhausted all field names. Last error:", lastError);
-    return { success: false, error: "API rejected all common file field names" };
+    let parsedLastMsg = "";
+    try {
+      if (lastError) {
+        const parsed = JSON.parse(lastError);
+        parsedLastMsg = parsed.message || parsed.error;
+      }
+    } catch (_) {}
+    return { success: false, error: parsedLastMsg || "API rejected all common file field names" };
   } catch (error) {
     console.error("Profile upload error:", error);
     return { success: false, error: "Network error" };

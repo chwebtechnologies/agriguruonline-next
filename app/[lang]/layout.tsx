@@ -101,9 +101,6 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  viewportFit: 'cover',
 }
 
 export default async function LocalizedRootLayout(props: {
@@ -181,8 +178,6 @@ export default async function LocalizedRootLayout(props: {
         <link rel="preload" href="/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/webfonts/fa-regular-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="stylesheet" href="/fa-all.min.css" />
-      </head>
-
         <Script
           id="trusted-types-policy"
           strategy="beforeInteractive"
@@ -213,52 +208,7 @@ export default async function LocalizedRootLayout(props: {
             `,
           }}
         />
-        <script
-          id="text-scale-enforcer"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var d = document.documentElement;
-                  d.style.fontSize = '16px';
-                  d.style.webkitTextSizeAdjust = '100%';
-                  d.style.textSizeAdjust = '100%';
-                } catch(e) {}
-              })();
-            `,
-          }}
-        />
-        <script
-          id="responsive-scaler"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                var lastScale = -1;
-                function updateScale() {
-                  try {
-                    var w = window.innerWidth || document.documentElement.clientWidth;
-                    if (!w) return;
-                    var scale = 1;
-                    if (w >= 1440) {
-                      scale = Math.round((w / 1440) * 1000) / 1000;
-                    }
-                    if (Math.abs(scale - lastScale) > 0.005) {
-                      lastScale = scale;
-                      document.documentElement.style.zoom = scale;
-                    }
-                  } catch(e) {}
-                }
-                updateScale();
-                var resizeTimeout;
-                window.addEventListener('resize', function() {
-                  clearTimeout(resizeTimeout);
-                  resizeTimeout = setTimeout(updateScale, 150);
-                }, { passive: true });
-                window.addEventListener('orientationchange', updateScale, { passive: true });
-              })();
-            `,
-          }}
-        />
+      </head>
 
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>

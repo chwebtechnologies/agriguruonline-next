@@ -71,19 +71,19 @@ export default function MembershipActionModal({
   const tierBg = isGold
     ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
     : isPlatinum
-    ? 'bg-slate-100 dark:bg-zinc-800 border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-zinc-200'
+    ? 'bg-gradient-to-br from-[#002e52]/15 to-[#2aaf85]/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
     : 'bg-muted border-border text-foreground';
 
   const tierIcon = isGold
     ? 'fa-crown text-amber-500'
     : isPlatinum
-    ? 'fa-gem text-slate-800 dark:text-zinc-200'
+    ? 'fa-gem text-emerald-600 dark:text-emerald-400'
     : 'fa-star text-foreground';
 
   const topGlowBar = isGold
     ? 'from-amber-400 via-yellow-400 to-amber-600'
     : isPlatinum
-    ? 'from-slate-400 via-zinc-200 to-slate-400 dark:from-zinc-500 dark:via-slate-300 dark:to-zinc-500'
+    ? 'from-[#002e52] via-[#15716e] to-[#2aaf85]'
     : 'from-slate-300 via-zinc-300 to-slate-400 dark:from-zinc-700 dark:via-zinc-600 dark:to-zinc-700';
 
   const isAuthenticated = !!userProfile;

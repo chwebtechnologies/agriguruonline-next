@@ -262,13 +262,13 @@ export default function PlanCard({
   const cardBorderClass = isGold
     ? 'border-amber-500/70 dark:border-amber-400/60 shadow-xl shadow-amber-500/10 ring-1 ring-amber-500/30'
     : isPlatinum
-    ? 'border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 shadow-xl shadow-zinc-900/5 dark:shadow-black/20 ring-1 ring-zinc-300/80 dark:ring-zinc-700/80'
+    ? 'border-emerald-500/60 dark:border-emerald-400/50 hover:border-emerald-500 dark:hover:border-emerald-400 shadow-xl shadow-emerald-950/10 dark:shadow-emerald-950/30 ring-1 ring-emerald-500/30'
     : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 shadow-lg shadow-slate-200/50 dark:shadow-slate-900/30 ring-1 ring-slate-300/70 dark:ring-slate-700/70';
 
   const cardBgClass = isGold
     ? 'bg-gradient-to-b from-amber-500/[0.04] via-card to-card'
     : isPlatinum
-    ? 'bg-gradient-to-b from-zinc-500/[0.03] via-card to-card'
+    ? 'bg-gradient-to-b from-emerald-500/[0.05] via-card to-card'
     : 'bg-gradient-to-b from-slate-500/[0.04] via-card to-card';
 
   // Primary Action Button styling
@@ -277,14 +277,14 @@ export default function PlanCard({
     : isGold
     ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black shadow-lg shadow-amber-500/25 active:scale-[0.98]'
     : isPlatinum
-    ? 'bg-zinc-900 hover:bg-black text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-950 font-black shadow-md active:scale-[0.98]'
+    ? 'bg-primary-gradient hover:opacity-95 text-white font-black shadow-md shadow-emerald-900/20 active:scale-[0.98]'
     : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white font-black shadow-md active:scale-[0.98]';
 
   // Top metallic accent ribbon
   const topGlowBar = isGold
     ? 'from-amber-400 via-yellow-300 to-amber-500'
     : isPlatinum
-    ? 'from-zinc-400 via-slate-100 to-zinc-500 dark:from-zinc-400 dark:via-slate-200 dark:to-zinc-600'
+    ? 'from-[#002e52] via-[#15716e] to-[#2aaf85]'
     : 'from-slate-300 via-zinc-100 to-slate-400 dark:from-slate-500 dark:via-zinc-300 dark:to-slate-600';
 
   return (
@@ -314,7 +314,7 @@ export default function PlanCard({
               isGold
                 ? 'bg-gradient-to-br from-amber-400/20 via-yellow-500/15 to-amber-500/20 border-amber-400/50 text-amber-500 dark:text-amber-400'
                 : isPlatinum
-                ? 'bg-gradient-to-br from-zinc-200 via-slate-200 to-zinc-300 dark:from-zinc-800 dark:via-zinc-700 dark:to-zinc-800 border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200'
+                ? 'bg-gradient-to-br from-[#002e52]/15 via-[#15716e]/15 to-[#2aaf85]/20 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                 : 'bg-gradient-to-br from-slate-100 via-zinc-200 to-slate-300 dark:from-slate-800 dark:via-zinc-700 dark:to-slate-800 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200'
             }`}
           >
@@ -479,14 +479,14 @@ export default function PlanCard({
                           (isGold
                             ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25'
                             : isPlatinum
-                            ? 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
                             : 'bg-slate-200/70 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700')
                         : quota.isEnabled
                         ? 'font-mono text-xs font-black min-w-[32px] text-center ' +
                           (isGold
                             ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25'
                             : isPlatinum
-                            ? 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
                             : 'bg-slate-200/70 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700')
                         : 'text-[10px] sm:text-[10.5px] bg-muted/40 text-muted-foreground border-border/40'
                     }`}
@@ -509,6 +509,8 @@ export default function PlanCard({
                             quota.isEnabled
                               ? isGold
                                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : isPlatinum
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                                 : 'bg-zinc-800 text-zinc-100 border-zinc-700'
                               : 'bg-zinc-800/80 text-zinc-400 border-zinc-700/60'
                           }`}
@@ -532,7 +534,7 @@ export default function PlanCard({
                               : 'Continuous Access'}
                           </span>
                         </span>
-                        <span className={`font-semibold truncate ${quota.isEnabled ? 'text-amber-300' : 'text-zinc-400'}`}>
+                        <span className={`font-semibold truncate ${quota.isEnabled ? isPlatinum ? 'text-emerald-300' : 'text-amber-300' : 'text-zinc-400'}`}>
                           {quota.isEnabled ? details.allowance : 'Upgrade to unlock'}
                         </span>
                       </div>

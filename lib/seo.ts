@@ -518,6 +518,56 @@ export const SEO_DICTIONARY: Record<
       ],
     },
   },
+  insights: {
+    en: {
+      title: 'Agri Market Insights, Daily Updates & Intelligence Reports',
+      description: 'Access comprehensive agricultural commodity insights, live market updates, global trade news, industry research reports, and international conference events on AgriGuru Online.',
+      keywords: [
+        'Agri Market Insights',
+        'Agricultural Intelligence',
+        'Commodity Market Updates',
+        'Global Agri News',
+        'Agri Market Reports',
+        'AgriGuru Online'
+      ],
+    },
+    ar: {
+      title: 'رؤى الأسواق الزراعية، التحديثات اليومية والتقارير المتخصصة',
+      description: 'احصل على رؤى شاملة لأسواق السلع الزراعية، وتحديثات الأسعار اليومية، وأخبار التجارة العالمية، وتقارير أبحاث السوق، والفعاليات على AgriGuru Online.',
+      keywords: [
+        'رؤى السوق الزراعي',
+        'تحليلات السلع الزراعية',
+        'تحديثات السوق اليومية',
+        'تقارير الأسواق',
+        'أخبار التجارة الزراعية',
+        'AgriGuru Online'
+      ],
+    },
+    zh: {
+      title: '农业大宗市场洞察、每日动态与行业研究研报',
+      description: '一站式获取全面的农产品大宗市场洞察、每日行情简报、全球农贸新闻、深度行业研报以及国际会议展会动态。',
+      keywords: [
+        '农业市场洞察',
+        '大宗商品动态',
+        '全球农贸新闻',
+        '农产品研究报告',
+        '农业展会活动',
+        'AgriGuru Online'
+      ],
+    },
+    fr: {
+      title: 'Perspectives des Marchés Agricoles, Actualités & Rapports',
+      description: 'Accédez à des perspectives complètes sur les marchés des denrées agricoles, aux mises à jour quotidiennes, actualités du négoce, rapports d’intelligence et événements sur AgriGuru Online.',
+      keywords: [
+        'Perspectives marché agricole',
+        'Mises à jour matières premières',
+        'Actualités agricoles',
+        'Rapports de marché',
+        'Événements agricoles',
+        'AgriGuru Online'
+      ],
+    },
+  },
   participation_gallery: {
     en: {
       title: 'Participation Gallery & Global Expo Highlights',

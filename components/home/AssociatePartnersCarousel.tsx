@@ -55,21 +55,25 @@ export default function AssociatePartnersCarousel({
                 href={partner.url || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 flex items-center justify-center bg-white border border-border/50 rounded-2xl w-[120px] h-[120px] sm:w-[150px] sm:h-[150px] p-4 shadow-sm hover:shadow-md hover:border-primary/50 hover:-translate-y-1 transition-all duration-300"
+                className="shrink-0 flex items-center justify-center !bg-white border border-zinc-200/90 rounded-2xl w-[120px] h-[120px] sm:w-[150px] sm:h-[150px] p-4 shadow-sm hover:shadow-md hover:border-primary/50 hover:-translate-y-1 transition-all duration-300 group/card"
               >
                 {partner.image ? (
-                  <div className="relative w-full h-full grayscale hover:grayscale-0 transition-all duration-300">
+                  <div className="relative w-full h-full flex items-center justify-center">
                     <ImageWithSkeleton
                       src={imageUrl}
                       alt={partner.title || 'Associate Partner'}
                       fill
                       className="object-contain"
+                      skeletonClassName="!bg-transparent"
+                      style={{ objectFit: 'contain' }}
                       sizes="(max-width: 640px) 120px, 150px"
                       priority={false}
                     />
                   </div>
                 ) : (
-                  <span className="text-center text-xs text-muted-foreground font-medium">{partner.title}</span>
+                  <span className="text-center text-xs text-zinc-600 group-hover/card:text-zinc-900 font-medium transition-colors line-clamp-3">
+                    {partner.title}
+                  </span>
                 )}
               </a>
             </div>

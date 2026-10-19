@@ -595,6 +595,44 @@ export const tradingService = {
   }),
 
   /**
+   * Fetch latest inquiry/offer details with KYC validation & negotiation bid range
+   * GET /trading-inquiry/latest/details/${id}?lang_code=${lang}&source=web
+   */
+  getLatestInquiryDetails: async (
+    id: string,
+    token: string,
+    lang: string = 'en'
+  ) => {
+    const cleanId = encodeURIComponent(id.trim());
+    const tradingApiUrl = getTradingApiUrl();
+    const url = `${tradingApiUrl}/trading-inquiry/latest/details/${cleanId}`;
+
+    try {
+      const res = await customFetch(url, {
+        token,
+        params: { lang_code: lang, source: 'web' },
+      });
+
+      const json = await res.json().catch(() => null);
+      if (json) {
+        return json;
+      }
+      return {
+        success: res.ok ? 1 : 0,
+        message: res.statusText,
+        data: null
+      };
+    } catch (err: any) {
+      console.error('[tradingService.getLatestInquiryDetails] Fetch error:', err);
+      return {
+        success: 0,
+        message: err.message || 'Failed to fetch details',
+        data: null
+      };
+    }
+  },
+
+  /**
    * Fetch inquiry details action helper with multi-domain fallback
    */
   getInquiryDetails: async (

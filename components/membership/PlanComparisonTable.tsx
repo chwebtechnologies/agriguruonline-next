@@ -149,7 +149,7 @@ export default function PlanComparisonTable({
                       isGold
                         ? 'bg-amber-500/5 border-x border-amber-500/20'
                         : isPlatinum
-                        ? 'bg-slate-500/5 border-x border-slate-300/40 dark:border-zinc-700/60'
+                        ? 'bg-emerald-500/5 border-x border-emerald-500/20'
                         : ''
                     }`}
                   >
@@ -162,7 +162,7 @@ export default function PlanComparisonTable({
                           <span className="w-2 h-2 rounded-full bg-amber-500" title="Most Popular" />
                         )}
                         {isPlatinum && (
-                          <span className="w-2 h-2 rounded-full bg-slate-700 dark:bg-zinc-300" title="Full Access" />
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Full Access" />
                         )}
                       </div>
 
@@ -185,7 +185,7 @@ export default function PlanComparisonTable({
                           isGold
                             ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-amber-500/20'
                             : isPlatinum
-                            ? 'bg-slate-900 hover:bg-black text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-950 shadow-xs'
+                            ? 'bg-primary-gradient hover:opacity-95 text-white shadow-xs'
                             : 'bg-foreground text-background hover:opacity-90'
                         }`}
                       >
@@ -243,7 +243,7 @@ export default function PlanComparisonTable({
                             isGold
                               ? 'bg-amber-500/5 border-x border-amber-500/20'
                               : isPlatinum
-                              ? 'bg-slate-500/5 border-x border-slate-300/40 dark:border-zinc-700/60'
+                              ? 'bg-emerald-500/5 border-x border-emerald-500/20'
                               : ''
                           }`}
                         >

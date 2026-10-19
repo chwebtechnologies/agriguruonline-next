@@ -105,9 +105,12 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
     if (cats && Array.isArray(cats)) {
       return cats.map((c: any) => {
         const val = typeof c === 'string' ? c : (c.category_id || c.id || c._id || c.name);
-        const matched = categoryOptions.find(opt => opt.id === val || opt.name === val);
-        return matched ? matched.id : val;
-      }).filter(Boolean);
+        const matched = categoryOptions.find(opt => 
+          String(opt.id) === String(val) || 
+          opt.name?.toLowerCase() === (typeof c === 'string' ? c.toLowerCase() : c.name?.toLowerCase())
+        );
+        return matched ? String(matched.id) : (c.id || c.category_id || val);
+      }).filter(Boolean).map(String);
     }
     return [];
   });
@@ -176,9 +179,12 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       if (cats && Array.isArray(cats)) {
         return cats.map((c: any) => {
           const val = typeof c === 'string' ? c : (c.category_id || c.id || c._id || c.name);
-          const matched = categoryOptions.find(opt => opt.id === val || opt.name === val);
-          return matched ? matched.id : val;
-        }).filter(Boolean);
+          const matched = categoryOptions.find(opt => 
+            String(opt.id) === String(val) || 
+            opt.name?.toLowerCase() === (typeof c === 'string' ? c.toLowerCase() : c.name?.toLowerCase())
+          );
+          return matched ? String(matched.id) : (c.id || c.category_id || val);
+        }).filter(Boolean).map(String);
       }
       return [];
     })(),
@@ -230,8 +236,10 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
     if (altNumber && !isValidPhoneNumber(altNumber)) newErrors.altNumber = "Valid Mobile Number is required";
     if (!companyName.trim()) newErrors.companyName = "Company Name is required";
     if (selectedCategories.length === 0) newErrors.categories = "Please select at least one category";
-    if (altEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(altEmail)) newErrors.altEmail = "Valid email is required";
-    if (website && !/^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z]{2,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/i.test(website)) newErrors.website = "Valid URL (e.g., https://example.com) is required";
+    const trimmedAltEmail = altEmail.trim();
+    const trimmedWebsite = website.trim();
+    if (trimmedAltEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedAltEmail)) newErrors.altEmail = "Valid email is required";
+    if (trimmedWebsite && !/^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z]{2,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/i.test(trimmedWebsite)) newErrors.website = "Valid URL (e.g., https://example.com) is required";
     
     setErrors(newErrors);
   }, [fullName, phone, altNumber, companyName, selectedCategories, altEmail, website, isDirty, hasSubmitted]);
@@ -247,8 +255,10 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
     if (altNumber && !isValidPhoneNumber(altNumber)) newErrors.altNumber = "Valid Mobile Number is required";
     if (!companyName.trim()) newErrors.companyName = "Company Name is required";
     if (selectedCategories.length === 0) newErrors.categories = "Please select at least one category";
-    if (altEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(altEmail)) newErrors.altEmail = "Valid email is required";
-    if (website && !/^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z]{2,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/i.test(website)) newErrors.website = "Valid URL (e.g., https://example.com) is required";
+    const trimmedAltEmail = altEmail.trim();
+    const trimmedWebsite = website.trim();
+    if (trimmedAltEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedAltEmail)) newErrors.altEmail = "Valid email is required";
+    if (trimmedWebsite && !/^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z]{2,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/i.test(trimmedWebsite)) newErrors.website = "Valid URL (e.g., https://example.com) is required";
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -272,7 +282,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
       const selectedCountryObj = countries.find(c => c.iso2?.toUpperCase() === country?.toUpperCase());
       const selectedCountryId = selectedCountryObj?.id || profileData?.country_id || "";
 
-      const payload = {
+      const payload: Record<string, any> = {
         first_name: firstName,
         last_name: lastName,
         country_id: selectedCountryId, 
@@ -280,14 +290,24 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
         mobile_no: parsed ? parsed.nationalNumber : phone,
         user_type: profileData?.user_type?.id || profileData?.user_type || "",
         email: email,
-        website: website,
         category: selectedCategories,
-        company_name: companyName,
-        business_address: businessAddress,
+        company_name: companyName.trim(),
         registration_type: profileData?.registration_type || "",
         registration_number: profileData?.registration_number || "",
-        other_email: altEmail,
       };
+
+      if (businessAddress.trim()) {
+        payload.business_address = businessAddress.trim();
+      }
+      if (trimmedWebsite) {
+        payload.website = trimmedWebsite;
+      }
+      if (trimmedAltEmail) {
+        payload.other_email = trimmedAltEmail;
+      } else {
+        // Explicitly null or omitted so backend does not validate "" as an invalid email
+        payload.other_email = null;
+      }
 
       const result = await updateProfile(userId, payload, lang);
 
@@ -478,7 +498,16 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
                 <div className="flex flex-wrap gap-1.5 py-1.5">
                   {selectedCategories.length > 0 ? (
                     selectedCategories.map(catId => {
-                      const catName = categoryOptions.find(c => c.id === catId)?.name || catId;
+                      const foundOption = categoryOptions.find(c => String(c.id) === String(catId));
+                      const origCats = profileData?.category || profileData?.categories || profileData?.user_category || profileData?.user_categories;
+                      let origName = "";
+                      if (Array.isArray(origCats)) {
+                        const foundOrig = origCats.find((c: any) => String(c?.id || c?.category_id || c) === String(catId));
+                        if (foundOrig && typeof foundOrig === 'object') {
+                          origName = foundOrig.name || foundOrig.title || "";
+                        }
+                      }
+                      const catName = foundOption?.name || origName || catId;
                       return (
                         <span key={catId} className="px-2.5 py-1 bg-brand-blue/10 text-brand-blue border border-brand-blue/20 rounded-md text-sm flex items-center gap-1.5 shadow-sm">
                           {catName}

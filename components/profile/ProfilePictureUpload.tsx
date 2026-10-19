@@ -56,41 +56,39 @@ export default function ProfilePictureUpload({ currentImage }: { currentImage?: 
   };
 
   const showCroppedImage = useCallback(async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+    setIsCropping(false);
+    
+    const toastId = toast.loading("Uploading profile picture...");
+    
     try {
-      if (!imageSrc || !croppedAreaPixels) return;
-      setIsCropping(false);
-      
-      const toastId = toast.loading("Uploading profile picture...");
-      
       const croppedImageResult = await getCroppedImg(
         imageSrc,
         croppedAreaPixels,
         0
       );
       
-      // Get the blob from the object URL
-      const blob = await fetch(croppedImageResult).then(r => r.blob());
       const formData = new FormData();
-      formData.append("profile_image", blob, "profile_pic.jpg");
+      formData.append("profile_image", croppedImageResult.file, "profile_pic.jpg");
       
       // Upload using server action
       const { uploadProfileImage } = await import('@/app/actions/auth');
       const res = await uploadProfileImage(formData);
       
       if (res.success) {
-        setCroppedImage(croppedImageResult);
+        setCroppedImage(croppedImageResult.url);
         toast.success("Profile picture updated successfully!", { id: toastId });
         
-        // Optionally refresh the page so the header catches the new image
+        // Refresh page so header and profile components catch the updated image
         setTimeout(() => window.location.reload(), 1000);
       } else {
         toast.error(res.error || "Failed to upload image", { id: toastId });
       }
       
       setImageSrc(null);
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to crop and upload image.");
+    } catch (e: any) {
+      console.error("Profile picture upload error:", e);
+      toast.error(e?.message || "Failed to crop and upload image.", { id: toastId });
     }
   }, [imageSrc, croppedAreaPixels]);
 

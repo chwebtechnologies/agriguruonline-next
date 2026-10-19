@@ -73,7 +73,11 @@ function ListingFiltersInner({ categories = [] }: ListingFiltersProps) {
             aria-label="Filter by category"
             className="block w-full pl-9 pr-8 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue focus:border-brand-blue transition-all appearance-none cursor-pointer shadow-2xs"
             value={initialCategory}
-            onChange={(e) => handleCategoryChange(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value
+              e.currentTarget.blur()
+              handleCategoryChange(val)
+            }}
           >
             <option value="">All Categories</option>
             {categories.map((cat) => (

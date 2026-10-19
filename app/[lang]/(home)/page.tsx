@@ -109,14 +109,18 @@ function HomeFeedSkeleton() {
 async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any }) {
   const API_TIMEOUT = 2500;
 
-  // Resolve user authentication & role securely
+  // Resolve user authentication, membership & role securely
   let userType: string | null = null;
+  let isLoggedIn = false;
+  let isMember = false;
+
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value;
     if (token) {
       const userResult = await withTimeout(getUserProfile(token, activeLang), 2000, { userProfile: null, shouldLogout: false });
       if (userResult.userProfile) {
+        isLoggedIn = true;
         const u = userResult.userProfile;
         const rawUserType = typeof u.user_type === 'object' && u.user_type !== null ? (u.user_type.name || u.user_type.title) : u.user_type;
         const rawRole = typeof u.role === 'object' && u.role !== null ? u.role.name : u.role;
@@ -125,15 +129,30 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
         if (normUT === 'buyer' || normR === 'buyer') userType = 'buyer';
         else if (normUT === 'seller' || normR === 'seller') userType = 'seller';
         else userType = normUT || normR || null;
+
+        // Check membership:
+        const planName = String(u.membership?.plan_name || '').toLowerCase();
+        const isRegularUser = normUT === 'regular' || normR === 'regular' || planName === 'regular' || planName === 'guest';
+        // A user is a member if they have an active plan or valid trader status that is not regular/guest
+        if ((u.membership && planName && planName !== 'guest' && planName !== 'regular') || ((userType === 'buyer' || userType === 'seller') && !isRegularUser)) {
+          isMember = true;
+        }
       }
     }
     if (!userType) {
       const userInfoCookie = cookieStore.get('user_info')?.value;
       if (userInfoCookie) {
         const u = JSON.parse(decodeURIComponent(userInfoCookie));
+        isLoggedIn = true;
         const rawType = String(u.user_type || u.role || '').toLowerCase();
         if (rawType.includes('buyer')) userType = 'buyer';
         else if (rawType.includes('seller')) userType = 'seller';
+
+        const planName = String(u.membership?.plan_name || '').toLowerCase();
+        const isRegularUser = rawType.includes('regular') || planName === 'regular' || planName === 'guest';
+        if ((u.membership && planName && planName !== 'guest' && planName !== 'regular') || ((userType === 'buyer' || userType === 'seller') && !isRegularUser)) {
+          isMember = true;
+        }
       }
     }
   } catch {}
@@ -156,8 +175,10 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
     withTimeout(cmsService.getMarketUpdates(activeLang, 1, 12).catch(() => null), API_TIMEOUT, null),
     withTimeout(cmsService.getParticipationCategories(activeLang, 1, 12).catch(() => null), API_TIMEOUT, null),
     withTimeout(cmsService.getAssociatePartners(1, 25).catch(() => null), API_TIMEOUT, null),
-    withTimeout(tradingService.getLatestTradingInquiries({ type: 'BUYER', page: 1, limit: 12, lang: activeLang }).catch(() => null), API_TIMEOUT, null),
+    // Buyer offers are inquiries of type 'SELLER' (sellers offering commodities for buyers to buy)
     withTimeout(tradingService.getLatestTradingInquiries({ type: 'SELLER', page: 1, limit: 12, lang: activeLang }).catch(() => null), API_TIMEOUT, null),
+    // Seller inquiries are inquiries of type 'BUYER' (buyers demanding commodities for sellers to fulfill)
+    withTimeout(tradingService.getLatestTradingInquiries({ type: 'BUYER', page: 1, limit: 12, lang: activeLang }).catch(() => null), API_TIMEOUT, null),
   ]);
 
   const articles = newsData?.data?.news || [];
@@ -252,22 +273,32 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
         </section>
       )}
 
-      {buyerOffers.length > 0 && (
+      {/* 
+        Buyer Offers & Seller Inquiries Display Logic:
+        - If user is a member:
+            - Buyer sees ONLY 'Latest Offers for Buyer'
+            - Seller sees ONLY 'Latest Inquiries for Seller'
+        - If guest or not a member:
+            - Both sections are visible
+      */}
+      {buyerOffers.length > 0 && (!isMember || userType !== 'seller') && (
         <LatestOffersForBuyerSection 
           offers={buyerOffers} 
           lang={activeLang} 
           imageBaseUrl={imageBaseUrl}
           userType={userType}
+          isLoggedIn={isLoggedIn}
           dict={dict}
         />
       )}
 
-      {sellerInquiries.length > 0 && (
+      {sellerInquiries.length > 0 && (!isMember || userType !== 'buyer') && (
         <LatestInquiriesForSellerSection
           inquiries={sellerInquiries}
           lang={activeLang}
           imageBaseUrl={imageBaseUrl}
           userType={userType}
+          isLoggedIn={isLoggedIn}
           dict={dict}
         />
       )}

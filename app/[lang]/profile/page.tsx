@@ -210,7 +210,21 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
       plan_type: profileData.membership.plan_type,
       membership_expiry_date: profileData.membership.membership_expiry_date
     } : undefined,
-    is_kyc_verified: profileData.is_kyc_verified
+    is_kyc_verified: profileData.is_kyc_verified,
+    // Ensure all categories, contacts, and business fields are preserved
+    category: profileData.category,
+    categories: profileData.categories,
+    user_category: profileData.user_category,
+    user_categories: profileData.user_categories,
+    other_email: profileData.other_email,
+    alternate_email: profileData.alternate_email,
+    alternate_mobile_no: profileData.alternate_mobile_no,
+    alternate_phone: profileData.alternate_phone,
+    business_address: profileData.business_address,
+    address: profileData.address,
+    website: profileData.website,
+    registration_type: profileData.registration_type,
+    registration_number: profileData.registration_number
   })) : null;
 
   return (

@@ -106,7 +106,8 @@ async function OffersInquiriesFeed({
   const inquiries = data?.data?.inquiries || []
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  const commonDict = (dict as Record<string, any>).common || {}
+  const isLoggedIn = Boolean(authData?.userProfile);
+  const commonDict = (dict as Record<string, any>)?.common || {}
 
   return (
     <>
@@ -121,6 +122,7 @@ async function OffersInquiriesFeed({
                   imageBaseUrl={imageBaseUrl} 
                   offerType={offerType}
                   userType={userType}
+                  isLoggedIn={isLoggedIn}
                   dict={dict}
                 />
               </div>

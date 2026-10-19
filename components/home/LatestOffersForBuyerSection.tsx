@@ -7,11 +7,12 @@ interface LatestOffersForBuyerSectionProps {
   lang: string;
   imageBaseUrl: string;
   userType?: string | null;
+  isLoggedIn?: boolean;
   dict?: any;
 }
 
 export default function LatestOffersForBuyerSection({ 
-  offers, lang, imageBaseUrl, userType, dict = {} 
+  offers, lang, imageBaseUrl, userType, isLoggedIn, dict = {} 
 }: LatestOffersForBuyerSectionProps) {
   if (!offers || offers.length === 0) return null;
 
@@ -69,6 +70,7 @@ export default function LatestOffersForBuyerSection({
                     imageBaseUrl={imageBaseUrl} 
                     offerType="BUYER"
                     userType={userType}
+                    isLoggedIn={isLoggedIn}
                     dict={dict}
                   />
                 ))}

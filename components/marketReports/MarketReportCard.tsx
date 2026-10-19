@@ -97,7 +97,8 @@ export default function MarketReportCard({ report, lang, priority = false, dict 
           <span>{categoryName}</span>
         </div>
 
-        <div className="relative w-full aspect-[794/1120] bg-muted/60 overflow-hidden border-b border-border">
+        {/* Report Cover Image: Clear portrait aspect-[3/4] so report cover is prominently and properly visible */}
+        <div className="relative w-full aspect-[3/4] bg-muted/60 overflow-hidden border-b border-border flex items-center justify-center">
           <ImageWithSkeleton
             src={imageUrl}
             alt={title}
@@ -105,37 +106,43 @@ export default function MarketReportCard({ report, lang, priority = false, dict 
             fill
             className="object-contain"
             style={{ objectFit: 'contain' }}
-            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 20vw"
+            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw"
             priority={priority}
           />
         </div>
         
-        <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-1 justify-between">
+        {/* Content Section: Compact & only taking necessary space */}
+        <div className="p-3 sm:p-3.5 flex flex-col flex-1 justify-between">
           <div>
             {/* Meta Info (ID & Date) */}
-            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/80 mb-2 font-medium gap-2 h-5">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-foreground/80 mb-1.5 font-medium gap-2">
               {displayId ? (
-                <span className="bg-primary/5 text-primary px-1.5 sm:px-2 py-0.5 rounded border border-primary/20 font-mono whitespace-nowrap overflow-hidden text-ellipsis font-semibold">
+                <span className="bg-primary/5 text-primary px-1.5 py-0.5 rounded border border-primary/20 font-mono whitespace-nowrap overflow-hidden text-ellipsis font-semibold">
                   {displayId}
                 </span>
               ) : <span />}
               {publishDate && (
-                <span className="whitespace-nowrap flex-shrink-0">
-                  <i className="fa-regular fa-calendar-days mr-1"></i>{publishDate}
+                <span className="whitespace-nowrap flex-shrink-0 text-[10px] sm:text-[11px]">
+                  <i className="fa-regular fa-calendar-days mr-1 text-foreground/70"></i>{publishDate}
                 </span>
               )}
             </div>
 
-            <h2 className="text-sm sm:text-base font-bold text-foreground mb-2 group-hover:text-primary transition-colors leading-snug h-[40px] sm:h-[48px] flex items-center">
-              <span className="line-clamp-2 break-words">{title}</span>
+            {/* Title: Max 2 lines */}
+            <h2 className="text-xs sm:text-sm font-bold text-foreground mb-1 group-hover:text-primary transition-colors leading-snug line-clamp-2 break-words">
+              {title}
             </h2>
             
-            <p className="text-xs sm:text-sm text-foreground/80 line-clamp-2 break-words mb-4 h-[34px] sm:h-[40px] overflow-hidden leading-snug">
-              {description || '\u00A0'}
-            </p>
+            {/* Description: Max 2 lines (renders only if description exists, no blank placeholder space) */}
+            {description && (
+              <p className="text-[11px] sm:text-xs text-foreground/80 line-clamp-2 break-words mb-2 leading-relaxed">
+                {description}
+              </p>
+            )}
           </div>
           
-          <div className="flex items-center justify-between mt-auto border-t border-border pt-3">
+          {/* Action Row */}
+          <div className="flex items-center justify-between mt-auto border-t border-border pt-2.5">
             <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">
               {isPdf ? (dict?.read_report || 'Read Report') : (dict?.download_report || 'Download Report')}
             </span>

@@ -1,73 +1,103 @@
 export const createImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
-    const image = new Image()
-    image.addEventListener('load', () => resolve(image))
-    image.addEventListener('error', (error) => reject(error))
-    image.setAttribute('crossOrigin', 'anonymous') // needed to avoid cross-origin issues on CodeSandbox
-    image.src = url
-  })
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    // Only set crossOrigin if url is not a data: or blob: URL
+    if (!url.startsWith('data:') && !url.startsWith('blob:')) {
+      image.setAttribute('crossOrigin', 'anonymous');
+    }
+    image.src = url;
+  });
 
 export function getRadianAngle(degreeValue: number) {
-  return (degreeValue * Math.PI) / 180
+  return (degreeValue * Math.PI) / 180;
+}
+
+export interface CroppedImageResult {
+  file: Blob;
+  url: string;
 }
 
 export default async function getCroppedImg(
   imageSrc: string,
   pixelCrop: { x: number; y: number; width: number; height: number },
   rotation = 0
-): Promise<string> {
-  const image = await createImage(imageSrc)
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
+): Promise<CroppedImageResult> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
 
   if (!ctx) {
-    return ''
+    throw new Error('Canvas context not available');
   }
 
-  const maxSize = Math.max(image.width, image.height)
-  const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2))
+  const rotRad = getRadianAngle(rotation);
 
-  // set each dimensions to double largest dimension to allow for a safe area for the
-  // image to rotate in without being clipped by canvas context
-  canvas.width = safeArea
-  canvas.height = safeArea
+  // If no rotation, directly draw cropped region for high performance and precision
+  if (rotation === 0) {
+    canvas.width = Math.round(pixelCrop.width);
+    canvas.height = Math.round(pixelCrop.height);
 
-  // translate canvas context to a central location on image to allow rotating around the center.
-  ctx.translate(safeArea / 2, safeArea / 2)
-  ctx.rotate(getRadianAngle(rotation))
-  ctx.translate(-safeArea / 2, -safeArea / 2)
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    );
+  } else {
+    // Calculate bounding box for rotated canvas
+    const { width: bBoxWidth, height: bBoxHeight } = {
+      width: Math.abs(Math.cos(rotRad) * image.width) + Math.abs(Math.sin(rotRad) * image.height),
+      height: Math.abs(Math.sin(rotRad) * image.width) + Math.abs(Math.cos(rotRad) * image.height),
+    };
 
-  // draw rotated image and store data.
-  ctx.drawImage(
-    image,
-    safeArea / 2 - image.width / 2,
-    safeArea / 2 - image.height / 2
-  )
+    const rotCanvas = document.createElement('canvas');
+    rotCanvas.width = bBoxWidth;
+    rotCanvas.height = bBoxHeight;
+    const rotCtx = rotCanvas.getContext('2d');
 
-  const data = ctx.getImageData(0, 0, safeArea, safeArea)
+    if (!rotCtx) {
+      throw new Error('Rotation canvas context not available');
+    }
 
-  // set canvas width to final desired crop size - this will clear existing context
-  canvas.width = pixelCrop.width
-  canvas.height = pixelCrop.height
+    rotCtx.translate(bBoxWidth / 2, bBoxHeight / 2);
+    rotCtx.rotate(rotRad);
+    rotCtx.translate(-image.width / 2, -image.height / 2);
+    rotCtx.drawImage(image, 0, 0);
 
-  // paste generated rotate image with correct offsets for x,y crop values.
-  ctx.putImageData(
-    data,
-    Math.round(0 - safeArea / 2 + image.width / 2 - pixelCrop.x),
-    Math.round(0 - safeArea / 2 + image.height / 2 - pixelCrop.y)
-  )
+    canvas.width = Math.round(pixelCrop.width);
+    canvas.height = Math.round(pixelCrop.height);
 
-  // As Base64 string
-  // return canvas.toDataURL('image/jpeg');
+    ctx.drawImage(
+      rotCanvas,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    );
+  }
 
-  // As a blob
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     canvas.toBlob((file) => {
       if (file) {
-        resolve(URL.createObjectURL(file))
+        resolve({
+          file,
+          url: URL.createObjectURL(file)
+        });
       } else {
-        resolve('')
+        reject(new Error('Canvas toBlob failed'));
       }
-    }, 'image/jpeg')
-  })
+    }, 'image/jpeg', 0.95);
+  });
 }
+

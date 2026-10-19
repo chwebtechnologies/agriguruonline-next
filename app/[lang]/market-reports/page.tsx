@@ -44,8 +44,7 @@ function MarketReportsGridSkeleton() {
           key={i} 
           className="flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs animate-pulse"
         >
-          {/* Reverted aspect ratio for Market Reports */}
-          <div className="w-full aspect-[794/1120] bg-muted border-b border-border"></div>
+          <div className="w-full aspect-[3/4] bg-muted border-b border-border"></div>
           <div className="px-3 py-3 sm:px-4 sm:py-4 flex flex-col flex-grow">
             <div className="flex items-center justify-between mb-2">
               <div className="w-14 h-4 rounded bg-muted"></div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 interface YouTubeFacadeProps {
   videoId: string;
@@ -10,6 +11,7 @@ interface YouTubeFacadeProps {
 
 export default function YouTubeFacade({ videoId, title, className = '' }: YouTubeFacadeProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [thumbSrc, setThumbSrc] = useState<string>(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
 
   if (isPlaying) {
     return (
@@ -26,8 +28,13 @@ export default function YouTubeFacade({ videoId, title, className = '' }: YouTub
     );
   }
 
-  // YouTube HQ thumbnail
-  const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  const handleThumbError = () => {
+    if (thumbSrc.includes('img.youtube.com')) {
+      setThumbSrc(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`);
+    } else if (thumbSrc.includes('/hqdefault.jpg')) {
+      setThumbSrc(`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`);
+    }
+  };
 
   return (
     <div
@@ -44,14 +51,15 @@ export default function YouTubeFacade({ videoId, title, className = '' }: YouTub
       className={`relative aspect-video rounded-xl overflow-hidden shadow-lg border border-border bg-black group cursor-pointer select-none ${className}`}
     >
       {/* Video Poster Image with aspect ratio matching parent */}
-      <img
-        src={thumbnailUrl}
+      <Image
+        src={thumbSrc}
         alt={title}
-        width={480}
-        height={360}
-        loading="lazy"
-        decoding="async"
-        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+        fill
+        unoptimized
+        priority
+        onError={handleThumbError}
+        className="object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+        sizes="(max-width: 768px) 100vw, 50vw"
       />
 
       {/* Subtle Dark Gradient Overlay */}

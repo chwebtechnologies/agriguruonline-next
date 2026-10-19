@@ -64,9 +64,9 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
     },
     {
       label: dict.navigation?.insights || 'Insights',
-      href: '#',
+      href: `/${activeLang}/insights`,
       iconClass: 'fa-solid fa-lightbulb',
-      isActive: false,
+      isActive: pathname.startsWith(`/${activeLang}/insights`),
     },
     {
       label: dict.navigation?.home || 'Home',
