@@ -401,9 +401,14 @@ export const userService = {
         profile_image: profileRes.userProfile.profile_image,
         profile_picture: profileRes.userProfile.profile_picture,
         avatar: profileRes.userProfile.avatar,
+        plan_name: profileRes.userProfile.plan_name,
+        plan_type: profileRes.userProfile.plan_type,
+        membership_expiry_date: profileRes.userProfile.membership_expiry_date,
         membership: profileRes.userProfile.membership ? { 
           plan_name: profileRes.userProfile.membership.plan_name,
-          status: profileRes.userProfile.membership.status
+          status: profileRes.userProfile.membership.status,
+          plan_type: profileRes.userProfile.membership.plan_type,
+          membership_expiry_date: profileRes.userProfile.membership.membership_expiry_date || profileRes.userProfile.membership_expiry_date
         } : undefined,
         is_kyc_verified: profileRes.userProfile.is_kyc_verified
       } : null,

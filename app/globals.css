@@ -507,6 +507,27 @@ a, button, input, select, textarea, label, [role="button"] {
   background: linear-gradient(269.31deg, rgb(0, 172, 120) 0.52%, rgb(0, 0, 0) 48.98%, rgb(0, 51, 83) 99.34%);
 }
 
+/* Membership Profile Ring Gradients - Luxury & Modern Finish */
+.border-plan-silver {
+  background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 35%, #94a3b8 65%, #64748b 100%);
+  box-shadow: 0 0 0 1px rgba(203, 213, 225, 0.4), 0 2px 8px -1px rgba(148, 163, 184, 0.35);
+}
+
+.border-plan-gold {
+  background: linear-gradient(135deg, #fef9c3 0%, #facc15 30%, #f59e0b 65%, #b45309 100%);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.4), 0 2px 10px -1px rgba(245, 158, 11, 0.45);
+}
+
+.border-plan-platinum {
+  background: linear-gradient(135deg, #6ee7b7 0%, #00ac78 35%, #0ea5e9 70%, #003353 100%);
+  box-shadow: 0 0 0 1px rgba(0, 172, 120, 0.4), 0 2px 10px -1px rgba(0, 172, 120, 0.45);
+}
+
+.border-plan-expired {
+  background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 45%, #1d4ed8 80%, #1e3a8a 100%);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.4), 0 2px 8px -1px rgba(37, 99, 235, 0.35);
+}
+
 /* Debounced Smooth Skeleton Loading (Eliminates harsh blinking on fast/5G navigations) */
 
 .skeleton-loading-screen,

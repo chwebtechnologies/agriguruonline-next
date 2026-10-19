@@ -101,6 +101,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                     profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
                     profile?.membership?.plan_name?.toLowerCase() === 'regular';
 
+
+
   // Notification and alert state initialized from SSR props with client-side refresh capability
   const [notificationsData, setNotificationsData] = useState<any[]>(initialNotifications)
   const [alertsData, setAlertsData] = useState<any[]>(initialAlerts)
@@ -580,9 +582,9 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
               <Link 
                 href={`/${activeLang}`} 
                 aria-label="AgriGuru Online Home" 
-                className={`flex items-center gap-1 sm:gap-1.5 focus:outline-none rounded shrink-0 ${isScrolled ? 'lg:hidden' : ''}`}
+                className={`flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 focus:outline-none rounded shrink-0 ${isScrolled ? 'lg:hidden' : ''}`}
               >
-                <AgriGuruLogo size={36} />
+                <AgriGuruLogo size={48} />
               </Link>
             </div>
 
@@ -952,40 +954,35 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                       router.push(`/${activeLang}/profile`);
                     }
                   }}
-                  className="focus:outline-none cursor-pointer"
+                  className="relative flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-all border border-border shadow-xs hover:scale-105 active:scale-95 duration-200 cursor-pointer overflow-hidden"
                   aria-label={dict.navigation.profile || "User Profile"}
                 >
-                  <div
-                    className="relative flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-muted text-foreground hover:opacity-80 transition-all border border-border shadow-sm hover:scale-105 active:scale-95 duration-200"
+                  {profile?.profile_image ? (
+                    <Image
+                      className="rounded-full object-cover"
+                      src={profile.profile_image.startsWith('http') ? profile.profile_image : `${getAssetsUrl()}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
+                      alt="Profile"
+                      title={dict.navigation.profile || "User Profile"}
+                      fill
+                      sizes="48px"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        if (e.currentTarget.nextElementSibling) {
+                          (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                        }
+                      }}
+                    />
+                  ) : null}
+                  
+                  <div 
+                    className="flex flex-col items-center justify-center w-full h-full"
+                    style={{ display: profile?.profile_image ? 'none' : 'flex' }}
                   >
-                    {profile?.profile_image ? (
-                      <Image
-                        className="rounded-full border border-border object-cover"
-                        src={profile.profile_image.startsWith('http') ? profile.profile_image : `${getAssetsUrl()}${profile.profile_image.startsWith('/') ? '' : '/'}${profile.profile_image}`}
-                        alt="Profile"
-                        title={dict.navigation.profile || "User Profile"}
-                        fill
-                        sizes="48px"
-                        onError={(e) => {
-                          // Fallback to icon on error
-                          e.currentTarget.style.display = 'none';
-                          if (e.currentTarget.nextElementSibling) {
-                            (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
-                          }
-                        }}
-                      />
-                    ) : null}
-                    
-                    <div 
-                      className="flex flex-col items-center justify-center w-full h-full"
-                      style={{ display: profile?.profile_image ? 'none' : 'flex' }}
-                    >
-                      <i className="fa-solid fa-user text-[13px] sm:text-[15px] mb-0.5"></i>
-                      <span className="text-[8px] sm:text-[9px] font-extrabold leading-none mt-0.5 whitespace-nowrap">{dict.navigation.profile || 'Profile'}</span>
-                    </div>
-                    
-                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-ag-header-bg ring-2 ring-emerald-500/20" />
+                    <i className="fa-solid fa-user text-[13px] sm:text-[15px] mb-0.5"></i>
+                    <span className="text-[8px] sm:text-[9px] font-extrabold leading-none mt-0.5 whitespace-nowrap">{dict.navigation.profile || 'Profile'}</span>
                   </div>
+
+                  <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-background ring-1 ring-emerald-500/20 z-10" />
                 </button>
               </div>
             </div>

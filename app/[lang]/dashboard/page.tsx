@@ -36,12 +36,26 @@ export default async function DashboardPage(props: { params: Promise<{ lang: str
     redirect(`/${lang}/login?redirectUrl=/${lang}/dashboard`);
   }
 
+  // Fetch dashboard data safely with fallbacks so network hiccups never throw unhandled exceptions
   const [dict, transactions, userProfile, stats] = await Promise.all([
-    getDictionary(lang as any),
-    userService.getPaymentHistory(token, lang, 1, 25),
-    getUserProfile(token, lang),
-    tradingService.getDashboardStats(token, lang),
+    getDictionary(lang as any).catch(() => ({} as any)),
+    userService.getPaymentHistory(token, lang, 1, 25).catch((err) => {
+      console.error('[DashboardPage] getPaymentHistory error:', err);
+      return [];
+    }),
+    getUserProfile(token, lang).catch((err) => {
+      console.error('[DashboardPage] getUserProfile error:', err);
+      return { userProfile: null, shouldLogout: false };
+    }),
+    tradingService.getDashboardStats(token, lang).catch((err) => {
+      console.error('[DashboardPage] getDashboardStats error:', err);
+      return null;
+    }),
   ]);
+
+  if (userProfile?.shouldLogout) {
+    redirect(`/${lang}/login?redirectUrl=/${lang}/dashboard`);
+  }
 
   const userType = getNormalizedUserType(userProfile?.userProfile?.user_type) || 'buyer';
 

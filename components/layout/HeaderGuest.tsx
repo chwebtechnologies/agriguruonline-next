@@ -57,7 +57,7 @@ interface HeaderGuestProps {
   initialSearchProducts?: SearchProduct[]
 }
 
-export function AgriGuruLogo({ size = 42 }: { size?: number }) {
+export function AgriGuruLogo({ size = 48, className }: { size?: number, className?: string }) {
   return (
     <Image
       src="/logo.webp"
@@ -65,10 +65,10 @@ export function AgriGuruLogo({ size = 42 }: { size?: number }) {
       title="AgriGuru Online Logo"
       width={size}
       height={size}
-      className="h-auto object-contain shrink-0"
+      className={`w-10 h-10 sm:w-12 sm:h-12 object-contain shrink-0 ${className || ''}`}
       priority={true}
       fetchPriority="high"
-      sizes={`${size}px`}
+      sizes="48px"
     />
   )
 }
@@ -283,9 +283,9 @@ export function HeaderGuestBase({
               <Link 
                 href={`/${activeLang}`} 
                 aria-label="AgriGuru Online Home" 
-                className={`flex items-center gap-1 sm:gap-1.5 focus:outline-none rounded shrink-0 ${isScrolled ? 'lg:hidden' : ''}`}
+                className={`flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 focus:outline-none rounded shrink-0 ${isScrolled ? 'lg:hidden' : ''}`}
               >
-                <AgriGuruLogo size={36} />
+                <AgriGuruLogo size={48} />
               </Link>
             </div>
 

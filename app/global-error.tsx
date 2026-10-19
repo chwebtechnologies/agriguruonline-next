@@ -18,6 +18,13 @@ export default function GlobalError({
     /failed to fetch dynamically imported module/i.test(errorMsg) ||
     /dynamically imported module/i.test(errorMsg);
 
+  const isNavigationOrRedirect =
+    errorMsg.includes('NEXT_REDIRECT') ||
+    errorMsg.includes('NEXT_NOT_FOUND') ||
+    errorMsg.includes('aborted') ||
+    errorMsg.includes('canceled') ||
+    error?.digest?.startsWith('NEXT_REDIRECT');
+
   // Auto-reload immediately and silently if this is a chunk load mismatch (e.g. new build/deployment)
   if (isChunkError && typeof window !== 'undefined') {
     const reloadKey = `chunk_reload_${window.location.pathname}`;
@@ -28,8 +35,8 @@ export default function GlobalError({
     }
   }
 
-  // If chunk error, show a seamless silent loading state while the page automatically reloads
-  if (isChunkError) {
+  // If chunk error or navigation transition, show seamless silent loading state
+  if (isChunkError || isNavigationOrRedirect) {
     return (
       <html lang="en">
         <body className="bg-background text-foreground transition-colors duration-200">
