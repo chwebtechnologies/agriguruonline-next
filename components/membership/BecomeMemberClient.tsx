@@ -258,18 +258,44 @@ export default function BecomeMemberClient({
     setIsSubmitting(true);
     try {
       const safeDuration = (String(storedPlan.duration || 'MONTHLY').toUpperCase() as 'MONTHLY' | 'YEARLY');
-      const res = await initiateUpgradeAction(
-        {
-          membership_id: storedPlan.planId,
-          membership_duration: safeDuration,
-          type: 'BECOME_A_MEMBER',
-        },
-        lang
-      );
+      
+      let res: any = null;
 
-      if (!res.success || !res.data) {
-        console.error('[BecomeMemberClient] initiateUpgradeAction failed:', res);
-        const errMsg = res.error || '';
+      try {
+        res = await initiateUpgradeAction(
+          {
+            membership_id: storedPlan.planId,
+            membership_duration: safeDuration,
+            type: 'BECOME_A_MEMBER',
+          },
+          lang
+        );
+      } catch (actionErr: any) {
+        console.warn('[BecomeMemberClient] Server action call threw error, attempting API route fallback:', actionErr);
+        try {
+          const apiRes = await fetch(`/api/membership/initiate-upgrade?lang_code=${lang}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              membership_id: storedPlan.planId,
+              membership_duration: safeDuration,
+              type: 'BECOME_A_MEMBER',
+            }),
+          });
+          const json = await apiRes.json().catch(() => ({}));
+          if (apiRes.ok && json.success) {
+            res = { success: true, data: json.data };
+          } else {
+            throw actionErr;
+          }
+        } catch {
+          throw actionErr;
+        }
+      }
+
+      if (!res?.success || !res?.data) {
+        console.error('[BecomeMemberClient] initiateUpgrade failed:', res);
+        const errMsg = res?.error || '';
         if (/already\s*(active|subscribed|have)|same\s*plan|current\s*plan/i.test(errMsg)) {
           clearStoredPlanSelection();
           toast.success('Your membership plan is already active on your account!');
@@ -277,7 +303,12 @@ export default function BecomeMemberClient({
           router.refresh();
           return;
         }
-        toast.error(res.error || 'Failed to initiate member setup. Please try again.');
+        if (/sign\s*in|unauthorized|log\s*in|session|token/i.test(errMsg)) {
+          toast.error(errMsg || 'Your session has expired. Please sign in to proceed.');
+          router.push(`/${lang}/login?redirectUrl=/${lang}/become-member`);
+          return;
+        }
+        toast.error(errMsg || 'Failed to initiate member setup. Please try again.');
         setIsSubmitting(false);
         return;
       }
@@ -310,7 +341,13 @@ export default function BecomeMemberClient({
       setIsConfirmationOpen(true);
     } catch (err: any) {
       console.error('[BecomeMemberClient] Submit exception:', err);
-      toast.error(err?.message || 'A network error occurred.');
+      const msg = err?.message || '';
+      if (/unexpected response|fetch|network/i.test(msg)) {
+        toast.error('Session expired or network issue. Please sign in again.');
+        router.push(`/${lang}/login?redirectUrl=/${lang}/become-member`);
+      } else {
+        toast.error(msg || 'A network error occurred.');
+      }
     } finally {
       setIsSubmitting(false);
     }

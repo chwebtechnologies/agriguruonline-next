@@ -39,23 +39,143 @@ function loadRazorpayScript(): Promise<boolean> {
     if (typeof window === 'undefined') return resolve(false);
     if ((window as any).Razorpay) return resolve(true);
 
-    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]') as HTMLScriptElement | null;
     if (existing) {
-      existing.addEventListener('load', () => resolve(true));
-      existing.addEventListener('error', () => resolve(false));
+      if ((window as any).Razorpay) return resolve(true);
+      let settled = false;
+      const done = (status: boolean) => {
+        if (!settled) {
+          settled = true;
+          resolve(status && Boolean((window as any).Razorpay));
+        }
+      };
+      existing.addEventListener('load', () => done(true));
+      existing.addEventListener('error', () => done(false));
+
+      // Quick poll in case load event already completed before listener attached
+      const interval = setInterval(() => {
+        if ((window as any).Razorpay) {
+          clearInterval(interval);
+          done(true);
+        }
+      }, 100);
+
+      setTimeout(() => {
+        clearInterval(interval);
+        done(Boolean((window as any).Razorpay));
+      }, 3000);
       return;
     }
 
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
-    script.onload = () => resolve(true);
+    let settled = false;
+    const done = (status: boolean) => {
+      if (!settled) {
+        settled = true;
+        resolve(status && Boolean((window as any).Razorpay));
+      }
+    };
+    script.onload = () => done(true);
     script.onerror = () => {
       console.error('[Razorpay] Failed to load checkout.js script');
-      resolve(false);
+      done(false);
     };
+
+    setTimeout(() => {
+      done(Boolean((window as any).Razorpay));
+    }, 4000);
+
     document.body.appendChild(script);
   });
+}
+
+interface PaymentCallResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Resilient subscription creation with API route fallback
+ */
+async function callCreateSubscription(payload: any, lang: string): Promise<PaymentCallResult> {
+  try {
+    const res = await createSubscriptionAction(payload, lang);
+    if (res && res.success) return { success: true, data: (res as any).data, message: res.message };
+    // Fallback to API route if server action failed
+    const apiRes = await fetch(`/api/membership/create-subscription?lang_code=${lang}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await apiRes.json().catch(() => ({}));
+    if (apiRes.ok && json.success) {
+      return { success: true, data: json.data || json, message: json.message };
+    }
+    return {
+      success: false,
+      error: json.error || json.message || (res && !res.success ? res.error : 'Payment initialization failed'),
+    };
+  } catch (err: any) {
+    console.warn('[ConfirmationModal] Server action createSubscription threw error, falling back to API:', err);
+    try {
+      const apiRes = await fetch(`/api/membership/create-subscription?lang_code=${lang}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await apiRes.json().catch(() => ({}));
+      if (apiRes.ok && json.success) {
+        return { success: true, data: json.data || json, message: json.message };
+      }
+      return { success: false, error: json.error || json.message || err?.message || 'Payment initialization failed' };
+    } catch (fallbackErr: any) {
+      return { success: false, error: fallbackErr?.message || err?.message || 'Network error' };
+    }
+  }
+}
+
+/**
+ * Resilient payment verification with API route fallback
+ */
+async function callCaptureSubscription(payload: any, lang: string): Promise<PaymentCallResult> {
+  try {
+    const res = await captureSubscriptionAction(payload, lang);
+    if (res && res.success) return { success: true, message: res.message, data: (res as any).data };
+    // Fallback to API route
+    const apiRes = await fetch(`/api/membership/capture-subscription?lang_code=${lang}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await apiRes.json().catch(() => ({}));
+    if (apiRes.ok && json.success) {
+      return { success: true, message: json.message || 'Payment verified successfully', data: json.data || json };
+    }
+    return {
+      success: false,
+      error: json.error || json.message || (res && !res.success ? res.error : 'Payment capture failed'),
+    };
+  } catch (err: any) {
+    console.warn('[ConfirmationModal] Server action captureSubscription threw error, falling back to API:', err);
+    try {
+      const apiRes = await fetch(`/api/membership/capture-subscription?lang_code=${lang}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await apiRes.json().catch(() => ({}));
+      if (apiRes.ok && json.success) {
+        return { success: true, message: json.message || 'Payment verified successfully', data: json.data || json };
+      }
+      return { success: false, error: json.error || json.message || err?.message || 'Payment capture failed' };
+    } catch (fallbackErr: any) {
+      return { success: false, error: fallbackErr?.message || err?.message || 'Network error' };
+    }
+  }
 }
 
 /**
@@ -223,32 +343,40 @@ export default function ConfirmationModal({
     setPaypalError(null);
 
     try {
-      const res = await createSubscriptionAction(
-        {
-          membership_id: effectivePlanId,
-          membership_duration: effectiveDuration as 'MONTHLY' | 'YEARLY',
-          payment_gateway: 'PayPal',
-          type: effectiveOrderType as 'BECOME_A_MEMBER' | 'MEMBERSHIP_UPGRADE',
-          ...(effectiveOrderType === 'BECOME_A_MEMBER'
-            ? {
-                user_type:
-                  formValues?.user_type ||
-                  effectiveProfile?.user_type?.id ||
-                  effectiveProfile?.user_type,
-                country_id:
-                  formValues?.country_id || effectiveProfile?.country_id,
-                category:
-                  formValues?.category ||
-                  (effectiveProfile?.user_categories
-                    ? effectiveProfile.user_categories.map((c: any) => c.id || c)
-                    : []),
-              }
-            : {}),
-          env: isSandbox ? 'sandbox' : 'production',
-          is_sandbox: isSandbox,
-        },
-        lang
-      );
+      const payload: any = {
+        membership_id: effectivePlanId,
+        membership_duration: effectiveDuration as 'MONTHLY' | 'YEARLY',
+        payment_gateway: 'PayPal',
+        type: effectiveOrderType as 'BECOME_A_MEMBER' | 'MEMBERSHIP_UPGRADE',
+        amount: usdAmount,
+        usd_amount: usdAmount,
+        currency: 'USD',
+        first_name: effectiveProfile?.first_name || '',
+        last_name: effectiveProfile?.last_name || '',
+        email: userEmail,
+        mobile_no: formattedContact || rawPhone,
+        phone: formattedContact || rawPhone,
+        country_code: effectiveProfile?.country_code || '',
+        ...(effectiveOrderType === 'BECOME_A_MEMBER'
+          ? {
+              user_type:
+                formValues?.user_type ||
+                effectiveProfile?.user_type?.id ||
+                effectiveProfile?.user_type,
+              country_id:
+                formValues?.country_id || effectiveProfile?.country_id,
+              category:
+                formValues?.category ||
+                (effectiveProfile?.user_categories
+                  ? effectiveProfile.user_categories.map((c: any) => c.id || c)
+                  : []),
+            }
+          : {}),
+        env: isSandbox ? 'sandbox' : 'production',
+        is_sandbox: isSandbox,
+      };
+
+      const res = await callCreateSubscription(payload, lang);
 
       if (res.success && res.data) {
         const d = res.data?.data || res.data;
@@ -277,6 +405,9 @@ export default function ConfirmationModal({
     if (isOpen) {
       setAgreedToTerms(true);
       setInitiatingGateway(null);
+
+      // Preload Razorpay checkout script in background so opening is instant
+      loadRazorpayScript();
 
       // Auto-resolve user details if phone number or profile is missing
       if (!effectiveProfile?.mobile_no && !effectiveProfile?.phone) {
@@ -415,7 +546,13 @@ export default function ConfirmationModal({
         await handlePostActivationSuccess(result.message || 'Free trial activated successfully!');
       } catch (err: any) {
         console.error('[ConfirmationModal] startTrial error:', err);
-        toast.error(err?.message || 'Something went wrong activating free trial.');
+        const msg = err?.message || '';
+        if (/unexpected response/i.test(msg)) {
+          toast.error('Session expired. Please sign in again.');
+          router.push(`/${lang}/login?redirectUrl=/${lang}/become-member`);
+        } else {
+          toast.error(msg || 'Something went wrong activating free trial.');
+        }
       }
     });
   };
@@ -436,31 +573,39 @@ export default function ConfirmationModal({
         return;
       }
 
-      // 2. Call API 5: Create Subscription
-      const res = await createSubscriptionAction(
-        {
-          membership_id: planId,
-          membership_duration: isYearly ? 'YEARLY' : 'MONTHLY',
-          payment_gateway: 'RazorPay',
-          type: orderType,
-          ...(orderDetails.type === 'BECOME_A_MEMBER'
-            ? {
-                user_type:
-                  formValues?.user_type ||
-                  effectiveProfile?.user_type?.id ||
-                  effectiveProfile?.user_type,
-                country_id:
-                  formValues?.country_id || effectiveProfile?.country_id,
-                category:
-                  formValues?.category ||
-                  (effectiveProfile?.user_categories
-                    ? effectiveProfile.user_categories.map((c: any) => c.id || c)
-                    : []),
-              }
-            : {}),
-        },
-        lang
-      );
+      // 2. Build complete subscription payload
+      const payload: any = {
+        membership_id: planId,
+        membership_duration: isYearly ? 'YEARLY' : 'MONTHLY',
+        payment_gateway: 'RazorPay',
+        type: orderType,
+        amount: inrAmount,
+        inr_amount: inrAmount,
+        currency: 'INR',
+        first_name: effectiveProfile?.first_name || '',
+        last_name: effectiveProfile?.last_name || '',
+        email: userEmail,
+        mobile_no: formattedContact || rawPhone,
+        phone: formattedContact || rawPhone,
+        country_code: effectiveProfile?.country_code || '',
+        ...(orderDetails.type === 'BECOME_A_MEMBER'
+          ? {
+              user_type:
+                formValues?.user_type ||
+                effectiveProfile?.user_type?.id ||
+                effectiveProfile?.user_type,
+              country_id:
+                formValues?.country_id || effectiveProfile?.country_id,
+              category:
+                formValues?.category ||
+                (effectiveProfile?.user_categories
+                  ? effectiveProfile.user_categories.map((c: any) => c.id || c)
+                  : []),
+            }
+          : {}),
+      };
+
+      const res = await callCreateSubscription(payload, lang);
 
       if (!res.success || !res.data) {
         toast.error(res.error || 'Failed to initialize Razorpay subscription.');
@@ -468,13 +613,25 @@ export default function ConfirmationModal({
         return;
       }
 
-      const data = res.data;
-      const subscriptionId = data.subscription_id || data.order_id || data.id;
+      const rawData = res.data;
+      const data = (rawData as any)?.data || rawData;
+      const subscriptionId =
+        data?.subscription_id ||
+        data?.order_id ||
+        data?.id ||
+        rawData?.subscription_id ||
+        rawData?.order_id ||
+        rawData?.id;
+
       const keyId =
-        data.key_id ||
-        data.key ||
-        data.razorpay_key ||
-        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+        data?.key_id ||
+        data?.key ||
+        data?.razorpay_key ||
+        rawData?.key_id ||
+        rawData?.key ||
+        rawData?.razorpay_key ||
+        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
+        'rzp_test_j3ELiTPkGdMNBq';
 
       console.log('[Razorpay Debug Info]:', {
         subscriptionId,
@@ -500,16 +657,15 @@ export default function ConfirmationModal({
           try {
             setInitiatingGateway('razorpay');
             // Call API 6: Capture Subscription
-            const captureRes = await captureSubscriptionAction(
-              {
-                order_id: response.razorpay_order_id || response.razorpay_subscription_id || subscriptionId,
-                subscription_id: response.razorpay_subscription_id || response.razorpay_order_id || subscriptionId,
-                payment_gateway: 'RazorPay',
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              },
-              lang
-            );
+            const capturePayload = {
+              order_id: response.razorpay_order_id || response.razorpay_subscription_id || subscriptionId,
+              subscription_id: response.razorpay_subscription_id || response.razorpay_order_id || subscriptionId,
+              payment_gateway: 'RazorPay' as const,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            };
+
+            const captureRes = await callCaptureSubscription(capturePayload, lang);
 
             if (!captureRes.success) {
               // Safety fallback: Check if profile is actually active
@@ -578,11 +734,15 @@ export default function ConfirmationModal({
         setInitiatingGateway(null);
       });
       rzpInstance.open();
-      // Immediately close confirmation modal so it does not remain open behind Razorpay
-      onClose();
     } catch (err: any) {
       console.error('[handleSelectRazorpay] Error:', err);
-      toast.error(err?.message || 'A network error occurred while connecting to Razorpay.');
+      const msg = err?.message || '';
+      if (/unexpected response/i.test(msg)) {
+        toast.error('Session expired. Please sign in again.');
+        router.push(`/${lang}/login?redirectUrl=/${lang}/become-member`);
+      } else {
+        toast.error(msg || 'A network error occurred while connecting to Razorpay.');
+      }
       setInitiatingGateway(null);
     }
   };
@@ -848,7 +1008,7 @@ export default function ConfirmationModal({
                             const effectiveOrderId = orderID || effectiveSubId;
                             setInitiatingGateway('paypal');
                             try {
-                              const captureRes = await captureSubscriptionAction(
+                              const captureRes = await callCaptureSubscription(
                                 {
                                   order_id: effectiveOrderId,
                                   subscription_id: effectiveSubId,
@@ -885,7 +1045,13 @@ export default function ConfirmationModal({
                                 }
                               } catch {}
 
-                              toast.error(err?.message || 'Payment capture failed.');
+                              const msg = err?.message || '';
+                              if (/unexpected response/i.test(msg)) {
+                                toast.error('Session expired. Please sign in again.');
+                                router.push(`/${lang}/login?redirectUrl=/${lang}/become-member`);
+                              } else {
+                                toast.error(msg || 'Payment capture failed.');
+                              }
                               setInitiatingGateway(null);
                               onClose();
                             }

@@ -124,3 +124,40 @@ export async function fetchKycDocsForClient(lang: string = "en", userId: string)
   }
   return { success: false, data: [] };
 }
+
+/**
+ * Save notification settings for authenticated user
+ */
+export async function saveNotificationSettings(
+  payload: Record<string, any>,
+  lang: string = "en"
+): Promise<ServerActionResponse> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+
+  if (!token) {
+    return { success: false, error: "Authentication required" };
+  }
+
+  try {
+    const res = await userService.updateNotificationSettings(token, payload, lang);
+    if (res?.success === 1 || (res?.success as any) === true) {
+      return {
+        success: true,
+        message: res.message || "Notification settings saved successfully",
+        data: res.data,
+      };
+    }
+    return {
+      success: false,
+      error: res.message || "Failed to update notification settings",
+    };
+  } catch (err: any) {
+    console.error("saveNotificationSettings error:", err);
+    return {
+      success: false,
+      error: err?.message || "Network error updating settings",
+    };
+  }
+}
+

@@ -57,6 +57,24 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       setHasUnreadState(isIdbUnread || isLocalUnread);
     };
 
+    // Check for any pending flash toasts (e.g. after account deletion redirect)
+    if (typeof window !== 'undefined') {
+      try {
+        const flashToast = sessionStorage.getItem('flash_toast');
+        if (flashToast) {
+          sessionStorage.removeItem('flash_toast');
+          const parsed = JSON.parse(flashToast);
+          if (parsed.type === 'error') {
+            toast.error(parsed.message);
+          } else {
+            toast.success(parsed.message);
+          }
+        }
+      } catch (e) {
+        console.error('Error displaying flash toast:', e);
+      }
+    }
+
     const handlePayload = (payload: any) => {
       console.log('[FCM] Notification payload received:', payload);
       if (!isMounted) return;

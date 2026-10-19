@@ -831,6 +831,24 @@ export const SEO_DICTIONARY: Record<
       description: 'Gérez votre profil, les informations de votre entreprise et vos préférences sur AgriGuru Online.',
     },
   },
+  settings: {
+    en: {
+      title: 'My Settings',
+      description: 'Customize application theme, notification preferences, language, currency, and account settings on AgriGuru Online.',
+    },
+    ar: {
+      title: 'إعداداتي',
+      description: 'تخصيص مظهر التطبيق، تفضيلات الإشعارات، اللغة، العملة، وإعدادات الحساب على AgriGuru Online.',
+    },
+    zh: {
+      title: '我的设置',
+      description: '在 AgriGuru Online 自定义应用主题、通知偏好、显示语言、交易币种及账户偏好设置。',
+    },
+    fr: {
+      title: 'Mes Paramètres',
+      description: 'Personnalisez le thème de l’application, les notifications, la langue, la devise et les paramètres de compte sur AgriGuru Online.',
+    },
+  },
   alerts_setups: {
     en: {
       title: 'Price Alerts & Market Setups',

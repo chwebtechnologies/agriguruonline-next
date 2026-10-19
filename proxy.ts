@@ -64,8 +64,15 @@ export default async function middleware(request: NextRequest) {
     }
   }
 
-  // 2. Auth Guards
-  let token = request.cookies.get('auth_token')?.value;
+  // Detect Server Actions or Flight RPC requests
+  const isServerAction =
+    request.headers.has('next-action') ||
+    request.headers.get('accept')?.includes('text/x-component');
+
+  // 2. Auth Guards - Support both auth_token and __Secure-uid cookies
+  let token =
+    request.cookies.get('auth_token')?.value ||
+    request.cookies.get('__Secure-uid')?.value;
   let isTokenValid = false;
 
   if (token) {
@@ -85,10 +92,13 @@ export default async function middleware(request: NextRequest) {
         // Expiration is typically in seconds
         const nowMs = Date.now();
         const expMs = payload.exp ? payload.exp * 1000 : 0;
+        const isExpired = payload.exp ? nowMs >= expMs : false;
+
+        // Default validity: valid if not expired
+        isTokenValid = !isExpired;
         
-        // Refresh if within 25 seconds of expiry (to ensure we refresh before it dies)
-        if (payload.exp && nowMs >= expMs - 25 * 1000) {
-          isTokenValid = false; // Assume invalid until refreshed, UNLESS it's not actually expired yet
+        // Refresh if within 30 seconds of expiry or already expired
+        if (payload.exp && nowMs >= expMs - 30 * 1000) {
           
           const refreshToken = request.cookies.get('refresh_token')?.value;
           const oldToken = request.cookies.get('auth_token')?.value;
@@ -200,36 +210,6 @@ export default async function middleware(request: NextRequest) {
     locale = getLocale(request);
   }
 
-  // Define protected routes (require auth)
-  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|my-inquiries|my-offers|alerts-setups|become-member)/);
-  
-  if (isProtectedRoute && (!token || !isTokenValid)) {
-    const loginUrl = new URL(`/${locale}/login`, request.url);
-    loginUrl.searchParams.set('redirectUrl', pathname);
-    const response = NextResponse.redirect(loginUrl);
-    
-    // Clear expired auth token
-    response.cookies.delete('auth_token');
-    response.cookies.delete('refresh_token');
-    response.cookies.delete('user_info');
-    response.cookies.set('auth_token', '', { path: '/', maxAge: 0 });
-    response.cookies.set('refresh_token', '', { path: '/', maxAge: 0 });
-    response.cookies.set('user_info', '', { path: '/', maxAge: 0 });
-    
-    return response;
-  }
-
-  // Define guest-only routes (redirect if logged in)
-  const isGuestRoute = pathname.match(/^\/[a-z]{2}\/(login|register)/);
-  
-  if (isGuestRoute && token && isTokenValid) {
-    const storedPlan = request.cookies.get('selected-plan')?.value;
-    if (storedPlan) {
-      return NextResponse.redirect(new URL(`/${locale}/become-member`, request.url));
-    }
-    return NextResponse.redirect(new URL(`/${locale}`, request.url));
-  }
-
   // Helper to apply new cookies to any NextResponse
   const applyNewCookies = (res: NextResponse) => {
     const newAuthToken = request.headers.get('x-new-auth-token');
@@ -254,6 +234,44 @@ export default async function middleware(request: NextRequest) {
     }
     return res;
   };
+
+  // Define protected routes (require auth)
+  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|my-inquiries|my-offers|alerts-setups|become-member)/);
+  
+  if (isProtectedRoute && (!token || !isTokenValid)) {
+    // CRITICAL: Server Actions MUST NEVER be redirected via HTTP 307.
+    // Next.js client runtime expects RSC Flight data (text/x-component).
+    // An HTTP 307 redirect to an HTML login page triggers "An unexpected response was received from the server."
+    // Let Server Actions proceed to the Server Action handler, which securely verifies auth and returns a typed error.
+    if (isServerAction) {
+      return applyNewCookies(NextResponse.next({ request: { headers: request.headers } }));
+    }
+
+    const loginUrl = new URL(`/${locale}/login`, request.url);
+    loginUrl.searchParams.set('redirectUrl', pathname);
+    const response = NextResponse.redirect(loginUrl);
+    
+    // Clear expired auth token
+    response.cookies.delete('auth_token');
+    response.cookies.delete('refresh_token');
+    response.cookies.delete('user_info');
+    response.cookies.set('auth_token', '', { path: '/', maxAge: 0 });
+    response.cookies.set('refresh_token', '', { path: '/', maxAge: 0 });
+    response.cookies.set('user_info', '', { path: '/', maxAge: 0 });
+    
+    return response;
+  }
+
+  // Define guest-only routes (redirect if logged in)
+  const isGuestRoute = pathname.match(/^\/[a-z]{2}\/(login|register)/);
+  
+  if (isGuestRoute && token && isTokenValid && !isServerAction) {
+    const storedPlan = request.cookies.get('selected-plan')?.value;
+    if (storedPlan) {
+      return NextResponse.redirect(new URL(`/${locale}/become-member`, request.url));
+    }
+    return NextResponse.redirect(new URL(`/${locale}`, request.url));
+  }
 
   // 3. Locale Redirect Logic
   if (pathnameHasLocale) return applyNewCookies(NextResponse.next({ request: { headers: request.headers } }));

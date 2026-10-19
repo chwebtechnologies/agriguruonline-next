@@ -321,9 +321,11 @@ async function destroySession() {
     cookieStore.delete({ name: "auth_token", path: "/" });
     cookieStore.delete({ name: "refresh_token", path: "/" });
     cookieStore.delete({ name: "user_info", path: "/" });
+    cookieStore.delete({ name: "__Secure-uid", path: "/" });
     cookieStore.set("auth_token", "", { path: "/", maxAge: 0 });
     cookieStore.set("refresh_token", "", { path: "/", maxAge: 0 });
     cookieStore.set("user_info", "", { path: "/", maxAge: 0 });
+    cookieStore.set("__Secure-uid", "", { path: "/", maxAge: 0 });
   } catch (cookieErr) {
     console.warn("[destroySession] Cannot modify cookies during RSC rendering:", cookieErr);
   }
@@ -347,6 +349,67 @@ export async function logoutUser() {
   await destroySession();
   
   return { success: true };
+}
+
+export async function deleteAccount(userId?: string, lang: string = 'en'): Promise<{
+  success: boolean;
+  status: number;
+  message: string;
+}> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+
+  if (!token) {
+    return { success: false, status: 401, message: "Authentication required. Please log in again." };
+  }
+
+  let targetUserId = userId;
+  if (!targetUserId) {
+    try {
+      const profileRes = await userService.getUserProfile(token, lang);
+      targetUserId = profileRes?.userProfile?.id || profileRes?.userProfile?._id || profileRes?.userProfile?.customer_id;
+    } catch (e) {
+      console.error("[deleteAccount] Failed to fetch profile:", e);
+    }
+  }
+
+  if (!targetUserId) {
+    return { success: false, status: 400, message: "User ID not found." };
+  }
+
+  try {
+    const response = await userService.deleteAccount(targetUserId, token, lang);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const errorMsg = data?.message || (response.status === 409
+        ? "Can not delete account as subscription auto-pay is active"
+        : `Failed to delete account (HTTP ${response.status})`);
+
+      return {
+        success: false,
+        status: response.status,
+        message: errorMsg,
+      };
+    }
+
+    // Success: destroy session and cache
+    await destroySession();
+    invalidateUserAuthCache(token);
+
+    return {
+      success: true,
+      status: response.status,
+      message: data?.message || "Your account has been deleted successfully",
+    };
+  } catch (error: any) {
+    console.error("[deleteAccount] Error:", error);
+    return {
+      success: false,
+      status: 500,
+      message: error?.message || "A network error occurred while deleting account",
+    };
+  }
 }
 
 export async function uploadProfileImage(formData: FormData) {

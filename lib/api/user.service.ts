@@ -550,6 +550,21 @@ export const userService = {
   },
 
   /**
+   * Delete user account.
+   */
+  deleteAccount: async (userId: string, token: string, lang: string = 'en') => {
+    invalidateUserAuthCache(token);
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const url = `${getUserApiUrl()}/user/${encodeURIComponent(userId)}?lang_code=${safeLang}&source=web`;
+    const res = await customFetch(url, {
+      method: 'DELETE',
+      token,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return res;
+  },
+
+  /**
    * Upload profile image.
    */
   uploadProfileImage: async (formData: FormData, token: string, lang: string = 'en') => {
@@ -891,6 +906,88 @@ export const userService = {
         success: 0,
         message: err?.message || 'Failed to download invoice',
       };
+    }
+  },
+
+  /**
+   * Fetch user notification preferences
+   * GET /custom-notification/user-settings?source=web
+   */
+  getNotificationSettings: async (
+    token: string,
+    lang: string = 'en'
+  ): Promise<{
+    success: number;
+    message?: string;
+    data?: {
+      user_id?: string;
+      all_notifications?: boolean;
+      news_notifications?: boolean;
+      event_notifications?: boolean;
+      alerts_notifications?: boolean;
+      promotional_notifications?: boolean;
+      [key: string]: any;
+    };
+  }> => {
+    if (!token) return { success: 0, message: 'Unauthorized' };
+
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const baseUrl = getUserApiUrl();
+    if (!baseUrl) return { success: 0, message: 'User API URL missing' };
+
+    const url = `${baseUrl}/custom-notification/user-settings?lang_code=${safeLang}&source=web`;
+
+    try {
+      const res = await customFetch(url, { token });
+      if (res.ok) {
+        const json = await res.json();
+        return json;
+      }
+      return { success: 0, message: `Failed to fetch settings (HTTP ${res.status})` };
+    } catch (err: any) {
+      console.error('[userService.getNotificationSettings] Error:', err);
+      return { success: 0, message: err?.message || 'Error fetching notification settings' };
+    }
+  },
+
+  /**
+   * Update user notification preferences
+   * PATCH /custom-notification/user-settings
+   */
+  updateNotificationSettings: async (
+    token: string,
+    payload: Record<string, any>,
+    lang: string = 'en'
+  ): Promise<{ success: number; message?: string; data?: any }> => {
+    if (!token) return { success: 0, message: 'Unauthorized' };
+
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
+    const baseUrl = getUserApiUrl();
+    if (!baseUrl) return { success: 0, message: 'User API URL missing' };
+
+    const url = `${baseUrl}/custom-notification/user-settings?lang_code=${safeLang}&source=web`;
+
+    try {
+      const res = await customFetch(url, {
+        token,
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok) {
+        return data || { success: 1 };
+      }
+
+      return {
+        success: 0,
+        message: data?.message || `Failed to update notification settings (HTTP ${res.status})`,
+      };
+    } catch (err: any) {
+      console.error('[userService.updateNotificationSettings] Error:', err);
+      return { success: 0, message: err?.message || 'Error updating notification settings' };
     }
   },
 };
