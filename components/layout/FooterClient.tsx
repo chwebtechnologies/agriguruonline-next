@@ -105,7 +105,7 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
   return (
-    <footer id="footer" className="w-full font-sans bg-card text-muted-foreground pt-8 pb-18 md:pb-6 relative transition-theme border-t border-border" dir={dir}>
+    <footer id="footer" className="w-full font-sans bg-card text-muted-foreground pt-3 sm:pt-4 md:pt-6 pb-0 relative transition-theme border-t border-border" dir={dir}>
 
       {/* ======================================================== */}
       {/* 1. App Download Section (Compact alignment)               */}
@@ -118,130 +118,132 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       
 
       {/* ======================================================== */}
-      {/* 3. Links Section (Reduced height, tight padding)           */}
+      {/* 3. Links Section (Layout matched perfectly with Header)    */}
       {/* ======================================================== */}
-      <div className="mx-auto max-w-7xl py-6" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
+      <div className="w-full" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
+        <div className="mx-auto max-w-7xl w-full py-2 sm:py-3 md:py-6">
 
-        {/* Desktop & Tablet View */}
-        <div className="hidden md:grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 text-sm font-bold tracking-wide">
-          {/* Column 1: Company Details */}
-          <div>
-            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.company_details}</h2>
-            <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/about-us`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.about_us}</Link></li>
-              <li><Link href={`/${activeLang}/founder-profile`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.founder_profile}</Link></li>
-            </ul>
+          {/* Desktop & Tablet View: Left & Right touched to layout, middle gaps equal */}
+          <div className="hidden md:flex justify-between items-start w-full text-sm font-bold tracking-wide">
+            {/* Column 1: Company Details */}
+            <div className="shrink-0">
+              <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.company_details}</h2>
+              <ul className="space-y-1.5 text-muted-foreground">
+                <li><Link href={`/${activeLang}/about-us`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.about_us}</Link></li>
+                <li><Link href={`/${activeLang}/founder-profile`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.founder_profile}</Link></li>
+              </ul>
+            </div>
+
+            {/* Column 2: Trade Services */}
+            <div className="shrink-0">
+              <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.trade_services}</h2>
+              <ul className="space-y-1.5 text-muted-foreground">
+                <li><Link href={`/${activeLang}/user-manual`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_manual}</Link></li>
+                <li><Link href={`/${activeLang}/user-guide`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_guide}</Link></li>
+              </ul>
+            </div>
+
+            {/* Column 3: Membership Plans */}
+            <div className="shrink-0">
+              <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.membership_plans}</h2>
+              <ul className="space-y-1.5 text-muted-foreground">
+                <li><Link href={`/${activeLang}/membership`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.membership_plans}</Link></li>
+              </ul>
+            </div>
+
+            {/* Column 4: Regulatory Norms */}
+            <div className="shrink-0">
+              <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.regulatory_norms}</h2>
+              <ul className="space-y-1.5 text-muted-foreground">
+                <li><Link href={`/${activeLang}/disclaimer`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.disclaimer}</Link></li>
+                <li><Link href={`/${activeLang}/terms-conditions`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.terms_conditions}</Link></li>
+                <li><Link href={`/${activeLang}/refund-cancellation-policy`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.refund_cancellation}</Link></li>
+                <li><Link href={`/${activeLang}/privacy-policy`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.privacy_policy}</Link></li>
+              </ul>
+            </div>
+
+            {/* Column 5: Get In Touch */}
+            <div className="shrink-0">
+              <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.get_in_touch || 'Get In Touch'}</h2>
+              <ul className="space-y-1.5 text-muted-foreground">
+                <li><Link href={`/${activeLang}/contact-us`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
+                <li><Link href={`/${activeLang}/career`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.career || 'Career'}</Link></li>
+              </ul>
+            </div>
           </div>
 
-          {/* Column 2: Trade Services */}
-          <div>
-            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.trade_services}</h2>
-            <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/user-manual`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_manual}</Link></li>
-              <li><Link href={`/${activeLang}/user-guide`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.user_guide}</Link></li>
-            </ul>
+          {/* Mobile View (Accordions) */}
+          <div className="block md:hidden space-y-2.5">
+
+            {/* Accordion 1: Company Details */}
+            <details className="group border-b border-border pb-1">
+              <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <span>{dict.footer.company_details}</span>
+                <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+              </summary>
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+                <li><Link href={`/${activeLang}/about-us`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.about_us}</Link></li>
+                <li><Link href={`/${activeLang}/founder-profile`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.founder_profile}</Link></li>
+              </ul>
+            </details>
+
+            {/* Accordion 2: Trade Services */}
+            <details className="group border-b border-border pb-1">
+              <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <span>{dict.footer.trade_services}</span>
+                <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+              </summary>
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+                <li><Link href={`/${activeLang}/user-manual`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_manual}</Link></li>
+                <li><Link href={`/${activeLang}/user-guide`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_guide}</Link></li>
+              </ul>
+            </details>
+
+            {/* Accordion 3: Membership Plans */}
+            <details className="group border-b border-border pb-1">
+              <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <span>{dict.footer.membership_plans}</span>
+                <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+              </summary>
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+                <li><Link href={`/${activeLang}/membership`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.membership_plans}</Link></li>
+              </ul>
+            </details>
+
+            {/* Accordion 4: Regulatory Norms */}
+            <details className="group border-b border-border pb-1">
+              <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <span>{dict.footer.regulatory_norms}</span>
+                <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+              </summary>
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+                <li><Link href={`/${activeLang}/disclaimer`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.disclaimer}</Link></li>
+                <li><Link href={`/${activeLang}/terms-conditions`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.terms_conditions}</Link></li>
+                <li><Link href={`/${activeLang}/refund-cancellation-policy`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.refund_cancellation}</Link></li>
+                <li><Link href={`/${activeLang}/privacy-policy`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.privacy_policy}</Link></li>
+              </ul>
+            </details>
+
+            {/* Accordion 5: Get In Touch */}
+            <details className="group border-b border-border pb-1">
+              <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <span>{dict.footer.get_in_touch || 'Get In Touch'}</span>
+                <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
+              </summary>
+              <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
+                <li><Link href={`/${activeLang}/contact-us`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.contact_us}</Link></li>
+                <li><Link href={`/${activeLang}/career`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.career || 'Career'}</Link></li>
+              </ul>
+            </details>
+
           </div>
 
-          {/* Column 3: Membership Plans */}
-          <div>
-            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.membership_plans}</h2>
-            <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/membership`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.membership_plans}</Link></li>
-            </ul>
-          </div>
-
-          {/* Column 4: Regulatory Norms */}
-          <div>
-            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.regulatory_norms}</h2>
-            <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/disclaimer`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.disclaimer}</Link></li>
-              <li><Link href={`/${activeLang}/terms-conditions`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.terms_conditions}</Link></li>
-              <li><Link href={`/${activeLang}/refund-cancellation-policy`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.refund_cancellation}</Link></li>
-              <li><Link href={`/${activeLang}/privacy-policy`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.privacy_policy}</Link></li>
-            </ul>
-          </div>
-
-          {/* Column 5: Get In Touch */}
-          <div>
-            <h2 className="font-black text-foreground uppercase tracking-wider mb-2.5 border-b border-border pb-1.5">{dict.footer.get_in_touch || 'Get In Touch'}</h2>
-            <ul className="space-y-1.5 text-muted-foreground">
-              <li><Link href={`/${activeLang}/contact-us`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.contact_us}</Link></li>
-              <li><Link href={`/${activeLang}/career`} className="hover:text-brand-blue dark:hover:text-brand-blue hover:underline transition-colors">{dict.footer.career || 'Career'}</Link></li>
-            </ul>
-          </div>
         </div>
-
-        {/* Mobile View (Accordions) */}
-        <div className="block md:hidden space-y-2.5">
-
-          {/* Accordion 1: Company Details */}
-          <details className="group border-b border-border pb-1">
-            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <span>{dict.footer.company_details}</span>
-              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
-            </summary>
-            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/about-us`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.about_us}</Link></li>
-              <li><Link href={`/${activeLang}/founder-profile`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.founder_profile}</Link></li>
-            </ul>
-          </details>
-
-          {/* Accordion 2: Trade Services */}
-          <details className="group border-b border-border pb-1">
-            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <span>{dict.footer.trade_services}</span>
-              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
-            </summary>
-            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/user-manual`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_manual}</Link></li>
-              <li><Link href={`/${activeLang}/user-guide`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.user_guide}</Link></li>
-            </ul>
-          </details>
-
-          {/* Accordion 3: Membership Plans */}
-          <details className="group border-b border-border pb-1">
-            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <span>{dict.footer.membership_plans}</span>
-              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
-            </summary>
-            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/membership`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.membership_plans}</Link></li>
-            </ul>
-          </details>
-
-          {/* Accordion 4: Regulatory Norms */}
-          <details className="group border-b border-border pb-1">
-            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <span>{dict.footer.regulatory_norms}</span>
-              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
-            </summary>
-            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/disclaimer`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.disclaimer}</Link></li>
-              <li><Link href={`/${activeLang}/terms-conditions`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.terms_conditions}</Link></li>
-              <li><Link href={`/${activeLang}/refund-cancellation-policy`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.refund_cancellation}</Link></li>
-              <li><Link href={`/${activeLang}/privacy-policy`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.privacy_policy}</Link></li>
-            </ul>
-          </details>
-
-          {/* Accordion 5: Get In Touch */}
-          <details className="group border-b border-border pb-1">
-            <summary className="w-full flex justify-between items-center py-1.5 text-foreground font-bold text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              <span>{dict.footer.get_in_touch || 'Get In Touch'}</span>
-              <span className="transform text-[10px] transition-transform duration-200 group-open:rotate-180">▼</span>
-            </summary>
-            <ul className="pl-4 py-1.5 space-y-1.5 text-sm text-muted-foreground">
-              <li><Link href={`/${activeLang}/contact-us`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.contact_us}</Link></li>
-              <li><Link href={`/${activeLang}/career`} className="block py-0.5 hover:text-brand-blue dark:hover:text-brand-blue">{dict.footer.career || 'Career'}</Link></li>
-            </ul>
-          </details>
-
-        </div>
-
       </div>
 
       {/* Copyright Bar */}
-      <div className="w-full py-3.5 pb-20 lg:pb-3.5 text-center text-[13px] border-t border-border bg-muted text-muted-foreground font-semibold transition-theme">
-        <div className="mx-auto max-w-7xl flex items-center justify-center" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
+      <div className="w-full py-2.5 pb-[72px] min-[390px]:pb-[76px] lg:py-3 lg:pb-3 text-center text-[12px] sm:text-[13px] border-t border-border bg-muted text-muted-foreground font-semibold transition-theme" style={{ paddingLeft: 'var(--ag-container-px)', paddingRight: 'var(--ag-container-px)' }}>
+        <div className="mx-auto max-w-7xl w-full flex items-center justify-center">
           <span>{dict.footer.copyright}</span>
         </div>
       </div>
@@ -297,28 +299,28 @@ export default function FooterClient({ dict, activeLang }: FooterProps) {
       </div>
 
       {/* ======================================================== */}
-      {/* 6. Mobile Bottom Navigation Bar (Pixel Perfect)            */}
+      {/* 6. Mobile & Tablet Bottom Navigation Bar (Equal & Centered) */}
       {/* ======================================================== */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl h-[64px] min-[390px]:h-[68px]">
-        <div className="w-full max-w-2xl mx-auto h-full px-2 py-1 flex justify-between items-center">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-45 bg-card border-t border-border shadow-2xl h-[64px] min-[390px]:h-[68px] md:h-[70px]">
+        <div className="w-full h-full px-1 sm:px-4 md:px-6 grid grid-cols-5 items-center">
         {tabs.map((tab, idx) => (
           <Link
             key={idx}
             href={tab.href}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 min-[390px]:gap-1 transition-colors duration-150 py-1 px-0.5 rounded-lg select-none group text-center ${
+            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 min-[390px]:gap-1 md:gap-1.5 transition-colors duration-150 py-1 px-1 rounded-lg select-none group text-center ${
               tab.isActive 
                 ? 'text-[#0F6FBF] dark:text-brand-blue scale-105' 
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <div className="flex h-6 min-[390px]:h-6.5 w-6 min-[390px]:w-6.5 items-center justify-center shrink-0">
-              <i className={`${tab.iconClass} text-[19px] min-[390px]:text-[21px] transition-colors duration-150 ${
+            <div className="flex h-6 min-[390px]:h-6.5 md:h-7 w-6 min-[390px]:w-6.5 md:w-7 items-center justify-center shrink-0">
+              <i className={`${tab.iconClass} text-[19px] min-[390px]:text-[21px] md:text-[22px] transition-colors duration-150 ${
                 tab.isActive 
                   ? 'text-[#0F6FBF] dark:text-brand-blue drop-shadow-[0_0_8px_rgba(29,146,235,0.35)]' 
                   : 'text-muted-foreground group-hover:text-foreground'
               }`} />
             </div>
-            <span className={`text-[10px] min-[360px]:text-[11px] min-[390px]:text-[12px] font-bold tracking-tight transition-colors duration-150 truncate max-w-full px-0.5 whitespace-nowrap leading-tight text-center block ${
+            <span className={`text-[10px] min-[360px]:text-[11px] min-[390px]:text-[12px] md:text-[13px] font-bold tracking-tight transition-colors duration-150 truncate max-w-full px-0.5 whitespace-nowrap leading-tight text-center block ${
               tab.isActive 
                 ? 'text-[#0F6FBF] dark:text-brand-blue font-extrabold' 
                 : 'text-muted-foreground group-hover:text-foreground'

@@ -35,9 +35,17 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
   const [isPending, startTransition] = useTransition()
   const { theme, setTheme } = useTheme()
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(true)
+  const [isPaused, setIsPaused] = useState(false)
   const [isLangOpen, setIsLangOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [currentQuery, setCurrentQuery] = useState('')
+
+  const displayList = announcements.length === 0
+    ? []
+    : announcements.length === 1
+      ? [announcements[0], announcements[0]]
+      : [...announcements, announcements[0]]
 
   useEffect(() => {
     setMounted(true)
@@ -54,14 +62,44 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
     }
   }, [activeLang])
 
-  // Auto-scroll loop for announcements
+  // Auto-scroll loop for announcements (continuous even for a single item)
   useEffect(() => {
-    if (announcements.length <= 1) return
+    if (announcements.length === 0) return
+
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % announcements.length)
-    }, 4500)
+      if (!isPaused) {
+        setIsTransitioning(true)
+        setCurrentIndex((prev) => prev + 1)
+      }
+    }, 3800)
+
     return () => clearInterval(interval)
-  }, [announcements.length])
+  }, [announcements.length, isPaused])
+
+  // Reset to index 0 smoothly without backward jump after reaching the cloned item
+  useEffect(() => {
+    const targetCount = announcements.length === 1 ? 1 : announcements.length
+    if (targetCount <= 0) return
+
+    if (currentIndex >= targetCount) {
+      const snapTimeout = setTimeout(() => {
+        setIsTransitioning(false)
+        setCurrentIndex(0)
+      }, 500)
+
+      return () => clearTimeout(snapTimeout)
+    }
+  }, [currentIndex, announcements.length])
+
+  // Re-enable CSS transition after the instant snap to 0
+  useEffect(() => {
+    if (!isTransitioning && currentIndex === 0) {
+      const enableTimeout = setTimeout(() => {
+        setIsTransitioning(true)
+      }, 50)
+      return () => clearTimeout(enableTimeout)
+    }
+  }, [isTransitioning, currentIndex])
 
   const getLangUrl = (newLang: string) => {
     const p = pathname || '/'
@@ -112,28 +150,38 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
     >
       <div className="mx-auto w-full max-w-7xl flex justify-between items-center gap-6">
         {/* Left: Dynamic Vertically Animating Announcements */}
-        <div className="relative h-6 overflow-hidden flex-1 select-none text-[13.5px]">
+        <div 
+          className="relative h-6 overflow-hidden flex-1 select-none text-[13.5px]"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
           <div
-            className="transition-transform duration-500 ease-in-out"
-            style={{ transform: `translateY(-${currentIndex * 24}px)` }}
+            className={isTransitioning ? "transition-transform duration-500 ease-in-out" : ""}
+            style={{ 
+              transform: `translateY(-${currentIndex * 24}px)`,
+              transition: isTransitioning ? undefined : 'none'
+            }}
           >
-            {announcements.map((ann, idx) => {
+            {displayList.map((ann, idx) => {
               // Extract localized translation if present
-              const title = ann.title
-              const label = ann.label
+              const trans = ann.translations?.find((t) => t.lang_code === activeLang)
+              const title = trans?.title || ann.title
+              const label = trans?.label || ann.label
+              const isExternal = Boolean(ann.link && (ann.link.startsWith('http://') || ann.link.startsWith('https://')))
 
               return (
-                <div key={ann.id || idx} className="h-6 flex items-center gap-2 overflow-hidden w-full">
-                  <span className="tracking-wide truncate flex-1 min-w-0">{title}</span>
+                <div key={`${ann.id || 'ann'}-${idx}`} className="h-6 flex items-center gap-2.5 overflow-hidden w-full">
+                  <span className="tracking-wide truncate min-w-0">{title}</span>
                   {label && ann.link && (
                     <a
                       href={ann.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:text-emerald-300 transition-colors font-extrabold whitespace-nowrap shrink-0"
+                      target={isExternal ? "_blank" : undefined}
+                      rel={isExternal ? "noopener noreferrer" : undefined}
+                      className="inline-flex items-center gap-1.5 px-2.5 h-[22px] rounded-full bg-white/20 hover:bg-white text-white hover:text-emerald-950 text-xs font-bold transition-all duration-200 border border-white/25 shadow-sm whitespace-nowrap shrink-0 group cursor-pointer"
                       aria-label={`${label} for ${title || 'App'}`}
                     >
-                      {label} <span className="sr-only">for {title || 'App'}</span>
+                      <span>{label}</span>
+                      <i className="fa-solid fa-arrow-right text-[10px] rtl:rotate-180 transition-transform duration-200 group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
                     </a>
                   )}
                 </div>
