@@ -10,7 +10,7 @@ export function FreightChartRowsSkeleton({ count = 4 }: { count?: number }) {
         {[...Array(count)].map((_, i) => (
           <div
             key={`mob-${i}`}
-            className="flex flex-col p-3 bg-card rounded-2xl border border-border shadow-xs animate-pulse space-y-2"
+            className="flex flex-col p-2.5 bg-card rounded-xl border border-border shadow-xs animate-pulse space-y-2"
           >
             <div className="flex justify-between items-center">
               <div className="h-3.5 w-24 bg-muted rounded"></div>

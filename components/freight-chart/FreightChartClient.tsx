@@ -930,7 +930,7 @@ export default function FreightChartClient({
                           row1Left={
                             <>
                               {renderFlag(item.polFlag, 'POL')}
-                              <span className="truncate">POL : {item.pol}</span>
+                              <span className="truncate">POL: {item.pol}</span>
                             </>
                           }
                           row1Right={
@@ -940,14 +940,7 @@ export default function FreightChartClient({
                             </>
                           }
                           title={cardTitle}
-                          titleClassName="font-bold text-[15px] leading-tight text-foreground truncate min-w-0"
-                          priceDisplay={
-                            <span className="flex items-center gap-1 font-bold">
-                              <span className="text-muted-foreground font-normal text-[13px] sm:text-[14px] tracking-tight">( PMT )</span>
-                              <span className="text-[15px] sm:text-[16px] text-foreground font-bold tracking-tight">${displayPrice}</span>
-                            </span>
-                          }
-                          priceClassName="text-foreground shrink-0"
+                          priceDisplay={`( PMT ) $${displayPrice}`}
                           onCardClick={() => {
                             if (item.chartStatus) {
                               setSelectedInitialTab('Overview');
@@ -1235,7 +1228,7 @@ export default function FreightChartClient({
               row1Left={
                 <>
                   {renderFlag(item.polFlag, 'POL')}
-                  <span className="truncate">POL : {item.pol}</span>
+                  <span className="truncate">POL: {item.pol}</span>
                 </>
               }
               row1Right={
@@ -1245,14 +1238,7 @@ export default function FreightChartClient({
                 </>
               }
               title={cardTitle}
-              titleClassName="font-bold text-[15px] leading-tight text-foreground truncate min-w-0"
-              priceDisplay={
-                <span className="flex items-center gap-1 font-bold">
-                  <span className="text-muted-foreground font-normal text-[13px] sm:text-[14px] tracking-tight">( PMT )</span>
-                  <span className="text-[15px] sm:text-[16px] text-foreground font-bold tracking-tight">${displayPrice}</span>
-                </span>
-              }
-              priceClassName="text-foreground shrink-0"
+              priceDisplay={`( PMT ) $${displayPrice}`}
               actionButton={
                 <button
                   type="button"
