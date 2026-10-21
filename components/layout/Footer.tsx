@@ -1,13 +1,16 @@
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { lang } from 'next/root-params'
 import FooterClient from './FooterClient'
-import { Suspense } from 'react'
 import { getSafeLanguage } from '@/lib/seo'
+import { cmsService } from '@/lib/api/cms.service'
 
 export default async function Footer() {
   const rawLang = await lang()
   const activeLang = getSafeLanguage(rawLang)
-  const rawDict = await getDictionary()
+  const [rawDict, footerData]: [any, any] = await Promise.all([
+    getDictionary(activeLang).catch(() => ({})),
+    cmsService.getFooter(activeLang).catch(() => null),
+  ])
 
   const defaultFooter = {
     tagline: "\"Your AgriTrade & Our AgriTech\"",
@@ -39,6 +42,6 @@ export default async function Footer() {
   }
 
   return (
-    <FooterClient dict={dict} activeLang={activeLang} />
+    <FooterClient dict={dict} activeLang={activeLang} footerData={footerData} />
   )
 }

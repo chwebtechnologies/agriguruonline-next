@@ -28,3 +28,20 @@ export interface CmsContentResponse {
   data: CmsPageData;
   response_time?: string;
 }
+
+export interface FooterLinkItem {
+  name: string;
+  title: string;
+  link_type: 'PAGE' | 'URL' | string;
+  slug: string;
+  url: string;
+}
+
+export type FooterSections = Record<string, FooterLinkItem[]>;
+
+export interface FooterResponse {
+  success: number;
+  message: string;
+  data: FooterSections;
+  response_time?: string;
+}

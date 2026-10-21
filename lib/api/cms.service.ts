@@ -12,7 +12,7 @@ import type {
   ParticipationCategory,
 } from '@/types/participationGallery';
 import type { AssociatePartnersResponse } from '@/types/associatePartners';
-import type { CmsPageData, CmsContentResponse } from '@/types/cms';
+import type { CmsPageData, CmsContentResponse, FooterSections, FooterResponse } from '@/types/cms';
 
 export interface CollectionVideoData {
   category: {
@@ -467,6 +467,26 @@ export const cmsService = {
       return null;
     } catch (err) {
       console.error(`[cmsService.getContentBySlug] error for slug '${slug}':`, err);
+      return null;
+    }
+  }),
+
+  /**
+   * Dynamic Footer Sections
+   */
+  getFooter: cache(async (lang: string = 'en'): Promise<FooterSections | null> => {
+    const cmsApiUrl = getCmsApiUrl();
+    const url = `${cmsApiUrl}/dashboard/footer`;
+    try {
+      const json = await customFetchJSON<FooterResponse>(url, {
+        params: { lang_code: lang, source: 'web' },
+      });
+      if (json?.success === 1 && json.data) {
+        return json.data;
+      }
+      return null;
+    } catch (err) {
+      console.error('[cmsService.getFooter] error:', err);
       return null;
     }
   }),
