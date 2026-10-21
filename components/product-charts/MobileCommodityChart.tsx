@@ -2053,10 +2053,14 @@ export default function MobileCommodityChart({
         <div className="flex items-center gap-1.5 min-[390px]:gap-2.5 flex-1 min-w-0 pr-1">
           {isFullScreen && !onClose && (
             <Link
-              href={`/${lang || 'en'}`}
+              href={isFreight ? `/${lang || 'en'}/freight-charts` : `/${lang || 'en'}/product-charts`}
               onClick={(e) => {
                 e.preventDefault();
-                router.back();
+                const targetHref = isFreight ? `/${lang || 'en'}/freight-charts` : `/${lang || 'en'}/product-charts`;
+                if (typeof window !== 'undefined') {
+                  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                }
+                router.push(targetHref);
               }}
               className="lg:hidden group flex items-center justify-center w-7 h-7 min-[390px]:w-8 min-[390px]:h-8 rounded-full bg-card border border-border shadow-xs text-foreground hover:text-brand-blue hover:border-brand-blue  active:scale-95 shrink-0 cursor-pointer"
               aria-label="Go Back"

@@ -112,7 +112,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     if (step === "EMAIL") {
       router.push(`/${lang}`);
     } else if (step === "OTP") {
-      window.history.back();
+      setStep("EMAIL");
     }
   };
 
@@ -180,7 +180,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         {step === "OTP" && (
           <OtpStep
             email={email}
-            onBack={() => window.history.back()}
+            onBack={() => setStep("EMAIL")}
             onVerify={handleOtpVerify}
             lang={lang}
             dict={dict}

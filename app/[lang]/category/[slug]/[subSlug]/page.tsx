@@ -261,7 +261,7 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
             };
 
             return (
-              <div key={product.id} className="h-full flex flex-col" style={index >= 8 ? { contentVisibility: 'auto' } : undefined}>
+              <div key={product.id} className="h-full flex flex-col">
                 <MarketedProductCard
                   product={mappedProduct as any}
                   lang={lang}

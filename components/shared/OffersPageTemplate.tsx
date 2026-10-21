@@ -115,7 +115,7 @@ async function OffersInquiriesFeed({
         {inquiries.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             {inquiries.map((inquiry, index) => (
-              <div key={inquiry.id} className="h-full flex flex-col" style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
+              <div key={inquiry.id} className="h-full flex flex-col">
                 <OfferCard 
                   inquiry={inquiry} 
                   lang={lang} 

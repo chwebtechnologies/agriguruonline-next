@@ -79,7 +79,7 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
 
   return (
     <div 
-      className="w-full relative hidden md:block h-[290px] sm:h-[300px] md:h-[310px] lg:h-[320px] xl:h-[340px] min-h-[290px] sm:min-h-[300px] md:min-h-[310px] lg:min-h-[320px] xl:min-h-[340px] rounded-2xl overflow-hidden shadow-xs border border-border mb-4 group"
+      className="w-full relative hidden md:block mt-1.5 sm:mt-2 h-[290px] sm:h-[300px] md:h-[310px] lg:h-[320px] xl:h-[340px] min-h-[290px] sm:min-h-[300px] md:min-h-[310px] lg:min-h-[320px] xl:min-h-[340px] rounded-2xl overflow-hidden shadow-xs border border-border mb-4 group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -91,7 +91,6 @@ export default function HeroCarousel({ lang, dict }: { lang: string, dict?: any 
             key={slide.id}
             className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
             aria-hidden={!isActive}
-            style={index === 0 ? undefined : { contentVisibility: 'auto' }}
           >
             <div className="w-full h-full flex items-center justify-center relative">
               {/* Background Gradient */}

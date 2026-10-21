@@ -15,6 +15,7 @@ import dynamic from 'next/dynamic'
 const Footer = dynamic(() => import('@/components/layout/Footer'))
 import AnnouncementBar from '@/components/layout/AnnouncementBar'
 import NavigationProgress from '@/components/ui/NavigationProgress'
+import ScrollToTop from '@/components/layout/ScrollToTop'
 import { Suspense } from 'react'
 import { Toaster } from 'sonner'
 import ServiceWorkerRegister from '@/components/ui/ServiceWorkerRegister'
@@ -213,6 +214,9 @@ export default async function LocalizedRootLayout(props: {
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>
           <NotificationProvider>
+            <Suspense fallback={null}>
+              <ScrollToTop />
+            </Suspense>
             <Suspense fallback={null}>
               <NavigationProgress />
             </Suspense>

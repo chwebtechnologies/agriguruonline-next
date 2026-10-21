@@ -88,7 +88,7 @@ async function EventsFeed({ lang, currentPage, limit, searchQuery, categoryId, m
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {eventsList.map((eventItem: any, index: number) => (
-          <div key={eventItem.id} className="h-full flex flex-col" style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
+          <div key={eventItem.id} className="h-full flex flex-col">
             <EventCard priority={index === 0} event={eventItem} lang={lang} />
           </div>
         ))}

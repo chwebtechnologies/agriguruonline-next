@@ -72,7 +72,6 @@ async function ParticipationGalleryGrid({
             category={category}
             lang={lang}
             priority={index < 2}
-            style={index >= 4 ? { contentVisibility: 'auto' } : undefined}
           />
         ))}
       </div>

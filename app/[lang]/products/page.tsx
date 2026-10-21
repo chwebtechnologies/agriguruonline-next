@@ -169,7 +169,6 @@ async function ProductsContent({ lang }: { lang: string }) {
               <div
                 key={cat.id || index}
                 title={catName}
-                style={index >= 8 ? { contentVisibility: 'auto' } : undefined}
                 className="group flex flex-col h-full rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
               >
                 {index === 0 ? (

@@ -16,7 +16,7 @@ export default function AssociatePartnersCarousel({
   const duplicatedPartners = [...partners, ...partners];
 
   return (
-    <div className="w-full overflow-hidden py-6 group relative" dir="ltr" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 160px' }}>
+    <div className="w-full overflow-hidden py-6 group relative" dir="ltr">
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes marqueePartners {
           0% { transform: translateX(0%); }

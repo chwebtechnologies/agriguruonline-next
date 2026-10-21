@@ -307,9 +307,13 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
     ? (rawImg.startsWith('http') ? rawImg : `${imageBaseUrl}${rawImg}`)
     : 'https://agriguruonline.com/logo.png'
 
+  const productBackHref = product?.category?.slug
+    ? `/${lang}/category/${product.category.slug}`
+    : `/${lang}/marketed-products`
+
   return (
     <>
-      <PageHeader title={productName} backText={common.back} />
+      <PageHeader title={productName} backText={common.back} backHref={productBackHref} />
 
       <div className="mt-1 sm:mt-1.5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 p-4 sm:p-5 md:p-6">

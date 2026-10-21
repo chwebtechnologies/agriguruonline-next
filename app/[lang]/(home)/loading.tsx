@@ -4,7 +4,7 @@ export default function HomeLoading() {
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           {/* Hero Carousel Skeleton */}
-          <div className="w-full hidden md:flex h-[290px] sm:h-[300px] md:h-[310px] lg:h-[320px] xl:h-[340px] rounded-2xl bg-card border border-border animate-pulse mb-4 items-center justify-center p-6 sm:p-12">
+          <div className="w-full hidden md:flex mt-1.5 sm:mt-2 h-[290px] sm:h-[300px] md:h-[310px] lg:h-[320px] xl:h-[340px] rounded-2xl bg-card border border-border animate-pulse mb-4 items-center justify-center p-6 sm:p-12">
             <div className="max-w-2xl w-full space-y-4">
               <div className="h-6 w-32 bg-muted rounded-full" />
               <div className="h-8 sm:h-10 w-3/4 bg-muted rounded-xl" />

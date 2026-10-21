@@ -25,9 +25,7 @@ html {
   -moz-text-size-adjust: 100% !important;
   -ms-text-size-adjust: 100% !important;
   text-size-adjust: 100% !important;
-  max-width: 100vw;
   overflow-x: clip;
-  scrollbar-gutter: stable;
 }
 
 body {
@@ -37,8 +35,6 @@ body {
   -moz-text-size-adjust: 100% !important;
   -ms-text-size-adjust: 100% !important;
   text-size-adjust: 100% !important;
-  max-width: 100vw;
-  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -354,15 +350,10 @@ i[class*="fa-"] {
   --breakpoint-4xl: 150rem; /* 2400px */
 }
 
-html {
-  overflow-x: clip; /* Prevent horizontal scroll from zoomed/overflowing content without breaking sticky */
-}
-
 body {
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
   background-color: var(--background);
   color: var(--foreground);
-  overflow-x: clip; /* Belt-and-suspenders: no horizontal scroll on body either, preserves sticky */
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
@@ -409,13 +400,13 @@ a, button, input, select, textarea, label, [role="button"] {
   animation-play-state: paused;
 }
 
-/* Custom vertical scrolling animation for offers */
+/* Custom vertical scrolling animation for offers - Clean 2D to preserve 100% font sharpness */
 @keyframes scrollTickerVertical {
   0% {
-    transform: translate3d(0, 0, 0);
+    transform: translateY(0);
   }
   100% {
-    transform: translate3d(0, -50%, 0);
+    transform: translateY(-50%);
   }
 }
 
@@ -423,11 +414,6 @@ a, button, input, select, textarea, label, [role="button"] {
   display: flex;
   flex-direction: column;
   animation: scrollTickerVertical 25s linear infinite;
-  will-change: transform;
-  transform: translate3d(0, 0, 0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  perspective: 1000px;
 }
 
 .animate-marquee-vertical:hover {

@@ -87,7 +87,6 @@ export default function ParticipationAlbumClient({
           return (
             <div
               key={photo.id || globalIndex}
-              style={index >= 8 ? { contentVisibility: 'auto' } : undefined}
               className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg hover:border-primary/50 transition-all duration-200 shadow-xs"
             >
               {/* Square Thumbnail – click opens YARL at correct index */}

@@ -70,7 +70,7 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {currentCategories.map((category, index) => (
-          <div key={category.category_id} className="h-full flex flex-col" style={index >= 4 ? { contentVisibility: 'auto' } : undefined}>
+          <div key={category.category_id} className="h-full flex flex-col">
             <VideoGalleryCard priority={index < 2} category={category} lang={lang} />
           </div>
         ))}

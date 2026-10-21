@@ -74,6 +74,9 @@ export default function NavigationProgress() {
       pendingUrlRef.current = null
       // Ensure any leftover scroll locks are cleared on page change
       forceUnlockScroll()
+      if (typeof window !== 'undefined' && !window.location.hash) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+      }
       completeProgress()
     }
   }, [currentUrl, completeProgress])
