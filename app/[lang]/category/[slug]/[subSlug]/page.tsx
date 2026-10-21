@@ -267,7 +267,7 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
                   lang={lang}
                   common={common}
                   imageBaseUrl={imageBaseUrl}
-                  isLCP={index < 2}
+                  isLCP={index < 8}
                   userType={userType}
                   hideInfoIcon={true}
                   hideFlag={true}

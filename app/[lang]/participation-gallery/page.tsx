@@ -71,7 +71,7 @@ async function ParticipationGalleryGrid({
             key={category.category_id || category.slug}
             category={category}
             lang={lang}
-            priority={index < 2}
+            priority={index < 4}
           />
         ))}
       </div>

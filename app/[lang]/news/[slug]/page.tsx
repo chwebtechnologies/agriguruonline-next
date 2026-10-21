@@ -300,14 +300,13 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                 {/* Featured Image Card - Top rounded, Bottom WITHOUT curve (flat) */}
                 <div className="bg-card rounded-t-2xl rounded-b-none md:rounded-2xl border border-border border-b-0 md:border-b p-2 sm:p-2.5 shadow-xs overflow-hidden">
                   <div className="relative w-full aspect-[3/2] rounded-t-xl rounded-b-none overflow-hidden bg-muted/40">
-                    <Image
+                    <ImageWithSkeleton
                       src={imageUrl}
                       alt={title}
                       title={title}
                       fill
                       priority={true}
-                      loading="eager"
-                      fetchPriority="high"
+                      unoptimized={true}
                       sizes="(max-width: 768px) 100vw, 50vw"
                       className="object-cover"
                     />

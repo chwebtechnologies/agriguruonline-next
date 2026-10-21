@@ -1,5 +1,5 @@
 import FastLink from '@/components/ui/FastLink'
-import Image from 'next/image'
+import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { MarketUpdateItem } from '@/types/marketUpdates'
 import { getAssetsUrl } from '@/lib/api-utils';
 
@@ -32,17 +32,14 @@ export default function MarketUpdateCard({ update, lang, dict = {}, priority = f
       className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden h-full shadow-xs hover:shadow-lg hover:border-primary/40 transition-all duration-300"
     >
       <div className="relative w-full aspect-[794/1120] bg-muted/60 overflow-hidden border-b border-border">
-        <Image
+        <ImageWithSkeleton
           src={imageUrl}
           alt={title}
           title={title}
           fill
           priority={priority}
-          loading={priority ? 'eager' : 'lazy'}
-          fetchPriority={priority ? 'high' : 'low'}
-          decoding="async"
-          quality={65}
           className="object-contain"
+          style={{ objectFit: 'contain' }}
           sizes="(max-width: 640px) 92vw, (max-width: 1024px) 33vw, 25vw"
         />
       </div>

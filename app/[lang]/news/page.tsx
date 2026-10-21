@@ -88,7 +88,7 @@ async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, mat
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {articles.map((article: any, index: number) => (
           <div key={article.id} className="h-full flex flex-col">
-            <NewsCard priority={index < 2} article={article} lang={lang} />
+            <NewsCard priority={index < 6} article={article} lang={lang} />
           </div>
         ))}
       </div>

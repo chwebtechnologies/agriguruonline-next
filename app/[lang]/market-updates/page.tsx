@@ -86,7 +86,7 @@ export default async function MarketUpdatesPage(props: {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
                 {flyers.map((flyer, index) => (
                   <div key={flyer.id} className="h-full flex flex-col">
-                    <MarketUpdateCard priority={index === 0} update={flyer} lang={lang} />
+                    <MarketUpdateCard priority={index < 4} update={flyer} lang={lang} />
                   </div>
                 ))}
               </div>

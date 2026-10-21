@@ -5,7 +5,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import { cmsService } from '@/lib/api/cms.service';
 import { getAlternates, getSafeLanguage, getSiteUrl } from '@/lib/seo';
-import ImageWithSkeleton, { resolveImageUrl } from '@/components/ui/ImageWithSkeleton';
+import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton';
+import { resolveImageUrl } from '@/lib/image-utils';
 import type { CmsContentItem } from '@/types/cms';
 
 export const revalidate = 3600;

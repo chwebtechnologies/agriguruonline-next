@@ -51,11 +51,13 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-2">
         {videos.map((video, index) => {
           const title = video.title
-          const thumbnailPath = video.video_thumbnail || video.image
-          const imageUrl = thumbnailPath?.startsWith('http') ? thumbnailPath : `${imageBaseUrl}${thumbnailPath}`
+          const rawThumbnail = video.video_thumbnail || video.image
           const videoUrl = video.video_url || video.url
           const ytId = getYoutubeId(videoUrl)
           const isYoutube = !!ytId
+          const imageUrl = rawThumbnail
+            ? (rawThumbnail.startsWith('http') ? rawThumbnail : `${imageBaseUrl}${rawThumbnail}`)
+            : (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '/logo.webp')
           
           return (
             <article key={video.id} className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs relative">
@@ -63,29 +65,16 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
               <VideoTriggerClient index={index} />
               
               <div className="w-full aspect-video relative overflow-hidden bg-card/30 block border-b border-border pointer-events-none">
-                {index === 0 ? (
-                  <Image
-                    src={imageUrl}
-                    alt={title}
-                    title={title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    priority={true}
-                    loading="eager"
-                    fetchPriority="high"
-                  />
-                ) : (
-                  <ImageWithSkeleton
-                    src={imageUrl}
-                    alt={title}
-                    title={title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    priority={index < 2}
-                  />
-                )}
+                <ImageWithSkeleton
+                  src={imageUrl}
+                  alt={title}
+                  title={title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  priority={index < 2}
+                  unoptimized={true}
+                />
                 
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transform-gpu transition-colors duration-300 flex items-center justify-center z-20 pointer-events-none">
                   <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center transform scale-90 group-hover:scale-100 transition-all duration-300 border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.3)] group-hover:bg-white/30 group-hover:border-white/60">

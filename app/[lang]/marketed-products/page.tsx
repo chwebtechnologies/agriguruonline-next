@@ -188,7 +188,7 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
                 lang={lang}
                 common={common}
                 imageBaseUrl={imageBaseUrl}
-                isLCP={index < 2}
+                isLCP={index < 8}
                 userType={userType}
               />
             </div>

@@ -233,35 +233,17 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
                 title={subCatName}
                 className="group flex flex-col h-full rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs"
               >
-                {index === 0 ? (
-                  <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
-                    <Image
-                      src={imageUrl}
-                      alt={subCatName}
-                      title={subCatName}
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                      priority={true}
-                      loading="eager"
-                      fetchPriority="high"
-                      decoding="async"
-                      quality={70}
-                      className="object-cover"
-                    />
-                  </Link>
-                ) : (
-                  <ProductLink href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
-                    <ImageWithSkeleton
-                      src={imageUrl}
-                      alt={subCatName}
-                      title={subCatName}
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-                      priority={false}
-                      className="object-cover"
-                    />
-                  </ProductLink>
-                )}
+                <Link href={`/${lang}/category/${slug}/${subCat.slug}`} title={subCatName} className="relative w-full aspect-[16/10] bg-card/20 overflow-hidden border-b border-border block">
+                  <ImageWithSkeleton
+                    src={imageUrl}
+                    alt={subCatName}
+                    title={subCatName}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    priority={index < 6}
+                    className="object-cover"
+                  />
+                </Link>
 
                 <div className="px-3 py-2 sm:px-4 sm:py-2 flex flex-col flex-1 justify-between">
                   <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug tracking-tight">

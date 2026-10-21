@@ -67,7 +67,7 @@ export default function AssociatePartnersCarousel({
                       skeletonClassName="!bg-transparent"
                       style={{ objectFit: 'contain' }}
                       sizes="(max-width: 640px) 120px, 150px"
-                      priority={false}
+                      priority={index < 8}
                     />
                   </div>
                 ) : (

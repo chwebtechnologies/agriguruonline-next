@@ -46,15 +46,20 @@ export default function WatchlistSectionClient({ dict, lang = 'en', initialProdu
     };
   }, []);
 
+  // Proactively fetch freight data on initial mount or when switching to freight tab
   useEffect(() => {
     let mounted = true;
-    if (activeTab === 'freight' && !freightData) {
-      setIsFreightLoading(true);
+    if (!freightData) {
+      if (activeTab === 'freight') {
+        setIsFreightLoading(true);
+      }
       getWatchlistFreightAction(lang).then(data => {
         if (mounted) {
           setFreightData(data);
           setIsFreightLoading(false);
         }
+      }).catch(() => {
+        if (mounted) setIsFreightLoading(false);
       });
     }
     return () => { mounted = false; };
@@ -88,39 +93,47 @@ export default function WatchlistSectionClient({ dict, lang = 'en', initialProdu
         </button>
       </div>
 
-      {/* Tab Content */}
+      {/* Tab Content - Keep both mounted in DOM to preserve added favorites and local states across tab switches */}
       <div className="w-full flex flex-col">
-        {activeTab === 'products' ? (
-          <div className="animate-in fade-in zoom-in-95 duration-300 w-full">
-            <ProductChartsClient 
-              common={dict?.common || {}}
-              initialProducts={initialProductData.products}
-              initialShippingTerms={initialProductData.shippingTerms}
-              initialFavorites={initialProductData.favoriteProducts}
-              initialUserType={initialProductData.userType}
-              initialMarketedProducts={initialProductData.marketedProducts}
-              lang={lang}
-              isHomePage={true}
-            />
-          </div>
-        ) : (
-          isFreightLoading || !freightData ? (
+        <div 
+          className={activeTab === 'products' ? 'animate-in fade-in zoom-in-95 duration-300 w-full' : 'hidden'} 
+          aria-hidden={activeTab !== 'products'}
+        >
+          <ProductChartsClient 
+            common={dict?.common || {}}
+            initialProducts={initialProductData.products}
+            initialShippingTerms={initialProductData.shippingTerms}
+            initialFavorites={initialProductData.favoriteProducts}
+            initialUserType={initialProductData.userType}
+            initialMarketedProducts={initialProductData.marketedProducts}
+            lang={lang}
+            isHomePage={true}
+          />
+        </div>
+
+        <div 
+          className={activeTab === 'freight' ? 'animate-in fade-in zoom-in-95 duration-300 w-full' : 'hidden'} 
+          aria-hidden={activeTab !== 'freight'}
+        >
+          {isFreightLoading && !freightData ? (
             <div className="w-full">
               <FreightChartGridSkeleton />
             </div>
+          ) : freightData ? (
+            <FreightChartClient
+              common={dict?.common || {}}
+              initialShippingContainers={freightData.shippingContainers}
+              initialFavorites={freightData.favoritePorts}
+              initialUserType={freightData.userType}
+              lang={lang}
+              isHomePage={true}
+            />
           ) : (
-            <div className="animate-in fade-in zoom-in-95 duration-300 w-full">
-              <FreightChartClient
-                common={dict?.common || {}}
-                initialShippingContainers={freightData.shippingContainers}
-                initialFavorites={freightData.favoritePorts}
-                initialUserType={freightData.userType}
-                lang={lang}
-                isHomePage={true}
-              />
+            <div className="w-full">
+              <FreightChartGridSkeleton />
             </div>
-          )
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

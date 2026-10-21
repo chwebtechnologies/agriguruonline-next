@@ -108,10 +108,11 @@ function cleanHtmlToText(html: string): string {
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<br\s*[\/]?>/gi, '. ')
-    .replace(/<\/p>/gi, '. ')
-    .replace(/<\/div>/gi, '. ')
-    .replace(/<\/li>/gi, '. ')
+    // Remove empty paragraphs, line breaks, and containers
+    .replace(/<(p|div|section|article)\b[^>]*>\s*(<br\s*[\/]?>|&nbsp;|\s)*<\/\1>/gi, '')
+    // Convert line breaks and paragraph ends to newlines, NOT dots
+    .replace(/<br\s*[\/]?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6]|tr|blockquote|article|section)>/gi, '\n\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
@@ -121,10 +122,14 @@ function cleanHtmlToText(html: string): string {
     .replace(/&#39;/gi, "'")
     .replace(/&laquo;/gi, '«')
     .replace(/&raquo;/gi, '»')
-    .replace(/&hellip;/gi, '...')
+    .replace(/&hellip;/gi, ', ')
     .replace(/&#\d+;/g, ' ')
     .replace(/&[a-z]+;/gi, ' ')
-    .replace(/\s+/g, ' ')
+    // Collapse any repeated periods (like ... or .. or . . .) into a single period
+    .replace(/\.{2,}/g, '.')
+    .replace(/(\.\s*){2,}/g, '. ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n+/g, '\n\n')
     .trim()
 }
 
@@ -151,10 +156,18 @@ export default function ArticleAudioPlayer({
     if (!plainBody && !title) return ['AgriGuru Online']
 
     const maxLen = isChinese ? 80 : 160
+    const cleanTitle = title?.trim()
+      ? (/[.!?؟۔。！？]$/u.test(title.trim()) ? title.trim() : `${title.trim()}.`)
+      : ''
+
+    const combinedText = [cleanTitle, plainBody].filter(Boolean).join('\n\n')
+
     const rawChunks = (isChinese
-      ? [title, plainBody].filter(Boolean).join('\n').split(/(?<=[。！？\n])\s*/u)
-      : [title, plainBody].filter(Boolean).join('.\n').split(/(?<=[!?؟۔。！？\n]|(?<=\.(?!\d)))\s*/u)
-    ).map(s => s.trim()).filter(s => s.length > 0)
+      ? combinedText.split(/(?<=[。！？\n])\s*/u)
+      : combinedText.split(/(?<=[!?؟۔。！？\n]|(?<=\.(?!\d)))\s+/u)
+    )
+      .map(s => s.trim().replace(/\.{2,}/g, '.'))
+      .filter(s => s.length > 0 && /[\p{L}\p{N}]/u.test(s))
 
     const finalSegments: string[] = []
 
@@ -171,14 +184,20 @@ export default function ArticleAudioPlayer({
 
         for (const part of subParts) {
           if ((currentSub + (currentSub ? ' ' : '') + part).length > maxLen && currentSub.trim()) {
-            finalSegments.push(currentSub.trim())
+            const seg = currentSub.trim().replace(/\.{2,}/g, '.')
+            if (/[\p{L}\p{N}]/u.test(seg)) {
+              finalSegments.push(seg)
+            }
             currentSub = part
           } else {
             currentSub = currentSub ? (isChinese ? `${currentSub}${part}` : `${currentSub} ${part}`) : part
           }
         }
         if (currentSub.trim()) {
-          finalSegments.push(currentSub.trim())
+          const seg = currentSub.trim().replace(/\.{2,}/g, '.')
+          if (/[\p{L}\p{N}]/u.test(seg)) {
+            finalSegments.push(seg)
+          }
         }
       } else {
         finalSegments.push(chunk)
@@ -402,8 +421,24 @@ export default function ArticleAudioPlayer({
     }
 
     currentSentenceIdxRef.current = index
-    const textToSpeak = activeSentences[index]
-    if (!textToSpeak) return
+    const textToSpeak = (activeSentences[index] || '')
+      .replace(/\.{2,}/g, '.')
+      .replace(/(\.\s*){2,}/g, '. ')
+      .trim()
+
+    // Safety guard: If textToSpeak has no pronounceable words/letters/digits, skip it!
+    if (!textToSpeak || !/[\p{L}\p{N}]/u.test(textToSpeak)) {
+      if (index + 1 < activeSentences.length) {
+        playSentenceRef.current(index + 1)
+      } else {
+        setIsPlaying(false)
+        setIsBuffering(false)
+        stopAllPlayback(true)
+        setCurrentTime(totalDuration)
+        currentSentenceIdxRef.current = 0
+      }
+      return
+    }
 
     const baseStartTime = sentenceStartTimes[index] || 0
     const estSegmentDuration = sentenceDurations[index] || 2.5

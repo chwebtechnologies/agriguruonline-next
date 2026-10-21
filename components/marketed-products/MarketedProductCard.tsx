@@ -101,31 +101,15 @@ export function MarketedProductCard({ product, lang, common, imageBaseUrl, isLCP
     <div className="group flex flex-col h-full rounded-md bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs relative">
       <div className="relative w-full aspect-square bg-card/20 overflow-hidden border-b border-border shrink-0">
         <Link href={`/${lang}/product/${product.slug}`} aria-label={product.name} className="block w-full h-full">
-          {isLCP ? (
-            <Image
-              src={imageUrl}
-              alt={product.name}
-              title={product.name}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-              className="object-cover"
-              priority={true}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              quality={70}
-            />
-          ) : (
-            <ImageWithSkeleton
-              src={imageUrl}
-              alt={product.name}
-              title={product.name}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-              className="object-cover"
-              priority={false}
-            />
-          )}
+          <ImageWithSkeleton
+            src={imageUrl}
+            alt={product.name}
+            title={product.name}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+            className="object-cover"
+            priority={isLCP}
+          />
         </Link>
 
         {/* Flag on top-left with solid background */}

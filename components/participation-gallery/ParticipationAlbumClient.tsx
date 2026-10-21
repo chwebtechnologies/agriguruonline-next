@@ -16,8 +16,7 @@ import 'yet-another-react-lightbox/plugins/counter.css'
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import { ShareButton } from '@/components/ui/ShareButton'
 import type { ParticipationPhotoItem } from '@/types/participationGallery'
-import { getAssetsUrl } from '@/lib/api-utils'
-import { resolveImageUrl } from '@/components/ui/ImageWithSkeleton'
+import { resolveImageUrl } from '@/lib/image-utils'
 
 interface ParticipationAlbumClientProps {
   photos: ParticipationPhotoItem[]

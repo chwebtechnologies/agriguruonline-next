@@ -12,10 +12,9 @@ function cleanHtml(html: string): string {
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<(p|div|section|article)\b[^>]*>\s*(<br\s*[\/]?>|&nbsp;|\s)*<\/\1>/gi, '')
     .replace(/<br\s*[\/]?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/div>/gi, '\n\n')
-    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6]|tr|blockquote|article|section)>/gi, '\n\n')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
@@ -25,9 +24,11 @@ function cleanHtml(html: string): string {
     .replace(/&#39;/gi, "'")
     .replace(/&laquo;/gi, '«')
     .replace(/&raquo;/gi, '»')
-    .replace(/&hellip;/gi, '...')
+    .replace(/&hellip;/gi, ', ')
     .replace(/&#\d+;/g, ' ')
     .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\.{2,}/g, '.')
+    .replace(/(\.\s*){2,}/g, '. ')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n\s*\n+/g, '\n\n')
     .trim();
@@ -42,9 +43,12 @@ function splitIntoSentences(text: string, lang: string): string[] {
   const maxLen = isAsianLang ? 80 : 160;
 
   // Split by sentence terminators (Chinese uses zero-width space after full stop)
-  const rawChunks = isAsianLang
-    ? text.split(/(?<=[。！？\n])\s*/u).map(s => s.trim()).filter(Boolean)
-    : text.split(/(?<=[!?؟۔。！？\n]|(?<=\.(?!\d)))\s+/u).map(s => s.trim()).filter(Boolean);
+  const rawChunks = (isAsianLang
+    ? text.split(/(?<=[。！？\n])\s*/u)
+    : text.split(/(?<=[!?؟۔。！？\n]|(?<=\.(?!\d)))\s+/u)
+  )
+    .map(s => s.trim().replace(/\.{2,}/g, '.'))
+    .filter(s => s.length > 0 && /[\p{L}\p{N}]/u.test(s));
 
   const finalSegments: string[] = [];
 
@@ -61,21 +65,27 @@ function splitIntoSentences(text: string, lang: string): string[] {
 
       for (const part of subParts) {
         if ((currentSub + (currentSub ? ' ' : '') + part).length > maxLen && currentSub.trim()) {
-          finalSegments.push(currentSub.trim());
+          const seg = currentSub.trim().replace(/\.{2,}/g, '.');
+          if (/[\p{L}\p{N}]/u.test(seg)) {
+            finalSegments.push(seg);
+          }
           currentSub = part;
         } else {
           currentSub = currentSub ? (isAsianLang ? `${currentSub}${part}` : `${currentSub} ${part}`) : part;
         }
       }
       if (currentSub.trim()) {
-        finalSegments.push(currentSub.trim());
+        const seg = currentSub.trim().replace(/\.{2,}/g, '.');
+        if (/[\p{L}\p{N}]/u.test(seg)) {
+          finalSegments.push(seg);
+        }
       }
     } else {
       finalSegments.push(chunk);
     }
   }
 
-  return finalSegments.filter(s => s.trim().length > 0);
+  return finalSegments.filter(s => s.trim().length > 0 && /[\p{L}\p{N}]/u.test(s));
 }
 
 // Translate a text block with multiple clients and fallback endpoints

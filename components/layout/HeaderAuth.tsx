@@ -686,7 +686,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                   </button>
 
                   {isNotificationsOpen && (
-                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[360px] sm:w-[420px] md:w-[520px] rounded-2xl bg-card border border-border p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                  <div className={`absolute ${activeLang === 'ar' ? 'left-0' : 'right-0'} mt-3 w-[360px] sm:w-[420px] md:w-[520px] max-w-[calc(100vw-1.5rem)] rounded-2xl bg-card border border-border p-3 sm:p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200`}>
 
                       <div className="flex items-center p-1 bg-muted rounded-lg mb-2">
                         <button 
@@ -867,7 +867,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                   const isFreight = alertType.toLowerCase().includes('freight') || !!(item.freight_pmt || item.target_freight || item.freight_rate || item.pmt_price) || (!!item.loading_port && !!item.destination_port && !item.product?.name && !item.product_name && !item.commodity?.name);
 
                                   return (
-                                    <div key={item.id || idx} style={{ zoom: 0.85 }} className="w-full">
+                                    <div key={item.id || idx} className="w-full">
                                       {isFreight ? (
                                         <FreightAlertCard 
                                           alert={item} 
@@ -913,7 +913,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                                   const isFreight = predictType.toLowerCase().includes('freight') || !!(item.freight_pmt || item.target_freight || item.pmt_price) || (!!item.loading_port && !!item.destination_port && !item.product?.name && !item.product_name && !item.commodity?.name);
 
                                   return (
-                                    <div key={item.id || idx} style={{ zoom: 0.85 }} className="w-full">
+                                    <div key={item.id || idx} className="w-full">
                                       {isFreight ? (
                                         <AIPredictFreightCard 
                                           predict={item} 

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton';
 import { useRouter } from 'next/navigation';
 import { getProductSlugByName } from '@/lib/product-slug-utils';
 import { getLatestInquiryDetailsAction } from '@/app/actions/inquiries';
@@ -163,10 +164,11 @@ export function OfferCard({
                 </span>
                 {inquiry.product.country.flag && (
                   <div className="relative w-[16px] h-[11px] flex-shrink-0 border border-border/50 rounded-sm overflow-hidden shadow-xs">
-                    <Image
+                    <ImageWithSkeleton
                       src={flagUrl}
                       alt={inquiry.product.country.name}
                       fill
+                      sizes="16px"
                       className="object-cover"
                     />
                   </div>

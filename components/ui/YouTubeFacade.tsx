@@ -11,7 +11,15 @@ interface YouTubeFacadeProps {
 
 export default function YouTubeFacade({ videoId, title, className = '' }: YouTubeFacadeProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [thumbSrc, setThumbSrc] = useState<string>(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+  const [hasError, setHasError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  // Candidate thumbnail URLs in priority order
+  const candidates = [
+    `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+  ];
 
   if (isPlaying) {
     return (
@@ -29,10 +37,10 @@ export default function YouTubeFacade({ videoId, title, className = '' }: YouTub
   }
 
   const handleThumbError = () => {
-    if (thumbSrc.includes('img.youtube.com')) {
-      setThumbSrc(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`);
-    } else if (thumbSrc.includes('/hqdefault.jpg')) {
-      setThumbSrc(`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`);
+    if (attempt + 1 < candidates.length) {
+      setAttempt(prev => prev + 1);
+    } else {
+      setHasError(true);
     }
   };
 
@@ -48,19 +56,32 @@ export default function YouTubeFacade({ videoId, title, className = '' }: YouTub
           setIsPlaying(true);
         }
       }}
-      className={`relative aspect-video rounded-xl overflow-hidden shadow-lg border border-border bg-black group cursor-pointer select-none ${className}`}
+      className={`relative aspect-video rounded-xl overflow-hidden shadow-lg border border-border bg-card group cursor-pointer select-none ${className}`}
     >
-      {/* Video Poster Image with aspect ratio matching parent */}
-      <Image
-        src={thumbSrc}
-        alt={title}
-        fill
-        unoptimized
-        priority
-        onError={handleThumbError}
-        className="object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
-        sizes="(max-width: 768px) 100vw, 50vw"
-      />
+      {/* Video Poster Image */}
+      {!hasError ? (
+        <Image
+          key={`thumb-${attempt}`}
+          src={candidates[attempt]}
+          alt={title}
+          fill
+          unoptimized
+          priority
+          onError={handleThumbError}
+          className="object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+          sizes="(max-width: 768px) 100vw, 50vw"
+        />
+      ) : (
+        /* Fallback branded card if external YouTube CDN is blocked or unreachable */
+        <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 flex flex-col items-center justify-center p-4 text-center">
+          <div className="w-12 h-12 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center mb-2">
+            <i className="fa-brands fa-youtube text-2xl text-red-500"></i>
+          </div>
+          <span className="text-xs sm:text-sm font-semibold text-white/90 line-clamp-2 max-w-[80%]">
+            {title}
+          </span>
+        </div>
+      )}
 
       {/* Subtle Dark Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />

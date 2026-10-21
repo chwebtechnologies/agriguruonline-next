@@ -143,7 +143,7 @@ export default function InfiniteMarketedProductsCarousel({ products, lang, commo
                 lang={lang}
                 common={common}
                 imageBaseUrl={imageBaseUrl}
-                isLCP={false}
+                isLCP={index < 5}
                 userType={userType}
                 showViewDetails={false}
               />

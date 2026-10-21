@@ -105,7 +105,9 @@ export default function FreightChartClient({
     let isMounted = true;
     
     if (isHomePage) {
-      setAddedFreights(initialFavorites);
+      if (addedFreights.length === 0 && initialFavorites.length > 0) {
+        setAddedFreights(initialFavorites);
+      }
       setIsFetchingFavorites(false);
       return;
     }

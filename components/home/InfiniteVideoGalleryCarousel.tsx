@@ -140,7 +140,7 @@ export default function InfiniteVideoGalleryCarousel({
               key={category._uniqueId} 
               className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] xl:w-[calc(25%-15px)] flex flex-col"
             >
-              <VideoGalleryCard category={category} lang={lang} priority={false} imageBaseUrl={imageBaseUrl} dict={dict} />
+              <VideoGalleryCard category={category} lang={lang} priority={index < 4} imageBaseUrl={imageBaseUrl} dict={dict} />
             </div>
           ))}
         </div>

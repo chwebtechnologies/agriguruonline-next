@@ -138,7 +138,7 @@ export default function InfiniteParticipationCarousel({
               key={category._uniqueId} 
               className="shrink-0 w-full sm:w-[calc(50%-10px)] md:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] xl:w-[calc(25%-15px)] flex flex-col"
             >
-              <ParticipationGalleryCard category={category} lang={lang} priority={false} dict={dict} />
+              <ParticipationGalleryCard category={category} lang={lang} priority={index < 4} dict={dict} />
             </div>
           ))}
         </div>

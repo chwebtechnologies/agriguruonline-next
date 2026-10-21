@@ -189,8 +189,8 @@ const nextConfig: NextConfig = {
   images: {
     minimumCacheTTL: 31536000,
     formats: ['image/avif', 'image/webp'],
-    qualities: [65, 75, 85, 90],
-    deviceSizes: [640, 750, 828, 1080, 1200],
+    qualities: [60, 65, 70, 75, 80, 85, 90, 95, 100],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 2560, 3840],
     imageSizes: [32, 64, 96, 128, 256, 384],
     remotePatterns: [
       {
@@ -200,6 +200,14 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'assets.agriguruonline.cloud',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.agriguruonline.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.agriguruonline.cloud',
       },
       {
         protocol: 'https',
@@ -216,6 +224,18 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'i.ytimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'appleid.cdn-apple.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.transparenttextures.com',
       },
     ],
   },

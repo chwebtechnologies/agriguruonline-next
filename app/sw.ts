@@ -45,8 +45,9 @@ const serwist = new Serwist({
     ],
   },
   runtimeCaching: [
-    // 1. Aggressively cache all images (Next.js image proxy, CDN assets, local icons/images)
-    // CacheFirst serves from browser storage instantly (0ms), eliminating network latency and blinking
+    // 1. Smoothly cache all images (Next.js image proxy, CDN assets, local icons/images)
+    // StaleWhileRevalidate serves cached images instantly while safely revalidating in background.
+    // Crucially: ONLY status 200 is cached (status 0 opaque/aborted requests during fast scrolling are never poisoned into cache)
     {
       matcher: ({ request, url }) => {
         return (
@@ -54,19 +55,21 @@ const serwist = new Serwist({
           url.pathname.startsWith("/_next/image") ||
           url.hostname === "assets.agriguruonline.com" ||
           url.hostname === "assets.agriguruonline.cloud" ||
+          url.hostname.endsWith(".agriguruonline.com") ||
+          url.hostname.endsWith(".agriguruonline.cloud") ||
           /\.(?:png|jpg|jpeg|svg|webp|gif|avif|ico)$/i.test(url.pathname)
         );
       },
-      handler: new CacheFirst({
-        cacheName: "agriguru-images-v1",
+      handler: new StaleWhileRevalidate({
+        cacheName: "agriguru-images-v2",
         plugins: [
           new ExpirationPlugin({
-            maxEntries: 500,
+            maxEntries: 1000,
             maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
             purgeOnQuotaError: true,
           }),
           new CacheableResponsePlugin({
-            statuses: [0, 200],
+            statuses: [200],
           }),
         ],
       }),
