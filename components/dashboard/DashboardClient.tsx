@@ -116,12 +116,40 @@ export default function DashboardClient({
   lang, 
   common, 
   transactions = [],
-  stats,
+  stats: initialStats,
   userType = 'buyer'
 }: DashboardClientProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(initialStats || null);
   const displayLabel = userType === 'buyer' ? 'Inquiries' : 'Offers';
+
+  useEffect(() => {
+    if (initialStats) {
+      setStats(initialStats);
+    }
+  }, [initialStats]);
+
+  useEffect(() => {
+    setIsMounted(true);
+    // Check if current stats has non-zero counts
+    const hasCounts = stats && Object.entries(stats).some(([k, v]) => !k.includes('limit') && typeof v === 'number' && v > 0);
+    
+    // Always fetch from API route if initial counts are zero or null
+    if (!hasCounts) {
+      fetch(`/api/dashboard/stats?lang=${lang}`)
+        .then(res => res.json())
+        .then(resData => {
+          console.log('[DashboardClient] /api/dashboard/stats response:', resData);
+          if (resData?.success && resData?.data) {
+            setStats(resData.data);
+          }
+        })
+        .catch(err => {
+          console.error('[DashboardClient] fetch stats error:', err);
+        });
+    }
+  }, [lang]);
 
   const handleDownloadInvoice = async (tx: any, fallbackId: string) => {
     // 1. If direct downloadable URL is provided
@@ -161,10 +189,6 @@ export default function DashboardClient({
     }
   };
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   if (!isMounted) return null;
 
   return (
@@ -184,7 +208,9 @@ export default function DashboardClient({
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Product {displayLabel}</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.trading_inquiries_count ?? 0}</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">
+              {stats?.trading_inquiries_count ?? (stats as any)?.trading_offers_count ?? (stats as any)?.product_inquiries_count ?? (stats as any)?.product_offers_count ?? (stats as any)?.inquiries_count ?? 0}
+            </h3>
             <div className="text-sm font-medium text-muted-foreground">
               Product {displayLabel}
             </div>
@@ -206,7 +232,9 @@ export default function DashboardClient({
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Freight {displayLabel}</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.freight_inquiries_count ?? 0}</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">
+              {stats?.freight_inquiries_count ?? (stats as any)?.freight_offers_count ?? (stats as any)?.freight_inquiry_count ?? 0}
+            </h3>
             <div className="text-sm font-medium text-muted-foreground">
               Active logistics inquiries
             </div>
@@ -229,13 +257,15 @@ export default function DashboardClient({
           </div>
           <div>
             <div className="flex items-baseline gap-1.5 mb-1">
-              <h3 className="text-3xl font-bold text-foreground leading-none">{stats?.favourite_product_count ?? 0}</h3>
+              <h3 className="text-3xl font-bold text-foreground leading-none">
+                {stats?.favourite_product_count ?? (stats as any)?.favorite_product_count ?? (stats as any)?.products_count ?? 0}
+              </h3>
               <span className="text-base font-normal text-muted-foreground">
-                / {stats?.favourite_product_count_limit ?? 10}
+                / {stats?.favourite_product_count_limit ?? (stats as any)?.favorite_product_count_limit ?? (stats as any)?.product_count_limit ?? 10}
               </span>
             </div>
             <div className="text-sm font-medium text-muted-foreground">
-              {stats?.favourite_product_count ?? 0} of {stats?.favourite_product_count_limit ?? 10} products added
+              {stats?.favourite_product_count ?? (stats as any)?.favorite_product_count ?? 0} of {stats?.favourite_product_count_limit ?? (stats as any)?.favorite_product_count_limit ?? 10} products added
             </div>
             <Link href={`/${lang}/product-charts`} className="mt-3 flex items-center text-[13px] font-medium text-amber-600 dark:text-amber-500 hover:opacity-80 transition-colors w-fit relative z-10">
               View Watchlist <i className="fa-solid fa-arrow-right ml-1"></i>
@@ -256,13 +286,15 @@ export default function DashboardClient({
           </div>
           <div>
             <div className="flex items-baseline gap-1.5 mb-1">
-              <h3 className="text-3xl font-bold text-foreground leading-none">{stats?.favourite_port_count ?? 0}</h3>
+              <h3 className="text-3xl font-bold text-foreground leading-none">
+                {stats?.favourite_port_count ?? (stats as any)?.favorite_port_count ?? (stats as any)?.ports_count ?? 0}
+              </h3>
               <span className="text-base font-normal text-muted-foreground">
-                / {stats?.favourite_port_count_limit ?? 10}
+                / {stats?.favourite_port_count_limit ?? (stats as any)?.favorite_port_count_limit ?? (stats as any)?.port_count_limit ?? 10}
               </span>
             </div>
             <div className="text-sm font-medium text-muted-foreground">
-              {stats?.favourite_port_count ?? 0} of {stats?.favourite_port_count_limit ?? 10} routes added
+              {stats?.favourite_port_count ?? (stats as any)?.favorite_port_count ?? 0} of {stats?.favourite_port_count_limit ?? (stats as any)?.favorite_port_count_limit ?? 10} routes added
             </div>
             <Link href={`/${lang}/freight-charts`} className="mt-3 flex items-center text-[13px] font-medium text-purple-600 dark:text-purple-500 hover:opacity-80 transition-colors w-fit relative z-10">
               View Watchlist <i className="fa-solid fa-arrow-right ml-1"></i>
@@ -282,7 +314,9 @@ export default function DashboardClient({
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">My Contracts</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.instruction_count ?? 0}</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">
+              {stats?.instruction_count ?? (stats as any)?.instructions_count ?? (stats as any)?.my_contracts_count ?? (stats as any)?.contracts_count ?? (stats as any)?.contract_count ?? 0}
+            </h3>
             <div className="text-sm font-medium text-muted-foreground">
               Active Contracts
             </div>
@@ -304,7 +338,9 @@ export default function DashboardClient({
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Smart Docs</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.smart_doc_count ?? 0}</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">
+              {stats?.smart_doc_count ?? (stats as any)?.smart_docs_count ?? (stats as any)?.documents_count ?? 0}
+            </h3>
             <div className="text-sm font-medium text-muted-foreground">
               Documents Created
             </div>
@@ -326,7 +362,9 @@ export default function DashboardClient({
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">AI Predictor</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.ai_analysis_count ?? 0}</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">
+              {stats?.ai_analysis_count ?? (stats as any)?.ai_predict_count ?? (stats as any)?.ai_predictions_count ?? (stats as any)?.ai_analysis ?? 0}
+            </h3>
             <div className="text-sm font-medium text-muted-foreground">
               New insights ready
             </div>
@@ -348,7 +386,9 @@ export default function DashboardClient({
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Active Alerts</span>
           </div>
           <div>
-            <h3 className="text-3xl font-bold text-foreground mb-1">{stats?.alert_count ?? 0}</h3>
+            <h3 className="text-3xl font-bold text-foreground mb-1">
+              {stats?.alert_count ?? (stats as any)?.alerts_count ?? (stats as any)?.price_alert_count ?? (stats as any)?.price_alerts_count ?? 0}
+            </h3>
             <div className="text-sm font-medium text-muted-foreground">
               Triggers configured
             </div>

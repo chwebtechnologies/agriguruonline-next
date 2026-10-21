@@ -236,7 +236,7 @@ export default async function middleware(request: NextRequest) {
   };
 
   // Define protected routes (require auth)
-  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(profile|my-inquiries|my-offers|alerts-setups|become-member)/);
+  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(dashboard|profile|my-inquiries|my-offers|alerts-setups|become-member)/);
   
   if (isProtectedRoute && (!token || !isTokenValid)) {
     // CRITICAL: Server Actions MUST NEVER be redirected via HTTP 307.

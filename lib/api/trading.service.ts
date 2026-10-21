@@ -36,13 +36,16 @@ export interface DashboardStats {
   markter_report_count: number;
   instruction_count: number;
   smart_doc_count: number;
+  [key: string]: any;
 }
 
 export interface DashboardStatsResponse {
-  success: number | boolean;
-  message: string;
-  data: DashboardStats;
+  success?: number | boolean;
+  status?: number | boolean;
+  message?: string;
+  data?: DashboardStats;
   response_time?: string;
+  [key: string]: any;
 }
 
 export interface ProductTranslation {
@@ -1350,17 +1353,169 @@ export const tradingService = {
    * Get dashboard counts and metrics
    */
   getDashboardStats: async (token?: string, lang: string = 'en'): Promise<DashboardStats | null> => {
+    if (!token) return null;
+    const safeLang = /^[a-z]{2}$/.test(lang) ? lang : 'en';
     const tradingApiUrl = getTradingApiUrl();
     const url = `${tradingApiUrl}/dashboard/website`;
     try {
-      const json = await customFetchJSON<DashboardStatsResponse>(url, {
+      const res = await customFetch(url, {
         token,
-        params: { lang_code: lang, source: 'web' },
+        params: { lang_code: safeLang, source: 'web' },
       });
-      if (json && (json.success === 1 || json.success === true) && json.data) {
-        return json.data;
+
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => '');
+        console.error(`[tradingService.getDashboardStats] API responded with HTTP ${res.status} ${res.statusText}:`, errorText);
+        return null;
       }
-      return null;
+
+      const json = await res.json().catch(() => null);
+      console.log('[tradingService.getDashboardStats] API Raw response:', json);
+      if (!json) return null;
+
+      // Extract raw data object from any common backend structure
+      const rawData =
+        (json.data && typeof json.data === 'object' && json.data.data && typeof json.data.data === 'object' && !Array.isArray(json.data.data))
+          ? json.data.data
+          : (json.data && typeof json.data === 'object' && !Array.isArray(json.data))
+          ? json.data
+          : (json.stats && typeof json.stats === 'object' && !Array.isArray(json.stats))
+          ? json.stats
+          : (json.counts && typeof json.counts === 'object' && !Array.isArray(json.counts))
+          ? json.counts
+          : typeof json === 'object' && !Array.isArray(json)
+          ? json
+          : null;
+
+      if (!rawData) return null;
+
+      // Safe count extractor that handles numbers, numeric strings, and arrays
+      const getCount = (...vals: any[]): number => {
+        for (const v of vals) {
+          if (typeof v === 'number' && !isNaN(v)) return v;
+          if (Array.isArray(v)) return v.length;
+          if (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))) return Number(v);
+        }
+        return 0;
+      };
+
+      const getLimit = (defaultLimit: number, ...vals: any[]): number => {
+        for (const v of vals) {
+          if (typeof v === 'number' && !isNaN(v) && v > 0) return v;
+          if (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)) && Number(v) > 0) return Number(v);
+        }
+        return defaultLimit;
+      };
+
+      const stats: DashboardStats = {
+        trading_inquiries_count: getCount(
+          rawData.trading_inquiries_count,
+          rawData.trading_offers_count,
+          rawData.product_inquiries_count,
+          rawData.product_offers_count,
+          rawData.inquiries_count,
+          rawData.offers_count,
+          rawData.inquiry_count,
+          rawData.offer_count,
+          rawData.product_inquiries,
+          rawData.trading_inquiries,
+          rawData.inquiries
+        ),
+        freight_inquiries_count: getCount(
+          rawData.freight_inquiries_count,
+          rawData.freight_offers_count,
+          rawData.freight_inquiry_count,
+          rawData.freight_offer_count,
+          rawData.freight_count,
+          rawData.logistics_count,
+          rawData.freight_inquiries,
+          rawData.freight
+        ),
+        favourite_product_count: getCount(
+          rawData.favourite_product_count,
+          rawData.favorite_product_count,
+          rawData.favourite_products_count,
+          rawData.favorite_products_count,
+          rawData.product_watchlist_count,
+          rawData.products_count,
+          rawData.favourite_products,
+          rawData.favorite_products,
+          rawData.products
+        ),
+        favourite_product_count_limit: getLimit(
+          10,
+          rawData.favourite_product_count_limit,
+          rawData.favorite_product_count_limit,
+          rawData.product_count_limit,
+          rawData.products_limit,
+          rawData.product_limit
+        ),
+        favourite_port_count: getCount(
+          rawData.favourite_port_count,
+          rawData.favorite_port_count,
+          rawData.favourite_ports_count,
+          rawData.favorite_ports_count,
+          rawData.freight_watchlist_count,
+          rawData.ports_count,
+          rawData.routes_count,
+          rawData.favourite_ports,
+          rawData.favorite_ports,
+          rawData.ports
+        ),
+        favourite_port_count_limit: getLimit(
+          10,
+          rawData.favourite_port_count_limit,
+          rawData.favorite_port_count_limit,
+          rawData.port_count_limit,
+          rawData.ports_limit,
+          rawData.port_limit
+        ),
+        alert_count: getCount(
+          rawData.alert_count,
+          rawData.alerts_count,
+          rawData.price_alert_count,
+          rawData.price_alerts_count,
+          rawData.active_alerts_count,
+          rawData.alerts
+        ),
+        ai_analysis_count: getCount(
+          rawData.ai_analysis_count,
+          rawData.ai_predict_count,
+          rawData.ai_predictions_count,
+          rawData.ai_count,
+          rawData.predictions_count,
+          rawData.ai_insights_count
+        ),
+        markter_report_count: getCount(
+          rawData.markter_report_count,
+          rawData.market_report_count,
+          rawData.market_reports_count,
+          rawData.market_reports,
+          rawData.reports_count
+        ),
+        instruction_count: getCount(
+          rawData.instruction_count,
+          rawData.instructions_count,
+          rawData.my_contracts_count,
+          rawData.contracts_count,
+          rawData.contract_count,
+          rawData.contracts,
+          rawData.active_contracts_count
+        ),
+        smart_doc_count: getCount(
+          rawData.smart_doc_count,
+          rawData.smart_docs_count,
+          rawData.smart_document_count,
+          rawData.documents_count,
+          rawData.docs_count,
+          rawData.documents
+        ),
+      };
+
+      console.log('[tradingService.getDashboardStats] Parsed Stats:', stats);
+
+      // Attach normalized stats on top of rawData
+      return { ...rawData, ...stats };
     } catch (error) {
       console.error('[tradingService.getDashboardStats] error:', error);
       return null;
