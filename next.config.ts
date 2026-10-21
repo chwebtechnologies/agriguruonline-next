@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
+    turbopackPluginRuntimeStrategy: "workerThreads",
     serverActions: {
       bodySizeLimit: '10mb',
     },
