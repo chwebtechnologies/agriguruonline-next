@@ -5,9 +5,18 @@ import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
 
 function getYoutubeId(url: string): string | null {
+  if (!url) return null;
   const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/|live\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
   const match = url.match(regExp);
   return match ? match[1] : null;
+}
+
+function checkIsShort(url: string, videoType?: string): boolean {
+  if (videoType && (videoType.toLowerCase() === 'short' || videoType.toLowerCase() === 'shorts')) {
+    return true;
+  }
+  if (!url) return false;
+  return /\/shorts\//i.test(url) || /[?&]type=shorts/i.test(url);
 }
 
 export function VideoLightboxClient({ slides }: { slides: any[] }) {
@@ -35,28 +44,36 @@ export function VideoLightboxClient({ slides }: { slides: any[] }) {
         slide: ({ slide, offset }) => {
           const customSlide = slide as any;
           if (customSlide.type === "custom-video") {
+            const video = customSlide.video || {};
+            const url = video.video_url || video.url || customSlide.src || '';
+            const ytId = getYoutubeId(url);
+            const isYoutube = !!ytId;
+            const isShort = isYoutube && checkIsShort(`${video.video_url || ''} ${video.url || ''} ${url}`, video.video_type);
+
+            const containerClass = isShort
+              ? "w-auto h-[80vh] max-h-[720px] aspect-[9/16] max-w-[92vw] bg-black rounded-2xl overflow-hidden shadow-2xl relative border border-white/10"
+              : "w-full max-w-5xl aspect-video bg-black rounded-xl overflow-hidden shadow-2xl relative";
+
             if (offset !== 0) {
               return (
-                <div className="w-full h-full flex items-center justify-center p-4 sm:p-8">
-                  <div className="w-full max-w-5xl aspect-video bg-black rounded-xl overflow-hidden shadow-2xl relative flex items-center justify-center">
+                <div className="w-full h-full flex items-center justify-center p-3 sm:p-6">
+                  <div className={`${containerClass} flex items-center justify-center`}>
                     <i className="fa-solid fa-spinner fa-spin text-white text-3xl"></i>
                   </div>
                 </div>
               )
             }
 
-            const url = customSlide.video.video_url || customSlide.video.url
-            const ytId = getYoutubeId(url)
-            const isYoutube = !!ytId
-            
+            const embedUrl = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`;
+
             return (
-              <div className="w-full h-full flex items-center justify-center p-4 sm:p-8">
-                <div className="w-full max-w-5xl aspect-video bg-black rounded-xl overflow-hidden shadow-2xl relative">
+              <div className="w-full h-full flex items-center justify-center p-3 sm:p-6">
+                <div className={containerClass}>
                   {isYoutube ? (
                     <iframe 
-                      className="w-full h-full absolute inset-0" 
-                      src={ytId ? `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0` : url} 
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                      className="w-full h-full absolute inset-0 border-0" 
+                      src={embedUrl} 
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
                       allowFullScreen
                     ></iframe>
                   ) : (

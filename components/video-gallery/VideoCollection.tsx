@@ -27,9 +27,18 @@ interface VideoCollectionProps {
 }
 
 function getYoutubeId(url: string): string | null {
+  if (!url) return null;
   const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/|live\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
   const match = url.match(regExp);
   return match ? match[1] : null;
+}
+
+function checkIsShort(url: string, videoType?: string): boolean {
+  if (videoType && (videoType.toLowerCase() === 'short' || videoType.toLowerCase() === 'shorts')) {
+    return true;
+  }
+  if (!url) return false;
+  return /\/shorts\//i.test(url) || /[?&]type=shorts/i.test(url);
 }
 
 export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omit<VideoCollectionProps, 'lang'>) {
@@ -52,12 +61,14 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
         {videos.map((video, index) => {
           const title = video.title
           const rawThumbnail = video.video_thumbnail || video.image
-          const videoUrl = video.video_url || video.url
+          const videoUrl = video.video_url || video.url || ''
           const ytId = getYoutubeId(videoUrl)
           const isYoutube = !!ytId
+          const isShort = isYoutube && checkIsShort(`${video.video_url || ''} ${video.url || ''} ${videoUrl}`, video.video_type)
           const imageUrl = rawThumbnail
             ? (rawThumbnail.startsWith('http') ? rawThumbnail : `${imageBaseUrl}${rawThumbnail}`)
             : (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '/logo.webp')
+          const shareUrl = isShort && ytId ? `https://www.youtube.com/shorts/${ytId}` : videoUrl
           
           return (
             <article key={video.id} className="group flex flex-col rounded-2xl bg-card border border-border overflow-hidden hover:shadow-lg transition-all duration-300 shadow-xs relative">
@@ -96,7 +107,7 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
                   </h2>
                 </div>
                 
-                <div className="flex items-center justify-between mt-1 pointer-events-auto relative z-30 pt-1 border-t border-border/40">
+                <div className="flex items-center justify-between mt-1 pt-1 border-t border-border/40 pointer-events-none">
                   <span 
                     className="text-[11px] sm:text-[13px] uppercase tracking-wider font-bold text-sky-700 dark:text-sky-400 flex items-center gap-1 sm:gap-1.5 group/link cursor-pointer"
                   >
@@ -105,10 +116,12 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
                     <i className="fa-solid fa-arrow-right text-[9px] sm:text-[10px] group-hover/link:translate-x-1 transition-transform" aria-hidden="true"></i>
                   </span>
 
-                  <ShareButton 
-                    title={title} 
-                    url={videoUrl} 
-                  />
+                  <div className="pointer-events-auto relative z-30">
+                    <ShareButton 
+                      title={title} 
+                      url={shareUrl} 
+                    />
+                  </div>
                 </div>
               </div>
             </article>
