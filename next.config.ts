@@ -55,7 +55,7 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com https://www.google.com/recaptcha/ https://www.gstatic.com https://accounts.google.com https://ssl.gstatic.com https://appleid.cdn-apple.com https://checkout.razorpay.com https://*.razorpay.com https://www.paypal.com https://www.sandbox.paypal.com https://*.paypal.com https://*.paypalobjects.com https://paypalobjects.com",
       "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://accounts.google.com",
-      "img-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com https://www.transparenttextures.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://img.youtube.com https://i.ytimg.com https://lh3.googleusercontent.com https://appleid.cdn-apple.com https://*.razorpay.com https://badges.razorpay.com https://www.paypalobjects.com https://*.paypal.com",
+      "img-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com https://www.transparenttextures.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://img.youtube.com https://i.ytimg.com https://*.ytimg.com https://*.youtube.com https://youtube.com https://lh3.googleusercontent.com https://appleid.cdn-apple.com https://*.razorpay.com https://badges.razorpay.com https://www.paypalobjects.com https://*.paypal.com",
       "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com",
       "connect-src 'self' https://trading-api.agriguruonline.cloud https://cms-api.agriguruonline.cloud https://user-api.agriguruonline.cloud https://assets.agriguruonline.com https://assets.agriguruonline.cloud https://agriguruonline.com https://images.unsplash.com ws: wss: https://unpkg.com https://get.geojs.io https://api.country.is https://*.googleapis.com https://*.firebaseio.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://*.firebase.com https://firebase.googleapis.com https://accounts.google.com https://appleid.apple.com https://api.razorpay.com https://*.razorpay.com https://lumberjack.razorpay.com https://lumberjack-cx.razorpay.com https://www.paypal.com https://www.sandbox.paypal.com https://*.paypal.com https://*.paypalobjects.com",
       "media-src 'self' data: blob: https://assets.agriguruonline.com https://assets.agriguruonline.cloud",
@@ -108,10 +108,6 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
           },
-          {
-            key: 'X-Robots-Tag',
-            value: 'noindex, nofollow, noarchive, nosnippet, noimageindex',
-          }
         ],
       },
       {
@@ -142,6 +138,132 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/:lang/dashboard/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/dashboard',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/alerts-setups/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/alerts-setups',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/my-inquiries/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/my-inquiries',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/my-offers/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/my-offers',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/my-settings/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/my-settings',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/become-member/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/become-member',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/login',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
+        source: '/:lang/register',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+        ],
+      },
+      {
         source: '/(.*).(webp|jpg|png|svg|ico|woff2|woff|ttf|css|js)',
         headers: [
           {
@@ -162,6 +284,36 @@ const nextConfig: NextConfig = {
       {
         source: '/about',
         destination: '/en/about-us',
+        permanent: true,
+      },
+      {
+        source: '/:lang/contact',
+        destination: '/:lang/contact-us',
+        permanent: true,
+      },
+      {
+        source: '/contact',
+        destination: '/en/contact-us',
+        permanent: true,
+      },
+      {
+        source: '/:lang/membership-plan',
+        destination: '/:lang/membership',
+        permanent: true,
+      },
+      {
+        source: '/membership-plan',
+        destination: '/en/membership',
+        permanent: true,
+      },
+      {
+        source: '/:lang/photo-gallery',
+        destination: '/:lang/participation-gallery',
+        permanent: true,
+      },
+      {
+        source: '/photo-gallery',
+        destination: '/en/participation-gallery',
         permanent: true,
       },
     ];
@@ -224,6 +376,14 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'i.ytimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.ytimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.youtube.com',
       },
       {
         protocol: 'https',

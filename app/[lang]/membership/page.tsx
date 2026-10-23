@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import { userService } from '@/lib/api/user.service';
 import { withTimeout } from '@/lib/api-utils';
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 import MembershipPlansClient from '@/components/membership/MembershipPlansClient';
 import MembershipLoading, { MembershipInnerSkeleton } from './loading';
 
@@ -28,6 +28,54 @@ export async function generateMetadata(
   });
 }
 
+function MembershipSchema({ lang, title }: { lang: string; title: string }) {
+  const siteUrl = getSiteUrl();
+  const schema = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebPage',
+        '@id': `${siteUrl}/${lang}/membership/#webpage`,
+        'url': `${siteUrl}/${lang}/membership`,
+        'name': title,
+        'description': 'Explore AgriGuru Online membership plans for verified buyers and sellers in global agricultural trade.',
+        'isPartOf': {
+          '@type': 'WebSite',
+          '@id': `${siteUrl}/#website`,
+          'url': siteUrl,
+          'name': 'AgriGuru Online',
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${siteUrl}/${lang}/membership/#breadcrumb`,
+        'itemListElement': [
+          {
+            '@type': 'ListItem',
+            'position': 1,
+            'name': 'Home',
+            'item': `${siteUrl}/${lang}`,
+          },
+          {
+            '@type': 'ListItem',
+            'position': 2,
+            'name': title,
+            'item': `${siteUrl}/${lang}/membership`,
+          },
+        ],
+      },
+    ],
+  };
+
+  return (
+    <script
+      id="membership-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+    />
+  );
+}
+
 export default async function MembershipPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
   const lang = params.lang || 'en';
@@ -38,12 +86,15 @@ export default async function MembershipPage(props: { params: Promise<{ lang: st
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
 
+  const pageTitle = membershipDict.page_title || 'Membership Plans';
+
   return (
     <div className="bg-background text-foreground">
+      <MembershipSchema lang={lang} title={pageTitle} />
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <PageHeader
-            title={membershipDict.page_title || 'Membership Plans'}
+            title={pageTitle}
             backText={common.back || 'Back'}
           />
           <Suspense fallback={<MembershipInnerSkeleton />}>

@@ -50,6 +50,7 @@ export interface NewsDetail {
   slug: string;
   posting_date: string;
   created_at: string;
+  updated_at?: string;
   source?: string;
   source_url?: string;
   meta_keywords?: string;

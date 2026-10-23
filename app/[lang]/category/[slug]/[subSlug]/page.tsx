@@ -61,7 +61,7 @@ export async function generateStaticParams() {
   return params
 }
 
-import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string; subSlug: string }> }
@@ -71,7 +71,10 @@ export async function generateMetadata(
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
   const subSlug = params?.subSlug ? decodeURIComponent(params.subSlug) : '';
 
-  const data = await withTimeout(tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null), 1200, null);
+  const data = await withTimeout(tradingService.getProductsForSubcategory(slug, subSlug, lang).catch(() => null), 3500, null);
+
+  const siteUrl = getSiteUrl();
+  const alternates = getAlternates(`category/${params.slug}/${params.subSlug}`, lang);
 
   const formattedName = data?.sub_category?.name || subSlug
     .split('-')
@@ -100,10 +103,7 @@ export async function generateMetadata(
   const title = titles[lang] || titles.en;
   const fullTitle = `${title} | AgriGuru Online`;
   const description = descriptions[lang] || descriptions.en;
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
   const imageUrl = `${siteUrl}/logo.png`;
-  const alternates = getAlternates(`category/${params.slug}/${params.subSlug}`, lang);
 
   return {
     title,
@@ -119,6 +119,13 @@ export async function generateMetadata(
     robots: {
       index: true,
       follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
     openGraph: {
       title: fullTitle,
@@ -147,6 +154,7 @@ export async function generateMetadata(
     alternates,
   };
 }
+
 
 import { Suspense } from 'react'
 
@@ -221,6 +229,7 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
     productList: commonDict.product_list || "Product List",
   }
 
+  const siteUrl = getSiteUrl()
   const assetsUrl = getAssetsUrl(); const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
 
   const pageTitle = data?.sub_category?.name
@@ -292,7 +301,7 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
+          __html: serializeJsonLd([
             {
               "@context": "https://schema.org",
               "@type": "BreadcrumbList",
@@ -301,19 +310,19 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
                   "@type": "ListItem",
                   "position": 1,
                   "name": (dict as Record<string, any>)?.navigation?.home || "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                  "item": `${siteUrl}/${lang}`
                 },
                 {
                   "@type": "ListItem",
                   "position": 2,
-                  "name": (dict as Record<string, any>)?.navigation?.products || "Products",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${slug}`
+                  "name": slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+                  "item": `${siteUrl}/${lang}/category/${slug}`
                 },
                 {
                   "@type": "ListItem",
                   "position": 3,
                   "name": data?.sub_category?.name || subSlug,
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${slug}/${subSlug}`
+                  "item": `${siteUrl}/${lang}/category/${slug}/${subSlug}`
                 }
               ]
             },
@@ -328,15 +337,15 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
                     "@type": "ListItem",
                     "position": index + 1,
                     "item": {
-                      "@type": "Product",
+                      "@type": "Thing",
                       "name": productName,
-                      "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/product/${p.slug}`
+                      "url": `${siteUrl}/${lang}/product/${p.slug}`
                     }
                   }
                 })
               }
             ] : [])
-          ]).replace(/</g, '\\u003c')
+          ])
         }}
       />
     </>

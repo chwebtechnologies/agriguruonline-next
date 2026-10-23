@@ -47,7 +47,7 @@ export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -202,48 +202,53 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
         baseUrl={`/${lang}/marketed-products`}
       />
       
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
-            {
-              "@context": "https://schema.org",
-              "@type": "BreadcrumbList",
-              "itemListElement": [
-                {
-                  "@type": "ListItem",
-                  "position": 1,
-                  "name": "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
-                },
-                {
-                  "@type": "ListItem",
-                  "position": 2,
-                  "name": common.marketedProducts,
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/marketed-products`
+      {(() => {
+        const siteUrl = getSiteUrl();
+        const schema = [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": `${siteUrl}/${lang}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": common.marketedProducts,
+                "item": `${siteUrl}/${lang}/marketed-products`
+              }
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "itemListElement": data.products.map((product, index) => {
+              const p = product as any;
+              const productName = p.translations?.find((t: any) => t.lang_code === lang)?.name || p.name || p.slug || 'Product'
+              return {
+                "@type": "ListItem",
+                "position": index + 1,
+                "item": {
+                  "@type": "Thing",
+                  "name": productName,
+                  "url": `${siteUrl}/${lang}/product/${p.slug}`
                 }
-              ]
-            },
-            {
-              "@context": "https://schema.org",
-              "@type": "ItemList",
-              "itemListElement": data.products.map((product, index) => {
-                const p = product as any;
-                const productName = p.translations?.find((t: any) => t.lang_code === lang)?.name || p.name || p.slug || 'Product'
-                return {
-                  "@type": "ListItem",
-                  "position": index + 1,
-                  "item": {
-                    "@type": "Product",
-                    "name": productName,
-                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/product/${p.slug}`
-                  }
-                }
-              })
-            }
-          ]).replace(/</g, '\\u003c')
-        }}
-      />
+              }
+            })
+          }
+        ];
+
+        return (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+          />
+        );
+      })()}
     </>
   )
 }

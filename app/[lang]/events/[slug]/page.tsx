@@ -36,7 +36,7 @@ export async function generateStaticParams() {
   return params
 }
 
-import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 import { withTimeout } from '@/lib/api-utils'
 
 export async function generateMetadata(
@@ -66,6 +66,14 @@ export async function generateMetadata(
     return {
       title: notFoundTitles[lang] || notFoundTitles.en,
       description: notFoundDescs[lang] || notFoundDescs.en,
+      robots: {
+        index: false,
+        follow: false,
+        googleBot: {
+          index: false,
+          follow: false,
+        },
+      },
       alternates,
     }
   }
@@ -84,7 +92,7 @@ export async function generateMetadata(
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http')
     ? sourceImage
-    : (sourceImage ? `${imageBaseUrl}${imagePath}` : 'https://agriguruonline.com/logo.png')
+    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${getSiteUrl()}/logo.png`)
 
   const fullTitle = `${title} | AgriGuru Online`
 
@@ -186,7 +194,7 @@ function formatEditorialContent(htmlContent: string, dict?: any): string {
 function EventDetailSkeleton() {
   return (
     <>
-      <PageHeader title="Events" backText="Back" />
+      <PageHeader title="Events" backText="Back" headingTag="div" />
       <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
         <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
           <div className="grid-area-image w-full max-w-full min-w-0 space-y-4">
@@ -238,11 +246,12 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
 
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+  const siteUrl = getSiteUrl()
   const sourceImage = event.image || event.thumbnail
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http')
     ? sourceImage
-    : (sourceImage ? `${imageBaseUrl}${imagePath}` : 'https://agriguruonline.com/logo.png')
+    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${siteUrl}/logo.png`)
 
   // Date formatting
   const startDateObj = new Date(event.start_date)
@@ -277,13 +286,12 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
   // Filter other events to exclude current event
   const otherEventsList = allLatestEvents.filter(item => item.slug !== slug).slice(0, 5)
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
   const eventUrl = `${siteUrl}/${lang}/events/${slug}`
   const plainText = rawContent.replace(/<[^>]+>/g, '').trim()
 
   return (
     <>
-      <PageHeader title={dict.header?.events || "Events"} backText={dict.common?.back || "Back"} backHref={`/${lang}/events`} />
+      <PageHeader title={dict.header?.events || "Events"} backText={dict.common?.back || "Back"} backHref={`/${lang}/events`} headingTag="div" />
       <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
             {/* Screen Reader Only H1 to enforce descending heading hierarchy for Accessibility & SEO */}
 
@@ -556,7 +564,7 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: JSON.stringify([
+              __html: serializeJsonLd([
                 {
                   "@context": "https://schema.org",
                   "@type": "BreadcrumbList",
@@ -593,7 +601,7 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
                   "image": [imageUrl],
                   "startDate": event.start_date,
                   "endDate": event.end_date,
-                  "dateModified": (event as any).updated_at || event.start_date,
+                  "dateModified": event.updated_at ? new Date(event.updated_at).toISOString() : (event.start_date ? new Date(event.start_date).toISOString() : new Date().toISOString()),
                   "eventStatus": `https://schema.org/EventScheduled`,
                   "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
                   "location": {
@@ -621,6 +629,8 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
                   "offers": {
                     "@type": "Offer",
                     "url": event.source_url || eventUrl,
+                    "price": "0",
+                    "priceCurrency": "USD",
                     "availability": "https://schema.org/InStock"
                   },
                   "about": [
@@ -635,7 +645,7 @@ async function EventDetailContent({ lang, slug }: { lang: string, slug: string }
                   "url": eventUrl,
                   "keywords": event.meta_keywords || "Agriculture Events, Commodity Conferences, Agri Expos"
                 }
-              ]).replace(/</g, '\\u003c')
+              ])
             }}
           />
     </>

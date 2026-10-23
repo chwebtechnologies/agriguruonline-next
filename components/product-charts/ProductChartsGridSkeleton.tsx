@@ -122,7 +122,10 @@ export function ProductChartsGridSkeleton() {
             className="w-full h-[45px] rounded-lg border border-border bg-card"
           />
         ))}
-        <div className="w-full h-[45px] rounded-lg bg-muted" />
+        <div className="w-full h-[45px] rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary/60 text-xs font-bold gap-1 select-none">
+          <i className="fa-solid fa-plus text-xs"></i>
+          <span>Add Product</span>
+        </div>
       </div>
 
       {/* Rows Skeleton */}

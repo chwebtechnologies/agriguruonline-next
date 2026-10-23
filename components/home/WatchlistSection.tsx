@@ -1,5 +1,6 @@
 import React from 'react';
 import { getWatchlistProductsAction } from '@/app/actions/watchlist';
+import { withTimeout } from '@/lib/api-utils';
 import WatchlistSectionClient from './WatchlistSectionClient';
 
 interface WatchlistSectionProps {
@@ -10,19 +11,19 @@ interface WatchlistSectionProps {
 export default async function WatchlistSection({ dict, lang = 'en' }: WatchlistSectionProps) {
   // Fetch initial product data on the server with a reasonable timeout to prevent blocking SSR forever
   let productData = {
-    products: [],
-    shippingTerms: [],
-    userType: null,
-    favoriteProducts: [],
-    marketedProducts: [],
+    products: [] as any[],
+    shippingTerms: [] as any[],
+    userType: null as string | null,
+    favoriteProducts: [] as any[],
+    marketedProducts: [] as any[],
   };
 
   try {
-    const promise = getWatchlistProductsAction(lang);
-    const timeoutPromise = new Promise<any>((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout')), 2500)
+    productData = await withTimeout(
+      getWatchlistProductsAction(lang),
+      4000,
+      productData
     );
-    productData = await Promise.race([promise, timeoutPromise]);
   } catch (err) {
     console.error('WatchlistSection failed to fetch initial data:', err);
   }

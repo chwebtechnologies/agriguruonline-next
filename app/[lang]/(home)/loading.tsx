@@ -1,3 +1,5 @@
+import WatchlistSectionSkeleton from '@/components/home/WatchlistSectionSkeleton';
+
 export default function HomeLoading() {
   return (
     <div className="bg-background text-foreground">
@@ -14,8 +16,17 @@ export default function HomeLoading() {
             </div>
           </div>
 
+          {/* Market Watchlist Section Skeleton */}
+          <div className="w-full pt-1 md:pt-6 pb-2">
+            <div className="max-w-3xl mx-auto text-center px-4 flex flex-col items-center">
+              <div className="h-8 sm:h-10 w-64 bg-muted rounded-xl animate-pulse mb-3" />
+              <div className="h-4 w-96 max-w-full bg-muted/60 rounded-md animate-pulse" />
+            </div>
+            <WatchlistSectionSkeleton />
+          </div>
+
           {/* Section Skeleton (News / Feeds) */}
-          <div className="w-full pt-1 md:pt-4 pb-2 space-y-4">
+          <div className="w-full pt-4 md:pt-8 pb-2 space-y-4">
             <div className="flex flex-col items-center space-y-2">
               <div className="h-8 w-64 bg-muted rounded-lg animate-pulse" />
               <div className="h-4 w-96 max-w-full bg-muted/60 rounded-md animate-pulse" />

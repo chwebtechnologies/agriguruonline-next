@@ -9,7 +9,7 @@ import { ShareButton } from '@/components/ui/ShareButton'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { getCategories } from '@/lib/category'
 import { getAssetsUrl } from '@/lib/api-utils'
-import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 import { Suspense } from 'react'
 
 export const revalidate = 60;
@@ -21,10 +21,10 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang)
 
   const titles: Record<string, string> = {
-    en: `Products | AgriGuru Online`,
-    ar: `المنتجات | AgriGuru Online`,
-    zh: `产品 | AgriGuru Online`,
-    fr: `Produits | AgriGuru Online`,
+    en: 'Products',
+    ar: 'المنتجات',
+    zh: '产品',
+    fr: 'Produits',
   }
 
   const descriptions: Record<string, string> = {
@@ -36,8 +36,9 @@ export async function generateMetadata(
 
   const title = titles[lang] || titles.en
   const description = descriptions[lang] || descriptions.en
+  const fullTitle = `${title} | AgriGuru Online`
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
+  const siteUrl = getSiteUrl()
   const imageUrl = `${siteUrl}/logo.png`
   const alternates = getAlternates(`products`, lang)
 
@@ -56,7 +57,7 @@ export async function generateMetadata(
       follow: true,
     },
     openGraph: {
-      title,
+      title: fullTitle,
       description,
       url: alternates.canonical,
       siteName: 'AgriGuru Online',
@@ -73,7 +74,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: fullTitle,
       description,
       images: [imageUrl],
       site: '@AgriGuruOnline',
@@ -244,7 +245,7 @@ async function ProductsContent({ lang }: { lang: string }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
+          __html: serializeJsonLd([
             {
               "@context": "https://schema.org",
               "@type": "BreadcrumbList",
@@ -253,13 +254,13 @@ async function ProductsContent({ lang }: { lang: string }) {
                   "@type": "ListItem",
                   "position": 1,
                   "name": navigationDict?.home || "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                  "item": `${getSiteUrl()}/${lang}`
                 },
                 {
                   "@type": "ListItem",
                   "position": 2,
                   "name": title,
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/products`
+                  "item": `${getSiteUrl()}/${lang}/products`
                 }
               ]
             },
@@ -274,12 +275,12 @@ async function ProductsContent({ lang }: { lang: string }) {
                   "item": {
                     "@type": "Thing",
                     "name": catName,
-                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${cat.slug}`
+                    "url": `${getSiteUrl()}/${lang}/category/${cat.slug}`
                   }
                 }
               }) || []
             }
-          ]).replace(/</g, '\\u003c')
+          ])
         }}
       />
     </>

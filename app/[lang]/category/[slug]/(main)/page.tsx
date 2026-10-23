@@ -55,7 +55,7 @@ export async function generateStaticParams() {
   }
 }
 
-import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -64,13 +64,16 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang)
   const slug = decodeURIComponent(params?.slug || '')
 
-  const data = await withTimeout(tradingService.getSubCategories(slug, lang).catch(() => null), 1200, null)
+  const data = await withTimeout(tradingService.getSubCategories(slug, lang).catch(() => null), 3500, null)
   const matchedCategory = data?.category
 
+  const siteUrl = getSiteUrl()
+  const alternates = getAlternates(`category/${params.slug}`, lang)
+
   // Use translation if available, otherwise format slug
-  const categoryName = matchedCategory
-    ? (matchedCategory.translations?.find(t => t.lang_code === lang)?.name || matchedCategory.name)
-    : slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  const categoryName = matchedCategory?.translations?.find(t => t.lang_code === lang)?.name 
+    || matchedCategory?.name 
+    || slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
   const titles: Record<string, string> = {
     en: `${categoryName} Prices & Global Trade Data`,
@@ -89,10 +92,7 @@ export async function generateMetadata(
   const title = titles[lang] || titles.en
   const fullTitle = `${title} | AgriGuru Online`
   const description = descriptions[lang] || descriptions.en
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
   const imageUrl = `${siteUrl}/logo.png`
-  const alternates = getAlternates(`category/${params.slug}`, lang)
 
   return {
     title,
@@ -108,6 +108,13 @@ export async function generateMetadata(
     robots: {
       index: true,
       follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
     openGraph: {
       title: fullTitle,
@@ -204,6 +211,8 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
   if (!data) {
     notFound()
   }
+
+  const siteUrl = getSiteUrl()
 
   // Helper to get translated name
   const getTranslatedName = (translations: Array<{ name: string; lang_code: string }> | undefined, defaultName: string) => {
@@ -306,7 +315,7 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
+          __html: serializeJsonLd([
             {
               "@context": "https://schema.org",
               "@type": "BreadcrumbList",
@@ -315,13 +324,13 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
                   "@type": "ListItem",
                   "position": 1,
                   "name": (dict as Record<string, any>)?.navigation?.home || "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                  "item": `${siteUrl}/${lang}`
                 },
                 {
                   "@type": "ListItem",
                   "position": 2,
                   "name": categoryName,
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${slug}`
+                  "item": `${siteUrl}/${lang}/category/${slug}`
                 }
               ]
             },
@@ -336,12 +345,12 @@ async function CategoryContent({ lang, slug }: { lang: string; slug: string }) {
                   "item": {
                     "@type": "Thing",
                     "name": subCatName,
-                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${slug}/${subCat.slug}`
+                    "url": `${siteUrl}/${lang}/category/${slug}/${subCat.slug}`
                   }
                 }
               }) || []
             }
-          ]).replace(/</g, '\\u003c')
+          ])
         }}
       />
     </>

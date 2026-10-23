@@ -97,9 +97,8 @@ export default function FreightChartClient({
   const [loadingPorts, setLoadingPorts] = useState<PortInfo[]>([]);
   const [destinationPorts, setDestinationPorts] = useState<PortInfo[]>([]);
   
-  // List state
   const [addedFreights, setAddedFreights] = useState<FavoriteFreightItem[]>(initialFavorites);
-  const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(true);
+  const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;

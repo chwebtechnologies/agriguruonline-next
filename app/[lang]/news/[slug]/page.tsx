@@ -22,6 +22,7 @@ interface NewsDetail {
   thumbnail: string
   posting_date: string
   created_at?: string
+  updated_at?: string
   source: string
   source_url: string
   slug: string
@@ -56,8 +57,18 @@ export async function generateStaticParams() {
   return params
 }
 
-import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 import { withTimeout } from '@/lib/api-utils'
+
+function toIsoDate(dateStr?: string): string {
+  if (!dateStr) return new Date().toISOString()
+  try {
+    const d = new Date(dateStr)
+    return !isNaN(d.getTime()) ? d.toISOString() : new Date().toISOString()
+  } catch {
+    return new Date().toISOString()
+  }
+}
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -86,6 +97,14 @@ export async function generateMetadata(
     return {
       title: notFoundTitles[lang] || notFoundTitles.en,
       description: notFoundDescs[lang] || notFoundDescs.en,
+      robots: {
+        index: false,
+        follow: false,
+        googleBot: {
+          index: false,
+          follow: false,
+        },
+      },
       alternates,
     }
   }
@@ -104,20 +123,30 @@ export async function generateMetadata(
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http') 
     ? sourceImage 
-    : (sourceImage ? `${imageBaseUrl}${imagePath}` : 'https://agriguruonline.com/logo.png')
+    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${getSiteUrl()}/logo.png`)
   
   const fullTitle = `${title} | AgriGuru Online`
+  const publishedTime = toIsoDate(article.posting_date || article.created_at)
+  const modifiedTime = toIsoDate(article.updated_at || article.posting_date || article.created_at)
+  const authorName = article.source || 'AgriGuru Editorial Team'
 
   return {
     title, // Uses root layout template "%s | AgriGuru Online" for clean title
     description: cleanDescription,
     keywords: article.meta_keywords ? article.meta_keywords.split(',').map(k => k.trim()) : [title, 'AgriGuru', 'Agriculture News', 'Commodities'],
-    authors: [{ name: article.source || 'AgriGuru Online', url: article.source_url || alternates.canonical }],
+    authors: [{ name: authorName, url: article.source_url || alternates.canonical }],
     creator: 'AgriGuru Online',
     publisher: 'AgriGuru Online',
     robots: {
       index: true,
       follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
     openGraph: {
       title: fullTitle,
@@ -134,9 +163,9 @@ export async function generateMetadata(
       ],
       locale: lang,
       type: 'article',
-      publishedTime: article.posting_date || article.created_at,
-      modifiedTime: article.created_at || article.posting_date,
-      authors: [article.source || 'AgriGuru Online'],
+      publishedTime,
+      modifiedTime,
+      authors: [authorName],
       section: article.categories?.[0]?.name || 'Agriculture News',
     },
     twitter: {
@@ -200,6 +229,9 @@ function formatEditorialContent(htmlContent: string, dict?: any): string {
     </div>`
   )
 
+  // Strip redundant legacy "Source: Click here" text from article body so it doesn't show duplicate or circular links
+  formatted = formatted.replace(/<p>\s*Source:\s*(<a[^>]*>)?\s*Click here\s*(<\/a>)?\s*<\/p>/gi, '')
+
   return formatted.trim()
 }
 
@@ -207,7 +239,7 @@ function formatEditorialContent(htmlContent: string, dict?: any): string {
 function NewsDetailSkeleton() {
   return (
     <>
-      <PageHeader title="Latest News" backText="Back" />
+      <PageHeader title="Latest News" backText="Back" headingTag="div" />
       <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
         <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
           <div className="grid-area-image w-full max-w-full min-w-0 space-y-4">
@@ -266,29 +298,68 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   const imageUrl = article.image.startsWith('http') ? article.image : `${imageBaseUrl}${article.image}`
   
-  const postDateObj = new Date(article.posting_date)
-  const formattedDate = postDateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
-  const formattedTime = postDateObj.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  })
+  const postDateObj = new Date(article.posting_date || article.created_at || Date.now())
+  const formattedDate = !isNaN(postDateObj.getTime())
+    ? postDateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    : ''
+  const formattedTime = !isNaN(postDateObj.getTime())
+    ? postDateObj.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      })
+    : ''
+
+  const updatedDateObj = article.updated_at ? new Date(article.updated_at) : null
+  const hasValidUpdate = Boolean(
+    updatedDateObj && 
+    !isNaN(updatedDateObj.getTime()) && 
+    postDateObj.getTime() &&
+    updatedDateObj.getTime() > postDateObj.getTime() + 60000
+  )
+  const formattedUpdatedDate = hasValidUpdate && updatedDateObj
+    ? updatedDateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    : null
+
+  const publishedIso = toIsoDate(article.posting_date || article.created_at)
+  const modifiedIso = toIsoDate(article.updated_at || article.posting_date || article.created_at)
 
   // Calculate reading time
   const plainText = rawContent.replace(/<[^>]+>/g, '')
   const wordCount = plainText.trim().split(/\s+/).length
   const readingTime = Math.max(1, Math.ceil(wordCount / 200))
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
+  const siteUrl = getSiteUrl()
   const articleUrl = `${siteUrl}/${lang}/news/${slug}`
+
+  // Check self-referential or internal link for Source
+  const isSelfReferential = Boolean(
+    article.source_url && (
+      article.source_url.includes(slug) || 
+      article.source_url === '#' || 
+      article.source_url === siteUrl || 
+      article.source_url === `${siteUrl}/` ||
+      article.source_url.replace(/\/$/, '') === articleUrl ||
+      article.source_url.includes('agriguruonline.com/news') ||
+      article.source_url.includes('agriguruonline.cloud')
+    )
+  )
+  const hasExternalSource = Boolean(article.source_url && !isSelfReferential && article.source_url.startsWith('http'))
+
+  // Check if authored by Deepak Pareek or editorial desk
+  const isDeepakPareek = /deepak\s+pareek/i.test(sourceName) || /deepak\s+pareek/i.test(title) || /deepak\s+pareek/i.test(plainText.substring(0, 500))
 
   return (
     <>
-      <PageHeader title={dict.header?.news || "Latest News"} backText={dict.common?.back || "Back"} backHref={`/${lang}/news`} />
+      <PageHeader title={dict.header?.news || "Latest News"} backText={dict.common?.back || "Back"} backHref={`/${lang}/news`} headingTag="div" />
       <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
 
             {/* Screen Reader Only H1 to enforce descending heading hierarchy for Accessibility & SEO */}
@@ -320,15 +391,26 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                   
                   {/* Below Image: Publish Date, Time & Share with "Share" Text (Touch-to-touch edge alignment) */}
                   <div className="flex items-center justify-between gap-1 sm:gap-3 px-0.5 sm:px-1 pt-2.5 pb-0.5 w-full max-w-full overflow-hidden">
-                    <div className="flex items-center gap-1.5 sm:gap-2.5 text-foreground min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 text-foreground min-w-0 flex-1 flex-wrap">
                       <div className="inline-flex items-center gap-1 min-[380px]:gap-1.5 text-[12px] min-[360px]:text-[13px] sm:text-[14px] leading-none shrink-0">
                         <i className="fa-regular fa-calendar-days text-[12.5px] min-[360px]:text-[14px] sm:text-[15px] text-foreground/70 shrink-0"></i>
-                        <span className="font-bold text-foreground shrink-0">Publish Date:</span>
-                        <time dateTime={article.posting_date} className="font-medium text-foreground whitespace-nowrap">
+                        <span className="font-bold text-foreground shrink-0">Published:</span>
+                        <time dateTime={publishedIso} className="font-medium text-foreground whitespace-nowrap">
                           {formattedDate}
                           {formattedTime && <span className="hidden md:inline">{` at ${formattedTime}`}</span>}
                         </time>
                       </div>
+                      {formattedUpdatedDate && (
+                        <>
+                          <span className="text-border hidden sm:inline">•</span>
+                          <div className="inline-flex items-center gap-1 text-[12px] min-[360px]:text-[13px] sm:text-[14px] leading-none shrink-0 text-foreground/80">
+                            <span className="font-bold text-foreground shrink-0">Updated:</span>
+                            <time dateTime={modifiedIso} className="font-medium text-foreground whitespace-nowrap">
+                              {formattedUpdatedDate}
+                            </time>
+                          </div>
+                        </>
+                      )}
                       <span className="text-border hidden md:inline">•</span>
                       {/* Reading Time: Desktop Only */}
                       <div className="hidden md:inline-flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium px-2 py-0.5 rounded-md bg-muted text-foreground/80 whitespace-nowrap shrink-0 border border-border/60 leading-none">
@@ -472,18 +554,18 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                 <div className="mt-4 pt-3 border-t border-border flex justify-start items-center text-sm text-foreground/80">
                   <div className="flex items-center gap-2 font-medium">
                     <span className="text-foreground/80 font-semibold">Source:</span>
-                    {article.source_url ? (
+                    {hasExternalSource ? (
                       <a 
                         href={article.source_url} 
                         target="_blank" 
-                        rel="noopener noreferrer" 
+                        rel="noopener noreferrer nofollow" 
                         className="text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center gap-1.5"
                       >
                         {sourceName}
-                        <i className="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
+                        <i className="fa-solid fa-arrow-up-right-from-square text-[11px]" aria-hidden="true"></i>
                       </a>
                     ) : (
-                      <span className="font-semibold text-foreground">{sourceName}</span>
+                      <span className="font-semibold text-foreground">{sourceName || "AgriGuru Research"}</span>
                     )}
                   </div>
                 </div>
@@ -496,7 +578,7 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: JSON.stringify([
+              __html: serializeJsonLd([
                 {
                   "@context": "https://schema.org",
                   "@type": "BreadcrumbList",
@@ -530,13 +612,27 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                   },
                   "headline": title,
                   "image": [imageUrl],
-                  "datePublished": article.posting_date,
-                  "dateModified": (article as any).updated_at || article.posting_date,
-                  "author": [{
-                    "@type": "Organization",
-                    "name": sourceName,
-                    "url": article.source_url || siteUrl
-                  }],
+                  "datePublished": publishedIso,
+                  "dateModified": modifiedIso,
+                  "author": [
+                    isDeepakPareek
+                      ? {
+                          "@type": "Person",
+                          "name": "Deepak Pareek",
+                          "jobTitle": "Co-Founder & Technology Leader",
+                          "worksFor": {
+                            "@type": "Organization",
+                            "name": "AgriGuru Online",
+                            "url": siteUrl
+                          },
+                          "url": `${siteUrl}/${lang}/about-us`
+                        }
+                      : {
+                          "@type": "Organization",
+                          "name": (!isSelfReferential && sourceName && sourceName !== "Agriguru Online") ? sourceName : "AgriGuru Editorial Team",
+                          "url": hasExternalSource ? article.source_url : siteUrl
+                        }
+                  ],
                   "publisher": {
                     "@type": "Organization",
                     "name": "AgriGuru Online",
@@ -560,7 +656,7 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                   "articleSection": categoryName || "Agriculture News",
                   "keywords": article.meta_keywords || "AgriGuru, Agriculture News, Commodities"
                 }
-              ]).replace(/</g, '\\u003c')
+              ])
             }}
           />
     </>

@@ -4,7 +4,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import { cmsService } from '@/lib/api/cms.service';
-import { getAlternates, getSafeLanguage, getSiteUrl } from '@/lib/seo';
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton';
 import { resolveImageUrl } from '@/lib/image-utils';
 import type { CmsContentItem } from '@/types/cms';
@@ -72,7 +72,13 @@ export async function generateMetadata(props: {
   const segments = params?.catchAll || [];
 
   if (segments.length !== 1) {
-    return { title: 'Not Found | AgriGuru Online' };
+    return {
+      title: 'Not Found',
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
   }
 
   const slug = resolveSlug(segments[0]);
@@ -84,10 +90,17 @@ export async function generateMetadata(props: {
 
   const data = await cmsService.getContentBySlug(slug, lang);
   if (!data || data.is_active === false) {
-    return { title: 'Page Not Found | AgriGuru Online' };
+    return {
+      title: 'Page Not Found',
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
   }
 
   const title = data.title || data.name || 'AgriGuru Online';
+  const fullTitle = `${title} | AgriGuru Online`;
   const description =
     data.meta_description || `${title} - Learn more on AgriGuru Online.`;
   const keywords = data.meta_keywords || `${title.toLowerCase()}, agriguru online`;
@@ -97,11 +110,11 @@ export async function generateMetadata(props: {
   const imageUrl = firstImage ? resolveImageUrl(firstImage) : `${getSiteUrl()}/logo.png`;
 
   return {
-    title: `${title} | AgriGuru Online`,
+    title,
     description,
     keywords,
     openGraph: {
-      title: `${title} | AgriGuru Online`,
+      title: fullTitle,
       description,
       url: alternates.canonical,
       siteName: 'AgriGuru Online',
@@ -118,7 +131,7 @@ export async function generateMetadata(props: {
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${title} | AgriGuru Online`,
+      title: fullTitle,
       description,
       images: [imageUrl],
       site: '@AgriGuruOnline',
@@ -295,6 +308,46 @@ export default async function DynamicCmsCatchAllPage(props: {
           </div>
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Home",
+                  "item": `${getSiteUrl()}/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": content.title || content.name || slug,
+                  "item": `${getSiteUrl()}/${lang}/${slug}`
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "WebPage",
+              "name": content.title || content.name || slug,
+              "description": content.meta_description || `${content.title || content.name || slug} - AgriGuru Online`,
+              "url": `${getSiteUrl()}/${lang}/${slug}`,
+              "publisher": {
+                "@type": "Organization",
+                "name": "AgriGuru Online",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": `${getSiteUrl()}/logo.png`
+                }
+              }
+            }
+          ])
+        }}
+      />
     </div>
   );
 }

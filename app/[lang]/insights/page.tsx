@@ -7,7 +7,7 @@ import InfiniteMarketReportsCarousel from '@/components/home/InfiniteMarketRepor
 import InfiniteEventsCarousel from '@/components/home/InfiniteEventsCarousel'
 import { PageHeader } from '@/components/ui/PageHeader'
 import type { Metadata } from 'next'
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 import { cookies } from 'next/headers'
 import { Suspense } from 'react'
 
@@ -28,6 +28,54 @@ export async function generateMetadata(
     pathname: 'insights',
     lang: activeLang,
   })
+}
+
+function InsightsSchema({ lang, title }: { lang: string; title: string }) {
+  const siteUrl = getSiteUrl();
+  const schema = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        '@id': `${siteUrl}/${lang}/insights/#webpage`,
+        'url': `${siteUrl}/${lang}/insights`,
+        'name': title,
+        'description': 'Comprehensive agricultural market intelligence, daily news updates, commodity research reports, and global events.',
+        'isPartOf': {
+          '@type': 'WebSite',
+          '@id': `${siteUrl}/#website`,
+          'url': siteUrl,
+          'name': 'AgriGuru Online',
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${siteUrl}/${lang}/insights/#breadcrumb`,
+        'itemListElement': [
+          {
+            '@type': 'ListItem',
+            'position': 1,
+            'name': 'Home',
+            'item': `${siteUrl}/${lang}`,
+          },
+          {
+            '@type': 'ListItem',
+            'position': 2,
+            'name': title,
+            'item': `${siteUrl}/${lang}/insights`,
+          },
+        ],
+      },
+    ],
+  };
+
+  return (
+    <script
+      id="insights-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+    />
+  );
 }
 
 function sanitizeReport(report: any) {
@@ -175,6 +223,7 @@ export default async function InsightsPage(props: {
 
   return (
     <div className="bg-background text-foreground">
+      <InsightsSchema lang={activeLang} title={pageTitle} />
       {/* Main Content adhering strictly to layout standards */}
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">

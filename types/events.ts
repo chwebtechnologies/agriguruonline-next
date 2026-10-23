@@ -22,6 +22,7 @@ export interface EventItem {
   end_date: string;
   location?: string;
   created_at: string;
+  updated_at?: string;
   status: string;
   posting_date?: string;
   translations?: EventTranslation[];
@@ -46,6 +47,7 @@ export interface EventDetail {
   slug: string;
   translations?: EventTranslation[];
   created_at?: string;
+  updated_at?: string;
   posting_date?: string;
   categories?: EventCategory[];
 }

@@ -8,7 +8,8 @@ import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { cmsService } from '@/lib/api/cms.service'
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
+import { getAssetsUrl } from '@/lib/api-utils'
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -95,71 +96,86 @@ async function NewsFeed({ lang, currentPage, limit, searchQuery, categoryId, mat
       <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/news`} />
 
       {/* JSON-LD Schema */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
-            {
-              "@context": "https://schema.org",
-              "@type": "BreadcrumbList",
-              "itemListElement": [
-                {
-                  "@type": "ListItem",
-                  "position": 1,
-                  "name": dict.navigation?.home || "Home",
-                  "item": `https://agriguruonline.com/${lang}`
-                },
-                {
-                  "@type": "ListItem",
-                  "position": 2,
-                  "name": dict.header?.news || "News",
-                  "item": `https://agriguruonline.com/${lang}/news`
-                },
-                ...(matchedCategory ? [{
-                  "@type": "ListItem",
-                  "position": 3,
-                  "name": matchedCategory.name,
-                  "item": `https://agriguruonline.com/${lang}/news?category=${matchedCategory.slug}`
-                }] : [])
-              ]
-            },
-            {
+      {(() => {
+        const siteUrl = getSiteUrl();
+        const assetsBase = getAssetsUrl().replace(/\/$/, '');
+        const schema = [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": dict.navigation?.home || "Home",
+                "item": `${siteUrl}/${lang}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": dict.header?.news || "News",
+                "item": `${siteUrl}/${lang}/news`
+              },
+              ...(matchedCategory ? [{
+                "@type": "ListItem",
+                "position": 3,
+                "name": matchedCategory.name,
+                "item": `${siteUrl}/${lang}/news?category=${matchedCategory.slug}`
+              }] : [])
+            ]
+          },
+          {
             "@context": "https://schema.org",
             "@type": "ItemList",
-            "itemListElement": articles.map((article: any, index: number) => ({
-              "@type": "ListItem",
-              "position": index + 1,
-              "item": {
-                "@type": "NewsArticle",
-                "headline": article.translations?.find((t: any) => t.lang_code === lang)?.title || article.title || article.slug,
-                "description": article.translations?.find((t: any) => t.lang_code === lang)?.description || article.description,
-                "image": [
-                  article.thumbnail?.startsWith('http')
-                    ? article.thumbnail
-                    : article.thumbnail
-                      ? `https://assets.agriguruonline.com/${article.thumbnail}`
-                      : 'https://agriguruonline.com/logo.png'
-                ],
-                "datePublished": article.posting_date || article.created_at,
-                "dateModified": article.posting_date || article.created_at,
-                "author": {
-                  "@type": "Organization",
-                  "name": article.translations?.find((t: any) => t.lang_code === lang)?.source || article.source || "AgriGuru Online"
-                },
-                "publisher": {
-                  "@type": "Organization",
-                  "name": "AgriGuru Online",
-                  "logo": {
-                    "@type": "ImageObject",
-                    "url": "https://agriguruonline.com/logo.png"
-                  }
-                },
-                "url": `https://agriguruonline.com/${lang}/news/${article.slug}`
+            "itemListElement": articles.map((article: any, index: number) => {
+              const publishedTime = article.posting_date || article.created_at
+              const modifiedTime = article.updated_at || article.posting_date || article.created_at
+              const pubIso = publishedTime ? new Date(publishedTime).toISOString() : new Date().toISOString()
+              const modIso = modifiedTime ? new Date(modifiedTime).toISOString() : pubIso
+              const authorName = article.translations?.find((t: any) => t.lang_code === lang)?.source || article.source || "AgriGuru Editorial Team"
+
+              return {
+                "@type": "ListItem",
+                "position": index + 1,
+                "item": {
+                  "@type": "NewsArticle",
+                  "headline": article.translations?.find((t: any) => t.lang_code === lang)?.title || article.title || article.slug,
+                  "description": (article.translations?.find((t: any) => t.lang_code === lang)?.description || article.description || '').replace(/<[^>]+>/g, '').trim().slice(0, 160),
+                  "image": [
+                    article.thumbnail?.startsWith('http')
+                      ? article.thumbnail
+                      : article.thumbnail
+                        ? `${assetsBase}/${article.thumbnail.replace(/^\//, '')}`
+                        : `${siteUrl}/logo.png`
+                  ],
+                  "datePublished": pubIso,
+                  "dateModified": modIso,
+                  "author": {
+                    "@type": "Organization",
+                    "name": authorName
+                  },
+                  "publisher": {
+                    "@type": "Organization",
+                    "name": "AgriGuru Online",
+                    "logo": {
+                      "@type": "ImageObject",
+                      "url": `${siteUrl}/logo.png`
+                    }
+                  },
+                  "url": `${siteUrl}/${lang}/news/${article.slug}`
+                }
               }
-            }))
-          }]).replace(/</g, '\\u003c')
-        }}
-      />
+            })
+          }
+        ];
+
+        return (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+          />
+        );
+      })()}
     </>
   )
 }

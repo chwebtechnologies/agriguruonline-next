@@ -20,6 +20,7 @@ export async function generateMetadata(
     pageKey: 'dashboard',
     pathname: 'dashboard',
     lang,
+    noIndex: true,
   })
 }
 

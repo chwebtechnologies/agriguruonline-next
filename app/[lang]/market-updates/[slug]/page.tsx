@@ -35,7 +35,7 @@ export async function generateStaticParams() {
   return params
 }
 
-import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 import { withTimeout } from '@/lib/api-utils'
 
 export async function generateMetadata(
@@ -65,6 +65,14 @@ export async function generateMetadata(
     return {
       title: notFoundTitles[lang] || notFoundTitles.en,
       description: notFoundDescs[lang] || notFoundDescs.en,
+      robots: {
+        index: false,
+        follow: false,
+        googleBot: {
+          index: false,
+          follow: false,
+        },
+      },
       alternates,
     }
   }
@@ -82,20 +90,31 @@ export async function generateMetadata(
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http') 
     ? sourceImage 
-    : (sourceImage ? `${imageBaseUrl}${imagePath}` : 'https://agriguruonline.com/logo.png')
+    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${getSiteUrl()}/logo.png`)
 
   const fullTitle = `${title} | AgriGuru Online`
+  const rawPublished = article.created_at || (article as any).posting_date
+  const rawModified = (article as any).updated_at || rawPublished
+  const publishedTime = rawPublished ? new Date(rawPublished).toISOString() : new Date().toISOString()
+  const modifiedTime = rawModified ? new Date(rawModified).toISOString() : publishedTime
 
   return {
     title,
     description: cleanDescription,
     keywords: [title, 'AgriGuru', 'Market Updates', 'Agriculture', 'Commodities'],
-    authors: [{ name: 'AgriGuru Online', url: alternates.canonical }],
+    authors: [{ name: 'AgriGuru Market Research', url: alternates.canonical }],
     creator: 'AgriGuru Online',
     publisher: 'AgriGuru Online',
     robots: {
       index: true,
       follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
     openGraph: {
       title: fullTitle,
@@ -112,8 +131,9 @@ export async function generateMetadata(
       ],
       locale: lang,
       type: 'article',
-      publishedTime: article.created_at,
-      authors: ['AgriGuru Online'],
+      publishedTime,
+      modifiedTime,
+      authors: ['AgriGuru Market Research'],
       section: 'Market Updates',
     },
     twitter: {
@@ -175,17 +195,39 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
   const imageUrl = article.image?.startsWith('http') ? article.image : `${imageBaseUrl}${article.image}`
   
   const postDateObj = article.created_at ? new Date(article.created_at) : new Date()
-  const formattedDate = postDateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
+  const formattedDate = !isNaN(postDateObj.getTime())
+    ? postDateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    : ''
+
+  const updatedDateObj = (article as any).updated_at ? new Date((article as any).updated_at) : null
+  const hasValidUpdate = Boolean(
+    updatedDateObj && 
+    !isNaN(updatedDateObj.getTime()) && 
+    postDateObj.getTime() &&
+    updatedDateObj.getTime() > postDateObj.getTime() + 60000
+  )
+  const formattedUpdatedDate = hasValidUpdate && updatedDateObj
+    ? updatedDateObj.toLocaleDateString(lang === 'ar' ? 'ar-EG' : lang === 'fr' ? 'fr-FR' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    : null
+
+  const rawPublished = article.created_at || (article as any).posting_date
+  const rawModified = (article as any).updated_at || rawPublished
+  const publishedIso = rawPublished ? new Date(rawPublished).toISOString() : new Date().toISOString()
+  const modifiedIso = rawModified ? new Date(rawModified).toISOString() : publishedIso
   
   const plainText = rawContent?.replace(/<[^>]+>/g, '') || ''
   const wordCount = plainText.trim().split(/\s+/).length
   const readingTime = Math.max(1, Math.ceil(wordCount / 200))
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
+  const siteUrl = getSiteUrl()
   const articleUrl = `${siteUrl}/${lang}/market-updates/${slug}`
 
   return (
@@ -193,7 +235,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           {/* Header */}
-          <PageHeader title="Market Updates" backText="Back" backHref={`/${lang}/market-updates`} />
+          <PageHeader title="Market Updates" backText="Back" backHref={`/${lang}/market-updates`} headingTag="div" />
 
           {/* 50-50 Split Layout using CSS Grid Areas */}
           <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
@@ -221,14 +263,25 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
                   
                   {/* Below Image: Publish Date, Time & Share with "Share" Text */}
                   <div className="flex items-center justify-between gap-1 sm:gap-3 px-0.5 sm:px-1 pt-2.5 pb-0.5 w-full max-w-full overflow-hidden">
-                    <div className="flex items-center gap-1.5 sm:gap-2.5 text-foreground min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 text-foreground min-w-0 flex-1 flex-wrap">
                       <div className="inline-flex items-center gap-1 min-[380px]:gap-1.5 text-[12px] min-[360px]:text-[13px] sm:text-[14px] leading-none shrink-0">
                         <i className="fa-regular fa-calendar-days text-[12.5px] min-[360px]:text-[14px] sm:text-[15px] text-foreground/70 shrink-0"></i>
-                        <span className="font-bold text-foreground shrink-0">Date:</span>
-                        <time dateTime={article.created_at} className="font-medium text-foreground whitespace-nowrap">
+                        <span className="font-bold text-foreground shrink-0">Published:</span>
+                        <time dateTime={publishedIso} className="font-medium text-foreground whitespace-nowrap">
                           {formattedDate}
                         </time>
                       </div>
+                      {formattedUpdatedDate && (
+                        <>
+                          <span className="text-border hidden sm:inline">•</span>
+                          <div className="inline-flex items-center gap-1 text-[12px] min-[360px]:text-[13px] sm:text-[14px] leading-none shrink-0 text-foreground/80">
+                            <span className="font-bold text-foreground shrink-0">Updated:</span>
+                            <time dateTime={modifiedIso} className="font-medium text-foreground whitespace-nowrap">
+                              {formattedUpdatedDate}
+                            </time>
+                          </div>
+                        </>
+                      )}
                       <span className="text-border hidden md:inline">•</span>
                       {/* Reading Time: Desktop Only */}
                       <div className="hidden md:inline-flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium px-2 py-0.5 rounded-md bg-muted text-foreground/80 whitespace-nowrap shrink-0 border border-border/60 leading-none">
@@ -485,7 +538,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: JSON.stringify([
+              __html: serializeJsonLd([
                 {
                   "@context": "https://schema.org",
                   "@type": "BreadcrumbList",
@@ -519,10 +572,11 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
                   },
                   "headline": title,
                   "image": [imageUrl],
-                  "datePublished": article.created_at,
+                  "datePublished": publishedIso,
+                  "dateModified": modifiedIso,
                   "author": {
                     "@type": "Organization",
-                    "name": "AgriGuru Online",
+                    "name": "AgriGuru Market Research",
                     "url": siteUrl
                   },
                   "publisher": {
@@ -535,7 +589,7 @@ export default async function MarketUpdateDetailPage(props: { params: Promise<{ 
                   },
                   "description": plainText.substring(0, 160)
                 }
-              ]).replace(/</g, '\\u003c')
+              ])
             }}
           />
         </div>

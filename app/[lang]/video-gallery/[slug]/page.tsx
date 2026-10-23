@@ -37,7 +37,7 @@ interface CollectionData {
 }
 
 
-import { getAlternates, getSafeLanguage, getSiteUrl } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 import { withTimeout } from '@/lib/api-utils'
 
 export async function generateMetadata(
@@ -57,7 +57,8 @@ export async function generateMetadata(
     fr: `Regardez les vidéos et analyses d'experts de ${categoryName} sur AgriGuru Online.`,
   }
 
-  const title = `${categoryName} | AgriGuru Online`
+  const title = categoryName
+  const fullTitle = `${categoryName} | AgriGuru Online`
   const description = descriptions[lang] || descriptions.en
   const alternates = getAlternates(`video-gallery/${slug}`, lang)
   const siteUrl = getSiteUrl()
@@ -67,7 +68,7 @@ export async function generateMetadata(
     title,
     description,
     openGraph: {
-      title,
+      title: fullTitle,
       description,
       url: alternates.canonical,
       siteName: 'AgriGuru Online',
@@ -77,7 +78,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: fullTitle,
       description,
       images: [imageUrl],
       site: '@AgriGuruOnline',
@@ -139,6 +140,7 @@ async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: stri
 
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
+  const siteUrl = getSiteUrl()
 
   const ITEMS_PER_PAGE = 12;
   const videosList = data.videos;
@@ -175,7 +177,7 @@ async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: stri
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
+          __html: serializeJsonLd([
             {
               "@context": "https://schema.org",
               "@type": "BreadcrumbList",
@@ -184,19 +186,19 @@ async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: stri
                   "@type": "ListItem",
                   "position": 1,
                   "name": dict.navigation?.home || "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                  "item": `${siteUrl}/${lang}`
                 },
                 {
                   "@type": "ListItem",
                   "position": 2,
                   "name": dict.header?.video_gallery || "Video Gallery",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/video-gallery`
+                  "item": `${siteUrl}/${lang}/video-gallery`
                 },
                 {
                   "@type": "ListItem",
                   "position": 3,
                   "name": categoryName,
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/video-gallery/${slug}`
+                  "item": `${siteUrl}/${lang}/video-gallery/${slug}`
                 }
               ]
             },
@@ -204,7 +206,14 @@ async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: stri
               "@context": "https://schema.org",
               "@type": "ItemList",
               "itemListElement": data?.videos?.map((video: any, index: number) => {
-                const title = video.translations?.find((t: any) => t.lang_code === lang)?.title || video.title
+                const title = video.translations?.find((t: any) => t.lang_code === lang)?.title || video.title || 'Video'
+                const videoImg = video.image?.startsWith('http') 
+                  ? video.image 
+                  : (video.image ? `${imageBaseUrl}${video.image.replace(/^\/+/, '')}` : `${siteUrl}/logo.png`)
+                const uploadIso = video.created_at 
+                  ? (!isNaN(new Date(video.created_at).getTime()) ? new Date(video.created_at).toISOString() : new Date().toISOString())
+                  : new Date().toISOString()
+
                 return {
                   "@type": "ListItem",
                   "position": index + 1,
@@ -212,14 +221,14 @@ async function VideoGrid({ slug, lang, currentPage }: { slug: string; lang: stri
                     "@type": "VideoObject",
                     "name": title,
                     "description": title,
-                    "thumbnailUrl": video.image?.startsWith('http') ? video.image : `https://agriguruonline.com${video.image}`,
-                    "uploadDate": video.created_at,
-                    "contentUrl": video.video_url
+                    "thumbnailUrl": [videoImg],
+                    "uploadDate": uploadIso,
+                    "contentUrl": video.video_url || `${siteUrl}/${lang}/video-gallery/${slug}`
                   }
                 }
               }) || []
             }
-          ]).replace(/</g, '\\u003c')
+          ])
         }}
       />
     </>

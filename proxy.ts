@@ -285,7 +285,11 @@ export default async function middleware(request: NextRequest) {
     pathname === '/manifest.webmanifest' ||
     pathname === '/manifest.json' ||
     pathname === '/robots.txt' ||
-    pathname === '/sitemap.xml'
+    pathname.startsWith('/sitemap') ||
+    pathname === '/image-sitemap.xml' ||
+    pathname === '/video-sitemap.xml' ||
+    pathname.endsWith('.xml') ||
+    pathname === '/llms.txt'
 
   if (isInternalOrStatic) return applyNewCookies(NextResponse.next({ request: { headers: request.headers } }));
 
@@ -297,6 +301,6 @@ export default async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Match all paths except internal paths, static files, and metadata routes
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|manifest.json|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|manifest.json|robots.txt|sitemap.xml|image-sitemap.xml|llms.txt|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|xml|txt|json)$).*)',
   ],
 }

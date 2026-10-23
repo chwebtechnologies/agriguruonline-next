@@ -8,6 +8,7 @@ import { getCategories } from '@/lib/category'
 import { cache, Suspense } from 'react'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 import { cmsService } from '@/lib/api/cms.service';
+import { getAssetsUrl } from '@/lib/api-utils';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
@@ -15,7 +16,7 @@ export async function generateStaticParams() {
 
 export const revalidate = 60;
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -96,69 +97,80 @@ async function EventsFeed({ lang, currentPage, limit, searchQuery, categoryId, m
       <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/events`} />
 
       {/* JSON-LD Schema */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
-            {
-              "@context": "https://schema.org",
-              "@type": "BreadcrumbList",
-              "itemListElement": [
-                {
-                  "@type": "ListItem",
-                  "position": 1,
-                  "name": dict.navigation?.home || "Home",
-                  "item": `https://agriguruonline.com/${lang}`
-                },
-                {
-                  "@type": "ListItem",
-                  "position": 2,
-                  "name": dict.header?.events || "Events",
-                  "item": `https://agriguruonline.com/${lang}/events`
-                },
-                ...(matchedCategory ? [{
-                  "@type": "ListItem",
-                  "position": 3,
-                  "name": matchedCategory.translations?.find((t: any) => t.lang_code === lang)?.name || matchedCategory.name,
-                  "item": `https://agriguruonline.com/${lang}/events?category=${matchedCategory.slug}`
-                }] : [])
-              ]
-            },
-            {
+      {(() => {
+        const siteUrl = getSiteUrl();
+        const assetsBase = getAssetsUrl().replace(/\/$/, '');
+        const schema = [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": dict.navigation?.home || "Home",
+                "item": `${siteUrl}/${lang}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": dict.header?.events || "Events",
+                "item": `${siteUrl}/${lang}/events`
+              },
+              ...(matchedCategory ? [{
+                "@type": "ListItem",
+                "position": 3,
+                "name": matchedCategory.translations?.find((t: any) => t.lang_code === lang)?.name || matchedCategory.name,
+                "item": `${siteUrl}/${lang}/events?category=${matchedCategory.slug}`
+              }] : [])
+            ]
+          },
+          {
             "@context": "https://schema.org",
             "@type": "ItemList",
-            "itemListElement": eventsList.map((eventItem: any, index: number) => ({
-              "@type": "ListItem",
-              "position": index + 1,
-              "item": {
-                "@type": "Event",
-                "name": eventItem.translations?.find((t: any) => t.lang_code === lang)?.title || eventItem.title,
-                "description": eventItem.translations?.find((t: any) => t.lang_code === lang)?.description || "",
-                "startDate": eventItem.start_date,
-                "endDate": eventItem.end_date,
-                "eventStatus": `https://schema.org/Event${eventItem.status === 'UPCOMING' ? 'Scheduled' : eventItem.status === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
-                "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-                "location": {
-                  "@type": "Place",
-                  "name": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "Venue to be announced",
-                  "address": {
-                    "@type": "PostalAddress",
-                    "addressLocality": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "TBA"
-                  }
-                },
-                "image": [
-                  eventItem.thumbnail?.startsWith('http')
-                    ? eventItem.thumbnail
-                    : eventItem.thumbnail
-                      ? `https://assets.agriguruonline.com/${eventItem.thumbnail}`
-                      : 'https://agriguruonline.com/logo.png'
-                ],
-                "url": `https://agriguruonline.com/${lang}/events/${eventItem.slug}`
-              }
-            }))
-          }]).replace(/</g, '\\u003c')
-        }}
-      />
+            "itemListElement": eventsList.map((eventItem: any, index: number) => {
+              const startIso = eventItem.start_date ? new Date(eventItem.start_date).toISOString() : new Date().toISOString();
+              const endIso = eventItem.end_date ? new Date(eventItem.end_date).toISOString() : startIso;
+              return {
+                "@type": "ListItem",
+                "position": index + 1,
+                "item": {
+                  "@type": "Event",
+                  "name": eventItem.translations?.find((t: any) => t.lang_code === lang)?.title || eventItem.title,
+                  "description": eventItem.translations?.find((t: any) => t.lang_code === lang)?.description || "",
+                  "startDate": startIso,
+                  "endDate": endIso,
+                  "eventStatus": `https://schema.org/Event${eventItem.status === 'UPCOMING' ? 'Scheduled' : eventItem.status === 'PAST' ? 'MovedOnline' : 'Scheduled'}`,
+                  "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+                  "location": {
+                    "@type": "Place",
+                    "name": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "Venue to be announced",
+                    "address": {
+                      "@type": "PostalAddress",
+                      "addressLocality": (eventItem.translations?.find((t: any) => t.lang_code === lang)?.location || eventItem.location) || "TBA"
+                    }
+                  },
+                  "image": [
+                    eventItem.thumbnail?.startsWith('http')
+                      ? eventItem.thumbnail
+                      : eventItem.thumbnail
+                        ? `${assetsBase}/${eventItem.thumbnail.replace(/^\//, '')}`
+                        : `${siteUrl}/logo.png`
+                  ],
+                  "url": `${siteUrl}/${lang}/events/${eventItem.slug}`
+                }
+              };
+            })
+          }
+        ];
+
+        return (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+          />
+        );
+      })()}
     </>
   )
 }

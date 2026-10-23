@@ -14,39 +14,55 @@ import LatestOffersForBuyerSection from '@/components/home/LatestOffersForBuyerS
 import LatestInquiriesForSellerSection from '@/components/home/LatestInquiriesForSellerSection'
 import { getAssetsUrl, withTimeout } from '@/lib/api-utils'
 import type { Metadata } from 'next'
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 import WatchlistSection from '@/components/home/WatchlistSection'
+import WatchlistSectionSkeleton from '@/components/home/WatchlistSectionSkeleton'
 import WatchlistScrollHandler from '@/components/home/WatchlistScrollHandler'
 import { cookies } from 'next/headers'
 import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
 
-function OrganizationSchema() {
+function OrganizationSchema({ lang }: { lang: string }) {
+  const siteUrl = getSiteUrl()
   const schema = {
     '@context': 'https://schema.org',
     '@graph': [
       {
         '@type': 'Organization',
-        '@id': 'https://agriguruonline.com/#organization',
+        '@id': `${siteUrl}/#organization`,
         'name': 'AgriGuru Online',
-        'url': 'https://agriguruonline.com',
+        'url': siteUrl,
         'logo': {
           '@type': 'ImageObject',
-          'url': 'https://agriguruonline.com/logo.png'
+          'url': `${siteUrl}/logo.png`,
+          'caption': 'AgriGuru Online Logo'
         },
-        'description': 'The premium B2B SaaS platform for global agricultural trade.'
+        'description': 'The premium B2B SaaS platform for global agricultural trade.',
+        'contactPoint': {
+          '@type': 'ContactPoint',
+          'contactType': 'customer service',
+          'availableLanguage': ['en', 'ar', 'zh', 'fr']
+        },
+        'sameAs': [
+          'https://www.linkedin.com/company/agriguru-online',
+          'https://twitter.com/agriguruonline',
+          'https://www.facebook.com/agriguruonline'
+        ]
       },
       {
         '@type': 'WebSite',
-        '@id': 'https://agriguruonline.com/#website',
-        'url': 'https://agriguruonline.com',
+        '@id': `${siteUrl}/#website`,
+        'url': siteUrl,
         'name': 'AgriGuru Online',
         'publisher': {
-          '@id': 'https://agriguruonline.com/#organization'
+          '@id': `${siteUrl}/#organization`
         },
         'potentialAction': {
           '@type': 'SearchAction',
-          'target': 'https://agriguruonline.com/en/search?q={search_term_string}',
+          'target': {
+            '@type': 'EntryPoint',
+            'urlTemplate': `${siteUrl}/${lang}/products?search={search_term_string}`
+          },
           'query-input': 'required name=search_term_string'
         }
       }
@@ -57,7 +73,7 @@ function OrganizationSchema() {
     <script
       id="schema-org"
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }}
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
     />
   )
 }
@@ -384,12 +400,13 @@ export default async function LocalizedHomePage() {
 
   return (
     <>
-      <OrganizationSchema />
+      <OrganizationSchema lang={activeLang} />
       {/* Hero carousel first slide title is LCP — renders immediately without blocking on external APIs */}
 
       <div className="bg-background text-foreground transition-theme" dir={dir}>
         <div className="w-full pad-for-badges">
           <div className="max-w-7xl mx-auto pt-3 pb-5">
+            <h1 className="sr-only">AgriGuru Online - {dict?.home?.hero_title || 'Global B2B Agricultural Trade Platform'}</h1>
             <div className="hidden md:block">
               <HeroCarousel lang={activeLang} dict={dict} />
             </div>
@@ -407,7 +424,7 @@ export default async function LocalizedHomePage() {
                   {dict?.home?.watchlist_desc || 'Easily track FOB, CNF/CFR, and CIF product prices. Monitor live Ocean Port-to-Port freight rates to stay updated on global market trends effortlessly.'}
                 </p>
               </div>
-              <Suspense fallback={<div className="w-full min-h-[300px] mt-5 flex flex-col gap-2 md:gap-6 animate-pulse"><div className="flex gap-4 w-full h-14 bg-muted/30 rounded-xl"/><div className="w-full h-72 bg-muted/20 rounded-xl" /></div>}>
+              <Suspense fallback={<WatchlistSectionSkeleton dict={dict} />}>
                 <WatchlistSection dict={dict} lang={activeLang} />
               </Suspense>
             </section>

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }];
@@ -22,6 +22,54 @@ export async function generateMetadata(
 }
 
 export const revalidate = 3600;
+
+function AboutUsSchema({ lang, title, description }: { lang: string; title: string; description: string }) {
+  const siteUrl = getSiteUrl();
+  const schema = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'AboutPage',
+        '@id': `${siteUrl}/${lang}/about-us/#webpage`,
+        'url': `${siteUrl}/${lang}/about-us`,
+        'name': title,
+        'description': description,
+        'isPartOf': {
+          '@type': 'WebSite',
+          '@id': `${siteUrl}/#website`,
+          'url': siteUrl,
+          'name': 'AgriGuru Online',
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${siteUrl}/${lang}/about-us/#breadcrumb`,
+        'itemListElement': [
+          {
+            '@type': 'ListItem',
+            'position': 1,
+            'name': 'Home',
+            'item': `${siteUrl}/${lang}`,
+          },
+          {
+            '@type': 'ListItem',
+            'position': 2,
+            'name': title,
+            'item': `${siteUrl}/${lang}/about-us`,
+          },
+        ],
+      },
+    ],
+  };
+
+  return (
+    <script
+      id="about-us-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+    />
+  );
+}
 
 export default async function AboutPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
@@ -43,10 +91,13 @@ async function AboutPageContent({ lang }: { lang: string }) {
   const commonDict = (dict as Record<string, any>).common || {};
   const backText = commonDict.back || 'Back';
   const aboutDict = (dict as Record<string, any>).about || {};
+  const pageTitle = aboutDict.title || 'About Us';
+  const pageDesc = aboutDict.hero_desc1 || 'AgriGuru Online is an AI-powered B2B mobile app and web platform designed for global agri-commodity trading.';
 
   return (
     <>
-      <PageHeader title={aboutDict.title || 'About Us'} backText={backText} />
+      <AboutUsSchema lang={lang} title={pageTitle} description={pageDesc} />
+      <PageHeader title={pageTitle} backText={backText} />
 
       {/* First Section: Hero / Introduction */}
       <section className="mt-2 sm:mt-3">

@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import ContactForm from './ContactForm'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(props: {
   params: Promise<{ lang: string }>
@@ -20,6 +20,70 @@ export async function generateMetadata(props: {
 }
 
 export const revalidate = 3600;
+
+function ContactUsSchema({ lang, title }: { lang: string; title: string }) {
+  const siteUrl = getSiteUrl();
+  const schema = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'ContactPage',
+        '@id': `${siteUrl}/${lang}/contact-us/#webpage`,
+        'url': `${siteUrl}/${lang}/contact-us`,
+        'name': title,
+        'description': 'Get in touch with AgriGuru Online team for agricultural trading, inquiries, and customer support.',
+        'isPartOf': {
+          '@type': 'WebSite',
+          '@id': `${siteUrl}/#website`,
+          'url': siteUrl,
+          'name': 'AgriGuru Online',
+        },
+      },
+      {
+        '@type': 'LocalBusiness',
+        '@id': `${siteUrl}/#localbusiness`,
+        'name': 'AgriGuru Online Trade Pvt. Ltd.',
+        'url': siteUrl,
+        'email': 'Contact@agriguruonline.com',
+        'telephone': '+918980131000',
+        'address': {
+          '@type': 'PostalAddress',
+          'streetAddress': 'Block: A, Office No 503 & 1107, Mondeal Height, SG Highway, Jivraj Park',
+          'addressLocality': 'Ahmedabad',
+          'addressRegion': 'Gujarat',
+          'postalCode': '380051',
+          'addressCountry': 'IN',
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${siteUrl}/${lang}/contact-us/#breadcrumb`,
+        'itemListElement': [
+          {
+            '@type': 'ListItem',
+            'position': 1,
+            'name': 'Home',
+            'item': `${siteUrl}/${lang}`,
+          },
+          {
+            '@type': 'ListItem',
+            'position': 2,
+            'name': title,
+            'item': `${siteUrl}/${lang}/contact-us`,
+          },
+        ],
+      },
+    ],
+  };
+
+  return (
+    <script
+      id="contact-us-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+    />
+  );
+}
 
 export default async function ContactUsPage(props: { params: Promise<{ lang: string }> }) {
   const params = await props.params;
@@ -47,6 +111,7 @@ async function ContactUsContent({ lang }: { lang: string }) {
 
   return (
     <>
+      <ContactUsSchema lang={lang} title={contactDict.title || "Contact Us"} />
       <PageHeader title={contactDict.title || "Contact Us"} backText={backText} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">

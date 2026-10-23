@@ -35,7 +35,7 @@ export async function generateStaticParams() {
   return params
 }
 
-import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(
   props: {
@@ -62,7 +62,7 @@ export async function generateMetadata(
 
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
+  const siteUrl = getSiteUrl()
 
   let targetPhoto: ParticipationPhotoItem | undefined
   if (photoParam) {
@@ -96,7 +96,7 @@ export async function generateMetadata(
     fr: `Découvrez les photos et moments forts de la participation d'AgriGuru Online à ${albumTitle}. Présentant ${photos.length} photos d'exposition.`,
   }
 
-  const title = `${albumTitle} | AgriGuru Online`
+  const title = albumTitle
   const fullTitle = `${albumTitle} - Exhibition Memories | AgriGuru Online`
   const description = albumDescriptions[lang] || albumDescriptions.en
 
@@ -204,44 +204,54 @@ export default async function ParticipationAlbumPage(props: {
           />
         </div>
       </div>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
-            {
-              "@context": "https://schema.org",
-              "@type": "BreadcrumbList",
-              "itemListElement": [
-                {
-                  "@type": "ListItem",
-                  "position": 1,
-                  "name": "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
-                },
-                {
-                  "@type": "ListItem",
-                  "position": 2,
-                  "name": "Participation Gallery",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/participation-gallery`
-                },
-                {
-                  "@type": "ListItem",
-                  "position": 3,
-                  "name": albumTitle,
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/participation-gallery/${slug}`
-                }
-              ]
-            },
-            {
-              "@context": "https://schema.org",
-              "@type": "ImageGallery",
-              "name": albumTitle,
-              "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/participation-gallery/${slug}`,
-              "image": photos.map((photo: any) => photo.image?.startsWith('http') ? photo.image : `https://agriguruonline.com${photo.image}`)
-            }
-          ]).replace(/</g, '\\u003c')
-        }}
-      />
+      {(() => {
+        const siteUrl = getSiteUrl();
+        const assetsBase = getAssetsUrl().replace(/\/$/, '');
+        const schema = [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": `${siteUrl}/${lang}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Participation Gallery",
+                "item": `${siteUrl}/${lang}/participation-gallery`
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": albumTitle,
+                "item": `${siteUrl}/${lang}/participation-gallery/${slug}`
+              }
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ImageGallery",
+            "name": albumTitle,
+            "url": `${siteUrl}/${lang}/participation-gallery/${slug}`,
+            "image": photos.map((photo: any) =>
+              photo.image?.startsWith('http')
+                ? photo.image
+                : `${assetsBase}${photo.image?.startsWith('/') ? '' : '/'}${photo.image || ''}`
+            )
+          }
+        ];
+
+        return (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+          />
+        );
+      })()}
     </div>
   )
 }

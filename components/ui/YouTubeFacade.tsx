@@ -7,15 +7,27 @@ interface YouTubeFacadeProps {
   videoId: string;
   title: string;
   className?: string;
+  poster?: string;
 }
 
-export default function YouTubeFacade({ videoId, title, className = '' }: YouTubeFacadeProps) {
+// Built-in static HD posters for platform tutorial videos (adblocker-proof, 0 latency)
+const DEFAULT_POSTERS: Record<string, string> = {
+  'vi0fcb-IjLA': '/media/tutorial-thumbnail.jpg',
+  'neEQrat8yuU': '/media/seller-tutorial-thumbnail.jpg',
+};
+
+export default function YouTubeFacade({ videoId, title, className = '', poster }: YouTubeFacadeProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
+  const localPoster = poster || DEFAULT_POSTERS[videoId];
+
   // Candidate thumbnail URLs in priority order
   const candidates = [
+    ...(localPoster ? [localPoster] : []),
+    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
     `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
     `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
     `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
@@ -61,12 +73,13 @@ export default function YouTubeFacade({ videoId, title, className = '' }: YouTub
       {/* Video Poster Image */}
       {!hasError ? (
         <Image
-          key={`thumb-${attempt}`}
+          key={`thumb-${attempt}-${candidates[attempt]}`}
           src={candidates[attempt]}
           alt={title}
           fill
           unoptimized
           priority
+          referrerPolicy="no-referrer"
           onError={handleThumbError}
           className="object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
           sizes="(max-width: 768px) 100vw, 50vw"

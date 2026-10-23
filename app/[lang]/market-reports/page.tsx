@@ -16,7 +16,7 @@ export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
 }
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -158,47 +158,52 @@ async function MarketReportsGrid({ lang, page, apiLimit, displayLimit, search, t
         ))}
       </div>
       <Pagination currentPage={page} totalPages={totalPages} baseUrl={`/${lang}/market-reports`} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
-            {
-              "@context": "https://schema.org",
-              "@type": "BreadcrumbList",
-              "itemListElement": [
-                {
-                  "@type": "ListItem",
-                  "position": 1,
-                  "name": "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
-                },
-                {
-                  "@type": "ListItem",
-                  "position": 2,
-                  "name": "Market Reports",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/market-reports`
+      {(() => {
+        const siteUrl = getSiteUrl();
+        const schema = [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": `${siteUrl}/${lang}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Market Reports",
+                "item": `${siteUrl}/${lang}/market-reports`
+              }
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "itemListElement": reports.map((report: any, index: number) => {
+              const title = report.translations?.find((t: any) => t.lang_code === lang)?.title || report.translations?.find((t: any) => t.lang_code === lang)?.subject_title || report.subject_title || report.title || "Report"
+              return {
+                "@type": "ListItem",
+                "position": index + 1,
+                "item": {
+                  "@type": "Article",
+                  "headline": title,
+                  "url": `${siteUrl}/${lang}/market-reports`
                 }
-              ]
-            },
-            {
-              "@context": "https://schema.org",
-              "@type": "ItemList",
-              "itemListElement": reports.map((report: any, index: number) => {
-                const title = report.translations?.find((t: any) => t.lang_code === lang)?.title || report.translations?.find((t: any) => t.lang_code === lang)?.subject_title || report.subject_title || report.title || "Report"
-                return {
-                  "@type": "ListItem",
-                  "position": index + 1,
-                  "item": {
-                    "@type": "Article",
-                    "headline": title,
-                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/market-reports`
-                  }
-                }
-              })
-            }
-          ]).replace(/</g, '\u003c')
-        }}
-      />
+              }
+            })
+          }
+        ];
+
+        return (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+          />
+        );
+      })()}
     </>
   )
 }

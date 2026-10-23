@@ -8,7 +8,7 @@ import { tradingService } from '@/lib/api/trading.service'
 import { getUserProfile } from '@/lib/user-data'
 import { Suspense } from 'react'
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -168,29 +168,34 @@ export default async function FreightChartsPage(props: { params: Promise<{ lang:
           </div>
         </div>
       </div>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            "itemListElement": [
-              {
-                "@type": "ListItem",
-                "position": 1,
-                "name": "Home",
-                "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
-              },
-              {
-                "@type": "ListItem",
-                "position": 2,
-                "name": "Freight Charts",
-                "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/freight-charts`
-              }
-            ]
-          }).replace(/</g, '\\u003c')
-        }}
-      />
+      {(() => {
+        const siteUrl = getSiteUrl();
+        const schema = {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": `${siteUrl}/${lang}`
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Freight Charts",
+              "item": `${siteUrl}/${lang}/freight-charts`
+            }
+          ]
+        };
+
+        return (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+          />
+        );
+      })()}
     </div>
   )
 }

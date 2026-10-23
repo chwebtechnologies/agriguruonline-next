@@ -3,7 +3,21 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
-export function PageHeader({ title, backText = "Back", hideBack = false, backHref, onBackClick }: { title: string, backText?: string, hideBack?: boolean, backHref?: string, onBackClick?: () => void }) {
+export function PageHeader({ 
+  title, 
+  backText = "Back", 
+  hideBack = false, 
+  backHref, 
+  onBackClick,
+  headingTag: Heading = 'h1',
+}: { 
+  title: string, 
+  backText?: string, 
+  hideBack?: boolean, 
+  backHref?: string, 
+  onBackClick?: () => void,
+  headingTag?: 'h1' | 'h2' | 'p' | 'div'
+}) {
   const router = useRouter()
   // Only track dynamic header height on desktop when the categories subheader bar collapses
   const [dynamicDesktopTop, setDynamicDesktopTop] = useState<number | null>(null)
@@ -75,7 +89,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
 
       {/* Middle Column: Centered Title */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center px-[45px] sm:px-[120px] z-10">
-        <h1 
+        <Heading 
           className="pointer-events-auto text-xl min-[375px]:text-[22px] min-[410px]:text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-extrabold text-center truncate tracking-tight leading-tight w-full"
         >
           {(title || '').split(' ').map((word, index, arr) => (
@@ -86,7 +100,7 @@ export function PageHeader({ title, backText = "Back", hideBack = false, backHre
               {index < arr.length - 1 && ' '}
             </span>
           ))}
-        </h1>
+        </Heading>
       </div>
 
       {/* Right Column: Spacer for perfect centering */}

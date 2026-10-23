@@ -16,7 +16,7 @@ export async function generateStaticParams() {
 
 export const revalidate = 60;
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -97,29 +97,52 @@ export default async function ParticipationGalleryPage(props: {
   const searchParams = props.searchParams ? await props.searchParams : {}
   const lang = params.lang || 'en'
   const page = parseInt(searchParams?.page || '1', 10) || 1
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-
+  const siteUrl = getSiteUrl()
   const dict = await getDictionary(lang as any)
+  const pageTitle = dict.header?.participation_gallery || 'Participation Gallery'
   
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'CollectionPage',
-    name: `${dict.header?.participation_gallery || 'Participation Gallery'} - AgriGuru Online`,
-    description:
-      'Photo albums and exhibition memories from AgriGuru Online\'s participation in global agricultural trade conferences and events.',
-    url: `${siteUrl}/${lang}/participation-gallery`,
-    isPartOf: {
-      '@type': 'WebSite',
-      name: 'AgriGuru Online',
-      url: siteUrl,
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      '@id': `${siteUrl}/${lang}/participation-gallery/#webpage`,
+      name: `${pageTitle} - AgriGuru Online`,
+      description:
+        'Photo albums and exhibition memories from AgriGuru Online\'s participation in global agricultural trade conferences and events.',
+      url: `${siteUrl}/${lang}/participation-gallery`,
+      isPartOf: {
+        '@type': 'WebSite',
+        '@id': `${siteUrl}/#website`,
+        name: 'AgriGuru Online',
+        url: siteUrl,
+      },
     },
-  }
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      '@id': `${siteUrl}/${lang}/participation-gallery/#breadcrumb`,
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: `${siteUrl}/${lang}`,
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: pageTitle,
+          item: `${siteUrl}/${lang}/participation-gallery`,
+        },
+      ],
+    },
+  ]
 
   return (
     <div className="bg-background text-foreground">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       <div className="w-full pad-for-badges">

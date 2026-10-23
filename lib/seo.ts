@@ -17,8 +17,16 @@ export function getSafeLanguage(lang?: string): SupportedLanguage {
 }
 
 export function getSiteUrl(): string {
-  const url = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
-  return url.replace(/\/$/, '')
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  // If explicitly set to a real domain (not localhost/127.0.0.1)
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/$/, '')
+  }
+  // In production builds, NEVER allow localhost to leak into canonical tags, sitemaps, or structured data
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://agriguruonline.com'
+  }
+  return (envUrl || 'https://agriguruonline.com').replace(/\/$/, '')
 }
 
 /**
@@ -950,6 +958,13 @@ export function getStandardMetadata({
       : {
           index: true,
           follow: true,
+          googleBot: {
+            index: true,
+            follow: true,
+            'max-video-preview': -1,
+            'max-image-preview': 'large',
+            'max-snippet': -1,
+          },
         },
     openGraph: {
       title: fullTitle,
@@ -978,3 +993,11 @@ export function getStandardMetadata({
     alternates,
   }
 }
+
+/**
+ * Helper to safely sanitize JSON-LD strings against XSS while keeping Schema syntax 100% compliant
+ */
+export function serializeJsonLd(data: any): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c')
+}
+

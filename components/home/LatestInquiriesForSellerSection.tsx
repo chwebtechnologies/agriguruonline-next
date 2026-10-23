@@ -48,6 +48,7 @@ export default function LatestInquiriesForSellerSection({
               <YouTubeFacade
                 videoId="neEQrat8yuU"
                 title={dict?.common?.agriguru_online_tutorial || "AgriGuru Online Tutorial"}
+                poster="/media/seller-tutorial-thumbnail.jpg"
               />
             </div>
           </div>

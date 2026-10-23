@@ -14,7 +14,7 @@ export async function generateStaticParams() {
 
 export const revalidate = 60;
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -83,47 +83,52 @@ async function VideoGalleryGrid({ lang, currentPage }: { lang: string, currentPa
           baseUrl={`/${lang}/video-gallery`} 
         />
       )}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
-            {
-              "@context": "https://schema.org",
-              "@type": "BreadcrumbList",
-              "itemListElement": [
-                {
-                  "@type": "ListItem",
-                  "position": 1,
-                  "name": "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
-                },
-                {
-                  "@type": "ListItem",
-                  "position": 2,
-                  "name": "Video Gallery",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/video-gallery`
+      {(() => {
+        const siteUrl = getSiteUrl();
+        const schema = [
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": `${siteUrl}/${lang}`
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Video Gallery",
+                "item": `${siteUrl}/${lang}/video-gallery`
+              }
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "itemListElement": categories.map((category, index) => {
+              const title = (category as any).translations?.find((t: any) => t.lang_code === lang)?.category_name || category.category_name
+              return {
+                "@type": "ListItem",
+                "position": index + 1,
+                "item": {
+                  "@type": "CollectionPage",
+                  "name": title,
+                  "url": `${siteUrl}/${lang}/video-gallery/${category.slug}`
                 }
-              ]
-            },
-            {
-              "@context": "https://schema.org",
-              "@type": "ItemList",
-              "itemListElement": categories.map((category, index) => {
-                const title = (category as any).translations?.find((t: any) => t.lang_code === lang)?.category_name || category.category_name
-                return {
-                  "@type": "ListItem",
-                  "position": index + 1,
-                  "item": {
-                    "@type": "CollectionPage",
-                    "name": title,
-                    "url": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/video-gallery/${category.slug}`
-                  }
-                }
-              })
-            }
-          ]).replace(/</g, '\\u003c')
-        }}
-      />
+              }
+            })
+          }
+        ];
+
+        return (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+          />
+        );
+      })()}
     </>
   )
 }

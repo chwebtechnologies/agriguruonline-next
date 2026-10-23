@@ -4,7 +4,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import { cmsService } from '@/lib/api/cms.service';
-import { getAlternates, getSafeLanguage, getSiteUrl } from '@/lib/seo';
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton';
 import { resolveImageUrl } from '@/lib/image-utils';
 import type { CmsContentItem } from '@/types/cms';
@@ -34,7 +34,7 @@ export async function generateMetadata(
   const imageUrl = firstImage ? resolveImageUrl(firstImage) : `${getSiteUrl()}/logo.png`;
 
   return {
-    title: `${title} | AgriGuru Online`,
+    title,
     description,
     keywords,
     openGraph: {
@@ -183,6 +183,44 @@ export default async function CareerPage(props: {
           </div>
         </div>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd([
+            {
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              "itemListElement": [
+                {
+                  "@type": "ListItem",
+                  "position": 1,
+                  "name": "Home",
+                  "item": `${getSiteUrl()}/${lang}`
+                },
+                {
+                  "@type": "ListItem",
+                  "position": 2,
+                  "name": pageTitle,
+                  "item": `${getSiteUrl()}/${lang}/career`
+                }
+              ]
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "WebPage",
+              "name": pageTitle,
+              "description": content.meta_description || "Explore career opportunities and open positions at AgriGuru Online.",
+              "url": `${getSiteUrl()}/${lang}/career`,
+              "isPartOf": {
+                "@type": "WebSite",
+                "@id": `${getSiteUrl()}/#website`,
+                "name": "AgriGuru Online",
+                "url": getSiteUrl()
+              }
+            }
+          ])
+        }}
+      />
     </div>
   );
 }

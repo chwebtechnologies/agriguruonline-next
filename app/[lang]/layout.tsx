@@ -176,8 +176,15 @@ export default async function LocalizedRootLayout(props: {
       suppressHydrationWarning
     >
       <head>
-        <link rel="preconnect" href="https://assets.agriguruonline.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://assets.agriguruonline.com" />
+        {(() => {
+          const assetsUrl = getAssetsUrl();
+          return (
+            <>
+              <link rel="preconnect" href={assetsUrl} crossOrigin="anonymous" />
+              <link rel="dns-prefetch" href={assetsUrl} />
+            </>
+          );
+        })()}
         <link rel="preload" href="/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/webfonts/fa-regular-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />

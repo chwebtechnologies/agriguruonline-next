@@ -14,8 +14,10 @@ export interface NewsArticle {
   title: string;
   description: string;
   source?: string;
+  source_url?: string;
   posting_date: string;
   created_at: string;
+  updated_at?: string;
   translations?: NewsTranslation[];
 }
 

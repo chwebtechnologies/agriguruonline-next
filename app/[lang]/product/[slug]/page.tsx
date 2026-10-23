@@ -71,7 +71,7 @@ interface SimilarProduct {
 }
 
 
-import { getAlternates, getSafeLanguage } from '@/lib/seo'
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; slug: string }> }
@@ -80,10 +80,13 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang);
   const slug = params?.slug ? decodeURIComponent(params.slug) : '';
 
-  const data = await withTimeout(tradingService.getProduct(slug, lang).catch(() => null), 1200, null);
+  const data = await withTimeout(tradingService.getProduct(slug, lang).catch(() => null), 3500, null);
+
+  const siteUrl = getSiteUrl()
+  const alternates = getAlternates(`product/${params.slug}`, lang)
 
   const productName = data?.name || slug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-  const title = `${productName} | AgriGuru Online`
+  const title = productName
   
   const fallbackDescriptions: Record<string, string> = {
     en: `Buy and sell ${productName} on AgriGuru Online. Check live market prices, specifications, and verified global suppliers.`,
@@ -95,12 +98,10 @@ export async function generateMetadata(
   const rawDescription = data?.description?.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim()
   const description = (rawDescription && rawDescription.length > 10 ? rawDescription.substring(0, 160) : fallbackDescriptions[lang]) || fallbackDescriptions.en
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'
   const rawImage = data?.thumbnail || data?.image
   const imageUrl = rawImage 
     ? (rawImage.startsWith('http') ? rawImage : `${getAssetsUrl()}/${rawImage.replace(/^\/+/, '')}`) 
     : `${siteUrl}/logo.png`
-  const alternates = getAlternates(`product/${params.slug}`, lang)
 
   return {
     title,
@@ -115,9 +116,16 @@ export async function generateMetadata(
     robots: {
       index: true,
       follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
     },
     openGraph: {
-      title,
+      title: `${productName} | AgriGuru Online`,
       description,
       url: alternates.canonical,
       siteName: 'AgriGuru Online',
@@ -134,7 +142,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: `${productName} | AgriGuru Online`,
       description,
       images: [imageUrl],
       site: '@AgriGuruOnline',
@@ -204,7 +212,7 @@ function ProductDetailSkeleton({ slug }: { slug: string }) {
   
   return (
     <>
-      <PageHeader title={productName} backText="Back" />
+      <PageHeader title={productName} backText="Back" headingTag="div" />
       <div className="mt-1 sm:mt-1.5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 p-4 sm:p-5 md:p-6">
           <div className="flex flex-row md:flex-col gap-4 md:gap-0 md:space-y-4 md:col-span-5 lg:col-span-4">
@@ -302,10 +310,11 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
   const similarProducts = product.category?.id ? await tradingService.getSimilarProducts(product.category.id, lang, slug) : []
 
   const productName = product.name || 'Product Detail'
+  const siteUrl = getSiteUrl()
   const rawImg = product.image || product.thumbnail;
   const imageUrl = rawImg
     ? (rawImg.startsWith('http') ? rawImg : `${imageBaseUrl}${rawImg}`)
-    : 'https://agriguruonline.com/logo.png'
+    : `${siteUrl}/logo.png`
 
   const productBackHref = product?.category?.slug
     ? `/${lang}/category/${product.category.slug}`
@@ -313,7 +322,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
 
   return (
     <>
-      <PageHeader title={productName} backText={common.back} backHref={productBackHref} />
+      <PageHeader title={productName} backText={common.back} backHref={productBackHref} headingTag="div" />
 
       <div className="mt-1 sm:mt-1.5 bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6 p-4 sm:p-5 md:p-6">
@@ -336,7 +345,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
             
             {/* Mobile Title & Tags */}
             <div className="flex flex-col md:hidden justify-start pt-1 flex-1 space-y-2.5">
-              <h1 className="text-lg sm:text-xl font-bold text-foreground leading-tight">{productName}</h1>
+              <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight">{productName}</h2>
               <p className="text-muted-foreground text-sm font-semibold">Product Code: {product.product_code}</p>
               
               <div className="flex flex-col gap-1.5 pt-1">
@@ -560,7 +569,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
               const simRawImg = simProduct.thumbnail || simProduct.image;
               const simImageUrl = simRawImg
                 ? (simRawImg.startsWith('http') ? simRawImg : `${imageBaseUrl}${simRawImg}`)
-                : 'https://agriguruonline.com/logo.png'
+                : `${siteUrl}/logo.png`
 
               return (
                 <div
@@ -611,7 +620,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
+          __html: serializeJsonLd([
             {
               "@context": "https://schema.org",
               "@type": "BreadcrumbList",
@@ -620,25 +629,27 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
                   "@type": "ListItem",
                   "position": 1,
                   "name": (dict as Record<string, any>)?.navigation?.home || "Home",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}`
+                  "item": `${siteUrl}/${lang}`
                 },
                 {
                   "@type": "ListItem",
                   "position": 2,
                   "name": (dict as Record<string, any>)?.navigation?.products || "Products",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category`
+                  "item": `${siteUrl}/${lang}/products`
                 },
                 {
                   "@type": "ListItem",
                   "position": 3,
                   "name": product.category?.name || "Category",
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/category/${(product.category as any)?.slug || ''}`
+                  "item": (product.category as any)?.slug
+                    ? `${siteUrl}/${lang}/category/${(product.category as any).slug}`
+                    : `${siteUrl}/${lang}/products`
                 },
                 {
                   "@type": "ListItem",
                   "position": 4,
                   "name": productName,
-                  "item": `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com'}/${lang}/product/${slug}`
+                  "item": `${siteUrl}/${lang}/product/${slug}`
                 }
               ]
             },
@@ -652,9 +663,22 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
               "brand": {
                 "@type": "Brand",
                 "name": "AgriGuru Online"
+              },
+              "offers": {
+                "@type": "AggregateOffer",
+                "priceCurrency": "USD",
+                "lowPrice": product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0
+                  ? String(product.loading_ports[0].price)
+                  : "1.00",
+                "highPrice": product.loading_ports && product.loading_ports.length > 0 && product.loading_ports[0].price > 0
+                  ? String(product.loading_ports[0].price)
+                  : "10000.00",
+                "offerCount": "1",
+                "availability": "https://schema.org/InStock",
+                "url": `${siteUrl}/${lang}/product/${slug}`
               }
             }
-          ]).replace(/</g, '\\u003c')
+          ])
         }}
       />
     </>

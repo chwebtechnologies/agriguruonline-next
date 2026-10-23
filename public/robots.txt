@@ -1,54 +1,75 @@
+# https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow: /
+Allow: /
+Disallow: /api/
+Disallow: /*/profile
+Disallow: /*/profile/
+Disallow: /*/dashboard
+Disallow: /*/dashboard/
+Disallow: /*/alerts-setups
+Disallow: /*/alerts-setups/
+Disallow: /*/my-inquiries
+Disallow: /*/my-inquiries/
+Disallow: /*/my-offers
+Disallow: /*/my-offers/
+Disallow: /*/my-settings
+Disallow: /*/my-settings/
+Disallow: /*/become-member
+Disallow: /*/become-member/
+Disallow: /*/login
+Disallow: /*/register
 
+# Googlebot specific directives
 User-agent: Googlebot
-Disallow: /
+Allow: /
+Disallow: /api/
+Disallow: /*/profile
+Disallow: /*/dashboard
+Disallow: /*/alerts-setups
+Disallow: /*/my-inquiries
+Disallow: /*/my-offers
+Disallow: /*/my-settings
+Disallow: /*/become-member
+Disallow: /*/login
+Disallow: /*/register
 
+User-agent: Googlebot-Image
+Allow: /
+
+# Bingbot specific directives
 User-agent: Bingbot
-Disallow: /
+Allow: /
+Disallow: /api/
+Disallow: /*/profile
+Disallow: /*/dashboard
+Disallow: /*/alerts-setups
+Disallow: /*/my-inquiries
+Disallow: /*/my-offers
+Disallow: /*/my-settings
+Disallow: /*/become-member
+Disallow: /*/login
+Disallow: /*/register
 
-User-agent: Slurp
-Disallow: /
-
-User-agent: DuckDuckBot
-Disallow: /
-
-User-agent: Baiduspider
-Disallow: /
-
-User-agent: YandexBot
-Disallow: /
-
+# Restrict aggressive AI training crawlers
 User-agent: GPTBot
 Disallow: /
 
 User-agent: ChatGPT-User
 Disallow: /
 
-User-agent: ClaudeBot
+User-agent: CCBot
 Disallow: /
 
 User-agent: anthropic-ai
 Disallow: /
 
-User-agent: Applebot
-Disallow: /
-
-User-agent: Applebot-Extended
-Disallow: /
-
-User-agent: CCBot
-Disallow: /
-
-User-agent: PerplexityBot
+User-agent: ClaudeBot
 Disallow: /
 
 User-agent: Bytespider
 Disallow: /
 
-User-agent: Cohere-ai
-Disallow: /
-
-User-agent: FacebookBot
-Disallow: /
-
+# Sitemaps
+Sitemap: https://agriguruonline.com/sitemap.xml
+Sitemap: https://agriguruonline.com/image-sitemap.xml
+Sitemap: https://agriguruonline.com/video-sitemap.xml

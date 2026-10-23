@@ -47,6 +47,7 @@ export default function LatestOffersForBuyerSection({
               <YouTubeFacade
                 videoId="vi0fcb-IjLA"
                 title={dict?.common?.agriguru_online_tutorial || "AgriGuru Online Tutorial"}
+                poster="/media/tutorial-thumbnail.jpg"
               />
             </div>
           </div>

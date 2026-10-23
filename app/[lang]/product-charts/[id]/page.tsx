@@ -10,7 +10,7 @@ import { getUserProfile } from '@/lib/user-data';
 import { decryptData } from '@/lib/crypto-utils';
 import { formatHistoryItem } from '@/components/product-charts/MobileCommodityChart';
 
-import { getAlternates, getSafeLanguage } from '@/lib/seo';
+import { getAlternates, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string; id: string }> }
@@ -47,7 +47,7 @@ export async function generateMetadata(
   const fullTitle = `${title} | AgriGuru Online`;
   const description = descriptions[lang] || descriptions.en;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://agriguruonline.com';
+  const siteUrl = getSiteUrl();
   const assetsUrl = getAssetsUrl();
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
   const productImg = itemData?.thumbnail || itemData?.image;
@@ -233,8 +233,39 @@ export default async function DedicatedChartPage(props: { params: Promise<{ lang
     }
   }
   
+  const siteUrl = getSiteUrl();
+  const productName = itemData?.name || 'Commodity Price Chart';
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: `${siteUrl}/${lang}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Product Charts',
+        item: `${siteUrl}/${lang}/product-charts`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: productName,
+        item: `${siteUrl}/${lang}/product-charts/${params.id}`,
+      },
+    ],
+  };
+
   return (
     <div className="bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+      />
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           <DedicatedChartClient 

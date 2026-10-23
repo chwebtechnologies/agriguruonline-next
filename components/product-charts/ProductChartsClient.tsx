@@ -470,7 +470,7 @@ export default function ProductChartsClient({
   const [selectedPOL, setSelectedPOL] = useState('');
   const [selectedPOD, setSelectedPOD] = useState('');
   const [addedProducts, setAddedProducts] = useState<FavoriteItem[]>(initialFavorites);
-  const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(true);
+  const [isFetchingFavorites, setIsFetchingFavorites] = useState<boolean>(false);
 
   const fetchLatestFavorites = useCallback(async () => {
     try {
@@ -554,7 +554,12 @@ export default function ProductChartsClient({
         setIsFetchingFavorites(false);
       }
     } else {
-      fetchLatestFavorites();
+      if (!initialFavorites || initialFavorites.length === 0) {
+        fetchLatestFavorites();
+      } else {
+        setAddedProducts(initialFavorites);
+        setIsFetchingFavorites(false);
+      }
     }
   }, [lang, isHomePage, initialFavorites, fetchLatestFavorites]);
 

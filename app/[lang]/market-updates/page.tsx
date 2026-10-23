@@ -16,7 +16,7 @@ export async function generateStaticParams() {
 
 export const revalidate = 60;
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -93,10 +93,28 @@ export default async function MarketUpdatesPage(props: {
               <Pagination currentPage={currentPage} totalPages={totalPages} baseUrl={`/${lang}/market-updates`} />
 
               {/* JSON-LD Schema */}
-              <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{
-                  __html: JSON.stringify({
+              {(() => {
+                const siteUrl = getSiteUrl();
+                const schema = [
+                  {
+                    "@context": "https://schema.org",
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                      {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": dict.navigation?.home || "Home",
+                        "item": `${siteUrl}/${lang}`
+                      },
+                      {
+                        "@type": "ListItem",
+                        "position": 2,
+                        "name": dict.header?.market_updates || "Market Updates",
+                        "item": `${siteUrl}/${lang}/market-updates`
+                      }
+                    ]
+                  },
+                  {
                     "@context": "https://schema.org",
                     "@type": "ItemList",
                     "itemListElement": flyers.map((flyer, index) => ({
@@ -110,14 +128,21 @@ export default async function MarketUpdatesPage(props: {
                             ? flyer.thumbnail
                             : flyer.thumbnail
                               ? `${assetsUrl}/${flyer.thumbnail}`
-                              : 'https://agriguruonline.com/logo.png'
+                              : `${siteUrl}/logo.png`
                         ],
-                        "url": `https://agriguruonline.com/${lang}/market-updates/${flyer.slug}`
+                        "url": `${siteUrl}/${lang}/market-updates/${flyer.slug}`
                       }
                     }))
-                  }).replace(/</g, '\\u003c')
-                }}
-              />
+                  }
+                ];
+
+                return (
+                  <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+                  />
+                );
+              })()}
             </>
           )}
         </div>

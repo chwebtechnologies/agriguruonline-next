@@ -9,7 +9,7 @@ import { PageHeader } from '../../../components/ui/PageHeader'
 export const dynamic = 'force-static'
 export const revalidate = false
 
-import { getStandardMetadata, getSafeLanguage } from '@/lib/seo'
+import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 
 export async function generateMetadata(props: {
   params?: Promise<{ lang: string }>
@@ -24,6 +24,65 @@ export async function generateMetadata(props: {
   })
 }
 
+function DownloadAppSchema({ lang, title }: { lang: string; title: string }) {
+  const siteUrl = getSiteUrl();
+  const schema = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'SoftwareApplication',
+        'name': 'AgriGuru Online iOS App',
+        'operatingSystem': 'iOS',
+        'applicationCategory': 'BusinessApplication',
+        'installUrl': 'https://apps.apple.com/in/app/agriguru-online/id6472804536',
+        'offers': {
+          '@type': 'Offer',
+          'price': '0',
+          'priceCurrency': 'USD',
+        },
+      },
+      {
+        '@type': 'SoftwareApplication',
+        'name': 'AgriGuru Online Android App',
+        'operatingSystem': 'Android',
+        'applicationCategory': 'BusinessApplication',
+        'installUrl': 'https://play.google.com/store/apps/details?id=com.app.agriguruonline&hl=en_IN',
+        'offers': {
+          '@type': 'Offer',
+          'price': '0',
+          'priceCurrency': 'USD',
+        },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${siteUrl}/${lang}/download-application/#breadcrumb`,
+        'itemListElement': [
+          {
+            '@type': 'ListItem',
+            'position': 1,
+            'name': 'Home',
+            'item': `${siteUrl}/${lang}`,
+          },
+          {
+            '@type': 'ListItem',
+            'position': 2,
+            'name': title,
+            'item': `${siteUrl}/${lang}/download-application`,
+          },
+        ],
+      },
+    ],
+  };
+
+  return (
+    <script
+      id="download-app-schema"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
+    />
+  );
+}
+
 import { getDictionary } from '../dictionaries'
 
 export default async function DownloadAppPage({ params }: { params: Promise<{ lang: string }> }) {
@@ -34,14 +93,16 @@ export default async function DownloadAppPage({ params }: { params: Promise<{ la
   const downDict = (dict as Record<string, any>).download_app || {};
   const commonDict = (dict as Record<string, any>).common || {};
   const backText = commonDict.back || "Back";
+  const pageTitle = dict.header?.download_app || "Download App";
 
   return (
     <div className="bg-background text-foreground">
+      <DownloadAppSchema lang={lang} title={pageTitle} />
       <div className="w-full pad-for-badges">
         <div className="max-w-7xl mx-auto pt-3 pb-5">
           
           {/* Header */}
-          <PageHeader title={dict.header?.download_app || "Download App"} backText={backText} />
+          <PageHeader title={pageTitle} backText={backText} headingTag="div" />
 
           {/* SECTION 1: HERO - 2 Column Layout */}
           <section className="relative pt-1 sm:pt-2 pb-8 lg:pb-12">
