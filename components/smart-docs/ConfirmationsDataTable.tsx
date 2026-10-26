@@ -448,6 +448,10 @@ export function ConfirmationsDataTable({
     dict?.smart_docs?.add_new_confirmation ||
     dict?.smart_docs?.add_confirmation ||
     'Add New Confirmation';
+  const effectiveAddHref =
+    addHref !== undefined
+      ? addHref
+      : `/${lang}/smart-docs/draft`;
   const effectiveEmptyTitle = emptyTitle || dict?.smart_docs?.no_confirmations_found || 'No Confirmations Found';
   const effectiveEmptyDescription =
     emptyDescription ||
@@ -1646,9 +1650,9 @@ export function ConfirmationsDataTable({
 
           {/* Action Button: Add Confirmation */}
           <div className="flex items-center gap-2 shrink-0">
-            {addHref ? (
+            {effectiveAddHref ? (
               <Link
-                href={addHref}
+                href={effectiveAddHref}
                 className="h-8 sm:h-8.5 px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-2 shadow-xs active:scale-95 shrink-0"
               >
                 <i className="fa-solid fa-plus text-xs"></i>
@@ -1923,9 +1927,9 @@ export function ConfirmationsDataTable({
             )}
 
             {/* Add Confirmation Button in Table Toolbar */}
-            {addHref ? (
+            {effectiveAddHref ? (
               <Link
-                href={addHref}
+                href={effectiveAddHref}
                 className="h-8 sm:h-8.5 px-3 sm:px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0"
               >
                 <i className="fa-solid fa-plus text-xs"></i>
@@ -2125,6 +2129,14 @@ export function ConfirmationsDataTable({
                           <i className="fa-solid fa-xmark text-xs"></i>
                           <span>{dict?.smart_docs?.clear_search || 'Clear Search'}</span>
                         </button>
+                      ) : effectiveAddHref ? (
+                        <Link
+                          href={effectiveAddHref}
+                          className="mt-1 px-4 py-2 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <i className="fa-solid fa-plus text-xs"></i>
+                          <span>{effectiveAddButtonLabel}</span>
+                        </Link>
                       ) : (
                         <button
                           type="button"

@@ -10,13 +10,15 @@ export function PageHeader({
   backHref, 
   onBackClick,
   headingTag: Heading = 'h1',
+  className = '',
 }: { 
   title: string, 
   backText?: string, 
   hideBack?: boolean, 
   backHref?: string, 
   onBackClick?: () => void,
-  headingTag?: 'h1' | 'h2' | 'p' | 'div'
+  headingTag?: 'h1' | 'h2' | 'p' | 'div',
+  className?: string
 }) {
   const router = useRouter()
   // Only track dynamic header height on desktop when the categories subheader bar collapses
@@ -65,7 +67,7 @@ export function PageHeader({
   return (
     <div
       style={dynamicDesktopTop ? { top: `${dynamicDesktopTop}px` } : undefined}
-      className="sticky top-[57px] sm:top-[63px] lg:top-[97px] z-40 py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5 bg-background"
+      className={`sticky top-[57px] sm:top-[63px] lg:top-[97px] z-40 py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5 bg-background ${className}`}
     >
       {/* Full-width background bleed to hide scrolling content behind PageHeader */}
       <div className="absolute inset-y-0 -top-px -left-4 -right-4 sm:-left-8 sm:-right-8 lg:-left-14 lg:-right-14 xl:-left-20 xl:-right-20 bg-background z-0 pointer-events-none border-b border-border/40 shadow-xs" />

@@ -246,4 +246,103 @@ export const smartDocsService = {
       };
     }
   },
+
+  /**
+   * Fetches the stepper list for a document draft workflow with authentication:
+   * GET /dms/stepper-list/:action/:step?lang_code=en&source=web
+   */
+  getStepperList: async (
+    params: StepperListParams = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const action = params.action || 'confirmation';
+    const step = params.step || 'new-confirmation';
+    const safeLang = getSafeLang(params.lang || 'en');
+    const url = `${baseUrl}/dms/stepper-list/${encodeURIComponent(action)}/${encodeURIComponent(step)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getStepperList] error:', error);
+      return null;
+    }
+  },
 };
+
+export interface StepperListParams {
+  action?: string;
+  step?: string;
+  lang?: string;
+  source?: string;
+}
+
+export interface StepperDocumentItem {
+  id?: string | number;
+  _id?: string | number;
+  document_name?: string;
+  name?: string;
+  title?: string;
+  doc_name?: string;
+  step_name?: string;
+  label?: string;
+  status?: string;
+  document_status?: string;
+  step_status?: string;
+  step?: number | string;
+  step_number?: number | string;
+  order?: number | string;
+  pdf_url?: string | null;
+  pdf?: string | null;
+  download_url?: string | null;
+  file_url?: string | null;
+  is_pdf_available?: boolean;
+  has_pdf?: boolean;
+  pdf_enabled?: boolean;
+  is_completed?: boolean;
+  description?: string;
+  [key: string]: any;
+}
+
+/**
+ * Robustly extracts the stepper documents array from backend API response.
+ */
+export function extractStepperList(data: any): StepperDocumentItem[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+
+  const d = data.data ?? data;
+  if (Array.isArray(d)) return d;
+
+  const candidateKeys = [
+    'stepper',
+    'stepper_list',
+    'stepperList',
+    'steps',
+    'step_list',
+    'documents',
+    'docs',
+    'records',
+    'list',
+    'items',
+  ];
+
+  for (const key of candidateKeys) {
+    if (Array.isArray(d?.[key])) return d[key];
+    if (Array.isArray(data?.[key])) return data[key];
+  }
+
+  return [];
+}
+

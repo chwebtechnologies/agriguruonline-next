@@ -85,6 +85,7 @@ export default async function SmartDocsPage(props: {
               dict={dict}
               title={pageTitle}
               description={pageDescription}
+              addHref={`/${lang}/smart-docs/draft`}
             />
           </div>
         </div>

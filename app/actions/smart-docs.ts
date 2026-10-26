@@ -7,6 +7,8 @@ import {
   extractSmartDocsArray,
   extractSmartDocsTotal,
   normalizeActionParam,
+  extractStepperList,
+  type StepperDocumentItem,
 } from "@/lib/api/smart-docs.service";
 
 export interface GetSmartDocsListActionParams {
@@ -140,4 +142,63 @@ export async function deleteSmartDocAction(
     };
   }
 }
+
+export interface GetStepperListActionParams {
+  action?: string;
+  step?: string;
+  lang?: string;
+}
+
+export interface GetStepperListActionResult {
+  success: boolean;
+  data: StepperDocumentItem[];
+  message?: string;
+  error?: string;
+}
+
+export async function getStepperListAction(
+  params: GetStepperListActionParams = {}
+): Promise<GetStepperListActionResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        data: [],
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getStepperList(
+      {
+        action: params.action || "confirmation",
+        step: params.step || "new-confirmation",
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    const steps = extractStepperList(rawRes);
+
+    return {
+      success: Boolean(rawRes?.success ?? true),
+      data: steps,
+      message: rawRes?.message,
+    };
+  } catch (error: any) {
+    console.error("[getStepperListAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch stepper list",
+      data: [],
+    };
+  }
+}
+
 
