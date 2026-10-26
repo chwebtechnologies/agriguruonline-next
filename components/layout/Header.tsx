@@ -13,6 +13,15 @@ interface HeaderProps {
 }
 
 export default async function Header(props?: HeaderProps) {
+  try {
+    const { headers } = await import('next/headers');
+    const headerStore = await headers();
+    const serverPath = headerStore.get('x-pathname') || '';
+    if (serverPath.includes('/smart-docs')) return null;
+  } catch (e) {
+    // fallback
+  }
+
   const activeLang = props?.activeLang || getSafeLanguage(await lang())
 
   let dict = props?.dict

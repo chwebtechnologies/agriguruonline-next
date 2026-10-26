@@ -5,6 +5,15 @@ import { getSafeLanguage } from '@/lib/seo'
 import { cmsService } from '@/lib/api/cms.service'
 
 export default async function Footer() {
+  try {
+    const { headers } = await import('next/headers');
+    const headerStore = await headers();
+    const serverPath = headerStore.get('x-pathname') || '';
+    if (serverPath.includes('/smart-docs')) return null;
+  } catch (e) {
+    // fallback
+  }
+
   const rawLang = await lang()
   const activeLang = getSafeLanguage(rawLang)
   const [rawDict, footerData]: [any, any] = await Promise.all([

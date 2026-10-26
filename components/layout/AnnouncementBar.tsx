@@ -6,6 +6,15 @@ import { cmsService } from '@/lib/api';
 import { getSafeLanguage } from '@/lib/seo';
 
 export default async function AnnouncementBar() {
+  try {
+    const { headers } = await import('next/headers');
+    const headerStore = await headers();
+    const serverPath = headerStore.get('x-pathname') || '';
+    if (serverPath.includes('/smart-docs')) return null;
+  } catch (e) {
+    // fallback
+  }
+
   const rawLang = await lang()
   const activeLang = getSafeLanguage(rawLang)
   const rawDict = await getDictionary()

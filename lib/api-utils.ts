@@ -26,6 +26,11 @@ export function getCmsApiUrl(): string {
   return url.replace(/\/$/, "");
 }
 
+export function getSmartDocsApiUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SMART_DOCS_API_URL || process.env.SMART_DOCS_API_URL || "https://smart-docs-api.agriguruonline.cloud";
+  return url.replace(/\/$/, "");
+}
+
 export function getAssetsUrl(): string {
   let url = process.env.ASSETS_URL || process.env.NEXT_PUBLIC_ASSETS_URL || "https://assets.agriguruonline.com";
   // The assets CDN domain is always assets.agriguruonline.com

@@ -344,7 +344,7 @@ export default function DashboardClient({
             <div className="text-sm font-medium text-muted-foreground">
               Documents Created
             </div>
-            <Link href={`/${lang}/dashboard/smart-docs`} className="mt-3 flex items-center text-[13px] font-medium text-rose-600 dark:text-rose-500 hover:opacity-80 transition-colors w-fit relative z-10">
+            <Link href={`/${lang}/smart-docs`} className="mt-3 flex items-center text-[13px] font-medium text-rose-600 dark:text-rose-500 hover:opacity-80 transition-colors w-fit relative z-10">
               View Details <i className="fa-solid fa-arrow-right ml-1"></i>
             </Link>
           </div>

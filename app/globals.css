@@ -163,6 +163,11 @@ i[class*="fa-"] {
   --status-missing-bg: rgba(142, 142, 147, 0.1);
   --status-missing-text: #8E8E93;
   --status-missing-border: rgba(142, 142, 147, 0.3);
+
+  /* Table Row Zebra & Hover Tokens (100% Solid & Opaque for Sticky Columns) */
+  --table-row-even: #ffffff;
+  --table-row-odd: #f5f5f7;
+  --table-row-hover: #ebebf0;
 }
 
 /* Explicit Agriguru Online Dark Theme Configuration */
@@ -227,6 +232,11 @@ i[class*="fa-"] {
   --status-missing-bg: rgba(142, 142, 147, 0.15);
   --status-missing-text: #A1A1A6;
   --status-missing-border: rgba(161, 161, 166, 0.3);
+
+  /* Table Row Zebra & Hover Tokens (Dark Mode - 100% Solid & Opaque) */
+  --table-row-even: #1c1c1e;
+  --table-row-odd: #242426;
+  --table-row-hover: #2c2c2e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -291,6 +301,11 @@ i[class*="fa-"] {
     --status-missing-bg: rgba(142, 142, 147, 0.15);
     --status-missing-text: #A1A1A6;
     --status-missing-border: rgba(161, 161, 166, 0.3);
+
+    /* Table Row Zebra & Hover Tokens (Dark Mode - 100% Solid & Opaque) */
+    --table-row-even: #1c1c1e;
+    --table-row-odd: #242426;
+    --table-row-hover: #2c2c2e;
   }
 }
 
@@ -302,6 +317,9 @@ i[class*="fa-"] {
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-ag-card-bg: var(--ag-card-bg);
+  --color-table-row-even: var(--table-row-even);
+  --color-table-row-odd: var(--table-row-odd);
+  --color-table-row-hover: var(--table-row-hover);
   --color-primary: var(--ag-primary);
   --color-primary-hover: var(--ag-primary-hover);
   
@@ -626,6 +644,23 @@ a, button, input, select, textarea, label, [role="button"] {
   html {
     zoom: 5.333; /* 8K Ultra HD 7680x4320 */
   }
+}
+
+/* ==========================================================================
+   Table Row Striping & Hover Utility Classes (100% Solid & Opaque)
+   Guarantees sticky columns remain completely opaque on hover and scroll.
+   ========================================================================== */
+.bg-table-row-even {
+  background-color: var(--table-row-even) !important;
+}
+.bg-table-row-odd {
+  background-color: var(--table-row-odd) !important;
+}
+.bg-table-row-hover {
+  background-color: var(--table-row-hover) !important;
+}
+.group:hover .group-hover\:bg-table-row-hover {
+  background-color: var(--table-row-hover) !important;
 }
 
 

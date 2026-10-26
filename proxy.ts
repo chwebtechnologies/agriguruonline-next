@@ -55,6 +55,9 @@ export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const ip = request.headers.get('x-forwarded-for') || 'unknown';
 
+  // Pass current pathname to downstream server components
+  request.headers.set('x-pathname', pathname);
+
   // 1. Basic Rate Limiting for API routes
   if (pathname.startsWith('/api/')) {
     // Limit to 60 requests per minute per IP
@@ -236,7 +239,7 @@ export default async function middleware(request: NextRequest) {
   };
 
   // Define protected routes (require auth)
-  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(dashboard|profile|my-inquiries|my-offers|alerts-setups|become-member)/);
+  const isProtectedRoute = pathname.match(/^\/[a-z]{2}\/(dashboard|profile|my-inquiries|my-offers|alerts-setups|become-member|smart-docs)/);
   
   if (isProtectedRoute && (!token || !isTokenValid)) {
     // CRITICAL: Server Actions MUST NEVER be redirected via HTTP 307.

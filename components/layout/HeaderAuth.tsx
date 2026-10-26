@@ -541,6 +541,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const displayCategories = categoriesList.slice(0, finalFitCount)
   const dropdownCategories = categoriesList.slice(finalFitCount)
 
+  if (currentPath?.includes('/smart-docs')) {
+    return null
+  }
+
   if (isGuestPage) {
     return <HeaderGuest dict={dict} activeLang={activeLang} categories={apiCategories} initialSearchProducts={initialSearchProducts} />
   }

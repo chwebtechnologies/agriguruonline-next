@@ -160,7 +160,7 @@ export function AppMenu({
       { label: dict?.header?.ai_predicts || 'AI Predicts', icon: 'fa-solid fa-microchip', href: `/${lang}/ai-predict`, iconBg: 'bg-purple-500' },
     ],
     [
-      { label: dict?.header?.smart_docs || 'Smart Docs', icon: 'fa-solid fa-file-pen', href: '#', iconBg: 'bg-cyan-500' },
+      { label: dict?.header?.smart_docs || 'Smart Docs', icon: 'fa-solid fa-file-pen', href: `/${lang}/smart-docs`, iconBg: 'bg-cyan-500' },
       { label: dict?.header?.instructions || 'Instructions', icon: 'fa-solid fa-person-chalkboard', href: '#', iconBg: 'bg-teal-500' },
       { label: dict?.header?.market_reports || 'Market Reports', icon: 'fa-solid fa-file-contract', href: `/${lang}/market-reports`, iconBg: 'bg-sky-500' },
     ],

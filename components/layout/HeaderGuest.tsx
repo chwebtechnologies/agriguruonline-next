@@ -85,6 +85,7 @@ export function HeaderGuestBase({
   pathname,
   initialSearchProducts = [],
 }: HeaderGuestBaseProps) {
+  const currentPath = usePathname() || pathname || ''
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const categoriesRef = useRef<HTMLDivElement>(null)
@@ -247,6 +248,8 @@ export function HeaderGuestBase({
   const finalFitCount = categoriesList.length > 0 ? Math.max(1, fitCount) : 0
   const displayCategories = categoriesList.slice(0, finalFitCount)
   const dropdownCategories = categoriesList.slice(finalFitCount)
+
+  if (currentPath.includes('/smart-docs')) return null
 
   return (
     <div id="site-header" className="w-full flex flex-col z-[70] bg-background sticky top-0" dir={dir}>

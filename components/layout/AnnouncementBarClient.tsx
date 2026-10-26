@@ -142,6 +142,8 @@ export default function AnnouncementBarClient({ announcements, dict, activeLang 
 
   const currentTheme = mounted ? theme : 'system'
 
+  if (pathname.includes('/smart-docs')) return null;
+
   return (
     <div
       className="w-full bg-primary-gradient text-white text-sm font-semibold shadow-sm flex items-center relative z-[75] border-b border-emerald-950/20 max-h-[40px] h-10 py-2 overflow-visible"

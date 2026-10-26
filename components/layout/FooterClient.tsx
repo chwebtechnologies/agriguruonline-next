@@ -200,6 +200,8 @@ export default function FooterClient({ dict, activeLang, footerData }: FooterPro
 
   const dir = activeLang === 'ar' ? 'rtl' : 'ltr'
 
+  if (pathname.includes('/smart-docs')) return null;
+
   return (
     <footer id="footer" className="w-full font-sans bg-card text-muted-foreground pt-3 sm:pt-4 md:pt-6 pb-0 relative transition-theme border-t border-border" dir={dir}>
 
