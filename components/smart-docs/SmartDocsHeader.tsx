@@ -284,16 +284,15 @@ export function SmartDocsHeader({
                 </span>
               </Link>
 
-              <span className="hidden sm:inline text-border/80 text-xs sm:text-sm font-light select-none">/</span>
-
-              {/* Priority #1: Smart Docs Badge - Always fully visible, never truncated */}
+              {/* Priority #1: Smart Docs Title - Clean gradient typography, no icon, seamless brand look */}
               <Link
                 href={`/${activeLang}/smart-docs`}
-                className="h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg inline-flex items-center gap-1.5 font-bold text-xs sm:text-sm bg-muted/90 hover:bg-muted text-foreground border border-border transition-colors whitespace-nowrap shadow-2xs shrink-0"
+                className="inline-flex items-center focus:outline-none shrink-0 group"
                 title="Smart Docs Workspace"
               >
-                <i className="fa-solid fa-file-contract text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm shrink-0"></i>
-                <span className="whitespace-nowrap font-bold">Smart Docs</span>
+                <span className="font-extrabold text-sm sm:text-base lg:text-lg tracking-tight bg-[image:var(--ag-gradient-heading)] bg-clip-text text-transparent group-hover:opacity-85 transition-opacity whitespace-nowrap">
+                  {dict?.header?.smart_docs || 'Smart Docs'}
+                </span>
               </Link>
             </div>
 

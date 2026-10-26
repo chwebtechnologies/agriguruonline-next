@@ -19,7 +19,7 @@ export function SmartDocsFooter({ activeLang = 'en', dict }: SmartDocsFooterProp
       <div className="mx-auto max-w-7xl h-11 sm:h-12 flex flex-row items-center justify-between gap-2.5 sm:gap-4 select-none">
         {/* Left Side: Copyright Notice */}
         <div className="text-xs sm:text-sm text-muted-foreground font-medium truncate min-w-0">
-          <span>© {currentYear} AgriGuru Online. All rights reserved.</span>
+          <span>© {currentYear} AgriGuru Online. {dict?.smart_docs?.all_rights_reserved || dict?.footer?.rights_reserved || 'All rights reserved.'}</span>
         </div>
 
         {/* Right Side: WhatsApp Help & Support button */}
@@ -32,7 +32,7 @@ export function SmartDocsFooter({ activeLang = 'en', dict }: SmartDocsFooterProp
             className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs sm:text-sm font-semibold transition-all hover:scale-105 active:scale-95 shadow-2xs group focus:outline-none focus:ring-2 focus:ring-emerald-500/30 whitespace-nowrap shrink-0"
           >
             <i className="fa-brands fa-whatsapp text-emerald-500 text-sm sm:text-base transition-transform group-hover:scale-110"></i>
-            <span>Help & Support</span>
+            <span>{dict?.smart_docs?.help_support || dict?.common?.help_support || 'Help & Support'}</span>
           </a>
         </div>
       </div>

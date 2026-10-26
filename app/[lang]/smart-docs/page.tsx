@@ -10,6 +10,7 @@ import {
   extractSmartDocsTotal,
   normalizeActionParam,
 } from '@/lib/api/smart-docs.service';
+import { getDictionary } from '@/app/[lang]/dictionaries';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,20 +35,28 @@ export default async function SmartDocsPage(props: {
   const search = (searchParams?.search as string) || '';
   const searchLabel = (searchParams?.search_label as string) || '';
 
-  // Fetch Smart Docs list with authentication:
-  // GET https://smart-docs-api.agriguruonline.cloud/dms/smart-docs-list?page=1&limit=10&action=All&search_label=seller&lang_code=en&source=web
-  const smartDocsRes = await smartDocsService.getSmartDocsList(
-    {
-      page,
-      limit,
-      action,
-      lang,
-      source: 'web',
-      search: search || undefined,
-      search_label: searchLabel || undefined,
-    },
-    token
-  );
+  // Fetch Smart Docs list & dictionary in parallel:
+  const [smartDocsRes, rawDict] = await Promise.all([
+    smartDocsService.getSmartDocsList(
+      {
+        page,
+        limit,
+        action,
+        lang,
+        source: 'web',
+        search: search || undefined,
+        search_label: searchLabel || undefined,
+      },
+      token
+    ),
+    getDictionary(lang).catch(() => ({})),
+  ]);
+
+  const dict = rawDict as any;
+  const pageTitle = dict?.smart_docs?.page_title || 'Confirmations/Quotations';
+  const pageDescription =
+    dict?.smart_docs?.page_description ||
+    'Manage, track, and generate smart agricultural trade contracts and confirmations.';
 
   const confirmationsData = extractSmartDocsArray(smartDocsRes);
   const totalRecords = extractSmartDocsTotal(smartDocsRes, confirmationsData.length);
@@ -58,8 +67,8 @@ export default async function SmartDocsPage(props: {
         <div className="max-w-7xl w-full mx-auto pt-0.5 sm:pt-1 pb-0.5 sm:pb-1 px-3 sm:px-0 flex-1 flex flex-col min-h-0 h-full overflow-hidden">
           <div className="shrink-0">
             <PageHeader
-              title="Trade Confirmations"
-              backText="Back"
+              title={pageTitle}
+              backText={dict?.common?.back || 'Back'}
               backHref={`/${lang}`}
             />
           </div>
@@ -73,8 +82,9 @@ export default async function SmartDocsPage(props: {
               initialSearch={search}
               initialSearchLabel={searchLabel}
               lang={lang}
-              title="Trade Confirmations"
-              description="Manage, track, and generate smart agricultural trade contracts and confirmations."
+              dict={dict}
+              title={pageTitle}
+              description={pageDescription}
             />
           </div>
         </div>

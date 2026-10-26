@@ -64,6 +64,7 @@ export interface ConfirmationsDataTableProps {
   initialPage?: number;
   initialPageSize?: number;
   lang?: string;
+  dict?: any;
   action?: string;
   initialSearch?: string;
   initialSearchLabel?: string;
@@ -414,19 +415,20 @@ export function ConfirmationsDataTable({
   initialPage = 1,
   initialPageSize,
   lang = 'en',
+  dict,
   action = 'All',
   columns: customColumns,
-  title = 'Trade Confirmations',
+  title = 'Confirmations/Quotations',
   description = 'Manage, track, and generate smart agricultural trade contracts and confirmations.',
   isLoading = false,
   onAddConfirmation,
   onCreateDoc,
   onDeleteRow,
   addHref,
-  addButtonLabel = 'Add Confirmation',
-  emptyTitle = 'No Confirmations Found',
-  emptyDescription = 'There are currently no trade confirmations available. Click the button below to add your first confirmation.',
-  searchPlaceholder = 'Search confirmations...',
+  addButtonLabel,
+  emptyTitle,
+  emptyDescription,
+  searchPlaceholder,
   defaultPageSize = 10,
   pageSizeOptions = [10, 25, 50, 100],
   onRowClick,
@@ -436,6 +438,21 @@ export function ConfirmationsDataTable({
   initialSearchLabel = '',
   searchLabel = '',
 }: ConfirmationsDataTableProps) {
+  const effectiveTitle = title || dict?.smart_docs?.page_title || 'Confirmations/Quotations';
+  const effectiveDescription =
+    description ||
+    dict?.smart_docs?.page_description ||
+    'Manage, track, and generate smart agricultural trade contracts and confirmations.';
+  const effectiveAddButtonLabel =
+    addButtonLabel ||
+    dict?.smart_docs?.add_new_confirmation ||
+    dict?.smart_docs?.add_confirmation ||
+    'Add New Confirmation';
+  const effectiveEmptyTitle = emptyTitle || dict?.smart_docs?.no_confirmations_found || 'No Confirmations Found';
+  const effectiveEmptyDescription =
+    emptyDescription ||
+    dict?.smart_docs?.no_confirmations_desc ||
+    'There are currently no trade confirmations available. Click the button below to add your first confirmation.';
   const [tableData, setTableData] = useState<any[]>(data);
   const [serverTotal, setServerTotal] = useState<number | null>(
     typeof totalRecords === 'number' ? totalRecords : null
@@ -521,32 +538,52 @@ export function ConfirmationsDataTable({
     };
   }, []);
 
+  // Localized action filter options
+  const actionOptions = useMemo(() => [
+    { label: dict?.smart_docs?.action_types?.all || 'ALL', value: 'All' },
+    { label: dict?.smart_docs?.action_types?.confirmation || 'CONFIRMATION', value: 'Confirmation' },
+    { label: dict?.smart_docs?.action_types?.contract || 'CONTRACT', value: 'Contract' },
+    { label: dict?.smart_docs?.action_types?.document || 'DOCUMENT', value: 'Document' },
+  ], [dict]);
+
   // Current active filter option metadata
   const currentActionOption = useMemo(() => {
     return (
-      SMART_DOCS_ACTION_OPTIONS.find(
+      actionOptions.find(
         (opt) => opt.value.toLowerCase() === selectedAction.toLowerCase()
       ) || { label: selectedAction.toUpperCase(), value: selectedAction }
     );
-  }, [selectedAction]);
+  }, [actionOptions, selectedAction]);
+
+  // Localized column search options
+  const searchColumnOptions = useMemo(() => [
+    { label: dict?.smart_docs?.search_columns?.contract_number || 'Contract Number', value: 'contract_number' },
+    { label: dict?.smart_docs?.search_columns?.seller || 'Seller', value: 'seller' },
+    { label: dict?.smart_docs?.search_columns?.buyer || 'Buyer', value: 'buyer' },
+    { label: dict?.smart_docs?.search_columns?.product || 'Product', value: 'product' },
+    { label: dict?.smart_docs?.search_columns?.loading_port || 'Loading Port', value: 'loading_port' },
+    { label: dict?.smart_docs?.search_columns?.destination_port || 'Destination Port', value: 'destination_port' },
+    { label: dict?.smart_docs?.search_columns?.packing_type || 'Packing Type', value: 'packing_type' },
+    { label: dict?.smart_docs?.search_columns?.country || 'Country', value: 'country' },
+  ], [dict]);
 
   // Current active search column metadata
   const selectedColumnOption = useMemo(() => {
     if (!selectedSearchColumn) return null;
     return (
-      SMART_DOCS_SEARCH_COLUMN_OPTIONS.find(
+      searchColumnOptions.find(
         (opt) => opt.value.toLowerCase() === selectedSearchColumn.toLowerCase()
       ) || { label: selectedSearchColumn, value: selectedSearchColumn }
     );
-  }, [selectedSearchColumn]);
+  }, [searchColumnOptions, selectedSearchColumn]);
 
   // Dynamic search input placeholder based on selected search column
   const dynamicSearchPlaceholder = useMemo(() => {
     if (selectedColumnOption) {
-      return `Search by ${selectedColumnOption.label}...`;
+      return `${dict?.smart_docs?.search_by || 'Search by'} ${selectedColumnOption.label}...`;
     }
-    return searchPlaceholder;
-  }, [selectedColumnOption, searchPlaceholder]);
+    return searchPlaceholder || dict?.smart_docs?.search_confirmations || 'Search confirmations...';
+  }, [selectedColumnOption, searchPlaceholder, dict]);
 
   // Synchronize URL search params safely
   const syncUrlParams = useCallback(
@@ -655,7 +692,7 @@ export function ConfirmationsDataTable({
       });
 
       if (res.success) {
-        toast.success(res.message || 'Record deleted successfully');
+        toast.success(res.message || dict?.smart_docs?.record_deleted_success || 'Record deleted successfully');
         setIsDeleteModalOpen(false);
         setRowToDelete(null);
 
@@ -672,11 +709,11 @@ export function ConfirmationsDataTable({
           onRefresh();
         }
       } else {
-        toast.error(res.error || 'Failed to delete record');
+        toast.error(res.error || dict?.smart_docs?.record_delete_failed || 'Failed to delete record');
       }
     } catch (err: any) {
       console.error('[ConfirmationsDataTable] handleConfirmDelete error:', err);
-      toast.error(err?.message || 'Failed to delete record');
+      toast.error(err?.message || dict?.smart_docs?.record_delete_failed || 'Failed to delete record');
     } finally {
       setIsDeleting(false);
     }
@@ -840,7 +877,7 @@ export function ConfirmationsDataTable({
       // 1. Contract No. (Sticky Left)
       {
         key: 'contract_no',
-        title: 'Contract No.',
+        title: dict?.smart_docs?.columns?.contract_no || 'Contract No.',
         sortable: true,
         sticky: 'left',
         align: 'left',
@@ -878,20 +915,26 @@ export function ConfirmationsDataTable({
       // 2. Status
       {
         key: 'status',
-        title: 'Status',
+        title: dict?.smart_docs?.columns?.status || 'Status',
         sortable: true,
         align: 'center',
         minWidth: '90px',
         render: (row: any) => {
           const docType = getSmartDocType(row);
           const config = getDocTypeColorConfig(docType);
+          const label =
+            docType === 'Confirmation'
+              ? (dict?.smart_docs?.action_types?.confirmation || config.label)
+              : docType === 'Contract'
+              ? (dict?.smart_docs?.action_types?.contract || config.label)
+              : (dict?.smart_docs?.action_types?.document || config.label);
 
           return (
             <span
               className={`text-[14px] font-bold ${config.textColor} whitespace-nowrap block text-center`}
-              title={config.label}
+              title={label}
             >
-              {config.label}
+              {label}
             </span>
           );
         },
@@ -899,7 +942,7 @@ export function ConfirmationsDataTable({
       // 3. Contract Date
       {
         key: 'contract_date',
-        title: 'Contract Date',
+        title: dict?.smart_docs?.columns?.contract_date || 'Contract Date',
         sortable: true,
         align: 'center',
         minWidth: '105px',
@@ -920,7 +963,7 @@ export function ConfirmationsDataTable({
       // 4. Buyer Name
       {
         key: 'buyer_name',
-        title: 'Buyer Name',
+        title: dict?.smart_docs?.columns?.buyer_name || 'Buyer Name',
         sortable: true,
         align: 'left',
         minWidth: '130px',
@@ -947,7 +990,7 @@ export function ConfirmationsDataTable({
       // 5. Seller Name
       {
         key: 'seller_name',
-        title: 'Seller Name',
+        title: dict?.smart_docs?.columns?.seller_name || 'Seller Name',
         sortable: true,
         align: 'left',
         minWidth: '130px',
@@ -974,7 +1017,7 @@ export function ConfirmationsDataTable({
       // 6. Product
       {
         key: 'product',
-        title: 'Product',
+        title: dict?.smart_docs?.columns?.product || 'Product',
         sortable: true,
         align: 'left',
         minWidth: '150px',
@@ -1010,7 +1053,7 @@ export function ConfirmationsDataTable({
       // 7. Incoterm
       {
         key: 'incoterm',
-        title: 'Incoterm',
+        title: dict?.smart_docs?.columns?.incoterm || 'Incoterm',
         sortable: true,
         align: 'center',
         minWidth: '80px',
@@ -1035,7 +1078,7 @@ export function ConfirmationsDataTable({
       // 8. Price
       {
         key: 'price',
-        title: 'Price',
+        title: dict?.smart_docs?.columns?.price || 'Price',
         sortable: true,
         align: 'right',
         minWidth: '95px',
@@ -1064,7 +1107,7 @@ export function ConfirmationsDataTable({
       // 9. QTY FCL
       {
         key: 'qty_fcl',
-        title: 'QTY FCL',
+        title: dict?.smart_docs?.columns?.qty_fcl || 'QTY FCL',
         sortable: true,
         align: 'right',
         minWidth: '85px',
@@ -1092,7 +1135,7 @@ export function ConfirmationsDataTable({
       // 10. QTY MT
       {
         key: 'qty_mt',
-        title: 'QTY MT',
+        title: dict?.smart_docs?.columns?.qty_mt || 'QTY MT',
         sortable: true,
         align: 'right',
         minWidth: '90px',
@@ -1122,7 +1165,7 @@ export function ConfirmationsDataTable({
       // 11. Total Value
       {
         key: 'total_value',
-        title: 'Total Value',
+        title: dict?.smart_docs?.columns?.total_value || 'Total Value',
         sortable: true,
         align: 'right',
         minWidth: '105px',
@@ -1151,7 +1194,7 @@ export function ConfirmationsDataTable({
       // 12. Product Country
       {
         key: 'product_country',
-        title: 'Product Country',
+        title: dict?.smart_docs?.columns?.product_country || 'Product Country',
         sortable: true,
         align: 'center',
         minWidth: '110px',
@@ -1182,7 +1225,7 @@ export function ConfirmationsDataTable({
       // 13. Packing Type
       {
         key: 'packing_type',
-        title: 'Packing Type',
+        title: dict?.smart_docs?.columns?.packing_type || 'Packing Type',
         sortable: true,
         align: 'center',
         minWidth: '110px',
@@ -1208,7 +1251,7 @@ export function ConfirmationsDataTable({
       // 14. Loading Port
       {
         key: 'loading_port',
-        title: 'Loading Port',
+        title: dict?.smart_docs?.columns?.loading_port || 'Loading Port',
         sortable: true,
         align: 'center',
         minWidth: '110px',
@@ -1237,7 +1280,7 @@ export function ConfirmationsDataTable({
       // 15. Loading Country
       {
         key: 'loading_country',
-        title: 'Loading Country',
+        title: dict?.smart_docs?.columns?.loading_country || 'Loading Country',
         sortable: true,
         align: 'center',
         minWidth: '110px',
@@ -1266,7 +1309,7 @@ export function ConfirmationsDataTable({
       // 16. Destination Port
       {
         key: 'destination_port',
-        title: 'Destination Port',
+        title: dict?.smart_docs?.columns?.destination_port || 'Destination Port',
         sortable: true,
         align: 'center',
         minWidth: '115px',
@@ -1296,7 +1339,7 @@ export function ConfirmationsDataTable({
       // 17. Destination Country
       {
         key: 'destination_country',
-        title: 'Destination Country',
+        title: dict?.smart_docs?.columns?.destination_country || 'Destination Country',
         sortable: true,
         align: 'center',
         minWidth: '115px',
@@ -1328,7 +1371,7 @@ export function ConfirmationsDataTable({
       // 18. Shipment Period
       {
         key: 'shipment_period',
-        title: 'Shipment Period',
+        title: dict?.smart_docs?.columns?.shipment_period || 'Shipment Period',
         sortable: true,
         align: 'center',
         minWidth: '125px',
@@ -1357,7 +1400,7 @@ export function ConfirmationsDataTable({
       // 19. Payment Term
       {
         key: 'payment_term',
-        title: 'Payment Term',
+        title: dict?.smart_docs?.columns?.payment_term || 'Payment Term',
         sortable: true,
         align: 'center',
         minWidth: '115px',
@@ -1382,7 +1425,7 @@ export function ConfirmationsDataTable({
       // 20. Ship By
       {
         key: 'ship_by',
-        title: 'Ship By',
+        title: dict?.smart_docs?.columns?.ship_by || 'Ship By',
         sortable: true,
         align: 'center',
         minWidth: '85px',
@@ -1408,10 +1451,10 @@ export function ConfirmationsDataTable({
           );
         },
       },
-      // 21. Action (Sticky Right)
+      // 21. Actions (Sticky Right)
       {
         key: 'action',
-        title: 'Action',
+        title: dict?.smart_docs?.columns?.actions || dict?.smart_docs?.columns?.action || 'Actions',
         align: 'center',
         sticky: 'right',
         minWidth: '78px',
@@ -1432,7 +1475,7 @@ export function ConfirmationsDataTable({
                   }
                 }}
                 className={`w-7 h-7 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs active:scale-95 cursor-pointer shrink-0`}
-                title={`Create / Add ${config.label}`}
+                title={dict?.smart_docs?.continue_to_draft || 'Continue to Draft'}
               >
                 <i className="fa-solid fa-file-circle-plus text-xs"></i>
               </button>
@@ -1449,7 +1492,7 @@ export function ConfirmationsDataTable({
                   }
                 }}
                 className="w-7 h-7 rounded-lg border border-border bg-background hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-all flex items-center justify-center text-xs shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                title="Delete"
+                title={dict?.smart_docs?.delete || 'Delete'}
               >
                 <i className="fa-solid fa-trash-can text-xs"></i>
               </button>
@@ -1458,7 +1501,7 @@ export function ConfirmationsDataTable({
         },
       },
     ];
-  }, [customColumns, currentPage, pageSize]);
+  }, [customColumns, currentPage, pageSize, dict]);
 
   // Deep client-side search across current table data
   const filteredData = useMemo(() => {
@@ -1609,7 +1652,7 @@ export function ConfirmationsDataTable({
                 className="h-8 sm:h-8.5 px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-2 shadow-xs active:scale-95 shrink-0"
               >
                 <i className="fa-solid fa-plus text-xs"></i>
-                <span>{addButtonLabel}</span>
+                <span>{effectiveAddButtonLabel}</span>
               </Link>
             ) : (
               <button
@@ -1618,7 +1661,7 @@ export function ConfirmationsDataTable({
                 className="h-8 sm:h-8.5 px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-2 shadow-xs active:scale-95 shrink-0 cursor-pointer"
               >
                 <i className="fa-solid fa-plus text-xs"></i>
-                <span>{addButtonLabel}</span>
+                <span>{effectiveAddButtonLabel}</span>
               </button>
             )}
           </div>
@@ -1688,7 +1731,7 @@ export function ConfirmationsDataTable({
                         setIsFilterOpen(false);
                       }
                     }}
-                    className="p-1 -mr-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors flex items-center justify-center cursor-pointer"
+                    className="p-1 -mr-1 rtl:-ml-1 rtl:mr-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors flex items-center justify-center cursor-pointer"
                   >
                     <i className="fa-solid fa-xmark text-xs shrink-0"></i>
                   </span>
@@ -1700,12 +1743,12 @@ export function ConfirmationsDataTable({
                 <div
                   role="listbox"
                   aria-label="Filter options"
-                  className="absolute left-0 top-full mt-1 w-full sm:w-48 bg-card border border-border rounded-lg shadow-lg p-1 z-50 flex flex-col gap-0.5 animate-in fade-in-0 zoom-in-95"
+                  className="absolute left-0 rtl:left-auto rtl:right-0 top-full mt-1 w-full sm:w-48 bg-card border border-border rounded-lg shadow-lg p-1 z-50 flex flex-col gap-0.5 animate-in fade-in-0 zoom-in-95"
                 >
-                  <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 mb-0.5">
-                    Filter by type
+                  <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 mb-0.5 text-left rtl:text-right">
+                    {dict?.smart_docs?.filter_by_type || 'Filter by type'}
                   </div>
-                  {SMART_DOCS_ACTION_OPTIONS.map((opt) => {
+                  {actionOptions.map((opt) => {
                     const isSelected =
                       selectedAction.toLowerCase() === opt.value.toLowerCase();
                     return (
@@ -1715,7 +1758,7 @@ export function ConfirmationsDataTable({
                         role="option"
                         aria-selected={isSelected}
                         onClick={() => handleActionChange(opt.value)}
-                        className={`w-full px-2.5 py-1.5 text-xs font-semibold rounded-md text-left flex items-center justify-between transition-colors cursor-pointer uppercase tracking-wider ${
+                        className={`w-full px-2.5 py-1.5 text-xs font-semibold rounded-md text-left rtl:text-right flex items-center justify-between transition-colors cursor-pointer uppercase tracking-wider ${
                           isSelected
                             ? 'bg-brand-blue text-white shadow-xs font-bold'
                             : 'text-foreground hover:bg-muted'
@@ -1723,7 +1766,7 @@ export function ConfirmationsDataTable({
                       >
                         <span className="truncate">{opt.label}</span>
                         {isSelected && (
-                          <i className="fa-solid fa-check text-xs text-white shrink-0 ml-2"></i>
+                          <i className="fa-solid fa-check text-xs text-white shrink-0 ml-2 rtl:ml-0 rtl:mr-2"></i>
                         )}
                       </button>
                     );
@@ -1767,7 +1810,7 @@ export function ConfirmationsDataTable({
                         : 'text-muted-foreground font-normal'
                     }`}
                   >
-                    {selectedColumnOption ? selectedColumnOption.label : 'Select Column'}
+                    {selectedColumnOption ? selectedColumnOption.label : (dict?.smart_docs?.select_column || 'Select Column')}
                   </span>
                 </div>
                 {!selectedSearchColumn ? (
@@ -1781,7 +1824,7 @@ export function ConfirmationsDataTable({
                     role="button"
                     tabIndex={0}
                     aria-label="Clear column selection"
-                    title="Clear column filter"
+                    title={dict?.smart_docs?.clear_column_filter || 'Clear column filter'}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleColumnChange('');
@@ -1795,7 +1838,7 @@ export function ConfirmationsDataTable({
                         setIsColumnFilterOpen(false);
                       }
                     }}
-                    className="p-1 -mr-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors flex items-center justify-center cursor-pointer"
+                    className="p-1 -mr-1 rtl:-ml-1 rtl:mr-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors flex items-center justify-center cursor-pointer"
                   >
                     <i className="fa-solid fa-xmark text-xs shrink-0"></i>
                   </span>
@@ -1807,12 +1850,12 @@ export function ConfirmationsDataTable({
                 <div
                   role="listbox"
                   aria-label="Column search options"
-                  className="absolute left-0 top-full mt-1 w-full sm:w-52 bg-card border border-border rounded-lg shadow-lg p-1 z-50 flex flex-col gap-0.5 animate-in fade-in-0 zoom-in-95"
+                  className="absolute left-0 rtl:left-auto rtl:right-0 top-full mt-1 w-full sm:w-52 bg-card border border-border rounded-lg shadow-lg p-1 z-50 flex flex-col gap-0.5 animate-in fade-in-0 zoom-in-95"
                 >
-                  <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 mb-0.5">
-                    Search by column
+                  <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/50 mb-0.5 text-left rtl:text-right">
+                    {dict?.smart_docs?.search_by_column || 'Search by column'}
                   </div>
-                  {SMART_DOCS_SEARCH_COLUMN_OPTIONS.map((opt) => {
+                  {searchColumnOptions.map((opt) => {
                     const isSelected =
                       selectedSearchColumn.toLowerCase() === opt.value.toLowerCase();
                     return (
@@ -1822,7 +1865,7 @@ export function ConfirmationsDataTable({
                         role="option"
                         aria-selected={isSelected}
                         onClick={() => handleColumnChange(opt.value)}
-                        className={`w-full px-2.5 py-1.5 text-xs font-semibold rounded-md text-left flex items-center justify-between transition-colors cursor-pointer ${
+                        className={`w-full px-2.5 py-1.5 text-xs font-semibold rounded-md text-left rtl:text-right flex items-center justify-between transition-colors cursor-pointer ${
                           isSelected
                             ? 'bg-brand-blue text-white shadow-xs font-bold'
                             : 'text-foreground hover:bg-muted'
@@ -1830,7 +1873,7 @@ export function ConfirmationsDataTable({
                       >
                         <span className="truncate">{opt.label}</span>
                         {isSelected && (
-                          <i className="fa-solid fa-check text-xs text-white shrink-0 ml-2"></i>
+                          <i className="fa-solid fa-check text-xs text-white shrink-0 ml-2 rtl:ml-0 rtl:mr-2"></i>
                         )}
                       </button>
                     );
@@ -1841,21 +1884,21 @@ export function ConfirmationsDataTable({
 
             {/* 3. Search Box - Same height as dropdowns and proportional width */}
             <div className="relative w-full sm:w-64 md:w-72 shrink-0">
-              <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none"></i>
+              <i className="fa-solid fa-magnifying-glass absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none"></i>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder={dynamicSearchPlaceholder}
-                className="w-full h-8.5 sm:h-9 pl-8.5 pr-8 text-xs bg-background border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue transition-all"
+                className="w-full h-8.5 sm:h-9 pl-8.5 pr-8 rtl:pr-8.5 rtl:pl-8 text-xs bg-background border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-brand-blue transition-all"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={handleSearchClear}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1 cursor-pointer"
-                  title="Clear search"
+                  className="absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1 cursor-pointer"
+                  title={dict?.smart_docs?.clear_search || 'Clear search'}
                 >
                   <i className="fa-solid fa-xmark"></i>
                 </button>
@@ -1868,10 +1911,12 @@ export function ConfirmationsDataTable({
             {searchQuery && (
               <span className="text-[11px] text-muted-foreground hidden lg:inline-block">
                 {searchQuery.trim().length < 3 ? (
-                  <span>Type at least 3 characters...</span>
+                  <span>{dict?.smart_docs?.type_min_chars || 'Type at least 3 characters...'}</span>
                 ) : (
                   <>
-                    Found <strong className="text-foreground">{filteredData.length}</strong> matching records
+                    {dict?.smart_docs?.found_matching || 'Found'}{' '}
+                    <strong className="text-foreground">{filteredData.length}</strong>{' '}
+                    {dict?.smart_docs?.matching_records || 'matching records'}
                   </>
                 )}
               </span>
@@ -1884,7 +1929,7 @@ export function ConfirmationsDataTable({
                 className="h-8 sm:h-8.5 px-3 sm:px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0"
               >
                 <i className="fa-solid fa-plus text-xs"></i>
-                <span>{addButtonLabel}</span>
+                <span>{effectiveAddButtonLabel}</span>
               </Link>
             ) : (
               <button
@@ -1893,7 +1938,7 @@ export function ConfirmationsDataTable({
                 className="h-8 sm:h-8.5 px-3 sm:px-3.5 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0 cursor-pointer"
               >
                 <i className="fa-solid fa-plus text-xs"></i>
-                <span>{addButtonLabel}</span>
+                <span>{effectiveAddButtonLabel}</span>
               </button>
             )}
           </div>
@@ -1901,7 +1946,7 @@ export function ConfirmationsDataTable({
 
         {/* Table Viewport */}
         <div className="w-full overflow-x-auto overflow-y-auto flex-1 min-h-0 relative z-10 overscroll-contain">
-          <table className="w-max min-w-full text-left border-separate border-spacing-0 bg-card">
+          <table className="w-max min-w-full text-left rtl:text-right border-separate border-spacing-0 bg-card">
             <thead>
               <tr className="bg-muted text-foreground text-[13px] sm:text-[14px] font-bold uppercase tracking-wider select-none">
                 {activeColumns.map((col) => {
@@ -1915,16 +1960,16 @@ export function ConfirmationsDataTable({
                       onClick={() => handleSort(col.key, col.sortable)}
                       className={`px-3 py-2 sm:py-2.5 font-bold text-[13px] sm:text-[14px] text-foreground border-b border-border whitespace-nowrap sticky top-0 ${
                         isStickyLeft
-                          ? 'sticky left-0 top-0 z-30 bg-muted border-r border-border shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)]'
+                          ? 'sticky left-0 rtl:left-auto rtl:right-0 top-0 z-30 bg-muted border-r rtl:border-r-0 rtl:border-l border-border shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)]'
                           : isStickyRight
-                          ? 'sticky right-0 top-0 z-30 bg-muted border-l border-border shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)]'
+                          ? 'sticky right-0 rtl:right-auto rtl:left-0 top-0 z-30 bg-muted border-l rtl:border-l-0 rtl:border-r border-border shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)]'
                           : 'bg-muted z-20'
                       } ${
                         col.align === 'right'
                           ? 'text-right'
                           : col.align === 'center'
                           ? 'text-center'
-                          : 'text-left'
+                          : 'text-left rtl:text-right'
                       } ${col.sortable ? 'cursor-pointer hover:text-brand-blue transition-colors' : ''} ${
                         col.className || ''
                       }`}
@@ -1978,9 +2023,9 @@ export function ConfirmationsDataTable({
                             style={{ minWidth: col.minWidth, width: col.minWidth }}
                             className={`px-3 py-1.5 sm:py-2 border-b border-border ${rowBgClass} ${
                               isStickyLeft
-                                ? 'sticky left-0 z-10 border-r border-border shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)]'
+                                ? 'sticky left-0 rtl:left-auto rtl:right-0 z-10 border-r rtl:border-r-0 rtl:border-l border-border shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)]'
                                 : isStickyRight
-                                ? 'sticky right-0 z-10 border-l border-border shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)]'
+                                ? 'sticky right-0 rtl:right-auto rtl:left-0 z-10 border-l rtl:border-l-0 rtl:border-r border-border shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)]'
                                 : ''
                             }`}
                           >
@@ -2024,16 +2069,16 @@ export function ConfirmationsDataTable({
                             style={{ minWidth: col.minWidth, width: col.minWidth }}
                             className={`px-3 py-1.5 sm:py-2 align-middle border-b border-border text-[13px] sm:text-[14px] ${rowBgClass} group-hover:bg-table-row-hover transition-colors ${
                               isStickyLeft
-                                ? 'sticky left-0 z-10 border-r border-border shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)]'
+                                ? 'sticky left-0 rtl:left-auto rtl:right-0 z-10 border-r rtl:border-r-0 rtl:border-l border-border shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)]'
                                 : isStickyRight
-                                ? 'sticky right-0 z-10 border-l border-border shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)]'
+                                ? 'sticky right-0 rtl:right-auto rtl:left-0 z-10 border-l rtl:border-l-0 rtl:border-r border-border shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)]'
                                 : ''
                             } ${
                               col.align === 'right'
                                 ? 'text-right'
                                 : col.align === 'center'
                                 ? 'text-center'
-                                : 'text-left'
+                                : 'text-left rtl:text-right'
                             } ${col.className || ''}`}
                           >
                             {col.render ? (
@@ -2062,12 +2107,12 @@ export function ConfirmationsDataTable({
 
                       <div className="flex flex-col gap-1">
                         <h2 className="text-sm font-bold text-foreground">
-                          {searchQuery ? 'No matching confirmations' : emptyTitle}
+                          {searchQuery ? (dict?.smart_docs?.no_matching_confirmations || 'No matching confirmations') : effectiveEmptyTitle}
                         </h2>
                         <p className="text-xs text-muted-foreground">
                           {searchQuery
-                            ? `No confirmations match your search term "${searchQuery}". Try searching for something else or clear the filter.`
-                            : emptyDescription}
+                            ? (dict?.smart_docs?.no_matching_desc || `No confirmations match your search term "${searchQuery}". Try searching for something else or clear the filter.`)
+                            : effectiveEmptyDescription}
                         </p>
                       </div>
 
@@ -2078,7 +2123,7 @@ export function ConfirmationsDataTable({
                           className="mt-1 px-3.5 py-1.5 rounded-md border border-border bg-background hover:bg-muted text-foreground font-semibold text-xs transition-colors inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
                         >
                           <i className="fa-solid fa-xmark text-xs"></i>
-                          <span>Clear Search</span>
+                          <span>{dict?.smart_docs?.clear_search || 'Clear Search'}</span>
                         </button>
                       ) : (
                         <button
@@ -2087,7 +2132,7 @@ export function ConfirmationsDataTable({
                           className="mt-1 px-4 py-2 rounded-md bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
                         >
                           <i className="fa-solid fa-plus text-xs"></i>
-                          <span>{addButtonLabel}</span>
+                          <span>{effectiveAddButtonLabel}</span>
                         </button>
                       )}
                     </div>
@@ -2104,8 +2149,7 @@ export function ConfirmationsDataTable({
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <label htmlFor="records-per-page-footer" className="text-xs font-medium whitespace-nowrap">
-                <span className="hidden sm:inline">Records per</span>
-                <span className="sm:hidden">Per</span> page:
+                {dict?.smart_docs?.records_per_page || 'Records per page:'}
               </label>
               <select
                 id="records-per-page-footer"
@@ -2126,15 +2170,17 @@ export function ConfirmationsDataTable({
               <>
                 <span className="text-border hidden sm:inline">|</span>
                 <span>
-                  Showing{' '}
+                  {dict?.smart_docs?.showing || 'Showing'}{' '}
                   <strong className="text-foreground">
                     {(safeCurrentPage - 1) * pageSize + 1}
                   </strong>{' '}
-                  to{' '}
+                  {dict?.smart_docs?.to || 'to'}{' '}
                   <strong className="text-foreground">
                     {Math.min(safeCurrentPage * pageSize, totalRecordsCount)}
                   </strong>{' '}
-                  of <strong className="text-foreground">{totalRecordsCount}</strong> records
+                  {dict?.smart_docs?.of || 'of'}{' '}
+                  <strong className="text-foreground">{totalRecordsCount}</strong>{' '}
+                  {dict?.smart_docs?.records || 'records'}
                 </span>
               </>
             )}
@@ -2147,11 +2193,11 @@ export function ConfirmationsDataTable({
               disabled={safeCurrentPage <= 1 || totalRecordsCount === 0 || effectiveLoading}
               onClick={() => handlePageChange(safeCurrentPage - 1)}
               className="h-7.5 sm:h-8 px-2 sm:px-2.5 rounded-md bg-background border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-foreground text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer"
-              title="Previous Page"
-              aria-label="Previous Page"
+              title={dict?.smart_docs?.prev || 'Prev'}
+              aria-label={dict?.smart_docs?.prev || 'Prev'}
             >
               <i className="fa-solid fa-chevron-left text-[10px]"></i>
-              <span className="hidden sm:inline">Prev</span>
+              <span className="hidden sm:inline">{dict?.smart_docs?.prev || 'Prev'}</span>
             </button>
 
             {/* Numbered Page Buttons */}
@@ -2213,10 +2259,10 @@ export function ConfirmationsDataTable({
               disabled={safeCurrentPage >= totalPages || totalRecordsCount === 0 || effectiveLoading}
               onClick={() => handlePageChange(safeCurrentPage + 1)}
               className="h-7.5 sm:h-8 px-2 sm:px-2.5 rounded-md bg-background border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-foreground text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer"
-              title="Next Page"
-              aria-label="Next Page"
+              title={dict?.smart_docs?.next || 'Next'}
+              aria-label={dict?.smart_docs?.next || 'Next'}
             >
-              <span className="hidden sm:inline">Next</span>
+              <span className="hidden sm:inline">{dict?.smart_docs?.next || 'Next'}</span>
               <i className="fa-solid fa-chevron-right text-[10px]"></i>
             </button>
           </div>
@@ -2234,10 +2280,10 @@ export function ConfirmationsDataTable({
         }}
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
-        title="Delete Record"
-        description="Are you sure you want to delete this record? This will also delete all associated confirmations, contracts, and documents."
-        confirmText="Yes, Delete"
-        cancelText="Cancel"
+        title={dict?.smart_docs?.delete_record || 'Delete Record'}
+        description={dict?.smart_docs?.delete_record_confirm || 'Are you sure you want to delete this record? This will also delete all associated confirmations, contracts, and documents.'}
+        confirmText={dict?.smart_docs?.yes_delete || 'Yes, Delete'}
+        cancelText={dict?.smart_docs?.cancel || dict?.common?.cancel || 'Cancel'}
       />
     </div>
   );
