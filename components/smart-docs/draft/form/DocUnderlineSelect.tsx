@@ -23,6 +23,12 @@ export interface DocUnderlineSelectProps {
   tabIndex?: number;
   id?: string;
   ariaLabel?: string;
+  loading?: boolean;
+  showEditOption?: boolean;
+  onEditOption?: (option: DocSelectOption, e: React.MouseEvent) => void;
+  showAddNew?: boolean;
+  addNewLabel?: string;
+  onAddNew?: () => void;
 }
 
 export function DocUnderlineSelect({
@@ -39,6 +45,12 @@ export function DocUnderlineSelect({
   tabIndex = 0,
   id,
   ariaLabel,
+  loading = false,
+  showEditOption = false,
+  onEditOption,
+  showAddNew = false,
+  addNewLabel = 'Add New',
+  onAddNew,
 }: DocUnderlineSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -189,9 +201,12 @@ export function DocUnderlineSelect({
             selectedOption ? 'font-semibold text-foreground' : 'text-muted-foreground/50'
           }`}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          {loading && !selectedOption ? (searchPlaceholder === 'Search...' ? 'Loading options...' : placeholder) : selectedOption ? selectedOption.label : placeholder}
         </span>
-        <span className={`${isOpen || isFocused ? 'text-primary scale-110 font-bold' : 'text-primary hover:text-primary-hover'} text-[11px] shrink-0 transition-all duration-200`}>
+        <span className={`${isOpen || isFocused ? 'text-primary scale-110 font-bold' : 'text-primary hover:text-primary-hover'} text-[11px] shrink-0 transition-all duration-200 flex items-center gap-1`}>
+          {loading && (
+            <i className="fa-solid fa-circle-notch fa-spin text-[10px] text-primary" />
+          )}
           <i
             className={`fa-solid fa-chevron-down transition-transform duration-200 ${
               isOpen ? 'rotate-180' : ''
@@ -278,10 +293,12 @@ export function DocUnderlineSelect({
                         : 'text-foreground hover:bg-muted/60'
                     }`}
                   >
-                    <div className="flex flex-col min-w-0">
-                      <span className="truncate">{opt.label}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="truncate font-semibold text-foreground text-xs leading-tight">
+                        {opt.label}
+                      </span>
                       {opt.subLabel && (
-                        <span className="text-[10px] text-muted-foreground truncate">
+                        <span className="text-[10.5px] text-muted-foreground/85 line-clamp-2 leading-tight mt-0.5 whitespace-normal">
                           {opt.subLabel}
                         </span>
                       )}
@@ -293,6 +310,20 @@ export function DocUnderlineSelect({
                           {opt.badge}
                         </span>
                       )}
+                      {showEditOption && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditOption?.(opt, e);
+                          }}
+                          title="Edit"
+                          aria-label={`Edit ${opt.label}`}
+                          className="w-5 h-5 flex items-center justify-center text-muted-foreground/70 hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                        >
+                          <i className="fa-solid fa-pen-to-square text-[11px]" />
+                        </button>
+                      )}
                       {isSelected && (
                         <i className="fa-solid fa-check text-primary text-xs shrink-0" />
                       )}
@@ -300,6 +331,22 @@ export function DocUnderlineSelect({
                   </li>
                 );
               })
+            )}
+
+            {showAddNew && (
+              <li
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddNew?.();
+                }}
+                onMouseEnter={() => setHighlightedIndex(-1)}
+                className="px-3 py-2 cursor-pointer flex items-center gap-2 text-primary font-semibold hover:bg-primary/10 transition-colors border-t border-border/70 mt-1 sticky bottom-0 bg-card select-none"
+              >
+                <i className="fa-solid fa-plus text-xs" />
+                <span>{addNewLabel}</span>
+              </li>
             )}
           </ul>
         </div>

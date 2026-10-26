@@ -6,6 +6,7 @@ import DocUnderlineInput from './DocUnderlineInput';
 import DocUnderlineSelect from './DocUnderlineSelect';
 import DocNotesEditor from './DocNotesEditor';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import { getSmartDocsInstructionsAction } from '@/app/actions/smart-docs';
 
 export interface FormOptionItem {
   value: string;
@@ -138,9 +139,55 @@ export function ConfirmationDocumentForm({
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Dynamic Lists Data (Derived from props or initialData, empty arrays ready for real API integration)
-  const sellersList: FormOptionItem[] = sellers || initialData?.sellers || initialData?.sellersList || [];
-  const buyersList: FormOptionItem[] = buyers || initialData?.buyers || initialData?.buyersList || [];
+  // Dynamic Instructions Lists State (pre-populated by SSR or fetched via server action)
+  const [internalSellers, setInternalSellers] = useState<FormOptionItem[]>(sellers || []);
+  const [internalBuyers, setInternalBuyers] = useState<FormOptionItem[]>(buyers || []);
+  const [isLoadingInstructions, setIsLoadingInstructions] = useState<boolean>(false);
+
+  // Sync with props if updated externally
+  useEffect(() => {
+    if (sellers && sellers.length > 0) {
+      setInternalSellers(sellers);
+    }
+  }, [sellers]);
+
+  useEffect(() => {
+    if (buyers && buyers.length > 0) {
+      setInternalBuyers(buyers);
+    }
+  }, [buyers]);
+
+  // Client-side self-heal: if both sellers and buyers are empty on mount, fetch via server action
+  useEffect(() => {
+    if ((!sellers || sellers.length === 0) && (!buyers || buyers.length === 0)) {
+      setIsLoadingInstructions(true);
+      getSmartDocsInstructionsAction({ lang })
+        .then((res) => {
+          if (res.success) {
+            if (res.sellers.length > 0) setInternalSellers(res.sellers);
+            if (res.buyers.length > 0) setInternalBuyers(res.buyers);
+          }
+        })
+        .catch((err) => {
+          console.error('[ConfirmationDocumentForm] Error fetching instructions:', err);
+        })
+        .finally(() => {
+          setIsLoadingInstructions(false);
+        });
+    }
+  }, [sellers, buyers, lang]);
+
+  // Dynamic Lists Data (Derived from props or state or initialData)
+  const sellersList: FormOptionItem[] =
+    internalSellers.length > 0
+      ? internalSellers
+      : sellers || initialData?.sellers || initialData?.sellersList || [];
+
+  const buyersList: FormOptionItem[] =
+    internalBuyers.length > 0
+      ? internalBuyers
+      : buyers || initialData?.buyers || initialData?.buyersList || [];
+
   const productsList: FormOptionItem[] = products || initialData?.products || initialData?.productsList || [];
   const shipByList: FormOptionItem[] = shipByOptions || initialData?.shipByList || initialData?.shipBy || [];
   const loadingPortsList: FormOptionItem[] = loadingPorts || initialData?.loadingPorts || initialData?.loadingPortsList || [];
@@ -149,6 +196,44 @@ export function ConfirmationDocumentForm({
   const shippingTermsList: FormOptionItem[] = shippingTerms || initialData?.shippingTerms || initialData?.shippingTermsList || [];
   const currenciesList: FormOptionItem[] = currencies || initialData?.currencies || initialData?.currenciesList || [];
   const paymentTermsList: FormOptionItem[] = paymentTerms || initialData?.paymentTerms || initialData?.paymentTermsList || [];
+
+  // Handle Seller selection and auto-fill "Enter Seller Instruction" input
+  const handleSellerChange = (val: string) => {
+    setSellerId(val);
+    setErrors((prev) => ({ ...prev, sellerId: '' }));
+
+    const selected = sellersList.find((s) => s.value === val);
+    if (selected) {
+      const textToFill =
+        selected.instructionText ||
+        selected.subLabel ||
+        selected.details ||
+        selected.instruction ||
+        '';
+      if (textToFill) {
+        setSellerInstruction(textToFill);
+      }
+    }
+  };
+
+  // Handle Buyer selection and auto-fill "Enter Buyer Instruction" input
+  const handleBuyerChange = (val: string) => {
+    setBuyerId(val);
+    setErrors((prev) => ({ ...prev, buyerId: '' }));
+
+    const selected = buyersList.find((b) => b.value === val);
+    if (selected) {
+      const textToFill =
+        selected.instructionText ||
+        selected.subLabel ||
+        selected.details ||
+        selected.instruction ||
+        '';
+      if (textToFill) {
+        setBuyerInstruction(textToFill);
+      }
+    }
+  };
 
   // Auto-fill HSN, Country & Specification when Product is selected
   const handleProductChange = (prodId: string) => {
@@ -165,6 +250,27 @@ export function ConfirmationDocumentForm({
       setSpecification('');
     }
   };
+
+  // If initialData has sellerId / buyerId without instructions, auto-fill once lists are available
+  useEffect(() => {
+    if (sellerId && !sellerInstruction && sellersList.length > 0) {
+      const found = sellersList.find((s) => s.value === sellerId);
+      if (found) {
+        const textToFill = found.instructionText || found.subLabel || found.details || found.instruction || '';
+        if (textToFill) setSellerInstruction(textToFill);
+      }
+    }
+  }, [sellerId, sellerInstruction, sellersList]);
+
+  useEffect(() => {
+    if (buyerId && !buyerInstruction && buyersList.length > 0) {
+      const found = buyersList.find((b) => b.value === buyerId);
+      if (found) {
+        const textToFill = found.instructionText || found.subLabel || found.details || found.instruction || '';
+        if (textToFill) setBuyerInstruction(textToFill);
+      }
+    }
+  }, [buyerId, buyerInstruction, buyersList]);
 
   // Synchronize with initialData if it updates (e.g. from async API load)
   useEffect(() => {
@@ -520,19 +626,22 @@ export function ConfirmationDocumentForm({
               <DocUnderlineSelect
                 options={sellersList}
                 value={sellerId}
-                onChange={(val) => {
-                  setSellerId(val);
-                  setErrors((prev) => ({ ...prev, sellerId: '' }));
-                }}
+                onChange={handleSellerChange}
                 placeholder={
-                  dict?.smart_docs?.confirmation_form?.select_seller || 'Select Seller'
+                  isLoadingInstructions && sellersList.length === 0
+                    ? dict?.common?.loading || 'Loading...'
+                    : dict?.smart_docs?.confirmation_form?.select_seller || 'Select Seller'
                 }
+                loading={isLoadingInstructions && sellersList.length === 0}
                 error={errors.sellerId}
                 disabled={readOnly}
+                showEditOption
+                showAddNew
+                addNewLabel={dict?.smart_docs?.confirmation_form?.add_new || 'Add New'}
               />
               <DocUnderlineInput
                 multiline
-                rows={2}
+                rows={4}
                 value={sellerInstruction}
                 onChange={setSellerInstruction}
                 placeholder={
@@ -552,19 +661,22 @@ export function ConfirmationDocumentForm({
               <DocUnderlineSelect
                 options={buyersList}
                 value={buyerId}
-                onChange={(val) => {
-                  setBuyerId(val);
-                  setErrors((prev) => ({ ...prev, buyerId: '' }));
-                }}
+                onChange={handleBuyerChange}
                 placeholder={
-                  dict?.smart_docs?.confirmation_form?.select_buyer || 'Select Buyer'
+                  isLoadingInstructions && buyersList.length === 0
+                    ? dict?.common?.loading || 'Loading...'
+                    : dict?.smart_docs?.confirmation_form?.select_buyer || 'Select Buyer'
                 }
+                loading={isLoadingInstructions && buyersList.length === 0}
                 error={errors.buyerId}
                 disabled={readOnly}
+                showEditOption
+                showAddNew
+                addNewLabel={dict?.smart_docs?.confirmation_form?.add_new || 'Add New'}
               />
               <DocUnderlineInput
                 multiline
-                rows={2}
+                rows={4}
                 value={buyerInstruction}
                 onChange={setBuyerInstruction}
                 placeholder={

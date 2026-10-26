@@ -9,6 +9,8 @@ import {
   normalizeActionParam,
   extractStepperList,
   type StepperDocumentItem,
+  extractInstructionsData,
+  type InstructionPartyOption,
 } from "@/lib/api/smart-docs.service";
 
 export interface GetSmartDocsListActionParams {
@@ -200,5 +202,69 @@ export async function getStepperListAction(
     };
   }
 }
+
+export interface GetSmartDocsInstructionsActionParams {
+  lang?: string;
+  source?: string;
+}
+
+export interface GetSmartDocsInstructionsActionResult {
+  success: boolean;
+  sellers: InstructionPartyOption[];
+  buyers: InstructionPartyOption[];
+  all: InstructionPartyOption[];
+  message?: string;
+  error?: string;
+}
+
+export async function getSmartDocsInstructionsAction(
+  params: GetSmartDocsInstructionsActionParams = {}
+): Promise<GetSmartDocsInstructionsActionResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        sellers: [],
+        buyers: [],
+        all: [],
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getInstructions(
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    const { sellers, buyers, all } = extractInstructionsData(rawRes);
+
+    return {
+      success: Boolean(rawRes?.success ?? (sellers.length > 0 || buyers.length > 0)),
+      sellers,
+      buyers,
+      all,
+      message: rawRes?.message,
+    };
+  } catch (error: any) {
+    console.error("[getSmartDocsInstructionsAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch instructions",
+      sellers: [],
+      buyers: [],
+      all: [],
+    };
+  }
+}
+
 
 

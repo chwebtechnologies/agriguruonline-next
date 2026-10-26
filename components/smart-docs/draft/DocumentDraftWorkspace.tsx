@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import type { StepperDocumentItem } from '@/lib/api/smart-docs.service';
+import type { StepperDocumentItem, InstructionPartyOption } from '@/lib/api/smart-docs.service';
 import DocumentStatusStepper from './DocumentStatusStepper';
 import ConfirmationDocumentForm from './form/ConfirmationDocumentForm';
 
@@ -9,12 +9,16 @@ export interface DocumentDraftWorkspaceProps {
   lang?: string;
   dict?: any;
   initialSteps?: StepperDocumentItem[];
+  initialSellers?: InstructionPartyOption[];
+  initialBuyers?: InstructionPartyOption[];
 }
 
 export function DocumentDraftWorkspace({
   lang = 'en',
   dict,
   initialSteps = [],
+  initialSellers = [],
+  initialBuyers = [],
 }: DocumentDraftWorkspaceProps) {
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(0);
   const [selectedStep, setSelectedStep] = useState<StepperDocumentItem | null>(
@@ -94,6 +98,8 @@ export function DocumentDraftWorkspace({
         <ConfirmationDocumentForm
           lang={lang}
           dict={dict}
+          sellers={initialSellers}
+          buyers={initialBuyers}
           onSaveDraft={async (formData) => {
             console.log('[DocumentDraftWorkspace] Saved draft:', formData);
           }}

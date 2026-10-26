@@ -6,7 +6,11 @@ import { getSafeLanguage, getSiteUrl } from '@/lib/seo';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import DocumentDraftWorkspace from '@/components/smart-docs/draft/DocumentDraftWorkspace';
-import { smartDocsService, extractStepperList } from '@/lib/api/smart-docs.service';
+import {
+  smartDocsService,
+  extractStepperList,
+  extractInstructionsData,
+} from '@/lib/api/smart-docs.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,8 +47,8 @@ export default async function SmartDocsDraftPage(props: {
     redirect(`/${lang}/login?redirectUrl=/${lang}/smart-docs/draft`);
   }
 
-  // Fetch dictionary & stepper list in parallel
-  const [rawDict, stepperRes] = await Promise.all([
+  // Fetch dictionary, stepper list & instructions in parallel
+  const [rawDict, stepperRes, instructionsRes] = await Promise.all([
     getDictionary(lang).catch(() => ({})),
     smartDocsService
       .getStepperList(
@@ -60,10 +64,23 @@ export default async function SmartDocsDraftPage(props: {
         console.error('[SmartDocsDraftPage] Stepper fetch error:', err);
         return null;
       }),
+    smartDocsService
+      .getInstructions(
+        {
+          lang,
+          source: 'web',
+        },
+        token
+      )
+      .catch((err) => {
+        console.error('[SmartDocsDraftPage] Instructions fetch error:', err);
+        return null;
+      }),
   ]);
 
   const dict = rawDict as any;
   const initialSteps = extractStepperList(stepperRes);
+  const { sellers: initialSellers, buyers: initialBuyers } = extractInstructionsData(instructionsRes);
 
   const pageTitle =
     dict?.smart_docs?.draft_title ||
@@ -87,7 +104,13 @@ export default async function SmartDocsDraftPage(props: {
 
           {/* SaaS Single Page Workspace (Fluid on mobile, locked on desktop) */}
           <div className="mt-0.5 flex-1 min-h-0 flex flex-col lg:overflow-hidden">
-            <DocumentDraftWorkspace lang={lang} dict={dict} initialSteps={initialSteps} />
+            <DocumentDraftWorkspace
+              lang={lang}
+              dict={dict}
+              initialSteps={initialSteps}
+              initialSellers={initialSellers}
+              initialBuyers={initialBuyers}
+            />
           </div>
         </div>
       </div>

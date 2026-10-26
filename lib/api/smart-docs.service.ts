@@ -279,6 +279,37 @@ export const smartDocsService = {
       return null;
     }
   },
+
+  /**
+   * Fetches the buyer and seller instructions/companies with authentication:
+   * GET /dms-fields/instructions?lang_code=en&source=web
+   */
+  getInstructions: async (
+    params: SmartDocsInstructionsParams = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const url = `${baseUrl}/dms-fields/instructions`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getInstructions] error:', error);
+      return null;
+    }
+  },
 };
 
 export interface StepperListParams {
@@ -345,4 +376,271 @@ export function extractStepperList(data: any): StepperDocumentItem[] {
 
   return [];
 }
+
+export interface SmartDocsInstructionsParams {
+  lang?: string;
+  source?: string;
+}
+
+export interface InstructionPartyOption {
+  value: string;
+  label: string;
+  subLabel?: string;
+  instructionText: string;
+  companyName: string;
+  details: string;
+  [key: string]: any;
+}
+
+export interface ExtractedInstructions {
+  sellers: InstructionPartyOption[];
+  buyers: InstructionPartyOption[];
+  all: InstructionPartyOption[];
+}
+
+/**
+ * Robust helper to extract and format seller/buyer instructions from /dms-fields/instructions API
+ */
+export function extractInstructionsData(data: any): ExtractedInstructions {
+  if (!data) return { sellers: [], buyers: [], all: [] };
+
+  const d = data.data ?? data;
+
+  // Helper to stringify details or address objects into clean human-readable multiline text
+  const formatObjectToString = (obj: any): string => {
+    if (!obj) return '';
+    if (typeof obj === 'string') return obj.trim();
+    if (Array.isArray(obj)) {
+      return obj
+        .map((x) => (typeof x === 'object' ? formatObjectToString(x) : String(x).trim()))
+        .filter(Boolean)
+        .join('\n');
+    }
+    if (typeof obj === 'object') {
+      return Object.entries(obj)
+        .filter(([k, v]) => v !== null && v !== undefined && String(v).trim() !== '' && !['_id', 'id', 'user_id', 'type', 'source', 'created_at', 'updated_at', '__v'].includes(k))
+        .map(([k, v]) => {
+          if (typeof v === 'object') return formatObjectToString(v);
+          if (!isNaN(Number(k))) return String(v).trim();
+          const label = k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+          return `${label}: ${v}`;
+        })
+        .filter(Boolean)
+        .join('\n');
+    }
+    return String(obj).trim();
+  };
+
+  // Helper to map any item to an InstructionPartyOption
+  const formatInstructionItem = (item: any, index: number): InstructionPartyOption => {
+    if (!item) {
+      return {
+        value: `item-${index}`,
+        label: `Option ${index + 1}`,
+        subLabel: '',
+        instructionText: '',
+        companyName: '',
+        details: '',
+      };
+    }
+
+    if (typeof item === 'string') {
+      return {
+        value: item,
+        label: item,
+        subLabel: '',
+        instructionText: item,
+        companyName: item,
+        details: '',
+      };
+    }
+
+    const value = String(
+      item._id ||
+      item.id ||
+      item.instruction_id ||
+      item.company_id ||
+      item.uuid ||
+      item.code ||
+      item.company_name ||
+      item.company ||
+      item.name ||
+      `instruction-${index}`
+    );
+
+    const companyName = String(
+      item.company_name ||
+      item.companyName ||
+      item.company ||
+      item.business_name ||
+      item.businessName ||
+      item.name ||
+      item.title ||
+      item.party_name ||
+      item.partyName ||
+      ''
+    ).trim();
+
+    // Extract instruction text
+    const rawInstruction =
+      item.instruction ||
+      item.instructions ||
+      item.seller_instruction ||
+      item.buyer_instruction ||
+      item.instruction_text ||
+      item.instructionText ||
+      item.details ||
+      item.detail ||
+      item.description ||
+      item.notes ||
+      item.note ||
+      item.address ||
+      '';
+
+    let instructionText = formatObjectToString(rawInstruction);
+
+    // Extract details text (for preview underneath company name)
+    const rawDetails =
+      item.details ||
+      item.detail ||
+      item.address ||
+      item.description ||
+      item.notes ||
+      item.note ||
+      item.instruction ||
+      item.instructions ||
+      '';
+
+    let detailsText = formatObjectToString(rawDetails);
+
+    if (!instructionText && detailsText) {
+      instructionText = detailsText;
+    }
+    if (!detailsText && instructionText) {
+      detailsText = instructionText;
+    }
+
+    // Clean snippet for dropdown subLabel
+    const subLabel = detailsText
+      ? detailsText.split('\n')[0].trim()
+      : instructionText
+      ? instructionText.split('\n')[0].trim()
+      : '';
+
+    const label = companyName || instructionText.slice(0, 40) || `Instruction ${index + 1}`;
+
+    return {
+      value,
+      label,
+      subLabel: subLabel && subLabel !== label ? subLabel : detailsText && detailsText !== label ? detailsText : '',
+      instructionText: instructionText || detailsText || label,
+      companyName: label,
+      details: detailsText,
+      ...item,
+    };
+  };
+
+  // 1. Check for distinct containers in response
+  const rawSellers =
+    d?.sellers ||
+    d?.seller ||
+    d?.seller_instructions ||
+    d?.seller_instruction ||
+    d?.sellerInstructions ||
+    d?.sellerInstruction ||
+    d?.exporters ||
+    d?.exporter ||
+    d?.exporter_instructions ||
+    data?.sellers ||
+    data?.seller_instructions;
+
+  const rawBuyers =
+    d?.buyers ||
+    d?.buyer ||
+    d?.buyer_instructions ||
+    d?.buyer_instruction ||
+    d?.buyerInstructions ||
+    d?.buyerInstruction ||
+    d?.importers ||
+    d?.importer ||
+    d?.importer_instructions ||
+    data?.buyers ||
+    data?.buyer_instructions;
+
+  if (Array.isArray(rawSellers) || Array.isArray(rawBuyers)) {
+    const sellers = Array.isArray(rawSellers) ? rawSellers.map(formatInstructionItem) : [];
+    const buyers = Array.isArray(rawBuyers) ? rawBuyers.map(formatInstructionItem) : [];
+    return {
+      sellers,
+      buyers,
+      all: [...sellers, ...buyers],
+    };
+  }
+
+  // 2. Check for general array of instructions
+  let rawList: any[] = [];
+  if (Array.isArray(d)) {
+    rawList = d;
+  } else if (Array.isArray(d?.instructions)) {
+    rawList = d.instructions;
+  } else if (Array.isArray(d?.records)) {
+    rawList = d.records;
+  } else if (Array.isArray(d?.list)) {
+    rawList = d.list;
+  } else if (Array.isArray(d?.items)) {
+    rawList = d.items;
+  } else if (Array.isArray(data?.instructions)) {
+    rawList = data.instructions;
+  }
+
+  if (rawList.length > 0) {
+    const sellers: InstructionPartyOption[] = [];
+    const buyers: InstructionPartyOption[] = [];
+    const all: InstructionPartyOption[] = [];
+
+    rawList.forEach((item, idx) => {
+      const formatted = formatInstructionItem(item, idx);
+      all.push(formatted);
+
+      const type = String(
+        item.type ||
+        item.user_type ||
+        item.userType ||
+        item.party_type ||
+        item.partyType ||
+        item.role ||
+        item.instruction_type ||
+        item.instructionType ||
+        item.category ||
+        ''
+      ).toLowerCase();
+
+      const isSeller =
+        type.includes('seller') ||
+        type.includes('exporter') ||
+        type.includes('supplier') ||
+        type.includes('vendor');
+
+      const isBuyer =
+        type.includes('buyer') ||
+        type.includes('importer') ||
+        type.includes('customer');
+
+      if (isSeller) {
+        sellers.push(formatted);
+      } else if (isBuyer) {
+        buyers.push(formatted);
+      } else {
+        // If untyped or applies to both, include in both dropdowns
+        sellers.push(formatted);
+        buyers.push(formatted);
+      }
+    });
+
+    return { sellers, buyers, all };
+  }
+
+  return { sellers: [], buyers: [], all: [] };
+}
+
 
