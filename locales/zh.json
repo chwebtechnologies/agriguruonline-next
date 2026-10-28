@@ -703,6 +703,7 @@
       "enter_buyer_instruction": "输入买方指示",
       "product": "产品名称",
       "select_product": "选择产品",
+      "select_product_first": "请先选择产品",
       "hsn_code": "海关编码 (HSN)",
       "country": "原产国",
       "specification": "产品规格",
@@ -733,7 +734,8 @@
       "save_as_draft": "保存为草稿",
       "submit_to_contract": "提交生成合同",
       "saved_as_draft_success": "确认书草稿保存成功！",
-      "validation_error": "请在提交前填写所有红框标注的必填项。"
+      "validation_error": "请在提交前填写所有红框标注的必填项。",
+      "confirmation_number_required": "确认编号为必填项"
     }
   }
 }

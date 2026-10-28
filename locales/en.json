@@ -713,6 +713,11 @@
       "enter_buyer_instruction": "Enter Buyer Instruction",
       "product": "PRODUCT",
       "select_product": "Select Product",
+      "select_product_first": "Select Product first",
+      "add_product": "Add Product",
+      "edit_product": "Edit Product",
+      "product_name": "Product Name",
+      "enter_product_name": "Please enter a product name",
       "hsn_code": "HSN CODE",
       "country": "COUNTRY",
       "specification": "SPECIFICATION",
@@ -736,6 +741,10 @@
       "shipment_period": "SHIPMENT PERIOD",
       "payment_term": "PAYMENT TERM",
       "select_payment_term": "Select Payment Term",
+      "search_payment_term": "Search payment term...",
+      "add_payment_term": "Add Payment Term",
+      "edit_payment_term": "Edit Payment Term",
+      "enter_payment_term": "Payment term name or condition is required",
       "notes": "NOTES",
       "write_description": "Write your description...",
       "download_pdf": "Download PDF",
@@ -743,7 +752,8 @@
       "save_as_draft": "Save As Draft",
       "submit_to_contract": "Submit To Contract",
       "saved_as_draft_success": "Confirmation saved as draft successfully!",
-      "validation_error": "Please fill all required highlighted fields before submitting."
+      "validation_error": "Please fill all required highlighted fields before submitting.",
+      "confirmation_number_required": "Confirmation number is required"
     }
   }
 }

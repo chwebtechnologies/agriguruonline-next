@@ -87,7 +87,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
       'border-b-2 border-dotted border-primary/70 dark:border-primary/80 hover:border-primary bg-transparent';
 
     if (error) {
-      borderStyle = 'border-b-2 border-solid border-destructive text-destructive bg-transparent';
+      borderStyle = 'border-b-2 border-solid border-brand-red bg-transparent';
     } else if (disabled) {
       borderStyle = 'border-b-2 border-dotted border-muted-foreground/30 opacity-60 cursor-not-allowed bg-transparent';
     } else if (isFocused) {
@@ -173,7 +173,11 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
     return (
       <div className={`relative inline-flex flex-col w-full group ${className}`}>
         <div
-          className={`relative flex ${multiline ? 'items-start pt-1' : 'items-center'} w-full px-1.5 py-0.5 min-h-[26px] sm:min-h-[28px] rounded-t-sm transition-all duration-150 ${borderStyle} focus-within:border-solid focus-within:border-primary bg-transparent print:border-none`}
+          className={`relative flex ${multiline ? 'items-start pt-1' : 'items-center'} w-full px-1.5 py-0.5 min-h-[28px] rounded-t-sm transition-all duration-150 ${borderStyle} ${
+            error
+              ? 'focus-within:border-brand-red'
+              : 'focus-within:border-solid focus-within:border-primary'
+          } bg-transparent print:border-none`}
         >
           {icon && iconPosition === 'left' && (
             <button
@@ -182,7 +186,13 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               onClick={handleIconClick}
               disabled={disabled || readOnly}
               style={{ outline: 'none' }}
-              className={`mr-1.5 ${isFocused ? 'text-primary scale-110 font-bold' : 'text-primary hover:text-primary-hover'} text-[11px] shrink-0 cursor-pointer outline-none focus:outline-none transition-all ${multiline ? 'mt-1' : ''}`}
+              className={`mr-1.5 ${
+                error
+                  ? 'text-brand-red'
+                  : isFocused
+                  ? 'text-primary scale-110 font-bold'
+                  : 'text-primary hover:text-primary-hover'
+              } text-[11px] shrink-0 cursor-pointer outline-none focus:outline-none transition-all ${multiline ? 'mt-1' : ''}`}
               aria-label="Input action"
             >
               <i className={icon} />
@@ -209,7 +219,11 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               aria-label={ariaLabel || placeholder}
               aria-invalid={Boolean(error)}
               style={{ outline: 'none', boxShadow: 'none' }}
-              className={`w-full bg-transparent px-0 py-0.5 text-xs sm:text-[12.5px] font-semibold text-foreground placeholder:text-muted-foreground/50 border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 resize-y leading-relaxed ${alignClass} ${
+              className={`w-full bg-transparent px-0 py-0.5 text-[13px] font-semibold ${
+                error
+                  ? 'text-brand-red placeholder:text-brand-red/50'
+                  : 'text-foreground placeholder:text-muted-foreground/50'
+              } placeholder:font-normal border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 resize-y leading-relaxed ${alignClass} ${
                 disabled ? 'cursor-not-allowed text-muted-foreground' : ''
               } ${inputClassName}`}
             />
@@ -241,7 +255,11 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               aria-label={ariaLabel || placeholder}
               aria-invalid={Boolean(error)}
               style={{ outline: 'none', boxShadow: 'none' }}
-              className={`w-full bg-transparent px-0 py-0.5 text-xs sm:text-[12.5px] font-semibold text-foreground placeholder:text-muted-foreground/50 border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${alignClass} ${
+              className={`w-full bg-transparent px-0 py-0.5 text-[13px] font-semibold ${
+                error
+                  ? 'text-brand-red placeholder:text-brand-red/50'
+                  : 'text-foreground placeholder:text-muted-foreground/50'
+              } placeholder:font-normal border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${alignClass} ${
                 type === 'date'
                   ? 'cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                   : ''
@@ -255,7 +273,13 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               tabIndex={-1}
               onClick={handleIconClick}
               disabled={disabled || readOnly}
-              className={`ml-1.5 ${isFocused ? 'text-primary scale-110 font-bold' : 'text-primary hover:text-primary-hover'} text-xs shrink-0 cursor-pointer focus:outline-hidden transition-all ${multiline ? 'mt-1' : ''}`}
+              className={`ml-1.5 ${
+                error
+                  ? 'text-brand-red'
+                  : isFocused
+                  ? 'text-primary scale-110 font-bold'
+                  : 'text-primary hover:text-primary-hover'
+              } text-xs shrink-0 cursor-pointer focus:outline-hidden transition-all ${multiline ? 'mt-1' : ''}`}
               aria-label="Input action"
             >
               <i className={icon} />
@@ -264,8 +288,9 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
         </div>
 
         {error && (
-          <span className="text-[10px] text-destructive font-medium mt-0.5 px-1 tracking-tight animate-in fade-in duration-200">
-            {error}
+          <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+            <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+            <span className="text-brand-red">{error}</span>
           </span>
         )}
       </div>

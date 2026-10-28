@@ -2,9 +2,9 @@ import React from 'react';
 
 export default function SmartDocsLoading() {
   return (
-    <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 h-full overflow-hidden">
-      <div className="w-full pad-for-badges flex-1 flex flex-col min-h-0 h-full overflow-hidden">
-        <div className="max-w-7xl w-full mx-auto pt-0.5 sm:pt-1 pb-0.5 sm:pb-1 px-3 sm:px-0 flex-1 flex flex-col min-h-0 h-full overflow-hidden">
+    <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">
+      <div className="w-full pad-for-badges flex-1 flex flex-col min-h-0 lg:h-full">
+        <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0.5 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-0 lg:h-full">
           {/* PageHeader Skeleton */}
           <div className="py-1 sm:py-1.5 flex items-center justify-between w-full mb-1 sm:mb-1.5 animate-pulse shrink-0">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-card border border-border" />

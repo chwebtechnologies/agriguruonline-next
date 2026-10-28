@@ -29,6 +29,7 @@ export interface DateRangePickerProps {
   formatString?: string;
   error?: string | null;
   className?: string;
+  id?: string;
 }
 
 export function DateRangePicker({
@@ -42,6 +43,7 @@ export function DateRangePicker({
   formatString,
   error = null,
   className = '',
+  id,
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState<Date>(startDate || new Date());
@@ -441,6 +443,7 @@ export function DateRangePicker({
     >
       <div
         ref={triggerRef}
+        id={id}
         tabIndex={disabled ? -1 : tabIndex}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         onKeyDown={handleTriggerKeyDown}
@@ -449,7 +452,7 @@ export function DateRangePicker({
         style={{ outline: 'none', boxShadow: 'none' }}
         className={
           variant === 'underline'
-            ? `w-full flex items-center justify-between gap-1.5 px-1.5 py-0.5 min-h-[26px] sm:min-h-[28px] text-xs sm:text-[12.5px] rounded-t-sm transition-all duration-150 text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 border-t-0 border-x-0 ${borderStyle} focus:border-solid focus:border-primary focus:bg-primary/10 cursor-pointer print:border-none`
+            ? `w-full flex items-center justify-between gap-1.5 px-1.5 py-0.5 min-h-[28px] text-[13px] rounded-t-sm transition-all duration-150 text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 border-t-0 border-x-0 ${borderStyle} focus:border-solid focus:border-primary focus:bg-primary/10 cursor-pointer print:border-none`
             : `w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-between transition-colors ${
                 disabled
                   ? 'border-border pointer-events-none bg-muted text-muted-foreground'
@@ -462,7 +465,7 @@ export function DateRangePicker({
         <span
           className={
             variant === 'underline'
-              ? `truncate flex-1 font-semibold ${displayValue ? 'text-foreground' : 'text-muted-foreground/50'}`
+              ? `truncate flex-1 ${displayValue ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground/50'}`
               : `font-semibold ${startDate ? 'text-primary-foreground' : 'font-medium text-muted-foreground'}`
           }
         >

@@ -10,6 +10,9 @@ import {
   smartDocsService,
   extractStepperList,
   extractInstructionsData,
+  extractProductsData,
+  extractPaymentTermsData,
+  extractCurrenciesData,
 } from '@/lib/api/smart-docs.service';
 
 export const dynamic = 'force-dynamic';
@@ -47,8 +50,8 @@ export default async function SmartDocsDraftPage(props: {
     redirect(`/${lang}/login?redirectUrl=/${lang}/smart-docs/draft`);
   }
 
-  // Fetch dictionary, stepper list & instructions in parallel
-  const [rawDict, stepperRes, instructionsRes] = await Promise.all([
+  // Fetch dictionary, stepper list, instructions, products, payment terms & currencies in parallel
+  const [rawDict, stepperRes, instructionsRes, productsRes, paymentTermsRes, currenciesRes] = await Promise.all([
     getDictionary(lang).catch(() => ({})),
     smartDocsService
       .getStepperList(
@@ -76,11 +79,50 @@ export default async function SmartDocsDraftPage(props: {
         console.error('[SmartDocsDraftPage] Instructions fetch error:', err);
         return null;
       }),
+    smartDocsService
+      .getProducts(
+        {
+          lang,
+          source: 'web',
+        },
+        token
+      )
+      .catch((err) => {
+        console.error('[SmartDocsDraftPage] Products fetch error:', err);
+        return null;
+      }),
+    smartDocsService
+      .getPaymentTerms(
+        {
+          lang,
+          source: 'web',
+        },
+        token
+      )
+      .catch((err) => {
+        console.error('[SmartDocsDraftPage] Payment terms fetch error:', err);
+        return null;
+      }),
+    smartDocsService
+      .getCurrencies(
+        {
+          lang,
+          source: 'web',
+        },
+        token
+      )
+      .catch((err) => {
+        console.error('[SmartDocsDraftPage] Currencies fetch error:', err);
+        return null;
+      }),
   ]);
 
   const dict = rawDict as any;
   const initialSteps = extractStepperList(stepperRes);
   const { sellers: initialSellers, buyers: initialBuyers } = extractInstructionsData(instructionsRes);
+  const initialProducts = extractProductsData(productsRes);
+  const initialPaymentTerms = extractPaymentTermsData(paymentTermsRes);
+  const initialCurrencies = extractCurrenciesData(currenciesRes);
 
   const pageTitle =
     dict?.smart_docs?.draft_title ||
@@ -90,26 +132,28 @@ export default async function SmartDocsDraftPage(props: {
 
   return (
     <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">
-      <div className="w-full pad-for-badges flex-1 flex flex-col min-h-0 lg:h-full">
-        <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0.5 pb-0.5 sm:pb-1 px-3 sm:px-4 lg:px-0 flex-1 flex flex-col min-h-0 lg:h-full">
+      <div className="w-full pad-for-badges flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
+        <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0.5 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
           {/* Header Bar */}
           <div className="shrink-0">
             <PageHeader
               title={pageTitle}
               backText={dict?.common?.back || 'Back'}
               backHref={`/${lang}/smart-docs`}
-              className="!py-0.5 sm:!py-1 !mb-0.5 sm:!mb-1"
             />
           </div>
 
           {/* SaaS Single Page Workspace (Fluid on mobile, locked on desktop) */}
-          <div className="mt-0.5 flex-1 min-h-0 flex flex-col lg:overflow-hidden">
+          <div className="flex-1 min-h-fit lg:min-h-0 flex flex-col lg:overflow-hidden">
             <DocumentDraftWorkspace
               lang={lang}
               dict={dict}
               initialSteps={initialSteps}
               initialSellers={initialSellers}
               initialBuyers={initialBuyers}
+              initialProducts={initialProducts}
+              initialPaymentTerms={initialPaymentTerms}
+              initialCurrencies={initialCurrencies}
             />
           </div>
         </div>

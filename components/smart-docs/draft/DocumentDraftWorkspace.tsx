@@ -1,9 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import type { StepperDocumentItem, InstructionPartyOption } from '@/lib/api/smart-docs.service';
+import type {
+  StepperDocumentItem,
+  InstructionPartyOption,
+  SmartDocsProductOption,
+} from '@/lib/api/smart-docs.service';
 import DocumentStatusStepper from './DocumentStatusStepper';
-import ConfirmationDocumentForm from './form/ConfirmationDocumentForm';
+import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
+import { saveConfirmationDraftAction } from '@/app/actions/smart-docs';
 
 export interface DocumentDraftWorkspaceProps {
   lang?: string;
@@ -11,6 +16,10 @@ export interface DocumentDraftWorkspaceProps {
   initialSteps?: StepperDocumentItem[];
   initialSellers?: InstructionPartyOption[];
   initialBuyers?: InstructionPartyOption[];
+  initialProducts?: SmartDocsProductOption[];
+  initialPaymentTerms?: FormOptionItem[];
+  initialCurrencies?: FormOptionItem[];
+  shippingTerms?: FormOptionItem[];
 }
 
 export function DocumentDraftWorkspace({
@@ -19,6 +28,10 @@ export function DocumentDraftWorkspace({
   initialSteps = [],
   initialSellers = [],
   initialBuyers = [],
+  initialProducts = [],
+  initialPaymentTerms = [],
+  initialCurrencies = [],
+  shippingTerms,
 }: DocumentDraftWorkspaceProps) {
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(0);
   const [selectedStep, setSelectedStep] = useState<StepperDocumentItem | null>(
@@ -36,12 +49,12 @@ export function DocumentDraftWorkspace({
       : dict?.smart_docs?.draft_title || 'Trade Confirmation');
 
   return (
-    <div className="w-full flex-1 min-h-0 lg:h-full flex flex-col lg:flex-row items-stretch justify-start gap-3 sm:gap-4 lg:gap-5 pb-4 lg:pb-0">
+    <div className="w-full flex-1 min-h-fit lg:min-h-0 lg:h-full flex flex-col lg:flex-row items-stretch justify-start gap-3 sm:gap-4 lg:gap-5 pb-2 sm:pb-3 lg:pb-0">
       {/* 
         Mobile Stepper Banner (< lg only):
         Compact, non-intrusive step tracker with expandable drawer
       */}
-      <div className="lg:hidden shrink-0 bg-card border border-foreground/35 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+      <div className="lg:hidden shrink-0 bg-card border border-border rounded-xl p-2.5 sm:p-3 shadow-xs">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-6.5 h-6.5 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 text-xs font-bold">
@@ -60,7 +73,7 @@ export function DocumentDraftWorkspace({
           <button
             type="button"
             onClick={() => setIsMobileStepperOpen(!isMobileStepperOpen)}
-            className="text-xs font-semibold px-2.5 py-1 rounded-md border border-foreground/35 bg-muted/40 hover:bg-muted text-foreground flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+            className="text-xs font-semibold px-2.5 py-1 rounded-md border border-border bg-muted/40 hover:bg-muted text-foreground flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
           >
             <span>{isMobileStepperOpen ? (dict?.common?.hide || 'Hide Steps') : (dict?.common?.view || 'View Steps')}</span>
             <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-200 ${isMobileStepperOpen ? 'rotate-180' : ''}`} />
@@ -69,7 +82,7 @@ export function DocumentDraftWorkspace({
 
         {/* Collapsible Mobile Stepper List */}
         {isMobileStepperOpen && (
-          <div className="mt-2.5 pt-2 border-t border-foreground/35 animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y">
+          <div className="mt-2.5 pt-2 border-t border-border animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y">
             <DocumentStatusStepper
               isMobile
               initialSteps={initialSteps}
@@ -93,15 +106,20 @@ export function DocumentDraftWorkspace({
       */}
       <div 
         id="draft-form-card"
-        className="w-full flex-1 min-w-0 min-h-[550px] lg:h-full lg:min-h-0 bg-card border border-foreground/35 rounded-xl shadow-xs overflow-hidden flex flex-col relative z-10"
+        className="w-full flex-1 min-w-0 min-h-fit lg:min-h-0 lg:h-full bg-card border border-border rounded-xl shadow-xs overflow-visible lg:overflow-hidden flex flex-col relative z-10"
       >
         <ConfirmationDocumentForm
           lang={lang}
           dict={dict}
           sellers={initialSellers}
           buyers={initialBuyers}
+          products={initialProducts}
+          paymentTerms={initialPaymentTerms}
+          currencies={initialCurrencies}
+          shippingTerms={shippingTerms}
           onSaveDraft={async (formData) => {
-            console.log('[DocumentDraftWorkspace] Saved draft:', formData);
+            const res = await saveConfirmationDraftAction(formData, lang);
+            return res;
           }}
           onSubmitContract={async (formData) => {
             console.log('[DocumentDraftWorkspace] Submitted to contract:', formData);
@@ -120,7 +138,7 @@ export function DocumentDraftWorkspace({
       */}
       <aside 
         id="draft-stepper-card"
-        className="hidden lg:flex w-[340px] xl:w-[370px] 2xl:w-[390px] shrink-0 h-full min-h-0 bg-card border border-foreground/35 rounded-xl shadow-xs overflow-hidden flex-col relative z-10"
+        className="hidden lg:flex w-[260px] xl:w-[280px] 2xl:w-[300px] shrink-0 h-full min-h-0 bg-card border border-border rounded-xl shadow-xs overflow-hidden flex-col relative z-10"
       >
         {/* Stepper Viewport (pinned header with internal scrollable list) */}
         <div className="w-full h-full flex flex-col p-2.5 sm:p-3 min-h-0">

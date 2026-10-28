@@ -703,6 +703,7 @@
       "enter_buyer_instruction": "Entrer les instructions de l'acheteur",
       "product": "PRODUIT",
       "select_product": "Sélectionner un produit",
+      "select_product_first": "Sélectionnez d'abord le produit",
       "hsn_code": "CODE HSN",
       "country": "PAYS",
       "specification": "SPÉCIFICATION",
@@ -733,7 +734,8 @@
       "save_as_draft": "Enregistrer comme brouillon",
       "submit_to_contract": "Soumettre au contrat",
       "saved_as_draft_success": "Confirmation enregistrée comme brouillon avec succès !",
-      "validation_error": "Veuillez remplir tous les champs obligatoires mis en évidence avant de soumettre."
+      "validation_error": "Veuillez remplir tous les champs obligatoires mis en évidence avant de soumettre.",
+      "confirmation_number_required": "Le numéro de confirmation est requis"
     }
   }
 }

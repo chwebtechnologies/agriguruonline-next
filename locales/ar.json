@@ -703,6 +703,7 @@
       "enter_buyer_instruction": "أدخل تعليمات المشتري",
       "product": "المنتج",
       "select_product": "اختر المنتج",
+      "select_product_first": "اختر المنتج أولاً",
       "hsn_code": "رمز النظام المنسق (HSN)",
       "country": "البلد",
       "specification": "المواصفات",
@@ -733,7 +734,8 @@
       "save_as_draft": "حفظ كمسودة",
       "submit_to_contract": "إرسال إلى العقد",
       "saved_as_draft_success": "تم حفظ تأكيد الصفقة كمسودة بنجاح!",
-      "validation_error": "يرجى تعبئة جميع الحقول المطلوبة والمحددة باللون الأحمر قبل المتابعة."
+      "validation_error": "يرجى تعبئة جميع الحقول المطلوبة والمحددة باللون الأحمر قبل المتابعة.",
+      "confirmation_number_required": "رقم التأكيد مطلوب"
     }
   }
 }

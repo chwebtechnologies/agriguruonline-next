@@ -98,7 +98,7 @@ export default async function SmartDocsLayout({
       />
 
       {/* Center SaaS Workspace (with bottom padding for fixed footer) */}
-      <main className="flex-1 w-full flex flex-col min-h-0 overflow-hidden pb-[52px] sm:pb-[56px]">
+      <main className="flex-1 w-full flex flex-col min-h-0 overflow-hidden pb-11 sm:pb-12">
         {children}
       </main>
 

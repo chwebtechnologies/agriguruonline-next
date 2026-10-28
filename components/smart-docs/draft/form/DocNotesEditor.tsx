@@ -82,10 +82,10 @@ export function DocNotesEditor({
 
   return (
     <div
-      className={`w-full flex flex-col rounded-md border border-foreground/35 bg-card focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all shadow-2xs ${className}`}
+      className={`w-full flex flex-col rounded-md border border-border bg-card focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all shadow-xs ${className}`}
     >
       {/* Rich Text Toolbar with Font Awesome icons */}
-      <div className="flex flex-wrap items-center gap-1 px-2 py-1 border-b border-foreground/35 bg-muted/40 text-muted-foreground select-none print:hidden">
+      <div className="flex flex-wrap items-center gap-1 px-2 py-1 border-b border-border bg-muted/40 text-muted-foreground select-none print:hidden">
         {/* Bold */}
         <button
           type="button"
@@ -196,7 +196,7 @@ export function DocNotesEditor({
           aria-multiline="true"
           aria-label="Notes description"
           style={{ outline: 'none' }}
-          className={`w-full min-h-[56px] text-xs sm:text-[12.5px] text-foreground outline-none focus:outline-none focus-visible:outline-none leading-relaxed [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 ${
+          className={`w-full min-h-[56px] text-[13px] text-foreground outline-none focus:outline-none focus-visible:outline-none leading-relaxed [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 ${
             disabled ? 'opacity-60 cursor-not-allowed' : ''
           }`}
           data-placeholder={placeholder}
@@ -204,7 +204,7 @@ export function DocNotesEditor({
         {(!value || value === '<br>' || value === '' || value === '<p></p>') && (
           <div
             onClick={() => editorRef.current?.focus()}
-            className="absolute top-2 left-2 text-muted-foreground/50 text-xs sm:text-[12.5px] pointer-events-none select-none italic"
+            className="absolute top-2 left-2 text-muted-foreground/50 font-normal text-[13px] pointer-events-none select-none italic"
           >
             {placeholder}
           </div>

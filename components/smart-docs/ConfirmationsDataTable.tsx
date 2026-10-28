@@ -4,29 +4,23 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getSmartDocsListAction, deleteSmartDocAction } from '@/app/actions/smart-docs';
-import { normalizeActionParam } from '@/lib/api/smart-docs.service';
+import {
+  normalizeActionParam,
+  sanitizeDocId,
+  extractAllSmartDocIds,
+} from '@/lib/api/smart-docs.service';
 import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
+
+export { sanitizeDocId, extractAllSmartDocIds };
 
 /**
  * Extracts a unique document identifier from a Smart Docs record.
+ * Sanitizes against [object Object] and extracts primary string ID safely.
  */
 export function extractSmartDocId(row: any): string {
   if (!row) return '';
-  if (typeof row === 'string') return row;
-  return String(
-    row._id ||
-    row.id ||
-    row.document_id ||
-    row.documentId ||
-    row.doc_id ||
-    row.docId ||
-    row.smart_doc_id ||
-    row.smartDocId ||
-    row.confirmation_id ||
-    row.contract_id ||
-    row.uuid ||
-    ''
-  );
+  const allIds = extractAllSmartDocIds(row);
+  return allIds[0] || '';
 }
 
 export const SMART_DOCS_ACTION_OPTIONS = [
@@ -683,15 +677,22 @@ export function ConfirmationsDataTable({
     if (!rowToDelete) return;
 
     const docId = extractSmartDocId(rowToDelete);
-    if (!docId) {
+    const allCandidateIds = extractAllSmartDocIds(rowToDelete);
+    if (!docId && allCandidateIds.length === 0) {
       toast.error('Unable to find document ID to delete.');
       return;
     }
 
+    const effectiveDocId = docId || allCandidateIds[0];
+    const docType = getSmartDocType(rowToDelete);
+
     setIsDeleting(true);
     try {
       const res = await deleteSmartDocAction({
-        documentId: docId,
+        documentId: effectiveDocId,
+        candidateIds: allCandidateIds,
+        docType,
+        action: selectedAction,
         lang: lang || 'en',
       });
 
@@ -700,9 +701,14 @@ export function ConfirmationsDataTable({
         setIsDeleteModalOpen(false);
         setRowToDelete(null);
 
-        // Optimistically remove from state
-        setTableData((prev) => prev.filter((item) => extractSmartDocId(item) !== docId));
-        setServerTotal((prev) => (typeof prev === 'number' && prev > 0 ? prev - 1 : prev));
+        // Optimistically remove from state by checking any matching candidate ID
+        setTableData((prev) =>
+          prev.filter((item) => {
+            const itemCandidateIds = extractAllSmartDocIds(item);
+            return !allCandidateIds.some((id) => itemCandidateIds.includes(id));
+          })
+        );
+        setServerTotal((prev) => (typeof prev === 'number' && prev > 0 ? prev - 1 : 0));
 
         // Re-fetch to keep pagination and server data synchronized
         const targetPage =

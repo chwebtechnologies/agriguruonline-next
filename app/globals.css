@@ -329,6 +329,8 @@ i[class*="fa-"] {
   --color-brand-blue-hover: var(--brand-blue-hover);
   --color-brand-green-hover: var(--brand-green-hover);
   --color-brand-red-hover: var(--brand-red-hover);
+  --color-destructive: var(--brand-red);
+  --color-destructive-foreground: #ffffff;
   
   --color-emerald-500: var(--brand-green);
   --color-emerald-600: #239470;
