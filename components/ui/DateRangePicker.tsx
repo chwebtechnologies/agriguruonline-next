@@ -480,9 +480,10 @@ export function DateRangePicker({
         />
       </div>
 
-      {variant === 'underline' && error && (
-        <span className="text-[10px] text-destructive font-medium mt-0.5 px-1 tracking-tight animate-in fade-in duration-200">
-          {error}
+      {error && (
+        <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+          <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+          <span className="text-brand-red">{error}</span>
         </span>
       )}
 

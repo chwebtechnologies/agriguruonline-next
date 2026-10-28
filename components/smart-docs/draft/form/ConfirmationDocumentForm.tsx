@@ -14,6 +14,8 @@ import {
   getSmartDocsPaymentTermsAction,
   getSmartDocsCurrenciesAction,
   saveConfirmationDraftAction,
+  getStepperListAction,
+  getConfirmationAction,
 } from '@/app/actions/smart-docs';
 import {
   extractHsnCodeFromItem,
@@ -21,7 +23,12 @@ import {
   DEFAULT_PAYMENT_TERMS,
   DEFAULT_CURRENCIES,
   cleanConfirmationPayload,
+  normalizeCurrencyCode,
+  normalizeCurrencyOption,
+  getCurrencySymbol,
+  parsePackingBagWeightKg,
   type SaveConfirmationPayload,
+  type StepperDocumentItem,
 } from '@/lib/api/smart-docs.service';
 import ProductManageModal from './ProductManageModal';
 import PaymentTermManageModal from './PaymentTermManageModal';
@@ -42,6 +49,81 @@ export const STATIC_SHIP_BY_OPTIONS: FormOptionItem[] = [
   { value: 'FCL_40_FT', label: '40 FT' },
   { value: 'VESSEL', label: 'Vessel' },
 ];
+
+/**
+ * Safely extracts a clean scalar ID string (e.g. "cmvr...").
+ * Guarantees never returning "[object Object]", null, undefined, or an object.
+ */
+export function toCleanId(val: any): string {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'number') return isNaN(val) ? '' : String(val);
+  if (typeof val === 'string') {
+    const t = val.trim();
+    if (!t || t === '[object Object]' || t === 'undefined' || t === 'null') return '';
+    return t;
+  }
+  if (typeof val === 'object') {
+    if (val.$oid) return toCleanId(val.$oid);
+    if (val.id !== undefined && val.id !== null) return toCleanId(val.id);
+    if (val._id !== undefined && val._id !== null) return toCleanId(val._id);
+    if (val.value !== undefined && val.value !== null) return toCleanId(val.value);
+    if (val.code !== undefined && val.code !== null) return toCleanId(val.code);
+    if (val.loading_port_id !== undefined && val.loading_port_id !== null) return toCleanId(val.loading_port_id);
+    if (val.destination_port_id !== undefined && val.destination_port_id !== null) return toCleanId(val.destination_port_id);
+    if (val.packing_type_id !== undefined && val.packing_type_id !== null) return toCleanId(val.packing_type_id);
+    if (val.currency_id !== undefined && val.currency_id !== null) return toCleanId(val.currency_id);
+    if (val.payment_term_id !== undefined && val.payment_term_id !== null) return toCleanId(val.payment_term_id);
+    if (val.seller_instruction_id !== undefined && val.seller_instruction_id !== null) return toCleanId(val.seller_instruction_id);
+    if (val.buyer_instruction_id !== undefined && val.buyer_instruction_id !== null) return toCleanId(val.buyer_instruction_id);
+    if (val.product_id !== undefined && val.product_id !== null) return toCleanId(val.product_id);
+  }
+  return '';
+}
+
+/**
+ * Safely extracts a clean human-readable display label.
+ * Guarantees never returning "[object Object]" or raw stringified object.
+ */
+export function toCleanLabel(val: any): string {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'string') {
+    const t = val.trim();
+    if (!t || t === '[object Object]' || t === 'undefined' || t === 'null') return '';
+    return t;
+  }
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    const candidates = [
+      val.label,
+      val.port_name,
+      val.portName,
+      val.packing_type,
+      val.packingType,
+      val.currency,
+      val.currency_name,
+      val.currencyName,
+      val.code,
+      val.name,
+      val.company_name,
+      val.companyName,
+      val.title,
+      val.value,
+      val.instructionText,
+      val.instruction,
+      val.details,
+      val.description,
+    ];
+    for (const c of candidates) {
+      if (c && typeof c === 'string') {
+        const tr = c.trim();
+        if (tr && tr !== '[object Object]' && tr !== 'undefined' && tr !== 'null') {
+          return tr;
+        }
+      }
+    }
+  }
+  return '';
+}
 
 /**
  * Normalizes ship_by values for backend API (e.g. FCL_20_FT, FCL_40_FT, VESSEL).
@@ -119,6 +201,46 @@ export const normalizeHsnString = (val: any): string => {
 };
 
 /**
+ * Deduplicates repeated phrases or clauses within validation strings.
+ * Prevents repetitive errors like "Confirmation number is required, Confirmation number is required".
+ */
+export function deduplicateValidationMessage(msg: string): string {
+  if (!msg || typeof msg !== 'string') return '';
+  const trimmed = msg.trim();
+  if (!trimmed) return '';
+
+  // Split on commas, semicolons, newlines, or sentence-ending periods with space
+  const parts = trimmed
+    .split(/(?:,|\n|;|\.\s+)+/)
+    .map((p) => p.trim().replace(/^\.+|\.+$/g, ''))
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return trimmed;
+  }
+
+  const seen = new Set<string>();
+  const uniqueParts: string[] = [];
+
+  for (const part of parts) {
+    // Normalize comparison string (lowercase, remove redundant punctuation and multiple spaces)
+    const normalized = part
+      .toLowerCase()
+      .replace(/[.,;:!?]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!normalized) continue;
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      uniqueParts.push(part);
+    }
+  }
+
+  if (uniqueParts.length === 0) return trimmed;
+  return uniqueParts.join(', ');
+}
+
+/**
  * Transforms raw backend validator messages (e.g. NestJS/class-validator strings)
  * into clean, user-friendly labels and phrases.
  * Explicitly prevents raw strings like "shipment_start_date must be a Date instance" from being shown to users.
@@ -141,8 +263,8 @@ export function humanizeValidationMessage(rawMsg: any, fieldKey?: string): strin
   if (/must be an? (?:isodate|iso8601|valid iso)/i.test(msg)) {
     msg = msg.replace(/must be an? (?:isodate|iso8601|valid iso)[^,]*/gi, 'must be a valid date');
   }
-  if (/(?:should not|must not|cannot) be empty/i.test(msg)) {
-    msg = msg.replace(/(?:should not|must not|cannot) be empty/gi, 'is required');
+  if (/(?:should not|must not|cannot|is not allowed to) be empty/i.test(msg)) {
+    msg = msg.replace(/(?:should not|must not|cannot|is not allowed to) be empty/gi, 'is required');
   }
   if (/must be a string/i.test(msg)) {
     msg = msg.replace(/must be a string/gi, 'is required');
@@ -150,8 +272,11 @@ export function humanizeValidationMessage(rawMsg: any, fieldKey?: string): strin
   if (/must be a number/i.test(msg)) {
     msg = msg.replace(/must be a number/gi, 'must be a valid number');
   }
+  if (/must be an integer/i.test(msg)) {
+    msg = msg.replace(/must be an integer/gi, 'must be a whole number');
+  }
 
-  // Replace technical field identifiers with clean names
+  // Replace technical field identifiers with clean, user-friendly names
   const fieldLabelReplacements: [RegExp, string][] = [
     [/\bshipment_start_date\b/gi, 'Shipment start date'],
     [/\bshipment_end_date\b/gi, 'Shipment end date'],
@@ -160,22 +285,32 @@ export function humanizeValidationMessage(rawMsg: any, fieldKey?: string): strin
     [/\bconfirmation_date\b/gi, 'Confirmation date'],
     [/\bseller_instruction_id\b/gi, 'Exporter (Seller)'],
     [/\bseller_instruction\b/gi, 'Seller instruction'],
+    [/\bseller_id\b/gi, 'Exporter (Seller)'],
     [/\bbuyer_instruction_id\b/gi, 'Importer (Buyer)'],
     [/\bbuyer_instruction\b/gi, 'Buyer instruction'],
+    [/\bbuyer_id\b/gi, 'Importer (Buyer)'],
     [/\bproduct_id\b/gi, 'Product'],
-    [/\bproduct_name\b/gi, 'Product name'],
+    [/\bproduct_name\b/gi, 'Product'],
     [/\bhsn_code\b/gi, 'HSN code'],
+    [/\bproduct_country\b/gi, 'Country of origin'],
     [/\bquality_specification\b/gi, 'Specification'],
+    [/\bship_by\b/gi, 'Shipping mode'],
+    [/\bshipping_mode\b/gi, 'Shipping mode'],
     [/\bloading_port_id\b/gi, 'Loading port'],
+    [/\bloading_port\b/gi, 'Loading port'],
     [/\bdestination_port_id\b/gi, 'Destination port'],
+    [/\bdestination_port\b/gi, 'Destination port'],
     [/\bpacking_type_id\b/gi, 'Packing'],
+    [/\bpacking_type\b/gi, 'Packing'],
     [/\bshipping_term\b/gi, 'Shipping term'],
+    [/\bdelivery_term\b/gi, 'Shipping term'],
     [/\bfcl_quantity\b/gi, 'FCL quantity'],
     [/\bfcl_capacity\b/gi, 'FCL capacity'],
     [/\bmt_quantity\b/gi, 'MT quantity'],
     [/\bbag_quantity\b/gi, 'Bag quantity'],
     [/\bcurrency_id\b/gi, 'Currency'],
     [/\bpayment_term_id\b/gi, 'Payment term'],
+    [/\bpayment_term\b/gi, 'Payment term'],
     [/\btotal_value\b/gi, 'Total value'],
     [/\bpdf_title\b/gi, 'Document title'],
   ];
@@ -193,99 +328,271 @@ export function humanizeValidationMessage(rawMsg: any, fieldKey?: string): strin
   });
 
   // Capitalize sentence start
-  return msg.charAt(0).toUpperCase() + msg.slice(1);
+  const formatted = msg.charAt(0).toUpperCase() + msg.slice(1);
+  return deduplicateValidationMessage(formatted);
 }
 
 /**
  * Detects which form field an error message or identifier belongs to.
+ * Supports snake_case, spaced text, and lowercase camelCase matching.
  */
 export function detectFieldInSentence(text: string): { key: string; rawField: string } | null {
   if (!text || typeof text !== 'string') return null;
   const lower = text.toLowerCase();
+  const normalized = lower.replace(/[-_.]/g, ' ');
 
+  // 1. Shipment Dates / Period
   if (
-    lower.includes('shipment_start') ||
+    normalized.includes('shipment start') ||
+    normalized.includes('shipment end') ||
+    normalized.includes('shipment period') ||
+    normalized.includes('shipment date') ||
     lower.includes('shipmentstart') ||
-    lower.includes('shipment_end') ||
     lower.includes('shipmentend') ||
-    lower.includes('shipment_period') ||
     lower.includes('shipmentperiod') ||
-    lower.includes('shipment_date')
+    lower.includes('shipmentdate')
   ) {
     return { key: 'shipmentPeriod', rawField: 'shipment_start_date' };
   }
-  if (lower.includes('confirmation_number') || lower.includes('confirmationnumber') || lower.includes('confirm_no')) {
+
+  // 2. Confirmation Number
+  if (
+    normalized.includes('confirmation number') ||
+    normalized.includes('confirm number') ||
+    normalized.includes('confirmation no') ||
+    normalized.includes('confirm no') ||
+    lower.includes('confirmationnumber') ||
+    lower.includes('confirmno')
+  ) {
     return { key: 'confirmationNumber', rawField: 'confirmation_number' };
   }
-  if (lower.includes('confirmation_date') || lower.includes('confirmationdate')) {
+
+  // 3. Confirmation Date
+  if (
+    normalized.includes('confirmation date') ||
+    normalized.includes('confirm date') ||
+    lower.includes('confirmationdate')
+  ) {
     return { key: 'confirmationDate', rawField: 'confirmation_date' };
   }
-  if (lower.includes('seller_instruction_id') || lower.includes('seller_id') || lower.includes('sellerid') || lower.includes('exporter')) {
+
+  // 4. Exporter / Seller instruction & seller ID
+  if (
+    normalized.includes('seller instruction id') ||
+    normalized.includes('seller id') ||
+    lower.includes('sellerid') ||
+    normalized.includes('exporter')
+  ) {
     return { key: 'sellerId', rawField: 'seller_instruction_id' };
   }
-  if (lower.includes('seller_instruction')) {
+  if (normalized.includes('seller instruction') || lower.includes('sellerinstruction')) {
     return { key: 'sellerInstruction', rawField: 'seller_instruction' };
   }
-  if (lower.includes('buyer_instruction_id') || lower.includes('buyer_id') || lower.includes('buyerid') || lower.includes('importer')) {
+  if (normalized.includes('seller')) {
+    return { key: 'sellerId', rawField: 'seller_instruction_id' };
+  }
+
+  // 5. Importer / Buyer instruction & buyer ID
+  if (
+    normalized.includes('buyer instruction id') ||
+    normalized.includes('buyer id') ||
+    lower.includes('buyerid') ||
+    normalized.includes('importer')
+  ) {
     return { key: 'buyerId', rawField: 'buyer_instruction_id' };
   }
-  if (lower.includes('buyer_instruction')) {
+  if (normalized.includes('buyer instruction') || lower.includes('buyerinstruction')) {
     return { key: 'buyerInstruction', rawField: 'buyer_instruction' };
   }
-  if (lower.includes('product_id') || lower.includes('productid') || lower.includes('product_name')) {
+  if (normalized.includes('buyer')) {
+    return { key: 'buyerId', rawField: 'buyer_instruction_id' };
+  }
+
+  // 6. Product
+  if (
+    normalized.includes('product id') ||
+    normalized.includes('product name') ||
+    lower.includes('productid') ||
+    lower.includes('productname') ||
+    normalized.includes('product')
+  ) {
     return { key: 'productId', rawField: 'product_id' };
   }
-  if (lower.includes('hsn_code') || lower.includes('hsncode') || lower.includes('hsn')) {
+
+  // 7. HSN Code
+  if (normalized.includes('hsn') || lower.includes('hsncode')) {
     return { key: 'hsnCode', rawField: 'hsn_code' };
   }
-  if (lower.includes('quality_specification') || lower.includes('specification')) {
+
+  // 8. Quality Specification
+  if (
+    normalized.includes('quality specification') ||
+    normalized.includes('specification') ||
+    lower.includes('qualityspecification') ||
+    normalized.includes('quality spec') ||
+    lower.includes('spec')
+  ) {
     return { key: 'specification', rawField: 'quality_specification' };
   }
-  if (lower.includes('ship_by') || lower.includes('shipby') || lower.includes('shipping_mode')) {
+
+  // 9. Shipping Mode (Ship By)
+  if (
+    normalized.includes('ship by') ||
+    normalized.includes('shipping mode') ||
+    normalized.includes('shipping method') ||
+    lower.includes('shipby') ||
+    lower.includes('shippingmode')
+  ) {
     return { key: 'shipBy', rawField: 'ship_by' };
   }
-  if (lower.includes('loading_port_id') || lower.includes('loading_port') || lower.includes('loadingport')) {
+
+  // 10. Loading Port
+  if (
+    normalized.includes('loading port') ||
+    normalized.includes('port of loading') ||
+    lower.includes('loadingport') ||
+    normalized.includes(' pol ') ||
+    normalized.endsWith(' pol') ||
+    normalized.startsWith('pol ')
+  ) {
     return { key: 'loadingPort', rawField: 'loading_port_id' };
   }
-  if (lower.includes('destination_port_id') || lower.includes('destination_port') || lower.includes('destinationport')) {
+
+  // 11. Destination Port
+  if (
+    normalized.includes('destination port') ||
+    normalized.includes('port of destination') ||
+    normalized.includes('port of discharge') ||
+    lower.includes('destinationport') ||
+    normalized.includes(' pod ') ||
+    normalized.endsWith(' pod') ||
+    normalized.startsWith('pod ')
+  ) {
     return { key: 'destinationPort', rawField: 'destination_port_id' };
   }
-  if (lower.includes('packing_type_id') || lower.includes('packing_type') || lower.includes('packingtype') || lower.includes('packing')) {
+
+  // 12. Packing
+  if (
+    normalized.includes('packing type') ||
+    normalized.includes('package type') ||
+    normalized.includes('packaging') ||
+    normalized.includes('packing') ||
+    lower.includes('packingtype')
+  ) {
     return { key: 'packing', rawField: 'packing_type_id' };
   }
-  if (lower.includes('shipping_term') || lower.includes('shippingterm') || lower.includes('deliveryterm')) {
+
+  // 13. Shipping Term
+  if (
+    normalized.includes('shipping term') ||
+    normalized.includes('delivery term') ||
+    normalized.includes('incoterm') ||
+    lower.includes('shippingterm')
+  ) {
     return { key: 'shippingTerm', rawField: 'shipping_term' };
   }
-  if (lower.includes('fcl_quantity') || lower.includes('fcl_qty') || lower.includes('fclquantity')) {
-    return { key: 'fclQty', rawField: 'fcl_quantity' };
-  }
-  if (lower.includes('fcl_capacity') || lower.includes('fclcapacity')) {
-    return { key: 'fclCapacity', rawField: 'fcl_capacity' };
-  }
-  if (lower.includes('mt_quantity') || lower.includes('mt_qty') || lower.includes('mtquantity')) {
-    return { key: 'mtQty', rawField: 'mt_quantity' };
-  }
-  if (lower.includes('bag_quantity') || lower.includes('bag_qty') || lower.includes('bagquantity')) {
-    return { key: 'bagQty', rawField: 'bag_quantity' };
-  }
-  if (lower.includes('currency_id') || lower.includes('currencyid') || lower.includes('currency')) {
-    return { key: 'currency', rawField: 'currency_id' };
-  }
-  if (lower.includes('price') || lower.includes('unitprice')) {
-    return { key: 'price', rawField: 'price' };
-  }
-  if (lower.includes('total_value') || lower.includes('totalvalue')) {
-    return { key: 'totalValue', rawField: 'total_value' };
-  }
-  if (lower.includes('payment_term_id') || lower.includes('payment_term') || lower.includes('paymentterm')) {
+
+  // 14. Payment Term
+  if (
+    normalized.includes('payment term') ||
+    normalized.includes('payment method') ||
+    lower.includes('paymentterm')
+  ) {
     return { key: 'paymentTerm', rawField: 'payment_term_id' };
   }
-  if (lower.includes('notes') || lower.includes('remarks') || lower.includes('description')) {
+
+  // 15. FCL Quantity
+  if (
+    normalized.includes('fcl quantity') ||
+    normalized.includes('fcl qty') ||
+    lower.includes('fclquantity') ||
+    lower.includes('fclqty') ||
+    normalized.includes('container quantity')
+  ) {
+    return { key: 'fclQty', rawField: 'fcl_quantity' };
+  }
+
+  // 16. FCL Capacity
+  if (
+    normalized.includes('fcl capacity') ||
+    normalized.includes('fcl cap') ||
+    lower.includes('fclcapacity') ||
+    lower.includes('fclcap')
+  ) {
+    return { key: 'fclCapacity', rawField: 'fcl_capacity' };
+  }
+
+  // 17. MT Quantity
+  if (
+    normalized.includes('mt quantity') ||
+    normalized.includes('mt qty') ||
+    normalized.includes('metric tons') ||
+    normalized.includes('metric ton') ||
+    lower.includes('mtquantity') ||
+    lower.includes('mtqty')
+  ) {
+    return { key: 'mtQty', rawField: 'mt_quantity' };
+  }
+
+  // 18. Bag Quantity
+  if (
+    normalized.includes('bag quantity') ||
+    normalized.includes('bag qty') ||
+    lower.includes('bagquantity') ||
+    lower.includes('bagqty') ||
+    normalized.includes('bags')
+  ) {
+    return { key: 'bagQty', rawField: 'bag_quantity' };
+  }
+
+  // 19. Currency
+  if (
+    normalized.includes('currency id') ||
+    normalized.includes('currency code') ||
+    lower.includes('currencyid') ||
+    normalized.includes('currency')
+  ) {
+    return { key: 'currency', rawField: 'currency_id' };
+  }
+
+  // 20. Unit Price
+  if (
+    normalized.includes('unit price') ||
+    normalized.includes('price') ||
+    lower.includes('unitprice')
+  ) {
+    return { key: 'price', rawField: 'price' };
+  }
+
+  // 21. Total Value
+  if (
+    normalized.includes('total value') ||
+    normalized.includes('total amount') ||
+    lower.includes('totalvalue') ||
+    lower.includes('totalamount')
+  ) {
+    return { key: 'totalValue', rawField: 'total_value' };
+  }
+
+  // 22. Notes
+  if (
+    normalized.includes('notes') ||
+    normalized.includes('remarks') ||
+    normalized.includes('remark')
+  ) {
     return { key: 'notes', rawField: 'notes' };
   }
-  if (lower.includes('pdf_title') || lower.includes('document_title')) {
+
+  // 23. Document Title
+  if (
+    normalized.includes('pdf title') ||
+    normalized.includes('document title') ||
+    lower.includes('pdftitle') ||
+    lower.includes('documenttitle')
+  ) {
     return { key: 'documentTitle', rawField: 'pdf_title' };
   }
+
   return null;
 }
 
@@ -412,7 +719,7 @@ export function scrollToAndFocusField(fieldErrorsOrKey: string | Record<string, 
 
 /**
  * Robust helper to extract field-wise validation errors and general error from backend API response.
- * Automatically humanizes all technical field names and error messages.
+ * Automatically humanizes all technical field names and error messages, and deduplicates repeated phrases.
  */
 export function parseBackendFieldErrors(
   result: any
@@ -455,9 +762,8 @@ export function parseBackendFieldErrors(
         return 'buyerInstruction';
       case 'productid':
       case 'product':
-        return 'productId';
       case 'productname':
-        return 'productName';
+        return 'productId';
       case 'hsncode':
       case 'hsn':
       case 'hsnsaccode':
@@ -474,6 +780,7 @@ export function parseBackendFieldErrors(
         return 'specification';
       case 'shipby':
       case 'shippingmode':
+      case 'shippingmethod':
       case 'mode':
         return 'shipBy';
       case 'loadingportid':
@@ -490,6 +797,8 @@ export function parseBackendFieldErrors(
       case 'packingtypeid':
       case 'packingtype':
       case 'packing':
+      case 'packagetypeid':
+      case 'packagetype':
       case 'packaging':
         return 'packing';
       case 'shippingterm':
@@ -498,13 +807,17 @@ export function parseBackendFieldErrors(
         return 'shippingTerm';
       case 'fclquantity':
       case 'fclqty':
+      case 'containerquantity':
+      case 'containers':
         return 'fclQty';
       case 'fclcapacity':
       case 'fclcap':
+      case 'containercapacity':
         return 'fclCapacity';
       case 'mtquantity':
       case 'mtqty':
       case 'metrictons':
+      case 'metricton':
         return 'mtQty';
       case 'bagquantity':
       case 'bagqty':
@@ -530,6 +843,7 @@ export function parseBackendFieldErrors(
         return 'shipmentPeriod';
       case 'paymenttermid':
       case 'paymentterm':
+      case 'paymentterms':
       case 'payment':
         return 'paymentTerm';
       case 'notes':
@@ -548,21 +862,102 @@ export function parseBackendFieldErrors(
     }
   };
 
-  const addError = (field: string, msg: any) => {
-    if (!field) return;
-    const key = mapFieldNameToErrorKey(field);
-    let strMsg = '';
-    if (typeof msg === 'string') {
-      strMsg = msg;
-    } else if (Array.isArray(msg)) {
-      strMsg = msg.map((m) => (typeof m === 'string' ? m : m?.message || m?.msg || JSON.stringify(m))).join(', ');
-    } else if (msg && typeof msg === 'object') {
-      strMsg = msg.message || msg.msg || msg.error || JSON.stringify(msg);
+  /**
+   * Ingests any error entity (string, array, object, class-validator format).
+   * Automatically splits compound error sentences across fields and deduplicates repetition.
+   */
+  const ingestErrorItem = (fieldHint: string | undefined, msgVal: any): void => {
+    if (!msgVal) return;
+
+    // Array of errors
+    if (Array.isArray(msgVal)) {
+      for (const sub of msgVal) {
+        ingestErrorItem(fieldHint, sub);
+      }
+      return;
     }
 
-    const cleanMsg = humanizeValidationMessage(strMsg, key);
-    if (cleanMsg && !fieldErrors[key]) {
-      fieldErrors[key] = cleanMsg;
+    // Object representations (class-validator, Express-validator, NestJS)
+    if (typeof msgVal === 'object') {
+      const fieldFromObj =
+        msgVal.field ||
+        msgVal.field_name ||
+        msgVal.fieldName ||
+        msgVal.param ||
+        msgVal.name ||
+        msgVal.column ||
+        msgVal.property ||
+        msgVal.key ||
+        (Array.isArray(msgVal.path) ? msgVal.path.join('.') : msgVal.path);
+
+      // class-validator constraints map: e.g. { isNotEmpty: '...', isString: '...' }
+      if (msgVal.constraints && typeof msgVal.constraints === 'object') {
+        for (const constraintMsg of Object.values(msgVal.constraints)) {
+          ingestErrorItem(fieldFromObj || fieldHint, constraintMsg);
+        }
+      }
+
+      // class-validator nested children
+      if (msgVal.children && Array.isArray(msgVal.children)) {
+        for (const child of msgVal.children) {
+          ingestErrorItem(undefined, child);
+        }
+      }
+
+      const text = msgVal.message || msgVal.msg || msgVal.error || msgVal.text || msgVal.description;
+      if (text) {
+        ingestErrorItem(fieldFromObj || fieldHint, text);
+      }
+      return;
+    }
+
+    const rawStr = String(msgVal).trim();
+    if (!rawStr) return;
+
+    // Split compound sentences / multi-error strings (e.g. "confirmation_number is required, seller_instruction_id is required")
+    const clauses = rawStr
+      .split(/(?:,|\n|;)+/)
+      .map((c) => c.trim())
+      .filter(Boolean);
+
+    for (const clause of clauses) {
+      let targetKey: string | null = null;
+      if (fieldHint) {
+        targetKey = mapFieldNameToErrorKey(fieldHint);
+      }
+
+      const detected = detectFieldInSentence(clause);
+      if (detected) {
+        targetKey = detected.key;
+      } else if (!targetKey) {
+        const keyFromClause = mapFieldNameToErrorKey(clause);
+        if (keyFromClause && keyFromClause !== clause) {
+          targetKey = keyFromClause;
+        }
+      }
+
+      const cleanMsg = deduplicateValidationMessage(humanizeValidationMessage(clause, targetKey || undefined));
+      if (!cleanMsg) continue;
+
+      if (targetKey) {
+        if (!fieldErrors[targetKey]) {
+          fieldErrors[targetKey] = cleanMsg;
+        } else {
+          // If already present, only append distinct info (never duplicate!)
+          const existing = fieldErrors[targetKey];
+          fieldErrors[targetKey] = deduplicateValidationMessage(`${existing}, ${cleanMsg}`);
+        }
+        if (!generalError) {
+          generalError = cleanMsg;
+        }
+      } else {
+        const isHeader = /^(form validation error|validation error|bad request|invalid input|invalid payload)$/i.test(
+          cleanMsg
+        );
+        if (!generalError && !isHeader) {
+          generalError = cleanMsg;
+        }
+      }
     }
   };
 
@@ -576,11 +971,11 @@ export function parseBackendFieldErrors(
     result.raw?.errors,
     result.raw?.data?.error_fields,
     result.raw?.data?.errors,
-    Array.isArray(result.message) ? result.message : null,
-    Array.isArray(result.raw?.message) ? result.raw.message : null,
-    result.data,
+    result.message,
+    result.raw?.message,
     result.validation?.body,
     result.details,
+    result.data,
     result.raw,
   ];
 
@@ -589,56 +984,7 @@ export function parseBackendFieldErrors(
 
     if (Array.isArray(src)) {
       for (const item of src) {
-        if (!item) continue;
-        if (typeof item === 'string') {
-          const detected = detectFieldInSentence(item);
-          if (detected) {
-            const clean = humanizeValidationMessage(item, detected.key);
-            fieldErrors[detected.key] = clean;
-            if (!generalError) generalError = clean;
-          } else {
-            const key = mapFieldNameToErrorKey(item);
-            if (key && key !== item) {
-              const clean = humanizeValidationMessage(`${item.replace(/_/g, ' ')} is required`, key);
-              fieldErrors[key] = clean;
-              if (!generalError) generalError = clean;
-            } else if (!generalError) {
-              generalError = humanizeValidationMessage(item);
-            }
-          }
-          continue;
-        }
-
-        const fieldName =
-          item.field ||
-          item.field_name ||
-          item.fieldName ||
-          item.param ||
-          item.name ||
-          item.column ||
-          (Array.isArray(item.path) ? item.path.join('.') : item.path) ||
-          item.key ||
-          item.property;
-        const msg =
-          item.message ||
-          item.msg ||
-          item.error ||
-          item.text ||
-          item.description ||
-          (fieldName ? `${fieldName.replace(/_/g, ' ')} is invalid` : '');
-
-        if (fieldName && msg) {
-          addError(fieldName, msg);
-        } else if (msg) {
-          const detected = detectFieldInSentence(String(msg));
-          if (detected) {
-            const clean = humanizeValidationMessage(msg, detected.key);
-            fieldErrors[detected.key] = clean;
-            if (!generalError) generalError = clean;
-          } else if (!generalError) {
-            generalError = humanizeValidationMessage(String(msg));
-          }
-        }
+        ingestErrorItem(undefined, item);
       }
       continue;
     }
@@ -649,51 +995,23 @@ export function parseBackendFieldErrors(
           continue;
         }
         if (k === 'message' || k === 'error') {
-          if (typeof v === 'string') {
-            const detected = detectFieldInSentence(v);
-            if (detected) {
-              const clean = humanizeValidationMessage(v, detected.key);
-              fieldErrors[detected.key] = clean;
-              if (!generalError) generalError = clean;
-            }
-          }
+          ingestErrorItem(undefined, v);
           continue;
         }
-        if (typeof v === 'string' || Array.isArray(v)) {
-          addError(k, v);
-        } else if (v && typeof v === 'object') {
-          const nestedMsg = (v as any).message || (v as any).msg || (v as any).error;
-          if (nestedMsg) {
-            addError(k, nestedMsg);
-          }
-        }
+        ingestErrorItem(k, v);
       }
     }
   }
 
   const rawMsg = result.error || result.message;
   if (rawMsg) {
-    const rawStr = Array.isArray(rawMsg) ? rawMsg.join(', ') : String(rawMsg);
-    const isGenericValidationHeader =
-      /form validation error|validation error|invalid payload|invalid input/i.test(rawStr);
-
-    const detected = detectFieldInSentence(rawStr);
-    if (detected && !fieldErrors[detected.key]) {
-      const clean = humanizeValidationMessage(rawStr, detected.key);
-      fieldErrors[detected.key] = clean;
-      if (!generalError) generalError = clean;
-    }
-
-    if (Object.keys(fieldErrors).length === 0) {
-      generalError = humanizeValidationMessage(rawStr);
-    } else if (!isGenericValidationHeader && !generalError) {
-      generalError = humanizeValidationMessage(rawStr);
-    }
+    ingestErrorItem(undefined, rawMsg);
   }
 
-  // Ensure generalError is humanized
   if (generalError) {
-    generalError = humanizeValidationMessage(generalError);
+    generalError = deduplicateValidationMessage(humanizeValidationMessage(generalError));
+  } else if (Object.keys(fieldErrors).length > 0) {
+    generalError = Object.values(fieldErrors)[0];
   }
 
   return { fieldErrors, generalError };
@@ -712,6 +1030,8 @@ export interface ConfirmationDocumentFormProps {
   currencies?: FormOptionItem[];
   paymentTerms?: FormOptionItem[];
   onSaveDraft?: (data: any) => Promise<any> | any;
+  onSaveSuccess?: (savedId: string, confirmationData: any) => Promise<void> | void;
+  onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
   onSubmitContract?: (data: any) => Promise<any> | any;
   lang?: string;
   dict?: any;
@@ -731,14 +1051,16 @@ export function ConfirmationDocumentForm({
   currencies,
   paymentTerms,
   onSaveDraft,
+  onSaveSuccess,
+  onUpdateSteps,
   onSubmitContract,
   lang = 'en',
   dict,
   readOnly = false,
 }: ConfirmationDocumentFormProps) {
   // Saved Draft ID (generated by backend on first save, sent on subsequent saves)
-  const [draftId, setDraftId] = useState<string>(
-    initialData?.id || initialData?._id || initialData?.confirmation_id || ''
+  const [draftId, setDraftId] = useState<string>(() =>
+    toCleanId(initialData?.id || initialData?._id || initialData?.confirmation_id || initialData?.confirmationId)
   );
 
   // Document Configuration
@@ -752,56 +1074,54 @@ export function ConfirmationDocumentForm({
       ? Boolean(initialData.is_watermark_enabled)
       : Boolean(initialData?.watermark ?? false)
   );
-  const [documentTitle, setDocumentTitle] = useState<string>(
-    initialData?.pdf_title ||
-      initialData?.pdfTitle ||
-      initialData?.documentTitle ||
-      initialData?.title ||
+  const [documentTitle, setDocumentTitle] = useState<string>(() =>
+    toCleanLabel(initialData?.pdf_title || initialData?.pdfTitle || initialData?.documentTitle || initialData?.title) ||
       dict?.smart_docs?.confirmation_form?.confirmation_title ||
       'CONFIRMATION'
   );
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // Row 1: Meta
-  const [confirmationNumber, setConfirmationNumber] = useState<string>(
-    initialData?.confirmationNumber || initialData?.confirmation_number || ''
+  const [confirmationNumber, setConfirmationNumber] = useState<string>(() =>
+    toCleanLabel(initialData?.confirmationNumber || initialData?.confirmation_number) || ''
   );
   const confirmationInputRef = useRef<HTMLInputElement>(null);
-  const [confirmationDate, setConfirmationDate] = useState<string>(
-    initialData?.confirmationDate || initialData?.confirmation_date || ''
-  );
+  const [confirmationDate, setConfirmationDate] = useState<string>(() => {
+    const raw = toCleanLabel(initialData?.confirmationDate || initialData?.confirmation_date);
+    return raw && raw.includes('T') ? raw.split('T')[0] : raw;
+  });
 
   // Row 2: Parties
-  const [sellerId, setSellerId] = useState<string>(
-    initialData?.sellerId || initialData?.seller_instruction_id || ''
+  const [sellerId, setSellerId] = useState<string>(() =>
+    toCleanId(initialData?.sellerId || initialData?.seller_instruction_id || initialData?.seller)
   );
-  const [sellerInstruction, setSellerInstruction] = useState<string>(
-    initialData?.sellerInstruction || initialData?.seller_instruction || ''
+  const [sellerInstruction, setSellerInstruction] = useState<string>(() =>
+    toCleanLabel(initialData?.sellerInstruction || initialData?.seller_instruction || (typeof initialData?.seller === 'object' ? initialData.seller.instructionText || initialData.seller.details : ''))
   );
-  const [buyerId, setBuyerId] = useState<string>(
-    initialData?.buyerId || initialData?.buyer_instruction_id || ''
+  const [buyerId, setBuyerId] = useState<string>(() =>
+    toCleanId(initialData?.buyerId || initialData?.buyer_instruction_id || initialData?.buyer)
   );
-  const [buyerInstruction, setBuyerInstruction] = useState<string>(
-    initialData?.buyerInstruction || initialData?.buyer_instruction || ''
+  const [buyerInstruction, setBuyerInstruction] = useState<string>(() =>
+    toCleanLabel(initialData?.buyerInstruction || initialData?.buyer_instruction || (typeof initialData?.buyer === 'object' ? initialData.buyer.instructionText || initialData.buyer.details : ''))
   );
 
   // Row 3: Product, HSN, Country
-  const [productId, setProductId] = useState<string>(
-    initialData?.productId || initialData?.product_id || ''
+  const [productId, setProductId] = useState<string>(() =>
+    toCleanId(initialData?.productId || initialData?.product_id || initialData?.product)
   );
-  const [hsnCode, setHsnCode] = useState<string>(() => normalizeHsnString(initialData?.hsnCode || initialData?.hsn));
+  const [hsnCode, setHsnCode] = useState<string>(() => normalizeHsnString(initialData?.hsnCode || initialData?.hsn || (typeof initialData?.product === 'object' ? initialData.product.hsn : '')));
   const [productCountry, setProductCountry] = useState<string>(() =>
-    normalizeCountryString(initialData?.productCountry || initialData?.country)
+    normalizeCountryString(initialData?.productCountry || initialData?.country || (typeof initialData?.product === 'object' ? initialData.product.country : ''))
   );
 
   // Row 4: Specification
-  const [specification, setSpecification] = useState<string>(
-    initialData?.specification || initialData?.quality_specification || ''
+  const [specification, setSpecification] = useState<string>(() =>
+    toCleanLabel(initialData?.specification || initialData?.quality_specification || (typeof initialData?.product === 'object' ? initialData.product.specification || initialData.product.quality_specification : ''))
   );
 
   // Row 5: Ship By (User's choice, no default pre-selection)
   const [shipBy, setShipBy] = useState<string>(() => {
-    const init = initialData?.ship_by || initialData?.shipBy || '';
+    const init = toCleanLabel(initialData?.ship_by || initialData?.shipBy);
     if (init) return normalizeShipByForApi(init);
     return '';
   });
@@ -817,28 +1137,28 @@ export function ConfirmationDocumentForm({
   };
 
   // Row 6: Loading Port
-  const [loadingPort, setLoadingPort] = useState<string>(
-    initialData?.loadingPort || initialData?.loading_port_id || ''
-  );
+  const [loadingPort, setLoadingPort] = useState<string>(() => {
+    const raw = initialData?.loadingPort || initialData?.loading_port_id || initialData?.loading_port;
+    return toCleanId(raw) || toCleanLabel(raw) || '';
+  });
 
   // Row 7: Destination Port
-  const [destinationPort, setDestinationPort] = useState<string>(
-    initialData?.destinationPort || initialData?.destination_port_id || ''
-  );
+  const [destinationPort, setDestinationPort] = useState<string>(() => {
+    const raw = initialData?.destinationPort || initialData?.destination_port_id || initialData?.destination_port;
+    return toCleanId(raw) || toCleanLabel(raw) || '';
+  });
 
   // Row 8: Packing
-  const [packing, setPacking] = useState<string>(
-    initialData?.packing || initialData?.packing_type_id || ''
-  );
+  const [packing, setPacking] = useState<string>(() => {
+    const raw = initialData?.packing || initialData?.packing_type_id || initialData?.packing_type;
+    return toCleanId(raw) || toCleanLabel(raw) || '';
+  });
 
   // Row 9: Shipping Term
-  const [shippingTerm, setShippingTerm] = useState<string>(
-    initialData?.shippingTerm ||
-      initialData?.shipping_term ||
-      initialData?.incoterm ||
-      initialData?.delivery_term ||
-      'CNF'
-  );
+  const [shippingTerm, setShippingTerm] = useState<string>(() => {
+    const raw = toCleanLabel(initialData?.shippingTerm || initialData?.shipping_term || initialData?.incoterm || initialData?.delivery_term);
+    return raw || 'CNF';
+  });
 
   // Row 10: Matrix Calculation
   const [fclQty, setFclQty] = useState<string | number>(
@@ -854,15 +1174,16 @@ export function ConfirmationDocumentForm({
     initialData?.bagQty ?? initialData?.bag_quantity ?? ''
   );
   const [currency, setCurrency] = useState<string>(() => {
-    const init = initialData?.currency || initialData?.currency_code;
-    if (init && typeof init === 'string' && init.trim()) {
-      return init.trim().toUpperCase();
-    }
-    return 'USD';
+    const raw = initialData?.currency || initialData?.currency_code || initialData?.currency_id || initialData?.currencyId;
+    const resolved = normalizeCurrencyOption(raw, currencies || initialData?.currencies || initialData?.currenciesList);
+    return resolved.value || 'USD';
   });
-  const [currencyId, setCurrencyId] = useState<string>(
-    initialData?.currency_id || initialData?.currencyId || ''
-  );
+  const [currencyId, setCurrencyId] = useState<string>(() => {
+    const cId = toCleanId(initialData?.currency_id || initialData?.currencyId || (typeof initialData?.currency === 'object' ? initialData.currency?.id || initialData.currency?._id : ''));
+    if (cId) return cId;
+    const resolved = normalizeCurrencyOption(initialData?.currency || initialData?.currency_code, currencies);
+    return resolved.id || '';
+  });
   const [price, setPrice] = useState<string | number>(initialData?.price ?? '');
   const [totalValue, setTotalValue] = useState<string | number>(
     initialData?.totalValue ?? initialData?.total_value ?? ''
@@ -877,14 +1198,15 @@ export function ConfirmationDocumentForm({
       ? new Date(initialData.shipmentEndDate || initialData.shipment_end_date)
       : null,
   });
-  const [shipmentPeriod, setShipmentPeriod] = useState<string>(
-    initialData?.shipmentPeriod || ''
+  const [shipmentPeriod, setShipmentPeriod] = useState<string>(() =>
+    toCleanLabel(initialData?.shipmentPeriod || initialData?.shipment_period) || ''
   );
 
   // Row 12: Payment Term
-  const [paymentTerm, setPaymentTerm] = useState<string>(
-    initialData?.paymentTerm || initialData?.payment_term_id || ''
-  );
+  const [paymentTerm, setPaymentTerm] = useState<string>(() => {
+    const raw = initialData?.paymentTerm || initialData?.payment_term_id || initialData?.payment_term;
+    return toCleanId(raw) || toCleanLabel(raw) || '';
+  });
 
   // Row 13: Notes
   const [notes, setNotes] = useState<string>(
@@ -897,18 +1219,95 @@ export function ConfirmationDocumentForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Dynamic Instructions Lists State (pre-populated by SSR or fetched via server action)
-  const [internalSellers, setInternalSellers] = useState<FormOptionItem[]>(sellers || []);
-  const [internalBuyers, setInternalBuyers] = useState<FormOptionItem[]>(buyers || []);
+  const [internalSellers, setInternalSellers] = useState<FormOptionItem[]>(() => {
+    const base = sellers || [];
+    const raw = initialData?.seller || initialData?.seller_instruction_id;
+    if (raw && typeof raw === 'object') {
+      const sId = toCleanId(raw);
+      const sLbl = toCleanLabel(raw.company_name || raw.label || raw.name || raw);
+      if (sId && !base.some((s) => toCleanId(s.value) === sId)) {
+        return [{ value: sId, label: sLbl || sId, instructionText: toCleanLabel(raw.instructionText || raw.details || raw.instruction) }, ...base];
+      }
+    }
+    return base;
+  });
+  const [internalBuyers, setInternalBuyers] = useState<FormOptionItem[]>(() => {
+    const base = buyers || [];
+    const raw = initialData?.buyer || initialData?.buyer_instruction_id;
+    if (raw && typeof raw === 'object') {
+      const bId = toCleanId(raw);
+      const bLbl = toCleanLabel(raw.company_name || raw.label || raw.name || raw);
+      if (bId && !base.some((b) => toCleanId(b.value) === bId)) {
+        return [{ value: bId, label: bLbl || bId, instructionText: toCleanLabel(raw.instructionText || raw.details || raw.instruction) }, ...base];
+      }
+    }
+    return base;
+  });
   const [isLoadingInstructions, setIsLoadingInstructions] = useState<boolean>(false);
 
+  // Current active product ID ref to guard against stale async responses
+  const currentProductIdRef = useRef<string>(productId);
+  useEffect(() => {
+    currentProductIdRef.current = productId;
+  }, [productId]);
+
   // Dynamic Products List State (pre-populated by SSR or fetched via server action)
-  const [internalProducts, setInternalProducts] = useState<FormOptionItem[]>(products || []);
+  const [internalProducts, setInternalProducts] = useState<FormOptionItem[]>(() => {
+    const base = products || [];
+    const raw = initialData?.product || initialData?.product_id;
+    const pId = toCleanId(initialData?.product_id || initialData?.productId || raw);
+    const pLbl = toCleanLabel(
+      (typeof raw === 'object' ? raw.name || raw.product_name || raw.label || raw.title : '') ||
+      initialData?.product_name ||
+      initialData?.productName ||
+      (typeof initialData?.product === 'string' && initialData.product !== pId ? initialData.product : '') ||
+      raw
+    );
+    if (pId && pLbl && !base.some((p) => toCleanId(p.value) === pId)) {
+      return [{ value: pId, label: pLbl }, ...base];
+    }
+    return base;
+  });
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(false);
 
   // Dynamic Product Specific Fields State (packing types, loading ports, destination ports)
-  const [internalPackingOptions, setInternalPackingOptions] = useState<FormOptionItem[]>(packingOptions || []);
-  const [internalLoadingPorts, setInternalLoadingPorts] = useState<FormOptionItem[]>(loadingPorts || []);
-  const [internalDestinationPorts, setInternalDestinationPorts] = useState<FormOptionItem[]>(destinationPorts || []);
+  const [internalPackingOptions, setInternalPackingOptions] = useState<FormOptionItem[]>(() => {
+    const base = packingOptions || [];
+    const raw = initialData?.packing_type || initialData?.packing_type_id || initialData?.packing;
+    const pId = toCleanId(raw);
+    const pLabel = toCleanLabel(raw);
+    if ((pId || pLabel) && !base.some((p) => toCleanId(p.value) === (pId || pLabel) || toCleanLabel(p.label).toLowerCase() === (pLabel || pId).toLowerCase())) {
+      const bagWeightKg = parsePackingBagWeightKg(raw || pLabel || pId);
+      return [{
+        value: pId || pLabel,
+        label: pLabel || pId,
+        bagWeightKg: bagWeightKg !== null ? bagWeightKg : undefined,
+      }, ...base];
+    }
+    return base;
+  });
+
+  const [internalLoadingPorts, setInternalLoadingPorts] = useState<FormOptionItem[]>(() => {
+    const base = loadingPorts || [];
+    const raw = initialData?.loading_port || initialData?.loading_port_id || initialData?.loadingPort;
+    const lId = toCleanId(raw);
+    const lLabel = toCleanLabel(raw);
+    if ((lId || lLabel) && !base.some((p) => toCleanId(p.value) === (lId || lLabel) || toCleanLabel(p.label).toLowerCase() === (lLabel || lId).toLowerCase())) {
+      return [{ value: lId || lLabel, label: lLabel || lId, subLabel: typeof raw === 'object' ? raw.country : undefined }, ...base];
+    }
+    return base;
+  });
+
+  const [internalDestinationPorts, setInternalDestinationPorts] = useState<FormOptionItem[]>(() => {
+    const base = destinationPorts || [];
+    const raw = initialData?.destination_port || initialData?.destination_port_id || initialData?.destinationPort;
+    const dId = toCleanId(raw);
+    const dLabel = toCleanLabel(raw);
+    if ((dId || dLabel) && !base.some((p) => toCleanId(p.value) === (dId || dLabel) || toCleanLabel(p.label).toLowerCase() === (dLabel || dId).toLowerCase())) {
+      return [{ value: dId || dLabel, label: dLabel || dId, subLabel: typeof raw === 'object' ? raw.country : undefined }, ...base];
+    }
+    return base;
+  });
   const [isLoadingProductDetails, setIsLoadingProductDetails] = useState<boolean>(false);
   const productDetailsCacheRef = useRef<Record<string, any>>({});
 
@@ -922,16 +1321,33 @@ export function ConfirmationDocumentForm({
     if (paymentTerms && paymentTerms.length > 0) return paymentTerms;
     if (initialData?.paymentTerms && Array.isArray(initialData.paymentTerms)) return initialData.paymentTerms;
     if (initialData?.paymentTermsList && Array.isArray(initialData.paymentTermsList)) return initialData.paymentTermsList;
-    return DEFAULT_PAYMENT_TERMS;
+    const base = DEFAULT_PAYMENT_TERMS;
+    const raw = initialData?.payment_term || initialData?.payment_term_id || initialData?.paymentTerm;
+    const payId = toCleanId(raw);
+    const payLabel = toCleanLabel(raw);
+    if ((payId || payLabel) && !base.some((p) => toCleanId(p.value) === (payId || payLabel) || toCleanLabel(p.label).toLowerCase() === (payLabel || payId).toLowerCase())) {
+      return [{ value: payId || payLabel, label: payLabel || payId }, ...base];
+    }
+    return base;
   });
   const [isLoadingPaymentTerms, setIsLoadingPaymentTerms] = useState<boolean>(false);
 
   // Dynamic Currencies List State (pre-populated by SSR or fetched via server action)
   const [internalCurrencies, setInternalCurrencies] = useState<FormOptionItem[]>(() => {
-    if (currencies && currencies.length > 0) return currencies;
-    if (initialData?.currencies && Array.isArray(initialData.currencies)) return initialData.currencies;
-    if (initialData?.currenciesList && Array.isArray(initialData.currenciesList)) return initialData.currenciesList;
-    return DEFAULT_CURRENCIES;
+    const base = currencies && currencies.length > 0
+      ? currencies
+      : initialData?.currencies && Array.isArray(initialData.currencies)
+      ? initialData.currencies
+      : initialData?.currenciesList && Array.isArray(initialData.currenciesList)
+      ? initialData.currenciesList
+      : DEFAULT_CURRENCIES;
+    const raw = initialData?.currency || initialData?.currency_id || initialData?.currency_code;
+    if (!raw) return base;
+    const resolved = normalizeCurrencyOption(raw, base);
+    if (resolved && !base.some((c: any) => String(c.value).toUpperCase() === resolved.value.toUpperCase())) {
+      return [resolved, ...base];
+    }
+    return base;
   });
   const [isLoadingCurrencies, setIsLoadingCurrencies] = useState<boolean>(false);
 
@@ -940,52 +1356,84 @@ export function ConfirmationDocumentForm({
   const [paymentTermModalMode, setPaymentTermModalMode] = useState<'add' | 'edit'>('add');
   const [editingPaymentTerm, setEditingPaymentTerm] = useState<FormOptionItem | null>(null);
 
-  // Sync with props if updated externally
+  // Sync with props if updated externally (merge to avoid losing locally added/custom items)
   useEffect(() => {
     if (sellers && sellers.length > 0) {
-      setInternalSellers(sellers);
+      setInternalSellers((prev) => {
+        const incomingIds = new Set(sellers.map((s) => toCleanId(s.value || s.id)));
+        const preserved = prev.filter((s) => !incomingIds.has(toCleanId(s.value || s.id)));
+        return [...sellers, ...preserved];
+      });
     }
   }, [sellers]);
 
   useEffect(() => {
     if (buyers && buyers.length > 0) {
-      setInternalBuyers(buyers);
+      setInternalBuyers((prev) => {
+        const incomingIds = new Set(buyers.map((b) => toCleanId(b.value || b.id)));
+        const preserved = prev.filter((b) => !incomingIds.has(toCleanId(b.value || b.id)));
+        return [...buyers, ...preserved];
+      });
     }
   }, [buyers]);
 
   useEffect(() => {
     if (products && products.length > 0) {
-      setInternalProducts(products);
+      setInternalProducts((prev) => {
+        const incomingIds = new Set(products.map((p) => toCleanId(p.value || p.id || p._id)));
+        const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id || p._id)));
+        return [...products, ...preserved];
+      });
     }
   }, [products]);
 
   useEffect(() => {
     if (packingOptions && packingOptions.length > 0) {
-      setInternalPackingOptions(packingOptions);
+      setInternalPackingOptions((prev) => {
+        const incomingIds = new Set(packingOptions.map((p) => toCleanId(p.value || p.id)));
+        const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+        return [...packingOptions, ...preserved];
+      });
     }
   }, [packingOptions]);
 
   useEffect(() => {
     if (loadingPorts && loadingPorts.length > 0) {
-      setInternalLoadingPorts(loadingPorts);
+      setInternalLoadingPorts((prev) => {
+        const incomingIds = new Set(loadingPorts.map((p) => toCleanId(p.value || p.id)));
+        const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+        return [...loadingPorts, ...preserved];
+      });
     }
   }, [loadingPorts]);
 
   useEffect(() => {
     if (destinationPorts && destinationPorts.length > 0) {
-      setInternalDestinationPorts(destinationPorts);
+      setInternalDestinationPorts((prev) => {
+        const incomingIds = new Set(destinationPorts.map((p) => toCleanId(p.value || p.id)));
+        const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+        return [...destinationPorts, ...preserved];
+      });
     }
   }, [destinationPorts]);
 
   useEffect(() => {
     if (paymentTerms && paymentTerms.length > 0) {
-      setInternalPaymentTerms(paymentTerms);
+      setInternalPaymentTerms((prev) => {
+        const incomingIds = new Set(paymentTerms.map((p) => toCleanId(p.value || p.id)));
+        const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+        return [...paymentTerms, ...preserved];
+      });
     }
   }, [paymentTerms]);
 
   useEffect(() => {
     if (currencies && currencies.length > 0) {
-      setInternalCurrencies(currencies);
+      setInternalCurrencies((prev) => {
+        const incomingVals = new Set(currencies.map((c) => String(c.value).toUpperCase()));
+        const preserved = prev.filter((c) => !incomingVals.has(String(c.value).toUpperCase()));
+        return [...currencies, ...preserved];
+      });
     }
   }, [currencies]);
 
@@ -1223,34 +1671,34 @@ export function ConfirmationDocumentForm({
 
   // Handle Currency selection and resolve currency ID
   const handleCurrencyChange = (val: string) => {
-    setCurrency(val);
+    const norm = normalizeCurrencyOption(val, currenciesList);
+    const codeVal = norm.value || val;
+    setCurrency(codeVal);
     const found = currenciesList.find(
       (c) =>
-        String(c.value).toUpperCase() === String(val).toUpperCase() ||
-        String(c.code || '').toUpperCase() === String(val).toUpperCase() ||
+        String(c.value).toUpperCase() === String(codeVal).toUpperCase() ||
+        String(c.code || '').toUpperCase() === String(codeVal).toUpperCase() ||
         String(c.id) === String(val) ||
         String(c.raw?.id) === String(val)
     );
-    if (found) {
-      const cId = found.id || found.raw?.id || found.raw?._id || found.raw?.currency_id || found.value;
-      if (cId) setCurrencyId(String(cId));
-    }
+    const cId = found?.id || found?.raw?.id || found?.raw?._id || found?.raw?.currency_id || norm.id;
+    if (cId) setCurrencyId(String(cId));
   };
 
   // Auto-resolve currencyId once currenciesList is available if not set
   useEffect(() => {
     if (currency && currenciesList.length > 0 && !currencyId) {
+      const norm = normalizeCurrencyOption(currency, currenciesList);
+      const targetVal = norm.value || currency;
       const found = currenciesList.find(
         (c) =>
-          String(c.value).toUpperCase() === String(currency).toUpperCase() ||
-          String(c.code || '').toUpperCase() === String(currency).toUpperCase() ||
+          String(c.value).toUpperCase() === String(targetVal).toUpperCase() ||
+          String(c.code || '').toUpperCase() === String(targetVal).toUpperCase() ||
           String(c.id) === String(currency) ||
           String(c.raw?.id) === String(currency)
       );
-      if (found) {
-        const cId = found.id || found.raw?.id || found.raw?._id || found.raw?.currency_id || found.value;
-        if (cId) setCurrencyId(String(cId));
-      }
+      const cId = found?.id || found?.raw?.id || found?.raw?._id || found?.raw?.currency_id || norm.id;
+      if (cId) setCurrencyId(String(cId));
     }
   }, [currency, currenciesList, currencyId]);
 
@@ -1338,6 +1786,11 @@ export function ConfirmationDocumentForm({
           const d = res.data;
           productDetailsCacheRef.current[cleanId] = d;
 
+          // If the user already switched to another product while this request was in-flight, discard
+          if (currentProductIdRef.current !== cleanId) {
+            return;
+          }
+
           if (d.hsnCode || d.hsn) {
             setHsnCode(normalizeHsnString(d.hsnCode || d.hsn));
           }
@@ -1360,7 +1813,9 @@ export function ConfirmationDocumentForm({
       } catch (err) {
         console.error('[ConfirmationDocumentForm] Error fetching product details:', err);
       } finally {
-        setIsLoadingProductDetails(false);
+        if (currentProductIdRef.current === cleanId) {
+          setIsLoadingProductDetails(false);
+        }
       }
     },
     [lang]
@@ -1370,6 +1825,7 @@ export function ConfirmationDocumentForm({
   const handleProductChange = (prodId: string) => {
     const isDifferent = String(prodId || '') !== String(productId || '');
     setProductId(prodId);
+    currentProductIdRef.current = prodId;
     setErrors((prev) => ({ ...prev, productId: '' }));
 
     if (isDifferent) {
@@ -1514,165 +1970,437 @@ export function ConfirmationDocumentForm({
     }
   }, [productId, hsnCode, productCountry, specification, productsList, fetchAndApplyProductDetails]);
 
-  // Synchronize with initialData if it updates (e.g. from async API load)
-  useEffect(() => {
-    if (!initialData) return;
-    if (initialData.id !== undefined || initialData._id !== undefined) {
-      setDraftId(String(initialData.id || initialData._id));
-    }
-    if (initialData.letterhead_space !== undefined) {
-      setLetterhead(Boolean(initialData.letterhead_space));
-    } else if (initialData.letterhead !== undefined) {
-      setLetterhead(Boolean(initialData.letterhead));
-    }
-    if (initialData.is_watermark_enabled !== undefined) {
-      setWatermark(Boolean(initialData.is_watermark_enabled));
-    } else if (initialData.watermark !== undefined) {
-      setWatermark(Boolean(initialData.watermark));
-    }
-    if (initialData.pdf_title !== undefined) {
-      setDocumentTitle(initialData.pdf_title);
-    } else if (initialData.pdfTitle !== undefined) {
-      setDocumentTitle(initialData.pdfTitle);
-    } else if (initialData.documentTitle !== undefined) {
-      setDocumentTitle(initialData.documentTitle);
-    } else if (initialData.title !== undefined) {
-      setDocumentTitle(initialData.title);
-    }
-    if (initialData.confirmationNumber !== undefined) {
-      setConfirmationNumber(initialData.confirmationNumber);
-    } else if (initialData.confirmation_number !== undefined) {
-      setConfirmationNumber(initialData.confirmation_number);
-    }
-    if (initialData.confirmationDate !== undefined) {
-      setConfirmationDate(initialData.confirmationDate);
-    } else if (initialData.confirmation_date !== undefined) {
-      setConfirmationDate(initialData.confirmation_date);
-    }
-    if (initialData.sellerId !== undefined) {
-      setSellerId(initialData.sellerId);
-    } else if (initialData.seller_instruction_id !== undefined) {
-      setSellerId(initialData.seller_instruction_id);
-    }
-    if (initialData.sellerInstruction !== undefined) {
-      setSellerInstruction(initialData.sellerInstruction);
-    } else if (initialData.seller_instruction !== undefined) {
-      setSellerInstruction(initialData.seller_instruction);
-    }
-    if (initialData.buyerId !== undefined) {
-      setBuyerId(initialData.buyerId);
-    } else if (initialData.buyer_instruction_id !== undefined) {
-      setBuyerId(initialData.buyer_instruction_id);
-    }
-    if (initialData.buyerInstruction !== undefined) {
-      setBuyerInstruction(initialData.buyerInstruction);
-    } else if (initialData.buyer_instruction !== undefined) {
-      setBuyerInstruction(initialData.buyer_instruction);
-    }
-    if (initialData.productId !== undefined) {
-      setProductId(initialData.productId);
-    } else if (initialData.product_id !== undefined) {
-      setProductId(initialData.product_id);
-    }
-    if (initialData.hsnCode !== undefined || initialData.hsn !== undefined) {
-      setHsnCode(normalizeHsnString(initialData.hsnCode || initialData.hsn));
-    }
-    if (initialData.productCountry !== undefined || initialData.country !== undefined) {
-      setProductCountry(normalizeCountryString(initialData.productCountry || initialData.country));
-    }
-    if (initialData.specification !== undefined) {
-      setSpecification(initialData.specification);
-    } else if (initialData.quality_specification !== undefined) {
-      setSpecification(initialData.quality_specification);
-    }
-    if (initialData.shipBy !== undefined) {
-      setShipBy(normalizeShipByForApi(initialData.shipBy));
-    } else if (initialData.ship_by !== undefined) {
-      setShipBy(normalizeShipByForApi(initialData.ship_by));
-    }
-    if (initialData.loadingPort !== undefined) {
-      setLoadingPort(initialData.loadingPort);
-    } else if (initialData.loading_port_id !== undefined) {
-      setLoadingPort(initialData.loading_port_id);
-    }
-    if (initialData.destinationPort !== undefined) {
-      setDestinationPort(initialData.destinationPort);
-    } else if (initialData.destination_port_id !== undefined) {
-      setDestinationPort(initialData.destination_port_id);
-    }
-    if (initialData.packing !== undefined) {
-      setPacking(initialData.packing);
-    } else if (initialData.packing_type_id !== undefined) {
-      setPacking(initialData.packing_type_id);
-    }
-    if (initialData.shippingTerm !== undefined) {
-      setShippingTerm(initialData.shippingTerm);
-    } else if (initialData.shipping_term !== undefined) {
-      setShippingTerm(initialData.shipping_term);
-    } else if (initialData.incoterm !== undefined) {
-      setShippingTerm(initialData.incoterm);
-    }
-    if (initialData.fclQty !== undefined) {
-      setFclQty(initialData.fclQty);
-    } else if (initialData.fcl_quantity !== undefined) {
-      setFclQty(initialData.fcl_quantity);
-    }
-    if (initialData.fclCapacity !== undefined) {
-      setFclCapacity(initialData.fclCapacity);
-    } else if (initialData.fcl_capacity !== undefined) {
-      setFclCapacity(initialData.fcl_capacity);
-    }
-    if (initialData.mtQty !== undefined) {
-      setMtQty(initialData.mtQty);
-    } else if (initialData.mt_quantity !== undefined) {
-      setMtQty(initialData.mt_quantity);
-    }
-    if (initialData.bagQty !== undefined) {
-      setBagQty(initialData.bagQty);
-    } else if (initialData.bag_quantity !== undefined) {
-      setBagQty(initialData.bag_quantity);
-    }
-    if (initialData.currency_id !== undefined || initialData.currencyId !== undefined) {
-      setCurrencyId(String(initialData.currency_id || initialData.currencyId));
-    }
-    if (initialData.currency !== undefined && initialData.currency !== '') {
-      setCurrency(String(initialData.currency).trim().toUpperCase());
-    } else if (!currency) {
-      setCurrency('USD');
-    }
-    if (initialData.price !== undefined) setPrice(initialData.price);
-    if (initialData.totalValue !== undefined) {
-      setTotalValue(initialData.totalValue);
-    } else if (initialData.total_value !== undefined) {
-      setTotalValue(initialData.total_value);
-    }
-    const rawStart = initialData.shipmentStartDate || initialData.shipment_start_date;
-    const rawEnd = initialData.shipmentEndDate || initialData.shipment_end_date;
-    if (rawStart || rawEnd) {
-      setShipmentRange({
-        start: rawStart ? new Date(rawStart) : null,
-        end: rawEnd ? new Date(rawEnd) : null,
+  // Track document ID to prevent background RSC re-renders from wiping active user edits
+  const lastLoadedDocIdRef = useRef<string>(
+    toCleanId(
+      initialData?.id ||
+      initialData?._id ||
+      initialData?.confirmation_id ||
+      initialData?.confirmationId
+    )
+  );
+  const isFormInitializedRef = useRef<boolean>(
+    Boolean(initialData && typeof initialData === 'object' && Object.keys(initialData).length > 0)
+  );
+
+  /**
+   * Helper function to populate and synchronize all form state fields from a confirmation data object.
+   * Can be invoked on initial mount / initialData change OR immediately after saving when backend
+   * returns the fresh confirmation entity via GET /confirmation/:id.
+   */
+  const populateConfirmationData = useCallback(
+    (rawObj: any) => {
+      if (!rawObj || typeof rawObj !== 'object') return;
+      const d =
+        rawObj?.data && typeof rawObj.data === 'object' && !Array.isArray(rawObj.data)
+          ? rawObj.data
+          : rawObj;
+
+      // Draft ID
+      const savedDocId = toCleanId(
+        d.id ||
+        d._id ||
+        d.confirmation_id ||
+        d.confirmationId ||
+        d.document_id ||
+        d.doc_id
+      );
+      if (savedDocId) {
+        setDraftId(savedDocId);
+        lastLoadedDocIdRef.current = savedDocId;
+        isFormInitializedRef.current = true;
+      }
+
+      // Document configuration
+      if (d.letterhead_space !== undefined) {
+        setLetterhead(Boolean(d.letterhead_space));
+      } else if (d.letterhead !== undefined) {
+        setLetterhead(Boolean(d.letterhead));
+      }
+
+      if (d.is_watermark_enabled !== undefined) {
+        setWatermark(Boolean(d.is_watermark_enabled));
+      } else if (d.watermark !== undefined) {
+        setWatermark(Boolean(d.watermark));
+      }
+
+      const titleVal = toCleanLabel(d.pdf_title || d.pdfTitle || d.documentTitle || d.title);
+      if (titleVal) {
+        setDocumentTitle(titleVal);
+      }
+
+      // Meta
+      const confNum = toCleanLabel(d.confirmation_number || d.confirmationNumber || d.number);
+      if (confNum) {
+        setConfirmationNumber(confNum);
+      }
+
+      const rawConfDate = toCleanLabel(d.confirmation_date || d.confirmationDate || d.date);
+      if (rawConfDate) {
+        setConfirmationDate(rawConfDate.includes('T') ? rawConfDate.split('T')[0] : rawConfDate);
+      }
+
+      // Parties
+      const rawSeller = d.seller || d.seller_instruction || d.seller_instruction_id || d.sellerId;
+      const selId = toCleanId(d.seller_instruction_id || d.sellerId || d.seller_id || rawSeller);
+      const selInst = toCleanLabel(
+        d.seller_instruction ||
+        d.sellerInstruction ||
+        (typeof rawSeller === 'object' ? rawSeller.instructionText || rawSeller.instruction || rawSeller.details : '')
+      );
+      if (selId) {
+        setSellerId(selId);
+        if (typeof rawSeller === 'object') {
+          const sLabel = toCleanLabel(rawSeller.company_name || rawSeller.label || rawSeller.name);
+          if (sLabel) {
+            setInternalSellers((prev) => {
+              if (!prev.some((s) => toCleanId(s.value) === selId)) {
+                return [{ value: selId, label: sLabel, instructionText: selInst }, ...prev];
+              }
+              return prev;
+            });
+          }
+        }
+      }
+      if (selInst) {
+        setSellerInstruction(selInst);
+      }
+
+      const rawBuyer = d.buyer || d.buyer_instruction || d.buyer_instruction_id || d.buyerId;
+      const buyId = toCleanId(d.buyer_instruction_id || d.buyerId || d.buyer_id || rawBuyer);
+      const buyInst = toCleanLabel(
+        d.buyer_instruction ||
+        d.buyerInstruction ||
+        (typeof rawBuyer === 'object' ? rawBuyer.instructionText || rawBuyer.instruction || rawBuyer.details : '')
+      );
+      if (buyId) {
+        setBuyerId(buyId);
+        if (typeof rawBuyer === 'object') {
+          const bLabel = toCleanLabel(rawBuyer.company_name || rawBuyer.label || rawBuyer.name);
+          if (bLabel) {
+            setInternalBuyers((prev) => {
+              if (!prev.some((b) => toCleanId(b.value) === buyId)) {
+                return [{ value: buyId, label: bLabel, instructionText: buyInst }, ...prev];
+              }
+              return prev;
+            });
+          }
+        }
+      }
+      if (buyInst) {
+        setBuyerInstruction(buyInst);
+      }
+
+      // Product, HSN, Country
+      const rawProd = d.product || d.product_id || d.productId;
+      const prodId = toCleanId(d.product_id || d.productId || rawProd);
+      const prodName = toCleanLabel(
+        (typeof rawProd === 'object' ? rawProd.name || rawProd.product_name || rawProd.label || rawProd.title : '') ||
+        d.product_name ||
+        d.productName ||
+        (typeof d.product === 'string' && d.product !== prodId ? d.product : '')
+      );
+      if (prodId) {
+        setProductId(prodId);
+        currentProductIdRef.current = prodId;
+        fetchAndApplyProductDetails(prodId);
+        if (prodName) {
+          setInternalProducts((prev) => {
+            if (!prev.some((p) => toCleanId(p.value) === prodId)) {
+              return [{ value: prodId, label: prodName }, ...prev];
+            }
+            return prev;
+          });
+        }
+      }
+
+      const rawHsn = toCleanLabel(
+        d.hsn_code ||
+        d.hsnCode ||
+        d.hsn ||
+        (typeof d.product === 'object' ? d.product?.hsn || d.product?.hsn_code : '')
+      );
+      if (rawHsn) {
+        setHsnCode(normalizeHsnString(rawHsn));
+      }
+
+      const rawCountry = toCleanLabel(
+        d.country ||
+        d.productCountry ||
+        d.origin_country ||
+        d.origin ||
+        (typeof d.product === 'object' ? d.product?.country || d.product?.origin_country : '')
+      );
+      if (rawCountry) {
+        setProductCountry(normalizeCountryString(rawCountry));
+      }
+
+      const rawSpec = toCleanLabel(
+        d.quality_specification ||
+        d.specification ||
+        (typeof d.product === 'object' ? d.product?.quality_specification || d.product?.specification : '')
+      );
+      if (rawSpec) {
+        setSpecification(rawSpec);
+      }
+
+      // Ship By
+      const rawShipBy = toCleanLabel(d.ship_by || d.shipBy);
+      if (rawShipBy) {
+        setShipBy(normalizeShipByForApi(rawShipBy));
+      }
+
+      // Ports & Packing
+      const rawLoadPort = d.loading_port || d.loading_port_id || d.loadingPort;
+      const loadPortId = toCleanId(rawLoadPort);
+      const loadPortLabel = toCleanLabel(rawLoadPort);
+      const effectiveLoadVal = loadPortId || loadPortLabel;
+      if (effectiveLoadVal) {
+        setLoadingPort(effectiveLoadVal);
+        if (loadPortLabel) {
+          setInternalLoadingPorts((prev) => {
+            const exists = prev.some(
+              (p) =>
+                toCleanId(p.value) === effectiveLoadVal ||
+                toCleanLabel(p.label).toLowerCase() === loadPortLabel.toLowerCase()
+            );
+            if (!exists) {
+              return [
+                {
+                  value: effectiveLoadVal,
+                  label: loadPortLabel,
+                  subLabel: typeof rawLoadPort === 'object' ? rawLoadPort.country || rawLoadPort.subLabel : undefined,
+                },
+                ...prev,
+              ];
+            }
+            return prev;
+          });
+        }
+      }
+
+      const rawDestPort = d.destination_port || d.destination_port_id || d.destinationPort;
+      const destPortId = toCleanId(rawDestPort);
+      const destPortLabel = toCleanLabel(rawDestPort);
+      const effectiveDestVal = destPortId || destPortLabel;
+      if (effectiveDestVal) {
+        setDestinationPort(effectiveDestVal);
+        if (destPortLabel) {
+          setInternalDestinationPorts((prev) => {
+            const exists = prev.some(
+              (p) =>
+                toCleanId(p.value) === effectiveDestVal ||
+                toCleanLabel(p.label).toLowerCase() === destPortLabel.toLowerCase()
+            );
+            if (!exists) {
+              return [
+                {
+                  value: effectiveDestVal,
+                  label: destPortLabel,
+                  subLabel: typeof rawDestPort === 'object' ? rawDestPort.country || rawDestPort.subLabel : undefined,
+                },
+                ...prev,
+              ];
+            }
+            return prev;
+          });
+        }
+      }
+
+      const rawPack = d.packing_type || d.packing_type_id || d.packing || d.packingType;
+      const packId = toCleanId(rawPack);
+      const packLabel = toCleanLabel(rawPack);
+      const effectivePackVal = packId || packLabel;
+      if (effectivePackVal) {
+        setPacking(effectivePackVal);
+        if (packLabel) {
+          setInternalPackingOptions((prev) => {
+            const exists = prev.some(
+              (p) =>
+                toCleanId(p.value) === effectivePackVal ||
+                toCleanLabel(p.label).toLowerCase() === packLabel.toLowerCase()
+            );
+            if (!exists) {
+              return [
+                {
+                  value: effectivePackVal,
+                  label: packLabel,
+                  bagWeightKg:
+                    (typeof rawPack === 'object' && (rawPack.bagWeightKg || rawPack.weight || rawPack.bag_weight_kg)
+                      ? rawPack.bagWeightKg || rawPack.weight || rawPack.bag_weight_kg
+                      : parsePackingBagWeightKg(rawPack || packLabel)) ?? undefined,
+                },
+                ...prev,
+              ];
+            }
+            return prev;
+          });
+        }
+      }
+
+      // Shipping Term
+      const rawShipTerm = d.shipping_term || d.shippingTerm || d.incoterm || d.delivery_term;
+      const shipTerm = toCleanLabel(rawShipTerm) || toCleanId(rawShipTerm);
+      if (shipTerm) {
+        setShippingTerm(shipTerm);
+      }
+
+      // Quantities
+      if (d.fcl_quantity !== undefined || d.fclQty !== undefined) {
+        setFclQty(d.fcl_quantity ?? d.fclQty ?? '');
+      }
+      if (d.fcl_capacity !== undefined || d.fclCapacity !== undefined) {
+        setFclCapacity(d.fcl_capacity ?? d.fclCapacity ?? '');
+      }
+      if (d.mt_quantity !== undefined || d.mtQty !== undefined) {
+        setMtQty(d.mt_quantity ?? d.mtQty ?? '');
+      }
+      if (d.bag_quantity !== undefined || d.bagQty !== undefined) {
+        setBagQty(d.bag_quantity ?? d.bagQty ?? '');
+      }
+
+      // Currency & Price
+      const rawCur = d.currency || d.currency_id || d.currencyId || d.currency_code;
+      const curId = toCleanId(d.currency_id || d.currencyId || (typeof rawCur === 'object' ? rawCur?.id || rawCur?._id || rawCur?.currency_id : ''));
+      const normCur = normalizeCurrencyOption(rawCur || curId || d.currency_code, currenciesList);
+      const effectiveCode = normCur.value || 'USD';
+      const effectiveLabel = normCur.label || 'USD ($)';
+      const effectiveCurId = curId || normCur.id || '';
+
+      if (effectiveCurId) {
+        setCurrencyId(effectiveCurId);
+      }
+      setCurrency(effectiveCode);
+
+      setInternalCurrencies((prev) => {
+        const matchIdx = prev.findIndex(
+          (c) =>
+            String(c.value).toUpperCase() === effectiveCode.toUpperCase() ||
+            String(c.code || '').toUpperCase() === effectiveCode.toUpperCase() ||
+            (effectiveCurId && (String(c.id) === effectiveCurId || String(c.raw?.id || c.raw?._id) === effectiveCurId))
+        );
+        if (matchIdx >= 0) {
+          const existing = prev[matchIdx];
+          const updated = {
+            ...existing,
+            value: effectiveCode,
+            label: existing.label && existing.label.includes('(') ? existing.label : effectiveLabel,
+            code: effectiveCode,
+            id: effectiveCurId || existing.id,
+          };
+          const copy = [...prev];
+          copy[matchIdx] = updated;
+          return copy;
+        }
+        return [
+          {
+            id: effectiveCurId || undefined,
+            value: effectiveCode,
+            label: effectiveLabel,
+            code: effectiveCode,
+            symbol: normCur.symbol || '$',
+          },
+          ...prev,
+        ];
       });
+
+      if (d.price !== undefined && d.price !== null) {
+        setPrice(d.price);
+      }
+
+      if (d.total_value !== undefined && d.total_value !== null) {
+        setTotalValue(d.total_value);
+      } else if (d.totalValue !== undefined && d.totalValue !== null) {
+        setTotalValue(d.totalValue);
+      }
+
+      // Shipment dates
+      const rawStart = toCleanLabel(d.shipment_start_date || d.shipmentStartDate);
+      const rawEnd = toCleanLabel(d.shipment_end_date || d.shipmentEndDate);
+      if (rawStart || rawEnd) {
+        setShipmentRange({
+          start: rawStart ? new Date(rawStart) : null,
+          end: rawEnd ? new Date(rawEnd) : null,
+        });
+      }
+      const rawPeriod = toCleanLabel(d.shipment_period || d.shipmentPeriod);
+      if (rawPeriod) {
+        setShipmentPeriod(rawPeriod);
+      }
+
+      // Payment term & Notes
+      const rawPay = d.payment_term || d.payment_term_id || d.paymentTerm;
+      const payId = toCleanId(rawPay);
+      const payLabel = toCleanLabel(rawPay);
+      const effectivePayVal = payId || payLabel;
+      if (effectivePayVal) {
+        setPaymentTerm(effectivePayVal);
+        if (payLabel) {
+          setInternalPaymentTerms((prev) => {
+            const exists = prev.some(
+              (p) =>
+                toCleanId(p.value) === effectivePayVal ||
+                toCleanLabel(p.label).toLowerCase() === payLabel.toLowerCase()
+            );
+            if (!exists) {
+              return [{ value: effectivePayVal, label: payLabel }, ...prev];
+            }
+            return prev;
+          });
+        }
+      }
+
+      if (d.notes !== undefined && d.notes !== null) {
+        const cleanNotes = typeof d.notes === 'string' ? d.notes : String(d.notes);
+        if (cleanNotes !== '[object Object]') {
+          setNotes(cleanNotes);
+        }
+      }
+    },
+    [fetchAndApplyProductDetails]
+  );
+
+  // Synchronize with initialData ONLY on initial async load or if switching to a completely DIFFERENT document
+  useEffect(() => {
+    if (!initialData || typeof initialData !== 'object' || Object.keys(initialData).length === 0) {
+      return;
     }
-    if (initialData.shipmentPeriod !== undefined) setShipmentPeriod(initialData.shipmentPeriod);
-    if (initialData.paymentTerm !== undefined) {
-      setPaymentTerm(initialData.paymentTerm);
-    } else if (initialData.payment_term_id !== undefined) {
-      setPaymentTerm(initialData.payment_term_id);
+
+    const incomingDocId = toCleanId(
+      initialData.id ||
+      initialData._id ||
+      initialData.confirmation_id ||
+      initialData.confirmationId
+    );
+
+    // If the form was already initialized and this incoming data is for the SAME document (e.g. background RSC re-render after Server Action),
+    // NEVER overwrite the user's active in-progress edits!
+    if (isFormInitializedRef.current) {
+      if (incomingDocId && incomingDocId === lastLoadedDocIdRef.current) {
+        return;
+      }
+      if (!incomingDocId && !lastLoadedDocIdRef.current) {
+        return;
+      }
     }
-    if (initialData.notes !== undefined) setNotes(initialData.notes);
-  }, [initialData]);
+
+    // New document or initial async load
+    isFormInitializedRef.current = true;
+    if (incomingDocId) {
+      lastLoadedDocIdRef.current = incomingDocId;
+    }
+    populateConfirmationData(initialData);
+  }, [initialData, populateConfirmationData]);
 
   // Real-time calculation for MT QTY, BAG QTY & TOTAL VALUE
   useEffect(() => {
-    const selectedPackingObj = packingList.find((pk) => pk.value === packing);
-    const bagKg = selectedPackingObj?.bagWeightKg || 50;
+    const bagKg = parsePackingBagWeightKg(packing, packingList);
     const p = parseFloat(String(price)) || 0;
 
     if (isFcl) {
       // 20 FT / 40 FT Container mode: MT QTY is calculated as FCL QTY * FCL CAPACITY
-      const fcl = parseFloat(String(fclQty)) || 0;
-      const capacity = parseFloat(String(fclCapacity)) || 0;
+      const fcl = parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0;
+      const capacity = parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0;
       const calcMt = fcl * capacity;
       const nextMt = !fclQty && !fclCapacity ? '' : calcMt > 0 ? (calcMt % 1 === 0 ? calcMt.toString() : calcMt.toFixed(2)) : '0';
 
@@ -1684,9 +2412,11 @@ export function ConfirmationDocumentForm({
 
       if (!fclQty && !fclCapacity && !packing) {
         setBagQty('');
-      } else if (bagKg > 0 && calcMt > 0) {
+      } else if (bagKg !== null && bagKg > 0 && calcMt > 0) {
         const calculatedBags = Math.round((calcMt * 1000) / bagKg);
         setBagQty(calculatedBags.toLocaleString());
+      } else if (bagKg === 0) {
+        setBagQty('0');
       } else {
         setBagQty(calcMt > 0 ? '-' : '0');
       }
@@ -1702,14 +2432,16 @@ export function ConfirmationDocumentForm({
       }
     } else {
       // Non-FCL mode (Vessel / Bulk): MT QTY is entered directly by the user
-      const numMt = parseFloat(String(mtQty)) || 0;
+      const numMt = parseFloat(String(mtQty).replace(/[^\d.]/g, '')) || 0;
       const calcTotal = numMt * p;
 
       if (!mtQty && !packing) {
         setBagQty('');
-      } else if (bagKg > 0 && numMt > 0) {
+      } else if (bagKg !== null && bagKg > 0 && numMt > 0) {
         const calculatedBags = Math.round((numMt * 1000) / bagKg);
         setBagQty(calculatedBags.toLocaleString());
+      } else if (bagKg === 0) {
+        setBagQty('0');
       } else {
         setBagQty(numMt > 0 ? '-' : '0');
       }
@@ -1873,33 +2605,34 @@ export function ConfirmationDocumentForm({
       rawPayload.ship_by = cleanShipBy;
     }
 
-    const cleanLoading = (selectedLoading?.id || selectedLoading?.value || loadingPort || '').toString().trim();
+    const cleanLoading = toCleanId(selectedLoading?.id || selectedLoading?.value || loadingPort);
     if (cleanLoading) {
       rawPayload.loading_port_id = cleanLoading;
     }
 
-    const cleanDest = (selectedDest?.id || selectedDest?.value || destinationPort || '').toString().trim();
+    const cleanDest = toCleanId(selectedDest?.id || selectedDest?.value || destinationPort);
     if (cleanDest) {
       rawPayload.destination_port_id = cleanDest;
     }
 
-    const cleanPack = (selectedPacking?.id || selectedPacking?.value || packing || '').toString().trim();
+    const cleanPack = toCleanId(selectedPacking?.id || selectedPacking?.value || packing);
     if (cleanPack) {
       rawPayload.packing_type_id = cleanPack;
     }
 
-    const cleanTerm = (selectedTerm?.value || selectedTerm?.label || shippingTerm || '').toString().trim();
+    const cleanTerm = (toCleanLabel(selectedTerm?.value || selectedTerm?.label || shippingTerm) || '').trim();
     if (cleanTerm) {
       rawPayload.shipping_term = cleanTerm;
     }
 
-    const cleanPay = (selectedPay?.id || selectedPay?.value || paymentTerm || '').toString().trim();
+    const cleanPay = toCleanId(selectedPay?.id || selectedPay?.value || paymentTerm);
     if (cleanPay) {
       rawPayload.payment_term_id = cleanPay;
     }
 
-    if (effectiveCurrencyId) {
-      rawPayload.currency_id = effectiveCurrencyId;
+    const cleanCurrencyId = toCleanId(effectiveCurrencyId);
+    if (cleanCurrencyId) {
+      rawPayload.currency_id = cleanCurrencyId;
     }
 
     // Quantities & Pricing
@@ -1918,14 +2651,43 @@ export function ConfirmationDocumentForm({
       }
     }
 
-    if (mtQty !== undefined && mtQty !== null && String(mtQty).trim() !== '') {
+    if (isFcl) {
+      const computedMt =
+        (parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0) *
+        (parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0);
+      if (computedMt > 0) {
+        rawPayload.mt_quantity = computedMt;
+      } else if (mtQty !== undefined && mtQty !== null && String(mtQty).trim() !== '') {
+        const parsedMt = parseFloat(String(mtQty));
+        if (!isNaN(parsedMt) && parsedMt > 0) {
+          rawPayload.mt_quantity = parsedMt;
+        }
+      }
+    } else if (mtQty !== undefined && mtQty !== null && String(mtQty).trim() !== '') {
       const parsedMt = parseFloat(String(mtQty));
       if (!isNaN(parsedMt) && parsedMt > 0) {
         rawPayload.mt_quantity = parsedMt;
       }
     }
 
-    if (bagQty !== undefined && bagQty !== null && String(bagQty).trim() !== '') {
+    // Calculate bag quantity accurately based on FCL / MT and packing bag weight
+    const effectiveBagKg = parsePackingBagWeightKg(packing, packingList);
+    let resolvedBagQty: number | undefined = undefined;
+    if (effectiveBagKg !== null && effectiveBagKg > 0) {
+      const effectiveMt = isFcl
+        ? (parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0) *
+          (parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0)
+        : parseFloat(String(mtQty).replace(/[^\d.]/g, '')) || 0;
+      if (effectiveMt > 0) {
+        resolvedBagQty = Math.round((effectiveMt * 1000) / effectiveBagKg);
+      }
+    }
+
+    if (resolvedBagQty !== undefined && resolvedBagQty > 0) {
+      rawPayload.bag_quantity = resolvedBagQty;
+    } else if (effectiveBagKg === 0) {
+      rawPayload.bag_quantity = 0;
+    } else if (bagQty !== undefined && bagQty !== null && String(bagQty).trim() !== '') {
       const parsedBag = parseInt(String(bagQty || '').replace(/[^\d]/g, ''), 10);
       if (!isNaN(parsedBag) && parsedBag > 0) {
         rawPayload.bag_quantity = parsedBag;
@@ -2012,8 +2774,29 @@ export function ConfirmationDocumentForm({
       shipping_term: selectedTerm?.label || shippingTerm || '',
       fclQty: isFcl ? fclQty : '',
       fclCapacity: isFcl ? fclCapacity : '',
-      mtQty,
-      bagQty,
+      mtQty: isFcl
+        ? (() => {
+            const computedMt =
+              (parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0) *
+              (parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0);
+            return computedMt > 0 ? (computedMt % 1 === 0 ? computedMt.toString() : computedMt.toFixed(2)) : mtQty || '';
+          })()
+        : mtQty,
+      bagQty: (() => {
+        const effectiveBagKg = parsePackingBagWeightKg(packing, packingList);
+        if (effectiveBagKg && effectiveBagKg > 0) {
+          const effectiveMt = isFcl
+            ? (parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0) *
+              (parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0)
+            : parseFloat(String(mtQty).replace(/[^\d.]/g, '')) || 0;
+          if (effectiveMt > 0) {
+            return Math.round((effectiveMt * 1000) / effectiveBagKg).toLocaleString();
+          }
+        } else if (effectiveBagKg === 0) {
+          return '0';
+        }
+        return bagQty || '';
+      })(),
       currency,
       currency_id: currencyId,
       price,
@@ -2074,22 +2857,58 @@ export function ConfirmationDocumentForm({
       // Backend returns the generated ID; preserve it in state so subsequent saves pass this id
       setErrors({});
       const savedId =
-        result?.id ||
         result?.data?.id ||
         result?.data?._id ||
-        result?.raw?.id ||
+        result?.id ||
+        result?._id ||
         result?.raw?.data?.id ||
+        result?.raw?.id ||
         result?.data?.confirmation_id ||
         result?.confirmation_id;
 
       if (savedId) {
-        setDraftId(String(savedId));
+        const cleanId = String(savedId).trim();
+        setDraftId(cleanId);
+        lastLoadedDocIdRef.current = cleanId;
+        isFormInitializedRef.current = true;
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
-          if (url.searchParams.get('id') !== String(savedId)) {
-            url.searchParams.set('id', String(savedId));
+          if (url.searchParams.get('id') !== cleanId) {
+            url.searchParams.set('id', cleanId);
             window.history.replaceState(null, '', url.toString());
           }
+        }
+
+        // Concurrently trigger required post-save API workflows:
+        // 1. To update stepper:
+        //    GET /dms/stepper-list/confirmation/:id?lang_code=en&source=web
+        // 2. Form me data fill and set karvane ke liye:
+        //    GET /confirmation/:id?lang_code=en&source=web
+        try {
+          const [stepperRes, confirmationRes] = await Promise.all([
+            getStepperListAction({
+              action: 'confirmation',
+              step: cleanId,
+              lang,
+            }),
+            getConfirmationAction(cleanId, lang),
+          ]);
+
+          if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+            if (onUpdateSteps) {
+              onUpdateSteps(stepperRes.data);
+            }
+          }
+
+          if (confirmationRes?.success && confirmationRes.data) {
+            populateConfirmationData(confirmationRes.data);
+          }
+
+          if (onSaveSuccess) {
+            await onSaveSuccess(cleanId, confirmationRes?.data || result?.data);
+          }
+        } catch (postSyncErr) {
+          console.error('[ConfirmationDocumentForm] Post-save API sync error:', postSyncErr);
         }
       }
 
@@ -2448,7 +3267,7 @@ export function ConfirmationDocumentForm({
             {/* Mobile: HSN and Country side-by-side row / Desktop: col-span-2 each */}
             <div className="grid grid-cols-2 divide-x divide-border border-t border-border md:border-t-0 md:col-span-4 md:grid-cols-2 md:divide-x">
               {/* HSN CODE */}
-              <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden">
+              <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden" data-field="hsnCode">
                 <span className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wider leading-tight">
                   {dict?.smart_docs?.confirmation_form?.hsn_code || 'HSN CODE'} :
                 </span>
@@ -2465,9 +3284,15 @@ export function ConfirmationDocumentForm({
                     normalizeHsnString(hsnCode) || '-'
                   )}
                 </span>
+                {errors.hsnCode && (
+                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 flex items-center gap-1">
+                    <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
+                    <span>{errors.hsnCode}</span>
+                  </span>
+                )}
               </div>
               {/* COUNTRY */}
-              <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden">
+              <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden" data-field="productCountry">
                 <span className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wider leading-tight">
                   {dict?.smart_docs?.confirmation_form?.country || 'COUNTRY'} :
                 </span>
@@ -2484,6 +3309,12 @@ export function ConfirmationDocumentForm({
                     normalizeCountryString(productCountry) || '-'
                   )}
                 </span>
+                {errors.productCountry && (
+                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 flex items-center gap-1">
+                    <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
+                    <span>{errors.productCountry}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -2730,8 +3561,9 @@ export function ConfirmationDocumentForm({
                   {mtQty || '-'}
                 </span>
                 {errors.mtQty && (
-                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center">
-                    {errors.mtQty}
+                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center flex items-center justify-center gap-1">
+                    <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
+                    <span>{errors.mtQty}</span>
                   </span>
                 )}
               </div>
@@ -2745,8 +3577,9 @@ export function ConfirmationDocumentForm({
                   {bagQty || '-'}
                 </span>
                 {errors.bagQty && (
-                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center">
-                    {errors.bagQty}
+                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center flex items-center justify-center gap-1">
+                    <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
+                    <span>{errors.bagQty}</span>
                   </span>
                 )}
               </div>
@@ -2806,8 +3639,9 @@ export function ConfirmationDocumentForm({
                   {totalValue || '-'}
                 </span>
                 {errors.totalValue && (
-                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center">
-                    {errors.totalValue}
+                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center flex items-center justify-center gap-1">
+                    <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
+                    <span>{errors.totalValue}</span>
                   </span>
                 )}
               </div>
@@ -2847,8 +3681,9 @@ export function ConfirmationDocumentForm({
                   {bagQty || '-'}
                 </span>
                 {errors.bagQty && (
-                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center">
-                    {errors.bagQty}
+                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center flex items-center justify-center gap-1">
+                    <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
+                    <span>{errors.bagQty}</span>
                   </span>
                 )}
               </div>
@@ -2908,8 +3743,9 @@ export function ConfirmationDocumentForm({
                   {totalValue || '-'}
                 </span>
                 {errors.totalValue && (
-                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center">
-                    {errors.totalValue}
+                  <span className="text-[10px] text-brand-red font-semibold mt-0.5 text-center flex items-center justify-center gap-1">
+                    <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
+                    <span>{errors.totalValue}</span>
                   </span>
                 )}
               </div>

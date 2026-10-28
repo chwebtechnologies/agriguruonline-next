@@ -2,12 +2,14 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSmartDocsListAction, deleteSmartDocAction } from '@/app/actions/smart-docs';
 import {
   normalizeActionParam,
   sanitizeDocId,
   extractAllSmartDocIds,
+  getCurrencySymbol,
 } from '@/lib/api/smart-docs.service';
 import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
 
@@ -103,7 +105,7 @@ function formatAmount(amount: any, currency = '$'): string {
   if (amount === undefined || amount === null || amount === '') return '—';
   const num = Number(amount);
   if (isNaN(num)) return String(amount);
-  const cur = currency === 'USD' ? '$' : currency === 'INR' ? '₹' : currency || '$';
+  const cur = getCurrencySymbol(currency);
   return `${cur}${num.toLocaleString(cur === '₹' ? 'en-IN' : 'en-US', { maximumFractionDigits: 2 })}`;
 }
 
@@ -349,7 +351,7 @@ function getSortValue(row: any, key: string): any {
 export type SmartDocType = 'Confirmation' | 'Contract' | 'Document';
 
 // Helper to determine the document/status type of a row
-export function getSmartDocType(row: any): SmartDocType {
+export function getSmartDocType(row: any, activeAction?: string): SmartDocType {
   const val = String(
     row?.document_type ||
     row?.doc_type ||
@@ -365,7 +367,14 @@ export function getSmartDocType(row: any): SmartDocType {
 
   if (val.includes('contract')) return 'Contract';
   if (val.includes('doc')) return 'Document';
-  if (val.includes('confirm')) return 'Confirmation';
+  if (val.includes('confirm') || val.includes('quotation') || val.includes('quote')) return 'Confirmation';
+
+  if (activeAction) {
+    const act = activeAction.toLowerCase().trim();
+    if (act === 'contract') return 'Contract';
+    if (act === 'document') return 'Document';
+    if (act === 'confirmation') return 'Confirmation';
+  }
 
   return 'Confirmation';
 }
@@ -432,6 +441,7 @@ export function ConfirmationsDataTable({
   initialSearchLabel = '',
   searchLabel = '',
 }: ConfirmationsDataTableProps) {
+  const router = useRouter();
   const effectiveTitle = title || dict?.smart_docs?.page_title || 'Confirmations/Quotations';
   const effectiveDescription =
     description ||
@@ -684,7 +694,7 @@ export function ConfirmationsDataTable({
     }
 
     const effectiveDocId = docId || allCandidateIds[0];
-    const docType = getSmartDocType(rowToDelete);
+    const docType = getSmartDocType(rowToDelete, selectedAction);
 
     setIsDeleting(true);
     try {
@@ -930,7 +940,7 @@ export function ConfirmationsDataTable({
         align: 'center',
         minWidth: '90px',
         render: (row: any) => {
-          const docType = getSmartDocType(row);
+          const docType = getSmartDocType(row, selectedAction);
           const config = getDocTypeColorConfig(docType);
           const label =
             docType === 'Confirmation'
@@ -1470,27 +1480,48 @@ export function ConfirmationsDataTable({
         minWidth: '78px',
         className: 'w-[78px] max-w-[78px]',
         render: (row: any) => {
-          const docType = getSmartDocType(row);
+          const docType = getSmartDocType(row, selectedAction);
+          const isConfirmation = docType === 'Confirmation';
           const config = getDocTypeColorConfig(docType);
 
           return (
             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              {/* Button 1: File Circle Plus (Color matches document type: blue/red/green) */}
+              {/* Button 1: File Circle Plus (Action only implemented for Confirmation; Contract & Document are pending) */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  // Contract and Document are not built yet, so do not perform any draft/edit action
+                  if (!isConfirmation) {
+                    return;
+                  }
+
                   if (onCreateDoc) {
                     onCreateDoc(row);
+                  } else {
+                    const rowDocId = extractSmartDocId(row);
+                    if (rowDocId) {
+                      router.push(`/${lang}/smart-docs/draft?id=${encodeURIComponent(rowDocId)}`);
+                    } else {
+                      router.push(`/${lang}/smart-docs/draft`);
+                    }
                   }
                 }}
-                className={`w-7 h-7 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs active:scale-95 cursor-pointer shrink-0`}
-                title={dict?.smart_docs?.continue_to_draft || 'Continue to Draft'}
+                className={`w-7 h-7 rounded-lg ${config.bg} ${
+                  isConfirmation
+                    ? `${config.hoverBg} cursor-pointer active:scale-95`
+                    : 'opacity-80 cursor-default'
+                } text-white shadow-2xs transition-all flex items-center justify-center text-xs shrink-0`}
+                title={
+                  isConfirmation
+                    ? (dict?.smart_docs?.continue_to_draft || 'Continue to Draft')
+                    : `${docType}`
+                }
               >
                 <i className="fa-solid fa-file-circle-plus text-xs"></i>
               </button>
 
-              {/* Button 2: Trash Delete Button */}
+              {/* Button 2: Trash Delete Button (Works for all records) */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -1511,7 +1542,7 @@ export function ConfirmationsDataTable({
         },
       },
     ];
-  }, [customColumns, currentPage, pageSize, dict]);
+  }, [customColumns, currentPage, pageSize, dict, selectedAction, lang, onCreateDoc, onDeleteRow, router]);
 
   // Deep client-side search across current table data
   const filteredData = useMemo(() => {

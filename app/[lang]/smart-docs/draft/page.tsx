@@ -13,16 +13,20 @@ import {
   extractProductsData,
   extractPaymentTermsData,
   extractCurrenciesData,
+  extractConfirmationData,
 } from '@/lib/api/smart-docs.service';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(props: {
   params: Promise<{ lang: string }>;
+  searchParams?: Promise<{ id?: string }>;
 }): Promise<Metadata> {
   const params = await props.params;
+  const searchParams = props.searchParams ? await props.searchParams : undefined;
   const activeLang = getSafeLanguage(params?.lang);
   const siteUrl = getSiteUrl();
+  const idQuery = searchParams?.id ? `?id=${encodeURIComponent(searchParams.id)}` : '';
 
   return {
     title: 'Draft Confirmation | Smart Docs | AgriGuru Online',
@@ -32,32 +36,36 @@ export async function generateMetadata(props: {
       follow: false,
     },
     alternates: {
-      canonical: `${siteUrl}/${activeLang}/smart-docs/draft`,
+      canonical: `${siteUrl}/${activeLang}/smart-docs/draft${idQuery}`,
     },
   };
 }
 
 export default async function SmartDocsDraftPage(props: {
   params: Promise<{ lang: string }>;
+  searchParams?: Promise<{ id?: string }>;
 }) {
   const params = await props.params;
+  const searchParams = props.searchParams ? await props.searchParams : undefined;
   const lang = getSafeLanguage(params?.lang);
+  const draftId = searchParams?.id ? String(searchParams.id).trim() : '';
 
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
 
   if (!token) {
-    redirect(`/${lang}/login?redirectUrl=/${lang}/smart-docs/draft`);
+    const redirectSuffix = draftId ? `?id=${encodeURIComponent(draftId)}` : '';
+    redirect(`/${lang}/login?redirectUrl=/${lang}/smart-docs/draft${redirectSuffix}`);
   }
 
-  // Fetch dictionary, stepper list, instructions, products, payment terms & currencies in parallel
-  const [rawDict, stepperRes, instructionsRes, productsRes, paymentTermsRes, currenciesRes] = await Promise.all([
+  // Fetch dictionary, stepper list, instructions, products, payment terms, currencies & confirmation in parallel
+  const [rawDict, stepperRes, instructionsRes, productsRes, paymentTermsRes, currenciesRes, confirmationRes] = await Promise.all([
     getDictionary(lang).catch(() => ({})),
     smartDocsService
       .getStepperList(
         {
           action: 'confirmation',
-          step: 'new-confirmation',
+          step: draftId || 'new-confirmation',
           lang,
           source: 'web',
         },
@@ -115,6 +123,14 @@ export default async function SmartDocsDraftPage(props: {
         console.error('[SmartDocsDraftPage] Currencies fetch error:', err);
         return null;
       }),
+    draftId
+      ? smartDocsService
+          .getConfirmation(draftId, { lang, source: 'web' }, token)
+          .catch((err) => {
+            console.error('[SmartDocsDraftPage] Confirmation details fetch error:', err);
+            return null;
+          })
+      : Promise.resolve(null),
   ]);
 
   const dict = rawDict as any;
@@ -123,6 +139,7 @@ export default async function SmartDocsDraftPage(props: {
   const initialProducts = extractProductsData(productsRes);
   const initialPaymentTerms = extractPaymentTermsData(paymentTermsRes);
   const initialCurrencies = extractCurrenciesData(currenciesRes);
+  const initialConfirmationData = extractConfirmationData(confirmationRes);
 
   const pageTitle =
     dict?.smart_docs?.draft_title ||
@@ -154,6 +171,8 @@ export default async function SmartDocsDraftPage(props: {
               initialProducts={initialProducts}
               initialPaymentTerms={initialPaymentTerms}
               initialCurrencies={initialCurrencies}
+              initialData={initialConfirmationData}
+              initialId={draftId}
             />
           </div>
         </div>

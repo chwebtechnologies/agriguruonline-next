@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type {
   StepperDocumentItem,
   InstructionPartyOption,
@@ -20,6 +20,8 @@ export interface DocumentDraftWorkspaceProps {
   initialPaymentTerms?: FormOptionItem[];
   initialCurrencies?: FormOptionItem[];
   shippingTerms?: FormOptionItem[];
+  initialData?: any;
+  initialId?: string;
 }
 
 export function DocumentDraftWorkspace({
@@ -32,20 +34,45 @@ export function DocumentDraftWorkspace({
   initialPaymentTerms = [],
   initialCurrencies = [],
   shippingTerms,
+  initialData,
+  initialId,
 }: DocumentDraftWorkspaceProps) {
+  const [steps, setSteps] = useState<StepperDocumentItem[]>(initialSteps);
+  const [draftId, setDraftId] = useState<string>(
+    initialId || initialData?.id || initialData?._id || initialData?.confirmation_id || ''
+  );
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(0);
   const [selectedStep, setSelectedStep] = useState<StepperDocumentItem | null>(
-    initialSteps.length > 0 ? initialSteps[0] : null
+    steps.length > 0 ? steps[0] : null
   );
   const [isMobileStepperOpen, setIsMobileStepperOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (initialSteps && initialSteps.length > 0) {
+      setSteps(initialSteps);
+    }
+  }, [initialSteps]);
+
+  useEffect(() => {
+    if (initialId) {
+      setDraftId(initialId);
+    }
+  }, [initialId]);
+
+  useEffect(() => {
+    if (steps.length > 0) {
+      const active = steps[selectedStepIndex] || steps[0];
+      setSelectedStep(active);
+    }
+  }, [steps, selectedStepIndex]);
 
   const activeDocName =
     selectedStep?.document_name ||
     selectedStep?.name ||
     selectedStep?.title ||
     selectedStep?.doc_name ||
-    (initialSteps.length > 0
-      ? initialSteps[0]?.document_name || initialSteps[0]?.name
+    (steps.length > 0
+      ? steps[0]?.document_name || steps[0]?.name
       : dict?.smart_docs?.draft_title || 'Trade Confirmation');
 
   return (
@@ -62,7 +89,7 @@ export function DocumentDraftWorkspace({
             </span>
             <div className="flex flex-col min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {dict?.smart_docs?.document_status || 'Document Step'} ({selectedStepIndex + 1}/{initialSteps.length || 11})
+                {dict?.smart_docs?.document_status || 'Document Step'} ({selectedStepIndex + 1}/{steps.length || 11})
               </span>
               <span className="text-xs font-bold text-foreground truncate">
                 {activeDocName}
@@ -85,7 +112,8 @@ export function DocumentDraftWorkspace({
           <div className="mt-2.5 pt-2 border-t border-border animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y">
             <DocumentStatusStepper
               isMobile
-              initialSteps={initialSteps}
+              stepId={draftId}
+              initialSteps={steps}
               currentStepIndex={selectedStepIndex}
               onSelectStep={(step, index) => {
                 setSelectedStepIndex(index);
@@ -109,6 +137,7 @@ export function DocumentDraftWorkspace({
         className="w-full flex-1 min-w-0 min-h-fit lg:min-h-0 lg:h-full bg-card border border-border rounded-xl shadow-xs overflow-visible lg:overflow-hidden flex flex-col relative z-10"
       >
         <ConfirmationDocumentForm
+          initialData={initialData}
           lang={lang}
           dict={dict}
           sellers={initialSellers}
@@ -117,16 +146,26 @@ export function DocumentDraftWorkspace({
           paymentTerms={initialPaymentTerms}
           currencies={initialCurrencies}
           shippingTerms={shippingTerms}
+          onUpdateSteps={(newSteps) => {
+            if (newSteps && newSteps.length > 0) {
+              setSteps(newSteps);
+            }
+          }}
+          onSaveSuccess={(savedId) => {
+            if (savedId) {
+              setDraftId(savedId);
+            }
+          }}
           onSaveDraft={async (formData) => {
             const res = await saveConfirmationDraftAction(formData, lang);
             return res;
           }}
           onSubmitContract={async (formData) => {
             console.log('[DocumentDraftWorkspace] Submitted to contract:', formData);
-            if (initialSteps.length > selectedStepIndex + 1) {
+            if (steps.length > selectedStepIndex + 1) {
               const nextIdx = selectedStepIndex + 1;
               setSelectedStepIndex(nextIdx);
-              setSelectedStep(initialSteps[nextIdx]);
+              setSelectedStep(steps[nextIdx]);
             }
           }}
         />
@@ -143,7 +182,8 @@ export function DocumentDraftWorkspace({
         {/* Stepper Viewport (pinned header with internal scrollable list) */}
         <div className="w-full h-full flex flex-col p-2.5 sm:p-3 min-h-0">
           <DocumentStatusStepper
-            initialSteps={initialSteps}
+            stepId={draftId}
+            initialSteps={steps}
             currentStepIndex={selectedStepIndex}
             onSelectStep={(step, index) => {
               setSelectedStepIndex(index);

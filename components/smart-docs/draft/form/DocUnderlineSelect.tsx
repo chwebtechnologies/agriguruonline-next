@@ -65,19 +65,45 @@ export function DocUnderlineSelect({
   const selectId = id || generatedId;
 
   // Normalize options
-  const normalizedOptions: DocSelectOption[] = options.map((opt: any) => {
-    if (typeof opt === 'string') return { value: opt, label: opt };
-    if (!opt) return { value: '', label: '' };
-    const val = String(opt.value ?? opt.id ?? opt.code ?? opt.label ?? opt.name ?? '').trim();
-    const lbl = String(opt.label ?? opt.name ?? opt.title ?? opt.value ?? val).trim();
-    return {
-      ...opt,
-      value: val || lbl,
-      label: lbl || val,
-      subLabel: opt.subLabel || opt.country || opt.description,
-      badge: opt.badge,
-    };
-  });
+  const normalizedOptions: DocSelectOption[] = options
+    .map((opt: any) => {
+      if (typeof opt === 'string') {
+        const clean = opt.trim();
+        if (!clean || clean === '[object Object]' || clean === 'undefined' || clean === 'null') {
+          return null;
+        }
+        return { value: clean, label: clean };
+      }
+      if (!opt || typeof opt !== 'object') return null;
+      const rawVal = opt.value ?? opt.id ?? opt._id ?? opt.code ?? opt.currency_id ?? opt.packing_type_id ?? opt.loading_port_id ?? opt.destination_port_id ?? '';
+      const rawLbl = opt.label ?? opt.port_name ?? opt.portName ?? opt.packing_type ?? opt.packingType ?? opt.currency ?? opt.currency_name ?? opt.currencyName ?? opt.name ?? opt.title ?? opt.value ?? rawVal;
+      
+      const val = typeof rawVal === 'string' ? rawVal.trim() : typeof rawVal === 'number' ? String(rawVal) : '';
+      const lbl = typeof rawLbl === 'string' ? rawLbl.trim() : typeof rawLbl === 'number' ? String(rawLbl) : '';
+      
+      let cleanVal = val === '[object Object]' ? '' : val;
+      let cleanLbl = lbl === '[object Object]' ? cleanVal : lbl;
+
+      if (!cleanVal && !cleanLbl) return null;
+
+      const upperVal = cleanVal.toUpperCase().trim();
+      const upperLbl = cleanLbl.toUpperCase().trim();
+      if (upperVal === 'US DOLLAR' || upperVal === 'US DOLLARS') {
+        cleanVal = 'USD';
+      }
+      if (upperLbl === 'US DOLLAR' || upperLbl === 'US DOLLARS' || upperLbl === 'US DOLLAR ($)') {
+        cleanLbl = 'USD ($)';
+      }
+
+      return {
+        ...opt,
+        value: cleanVal || cleanLbl,
+        label: cleanLbl || cleanVal,
+        subLabel: opt.subLabel || opt.country || opt.description,
+        badge: opt.badge,
+      };
+    })
+    .filter((opt): opt is DocSelectOption => opt !== null);
 
   // Filter options based on search query
   const filteredOptions = normalizedOptions.filter((opt) => {
@@ -90,9 +116,14 @@ export function DocUnderlineSelect({
     );
   });
 
+  const rawValStr = typeof value === 'string' ? value.trim() : typeof value === 'number' ? String(value) : '';
+  const upperInputVal = rawValStr.toUpperCase();
+  const isUsdInput = upperInputVal === 'USD' || upperInputVal === 'US DOLLAR' || upperInputVal === 'US DOLLARS';
+
   const selectedOption = normalizedOptions.find(
     (opt) =>
       String(opt.value) === String(value) ||
+      (isUsdInput && (String(opt.value).toUpperCase() === 'USD' || String((opt as any).code || '').toUpperCase() === 'USD')) ||
       (!!value && String((opt as any).code || '').toUpperCase() === String(value).toUpperCase()) ||
       (!!value && String((opt as any).id || '') === String(value)) ||
       (!!value && String(opt.label).toLowerCase() === String(value).toLowerCase())
@@ -110,13 +141,14 @@ export function DocUnderlineSelect({
     const curIndex = normalizedOptions.findIndex(
       (opt) =>
         String(opt.value) === String(value) ||
+        (isUsdInput && (String(opt.value).toUpperCase() === 'USD' || String((opt as any).code || '').toUpperCase() === 'USD')) ||
         (!!value && String((opt as any).code || '').toUpperCase() === String(value).toUpperCase()) ||
         (!!value && String((opt as any).id || '') === String(value)) ||
         (!!value && String(opt.label).toLowerCase() === String(value).toLowerCase())
     );
     setHighlightedIndex(curIndex >= 0 ? curIndex : 0);
     setIsOpen(true);
-  }, [disabled, normalizedOptions, value]);
+  }, [disabled, isUsdInput, normalizedOptions, value]);
 
   const closeDropdown = useCallback(() => {
     setIsOpen(false);
@@ -315,13 +347,23 @@ export function DocUnderlineSelect({
             selectedOption ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground/50'
           }`}
         >
-          {loading && !selectedOption
-            ? searchPlaceholder === 'Search...'
-              ? 'Loading options...'
-              : placeholder
-            : selectedOption
-            ? selectedOption.label
-            : value || placeholder}
+          {(() => {
+            if (loading && !selectedOption) {
+              return searchPlaceholder === 'Search...' ? 'Loading options...' : placeholder;
+            }
+            if (selectedOption && selectedOption.label && selectedOption.label !== '[object Object]') {
+              return selectedOption.label;
+            }
+            const cleanVal = typeof value === 'string' ? value.trim() : '';
+            if (cleanVal && cleanVal !== '[object Object]' && cleanVal !== 'undefined' && cleanVal !== 'null') {
+              const upperClean = cleanVal.toUpperCase();
+              if (upperClean === 'US DOLLAR' || upperClean === 'US DOLLARS' || upperClean === 'USD') {
+                return 'USD ($)';
+              }
+              return cleanVal;
+            }
+            return placeholder;
+          })()}
         </span>
         <span className={`${isOpen || isFocused ? 'text-primary scale-110 font-bold' : 'text-primary hover:text-primary-hover'} text-[11px] shrink-0 transition-all duration-200 flex items-center gap-1`}>
           {loading && (

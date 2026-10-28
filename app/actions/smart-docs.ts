@@ -24,6 +24,7 @@ import {
   type SmartDocsCurrencyOption,
   DEFAULT_CURRENCIES,
   type SaveConfirmationPayload,
+  extractConfirmationData,
 } from "@/lib/api/smart-docs.service";
 
 export interface GetSmartDocsListActionParams {
@@ -50,7 +51,7 @@ export async function getSmartDocsListAction(
 ): Promise<GetSmartDocsActionResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -132,7 +133,7 @@ export async function deleteSmartDocAction(
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -198,7 +199,7 @@ export async function getStepperListAction(
 ): Promise<GetStepperListActionResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -211,7 +212,7 @@ export async function getStepperListAction(
     }
 
     const safeLang = getSafeLang(params.lang || "en");
-    const rawRes = await smartDocsService.getStepperList(
+    let rawRes = await smartDocsService.getStepperList(
       {
         action: params.action || "confirmation",
         step: params.step || "new-confirmation",
@@ -220,6 +221,31 @@ export async function getStepperListAction(
       },
       token
     );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.getStepperList(
+            {
+              action: params.action || "confirmation",
+              step: params.step || "new-confirmation",
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[getStepperListAction] Retry token refresh failed:", refErr);
+      }
+    }
 
     const steps = extractStepperList(rawRes);
 
@@ -257,7 +283,7 @@ export async function getSmartDocsInstructionsAction(
 ): Promise<GetSmartDocsInstructionsActionResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -318,7 +344,7 @@ export async function getSmartDocsProductsAction(
 ): Promise<GetSmartDocsProductsActionResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -446,7 +472,7 @@ export async function getSmartDocsPaymentTermsAction(
 ): Promise<GetSmartDocsPaymentTermsActionResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -501,7 +527,7 @@ export async function getSmartDocsCurrenciesAction(
 ): Promise<GetSmartDocsCurrenciesActionResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -682,6 +708,114 @@ export async function saveConfirmationDraftAction(
     };
   }
 }
+
+export interface GetConfirmationActionResult {
+  success: boolean;
+  data: any | null;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Server Action to fetch Confirmation details by ID with secure Bearer authentication:
+ * GET /confirmation/:id?lang_code=en&source=web
+ */
+export async function getConfirmationAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetConfirmationActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Confirmation ID is required",
+        data: null,
+      };
+    }
+
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[getConfirmationAction] Token refresh failed:", refErr);
+      }
+    }
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const cleanId = String(id).trim();
+    let rawRes = await smartDocsService.getConfirmation(
+      cleanId,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.getConfirmation(
+            cleanId,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[getConfirmationAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    const docData = extractConfirmationData(rawRes);
+    const isSuccess = Boolean(
+      rawRes?.success === 1 ||
+      rawRes?.success === true ||
+      rawRes?.status === true ||
+      rawRes?.status === 200 ||
+      (docData && !rawRes?.error && rawRes?.success !== 0 && rawRes?.success !== false)
+    );
+
+    return {
+      success: isSuccess,
+      data: docData,
+      message: rawRes?.message,
+    };
+  } catch (error: any) {
+    console.error("[getConfirmationAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch confirmation details",
+      data: null,
+    };
+  }
+}
+
 
 
 

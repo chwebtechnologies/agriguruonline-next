@@ -42,6 +42,7 @@ export interface DocumentStatusStepperProps {
   lang?: string;
   dict?: any;
   isMobile?: boolean;
+  stepId?: string;
 }
 
 export function DocumentStatusStepper({
@@ -51,6 +52,7 @@ export function DocumentStatusStepper({
   lang = 'en',
   dict,
   isMobile = false,
+  stepId,
 }: DocumentStatusStepperProps) {
   const [steps, setSteps] = useState<StepperDocumentItem[]>(initialSteps || []);
   const [selectedIndex, setSelectedIndex] = useState<number>(currentStepIndex);
@@ -73,7 +75,7 @@ export function DocumentStatusStepper({
       try {
         const res = await getStepperListAction({
           action: 'confirmation',
-          step: 'new-confirmation',
+          step: stepId || 'new-confirmation',
           lang,
         });
 
@@ -101,7 +103,7 @@ export function DocumentStatusStepper({
     return () => {
       isMounted = false;
     };
-  }, [initialSteps, lang]);
+  }, [initialSteps, stepId, lang]);
 
   // Keep internal selection synced if parent passes new currentStepIndex
   useEffect(() => {
@@ -132,7 +134,7 @@ export function DocumentStatusStepper({
       try {
         const res = await getStepperListAction({
           action: 'confirmation',
-          step: 'new-confirmation',
+          step: stepId || 'new-confirmation',
           lang,
         });
         if (res.success && res.data && res.data.length > 0) {

@@ -709,7 +709,55 @@ export const smartDocsService = {
       };
     }
   },
+
+  /**
+   * Fetches the Confirmation details by ID with authentication:
+   * GET /confirmation/:id?lang_code=en&source=web
+   */
+  getConfirmation: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !id) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const encodedId = encodeURIComponent(String(id).trim());
+    const url = `${baseUrl}/confirmation/${encodedId}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getConfirmation] error:', error);
+      return null;
+    }
+  },
 };
+
+/**
+ * Robustly extracts the confirmation document object from backend API response.
+ */
+export function extractConfirmationData(data: any): any {
+  if (!data) return null;
+  let current = data;
+  if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
+    current = current.data;
+    if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
+      current = current.data;
+    }
+  }
+  return current;
+}
 
 /**
  * Sanitizes confirmation draft payload by removing empty strings, null, undefined,
@@ -1595,7 +1643,181 @@ export interface SmartDocsProductFieldOption {
   label: string;
   subLabel?: string;
   badge?: string;
+  bagWeightKg?: number;
   [key: string]: any;
+}
+
+/**
+ * Robust utility to parse bag weight in Kilograms (KG) from packing strings or packing option objects.
+ * Handles patterns such as:
+ * - "25 KG PP Bags" -> 25
+ * - "50 KG Bags" -> 50
+ * - "25kg", "50kg" -> 25, 50
+ * - "1000 KG Jumbo Bags" -> 1000
+ * - "1 MT Jumbo Bags", "1.5 MT Bags" -> 1000, 1500
+ * - "50 LBS Bags" -> ~22.68
+ * - "25 KG NET / 25.2 KG GROSS" -> 25 (prefers NET)
+ * - "Bulk", "Loose" -> 0 (no bags)
+ * - Standalone numbers e.g. "25", "50", "1000" -> 25, 50, 1000
+ * - Falls back to 50 if standard bag packing without specific weight
+ */
+export function parsePackingBagWeightKg(
+  packing: any,
+  packingList?: Array<{ value: string; label: string; bagWeightKg?: number; [key: string]: any }>
+): number | null {
+  if (packing === undefined || packing === null) return null;
+
+  const extractQtyFromObj = (obj: any): number | null => {
+    if (!obj || typeof obj !== 'object') return null;
+    const rawQty =
+      obj.bagWeightKg ??
+      obj.quantity ??
+      obj.qty ??
+      obj.packing_quantity ??
+      obj.pack_qty ??
+      obj.weight ??
+      obj.bag_weight_kg ??
+      obj.bag_weight ??
+      obj.capacity ??
+      (obj.packing_type && typeof obj.packing_type === 'object'
+        ? (obj.packing_type.quantity ?? obj.packing_type.qty ?? obj.packing_type.capacity ?? obj.packing_type.weight)
+        : undefined);
+
+    if (rawQty !== undefined && rawQty !== null && rawQty !== '') {
+      const num = typeof rawQty === 'number' ? rawQty : parseFloat(String(rawQty).replace(/[^\d.]/g, ''));
+      if (!isNaN(num) && num > 0) return num;
+    }
+    return null;
+  };
+
+  // 1. If explicit numeric quantity or bag weight is provided on the object
+  if (typeof packing === 'object') {
+    const fromObj = extractQtyFromObj(packing);
+    if (fromObj !== null) return fromObj;
+  }
+
+  // 2. If packingList is provided and packing matches an option by value/id/_id/label/packing_type_id
+  if (Array.isArray(packingList) && packingList.length > 0) {
+    const cleanTarget = String(
+      typeof packing === 'object'
+        ? (packing.value || packing.id || packing._id || packing.packing_type_id || packing.label || '')
+        : packing
+    )
+      .trim()
+      .toLowerCase();
+
+    if (cleanTarget) {
+      const match = packingList.find((p) => {
+        const v = String(p.value || '').trim().toLowerCase();
+        const l = String(p.label || '').trim().toLowerCase();
+        const id = p.id ? String(p.id).trim().toLowerCase() : '';
+        const _id = p._id ? String(p._id).trim().toLowerCase() : '';
+        const ptId = p.packing_type_id ? String(p.packing_type_id).trim().toLowerCase() : '';
+        const ptName =
+          p.packing_type && typeof p.packing_type === 'object'
+            ? String(p.packing_type.title || p.packing_type.name || p.packing_type._id || p.packing_type.id || '').trim().toLowerCase()
+            : '';
+        return (
+          v === cleanTarget ||
+          l === cleanTarget ||
+          (id && id === cleanTarget) ||
+          (_id && _id === cleanTarget) ||
+          (ptId && ptId === cleanTarget) ||
+          (ptName && ptName === cleanTarget)
+        );
+      });
+
+      if (match) {
+        const fromMatch = extractQtyFromObj(match);
+        if (fromMatch !== null) return fromMatch;
+        const fromMatchLabel = parseWeightFromString(match.label || match.subLabel || match.name || match.title);
+        if (fromMatchLabel !== null) return fromMatchLabel;
+      }
+    }
+  }
+
+  // 3. If packing itself is a pure number or numeric string (e.g. 50, 25, 20, "50", "25", "20")
+  const rawStr = typeof packing === 'object'
+    ? String(packing.label || packing.subLabel || packing.name || packing.title || packing.packing_type || packing.value || '')
+    : String(packing);
+
+  const trimmed = rawStr.trim();
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    const val = parseFloat(trimmed);
+    if (!isNaN(val) && val > 0 && val <= 5000) return val;
+  }
+
+  return parseWeightFromString(trimmed);
+}
+
+function parseWeightFromString(str?: string): number | null {
+  if (!str || typeof str !== 'string') return null;
+  const s = str.trim();
+  if (!s || s === '[object Object]') return null;
+
+  // Bulk / Loose cargo has NO bags (0 bags)
+  if (/\b(?:bulk|loose)\b/i.test(s)) {
+    return 0;
+  }
+
+  // Check for explicit NET weight in KG (e.g., "25 KG NET / 25.2 KG GROSS")
+  const netKgMatch = s.match(/(?:net|net\s*(?:wt|weight)?)\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilos?|kilograms?)\b/i);
+  if (netKgMatch) {
+    const val = parseFloat(netKgMatch[1]);
+    if (!isNaN(val) && val > 0) return val;
+  }
+
+  // Check for MT / Metric Ton / Tonne (e.g. 1 MT Jumbo Bags = 1000 KG, up to 3 MT)
+  const mtMatch = s.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:mt|metric\s*tons?|tonnes?|tons?)\b/i);
+  if (mtMatch) {
+    const val = parseFloat(mtMatch[1]);
+    if (!isNaN(val) && val > 0 && val <= 3) return val * 1000;
+  }
+
+  // Check for KG / KGS / Kilograms (e.g. "25 KG PP Bags", "25kg", "50 KG", "1000 KG")
+  const kgMatch = s.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilos?|kilograms?)\b/i);
+  if (kgMatch) {
+    const val = parseFloat(kgMatch[1]);
+    if (!isNaN(val) && val > 0) return val;
+  }
+
+  // Check for LBS / Pounds (1 lb ≈ 0.453592 kg)
+  const lbsMatch = s.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\b/i);
+  if (lbsMatch) {
+    const val = parseFloat(lbsMatch[1]);
+    if (!isNaN(val) && val > 0) return parseFloat((val * 0.45359237).toFixed(2));
+  }
+
+  // Check for Grams / GMS (e.g. 500 gm = 0.5 kg)
+  const gmMatch = s.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:gms?|grams?)\b/i);
+  if (gmMatch) {
+    const val = parseFloat(gmMatch[1]);
+    if (!isNaN(val) && val > 0) return parseFloat((val / 1000).toFixed(4));
+  }
+
+  // Check for numbers preceding or following bag keywords (e.g. "25 PP Bags", "Bags of 25")
+  if (!/\b(?:20|40)\s*(?:ft|feet|foot)\b/i.test(s)) {
+    const bagWordMatch =
+      s.match(/(?:^|[^\d.])(\d+(?:\.\d+)?)\s*(?:bags?|sacks?|cartons?|packs?)\b/i) ||
+      s.match(/\b(?:bags?|sacks?|cartons?|packs?)\s*(?:of\s*)?(\d+(?:\.\d+)?)\b/i);
+    if (bagWordMatch) {
+      const val = parseFloat(bagWordMatch[1]);
+      if (!isNaN(val) && val > 0 && val <= 5000) return val;
+    }
+  }
+
+  // Standalone number string (e.g. "25", "50", "1000")
+  if (/^\d+(?:\.\d+)?$/.test(s)) {
+    const val = parseFloat(s);
+    if (!isNaN(val) && val > 0 && val <= 5000) return val;
+  }
+
+  // If text mentions bags/packaging without a specific number, default to standard 50 KG
+  if (/\b(?:bags?|sacks?|pp|jute|hdpe|paper)\b/i.test(s)) {
+    return 50;
+  }
+
+  return 50;
 }
 
 export interface SmartDocsProductDetailsResult {
@@ -1753,20 +1975,26 @@ export function extractProductDetailsData(
       const clean = item.trim();
       if (clean && !seenPacking.has(clean.toLowerCase())) {
         seenPacking.add(clean.toLowerCase());
+        const bagWeightKg = parsePackingBagWeightKg(clean);
         packingTypes.push({
           value: clean,
           label: clean,
+          bagWeightKg: bagWeightKg !== null ? bagWeightKg : undefined,
         });
       }
       continue;
     }
 
     if (typeof item === 'object') {
-      const label = String(
-        item.packing_type ||
-        item.packing_name ||
-        item.name ||
+      const ptObj = item.packing_type && typeof item.packing_type === 'object' ? item.packing_type : null;
+      const rawTitle = String(
+        ptObj?.title ||
+        ptObj?.name ||
         item.title ||
+        item.name ||
+        item.packing_name ||
+        item.packing_type_name ||
+        (typeof item.packing_type === 'string' ? item.packing_type : '') ||
         item.label ||
         item.type ||
         item.packing ||
@@ -1774,13 +2002,39 @@ export function extractProductDetailsData(
         ''
       ).trim();
 
-      if (!label || label === '[object Object]') continue;
+      const rawQty =
+        item.quantity ??
+        item.qty ??
+        item.packing_quantity ??
+        item.pack_qty ??
+        item.weight ??
+        item.bagWeightKg ??
+        item.bag_weight_kg ??
+        ptObj?.quantity ??
+        ptObj?.qty ??
+        ptObj?.weight;
+
+      const numQty =
+        rawQty !== undefined && rawQty !== null && rawQty !== ''
+          ? (typeof rawQty === 'number' ? rawQty : parseFloat(String(rawQty).replace(/[^\d.]/g, '')))
+          : undefined;
+
+      const validQty = numQty !== undefined && !isNaN(numQty) && numQty > 0 ? numQty : undefined;
+
+      let label = rawTitle;
+      if (!label || label === '[object Object]') {
+        label = validQty ? `${validQty} KG Bags` : 'Standard Bags';
+      } else if (validQty && !label.toLowerCase().includes(String(validQty))) {
+        label = `${label} (${validQty} KG)`;
+      }
 
       const value = String(
         item.id ||
         item._id ||
         item.code ||
         item.packing_type_id ||
+        ptObj?.id ||
+        ptObj?._id ||
         item.value ||
         label
       ).trim();
@@ -1788,6 +2042,7 @@ export function extractProductDetailsData(
       const subLabel =
         item.description ||
         item.desc ||
+        (validQty ? `${validQty} KG` : undefined) ||
         item.weight ||
         item.size ||
         item.material ||
@@ -1798,11 +2053,22 @@ export function extractProductDetailsData(
       if (!seenPacking.has(dedupeKey) && !seenPacking.has(label.toLowerCase())) {
         seenPacking.add(dedupeKey);
         seenPacking.add(label.toLowerCase());
+        const bagWeightKg =
+          validQty ||
+          (typeof item.bagWeightKg === 'number' && item.bagWeightKg > 0 ? item.bagWeightKg : undefined) ||
+          (typeof item.weight === 'number' && item.weight > 0 ? item.weight : undefined) ||
+          (typeof item.bag_weight_kg === 'number' && item.bag_weight_kg > 0 ? item.bag_weight_kg : undefined) ||
+          parsePackingBagWeightKg(item) ||
+          parsePackingBagWeightKg(label) ||
+          (subLabel ? parsePackingBagWeightKg(subLabel) : null);
+
         packingTypes.push({
           ...item,
           value: value || label,
           label,
           subLabel: subLabel ? String(subLabel).trim() : undefined,
+          bagWeightKg: bagWeightKg !== null ? bagWeightKg : undefined,
+          quantity: validQty || bagWeightKg || undefined,
         });
       }
     }
@@ -2146,6 +2412,141 @@ export interface SmartDocsCurrencyOption {
   [key: string]: any;
 }
 
+export const KNOWN_CURRENCIES: Record<string, { code: string; label: string; symbol: string; name: string }> = {
+  USD: { code: 'USD', label: 'USD ($)', symbol: '$', name: 'US Dollar' },
+  EUR: { code: 'EUR', label: 'EUR (€)', symbol: '€', name: 'Euro' },
+  INR: { code: 'INR', label: 'INR (₹)', symbol: '₹', name: 'Indian Rupee' },
+  AED: { code: 'AED', label: 'AED (د.إ)', symbol: 'د.إ', name: 'UAE Dirham' },
+  GBP: { code: 'GBP', label: 'GBP (£)', symbol: '£', name: 'British Pound' },
+  SGD: { code: 'SGD', label: 'SGD (S$)', symbol: 'S$', name: 'Singapore Dollar' },
+  CNY: { code: 'CNY', label: 'CNY (¥)', symbol: '¥', name: 'Chinese Yuan' },
+  CAD: { code: 'CAD', label: 'CAD (C$)', symbol: 'C$', name: 'Canadian Dollar' },
+  AUD: { code: 'AUD', label: 'AUD (A$)', symbol: 'A$', name: 'Australian Dollar' },
+  JPY: { code: 'JPY', label: 'JPY (¥)', symbol: '¥', name: 'Japanese Yen' },
+  CHF: { code: 'CHF', label: 'CHF (CHF)', symbol: 'CHF', name: 'Swiss Franc' },
+  BRL: { code: 'BRL', label: 'BRL (R$)', symbol: 'R$', name: 'Brazilian Real' },
+  ZAR: { code: 'ZAR', label: 'ZAR (R)', symbol: 'R', name: 'South African Rand' },
+  RUB: { code: 'RUB', label: 'RUB (₽)', symbol: '₽', name: 'Russian Ruble' },
+  MYR: { code: 'MYR', label: 'MYR (RM)', symbol: 'RM', name: 'Malaysian Ringgit' },
+  IDR: { code: 'IDR', label: 'IDR (Rp)', symbol: 'Rp', name: 'Indonesian Rupiah' },
+  THB: { code: 'THB', label: 'THB (฿)', symbol: '฿', name: 'Thai Baht' },
+  TRY: { code: 'TRY', label: 'TRY (₺)', symbol: '₺', name: 'Turkish Lira' },
+  SAR: { code: 'SAR', label: 'SAR (﷼)', symbol: '﷼', name: 'Saudi Riyal' },
+  VND: { code: 'VND', label: 'VND (₫)', symbol: '₫', name: 'Vietnamese Dong' },
+  PKR: { code: 'PKR', label: 'PKR (₨)', symbol: '₨', name: 'Pakistani Rupee' },
+  BDT: { code: 'BDT', label: 'BDT (৳)', symbol: '৳', name: 'Bangladeshi Taka' },
+  NZD: { code: 'NZD', label: 'NZD (NZ$)', symbol: 'NZ$', name: 'New Zealand Dollar' },
+  HKD: { code: 'HKD', label: 'HKD (HK$)', symbol: 'HK$', name: 'Hong Kong Dollar' },
+  KRW: { code: 'KRW', label: 'KRW (₩)', symbol: '₩', name: 'South Korean Won' },
+};
+
+export const CURRENCY_ALIAS_MAP: Record<string, string> = {
+  USD: 'USD',
+  'US DOLLAR': 'USD',
+  'US DOLLARS': 'USD',
+  'US-DOLLAR': 'USD',
+  'U.S. DOLLAR': 'USD',
+  'UNITED STATES DOLLAR': 'USD',
+  DOLLAR: 'USD',
+  DOLLARS: 'USD',
+  '$': 'USD',
+
+  EUR: 'EUR',
+  EURO: 'EUR',
+  EUROS: 'EUR',
+  '€': 'EUR',
+
+  INR: 'INR',
+  RUPEE: 'INR',
+  RUPEES: 'INR',
+  'INDIAN RUPEE': 'INR',
+  'INDIAN RUPEES': 'INR',
+  '₹': 'INR',
+  RS: 'INR',
+  'RS.': 'INR',
+
+  AED: 'AED',
+  DIRHAM: 'AED',
+  DIRHAMS: 'AED',
+  'UAE DIRHAM': 'AED',
+  'د.إ': 'AED',
+
+  GBP: 'GBP',
+  POUND: 'GBP',
+  POUNDS: 'GBP',
+  'BRITISH POUND': 'GBP',
+  'POUND STERLING': 'GBP',
+  '£': 'GBP',
+
+  SGD: 'SGD',
+  'SINGAPORE DOLLAR': 'SGD',
+  'S$': 'SGD',
+
+  CNY: 'CNY',
+  RMB: 'CNY',
+  YUAN: 'CNY',
+  'CHINESE YUAN': 'CNY',
+
+  CAD: 'CAD',
+  'CANADIAN DOLLAR': 'CAD',
+  'C$': 'CAD',
+
+  AUD: 'AUD',
+  'AUSTRALIAN DOLLAR': 'AUD',
+  'A$': 'AUD',
+
+  JPY: 'JPY',
+  YEN: 'JPY',
+  'JAPANESE YEN': 'JPY',
+  '¥': 'JPY',
+
+  CHF: 'CHF',
+  'SWISS FRANC': 'CHF',
+
+  BRL: 'BRL',
+  'BRAZILIAN REAL': 'BRL',
+  'R$': 'BRL',
+
+  ZAR: 'ZAR',
+  RAND: 'ZAR',
+  'SOUTH AFRICAN RAND': 'ZAR',
+
+  RUB: 'RUB',
+  RUBLE: 'RUB',
+  'RUSSIAN RUBLE': 'RUB',
+  '₽': 'RUB',
+
+  MYR: 'MYR',
+  RINGGIT: 'MYR',
+  'MALAYSIAN RINGGIT': 'MYR',
+  RM: 'MYR',
+
+  IDR: 'IDR',
+  RUPIAH: 'IDR',
+  'INDONESIAN RUPIAH': 'IDR',
+  RP: 'IDR',
+
+  THB: 'THB',
+  BAHT: 'THB',
+  'THAI BAHT': 'THB',
+  '฿': 'THB',
+
+  TRY: 'TRY',
+  LIRA: 'TRY',
+  'TURKISH LIRA': 'TRY',
+  '₺': 'TRY',
+
+  SAR: 'SAR',
+  RIYAL: 'SAR',
+  'SAUDI RIYAL': 'SAR',
+  '﷼': 'SAR',
+
+  VND: 'VND',
+  DONG: 'VND',
+  'VIETNAMESE DONG': 'VND',
+  '₫': 'VND',
+};
+
 export const DEFAULT_CURRENCIES: SmartDocsCurrencyOption[] = [
   { value: 'USD', label: 'USD ($)', code: 'USD', symbol: '$' },
   { value: 'EUR', label: 'EUR (€)', code: 'EUR', symbol: '€' },
@@ -2168,6 +2569,146 @@ export const DEFAULT_CURRENCIES: SmartDocsCurrencyOption[] = [
   { value: 'SAR', label: 'SAR (﷼)', code: 'SAR', symbol: '﷼' },
   { value: 'VND', label: 'VND (₫)', code: 'VND', symbol: '₫' },
 ];
+
+/**
+ * Normalizes any currency string, code, or alias to standard uppercase 3-letter currency code (e.g. "USD").
+ * Converts "US Dollar", "US DOLLAR", "US DOLLARS", "Dollar", "$", "USD ($)" to "USD".
+ */
+export function normalizeCurrencyCode(val: any): string {
+  if (!val) return 'USD';
+  if (typeof val === 'object') {
+    const raw =
+      val.code ||
+      val.currency_code ||
+      val.currencyCode ||
+      val.iso_code ||
+      val.short_code ||
+      val.value ||
+      val.currency ||
+      val.currency_name ||
+      val.name ||
+      val.label ||
+      '';
+    return normalizeCurrencyCode(raw);
+  }
+  const clean = String(val).trim().toUpperCase();
+  if (!clean || clean === '[OBJECT OBJECT]' || clean === 'UNDEFINED' || clean === 'NULL') {
+    return 'USD';
+  }
+
+  // Direct alias match
+  if (CURRENCY_ALIAS_MAP[clean]) {
+    return CURRENCY_ALIAS_MAP[clean];
+  }
+
+  // Remove parenthesis and brackets e.g. "USD ($)" -> "USD"
+  const stripped = clean.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').trim();
+  if (CURRENCY_ALIAS_MAP[stripped]) {
+    return CURRENCY_ALIAS_MAP[stripped];
+  }
+
+  // Check if string contains known alias
+  for (const [alias, code] of Object.entries(CURRENCY_ALIAS_MAP)) {
+    if (alias.length >= 3 && clean.includes(alias)) {
+      return code;
+    }
+  }
+
+  // If 3-character alphabetic code e.g. "EUR", "INR"
+  if (/^[A-Z]{3}$/.test(stripped)) {
+    return stripped;
+  }
+
+  return stripped || clean || 'USD';
+}
+
+/**
+ * Returns the currency symbol for formatting or display (defaults to '$' for USD/unrecognized).
+ */
+export function getCurrencySymbol(currencyOrCode: any): string {
+  if (typeof currencyOrCode === 'object' && currencyOrCode) {
+    const sym =
+      currencyOrCode.symbol ||
+      currencyOrCode.currency_symbol ||
+      currencyOrCode.currencySymbol ||
+      currencyOrCode.sign;
+    if (sym && typeof sym === 'string' && sym.trim()) {
+      return sym.trim();
+    }
+  }
+  const code = normalizeCurrencyCode(currencyOrCode);
+  if (KNOWN_CURRENCIES[code]?.symbol) {
+    return KNOWN_CURRENCIES[code].symbol;
+  }
+  return '$';
+}
+
+/**
+ * Robustly normalizes any raw currency item, object, or code into a structured SmartDocsCurrencyOption.
+ * Guarantees that "US Dollar" / "US DOLLAR" is cleanly represented as { value: 'USD', label: 'USD ($)', code: 'USD', symbol: '$' }.
+ */
+export function normalizeCurrencyOption(raw: any, existingList?: any[]): SmartDocsCurrencyOption {
+  const code = normalizeCurrencyCode(raw);
+  const known = KNOWN_CURRENCIES[code];
+
+  let id: string | undefined = undefined;
+  let rawSymbol: string | undefined = undefined;
+  let rawObj: any = undefined;
+
+  if (raw && typeof raw === 'object') {
+    rawObj = raw;
+    id = raw.id || raw._id || raw.currency_id || raw.currencyId;
+    rawSymbol =
+      raw.symbol ||
+      raw.currency_symbol ||
+      raw.currencySymbol ||
+      raw.sign ||
+      raw.icon;
+  }
+
+  // Check if an existing option matches by ID or Code in existingList
+  if (existingList && Array.isArray(existingList) && existingList.length > 0) {
+    const rawIdStr = id ? String(id) : typeof raw === 'string' ? raw.trim() : '';
+    const match = existingList.find(
+      (item: any) =>
+        (rawIdStr && (String(item.id) === rawIdStr || String(item.value) === rawIdStr || String(item.raw?.id || item.raw?._id) === rawIdStr)) ||
+        (item.value && String(item.value).toUpperCase() === code) ||
+        (item.code && String(item.code).toUpperCase() === code) ||
+        (item.label && String(item.label).toUpperCase().startsWith(code))
+    );
+    if (match) {
+      const matchId = match.id || match.raw?.id || match.raw?._id || match.raw?.currency_id || id;
+      const matchSymbol = match.symbol || rawSymbol || known?.symbol || '$';
+      const matchLabel =
+        match.label && match.label.includes('(')
+          ? match.label
+          : `${code} (${matchSymbol})`;
+
+      return {
+        id: matchId ? String(matchId) : undefined,
+        value: code,
+        label: matchLabel,
+        code: code,
+        symbol: matchSymbol,
+        subLabel: match.subLabel || known?.name,
+        raw: match.raw || rawObj,
+      };
+    }
+  }
+
+  const symbol = rawSymbol || known?.symbol || (code === 'USD' ? '$' : undefined);
+  const label = known?.label || (symbol ? `${code} (${symbol})` : code);
+
+  return {
+    id: id ? String(id) : undefined,
+    value: code,
+    label: label,
+    code: code,
+    symbol: symbol,
+    subLabel: known?.name,
+    raw: rawObj,
+  };
+}
 
 /**
  * Robust helper to extract and format currency items from /currency API:
@@ -2216,85 +2757,17 @@ export function extractCurrenciesData(data: any): SmartDocsCurrencyOption[] {
   }
 
   const seenValues = new Set<string>();
+  const formatted: SmartDocsCurrencyOption[] = [];
 
-  const formatCurrencyItem = (item: any, index: number): SmartDocsCurrencyOption | null => {
-    if (!item) return null;
-
-    if (typeof item === 'string') {
-      const clean = item.trim().toUpperCase();
-      if (!clean) return null;
-      return {
-        value: clean,
-        label: clean,
-        code: clean,
-      };
+  for (const item of rawList) {
+    if (!item) continue;
+    const opt = normalizeCurrencyOption(item);
+    const dedupeKey = opt.value.toUpperCase();
+    if (!seenValues.has(dedupeKey)) {
+      seenValues.add(dedupeKey);
+      formatted.push(opt);
     }
-
-    const code = String(
-      item.code ||
-      item.currency_code ||
-      item.currencyCode ||
-      item.currency ||
-      item.iso_code ||
-      item.short_code ||
-      item.value ||
-      item.name ||
-      ''
-    ).trim().toUpperCase();
-
-    const symbol = String(
-      item.symbol ||
-      item.currency_symbol ||
-      item.currencySymbol ||
-      item.sign ||
-      item.icon ||
-      ''
-    ).trim();
-
-    const name = String(
-      item.name ||
-      item.currency_name ||
-      item.currencyName ||
-      item.title ||
-      item.label ||
-      ''
-    ).trim();
-
-    if (!code && !symbol && !name) return null;
-
-    const displayCode = code || name || `CUR-${index}`;
-
-    // Format: Code and in brackets its symbol, e.g. "USD ($)"
-    let displayLabel = displayCode;
-    if (symbol) {
-      if (displayLabel.includes(`(${symbol})`) || displayLabel.endsWith(` ${symbol}`)) {
-        // already has symbol
-      } else {
-        displayLabel = `${displayCode} (${symbol})`;
-      }
-    }
-
-    const value = displayCode;
-    const dedupeKey = value.toUpperCase();
-    if (seenValues.has(dedupeKey)) return null;
-    seenValues.add(dedupeKey);
-
-    const id = item.id || item._id || item.currency_id || item.currencyId;
-
-    return {
-      id: id ? String(id) : undefined,
-      value: displayCode,
-      label: displayLabel,
-      code: displayCode,
-      symbol: symbol || undefined,
-      subLabel: name && name.toUpperCase() !== displayCode ? name : undefined,
-      raw: item,
-    };
-  };
-
-  const formatted = rawList
-    .map(formatCurrencyItem)
-    .filter((c): c is SmartDocsCurrencyOption => c !== null);
+  }
 
   if (formatted.length === 0) {
     return DEFAULT_CURRENCIES;
