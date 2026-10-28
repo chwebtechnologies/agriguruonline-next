@@ -711,6 +711,76 @@ export const smartDocsService = {
   },
 
   /**
+   * Submits a Confirmation to generate a Sales Contract:
+   * POST /confirmation/submit?lang_code=en&source=web
+   */
+  submitConfirmation: async (
+    payload: SaveConfirmationPayload,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const url = `${baseUrl}/confirmation/submit`;
+
+    try {
+      const sanitizedPayload = cleanConfirmationPayload(payload);
+      const response = await customFetch(url, {
+        method: 'POST',
+        token,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        body: JSON.stringify(sanitizedPayload),
+        cache: 'no-store',
+      });
+
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        return {
+          ...(typeof json === 'object' && json !== null ? json : {}),
+          success: false,
+          status: response.status,
+          message: json?.message || json?.error || `Request failed with status ${response.status}`,
+          data: json?.data !== undefined ? json.data : json,
+          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+          error_fields: json?.error_fields || json?.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      if (json && typeof json === 'object') {
+        return {
+          ...json,
+          success:
+            json.success === 1 ||
+            json.success === true ||
+            json.status === true ||
+            json.status === 200 ||
+            json.status === 201 ||
+            json.status === 'success',
+          error_fields: json.error_fields || json.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      return json;
+    } catch (error: any) {
+      console.error('[smartDocsService.submitConfirmation] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Network error occurred while submitting confirmation',
+      };
+    }
+  },
+
+  /**
    * Fetches the Confirmation details by ID with authentication:
    * GET /confirmation/:id?lang_code=en&source=web
    */
@@ -742,6 +812,231 @@ export const smartDocsService = {
       return null;
     }
   },
+
+  /**
+   * GET /dms-templates/preview-pdf?prefix=:prefix&id=:id&lang_code=:lang&source=web
+   * Fetches the rendered HTML preview for a document (e.g. confirmation).
+   */
+  getDocPreviewHtml: async (
+    params: {
+      prefix?: string;
+      id: string;
+      lang?: string;
+      source?: string;
+    },
+    token: string
+  ): Promise<{ success: boolean; html?: string; message?: string; error?: string }> => {
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const safeId = sanitizeDocId(params.id);
+    const prefix = params.prefix || 'confirmation';
+    const source = params.source || 'web';
+
+    const url = `${baseUrl}/dms-templates/preview-pdf`;
+
+    try {
+      const response = await customFetch(url, {
+        method: 'GET',
+        token,
+        params: {
+          prefix,
+          id: safeId,
+          lang_code: safeLang,
+          source,
+        },
+        headers: {
+          Accept: 'text/html, application/xhtml+xml, application/json, */*',
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        let errorMsg = `Preview request failed with status: ${response.status}`;
+        try {
+          const rawText = await response.text();
+          try {
+            const errData = JSON.parse(rawText);
+            errorMsg = errData.message || errData.error || errorMsg;
+          } catch {
+            if (rawText) errorMsg = rawText.slice(0, 300);
+          }
+        } catch {
+          // ignore
+        }
+        return { success: false, error: errorMsg, message: errorMsg };
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      const text = await response.text();
+
+      // Check if response is JSON containing HTML or error
+      if (
+        contentType.includes('application/json') ||
+        (text.trim().startsWith('{') && text.trim().endsWith('}'))
+      ) {
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed && typeof parsed === 'object') {
+            if (parsed.success === false || parsed.status === false) {
+              return {
+                success: false,
+                error: parsed.message || parsed.error || 'Failed to generate preview',
+                message: parsed.message || parsed.error || 'Failed to generate preview',
+              };
+            }
+            const htmlContent =
+              parsed.data?.html ||
+              parsed.data?.template ||
+              parsed.html ||
+              parsed.template ||
+              (typeof parsed.data === 'string' ? parsed.data : '');
+            if (htmlContent) {
+              return { success: true, html: htmlContent };
+            }
+          }
+        } catch {
+          // If JSON parse fails, fall through to treating text as raw HTML
+        }
+      }
+
+      // Raw HTML response
+      return { success: true, html: text };
+    } catch (error: any) {
+      console.error('[smartDocsService.getDocPreviewHtml] error:', error);
+      return {
+        success: false,
+        error: error?.message || 'Network error fetching preview',
+        message: error?.message || 'Network error fetching preview',
+      };
+    }
+  },
+
+  /**
+   * GET /dms-templates/download-pdf?prefix=:prefix&id=:id&lang_code=:lang&source=web
+   * Downloads the PDF file for a document (e.g. confirmation).
+   */
+  downloadDocPdf: async (
+    params: {
+      prefix?: string;
+      id: string;
+      lang?: string;
+      source?: string;
+    },
+    token: string
+  ): Promise<{
+    success: boolean;
+    base64?: string;
+    url?: string;
+    contentType?: string;
+    filename?: string;
+    message?: string;
+    error?: string;
+  }> => {
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const safeId = sanitizeDocId(params.id);
+    const prefix = params.prefix || 'confirmation';
+    const source = params.source || 'web';
+
+    const url = `${baseUrl}/dms-templates/download-pdf`;
+
+    try {
+      const response = await customFetch(url, {
+        method: 'GET',
+        token,
+        params: {
+          prefix,
+          id: safeId,
+          lang_code: safeLang,
+          source,
+        },
+        headers: {
+          Accept: 'application/pdf, application/octet-stream, application/json, */*',
+        },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        let errorMsg = `Download failed with status: ${response.status}`;
+        try {
+          const rawText = await response.text();
+          try {
+            const errData = JSON.parse(rawText);
+            errorMsg = errData.message || errData.error || errorMsg;
+          } catch {
+            if (rawText) errorMsg = rawText.slice(0, 300);
+          }
+        } catch {
+          // ignore
+        }
+        return { success: false, error: errorMsg, message: errorMsg };
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      const contentDisposition = response.headers.get('content-disposition') || '';
+      let filename = `${prefix}-${safeId}.pdf`;
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, '').trim();
+      }
+
+      // Read response body ONCE as ArrayBuffer
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Check if response is JSON (e.g. download URL or error object)
+      const isJson = contentType.includes('application/json') || (buffer.length > 0 && buffer[0] === 123);
+      if (isJson) {
+        try {
+          const jsonStr = buffer.toString('utf-8');
+          const json = JSON.parse(jsonStr);
+          if (json && typeof json === 'object') {
+            if (json.success === false || json.status === false) {
+              return {
+                success: false,
+                error: json.message || json.error || 'Failed to download PDF',
+                message: json.message || json.error || 'Failed to download PDF',
+              };
+            }
+            if (json.data?.url || json.url || json.data?.download_url || json.download_url) {
+              return {
+                success: true,
+                url: json.data?.url || json.url || json.data?.download_url || json.download_url,
+                filename,
+              };
+            }
+            if (json.data?.base64 || json.base64) {
+              return {
+                success: true,
+                base64: json.data?.base64 || json.base64,
+                contentType: 'application/pdf',
+                filename,
+              };
+            }
+          }
+        } catch {
+          // Not valid JSON, fall through to treating as binary PDF buffer
+        }
+      }
+
+      // Direct binary buffer (PDF)
+      const base64 = buffer.toString('base64');
+
+      return {
+        success: true,
+        base64,
+        contentType: contentType || 'application/pdf',
+        filename,
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.downloadDocPdf] error:', error);
+      return {
+        success: false,
+        error: error?.message || 'Network error downloading PDF',
+        message: error?.message || 'Network error downloading PDF',
+      };
+    }
+  },
 };
 
 /**
@@ -755,6 +1050,9 @@ export function extractConfirmationData(data: any): any {
     if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
       current = current.data;
     }
+  }
+  if (current.confirmation && typeof current.confirmation === 'object' && !Array.isArray(current.confirmation)) {
+    current = current.confirmation;
   }
   return current;
 }

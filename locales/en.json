@@ -612,6 +612,7 @@
     "add_new_confirmation": "Add New Confirmation",
     "continue_to_draft": "Continue to Draft",
     "draft_title": "Draft Confirmation",
+    "draft_contract_title": "Draft Contract",
     "draft_description": "Create and configure smart trade confirmation drafts.",
     "draft_form_shell": "Draft Document Form",
     "stepper_shell": "Document Stepper",
@@ -751,9 +752,24 @@
       "print_preview": "Print Preview",
       "save_as_draft": "Save As Draft",
       "submit_to_contract": "Submit To Contract",
+      "submit_contract_success": "Confirmation submitted successfully for Contract generation!",
       "saved_as_draft_success": "Confirmation saved as draft successfully!",
       "validation_error": "Please fill all required highlighted fields before submitting.",
       "confirmation_number_required": "Confirmation number is required"
+    },
+    "contract_form": {
+      "contract_title": "CONTRACT",
+      "sales_contract_title": "SALES CONTRACT",
+      "draft_contract_title": "Draft Contract",
+      "contract_number": "CONTRACT NUMBER",
+      "contract_date": "CONTRACT DATE",
+      "enter_contract_number": "e.g. SC/26-27/00142",
+      "contract_number_required": "Contract number is required",
+      "save_as_draft": "Save As Draft",
+      "saved_as_draft_success": "Contract saved as draft successfully!",
+      "submit_contract": "Submit Contract",
+      "submit_contract_success": "Contract submitted successfully!",
+      "submit_to_invoice": "Submit To Commercial Invoice"
     }
   }
 }

@@ -602,6 +602,7 @@
     "add_new_confirmation": "Ajouter une nouvelle confirmation",
     "continue_to_draft": "Continuer le brouillon",
     "draft_title": "Brouillon de confirmation",
+    "draft_contract_title": "Brouillon de contrat",
     "draft_description": "Créez et configurez des brouillons de confirmation et documents commerciaux intelligents.",
     "draft_form_shell": "Formulaire de document brouillon",
     "stepper_shell": "Étapes du document",
@@ -736,6 +737,20 @@
       "saved_as_draft_success": "Confirmation enregistrée comme brouillon avec succès !",
       "validation_error": "Veuillez remplir tous les champs obligatoires mis en évidence avant de soumettre.",
       "confirmation_number_required": "Le numéro de confirmation est requis"
+    },
+    "contract_form": {
+      "contract_title": "CONTRAT",
+      "sales_contract_title": "CONTRAT DE VENTE",
+      "draft_contract_title": "Brouillon de contrat",
+      "contract_number": "NUMÉRO DE CONTRAT",
+      "contract_date": "DATE DU CONTRAT",
+      "enter_contract_number": "ex: SC/26-27/00142",
+      "contract_number_required": "Le numéro de contrat est requis",
+      "save_as_draft": "Enregistrer comme brouillon",
+      "saved_as_draft_success": "Contrat enregistré comme brouillon avec succès !",
+      "submit_contract": "Soumettre le contrat",
+      "submit_contract_success": "Contrat soumis avec succès !",
+      "submit_to_invoice": "Soumettre à la facture commerciale"
     }
   }
 }

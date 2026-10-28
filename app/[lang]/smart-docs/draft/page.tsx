@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSafeLanguage, getSiteUrl } from '@/lib/seo';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import DocumentDraftWorkspace from '@/components/smart-docs/draft/DocumentDraftWorkspace';
 import {
@@ -20,17 +19,21 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(props: {
   params: Promise<{ lang: string }>;
-  searchParams?: Promise<{ id?: string }>;
+  searchParams?: Promise<{ id?: string; step?: string }>;
 }): Promise<Metadata> {
   const params = await props.params;
   const searchParams = props.searchParams ? await props.searchParams : undefined;
   const activeLang = getSafeLanguage(params?.lang);
   const siteUrl = getSiteUrl();
-  const idQuery = searchParams?.id ? `?id=${encodeURIComponent(searchParams.id)}` : '';
+  const isContractStep = searchParams?.step === 'contract' || searchParams?.step === '2';
+  const queryParts = [];
+  if (searchParams?.id) queryParts.push(`id=${encodeURIComponent(searchParams.id)}`);
+  if (searchParams?.step) queryParts.push(`step=${encodeURIComponent(searchParams.step)}`);
+  const idQuery = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
   return {
-    title: 'Draft Confirmation | Smart Docs | AgriGuru Online',
-    description: 'Create and configure smart agricultural trade confirmation drafts.',
+    title: `${isContractStep ? 'Draft Contract' : 'Draft Confirmation'} | Smart Docs | AgriGuru Online`,
+    description: 'Create and configure smart agricultural trade confirmation and contract drafts.',
     robots: {
       index: false,
       follow: false,
@@ -43,18 +46,22 @@ export async function generateMetadata(props: {
 
 export default async function SmartDocsDraftPage(props: {
   params: Promise<{ lang: string }>;
-  searchParams?: Promise<{ id?: string }>;
+  searchParams?: Promise<{ id?: string; step?: string }>;
 }) {
   const params = await props.params;
   const searchParams = props.searchParams ? await props.searchParams : undefined;
   const lang = getSafeLanguage(params?.lang);
   const draftId = searchParams?.id ? String(searchParams.id).trim() : '';
+  const initialStepParam = searchParams?.step ? String(searchParams.step).trim() : '';
 
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
 
   if (!token) {
-    const redirectSuffix = draftId ? `?id=${encodeURIComponent(draftId)}` : '';
+    const redirectParts = [];
+    if (draftId) redirectParts.push(`id=${encodeURIComponent(draftId)}`);
+    if (initialStepParam) redirectParts.push(`step=${encodeURIComponent(initialStepParam)}`);
+    const redirectSuffix = redirectParts.length > 0 ? `?${redirectParts.join('&')}` : '';
     redirect(`/${lang}/login?redirectUrl=/${lang}/smart-docs/draft${redirectSuffix}`);
   }
 
@@ -141,40 +148,24 @@ export default async function SmartDocsDraftPage(props: {
   const initialCurrencies = extractCurrenciesData(currenciesRes);
   const initialConfirmationData = extractConfirmationData(confirmationRes);
 
-  const pageTitle =
-    dict?.smart_docs?.draft_title ||
-    dict?.smart_docs?.add_new_confirmation ||
-    dict?.smart_docs?.add_confirmation ||
-    'Draft Confirmation';
-
   return (
     <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">
       <div className="w-full pad-for-badges flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
         <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0.5 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
-          {/* Header Bar */}
-          <div className="shrink-0">
-            <PageHeader
-              title={pageTitle}
-              backText={dict?.common?.back || 'Back'}
-              backHref={`/${lang}/smart-docs`}
-            />
-          </div>
-
           {/* SaaS Single Page Workspace (Fluid on mobile, locked on desktop) */}
-          <div className="flex-1 min-h-fit lg:min-h-0 flex flex-col lg:overflow-hidden">
-            <DocumentDraftWorkspace
-              lang={lang}
-              dict={dict}
-              initialSteps={initialSteps}
-              initialSellers={initialSellers}
-              initialBuyers={initialBuyers}
-              initialProducts={initialProducts}
-              initialPaymentTerms={initialPaymentTerms}
-              initialCurrencies={initialCurrencies}
-              initialData={initialConfirmationData}
-              initialId={draftId}
-            />
-          </div>
+          <DocumentDraftWorkspace
+            lang={lang}
+            dict={dict}
+            initialSteps={initialSteps}
+            initialSellers={initialSellers}
+            initialBuyers={initialBuyers}
+            initialProducts={initialProducts}
+            initialPaymentTerms={initialPaymentTerms}
+            initialCurrencies={initialCurrencies}
+            initialData={initialConfirmationData}
+            initialId={draftId}
+            initialStepParam={initialStepParam}
+          />
         </div>
       </div>
     </div>

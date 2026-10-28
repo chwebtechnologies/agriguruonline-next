@@ -14,8 +14,10 @@ import {
   getSmartDocsPaymentTermsAction,
   getSmartDocsCurrenciesAction,
   saveConfirmationDraftAction,
+  submitConfirmationAction,
   getStepperListAction,
   getConfirmationAction,
+  downloadDocPdfAction,
 } from '@/app/actions/smart-docs';
 import {
   extractHsnCodeFromItem,
@@ -32,6 +34,8 @@ import {
 } from '@/lib/api/smart-docs.service';
 import ProductManageModal from './ProductManageModal';
 import PaymentTermManageModal from './PaymentTermManageModal';
+import InstructionManageModal from './InstructionManageModal';
+import DocPrintPreviewModal from './DocPrintPreviewModal';
 
 export interface FormOptionItem {
   value: string;
@@ -1316,6 +1320,135 @@ export function ConfirmationDocumentForm({
   const [productModalMode, setProductModalMode] = useState<'add' | 'edit'>('add');
   const [editingProduct, setEditingProduct] = useState<FormOptionItem | null>(null);
 
+  // Print Preview Modal state & handler
+  const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
+
+  const handleOpenPrintPreview = () => {
+    const effectiveId =
+      draftId ||
+      (typeof window !== 'undefined'
+        ? new URL(window.location.href).searchParams.get('id') || ''
+        : '') ||
+      toCleanId(
+        initialData?.id ||
+          initialData?._id ||
+          initialData?.confirmation_id ||
+          initialData?.confirmationId
+      );
+
+    if (!effectiveId) {
+      toast.error(
+        dict?.smart_docs?.confirmation_form?.save_draft_first_preview ||
+          'Please save the draft first to preview the document.'
+      );
+      return;
+    }
+
+    setIsPreviewOpen(true);
+  };
+
+  // Download PDF state & handler (GET /dms-templates/download-pdf?prefix=confirmation&id=...&lang_code=...&source=web)
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
+
+  const handleDownloadPdf = async () => {
+    const effectiveId =
+      draftId ||
+      (typeof window !== 'undefined'
+        ? new URL(window.location.href).searchParams.get('id') || ''
+        : '') ||
+      toCleanId(
+        initialData?.id ||
+          initialData?._id ||
+          initialData?.confirmation_id ||
+          initialData?.confirmationId
+      );
+
+    if (!effectiveId) {
+      toast.error(
+        dict?.smart_docs?.confirmation_form?.save_draft_first_download ||
+          'Please save the draft first to download PDF.'
+      );
+      return;
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      const res = await downloadDocPdfAction({
+        prefix: 'confirmation',
+        id: effectiveId,
+        lang,
+      });
+
+      if (res.success) {
+        const numCandidate =
+          confirmationNumber ||
+          toCleanLabel(initialData?.confirmationNumber || initialData?.confirmation_number) ||
+          effectiveId;
+
+        const cleanNumber = String(numCandidate)
+          .replace(/^#+/, '')
+          .replace(/[/\\?%*:|"<>]/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+
+        const downloadName = `CONFIRMATION-${cleanNumber}.pdf`;
+
+        if (res.url) {
+          try {
+            const fileRes = await fetch(res.url);
+            const blob = await fileRes.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = downloadName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
+            toast.success('PDF downloaded successfully!');
+          } catch {
+            const a = document.createElement('a');
+            a.href = res.url;
+            a.download = downloadName;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            toast.success('PDF download started!');
+          }
+        } else if (res.base64) {
+          const byteCharacters = atob(res.base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: res.contentType || 'application/pdf' });
+          const blobUrl = URL.createObjectURL(blob);
+
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = downloadName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
+          toast.success('PDF downloaded successfully!');
+        } else {
+          toast.error('No PDF data received from server.');
+        }
+      } else {
+        toast.error(res.message || res.error || 'Failed to download PDF.');
+      }
+    } catch (err: any) {
+      console.error('[ConfirmationDocumentForm] handleDownloadPdf error:', err);
+      toast.error(err?.message || 'Error occurred while downloading PDF.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   // Dynamic Payment Terms List State (pre-populated by SSR or fetched via server action)
   const [internalPaymentTerms, setInternalPaymentTerms] = useState<FormOptionItem[]>(() => {
     if (paymentTerms && paymentTerms.length > 0) return paymentTerms;
@@ -1355,6 +1488,83 @@ export function ConfirmationDocumentForm({
   const [isPaymentTermModalOpen, setIsPaymentTermModalOpen] = useState<boolean>(false);
   const [paymentTermModalMode, setPaymentTermModalMode] = useState<'add' | 'edit'>('add');
   const [editingPaymentTerm, setEditingPaymentTerm] = useState<FormOptionItem | null>(null);
+
+  // Party (Seller / Buyer) Add / Edit Modal states
+  const [isInstructionModalOpen, setIsInstructionModalOpen] = useState<boolean>(false);
+  const [instructionModalMode, setInstructionModalMode] = useState<'add' | 'edit'>('add');
+  const [instructionModalPartyType, setInstructionModalPartyType] = useState<'seller' | 'buyer'>('seller');
+  const [editingParty, setEditingParty] = useState<FormOptionItem | null>(null);
+
+  const handleAddNewSeller = () => {
+    setEditingParty(null);
+    setInstructionModalMode('add');
+    setInstructionModalPartyType('seller');
+    setIsInstructionModalOpen(true);
+  };
+
+  const handleEditSeller = (opt: any) => {
+    const found = sellersList.find((s) => s.value === opt.value || s.label === opt.label) || opt;
+    setEditingParty(found);
+    setInstructionModalMode('edit');
+    setInstructionModalPartyType('seller');
+    setIsInstructionModalOpen(true);
+  };
+
+  const handleAddNewBuyer = () => {
+    setEditingParty(null);
+    setInstructionModalMode('add');
+    setInstructionModalPartyType('buyer');
+    setIsInstructionModalOpen(true);
+  };
+
+  const handleEditBuyer = (opt: any) => {
+    const found = buyersList.find((b) => b.value === opt.value || b.label === opt.label) || opt;
+    setEditingParty(found);
+    setInstructionModalMode('edit');
+    setInstructionModalPartyType('buyer');
+    setIsInstructionModalOpen(true);
+  };
+
+  const handleSaveInstruction = (savedData: { id: string; label: string; instructionText: string }) => {
+    const formattedItem: FormOptionItem = {
+      value: savedData.id,
+      label: savedData.label,
+      subLabel: savedData.instructionText,
+      instructionText: savedData.instructionText,
+    };
+
+    if (instructionModalPartyType === 'seller') {
+      setInternalSellers((prev) => {
+        const idx = prev.findIndex(
+          (p) => p.value === savedData.id || p.label.toLowerCase() === savedData.label.toLowerCase()
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...formattedItem };
+          return next;
+        }
+        return [formattedItem, ...prev];
+      });
+      setSellerId(savedData.id);
+      setSellerInstruction(savedData.instructionText);
+      setErrors((prev) => ({ ...prev, sellerId: '', sellerInstruction: '' }));
+    } else {
+      setInternalBuyers((prev) => {
+        const idx = prev.findIndex(
+          (p) => p.value === savedData.id || p.label.toLowerCase() === savedData.label.toLowerCase()
+        );
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...formattedItem };
+          return next;
+        }
+        return [formattedItem, ...prev];
+      });
+      setBuyerId(savedData.id);
+      setBuyerInstruction(savedData.instructionText);
+      setErrors((prev) => ({ ...prev, buyerId: '', buyerInstruction: '' }));
+    }
+  };
 
   // Sync with props if updated externally (merge to avoid losing locally added/custom items)
   useEffect(() => {
@@ -1979,9 +2189,8 @@ export function ConfirmationDocumentForm({
       initialData?.confirmationId
     )
   );
-  const isFormInitializedRef = useRef<boolean>(
-    Boolean(initialData && typeof initialData === 'object' && Object.keys(initialData).length > 0)
-  );
+  // Start uninitialized so that populateConfirmationData runs on initial mount to cleanly wire up all options & fields
+  const isFormInitializedRef = useRef<boolean>(false);
 
   /**
    * Helper function to populate and synchronize all form state fields from a confirmation data object.
@@ -1991,10 +2200,14 @@ export function ConfirmationDocumentForm({
   const populateConfirmationData = useCallback(
     (rawObj: any) => {
       if (!rawObj || typeof rawObj !== 'object') return;
-      const d =
+      let d =
         rawObj?.data && typeof rawObj.data === 'object' && !Array.isArray(rawObj.data)
           ? rawObj.data
           : rawObj;
+
+      if (d?.confirmation && typeof d.confirmation === 'object' && !Array.isArray(d.confirmation)) {
+        d = d.confirmation;
+      }
 
       // Draft ID
       const savedDocId = toCleanId(
@@ -2489,10 +2702,6 @@ export function ConfirmationDocumentForm({
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
       scrollToAndFocusField(newErrors);
-      const firstError = Object.values(newErrors)[0];
-      if (firstError) {
-        toast.error(firstError);
-      }
       return false;
     }
     return true;
@@ -2934,6 +3143,42 @@ export function ConfirmationDocumentForm({
     }
   };
 
+  // Reset form to blank state for contract or new document
+  const resetFormToBlank = useCallback((newTitle: string = 'CONTRACT') => {
+    setDraftId('');
+    setLetterhead(false);
+    setWatermark(false);
+    setDocumentTitle(newTitle);
+    setConfirmationNumber('');
+    setConfirmationDate(new Date().toISOString().split('T')[0]);
+    setSellerId('');
+    setSellerInstruction('');
+    setBuyerId('');
+    setBuyerInstruction('');
+    setProductId('');
+    setHsnCode('');
+    setProductCountry('');
+    setSpecification('');
+    setShipBy('');
+    setLoadingPort('');
+    setDestinationPort('');
+    setPacking('');
+    setShippingTerm('CNF');
+    setFclQty('');
+    setFclCapacity('');
+    setMtQty('');
+    setBagQty('');
+    setCurrency('USD');
+    setCurrencyId('');
+    setPrice('');
+    setTotalValue('');
+    setShipmentRange({ start: null, end: null });
+    setShipmentPeriod('');
+    setPaymentTerm('');
+    setNotes('');
+    setErrors({});
+  }, []);
+
   // Submit to Contract Action
   const handleSubmitContract = async () => {
     if (!validateForm()) {
@@ -2941,22 +3186,86 @@ export function ConfirmationDocumentForm({
     }
 
     setIsSubmitting(true);
+    setErrors({});
     try {
-      const data = getFormData();
+      const payload = getConfirmationSavePayload();
+
+      let result: any = null;
       if (onSubmitContract) {
-        await onSubmitContract(data);
+        result = await onSubmitContract(payload);
+      } else {
+        result = await submitConfirmationAction(payload, lang);
       }
-      toast.success('Confirmation submitted successfully for Contract generation!');
+
+      if (!result) {
+        toast.error('No response received while submitting confirmation. Please retry.');
+        return;
+      }
+
+      const hasFieldErrors = Boolean(
+        (Array.isArray(result.error_fields) && result.error_fields.length > 0) ||
+        (Array.isArray(result.errors) && result.errors.length > 0) ||
+        (result.errors && typeof result.errors === 'object' && Object.keys(result.errors).length > 0) ||
+        (result.error_fields && typeof result.error_fields === 'object' && Object.keys(result.error_fields).length > 0)
+      );
+
+      const isFailed = result.success === false || result.success === 0 || hasFieldErrors;
+
+      if (isFailed) {
+        const { fieldErrors, generalError } = parseBackendFieldErrors(result);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors(fieldErrors);
+          scrollToAndFocusField(fieldErrors);
+        } else {
+          toast.error(generalError || result?.message || 'Failed to submit confirmation. Please retry.');
+        }
+        return;
+      }
+
+      // Success workflow:
+      const cleanId = toCleanId(
+        result.id ||
+        result.data?.id ||
+        result.data?._id ||
+        result.data?.confirmation_id ||
+        result.data?.contract_id ||
+        payload.id ||
+        draftId
+      );
+
+      // Concurrently trigger stepper update if not updated by parent
+      try {
+        const stepperRes = await getStepperListAction({
+          action: 'confirmation',
+          step: cleanId || 'new-confirmation',
+          lang,
+        });
+
+        if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+          if (onUpdateSteps) {
+            onUpdateSteps(stepperRes.data);
+          }
+        }
+      } catch (postSyncErr) {
+        console.error('[ConfirmationDocumentForm] Post-submit stepper update error:', postSyncErr);
+      }
+
+      // Contract form blank aayega
+      resetFormToBlank('CONTRACT');
+
+      const successText =
+        result?.message ||
+        dict?.smart_docs?.confirmation_form?.submit_contract_success ||
+        'Confirmation submitted successfully for Contract generation!';
+      toast.success(successText);
     } catch (err: any) {
+      console.error('[ConfirmationDocumentForm] handleSubmitContract error:', err);
       const { fieldErrors, generalError } = parseBackendFieldErrors(err);
       if (Object.keys(fieldErrors).length > 0) {
         setErrors(fieldErrors);
         scrollToAndFocusField(fieldErrors);
-      }
-      if (generalError) {
-        toast.error(generalError);
-      } else if (Object.keys(fieldErrors).length === 0) {
-        toast.error(err?.message || 'Failed to submit confirmation. Please retry.');
+      } else {
+        toast.error(generalError || err?.message || 'Failed to submit confirmation. Please retry.');
       }
     } finally {
       setIsSubmitting(false);
@@ -3152,9 +3461,11 @@ export function ConfirmationDocumentForm({
                 loading={isLoadingInstructions && sellersList.length === 0}
                 error={errors.sellerId}
                 disabled={readOnly}
-                showEditOption
-                showAddNew
-                addNewLabel={dict?.smart_docs?.confirmation_form?.add_new || 'Add New'}
+                showEditOption={!readOnly}
+                onEditOption={(opt) => handleEditSeller(opt)}
+                showAddNew={!readOnly}
+                addNewLabel={dict?.smart_docs?.confirmation_form?.add_new || 'Add Seller'}
+                onAddNew={handleAddNewSeller}
               />
               <div data-field="sellerInstruction">
                 <DocUnderlineInput
@@ -3196,9 +3507,11 @@ export function ConfirmationDocumentForm({
                 loading={isLoadingInstructions && buyersList.length === 0}
                 error={errors.buyerId}
                 disabled={readOnly}
-                showEditOption
-                showAddNew
-                addNewLabel={dict?.smart_docs?.confirmation_form?.add_new || 'Add New'}
+                showEditOption={!readOnly}
+                onEditOption={(opt) => handleEditBuyer(opt)}
+                showAddNew={!readOnly}
+                addNewLabel={dict?.smart_docs?.confirmation_form?.add_new || 'Add Buyer'}
+                onAddNew={handleAddNewBuyer}
               />
               <div data-field="buyerInstruction">
                 <DocUnderlineInput
@@ -3875,28 +4188,37 @@ export function ConfirmationDocumentForm({
         Sticky on mobile docked at viewport bottom, static on desktop at bottom of card.
       */}
       <div className="shrink-0 sticky bottom-0 lg:static border-t border-border bg-card/95 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-2.5 print:hidden z-30 shadow-md lg:shadow-none rounded-b-xl">
-        {/* Left Action Buttons: Print Preview & Download PDF (Disabled for future implementation) */}
+        {/* Left Action Buttons: Print Preview & Download PDF (Red themed like Contract) */}
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
-          {/* Print Preview Button (Disabled) */}
+          {/* Print Preview Button */}
           <button
             type="button"
-            disabled
+            onClick={handleOpenPrintPreview}
             title={dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview'}
-            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 text-destructive opacity-60 cursor-not-allowed select-none shadow-xs transition-all"
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 text-destructive active:scale-[0.98] transition-all duration-150 shadow-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-destructive/20"
           >
             <i className="fa-solid fa-print text-xs" />
             <span>{dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview'}</span>
           </button>
 
-          {/* Download PDF Button (Disabled) */}
+          {/* Download PDF Button */}
           <button
             type="button"
-            disabled
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
             title={dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}
-            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 text-destructive opacity-60 cursor-not-allowed select-none shadow-xs transition-all"
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 text-destructive active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-destructive/20"
           >
-            <i className="fa-solid fa-file-pdf text-xs" />
-            <span>{dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}</span>
+            {isDownloadingPdf ? (
+              <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+            ) : (
+              <i className="fa-solid fa-file-pdf text-xs" />
+            )}
+            <span>
+              {isDownloadingPdf
+                ? 'Downloading...'
+                : dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}
+            </span>
           </button>
         </div>
 
@@ -3959,6 +4281,43 @@ export function ConfirmationDocumentForm({
         mode={paymentTermModalMode}
         paymentTerm={editingPaymentTerm}
         onSave={handleSavePaymentTerm}
+        dict={dict}
+      />
+
+      {/* Party (Seller / Buyer) Add / Edit Modal */}
+      <InstructionManageModal
+        isOpen={isInstructionModalOpen}
+        onClose={() => setIsInstructionModalOpen(false)}
+        mode={instructionModalMode}
+        partyType={instructionModalPartyType}
+        party={editingParty}
+        onSave={handleSaveInstruction}
+        dict={dict}
+      />
+
+      {/* Print Preview Modal */}
+      <DocPrintPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        prefix="confirmation"
+        docId={
+          draftId ||
+          (typeof window !== 'undefined'
+            ? new URL(window.location.href).searchParams.get('id') || ''
+            : '') ||
+          toCleanId(
+            initialData?.id ||
+              initialData?._id ||
+              initialData?.confirmation_id ||
+              initialData?.confirmationId
+          )
+        }
+        docNumber={
+          confirmationNumber ||
+          toCleanLabel(initialData?.confirmationNumber || initialData?.confirmation_number) ||
+          ''
+        }
+        lang={lang}
         dict={dict}
       />
     </div>

@@ -323,6 +323,9 @@ export function DocUnderlineSelect({
     borderStyle = 'border-b-2 border-dotted border-primary bg-transparent';
   }
 
+  const canShowEdit = (showEditOption || Boolean(onEditOption)) && Boolean(onEditOption);
+  const canShowAddNew = (showAddNew || Boolean(onAddNew)) && Boolean(onAddNew);
+
   return (
     <div ref={containerRef} className={`relative inline-flex flex-col w-full group ${className}`}>
       {/* Trigger Button - Clearly indicates active state with solid border */}
@@ -489,11 +492,12 @@ export function DocUnderlineSelect({
                           {opt.badge}
                         </span>
                       )}
-                      {showEditOption && (
+                      {canShowEdit && (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            closeDropdown();
                             onEditOption?.(opt, e);
                           }}
                           title="Edit"
@@ -512,12 +516,13 @@ export function DocUnderlineSelect({
               })
             )}
 
-            {showAddNew && (
+            {canShowAddNew && (
               <li
                 role="button"
                 tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
+                  closeDropdown();
                   onAddNew?.();
                 }}
                 onMouseEnter={() => setHighlightedIndex(-1)}

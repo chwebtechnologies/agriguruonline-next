@@ -602,6 +602,7 @@
     "add_new_confirmation": "إضافة تأكيد جديد",
     "continue_to_draft": "متابعة المسودة",
     "draft_title": "مسودة التأكيد",
+    "draft_contract_title": "مسودة العقد",
     "draft_description": "إنشاء وتكوين مسودة التأكيد والمستندات الذكية.",
     "draft_form_shell": "نموذج مسودة المستند",
     "stepper_shell": "مخطط الخطوات",
@@ -736,6 +737,20 @@
       "saved_as_draft_success": "تم حفظ تأكيد الصفقة كمسودة بنجاح!",
       "validation_error": "يرجى تعبئة جميع الحقول المطلوبة والمحددة باللون الأحمر قبل المتابعة.",
       "confirmation_number_required": "رقم التأكيد مطلوب"
+    },
+    "contract_form": {
+      "contract_title": "العقد",
+      "sales_contract_title": "عقد البيع",
+      "draft_contract_title": "مسودة العقد",
+      "contract_number": "رقم العقد",
+      "contract_date": "تاريخ العقد",
+      "enter_contract_number": "مثال: SC/26-27/00142",
+      "contract_number_required": "رقم العقد مطلوب",
+      "save_as_draft": "حفظ كمسودة",
+      "saved_as_draft_success": "تم حفظ مسودة العقد بنجاح!",
+      "submit_contract": "إرسال العقد",
+      "submit_contract_success": "تم إرسال العقد بنجاح!",
+      "submit_to_invoice": "إرسال إلى الفاتورة التجارية"
     }
   }
 }

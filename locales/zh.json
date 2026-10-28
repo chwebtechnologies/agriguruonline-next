@@ -602,6 +602,7 @@
     "add_new_confirmation": "添加新确认书",
     "continue_to_draft": "继续草稿",
     "draft_title": "确认书草稿",
+    "draft_contract_title": "合同草稿",
     "draft_description": "创建并配置智能贸易确认书和文档草稿。",
     "draft_form_shell": "文档草稿表单",
     "stepper_shell": "步骤导航",
@@ -736,6 +737,20 @@
       "saved_as_draft_success": "确认书草稿保存成功！",
       "validation_error": "请在提交前填写所有红框标注的必填项。",
       "confirmation_number_required": "确认编号为必填项"
+    },
+    "contract_form": {
+      "contract_title": "合同",
+      "sales_contract_title": "销售合同",
+      "draft_contract_title": "合同草稿",
+      "contract_number": "合同编号",
+      "contract_date": "合同日期",
+      "enter_contract_number": "例如: SC/26-27/00142",
+      "contract_number_required": "合同编号为必填项",
+      "save_as_draft": "保存为草稿",
+      "saved_as_draft_success": "合同草稿保存成功！",
+      "submit_contract": "提交合同",
+      "submit_contract_success": "合同提交成功！",
+      "submit_to_invoice": "提交生成商业发票"
     }
   }
 }

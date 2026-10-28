@@ -816,6 +816,373 @@ export async function getConfirmationAction(
   }
 }
 
+export interface SubmitConfirmationActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+/**
+ * Server Action to submit Confirmation to Contract with secure Bearer authentication:
+ * POST /confirmation/submit?lang_code=en&source=web
+ */
+export async function submitConfirmationAction(
+  payload: SaveConfirmationPayload,
+  lang: string = "en"
+): Promise<SubmitConfirmationActionResult> {
+  try {
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[submitConfirmationAction] Token refresh failed:", refErr);
+      }
+    }
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitConfirmation(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    // If unauthorized, attempt one refresh & retry
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitConfirmation(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitConfirmationAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit confirmation to contract",
+        message: "No response from server",
+      };
+    }
+
+    // Backend returns success: 1 on success, success: 0 on failure
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false && (!rawRes.error_fields || rawRes.error_fields.length === 0))
+    );
+
+    const generatedId =
+      rawRes?.data?.contract_id ||
+      rawRes?.contract_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      rawRes?.data?.confirmation_id ||
+      rawRes?.confirmation_id;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+      } catch (revErr) {
+        console.warn("[submitConfirmationAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message:
+          rawRes.message ||
+          "Confirmation submitted successfully for Contract generation!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : payload.id,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    const errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    return {
+      success: false,
+      message: rawRes?.message || "Failed to submit confirmation to contract",
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : payload.id,
+      error: rawRes?.message || "Failed to submit confirmation",
+    };
+  } catch (error: any) {
+    console.error("[submitConfirmationAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while submitting confirmation",
+      message: error?.message || "Internal error occurred while submitting confirmation",
+    };
+  }
+}
+
+export interface GetDocPreviewActionParams {
+  prefix?: string;
+  id: string;
+  lang?: string;
+}
+
+export interface GetDocPreviewActionResult {
+  success: boolean;
+  html?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Server action to fetch rendered PDF/HTML preview for a document.
+ * Endpoint: GET /dms-templates/preview-pdf?prefix=:prefix&id=:id&lang_code=:lang&source=web
+ */
+export async function getDocPreviewAction(
+  params: GetDocPreviewActionParams
+): Promise<GetDocPreviewActionResult> {
+  try {
+    const cleanId = String(params.id || "").trim();
+    if (!cleanId) {
+      return {
+        success: false,
+        error: "Document ID is required to generate preview",
+        message: "Document ID is required to generate preview",
+      };
+    }
+
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[getDocPreviewAction] Initial token refresh failed:", refErr);
+      }
+    }
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const prefix = params.prefix || "confirmation";
+
+    let res = await smartDocsService.getDocPreviewHtml(
+      {
+        prefix,
+        id: cleanId,
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    // If unauthorized, retry once with refreshed token
+    if (
+      !res.success &&
+      res.error &&
+      (res.error.includes("401") ||
+        res.error.toLowerCase().includes("unauthorized"))
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          res = await smartDocsService.getDocPreviewHtml(
+            {
+              prefix,
+              id: cleanId,
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[getDocPreviewAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    return res;
+  } catch (error: any) {
+    console.error("[getDocPreviewAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while generating preview",
+      message: error?.message || "Internal error occurred while generating preview",
+    };
+  }
+}
+
+export interface DownloadDocPdfActionParams {
+  prefix?: string;
+  id: string;
+  lang?: string;
+}
+
+export interface DownloadDocPdfActionResult {
+  success: boolean;
+  base64?: string;
+  url?: string;
+  contentType?: string;
+  filename?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Server action to download PDF file for a document.
+ * Endpoint: GET /dms-templates/download-pdf?prefix=:prefix&id=:id&lang_code=:lang&source=web
+ */
+export async function downloadDocPdfAction(
+  params: DownloadDocPdfActionParams
+): Promise<DownloadDocPdfActionResult> {
+  try {
+    const cleanId = String(params.id || "").trim();
+    if (!cleanId) {
+      return {
+        success: false,
+        error: "Document ID is required to download PDF",
+        message: "Document ID is required to download PDF",
+      };
+    }
+
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[downloadDocPdfAction] Initial token refresh failed:", refErr);
+      }
+    }
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const prefix = params.prefix || "confirmation";
+
+    let res = await smartDocsService.downloadDocPdf(
+      {
+        prefix,
+        id: cleanId,
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    // If unauthorized, retry once with refreshed token
+    if (
+      !res.success &&
+      res.error &&
+      (res.error.includes("401") ||
+        res.error.toLowerCase().includes("unauthorized"))
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          res = await smartDocsService.downloadDocPdf(
+            {
+              prefix,
+              id: cleanId,
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[downloadDocPdfAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    return res;
+  } catch (error: any) {
+    console.error("[downloadDocPdfAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while downloading PDF",
+      message: error?.message || "Internal error occurred while downloading PDF",
+    };
+  }
+}
+
+
+
 
 
 
