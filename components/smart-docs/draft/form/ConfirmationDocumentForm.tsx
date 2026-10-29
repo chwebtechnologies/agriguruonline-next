@@ -3414,7 +3414,10 @@ export function ConfirmationDocumentForm({
                   error={errors.confirmationNumber}
                   icon="fa-solid fa-pen"
                   disabled={readOnly}
-                  placeholder="e.g. CN/26-27/00142"
+                  placeholder={
+                    dict?.smart_docs?.confirmation_form?.enter_confirmation_number ||
+                    'Enter Confirmation Number'
+                  }
                 />
               </div>
             </div>
@@ -3436,6 +3439,9 @@ export function ConfirmationDocumentForm({
                   error={errors.confirmationDate}
                   icon="fa-regular fa-calendar"
                   disabled={readOnly}
+                  placeholder={
+                    dict?.smart_docs?.confirmation_form?.select_date || 'Select Date'
+                  }
                 />
               </div>
             </div>

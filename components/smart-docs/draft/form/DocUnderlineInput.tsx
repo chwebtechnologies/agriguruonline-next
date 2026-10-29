@@ -80,6 +80,9 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
     const alignClass =
       align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
+    const hasValue = String(value ?? '').trim().length > 0;
+    const effectivePlaceholder = placeholder || (type === 'date' ? 'Select Date' : '');
+
     const [isFocused, setIsFocused] = useState(false);
 
     // Theme-compliant dotted underline matching AgriGuru brand system
@@ -173,11 +176,18 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
     return (
       <div className={`relative inline-flex flex-col w-full group ${className}`}>
         <div
+          onClick={(e) => {
+            if (type === 'date' && !disabled && !readOnly) {
+              if (e.target !== inputRef.current) {
+                openCalendarPicker();
+              }
+            }
+          }}
           className={`relative flex ${multiline ? 'items-start pt-1' : 'items-center'} w-full px-1.5 py-0.5 min-h-[28px] rounded-t-sm transition-all duration-150 ${borderStyle} ${
             error
               ? 'focus-within:border-brand-red'
               : 'focus-within:border-solid focus-within:border-primary'
-          } bg-transparent print:border-none`}
+          } ${type === 'date' && !disabled && !readOnly ? 'cursor-pointer' : ''} bg-transparent print:border-none`}
         >
           {icon && iconPosition === 'left' && (
             <button
@@ -199,6 +209,25 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
             </button>
           )}
 
+          {type === 'date' && !hasValue && effectivePlaceholder && (
+            <span
+              aria-hidden="true"
+              className={`absolute top-1/2 -translate-y-1/2 pointer-events-none select-none text-[13px] font-normal leading-normal truncate transition-opacity ${
+                error
+                  ? 'text-brand-red/50'
+                  : 'text-muted-foreground/50'
+              } ${alignClass} ${
+                icon && iconPosition === 'right'
+                  ? 'left-1.5 right-6 rtl:left-6 rtl:right-1.5'
+                  : icon && iconPosition === 'left'
+                  ? 'left-6 right-1.5 rtl:left-1.5 rtl:right-6'
+                  : 'left-1.5 right-1.5'
+              }`}
+            >
+              {effectivePlaceholder}
+            </span>
+          )}
+
           {multiline ? (
             <textarea
               ref={textareaRef}
@@ -207,7 +236,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               rows={rows}
               value={value}
               onChange={(e) => onChange?.(e.target.value)}
-              placeholder={placeholder}
+              placeholder={effectivePlaceholder}
               disabled={disabled}
               readOnly={readOnly}
               tabIndex={tabIndex}
@@ -216,7 +245,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               onBlur={handleBlur}
               onClick={onClick as any}
               onFocus={handleFocus}
-              aria-label={ariaLabel || placeholder}
+              aria-label={ariaLabel || effectivePlaceholder}
               aria-invalid={Boolean(error)}
               style={{ outline: 'none', boxShadow: 'none' }}
               className={`w-full bg-transparent px-0 py-0.5 text-[13px] font-semibold ${
@@ -235,7 +264,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               type={type}
               value={value}
               onChange={(e) => onChange?.(e.target.value)}
-              placeholder={placeholder}
+              placeholder={effectivePlaceholder}
               disabled={disabled}
               readOnly={readOnly}
               tabIndex={tabIndex}
@@ -252,7 +281,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
                 onClick?.(e);
               }}
               onFocus={handleFocus}
-              aria-label={ariaLabel || placeholder}
+              aria-label={ariaLabel || effectivePlaceholder}
               aria-invalid={Boolean(error)}
               style={{ outline: 'none', boxShadow: 'none' }}
               className={`w-full bg-transparent px-0 py-0.5 text-[13px] font-semibold ${
@@ -261,7 +290,11 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
                   : 'text-foreground placeholder:text-muted-foreground/50'
               } placeholder:font-normal border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${alignClass} ${
                 type === 'date'
-                  ? 'cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                  ? `cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                      !hasValue
+                        ? 'text-transparent [&::-webkit-datetime-edit]:text-transparent [&::-webkit-datetime-edit-fields-wrapper]:text-transparent [&::-webkit-datetime-edit-text]:text-transparent [&::-webkit-datetime-edit-month-field]:text-transparent [&::-webkit-datetime-edit-day-field]:text-transparent [&::-webkit-datetime-edit-year-field]:text-transparent'
+                        : ''
+                    }`
                   : ''
               } ${disabled ? 'cursor-not-allowed text-muted-foreground' : ''} ${inputClassName}`}
             />

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
 import DocUnderlineInput from './DocUnderlineInput';
 import DocUnderlineSelect from './DocUnderlineSelect';
 import DocToggle from './DocToggle';
 import DocNotesEditor from './DocNotesEditor';
-import DocSegmentedToggle from './DocSegmentedToggle';
+import DocSegmentedToggle, { DocSegmentedToggleOption } from './DocSegmentedToggle';
 import DocDocumentMultiSelect, { STANDARD_TRADE_DOCUMENTS } from './DocDocumentMultiSelect';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import ProductManageModal from './ProductManageModal';
@@ -47,22 +48,14 @@ export interface ContractDocumentFormProps {
 
 const DEFAULT_FCL_TYPES: FormOptionItem[] = [
   { value: '40 FT', label: '40 FT' },
-  { value: '20 FT', label: '20 FT' },
-  { value: '20 FT & 40 FT', label: '20 FT & 40 FT' },
-  { value: 'Vessel', label: 'Vessel' },
-  { value: 'Break Bulk', label: 'Break Bulk' },
+  { value: '20 FT', label: '20 FT' },  
+  { value: 'Vessel', label: 'Vessel' }
 ];
 
 const DEFAULT_SHIPPING_TERMS: FormOptionItem[] = [
-  { value: 'CNF', label: 'CNF (Cost & Freight)' },
-  { value: 'CIF', label: 'CIF (Cost, Insurance & Freight)' },
   { value: 'FOB', label: 'FOB (Free On Board)' },
-  { value: 'CFR', label: 'CFR (Cost & Freight)' },
-  { value: 'EXW', label: 'EXW (Ex Works)' },
-  { value: 'DAP', label: 'DAP (Delivered at Place)' },
-  { value: 'FCA', label: 'FCA (Free Carrier)' },
-  { value: 'CPT', label: 'CPT (Carriage Paid To)' },
-  { value: 'CIP', label: 'CIP (Carriage & Insurance Paid To)' },
+  { value: 'CNF', label: 'CNF (Cost & Freight)' },
+  { value: 'CIF', label: 'CIF (Cost, Insurance & Freight)' }
 ];
 
 const DEFAULT_LOADING_CONDITIONS: FormOptionItem[] = [
@@ -75,11 +68,41 @@ const DEFAULT_LOADING_CONDITIONS: FormOptionItem[] = [
   { value: 'FCL Stuffed at Port', label: 'FCL Stuffed at Port' },
 ];
 
-const DEFAULT_INSURANCE_OPTIONS: FormOptionItem[] = [
-  { value: 'BUYER', label: 'BUYER' },
-  { value: 'SELLER', label: 'SELLER' },
-  { value: 'NOT APPLICABLE', label: 'NOT APPLICABLE' },
+const DEFAULT_ADVANCE_TYPE_OPTIONS: DocSegmentedToggleOption<'amount' | '%'>[] = [
+  { value: '%', label: '%', icon: 'fa-solid fa-percent' },
+  { value: 'amount', label: 'AMOUNT', icon: 'fa-solid fa-coins' },
 ];
+
+const DEFAULT_BROKER_COMMISSION_TYPE_OPTIONS: DocSegmentedToggleOption<'%' | 'PMT'>[] = [
+  { value: '%', label: '%', icon: 'fa-solid fa-percent' },
+  { value: 'PMT', label: 'PMT', icon: 'fa-solid fa-scale-balanced' },
+];
+
+export function getInsuranceFromIncoterm(term?: string | null): string {
+  if (!term || !term.trim()) return '';
+  const upper = term.trim().toUpperCase();
+  if (
+    upper === 'FOB' ||
+    upper === 'CNF' ||
+    upper === 'CFR' ||
+    upper.startsWith('FOB') ||
+    upper.startsWith('CNF') ||
+    upper.startsWith('CFR')
+  ) {
+    return 'Buyer';
+  }
+  return 'Seller';
+}
+
+export function getPartialLabel(index: number): string {
+  let label = '';
+  let n = index;
+  while (n >= 0) {
+    label = String.fromCharCode(65 + (n % 26)) + label;
+    n = Math.floor(n / 26) - 1;
+  }
+  return label;
+}
 
 const DEFAULT_OTHER_TERMS_PAYMENT = `THE BUYER SHALL PAY 100% OF THE INVOICE WITHOUT ANY BANK CHARGES DEDUCTION FROM THE TOTAL AMOUNT. BANK CHARGES SHALL BE FOR BUYER'S ACCOUNT.
 <ol>
@@ -323,10 +346,10 @@ export function ContractDocumentForm({
     toCleanLabel(contractSrc?.shipping_term || contractSrc?.incoterm) || ''
   );
 
-  // ROW 19: Insurance
-  const [insurance, setInsurance] = useState<string>(() =>
-    toCleanLabel(contractSrc?.insurance) || ''
-  );
+  // ROW 19: Insurance (Auto-derived from Incoterm: FOB or CNF => Buyer, otherwise => Seller)
+  const insurance = useMemo(() => {
+    return getInsuranceFromIncoterm(incoterm) || (contractSrc?.insurance ? toCleanLabel(contractSrc.insurance) : '');
+  }, [incoterm, contractSrc]);
 
   // ROW 20-24: Segmented Toggles (Image 3)
   const [isPartialAllowed, setIsPartialAllowed] = useState<boolean | null>(() => {
@@ -335,6 +358,81 @@ export function ContractDocumentForm({
     }
     return null;
   });
+  const [partialCount, setPartialCount] = useState<string | number>(() => {
+    return contractSrc?.partial_count ?? contractSrc?.partialCount ?? '';
+  });
+  const [partialQuantities, setPartialQuantities] = useState<(string | number)[]>(() => {
+    const raw =
+      contractSrc?.partial_breakdown ??
+      contractSrc?.partialBreakdown ??
+      contractSrc?.partial_quantities ??
+      contractSrc?.partialQuantities ??
+      contractSrc?.partials;
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((item: any) => {
+        if (typeof item === 'object' && item !== null) {
+          return item.quantity ?? item.qty ?? item.value ?? '';
+        }
+        return item ?? '';
+      });
+    }
+    const count = parseInt(String(contractSrc?.partial_count ?? contractSrc?.partialCount ?? 0), 10);
+    if (!isNaN(count) && count > 0) {
+      return Array(Math.min(count, 500)).fill('');
+    }
+    return [];
+  });
+
+  const handlePartialCountChange = (val: string) => {
+    setPartialCount(val);
+    setErrors((prev) => ({ ...prev, partialCount: '', partialTotal: '' }));
+    const count = parseInt(val, 10);
+    if (!isNaN(count) && count > 0) {
+      const safeCount = Math.min(count, 500);
+      setPartialQuantities((prev) => {
+        const next = [...prev];
+        if (next.length < safeCount) {
+          while (next.length < safeCount) {
+            next.push('');
+          }
+        } else if (next.length > safeCount) {
+          return next.slice(0, safeCount);
+        }
+        return next;
+      });
+    } else {
+      setPartialQuantities([]);
+    }
+  };
+
+  const handlePartialQtyChange = (index: number, val: string) => {
+    setPartialQuantities((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+    setErrors((prev) => ({ ...prev, partialTotal: '' }));
+  };
+
+  const partialSum = useMemo(() => {
+    return partialQuantities.reduce((acc: number, curr) => {
+      const n = parseFloat(String(curr).replace(/[^\d.]/g, ''));
+      return acc + (isNaN(n) ? 0 : n);
+    }, 0);
+  }, [partialQuantities]);
+
+  const targetFclQty = useMemo(() => {
+    const n = parseFloat(String(fclQty).replace(/[^\d.]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }, [fclQty]);
+
+  const isPartialMatch = useMemo(() => {
+    if (!isPartialAllowed) return true;
+    const count = parseInt(String(partialCount), 10);
+    if (isNaN(count) || count <= 0) return false;
+    if (targetFclQty <= 0) return false;
+    return Math.abs(partialSum - targetFclQty) < 0.0001;
+  }, [isPartialAllowed, partialCount, partialSum, targetFclQty]);
   const [isTranshipmentAllowed, setIsTranshipmentAllowed] = useState<boolean | null>(() => {
     if (contractSrc?.transhipment_allowed !== undefined && contractSrc?.transhipment_allowed !== null) {
       return Boolean(contractSrc.transhipment_allowed);
@@ -353,12 +451,96 @@ export function ContractDocumentForm({
     }
     return null;
   });
+  const [advanceType, setAdvanceType] = useState<'amount' | '%'>(() => {
+    const rawType = contractSrc?.advance_type || contractSrc?.advanceType;
+    if (rawType === '%' || rawType === 'percentage' || rawType === 'PERCENTAGE') {
+      return '%';
+    }
+    if (
+      contractSrc?.advance_percentage !== undefined &&
+      contractSrc?.advance_percentage !== null &&
+      contractSrc?.advance_percentage !== ''
+    ) {
+      return '%';
+    }
+    return 'amount';
+  });
+  const [advanceAmount, setAdvanceAmount] = useState<string | number>(() => {
+    return contractSrc?.advance_amount ?? contractSrc?.advanceAmount ?? '';
+  });
+  const [advancePercentage, setAdvancePercentage] = useState<string | number>(() => {
+    return contractSrc?.advance_percentage ?? contractSrc?.advancePercentage ?? contractSrc?.advance_percent ?? '';
+  });
+
+  // Advance dynamic calculations based on MT and Total Contract Value
+  const effectiveContractMt = useMemo(() => {
+    if (isFcl) {
+      const q = parseFloat(String(fclQty).replace(/[^\d.]/g, '')) || 0;
+      const c = parseFloat(String(fclCapacity).replace(/[^\d.]/g, '')) || 0;
+      if (q > 0 && c > 0) return q * c;
+    }
+    return parseFloat(String(mtQty).replace(/[^\d.]/g, '')) || 0;
+  }, [isFcl, fclQty, fclCapacity, mtQty]);
+
+  const effectiveContractTotalValue = useMemo(() => {
+    const tot = parseFloat(String(totalValue).replace(/[^\d.]/g, '')) || 0;
+    if (tot > 0) return tot;
+    const p = parseFloat(String(price).replace(/[^\d.]/g, '')) || 0;
+    if (effectiveContractMt > 0 && p > 0) return effectiveContractMt * p;
+    return 0;
+  }, [totalValue, price, effectiveContractMt]);
+
+  const calculatedAdvanceAmount = useMemo(() => {
+    const pct = parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0;
+    if (pct > 0 && effectiveContractTotalValue > 0) {
+      return ((effectiveContractTotalValue * pct) / 100).toFixed(2);
+    }
+    return '';
+  }, [advancePercentage, effectiveContractTotalValue]);
+
+  const calculatedAdvanceMt = useMemo(() => {
+    const pct = parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0;
+    if (pct > 0 && effectiveContractMt > 0) {
+      const val = (effectiveContractMt * pct) / 100;
+      return Number.isInteger(val) ? String(val) : val.toFixed(2);
+    }
+    return '';
+  }, [advancePercentage, effectiveContractMt]);
   const [isSalesBrokerAllowed, setIsSalesBrokerAllowed] = useState<boolean | null>(() => {
     if (contractSrc?.sales_broker_allowed !== undefined && contractSrc?.sales_broker_allowed !== null) {
       return Boolean(contractSrc.sales_broker_allowed);
     }
     return null;
   });
+  const [brokerCommissionType, setBrokerCommissionType] = useState<'%' | 'PMT'>(() => {
+    const raw = contractSrc?.broker_commission_type || contractSrc?.sales_broker_type;
+    if (raw === '%' || raw === 'percentage') return '%';
+    return 'PMT';
+  });
+  const [brokerCommission, setBrokerCommission] = useState<string>(() => {
+    const val = contractSrc?.broker_commission ?? contractSrc?.sales_broker_commission ?? '';
+    return val !== '' && val !== null && val !== undefined ? String(val) : '';
+  });
+  const [brokerName, setBrokerName] = useState<string>(() =>
+    toCleanLabel(contractSrc?.broker_name || contractSrc?.sales_broker_name) || ''
+  );
+
+  const calculatedBrokerCommission = useMemo(() => {
+    if (!isSalesBrokerAllowed) return '';
+    const rate = parseFloat(String(brokerCommission).replace(/[^\d.]/g, '')) || 0;
+    if (rate <= 0) return '';
+    if (brokerCommissionType === '%') {
+      if (effectiveContractTotalValue > 0) {
+        return ((effectiveContractTotalValue * rate) / 100).toFixed(2);
+      }
+    } else {
+      // PMT: Per Metric Ton
+      if (effectiveContractMt > 0) {
+        return (effectiveContractMt * rate).toFixed(2);
+      }
+    }
+    return '';
+  }, [isSalesBrokerAllowed, brokerCommission, brokerCommissionType, effectiveContractTotalValue, effectiveContractMt]);
 
   // ROW 25: Additional Details
   const [freeDays, setFreeDays] = useState<string>(() =>
@@ -422,6 +604,16 @@ export function ContractDocumentForm({
     () => toCleanLabel(contractSrc?.importer_authority_title) || 'AUTHORITY SIGNATURE'
   );
 
+  const [brokerTitle, setBrokerTitle] = useState<string>(
+    () => toCleanLabel(contractSrc?.broker_title || contractSrc?.sales_broker_title) || 'BROKER'
+  );
+  const [brokerSignature, setBrokerSignature] = useState<string>(
+    () => contractSrc?.broker_signature || contractSrc?.sales_broker_signature || ''
+  );
+  const [brokerAuthorityTitle, setBrokerAuthorityTitle] = useState<string>(
+    () => toCleanLabel(contractSrc?.broker_authority_title || contractSrc?.sales_broker_authority_title) || 'AUTHORITY SIGNATURE'
+  );
+
   const [exporterTitle, setExporterTitle] = useState<string>(
     () => toCleanLabel(contractSrc?.exporter_title) || 'EXPORTER'
   );
@@ -436,7 +628,6 @@ export function ContractDocumentForm({
   const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Dynamic Options States
   const [internalSellers, setInternalSellers] = useState<FormOptionItem[]>(sellers);
@@ -790,6 +981,20 @@ export function ContractDocumentForm({
       newErrors.price = 'Price is required';
     }
 
+    if (isPartialAllowed) {
+      const count = parseInt(String(partialCount), 10);
+      if (!partialCount || isNaN(count) || count <= 0) {
+        newErrors.partialCount = 'Partial count required';
+      } else {
+        const hasEmpty = partialQuantities.some((q) => q === '' || q === null || q === undefined);
+        if (hasEmpty) {
+          newErrors.partialTotal = 'All partial quantities must be entered';
+        } else if (targetFclQty > 0 && Math.abs(partialSum - targetFclQty) > 0.0001) {
+          newErrors.partialTotal = `Total partial count (${partialSum}) must equal FCL Quantity (${targetFclQty})`;
+        }
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -836,10 +1041,30 @@ export function ContractDocumentForm({
       incoterm: incoterm,
       insurance: insurance,
       partial_shipment_allowed: isPartialAllowed !== null ? isPartialAllowed : undefined,
+      partial_count: isPartialAllowed && partialCount ? Number(partialCount) : undefined,
+      partial_breakdown: isPartialAllowed && partialQuantities.length > 0 ? partialQuantities : undefined,
+      partial_quantities: isPartialAllowed && partialQuantities.length > 0 ? partialQuantities : undefined,
       transhipment_allowed: isTranshipmentAllowed !== null ? isTranshipmentAllowed : undefined,
       transit_clause_allowed: isTransitClauseAllowed !== null ? isTransitClauseAllowed : undefined,
       any_advance: hasAdvance !== null ? hasAdvance : undefined,
+      advance_type: hasAdvance ? advanceType : undefined,
+      advance_amount: hasAdvance
+        ? advanceType === 'amount'
+          ? advanceAmount ? Number(advanceAmount) : undefined
+          : calculatedAdvanceAmount ? Number(calculatedAdvanceAmount) : undefined
+        : undefined,
+      advance_percentage: hasAdvance && advanceType === '%' && advancePercentage
+        ? Number(advancePercentage)
+        : undefined,
       sales_broker_allowed: isSalesBrokerAllowed !== null ? isSalesBrokerAllowed : undefined,
+      broker_commission_type: isSalesBrokerAllowed ? brokerCommissionType : undefined,
+      broker_commission: isSalesBrokerAllowed && brokerCommission ? Number(brokerCommission) : undefined,
+      broker_commission_amount: isSalesBrokerAllowed && calculatedBrokerCommission ? Number(calculatedBrokerCommission) : undefined,
+      broker_name: isSalesBrokerAllowed && brokerName.trim() ? brokerName.trim() : undefined,
+      sales_broker_type: isSalesBrokerAllowed ? brokerCommissionType : undefined,
+      sales_broker_commission: isSalesBrokerAllowed && brokerCommission ? Number(brokerCommission) : undefined,
+      sales_broker_amount: isSalesBrokerAllowed && calculatedBrokerCommission ? Number(calculatedBrokerCommission) : undefined,
+      sales_broker_name: isSalesBrokerAllowed && brokerName.trim() ? brokerName.trim() : undefined,
       free_days: freeDays.trim(),
       empty_bags: emptyBags.trim(),
       additional_comment: additionalComment.trim(),
@@ -854,6 +1079,12 @@ export function ContractDocumentForm({
       importer_title: importerTitle.trim(),
       importer_signature: importerSignature,
       importer_authority_title: importerAuthorityTitle.trim(),
+      broker_title: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
+      broker_signature: isSalesBrokerAllowed ? brokerSignature : undefined,
+      broker_authority_title: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
+      sales_broker_title: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
+      sales_broker_signature: isSalesBrokerAllowed ? brokerSignature : undefined,
+      sales_broker_authority_title: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
       exporter_title: exporterTitle.trim(),
       exporter_signature: exporterSignature,
       exporter_authority_title: exporterAuthorityTitle.trim(),
@@ -867,44 +1098,33 @@ export function ContractDocumentForm({
         contractNumber:
           dict?.smart_docs?.contract_form?.contract_number_required || 'Contract number is required',
       }));
-      setToastMessage({
-        type: 'error',
-        text:
-          dict?.smart_docs?.contract_form?.contract_number_required ||
-          'Please enter contract number before saving',
-      });
+      toast.error(
+        dict?.smart_docs?.contract_form?.contract_number_required ||
+        'Please enter contract number before saving'
+      );
       contractInputRef.current?.focus();
       return;
     }
 
     setIsSavingDraft(true);
-    setToastMessage(null);
     try {
       const payload = getContractPayload();
       if (onSaveDraft) {
         const res = await onSaveDraft(payload);
         if (res?.success) {
-          setToastMessage({
-            type: 'success',
-            text:
-              dict?.smart_docs?.contract_form?.saved_as_draft_success ||
-              'Contract saved as draft successfully!',
-          });
+          toast.success(
+            dict?.smart_docs?.contract_form?.saved_as_draft_success ||
+            'Contract saved as draft successfully!'
+          );
           if (res.id && onSaveSuccess) {
             onSaveSuccess(String(res.id));
           }
         } else {
-          setToastMessage({
-            type: 'error',
-            text: res?.message || 'Failed to save contract draft',
-          });
+          toast.error(res?.message || 'Failed to save contract draft');
         }
       }
     } catch (err: any) {
-      setToastMessage({
-        type: 'error',
-        text: err?.message || 'Network error while saving draft',
-      });
+      toast.error(err?.message || 'Network error while saving draft');
     } finally {
       setIsSavingDraft(false);
     }
@@ -912,131 +1132,137 @@ export function ContractDocumentForm({
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      setToastMessage({
-        type: 'error',
-        text:
-          dict?.smart_docs?.confirmation_form?.validation_error ||
-          'Please fill all required highlighted fields before submitting.',
-      });
+      toast.error(
+        dict?.smart_docs?.confirmation_form?.validation_error ||
+        'Please fill all required highlighted fields before submitting.'
+      );
       return;
     }
 
     setIsSubmitting(true);
-    setToastMessage(null);
     try {
       const payload = getContractPayload();
       if (onSubmitContract) {
         const res = await onSubmitContract(payload);
         if (res?.success) {
-          setToastMessage({
-            type: 'success',
-            text: 'Contract submitted successfully to Proforma Invoice!',
-          });
+          toast.success('Contract submitted successfully to Proforma Invoice!');
         } else {
-          setToastMessage({
-            type: 'error',
-            text: res?.message || 'Failed to submit contract to Proforma',
-          });
+          toast.error(res?.message || 'Failed to submit contract to Proforma');
         }
       }
     } catch (err: any) {
-      setToastMessage({
-        type: 'error',
-        text: err?.message || 'Network error while submitting contract',
-      });
+      toast.error(err?.message || 'Network error while submitting contract');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="w-full h-full flex flex-col min-h-0 bg-card text-foreground select-none relative">
-      {/* Toast Notification Alert */}
-      {toastMessage && (
-        <div
-          className={`shrink-0 mx-3 mt-2 sm:mx-4 p-2.5 sm:p-3 rounded-lg border text-xs sm:text-sm font-semibold flex items-center justify-between gap-2 shadow-xs animate-in fade-in slide-in-from-top-1 duration-200 z-50 ${
-            toastMessage.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
-              : 'bg-destructive/10 border-destructive/30 text-destructive'
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <i
-              className={`text-sm shrink-0 ${
-                toastMessage.type === 'success'
-                  ? 'fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400'
-                  : 'fa-solid fa-circle-exclamation text-destructive'
-              }`}
+    <div className="w-full h-auto lg:h-full flex flex-col min-h-fit lg:min-h-0 bg-card text-foreground rounded-xl">
+      {/* 
+        Scrollable Table Viewport:
+        - Fluid on mobile (no trapped inner scroll)
+        - Locked internal scrolling on desktop
+      */}
+      <div className="w-full flex-none lg:flex-1 min-h-fit lg:min-h-0 overflow-visible lg:overflow-y-auto lg:overscroll-contain">
+        {/* TOP BAR: Letterhead Toggle | CONTRACT Title | Watermark Toggle */}
+        <div className="px-3 sm:px-4 py-2 border-b border-border flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
+          {/* Desktop Left: Letterhead Toggle */}
+          <div className="hidden sm:flex items-center">
+            <DocToggle
+              label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
+              checked={letterhead}
+              onChange={setLetterhead}
+              disabled={readOnly}
             />
-            <span className="truncate">{toastMessage.text}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="text-xs opacity-70 hover:opacity-100 p-1 cursor-pointer shrink-0"
-          >
-            <i className="fa-solid fa-xmark" />
-          </button>
-        </div>
-      )}
 
-      {/* Top Header Bar: Letterhead | CONTRACT [edit pencil] | Watermark (Image 1) */}
-      <div className="shrink-0 border-b border-border bg-muted/20 px-3 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between gap-2">
-        {/* Left: Letterhead Toggle */}
-        <div className="flex items-center gap-2">
-          <DocToggle
-            id="contract-letterhead-toggle"
-            checked={letterhead}
-            onChange={setLetterhead}
-            label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
-            disabled={readOnly}
-          />
+          {/* Center: Title (Directly Editable Field) + Dotted Accent Underline */}
+          <div className="flex flex-col items-center justify-center group/title w-full sm:w-auto">
+            <div className="inline-flex items-center justify-center gap-1.5 max-w-full">
+              <input
+                ref={titleInputRef}
+                type="text"
+                value={documentTitle}
+                onChange={(e) => {
+                  setDocumentTitle(e.target.value);
+                  setErrors((prev) => ({ ...prev, documentTitle: '' }));
+                }}
+                disabled={readOnly}
+                placeholder={dict?.smart_docs?.contract_form?.contract_title || 'CONTRACT'}
+                aria-label={dict?.smart_docs?.contract_form?.contract_title || 'Document Title'}
+                style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
+                className="text-xs sm:text-sm md:text-[15px] font-extrabold uppercase tracking-widest text-foreground text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:bg-transparent rounded-sm px-1.5 py-0.5 w-auto min-w-[130px] max-w-[210px] sm:max-w-xs cursor-text transition-all"
+              />
+              {!readOnly && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => titleInputRef.current?.focus()}
+                  title="Edit document title"
+                  aria-label="Edit document title"
+                  style={{ outline: 'none' }}
+                  className="w-5 h-5 flex items-center justify-center rounded-full text-primary hover:text-primary-hover hover:bg-primary/10 text-[10px] transition-colors cursor-pointer shrink-0 outline-none focus:outline-none"
+                >
+                  <i className="fa-solid fa-pen text-primary" />
+                </button>
+              )}
+            </div>
+            {/* Clean Underline - becomes solid and vibrant on focus */}
+            <div
+              className={`w-36 sm:w-56 md:w-64 border-b-2 ${
+                errors.documentTitle
+                  ? 'border-solid border-brand-red'
+                  : 'border-dotted border-primary/70 group-focus-within/title:border-solid group-focus-within/title:border-primary'
+              } mt-0.5 transition-all`}
+            />
+            {errors.documentTitle && (
+              <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1">
+                <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
+                <span>{errors.documentTitle}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Desktop Right: Watermark Toggle */}
+          <div className="hidden sm:flex items-center">
+            <DocToggle
+              label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
+              checked={watermark}
+              onChange={setWatermark}
+              disabled={readOnly}
+            />
+          </div>
+
+          {/* Mobile Bottom Row: Letterhead on left, Watermark on right */}
+          <div className="flex sm:hidden items-center justify-between w-full pt-1.5 border-t border-border">
+            <DocToggle
+              label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
+              checked={letterhead}
+              onChange={setLetterhead}
+              disabled={readOnly}
+            />
+            <DocToggle
+              label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
+              checked={watermark}
+              onChange={setWatermark}
+              disabled={readOnly}
+            />
+          </div>
         </div>
 
-        {/* Center: CONTRACT Title with Blue Edit Pencil */}
-        <div className="flex items-center justify-center gap-1.5 flex-1 max-w-[280px]">
-          <input
-            ref={titleInputRef}
-            type="text"
-            value={documentTitle}
-            onChange={(e) => setDocumentTitle(e.target.value.toUpperCase())}
-            disabled={readOnly}
-            className="text-sm sm:text-base font-black tracking-wider text-center text-foreground bg-transparent border-b-2 border-dotted border-primary/70 dark:border-primary/80 hover:border-primary focus:border-solid focus:border-primary focus:outline-none uppercase px-2 py-0.5 transition-colors w-full"
-            placeholder="CONTRACT"
-          />
-          <button
-            type="button"
-            onClick={() => titleInputRef.current?.focus()}
-            title="Edit Title"
-            className="text-primary dark:text-sky-400 hover:text-primary/80 transition-colors p-1 cursor-pointer shrink-0"
-          >
-            <i className="fa-solid fa-pen text-xs" />
-          </button>
-        </div>
-
-        {/* Right: Watermark Toggle */}
-        <div className="flex items-center gap-2">
-          <DocToggle
-            id="contract-watermark-toggle"
-            checked={watermark}
-            onChange={setWatermark}
-            label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
-            disabled={readOnly}
-          />
-        </div>
-      </div>
-
-      {/* Internal Scrollable Document Body */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 sm:p-3 lg:p-4 custom-scrollbar">
-        {/* Structured Form Grid */}
-        <div className="border border-border rounded-lg bg-card divide-y divide-border text-xs sm:text-[13px] shadow-2xs">
+        {/* 
+          DOCUMENT GRID / TABLE:
+          100% matches Canva paper mockup with crisp 1px borders and blue dotted input blanks.
+        */}
+        <div className="w-full flex flex-col text-xs divide-y divide-border border-b border-border bg-card">
           
-          {/* ROW 1: CONFIRMATION NUMBER | CONFIRMATION DATE (Image 1) */}
+          {/* ROW 1: CONFIRMATION NUMBER | CONFIRMATION DATE */}
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
             {/* Confirmation Number */}
-            <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2.5">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5">
-                CONFIRMATION NUMBER :
+            <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2.5" data-field="confirmationNumber">
+              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5 pt-1.5">
+                {dict?.smart_docs?.confirmation_form?.confirmation_number || 'CONFIRMATION NUMBER'} :
               </label>
               <div className="flex-1 min-w-0 w-full sm:w-auto">
                 <DocUnderlineInput
@@ -1044,15 +1270,18 @@ export function ContractDocumentForm({
                   value={confirmationNumber}
                   onChange={setConfirmationNumber}
                   disabled={readOnly}
-                  placeholder="e.g. PC/AG/0000012"
+                  placeholder={
+                    dict?.smart_docs?.confirmation_form?.enter_confirmation_number ||
+                    'Enter Confirmation Number'
+                  }
                 />
               </div>
             </div>
 
             {/* Confirmation Date */}
-            <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2.5">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5">
-                CONFIRMATION DATE
+            <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2.5" data-field="confirmationDate">
+              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5 pt-1.5">
+                {dict?.smart_docs?.confirmation_form?.confirmation_date || 'CONFIRMATION DATE'} :
               </label>
               <div className="flex-1 min-w-0 w-full sm:w-auto">
                 <DocUnderlineInput
@@ -1062,17 +1291,24 @@ export function ContractDocumentForm({
                   onChange={setConfirmationDate}
                   icon="fa-regular fa-calendar"
                   disabled={readOnly}
+                  placeholder={
+                    dict?.smart_docs?.confirmation_form?.select_date || 'Select Date'
+                  }
                 />
               </div>
             </div>
           </div>
 
-          {/* ROW 2: CONTRACT NUMBER | CONTRACT DATE (Image 1) */}
+          {/* ROW 2: CONTRACT NUMBER | CONTRACT DATE */}
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
             {/* Contract Number */}
-            <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2.5">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5">
-                {dict?.smart_docs?.contract_form?.contract_number || 'CONTRACT NUMBER'}
+            <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2.5" data-field="contractNumber">
+              <label
+                htmlFor="field-contractNumber"
+                className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5 pt-1.5"
+              >
+                {dict?.smart_docs?.contract_form?.contract_number || 'CONTRACT NUMBER'}{' '}
+                <span className="text-brand-red font-bold">*</span> :
               </label>
               <div className="flex-1 min-w-0 w-full sm:w-auto">
                 <DocUnderlineInput
@@ -1108,13 +1344,16 @@ export function ContractDocumentForm({
                   error={errors.contractDate}
                   icon="fa-regular fa-calendar"
                   disabled={readOnly}
+                  placeholder={
+                    dict?.smart_docs?.contract_form?.select_date || 'Select Date'
+                  }
                 />
               </div>
             </div>
           </div>
 
           {/* ROW 3: THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES */}
-          <div className="py-1.5 px-2.5 sm:px-3 bg-muted/20 flex items-center justify-between gap-2">
+          <div className="py-2 px-2.5 sm:px-3 bg-muted/20 flex items-center justify-between gap-2" data-field="partiesHeader">
             <DocUnderlineInput
               id="field-partiesHeader"
               value={partiesHeader}
@@ -1123,16 +1362,16 @@ export function ContractDocumentForm({
               icon="fa-solid fa-pen"
               placeholder="THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES"
               className="w-full"
-              inputClassName="font-extrabold text-foreground uppercase text-[11px] sm:text-xs tracking-wider"
+              inputClassName="font-extrabold text-foreground uppercase text-[11px] sm:text-xs tracking-wider text-center sm:text-left"
             />
           </div>
 
-          {/* ROW 4: EXPORTER (SELLER) | IMPORTER (BUYER) (Image 1) */}
+          {/* ROW 4: EXPORTER (SELLER) | IMPORTER (BUYER) */}
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
             {/* Exporter (Seller) */}
-            <div className="py-2 px-2.5 sm:px-3 flex flex-col gap-1.5">
+            <div className="py-1.5 px-2.5 sm:px-3 flex flex-col gap-1.5" data-field="sellerId">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.exporter_seller || 'EXPORTER (SELLER)'}
+                {dict?.smart_docs?.confirmation_form?.exporter_seller || 'EXPORTER (SELLER)'} :
               </label>
               <DocUnderlineSelect
                 id="field-sellerId"
@@ -1162,9 +1401,9 @@ export function ContractDocumentForm({
             </div>
 
             {/* Importer (Buyer) */}
-            <div className="py-2 px-2.5 sm:px-3 flex flex-col gap-1.5">
+            <div className="py-1.5 px-2.5 sm:px-3 flex flex-col gap-1.5" data-field="buyerId">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.importer_buyer || 'IMPORTER (BUYER)'}
+                {dict?.smart_docs?.confirmation_form?.importer_buyer || 'IMPORTER (BUYER)'} :
               </label>
               <DocUnderlineSelect
                 id="field-buyerId"
@@ -1194,12 +1433,14 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 5: SHIPPING INSTRUCTION: TO BE ADVICE (Image 1) */}
-          <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2.5">
-            <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5">
-              SHIPPING INSTRUCTION:
-            </label>
-            <div className="flex-1 min-w-0 w-full sm:w-auto">
+          {/* ROW 5: SHIPPING INSTRUCTION */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="shippingInstruction">
+            <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center min-w-0">
+              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
+                SHIPPING INSTRUCTION :
+              </label>
+            </div>
+            <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center min-w-0">
               <DocUnderlineInput
                 id="field-shippingInstruction"
                 value={shippingInstruction}
@@ -1211,11 +1452,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 6: PRODUCT | HSN CODE | COUNTRY (Image 1) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
-            <div className="md:col-span-2 py-1.5 px-2.5 sm:px-3 flex items-center min-w-0">
+          {/* ROW 6: PRODUCT | HSN CODE | COUNTRY */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="productId">
+            <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center min-w-0">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.product || 'PRODUCT'}
+                {dict?.smart_docs?.confirmation_form?.product || 'PRODUCT'} :
               </label>
             </div>
             <div className="md:col-span-5 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center min-w-0">
@@ -1235,31 +1476,31 @@ export function ContractDocumentForm({
                 onAddNew={handleAddNewProduct}
               />
             </div>
-            <div className="grid grid-cols-2 divide-x divide-border border-t border-border md:border-t-0 md:col-span-5">
-              <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0">
+            <div className="grid grid-cols-2 divide-x divide-border border-t border-border md:border-t-0 md:col-span-4 md:grid-cols-2 md:divide-x">
+              <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden" data-field="hsnCode">
                 <span className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wider leading-tight">
                   HSN CODE :
                 </span>
-                <span className="text-[13px] font-semibold text-foreground truncate mt-0.5">
+                <span className="text-[13px] font-semibold text-foreground truncate min-w-0 mt-0.5 leading-snug">
                   {isLoadingProductDetails ? 'Loading...' : hsnCode || '-'}
                 </span>
               </div>
-              <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0">
+              <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden" data-field="productCountry">
                 <span className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wider leading-tight">
                   COUNTRY :
                 </span>
-                <span className="text-[13px] font-semibold text-foreground uppercase truncate mt-0.5">
+                <span className="text-[13px] font-semibold text-foreground uppercase truncate min-w-0 mt-0.5 leading-snug">
                   {isLoadingProductDetails ? 'Loading...' : productCountry || '-'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* ROW 7: SPECIFICATION (Image 1) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
-            <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-start pt-2">
+          {/* ROW 7: SPECIFICATION */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="specification">
+            <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-start pt-2 sm:pt-2.5">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.specification || 'SPECIFICATION'}
+                {dict?.smart_docs?.confirmation_form?.specification || 'SPECIFICATION'} :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3">
@@ -1276,11 +1517,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 8: SHIPMENT PERIOD (Image 1) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 8: SHIPMENT PERIOD */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="shipmentPeriod">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.shipment_period || 'SHIPMENT PERIOD'}
+                {dict?.smart_docs?.confirmation_form?.shipment_period || 'SHIPMENT PERIOD'} :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1298,11 +1539,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 9: PAYMENT TERM (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 9: PAYMENT TERM */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="paymentTerm">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.payment_term || 'PAYMENT TERM'}
+                {dict?.smart_docs?.confirmation_form?.payment_term || 'PAYMENT TERM'} :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1323,11 +1564,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 10: FCL TYPE (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 10: FCL TYPE */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="fclType">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                FCL TYPE
+                FCL TYPE :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1342,11 +1583,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 11: PACKING (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 11: PACKING */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="packing">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.packing || 'PACKING'}
+                {dict?.smart_docs?.confirmation_form?.packing || 'PACKING'} :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1362,11 +1603,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 12: MARKING BRAND (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 12: MARKING BRAND */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="markingBrand">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                MARKING BRAND
+                MARKING BRAND :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1381,11 +1622,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 13: LOADING PORT & COUNTRY (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 13: LOADING PORT & COUNTRY */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="loadingPort">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                LOADING PORT &amp; COUNTRY
+                LOADING PORT &amp; COUNTRY :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1401,11 +1642,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 14: LOADING CONDITION (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 14: LOADING CONDITION */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="loadingCondition">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                LOADING CONDITION
+                LOADING CONDITION :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1420,11 +1661,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 15: DESTINATION PORT & COUNTRY (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 15: DESTINATION PORT & COUNTRY */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="destinationPort">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                DESTINATION PORT &amp; COUNTRY
+                DESTINATION PORT &amp; COUNTRY :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1638,11 +1879,11 @@ export function ContractDocumentForm({
             </div>
           )}
 
-          {/* ROW 17: INSPECTION (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 17: INSPECTION */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="inspection">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                INSPECTION
+                INSPECTION :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1657,11 +1898,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 18: INCOTERM (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 18: INCOTERM */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="incoterm">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                INCOTERM
+                INCOTERM :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1671,11 +1912,6 @@ export function ContractDocumentForm({
                 value={incoterm}
                 onChange={(val) => {
                   setIncoterm(val);
-                  if (val === 'CIF' || val === 'CIP') {
-                    setInsurance('SELLER');
-                  } else if (val === 'FOB' || val === 'CNF' || val === 'CFR') {
-                    setInsurance('BUYER');
-                  }
                 }}
                 placeholder="Select Incoterm"
                 disabled={readOnly}
@@ -1683,49 +1919,166 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 19: INSURANCE (Image 2) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 19: INSURANCE */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="insurance">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                INSURANCE
+                INSURANCE :
               </label>
             </div>
-            <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
-              <DocUnderlineSelect
+            <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center min-h-[38px]">
+              <span
                 id="field-insurance"
-                options={DEFAULT_INSURANCE_OPTIONS}
-                value={insurance}
-                onChange={setInsurance}
-                placeholder="Select Insurance"
-                disabled={readOnly}
-              />
+                className="text-xs sm:text-sm font-semibold text-foreground tracking-wide px-0.5"
+              >
+                {insurance || '—'}
+              </span>
             </div>
           </div>
 
-          {/* ROW 20: PARTIAL (Image 3) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 20: PARTIAL */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="partial">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                PARTIAL
+                PARTIAL :
               </label>
             </div>
-            <div className="md:col-span-9 py-1.5 px-2.5 sm:px-3 flex items-center">
-              <DocSegmentedToggle
-                id="toggle-partial"
-                value={isPartialAllowed}
-                onChange={setIsPartialAllowed}
-                trueLabel="ALLOWED"
-                falseLabel="NOT ALLOWED"
-                disabled={readOnly}
-              />
+            <div className="md:col-span-9 py-2 px-2.5 sm:px-3 flex flex-col gap-2.5 justify-center">
+              {/* Controls Row: Toggle, Count & Arrow */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <DocSegmentedToggle
+                  id="toggle-partial"
+                  value={isPartialAllowed}
+                  onChange={(val) => {
+                    setIsPartialAllowed(val);
+                    if (!val) {
+                      setErrors((prev) => ({ ...prev, partialCount: '', partialTotal: '' }));
+                    }
+                  }}
+                  trueLabel="ALLOWED"
+                  falseLabel="NOT ALLOWED"
+                  disabled={readOnly}
+                />
+
+                {isPartialAllowed && (
+                  <div className="flex items-center gap-2 pl-2 sm:border-l border-border/70">
+                    <label
+                      htmlFor="field-partial-count"
+                      className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider whitespace-nowrap"
+                    >
+                      Partial Count:
+                    </label>
+                    <div className="w-[48px] sm:w-[56px]">
+                      <input
+                        id="field-partial-count"
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={partialCount}
+                        onChange={(e) => handlePartialCountChange(e.target.value)}
+                        placeholder="0"
+                        disabled={readOnly}
+                        className={`w-full text-center text-xs sm:text-sm font-bold text-foreground bg-transparent border-b-2 border-dotted ${
+                          errors.partialCount
+                            ? 'border-solid border-brand-red'
+                            : 'border-primary/70 dark:border-primary/80 focus:border-solid focus:border-primary'
+                        } focus:outline-none transition-colors py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-muted-foreground/40 disabled:cursor-not-allowed`}
+                      />
+                    </div>
+                    {/* Right Arrow */}
+                    <i className="fa-solid fa-arrow-right text-muted-foreground/60 text-xs sm:text-sm ml-0.5 shrink-0" />
+                  </div>
+                )}
+              </div>
+
+              {/* Partials Grid with + signs and = Total Card */}
+              {isPartialAllowed && partialQuantities.length > 0 && (
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-2.5 w-full">
+                    {/* Render all partial input cards */}
+                    {partialQuantities.map((val, index) => {
+                      const label = getPartialLabel(index);
+                      const isLastPartial = index === partialQuantities.length - 1;
+                      return (
+                        <div key={label} className="flex items-center gap-1.5 sm:gap-2 w-full min-w-0">
+                          {/* Stacked Card: Label on top, centered input with dotted underline below */}
+                          <div className="flex-1 min-w-0 flex flex-col items-center justify-center py-2 px-2.5 rounded-lg border border-border/80 bg-card hover:border-primary/50 transition-all shadow-2xs group focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 min-h-[58px]">
+                            <label
+                              htmlFor={`field-partial-${label}`}
+                              className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide select-none whitespace-nowrap cursor-pointer text-center"
+                            >
+                              Partial {label}
+                            </label>
+                            <div className="w-[52px] sm:w-[60px] mx-auto mt-1">
+                              <input
+                                id={`field-partial-${label}`}
+                                type="number"
+                                min={0}
+                                value={val}
+                                onChange={(e) => handlePartialQtyChange(index, e.target.value)}
+                                placeholder="0"
+                                disabled={readOnly}
+                                className="w-full text-center text-xs sm:text-sm font-bold text-foreground bg-transparent border-b-2 border-dotted border-primary/70 dark:border-primary/80 focus:border-solid focus:border-primary focus:outline-none transition-colors py-0.5 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-muted-foreground/40 disabled:cursor-not-allowed"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Operator: + between inputs, = after the last input */}
+                          <span className="font-bold text-muted-foreground/70 select-none text-sm shrink-0 w-3 text-center">
+                            {isLastPartial ? '=' : '+'}
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {/* Total Card: Stacked, same exact dimensions & style, read-only answer value, no dotted line, no icons, theme brand colors */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 w-full min-w-0">
+                      <div
+                        className={`flex-1 min-w-0 flex flex-col items-center justify-center py-2 px-2.5 rounded-lg border transition-all shadow-2xs min-h-[58px] ${
+                          isPartialMatch
+                            ? 'border-brand-green/60 bg-brand-green/10 text-brand-green'
+                            : 'border-brand-red/60 bg-brand-red/10 text-brand-red'
+                        }`}
+                        title={
+                          isPartialMatch
+                            ? `Total (${partialSum}) matched with FCL Quantity (${targetFclQty})`
+                            : targetFclQty > 0
+                            ? `Total (${partialSum}) does not match FCL Quantity (${targetFclQty})`
+                            : `Total: ${partialSum}`
+                        }
+                      >
+                        <span className="font-bold uppercase text-[10px] sm:text-[11px] tracking-wide select-none whitespace-nowrap text-center">
+                          Total
+                        </span>
+                        <div className="w-[52px] sm:w-[60px] mx-auto mt-1 text-center">
+                          <span className="block w-full text-center font-extrabold text-xs sm:text-sm font-mono truncate">
+                            {partialSum}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Spacer to match operator width for 100% column alignment */}
+                      <span className="w-3 shrink-0" aria-hidden="true" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Red Client-side Validation Error */}
+              {errors.partialTotal && (
+                <div className="w-full text-[11px] text-brand-red font-semibold px-0.5 tracking-tight flex items-center gap-1.5 mt-0.5">
+                  <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                  <span>{errors.partialTotal}</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* ROW 21: TRANSHIPMENT (Image 3) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 21: TRANSHIPMENT */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="transhipment">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                TRANSHIPMENT
+                TRANSHIPMENT :
               </label>
             </div>
             <div className="md:col-span-9 py-1.5 px-2.5 sm:px-3 flex items-center">
@@ -1740,11 +2093,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 22: TRANSIT CLAUSE (Image 3) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 22: TRANSIT CLAUSE */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="transitClause">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                TRANSIT CLAUSE
+                TRANSIT CLAUSE :
               </label>
             </div>
             <div className="md:col-span-9 py-1.5 px-2.5 sm:px-3 flex items-center">
@@ -1759,51 +2112,211 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 23: ADVANCE (Image 3) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 23: ADVANCE */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="advance">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                ADVANCE
+                ADVANCE :
               </label>
             </div>
-            <div className="md:col-span-9 py-1.5 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="font-bold text-[11px] text-muted-foreground/80 uppercase">ANY ADVANCE?</span>
+            <div className="md:col-span-9 py-2 px-2.5 sm:px-3 flex flex-wrap items-center gap-2 sm:gap-2.5">
               <DocSegmentedToggle
                 id="toggle-advance"
                 value={hasAdvance}
-                onChange={setHasAdvance}
+                onChange={(val) => {
+                  setHasAdvance(val);
+                  if (val && !advanceType) {
+                    setAdvanceType('amount');
+                  }
+                }}
                 trueLabel="YES"
                 falseLabel="NO"
                 disabled={readOnly}
               />
+
+              {hasAdvance && (
+                <>
+                  <div className="pl-2 border-l border-border/70 flex items-center">
+                    <DocSegmentedToggle
+                      id="toggle-advance-type"
+                      value={advanceType}
+                      onChange={(val: 'amount' | '%') => setAdvanceType(val)}
+                      options={DEFAULT_ADVANCE_TYPE_OPTIONS}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {advanceType === 'amount' ? (
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
+                      <label
+                        htmlFor="field-advance-amount"
+                        className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider whitespace-nowrap"
+                      >
+                        Advance ({currency || '$'}):
+                      </label>
+                      <div className="w-[100px] sm:w-[120px]">
+                        <DocUnderlineInput
+                          id="field-advance-amount"
+                          type="number"
+                          min={0}
+                          value={advanceAmount}
+                          onChange={(val) => {
+                            setAdvanceAmount(val);
+                            setErrors((prev) => ({ ...prev, advanceAmount: '' }));
+                          }}
+                          placeholder="0.00"
+                          align="center"
+                          disabled={readOnly}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
+                        <label
+                          htmlFor="field-advance-percent"
+                          className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider whitespace-nowrap"
+                        >
+                          Advance (%):
+                        </label>
+                        <div className="w-[60px] sm:w-[70px]">
+                          <DocUnderlineInput
+                            id="field-advance-percent"
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={advancePercentage}
+                            onChange={(val) => {
+                              setAdvancePercentage(val);
+                              setErrors((prev) => ({ ...prev, advancePercentage: '' }));
+                            }}
+                            placeholder="0%"
+                            align="center"
+                            disabled={readOnly}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Calculated Amount */}
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
+                        <span className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider whitespace-nowrap">
+                          Amount ({currency || '$'}):
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold text-foreground py-0.5">
+                          {calculatedAdvanceAmount ? formatNumberWithCommas(calculatedAdvanceAmount) : '-'}
+                        </span>
+                        {calculatedAdvanceMt && (
+                          <span className="text-[10px] sm:text-[11px] text-muted-foreground font-semibold whitespace-nowrap">
+                            (~{calculatedAdvanceMt} MT)
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
-          {/* ROW 24: SALES BROKER (Image 3) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 24: SALES BROKER */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="salesBroker">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                SALES BROKER
+                SALES BROKER :
               </label>
             </div>
-            <div className="md:col-span-9 py-1.5 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="font-bold text-[11px] text-muted-foreground/80 uppercase">SALES BROKER</span>
+            <div className="md:col-span-9 py-2 px-2.5 sm:px-3 flex flex-wrap items-center gap-2 sm:gap-2.5">
               <DocSegmentedToggle
                 id="toggle-salesBroker"
                 value={isSalesBrokerAllowed}
-                onChange={setIsSalesBrokerAllowed}
+                onChange={(val) => {
+                  setIsSalesBrokerAllowed(val);
+                  if (val && !brokerCommissionType) {
+                    setBrokerCommissionType('PMT');
+                  }
+                }}
                 trueLabel="ALLOWED"
                 falseLabel="NOT ALLOWED"
                 disabled={readOnly}
               />
+
+              {isSalesBrokerAllowed && (
+                <>
+                  {/* Commission Type Segmented Toggle: % or PMT (default PMT) */}
+                  <div className="pl-2 border-l border-border/70 flex items-center">
+                    <DocSegmentedToggle
+                      id="toggle-broker-commission-type"
+                      value={brokerCommissionType}
+                      onChange={(val: '%' | 'PMT') => setBrokerCommissionType(val)}
+                      options={DEFAULT_BROKER_COMMISSION_TYPE_OPTIONS}
+                      disabled={readOnly}
+                    />
+                  </div>
+
+                  {/* Commission Rate Number Input */}
+                  <div className="pl-2 border-l border-border/70 flex items-center">
+                    <div className="w-[125px] sm:w-[135px]">
+                      <DocUnderlineInput
+                        id="field-broker-commission"
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={brokerCommission}
+                        onChange={(val) => {
+                          setBrokerCommission(val);
+                        }}
+                        placeholder={
+                          brokerCommissionType === '%'
+                            ? 'Commission (%)'
+                            : (currency && currency !== '$' ? `Commission (${currency})` : 'Commission ($)')
+                        }
+                        align="center"
+                        disabled={readOnly}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Broker Commission Calculated Amount Display */}
+                  <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
+                    <span className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider whitespace-nowrap">
+                      Broker Commission:
+                    </span>
+                    <div className="min-w-[80px] px-2 py-0.5 border-b-2 border-dotted border-primary/50 text-center text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
+                      {calculatedBrokerCommission
+                        ? `${currency || '$'} ${formatNumberWithCommas(calculatedBrokerCommission)}`
+                        : '-'}
+                    </div>
+                  </div>
+
+                  {/* Broker Name Text Input */}
+                  <div className="flex items-center gap-1.5 pl-2 border-l border-border/70 flex-1 min-w-[240px]">
+                    <label
+                      htmlFor="field-broker-name"
+                      className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider whitespace-nowrap"
+                    >
+                      Broker Name:
+                    </label>
+                    <div className="flex-1 min-w-[160px]">
+                      <DocUnderlineInput
+                        id="field-broker-name"
+                        value={brokerName}
+                        onChange={setBrokerName}
+                        placeholder="Broker Name"
+                        icon="fa-solid fa-pen"
+                        disabled={readOnly}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* ROW 25: ADDITIONAL DETAILS (Image 3) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 25: ADDITIONAL DETAILS */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="additionalDetails">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-start pt-2.5">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                ADDITIONAL DETAILS
+                ADDITIONAL DETAILS :
               </label>
             </div>
             <div className="md:col-span-9 py-2 px-2.5 sm:px-3 flex flex-col gap-2">
@@ -1834,11 +2347,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 26: OTHER TERMS (Payment & Charges Terms - Image 3) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 26: OTHER TERMS */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="otherTermsPayment">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-start pt-2.5">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                OTHER TERMS
+                OTHER TERMS :
               </label>
             </div>
             <div className="md:col-span-9 py-2 px-2.5 sm:px-3">
@@ -1852,11 +2365,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 27: DOCUMENTS (Checklist & Numbered Grid List - Image 4) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 27: DOCUMENTS */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="documents">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-start pt-2.5">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                DOCUMENTS
+                DOCUMENTS :
               </label>
             </div>
             <div className="md:col-span-9 py-2 px-2.5 sm:px-3">
@@ -1869,11 +2382,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 28: SHIPPING LINE (Image 4) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 28: SHIPPING LINE */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="shippingLine">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                SHIPPING LINE
+                SHIPPING LINE :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1888,11 +2401,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 29: ARBITRATION (Image 4) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 29: ARBITRATION */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="arbitration">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                ARBITRATION
+                ARBITRATION :
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -1907,11 +2420,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 30: OTHER TERMS (Packaging & Container Standards - Image 4) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 30: OTHER TERMS */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="containerStandards">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-start pt-2.5">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                OTHER TERMS
+                OTHER TERMS :
               </label>
             </div>
             <div className="md:col-span-9 py-2 px-2.5 sm:px-3">
@@ -1925,11 +2438,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 31: FORCE MAJEUR (Image 4 & 5) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 31: FORCE MAJEUR */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="forceMajeur">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-start pt-2.5">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                FORCE MAJEUR
+                FORCE MAJEUR :
               </label>
             </div>
             <div className="md:col-span-9 py-2 px-2.5 sm:px-3">
@@ -1943,11 +2456,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 32: CONFIDENTIALITY: (Image 5) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 32: CONFIDENTIALITY */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="confidentiality">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-start pt-2.5">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                CONFIDENTIALITY:
+                CONFIDENTIALITY :
               </label>
             </div>
             <div className="md:col-span-9 py-2 px-2.5 sm:px-3">
@@ -1961,11 +2474,11 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 33: NOTES (Below Confidentiality) */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border">
+          {/* ROW 33: NOTES */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="notes">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-start pt-2.5">
               <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                NOTES
+                NOTES :
               </label>
             </div>
             <div className="md:col-span-9 py-2 px-2.5 sm:px-3">
@@ -1979,8 +2492,12 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 34: SIGNATURES - IMPORTER | EXPORTER */}
-          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+          {/* ROW 34: SIGNATURES - IMPORTER | BROKER (if allowed) | EXPORTER */}
+          <div
+            className={`grid grid-cols-1 ${
+              isSalesBrokerAllowed ? 'md:grid-cols-3' : 'md:grid-cols-2'
+            } divide-y md:divide-y-0 md:divide-x divide-border`}
+          >
             <DocSignatureBox
               partyType="importer"
               title={importerTitle}
@@ -1991,6 +2508,18 @@ export function ContractDocumentForm({
               onAuthorityTitleChange={setImporterAuthorityTitle}
               readOnly={readOnly}
             />
+            {isSalesBrokerAllowed && (
+              <DocSignatureBox
+                partyType="broker"
+                title={brokerTitle}
+                onTitleChange={setBrokerTitle}
+                signatureUrl={brokerSignature}
+                onSignatureChange={setBrokerSignature}
+                authorityTitle={brokerAuthorityTitle}
+                onAuthorityTitleChange={setBrokerAuthorityTitle}
+                readOnly={readOnly}
+              />
+            )}
             <DocSignatureBox
               partyType="exporter"
               title={exporterTitle}

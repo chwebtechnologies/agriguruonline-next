@@ -2,10 +2,17 @@
 
 import React from 'react';
 
-export interface DocSegmentedToggleProps {
+export interface DocSegmentedToggleOption<T = any> {
+  value: T;
+  label: string;
+  icon?: string;
+}
+
+export interface DocSegmentedToggleProps<T = any> {
   id?: string;
-  value: boolean | null;
-  onChange: (val: boolean) => void;
+  value: T | null;
+  onChange: (val: T) => void;
+  options?: DocSegmentedToggleOption<T>[];
   trueLabel?: string;
   falseLabel?: string;
   trueIcon?: string;
@@ -14,17 +21,59 @@ export interface DocSegmentedToggleProps {
   className?: string;
 }
 
-export function DocSegmentedToggle({
+export function DocSegmentedToggle<T = any>({
   id,
   value,
   onChange,
+  options,
   trueLabel = 'ALLOWED',
   falseLabel = 'NOT ALLOWED',
   trueIcon = 'fa-solid fa-circle-check',
   falseIcon = 'fa-solid fa-circle-xmark',
   disabled = false,
   className = '',
-}: DocSegmentedToggleProps) {
+}: DocSegmentedToggleProps<T>) {
+  if (options && options.length > 0) {
+    return (
+      <div
+        id={id}
+        className={`inline-flex items-center rounded border border-dotted border-primary/70 dark:border-primary/80 bg-background/50 p-0.5 select-none transition-colors ${
+          disabled ? 'opacity-60 cursor-not-allowed' : ''
+        } ${className}`}
+      >
+        {options.map((opt, idx) => {
+          const isSelected = value === opt.value;
+          return (
+            <React.Fragment key={String(opt.value)}>
+              {idx > 0 && (
+                <span className="text-muted-foreground/40 mx-1 select-none font-light text-xs">|</span>
+              )}
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onChange(opt.value)}
+                className={`px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
+                  isSelected
+                    ? 'bg-foreground/10 dark:bg-foreground/15 text-foreground font-extrabold shadow-2xs'
+                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 font-medium'
+                }`}
+              >
+                {opt.icon && (
+                  <i
+                    className={`${opt.icon} text-[10px] sm:text-[11px] ${
+                      isSelected ? 'text-foreground' : 'opacity-60'
+                    }`}
+                  />
+                )}
+                <span>{opt.label}</span>
+              </button>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div
       id={id}
@@ -36,14 +85,18 @@ export function DocSegmentedToggle({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onChange(true)}
+        onClick={() => onChange(true as unknown as T)}
         className={`px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
           value === true
-            ? 'bg-primary/20 text-primary dark:text-sky-400 font-extrabold shadow-2xs'
+            ? 'bg-foreground/10 dark:bg-foreground/15 text-foreground font-extrabold shadow-2xs'
             : 'text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 font-medium'
         }`}
       >
-        <i className={`${trueIcon} text-[10px] sm:text-[11px] ${value === true ? 'text-primary dark:text-sky-400' : 'opacity-60'}`} />
+        <i
+          className={`${trueIcon} text-[10px] sm:text-[11px] ${
+            value === true ? 'text-foreground' : 'opacity-60'
+          }`}
+        />
         <span>{trueLabel}</span>
       </button>
 
@@ -54,14 +107,18 @@ export function DocSegmentedToggle({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onChange(false)}
+        onClick={() => onChange(false as unknown as T)}
         className={`px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
           value === false
-            ? 'bg-destructive/15 text-destructive dark:text-rose-400 font-extrabold shadow-2xs'
+            ? 'bg-foreground/10 dark:bg-foreground/15 text-foreground font-extrabold shadow-2xs'
             : 'text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 font-medium'
         }`}
       >
-        <i className={`${falseIcon} text-[10px] sm:text-[11px] ${value === false ? 'text-destructive dark:text-rose-400' : 'opacity-60'}`} />
+        <i
+          className={`${falseIcon} text-[10px] sm:text-[11px] ${
+            value === false ? 'text-foreground' : 'opacity-60'
+          }`}
+        />
         <span>{falseLabel}</span>
       </button>
     </div>
