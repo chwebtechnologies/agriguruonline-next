@@ -34,8 +34,6 @@ export function DocSignatureBox({
   onAuthorityTitleChange,
   readOnly = false,
   className = '',
-  uploadButtonLabel = 'Upload Stamp',
-  clearButtonLabel = 'Clear All',
 }: DocSignatureBoxProps) {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const authTitleInputRef = useRef<HTMLInputElement>(null);
@@ -59,12 +57,12 @@ export function DocSignatureBox({
   // Internal export tracking to prevent echo loops
   const lastExportUrlRef = useRef<string>(signatureUrl || '');
 
-  // Active stroke drawing refs (does not trigger re-render on mouse moves)
+  // Active stroke drawing refs (does not trigger re-render on pointer moves)
   const isPointerDownRef = useRef<boolean>(false);
   const currentStrokeRef = useRef<Point[]>([]);
 
   // Redraw all layers:
-  // Layer 1 (Bottom): Stamp Image
+  // Layer 1 (Bottom): Stamp Image / Loaded Image
   // Layer 2 (Top): Drawn Signature Strokes
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -78,26 +76,36 @@ export function DocSignatureBox({
     const dpr = window.devicePixelRatio || 1;
     const w = rect.width;
     const h = rect.height;
+    const targetW = Math.round(w * dpr);
+    const targetH = Math.round(h * dpr);
 
-    // Reset transform & clear
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(dpr, dpr);
+    // Ensure internal buffer matches displayed size at current DPI
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+
+    // Reset transform & clear backing buffer
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
 
     // LAYER 1: Stamp Image or Initial Saved Image (BOTTOM LAYER)
-    // If user uploaded a stamp, use it. Otherwise use loaded signatureUrl as the base layer.
     const baseImg = stampImgRef.current || initialImgRef.current;
-    if (baseImg) {
+    if (baseImg && baseImg.width > 0 && baseImg.height > 0) {
       const pad = 12;
-      const availW = w - pad * 2;
-      const availH = h - pad * 2;
+      const availW = Math.max(10, w - pad * 2);
+      const availH = Math.max(10, h - pad * 2);
       const ratio = Math.min(availW / baseImg.width, availH / baseImg.height, 1);
       const drawW = baseImg.width * ratio;
       const drawH = baseImg.height * ratio;
       const offsetX = pad + (availW - drawW) / 2;
       const offsetY = pad + (availH - drawH) / 2;
 
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(baseImg, offsetX, offsetY, drawW, drawH);
+      ctx.restore();
     }
 
     // LAYER 2: User's Drawn Signature Strokes (TOP LAYER)
@@ -105,6 +113,7 @@ export function DocSignatureBox({
     if (strokesRef.current.length > 0) {
       ctx.save();
       ctx.strokeStyle = STANDARD_PEN_COLOR;
+      ctx.fillStyle = STANDARD_PEN_COLOR;
       ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -115,7 +124,6 @@ export function DocSignatureBox({
         if (stroke.length === 1) {
           ctx.beginPath();
           ctx.arc(stroke[0].x * w, stroke[0].y * h, 1.25, 0, Math.PI * 2);
-          ctx.fillStyle = STANDARD_PEN_COLOR;
           ctx.fill();
           continue;
         }
@@ -162,16 +170,31 @@ export function DocSignatureBox({
     if (canvas.width !== targetW || canvas.height !== targetH) {
       canvas.width = targetW;
       canvas.height = targetH;
-      redrawCanvas();
     }
+    redrawCanvas();
   }, [redrawCanvas]);
 
-  // Handle window/container resize
+  // Observe container size dynamically (fires on mount, tab change, accordion expand, resize)
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        syncCanvasSize();
+      });
+      resizeObserver.observe(container);
+    }
+
     syncCanvasSize();
     const handleResize = () => syncCanvasSize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    return () => {
+      if (resizeObserver) resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
+    };
   }, [syncCanvasSize]);
 
   // Initial load from props if signatureUrl was provided by server/draft
@@ -200,40 +223,25 @@ export function DocSignatureBox({
   }, [signatureUrl, hasStamp, hasDrawnSignature, redrawCanvas]);
 
   // Coordinates helper (normalizes to 0..1 range)
-  const getNormalizedPoint = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ): Point | null => {
+  const getNormalizedPoint = (e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return null;
 
-    let clientX = 0;
-    let clientY = 0;
-
-    if ('touches' in e) {
-      if (e.touches.length === 0) return null;
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
     return { x, y };
   };
 
-  // Start Drawing Stroke
-  const handlePointerDown = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) => {
+  // Start Drawing Stroke (Universal Pointer Event: Mouse, Touch, Stylus)
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (readOnly) return;
-    if ('touches' in e && e.cancelable) {
-      e.preventDefault();
-    }
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+
     const pt = getNormalizedPoint(e);
     if (!pt) return;
 
@@ -241,18 +249,20 @@ export function DocSignatureBox({
     setIsDrawingMode(true);
     currentStrokeRef.current = [pt];
 
-    // Direct canvas immediate line & dot drawing for zero-latency feedback
+    // Live canvas dot drawing for immediate zero-latency visual feedback
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.save();
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.strokeStyle = STANDARD_PEN_COLOR;
       ctx.fillStyle = STANDARD_PEN_COLOR;
       ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+
       ctx.beginPath();
       ctx.arc(pt.x * rect.width, pt.y * rect.height, 1.25, 0, Math.PI * 2);
       ctx.fill();
@@ -262,13 +272,8 @@ export function DocSignatureBox({
   };
 
   // Continue Drawing Stroke
-  const handlePointerMove = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isPointerDownRef.current || readOnly) return;
-    if ('touches' in e && e.cancelable) {
-      e.preventDefault();
-    }
     const pt = getNormalizedPoint(e);
     if (!pt) return;
 
@@ -279,32 +284,35 @@ export function DocSignatureBox({
     const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
     if (ctx) {
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.strokeStyle = STANDARD_PEN_COLOR;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
       ctx.lineTo(pt.x * rect.width, pt.y * rect.height);
       ctx.stroke();
     }
   };
 
   // End Drawing Stroke
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isPointerDownRef.current) return;
     isPointerDownRef.current = false;
-
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      ctx?.restore();
-    }
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
 
     if (currentStrokeRef.current.length > 0) {
       strokesRef.current.push([...currentStrokeRef.current]);
       currentStrokeRef.current = [];
       setHasDrawnSignature(true);
-      // Clean redraw composite with both stamp (layer 1) and all strokes (layer 2)
       redrawCanvas();
     }
   };
 
-  // Upload Stamp Image (Placed on bottom layer, existing drawings stay on top!)
+  // Upload Stamp / Signature Image
   const handleStampUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -319,7 +327,7 @@ export function DocSignatureBox({
         stampImgRef.current = img;
         initialImgRef.current = null; // Replaced by user's uploaded stamp
         setHasStamp(true);
-        // Redraw puts this new stamp on the bottom, and re-draws user's signatures ON TOP!
+        syncCanvasSize();
         redrawCanvas();
       };
       img.src = res;
@@ -341,6 +349,16 @@ export function DocSignatureBox({
   // Clear drawn signature strokes only (Stamp image is NEVER deleted)
   const handleClearSignature = () => {
     strokesRef.current = [];
+    setHasDrawnSignature(false);
+    redrawCanvas();
+  };
+
+  // Clear everything (both stamp and drawn strokes)
+  const handleClearAll = () => {
+    stampImgRef.current = null;
+    initialImgRef.current = null;
+    strokesRef.current = [];
+    setHasStamp(false);
     setHasDrawnSignature(false);
     redrawCanvas();
   };
@@ -389,16 +407,14 @@ export function DocSignatureBox({
       >
         <canvas
           ref={canvasRef}
+          style={{ touchAction: 'none' }}
           className={`w-full h-full touch-none select-none ${
             readOnly ? 'cursor-default' : 'cursor-crosshair'
           }`}
-          onMouseDown={handlePointerDown}
-          onMouseMove={handlePointerMove}
-          onMouseUp={handlePointerUp}
-          onMouseLeave={handlePointerUp}
-          onTouchStart={handlePointerDown}
-          onTouchMove={handlePointerMove}
-          onTouchEnd={handlePointerUp}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
         />
 
         {/* Empty Canvas Prompt / Instructions */}
@@ -416,8 +432,7 @@ export function DocSignatureBox({
           </div>
         )}
 
-
-        {/* Canvas Quick Tools: Only for hand-drawn signature (Stamp is NEVER deleted) */}
+        {/* Canvas Quick Tools: Undo / Clear for hand-drawn signature */}
         {hasDrawnSignature && !readOnly && (
           <div className="absolute top-2 right-2 flex items-center gap-1 z-10 bg-background/90 dark:bg-card/90 backdrop-blur-xs p-1 rounded-md border border-border/80 shadow-xs">
             <button
@@ -432,8 +447,8 @@ export function DocSignatureBox({
             <button
               type="button"
               onClick={handleClearSignature}
-              title="Clear signature only"
-              aria-label="Clear signature only"
+              title="Clear signature strokes"
+              aria-label="Clear signature strokes"
               className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs transition-colors cursor-pointer"
             >
               <i className="fa-solid fa-eraser text-[11px]" />
@@ -455,8 +470,9 @@ export function DocSignatureBox({
           type="button"
           disabled={readOnly}
           onClick={() => fileInputRef.current?.click()}
-          className="px-3.5 py-1.5 rounded-md border border-border/80 bg-card hover:bg-muted text-foreground text-xs font-medium shadow-2xs hover:shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 rounded-md border border-border/80 bg-card hover:bg-muted text-foreground text-xs font-medium shadow-2xs hover:shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
         >
+          <i className="fa-solid fa-stamp text-[11px] text-muted-foreground" />
           <span>Upload Stamp / Signature</span>
         </button>
 
@@ -464,25 +480,39 @@ export function DocSignatureBox({
           type="button"
           disabled={readOnly}
           onClick={handleActivateDrawing}
-          className={`px-3.5 py-1.5 rounded-md border text-xs font-medium shadow-2xs hover:shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed ${
+          className={`px-3 py-1.5 rounded-md border text-xs font-medium shadow-2xs hover:shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed ${
             isDrawingMode
               ? 'border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary'
               : 'border-border/80 bg-card hover:bg-muted text-foreground'
           }`}
         >
+          <i className="fa-solid fa-pen-nib text-[11px]" />
           <span>Draw Signature</span>
         </button>
 
-        {/* Clear Signature button: appears seamlessly when user has drawn a signature */}
+        {/* Clear Signature strokes button: appears when user has drawn strokes */}
         {hasDrawnSignature && !readOnly && (
           <button
             type="button"
             onClick={handleClearSignature}
             title="Clear signature strokes (keeps stamp)"
-            className="px-3.5 py-1.5 rounded-md border border-border/80 bg-card hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive text-muted-foreground text-xs font-medium shadow-2xs hover:shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-md border border-border/80 bg-card hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive text-muted-foreground text-xs font-medium shadow-2xs hover:shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <i className="fa-solid fa-eraser text-[11px]" />
             <span>Clear Signature</span>
+          </button>
+        )}
+
+        {/* Clear All button: appears when stamp is present */}
+        {hasStamp && !readOnly && (
+          <button
+            type="button"
+            onClick={handleClearAll}
+            title="Clear stamp and signature"
+            className="px-3 py-1.5 rounded-md border border-border/80 bg-card hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive text-muted-foreground text-xs font-medium shadow-2xs hover:shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <i className="fa-solid fa-trash-can text-[11px]" />
+            <span>Clear All</span>
           </button>
         )}
       </div>

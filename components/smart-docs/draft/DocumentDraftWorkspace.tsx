@@ -33,6 +33,7 @@ export interface DocumentDraftWorkspaceProps {
 
 export function isConfirmationStep(step?: StepperDocumentItem | null, index?: number): boolean {
   if (index === 0) return true;
+  if (index === 1) return false;
   if (!step) return false;
   const id = String(step.id || '').toLowerCase();
   const name = String(step.document_name || step.name || '').toLowerCase();
@@ -40,10 +41,12 @@ export function isConfirmationStep(step?: StepperDocumentItem | null, index?: nu
 }
 
 export function isContractStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (index === 0) return false;
   if (index === 1) return true;
   if (!step) return false;
   const id = String(step.id || '').toLowerCase();
   const name = String(step.document_name || step.name || '').toLowerCase();
+  if (id.includes('confirmation') || name.includes('confirmation')) return false;
   return id.includes('contract') || name.includes('contract');
 }
 
@@ -164,7 +167,8 @@ export function DocumentDraftWorkspace({
     [draftId]
   );
 
-  const isContract = selectedStepIndex === 1 || isContractStep(selectedStep, selectedStepIndex);
+  const isConfirmation = selectedStepIndex === 0 || isConfirmationStep(selectedStep, selectedStepIndex);
+  const isContract = !isConfirmation && (selectedStepIndex === 1 || isContractStep(selectedStep, selectedStepIndex));
 
   const pageTitle = isContract
     ? dict?.smart_docs?.draft_contract_title || dict?.smart_docs?.draft_contract || 'Draft Contract'
@@ -259,7 +263,7 @@ export function DocumentDraftWorkspace({
         className="w-full flex-1 min-w-0 min-h-fit lg:min-h-0 lg:h-full bg-card border border-border rounded-xl shadow-xs overflow-visible lg:overflow-hidden flex flex-col relative z-10"
       >
         {/* Confirmation Document Form: Visible when Confirmation Step is active */}
-        <div className={`w-full h-full flex flex-col ${isContract ? 'hidden' : 'flex'}`}>
+        <div className={`w-full h-full flex flex-col ${isConfirmation ? 'flex' : 'hidden'}`}>
           <ConfirmationDocumentForm
             initialData={initialData}
             lang={lang}

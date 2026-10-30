@@ -139,6 +139,7 @@ export const normalizeShipByForApi = (val?: string | null): string => {
   if (s.includes('VESSEL') || s.includes('BREAK BULK') || s.includes('BREAKBULK') || s.includes('BULK')) {
     return 'VESSEL';
   }
+  if (s.includes('20') && s.includes('40')) return 'FCL_20_40_FT';
   if (s.includes('20')) return 'FCL_20_FT';
   if (s.includes('40')) return 'FCL_40_FT';
   return val.trim();
@@ -181,9 +182,9 @@ export const isFclShipBy = (val?: string | null): boolean => {
 };
 
 export const STATIC_SHIPPING_TERM_OPTIONS: FormOptionItem[] = [
-  { value: 'FOB', label: 'FOB' },
-  { value: 'CNF', label: 'CNF' },
-  { value: 'CIF', label: 'CIF' },
+  { value: 'FOB', label: 'FOB (Free On Board)' },  
+  { value: 'CNF', label: 'CNF (Cost & Freight)' },
+  { value: 'CIF', label: 'CIF (Cost, Insurance & Freight)' }
 ];
 
 export const normalizeCountryString = (val: any): string => {
@@ -1034,7 +1035,7 @@ export interface ConfirmationDocumentFormProps {
   currencies?: FormOptionItem[];
   paymentTerms?: FormOptionItem[];
   onSaveDraft?: (data: any) => Promise<any> | any;
-  onSaveSuccess?: (savedId: string, confirmationData: any) => Promise<void> | void;
+  onSaveSuccess?: (savedId: string, confirmationData?: any) => Promise<void> | void;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
   onSubmitContract?: (data: any) => Promise<any> | any;
   lang?: string;
@@ -3144,7 +3145,7 @@ export function ConfirmationDocumentForm({
   };
 
   // Reset form to blank state for contract or new document
-  const resetFormToBlank = useCallback((newTitle: string = 'CONTRACT') => {
+  const resetFormToBlank = useCallback((newTitle: string = 'CONFIRMATION') => {
     setDraftId('');
     setLetterhead(false);
     setWatermark(false);
@@ -3233,6 +3234,14 @@ export function ConfirmationDocumentForm({
         draftId
       );
 
+      if (cleanId) {
+        setDraftId(cleanId);
+        lastLoadedDocIdRef.current = cleanId;
+        if (onSaveSuccess) {
+          onSaveSuccess(cleanId, result?.data);
+        }
+      }
+
       // Concurrently trigger stepper update if not updated by parent
       try {
         const stepperRes = await getStepperListAction({
@@ -3250,8 +3259,7 @@ export function ConfirmationDocumentForm({
         console.error('[ConfirmationDocumentForm] Post-submit stepper update error:', postSyncErr);
       }
 
-      // Contract form blank aayega
-      resetFormToBlank('CONTRACT');
+      // Preserve Confirmation document form and title intact (Confirmation must never morph or display as CONTRACT)
 
       const successText =
         result?.message ||

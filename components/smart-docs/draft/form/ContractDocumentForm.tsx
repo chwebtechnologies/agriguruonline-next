@@ -12,7 +12,7 @@ import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import ProductManageModal from './ProductManageModal';
 import PaymentTermManageModal from './PaymentTermManageModal';
 import InstructionManageModal from './InstructionManageModal';
-import DocSignatureBox from './DocSignatureBox';
+import ContractSignatureSection from './ContractSignatureSection';
 import {
   getSmartDocsInstructionsAction,
   getSmartDocsProductsAction,
@@ -47,8 +47,8 @@ export interface ContractDocumentFormProps {
 }
 
 const DEFAULT_FCL_TYPES: FormOptionItem[] = [
-  { value: '40 FT', label: '40 FT' },
   { value: '20 FT', label: '20 FT' },  
+  { value: '40 FT', label: '40 FT' },
   { value: 'Vessel', label: 'Vessel' }
 ];
 
@@ -60,12 +60,13 @@ const DEFAULT_SHIPPING_TERMS: FormOptionItem[] = [
 
 const DEFAULT_LOADING_CONDITIONS: FormOptionItem[] = [
   { value: 'Select Loading Condition', label: 'Select Loading Condition' },
-  { value: 'Containerized', label: 'Containerized' },
-  { value: 'Break Bulk', label: 'Break Bulk' },
-  { value: 'Bulk Loading', label: 'Bulk Loading' },
-  { value: 'Palletized', label: 'Palletized' },
-  { value: 'Loose in Container', label: 'Loose in Container' },
-  { value: 'FCL Stuffed at Port', label: 'FCL Stuffed at Port' },
+  { value: 'Any Port of Loading', label: 'Any Port of Loading' },
+];
+
+const DEFAULT_INSURANCE_OPTIONS: FormOptionItem[] = [
+  { value: 'BUYER', label: 'BUYER' },
+  { value: 'SELLER', label: 'SELLER' },
+  { value: 'NOT APPLICABLE', label: 'NOT APPLICABLE' },
 ];
 
 const DEFAULT_ADVANCE_TYPE_OPTIONS: DocSegmentedToggleOption<'amount' | '%'>[] = [
@@ -89,9 +90,17 @@ export function getInsuranceFromIncoterm(term?: string | null): string {
     upper.startsWith('CNF') ||
     upper.startsWith('CFR')
   ) {
-    return 'Buyer';
+    return 'BUYER';
   }
-  return 'Seller';
+  if (
+    upper === 'CIF' ||
+    upper === 'CIP' ||
+    upper.startsWith('CIF') ||
+    upper.startsWith('CIP')
+  ) {
+    return 'SELLER';
+  }
+  return '';
 }
 
 export function getPartialLabel(index: number): string {
@@ -346,10 +355,13 @@ export function ContractDocumentForm({
     toCleanLabel(contractSrc?.shipping_term || contractSrc?.incoterm) || ''
   );
 
-  // ROW 19: Insurance (Auto-derived from Incoterm: FOB or CNF => Buyer, otherwise => Seller)
-  const insurance = useMemo(() => {
-    return getInsuranceFromIncoterm(incoterm) || (contractSrc?.insurance ? toCleanLabel(contractSrc.insurance) : '');
-  }, [incoterm, contractSrc]);
+  // ROW 19: Insurance
+  const [insurance, setInsurance] = useState<string>(() => {
+    const fromSrc = toCleanLabel(contractSrc?.insurance);
+    if (fromSrc) return fromSrc;
+    const initialIncoterm = toCleanLabel(contractSrc?.shipping_term || contractSrc?.incoterm);
+    return getInsuranceFromIncoterm(initialIncoterm) || '';
+  });
 
   // ROW 20-24: Segmented Toggles (Image 3)
   const [isPartialAllowed, setIsPartialAllowed] = useState<boolean | null>(() => {
@@ -1912,6 +1924,10 @@ export function ContractDocumentForm({
                 value={incoterm}
                 onChange={(val) => {
                   setIncoterm(val);
+                  const autoInsurance = getInsuranceFromIncoterm(val);
+                  if (autoInsurance) {
+                    setInsurance(autoInsurance);
+                  }
                 }}
                 placeholder="Select Incoterm"
                 disabled={readOnly}
@@ -1926,13 +1942,15 @@ export function ContractDocumentForm({
                 INSURANCE :
               </label>
             </div>
-            <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center min-h-[38px]">
-              <span
+            <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
+              <DocUnderlineSelect
                 id="field-insurance"
-                className="text-xs sm:text-sm font-semibold text-foreground tracking-wide px-0.5"
-              >
-                {insurance || '—'}
-              </span>
+                options={DEFAULT_INSURANCE_OPTIONS}
+                value={insurance}
+                onChange={setInsurance}
+                placeholder="Select Insurance"
+                disabled={readOnly}
+              />
             </div>
           </div>
 
@@ -2492,45 +2510,29 @@ export function ContractDocumentForm({
             </div>
           </div>
 
-          {/* ROW 34: SIGNATURES - IMPORTER | BROKER (if allowed) | EXPORTER */}
-          <div
-            className={`grid grid-cols-1 ${
-              isSalesBrokerAllowed ? 'md:grid-cols-3' : 'md:grid-cols-2'
-            } divide-y md:divide-y-0 md:divide-x divide-border`}
-          >
-            <DocSignatureBox
-              partyType="importer"
-              title={importerTitle}
-              onTitleChange={setImporterTitle}
-              signatureUrl={importerSignature}
-              onSignatureChange={setImporterSignature}
-              authorityTitle={importerAuthorityTitle}
-              onAuthorityTitleChange={setImporterAuthorityTitle}
-              readOnly={readOnly}
-            />
-            {isSalesBrokerAllowed && (
-              <DocSignatureBox
-                partyType="broker"
-                title={brokerTitle}
-                onTitleChange={setBrokerTitle}
-                signatureUrl={brokerSignature}
-                onSignatureChange={setBrokerSignature}
-                authorityTitle={brokerAuthorityTitle}
-                onAuthorityTitleChange={setBrokerAuthorityTitle}
-                readOnly={readOnly}
-              />
-            )}
-            <DocSignatureBox
-              partyType="exporter"
-              title={exporterTitle}
-              onTitleChange={setExporterTitle}
-              signatureUrl={exporterSignature}
-              onSignatureChange={setExporterSignature}
-              authorityTitle={exporterAuthorityTitle}
-              onAuthorityTitleChange={setExporterAuthorityTitle}
-              readOnly={readOnly}
-            />
-          </div>
+          {/* ROW 34: SIGNATURES - RESPONSIVE COLLAPSIBLE ON MOBILE/TABLET & SIDE-BY-SIDE ON DESKTOP */}
+          <ContractSignatureSection
+            isSalesBrokerAllowed={isSalesBrokerAllowed}
+            exporterTitle={exporterTitle}
+            onExporterTitleChange={setExporterTitle}
+            exporterSignature={exporterSignature}
+            onExporterSignatureChange={setExporterSignature}
+            exporterAuthorityTitle={exporterAuthorityTitle}
+            onExporterAuthorityTitleChange={setExporterAuthorityTitle}
+            brokerTitle={brokerTitle}
+            onBrokerTitleChange={setBrokerTitle}
+            brokerSignature={brokerSignature}
+            onBrokerSignatureChange={setBrokerSignature}
+            brokerAuthorityTitle={brokerAuthorityTitle}
+            onBrokerAuthorityTitleChange={setBrokerAuthorityTitle}
+            importerTitle={importerTitle}
+            onImporterTitleChange={setImporterTitle}
+            importerSignature={importerSignature}
+            onImporterSignatureChange={setImporterSignature}
+            importerAuthorityTitle={importerAuthorityTitle}
+            onImporterAuthorityTitleChange={setImporterAuthorityTitle}
+            readOnly={readOnly}
+          />
 
         </div>
       </div>

@@ -232,15 +232,15 @@ export function DocumentStatusStepper({
               const pdfUrl = step.pdf_url || step.pdf || step.download_url || step.file_url;
 
               // Step-by-step locking:
-              // - Step 0 is unlocked.
+              // - Step 0 is always unlocked.
               // - Completed steps are unlocked.
               // - Currently active step is unlocked.
               // - Upcoming steps are locked from clicking until previous steps are completed.
               const isStepLocked = (() => {
+                if (index === 0) return false;
                 if (Boolean(step.is_locked || step.locked || normalized === 'locked')) {
                   return true;
                 }
-                if (index === 0) return false;
                 if (normalized === 'completed') return false;
                 if (index <= selectedIndex) return false;
 

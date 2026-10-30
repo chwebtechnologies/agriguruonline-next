@@ -151,8 +151,6 @@ export default function DocPrintPreviewModal({
   // Responsive scaling states:
   // autoScale fits A4_WIDTH (794px) into available canvas width on mobile/tablet/narrow screens
   const [autoScale, setAutoScale] = useState<number>(1);
-  const [userZoom, setUserZoom] = useState<number>(100);
-  const [isManualZoom, setIsManualZoom] = useState<boolean>(false);
   const [contentHeight, setContentHeight] = useState<number>(1123); // Default A4 297mm height
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -229,8 +227,6 @@ export default function DocPrintPreviewModal({
     if (!isOpen) {
       setHtmlContent('');
       setError(null);
-      setIsManualZoom(false);
-      setUserZoom(100);
       setAutoScale(1);
       return;
     }
@@ -388,10 +384,8 @@ export default function DocPrintPreviewModal({
     : '';
 
   // Effective scale calculation:
-  // If user zoomed manually, use userZoom / 100
-  // Otherwise, use autoScale (fits 100% on desktop, scales down proportionally on mobile/narrow windows)
-  const effectiveScale = isManualZoom ? userZoom / 100 : autoScale;
-  const currentZoomPercent = Math.round(effectiveScale * 100);
+  // Automatically fits A4 width (794px) into available canvas width across mobile, tablet, desktop and 4K displays
+  const effectiveScale = autoScale;
 
   const scaledWidth = Math.round(A4_WIDTH * effectiveScale);
   const scaledHeight = Math.round(contentHeight * effectiveScale);
@@ -401,11 +395,11 @@ export default function DocPrintPreviewModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="doc-preview-modal-title"
-      className="fixed inset-0 z-9999 flex items-center justify-center p-3 sm:p-6 bg-black/75 animate-in fade-in duration-150 isolate"
+      className="fixed inset-0 z-9999 flex items-center justify-center p-3 sm:p-6 md:p-8 2xl:p-14 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto overscroll-contain isolate"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-4xl h-[88vh] bg-card text-foreground border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-4xl 2xl:max-w-5xl h-[88vh] max-h-[calc(100dvh-2.5rem)] 2xl:max-h-[920px] bg-card text-foreground border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Compact, Clean Header Bar */}
@@ -433,48 +427,8 @@ export default function DocPrintPreviewModal({
             </div>
           </div>
 
-          {/* Right: Actions (Zoom, Open New Tab, Print/PDF, Close) */}
+          {/* Right: Actions (Open New Tab, Print/PDF, Close) */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Zoom Controls (Desktop / Tablet) */}
-            <div className="hidden sm:inline-flex items-center border border-border rounded-lg p-0.5 bg-muted/40 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsManualZoom(true);
-                  setUserZoom((z) => Math.max(30, z - 10));
-                }}
-                disabled={currentZoomPercent <= 30 || loading}
-                title="Zoom Out"
-                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-card text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer transition-colors"
-              >
-                <i className="fa-solid fa-magnifying-glass-minus text-[10px]" />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsManualZoom(false);
-                  setUserZoom(100);
-                  updateScale();
-                }}
-                title={isManualZoom ? "Reset to Auto-Fit" : "Auto-Fit Active"}
-                className="w-12 text-center font-mono text-[11px] font-medium text-foreground hover:text-primary transition-colors cursor-pointer select-none"
-              >
-                {currentZoomPercent}%
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsManualZoom(true);
-                  setUserZoom((z) => Math.min(150, z + 10));
-                }}
-                disabled={currentZoomPercent >= 150 || loading}
-                title="Zoom In"
-                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-card text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer transition-colors"
-              >
-                <i className="fa-solid fa-magnifying-glass-plus text-[10px]" />
-              </button>
-            </div>
-
             {/* Open in New Tab Button */}
             <button
               type="button"
