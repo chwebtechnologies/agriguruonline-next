@@ -13,6 +13,8 @@ import {
   extractPaymentTermsData,
   extractCurrenciesData,
   extractConfirmationData,
+  extractContractData,
+  extractDocumentListData,
 } from '@/lib/api/smart-docs.service';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +55,7 @@ export default async function SmartDocsDraftPage(props: {
   const lang = getSafeLanguage(params?.lang);
   const draftId = searchParams?.id ? String(searchParams.id).trim() : '';
   const initialStepParam = searchParams?.step ? String(searchParams.step).trim() : '';
+  const isContractStep = initialStepParam === 'contract' || initialStepParam === '2';
 
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
@@ -65,8 +68,18 @@ export default async function SmartDocsDraftPage(props: {
     redirect(`/${lang}/login?redirectUrl=/${lang}/smart-docs/draft${redirectSuffix}`);
   }
 
-  // Fetch dictionary, stepper list, instructions, products, payment terms, currencies & confirmation in parallel
-  const [rawDict, stepperRes, instructionsRes, productsRes, paymentTermsRes, currenciesRes, confirmationRes] = await Promise.all([
+  // Fetch dictionary, stepper list, instructions, products, payment terms, currencies, documents & confirmation in parallel
+  const [
+    rawDict,
+    stepperRes,
+    instructionsRes,
+    productsRes,
+    paymentTermsRes,
+    currenciesRes,
+    documentListRes,
+    confirmationRes,
+    contractRes,
+  ] = await Promise.all([
     getDictionary(lang).catch(() => ({})),
     smartDocsService
       .getStepperList(
@@ -130,11 +143,31 @@ export default async function SmartDocsDraftPage(props: {
         console.error('[SmartDocsDraftPage] Currencies fetch error:', err);
         return null;
       }),
+    smartDocsService
+      .getDocumentListForSelection(
+        {
+          lang,
+          source: 'web',
+        },
+        token
+      )
+      .catch((err) => {
+        console.error('[SmartDocsDraftPage] Document list fetch error:', err);
+        return null;
+      }),
     draftId
       ? smartDocsService
           .getConfirmation(draftId, { lang, source: 'web' }, token)
           .catch((err) => {
             console.error('[SmartDocsDraftPage] Confirmation details fetch error:', err);
+            return null;
+          })
+      : Promise.resolve(null),
+    draftId
+      ? smartDocsService
+          .getContract(draftId, { lang, source: 'web' }, token)
+          .catch((err) => {
+            console.error('[SmartDocsDraftPage] Contract details fetch error:', err);
             return null;
           })
       : Promise.resolve(null),
@@ -146,12 +179,23 @@ export default async function SmartDocsDraftPage(props: {
   const initialProducts = extractProductsData(productsRes);
   const initialPaymentTerms = extractPaymentTermsData(paymentTermsRes);
   const initialCurrencies = extractCurrenciesData(currenciesRes);
+  const initialDocumentList = extractDocumentListData(documentListRes);
   const initialConfirmationData = extractConfirmationData(confirmationRes);
+  const initialContractData = extractContractData(contractRes);
+
+  // If this ID is a Contract (or contract step requested), ensure initialStepParam defaults to contract
+  const effectiveStepParam =
+    initialStepParam ||
+    (isContractStep
+      ? 'contract'
+      : initialContractData && !initialConfirmationData
+      ? 'contract'
+      : undefined);
 
   return (
     <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">
       <div className="w-full pad-for-badges flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
-        <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0.5 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
+        <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
           {/* SaaS Single Page Workspace (Fluid on mobile, locked on desktop) */}
           <DocumentDraftWorkspace
             lang={lang}
@@ -162,9 +206,11 @@ export default async function SmartDocsDraftPage(props: {
             initialProducts={initialProducts}
             initialPaymentTerms={initialPaymentTerms}
             initialCurrencies={initialCurrencies}
+            initialDocumentList={initialDocumentList}
             initialData={initialConfirmationData}
+            initialContractData={initialContractData}
             initialId={draftId}
-            initialStepParam={initialStepParam}
+            initialStepParam={effectiveStepParam}
           />
         </div>
       </div>

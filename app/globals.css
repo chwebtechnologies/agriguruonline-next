@@ -322,6 +322,7 @@ i[class*="fa-"] {
   --color-table-row-hover: var(--table-row-hover);
   --color-primary: var(--ag-primary);
   --color-primary-hover: var(--ag-primary-hover);
+  --color-primary-foreground: #ffffff;
   
   --color-brand-blue: var(--brand-blue);
   --color-brand-green: var(--brand-green);

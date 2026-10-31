@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import DocToggle from './DocToggle';
 import DocUnderlineInput from './DocUnderlineInput';
 import DocUnderlineSelect from './DocUnderlineSelect';
@@ -84,15 +84,33 @@ export function toCleanId(val: any): string {
   return '';
 }
 
+export function isRawDbId(str?: string | null): boolean {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.trim();
+  if (!s || s === '[object Object]' || s === 'undefined' || s === 'null') return true;
+  // CUID or CUID2 (e.g. c..., cm..., cl...)
+  if (/^c[a-z0-9]{15,36}$/i.test(s)) return true;
+  // Standard UUID (8-4-4-4-12)
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
+  // Hex strings of 16-64 chars (e.g. Mongo ObjectId 24-char, MD5, SHA)
+  if (/^[0-9a-f]{16,64}$/i.test(s)) return true;
+  // Generic DB ID / hash / token with no spaces, 14+ alphanumeric chars
+  if (!s.includes(' ') && s.length >= 14 && /^[a-z0-9_-]+$/i.test(s)) return true;
+  // Common entity ID prefixes: prod_..., port_..., user_..., etc.
+  if (/^(usr|user|prod|product|seller|buyer|party|port|pack|pay|conf|cont|doc)_[a-z0-9_-]+$/i.test(s)) return true;
+  return false;
+}
+
 /**
  * Safely extracts a clean human-readable display label.
- * Guarantees never returning "[object Object]" or raw stringified object.
+ * Guarantees never returning "[object Object]" or raw stringified object or raw DB IDs.
  */
 export function toCleanLabel(val: any): string {
   if (val === undefined || val === null) return '';
   if (typeof val === 'string') {
     const t = val.trim();
     if (!t || t === '[object Object]' || t === 'undefined' || t === 'null') return '';
+    if (isRawDbId(t)) return '';
     return t;
   }
   if (typeof val === 'number') return String(val);
@@ -111,7 +129,6 @@ export function toCleanLabel(val: any): string {
       val.company_name,
       val.companyName,
       val.title,
-      val.value,
       val.instructionText,
       val.instruction,
       val.details,
@@ -120,7 +137,7 @@ export function toCleanLabel(val: any): string {
     for (const c of candidates) {
       if (c && typeof c === 'string') {
         const tr = c.trim();
-        if (tr && tr !== '[object Object]' && tr !== 'undefined' && tr !== 'null') {
+        if (tr && tr !== '[object Object]' && tr !== 'undefined' && tr !== 'null' && !isRawDbId(tr)) {
           return tr;
         }
       }
@@ -1159,10 +1176,10 @@ export function ConfirmationDocumentForm({
     return toCleanId(raw) || toCleanLabel(raw) || '';
   });
 
-  // Row 9: Shipping Term
+  // Row 9: Shipping Term (No default auto-selection)
   const [shippingTerm, setShippingTerm] = useState<string>(() => {
     const raw = toCleanLabel(initialData?.shippingTerm || initialData?.shipping_term || initialData?.incoterm || initialData?.delivery_term);
-    return raw || 'CNF';
+    return raw || '';
   });
 
   // Row 10: Matrix Calculation
@@ -1871,10 +1888,26 @@ export function ConfirmationDocumentForm({
       : initialData?.shippingTermsList && initialData.shippingTermsList.length > 0
       ? initialData.shippingTermsList
       : STATIC_SHIPPING_TERM_OPTIONS;
-  const currenciesList: FormOptionItem[] =
-    internalCurrencies.length > 0
-      ? internalCurrencies
-      : currencies || initialData?.currencies || initialData?.currenciesList || DEFAULT_CURRENCIES;
+  const currenciesList: FormOptionItem[] = useMemo(() => {
+    const base =
+      internalCurrencies.length > 0
+        ? internalCurrencies
+        : currencies && currencies.length > 0
+        ? currencies
+        : initialData?.currencies || initialData?.currenciesList || DEFAULT_CURRENCIES;
+    const raw =
+      initialData?.currency ||
+      initialData?.currency_code ||
+      initialData?.currencyCode ||
+      initialData?.currency_id ||
+      initialData?.currencyId;
+    if (!raw) return base;
+    const resolved = normalizeCurrencyOption(raw, base);
+    if (resolved && !base.some((c: any) => String(c.value).toUpperCase() === resolved.value.toUpperCase())) {
+      return [resolved, ...base];
+    }
+    return base;
+  }, [internalCurrencies, currencies, initialData]);
   const paymentTermsList: FormOptionItem[] =
     internalPaymentTerms.length > 0
       ? internalPaymentTerms
@@ -3164,7 +3197,7 @@ export function ConfirmationDocumentForm({
     setLoadingPort('');
     setDestinationPort('');
     setPacking('');
-    setShippingTerm('CNF');
+    setShippingTerm('');
     setFclQty('');
     setFclCapacity('');
     setMtQty('');
@@ -3386,10 +3419,10 @@ export function ConfirmationDocumentForm({
             <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2.5" data-field="confirmationNumber">
               <label
                 htmlFor="confirmation-number-input"
-                className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5 pt-1.5"
+                className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5"
               >
                 {dict?.smart_docs?.confirmation_form?.confirmation_number || 'CONFIRMATION NUMBER'}{' '}
-                <span className="text-brand-red font-bold">*</span> :
+                <span className="text-brand-red font-bold">*</span>
               </label>
               <div className="flex-1 min-w-0 w-full sm:w-auto">
                 <DocUnderlineInput
@@ -3432,8 +3465,8 @@ export function ConfirmationDocumentForm({
 
             {/* Confirmation Date */}
             <div className="py-2 px-2.5 sm:px-3 flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2.5" data-field="confirmationDate">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider shrink-0 px-0.5 pt-1.5">
-                {dict?.smart_docs?.confirmation_form?.confirmation_date || 'CONFIRMATION DATE'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5">
+                {dict?.smart_docs?.confirmation_form?.confirmation_date || 'CONFIRMATION DATE'}
               </label>
               <div className="flex-1 min-w-0 w-full sm:w-auto">
                 <DocUnderlineInput
@@ -3459,8 +3492,8 @@ export function ConfirmationDocumentForm({
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
             {/* Exporter / Seller */}
             <div className="py-1.5 px-2.5 sm:px-3 flex flex-col gap-1.5" data-field="sellerId">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.exporter_seller || 'EXPORTER (SELLER)'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.exporter_seller || 'EXPORTER (SELLER)'}
               </label>
               <DocUnderlineSelect
                 id="field-sellerId"
@@ -3505,8 +3538,8 @@ export function ConfirmationDocumentForm({
 
             {/* Importer / Buyer */}
             <div className="py-1.5 px-2.5 sm:px-3 flex flex-col gap-1.5" data-field="buyerId">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.importer_buyer || 'IMPORTER (BUYER)'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.importer_buyer || 'IMPORTER (BUYER)'}
               </label>
               <DocUnderlineSelect
                 id="field-buyerId"
@@ -3554,8 +3587,8 @@ export function ConfirmationDocumentForm({
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="productId">
             {/* Product Label */}
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center min-w-0">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.product || 'PRODUCT'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.product || 'PRODUCT'}
               </label>
             </div>
             {/* Product Select */}
@@ -3596,10 +3629,10 @@ export function ConfirmationDocumentForm({
               {/* HSN CODE */}
               <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden" data-field="hsnCode">
                 <span className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wider leading-tight">
-                  {dict?.smart_docs?.confirmation_form?.hsn_code || 'HSN CODE'} :
+                  {dict?.smart_docs?.confirmation_form?.hsn_code || 'HSN CODE'}
                 </span>
                 <span
-                  className="text-[13px] font-semibold text-foreground truncate min-w-0 mt-0.5 leading-snug"
+                  className="text-[14px] font-semibold text-foreground truncate min-w-0 mt-0.5 leading-snug"
                   title={normalizeHsnString(hsnCode) || '-'}
                 >
                   {isLoadingProductDetails && !hsnCode ? (
@@ -3621,10 +3654,10 @@ export function ConfirmationDocumentForm({
               {/* COUNTRY */}
               <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden" data-field="productCountry">
                 <span className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wider leading-tight">
-                  {dict?.smart_docs?.confirmation_form?.country || 'COUNTRY'} :
+                  {dict?.smart_docs?.confirmation_form?.country || 'COUNTRY'}
                 </span>
                 <span
-                  className="text-[13px] font-semibold text-foreground truncate min-w-0 mt-0.5 leading-snug"
+                  className="text-[14px] font-semibold text-foreground truncate min-w-0 mt-0.5 leading-snug"
                   title={normalizeCountryString(productCountry) || '-'}
                 >
                   {isLoadingProductDetails && !productCountry ? (
@@ -3649,8 +3682,8 @@ export function ConfirmationDocumentForm({
           {/* ROW 4: SPECIFICATION */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="specification">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-start pt-2 sm:pt-2.5">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.specification || 'SPECIFICATION'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.specification || 'SPECIFICATION'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -3679,8 +3712,8 @@ export function ConfirmationDocumentForm({
           {/* ROW 5: SHIP BY */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="shipBy">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.ship_by || 'SHIP BY'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.ship_by || 'SHIP BY'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -3703,9 +3736,9 @@ export function ConfirmationDocumentForm({
           {/* ROW 6: LOADING PORT & COUNTRY */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="loadingPort">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                 {dict?.smart_docs?.confirmation_form?.loading_port_country ||
-                  'LOADING PORT & COUNTRY'} :
+                  'LOADING PORT & COUNTRY'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -3737,9 +3770,9 @@ export function ConfirmationDocumentForm({
           {/* ROW 7: DESTINATION PORT & COUNTRY */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="destinationPort">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                 {dict?.smart_docs?.confirmation_form?.destination_port_country ||
-                  'DESTINATION PORT & COUNTRY'} :
+                  'DESTINATION PORT & COUNTRY'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -3771,8 +3804,8 @@ export function ConfirmationDocumentForm({
           {/* ROW 8: PACKING */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="packing">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.packing || 'PACKING'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.packing || 'PACKING'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -3805,8 +3838,8 @@ export function ConfirmationDocumentForm({
           {/* ROW 9: SHIPPING TERM */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="shippingTerm">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.shipping_term || 'SHIPPING TERM'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.shipping_term || 'SHIPPING TERM'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -3884,7 +3917,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.mt_qty || 'MT QTY'}
                 </span>
-                <span className="text-[13px] font-bold text-foreground py-0.5">
+                <span className="text-[14px] font-bold text-foreground py-0.5">
                   {mtQty || '-'}
                 </span>
                 {errors.mtQty && (
@@ -3900,7 +3933,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.bag_qty || 'BAG QTY'}
                 </span>
-                <span className="text-[13px] font-bold text-foreground py-0.5">
+                <span className="text-[14px] font-bold text-foreground py-0.5">
                   {bagQty || '-'}
                 </span>
                 {errors.bagQty && (
@@ -3916,7 +3949,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.currency || 'CURRENCY'}
                 </span>
-                <div className="w-full max-w-[100px]">
+                <div className="w-full max-w-[110px]">
                   <DocUnderlineSelect
                     id="field-currency"
                     options={currenciesList}
@@ -3930,6 +3963,7 @@ export function ConfirmationDocumentForm({
                     searchable={true}
                     loading={isLoadingCurrencies}
                     placeholder="Select"
+                    align="center"
                   />
                 </div>
               </div>
@@ -3962,7 +3996,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.total_value || 'TOTAL VALUE'}
                 </span>
-                <span className="text-[13px] font-bold text-foreground py-0.5">
+                <span className="text-[14px] font-bold text-foreground py-0.5">
                   {totalValue || '-'}
                 </span>
                 {errors.totalValue && (
@@ -4004,7 +4038,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.bag_qty || 'BAG QTY'}
                 </span>
-                <span className="text-[13px] font-bold text-foreground py-0.5">
+                <span className="text-[14px] font-bold text-foreground py-0.5">
                   {bagQty || '-'}
                 </span>
                 {errors.bagQty && (
@@ -4020,7 +4054,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.currency || 'CURRENCY'}
                 </span>
-                <div className="w-full max-w-[100px]">
+                <div className="w-full max-w-[110px]">
                   <DocUnderlineSelect
                     id="field-currency"
                     options={currenciesList}
@@ -4034,6 +4068,7 @@ export function ConfirmationDocumentForm({
                     searchable={true}
                     loading={isLoadingCurrencies}
                     placeholder="Select"
+                    align="center"
                   />
                 </div>
               </div>
@@ -4066,7 +4101,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.total_value || 'TOTAL VALUE'}
                 </span>
-                <span className="text-[13px] font-bold text-foreground py-0.5">
+                <span className="text-[14px] font-bold text-foreground py-0.5">
                   {totalValue || '-'}
                 </span>
                 {errors.totalValue && (
@@ -4086,8 +4121,8 @@ export function ConfirmationDocumentForm({
             className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border"
           >
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.shipment_period || 'SHIPMENT PERIOD'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.shipment_period || 'SHIPMENT PERIOD'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col items-start justify-center">
@@ -4121,8 +4156,8 @@ export function ConfirmationDocumentForm({
           {/* ROW 12: PAYMENT TERM */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="paymentTerm">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.payment_term || 'PAYMENT TERM'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.payment_term || 'PAYMENT TERM'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
@@ -4167,8 +4202,8 @@ export function ConfirmationDocumentForm({
           {/* ROW 13: NOTES */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="notes">
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-start pt-2 sm:pt-2.5">
-              <label className="font-bold text-muted-foreground/85 uppercase text-[11px] sm:text-xs tracking-wider px-0.5">
-                {dict?.smart_docs?.confirmation_form?.notes || 'NOTES'} :
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                {dict?.smart_docs?.confirmation_form?.notes || 'NOTES'}
               </label>
             </div>
             <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3">

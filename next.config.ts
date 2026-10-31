@@ -21,6 +21,18 @@ const nextConfig: NextConfig = {
     cpus: 4,
     serverActions: {
       bodySizeLimit: '10mb',
+      allowedOrigins: [
+        '192.168.*.*',
+        '192.168.*.*:*',
+        '10.*.*.*',
+        '10.*.*.*:*',
+        '172.*.*.*',
+        '172.*.*.*:*',
+        'localhost:*',
+        '127.0.0.1:*',
+        '*.agriguruonline.com',
+        '*.agriguruonline.cloud',
+      ],
     },
     // optimizeCss: true,  // DISABLED: critters defers page-unique CSS (IPhoneFrame, gradients) — never re-injected on client-nav
     staleTimes: {
@@ -48,7 +60,11 @@ const nextConfig: NextConfig = {
     'localhost:*',
     '127.0.0.1:*',
     '192.168.*.*',
+    '192.168.*.*:*',
     '10.*.*.*',
+    '10.*.*.*:*',
+    '172.*.*.*',
+    '172.*.*.*:*',
   ],
   async headers() {
     const cspHeader = [

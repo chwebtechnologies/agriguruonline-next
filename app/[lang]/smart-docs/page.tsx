@@ -64,15 +64,17 @@ export default async function SmartDocsPage(props: {
   return (
     <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">
       <div className="w-full pad-for-badges flex-1 flex flex-col min-h-0 lg:h-full">
-        <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0.5 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-0 lg:h-full">
+        <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-0 lg:h-full">
           <div className="shrink-0">
             <PageHeader
               title={pageTitle}
               backText={dict?.common?.back || 'Back'}
               backHref={`/${lang}`}
+              size="sm"
+              className="!top-0"
             />
           </div>
-          <div className="mt-1 sm:mt-1.5 flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <ConfirmationsDataTable
               data={confirmationsData}
               totalRecords={totalRecords}

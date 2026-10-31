@@ -23,8 +23,12 @@ import {
   extractCurrenciesData,
   type SmartDocsCurrencyOption,
   DEFAULT_CURRENCIES,
+  extractDocumentListData,
+  type SmartDocsSelectionDocumentOption,
+  DEFAULT_DOCUMENT_SELECTION_OPTIONS,
   type SaveConfirmationPayload,
   extractConfirmationData,
+  extractContractData,
 } from "@/lib/api/smart-docs.service";
 
 export interface GetSmartDocsListActionParams {
@@ -557,6 +561,71 @@ export async function getSmartDocsCurrenciesAction(
   }
 }
 
+export interface GetSmartDocsDocumentListActionResult {
+  success: boolean;
+  documents: SmartDocsSelectionDocumentOption[];
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Server action to fetch documents list for selection:
+ * GET /document-list/for-selection?lang_code=en&source=web
+ */
+export async function getSmartDocsDocumentListAction(
+  params: { lang?: string; source?: string } = {}
+): Promise<GetSmartDocsDocumentListActionResult> {
+  try {
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes?.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[getSmartDocsDocumentListAction] Token refresh failed:", refErr);
+      }
+    }
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        documents: DEFAULT_DOCUMENT_SELECTION_OPTIONS,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getDocumentListForSelection(
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    const documents = extractDocumentListData(rawRes);
+
+    return {
+      success: Boolean(rawRes?.success ?? (documents.length > 0)),
+      documents,
+      message: rawRes?.message,
+    };
+  } catch (error: any) {
+    console.error("[getSmartDocsDocumentListAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch document list for selection",
+      documents: DEFAULT_DOCUMENT_SELECTION_OPTIONS,
+    };
+  }
+}
+
 export interface SaveConfirmationDraftActionResult {
   success: boolean;
   message?: string;
@@ -812,6 +881,417 @@ export async function getConfirmationAction(
       success: false,
       error: error?.message || "Failed to fetch confirmation details",
       data: null,
+    };
+  }
+}
+
+export interface GetContractActionResult {
+  success: boolean;
+  data: any | null;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Server Action to fetch Contract details by ID with secure Bearer authentication:
+ * GET /contract/:id?lang_code=en&source=web
+ */
+export async function getContractAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetContractActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Contract ID is required",
+        data: null,
+      };
+    }
+
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[getContractAction] Token refresh failed:", refErr);
+      }
+    }
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const cleanId = String(id).trim();
+    let rawRes = await smartDocsService.getContract(
+      cleanId,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.getContract(
+            cleanId,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[getContractAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    const docData = extractContractData(rawRes);
+    const isSuccess = Boolean(
+      rawRes?.success === 1 ||
+      rawRes?.success === true ||
+      rawRes?.status === true ||
+      rawRes?.status === 200 ||
+      (docData && !rawRes?.error && rawRes?.success !== 0 && rawRes?.success !== false)
+    );
+
+    return {
+      success: isSuccess,
+      data: docData,
+      message: rawRes?.message,
+    };
+  } catch (error: any) {
+    console.error("[getContractAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch contract details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveContractDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+/**
+ * Server Action to save or update Contract Draft with secure Bearer authentication:
+ * POST /contract/save?lang_code=en&source=web
+ */
+export async function saveContractDraftAction(
+  payload: any,
+  lang: string = "en"
+): Promise<SaveContractDraftActionResult> {
+  try {
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[saveContractDraftAction] Token refresh failed:", refErr);
+      }
+    }
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveContractDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    // If unauthorized, attempt one refresh & retry
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.saveContractDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveContractDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save contract draft",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false && (!rawRes.error_fields || rawRes.error_fields.length === 0))
+    );
+
+    const generatedId =
+      rawRes?.data?.contract_id ||
+      rawRes?.contract_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      rawRes?.data?.confirmation_id ||
+      rawRes?.confirmation_id;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs/draft`);
+      } catch (revErr) {
+        console.warn("[saveContractDraftAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message: rawRes.message || "Contract draft saved successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : payload.id,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    const errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    return {
+      success: false,
+      message: rawRes?.message || "Failed to save contract draft",
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : payload.id,
+      error: rawRes?.message || "Failed to save contract draft",
+    };
+  } catch (error: any) {
+    console.error("[saveContractDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving contract draft",
+      message: error?.message || "Internal error occurred while saving contract draft",
+    };
+  }
+}
+
+export interface SubmitContractActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+/**
+ * Server Action to submit Contract (to Proforma Invoice) with secure Bearer authentication:
+ * POST /contract/submit?lang_code=en&source=web
+ */
+export async function submitContractAction(
+  payload: any,
+  lang: string = "en"
+): Promise<SubmitContractActionResult> {
+  try {
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[submitContractAction] Token refresh failed:", refErr);
+      }
+    }
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitContract(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    // If unauthorized, attempt one refresh & retry
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitContract(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitContractAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit contract",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false && (!rawRes.error_fields || rawRes.error_fields.length === 0))
+    );
+
+    const generatedId =
+      rawRes?.data?.proforma_id ||
+      rawRes?.proforma_id ||
+      rawRes?.data?.contract_id ||
+      rawRes?.contract_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs/draft`);
+      } catch (revErr) {
+        console.warn("[submitContractAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message: rawRes.message || "Contract submitted successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : payload.id,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    const errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    return {
+      success: false,
+      message: rawRes?.message || "Failed to submit contract",
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : payload.id,
+      error: rawRes?.message || "Failed to submit contract",
+    };
+  } catch (error: any) {
+    console.error("[submitContractAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while submitting contract",
+      message: error?.message || "Internal error occurred while submitting contract",
     };
   }
 }

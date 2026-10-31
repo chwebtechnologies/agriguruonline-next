@@ -36,7 +36,7 @@ export function DateRangePicker({
   startDate,
   endDate,
   onChange,
-  placeholder = 'Select Date Range',
+  placeholder = 'SELECT DATE RANGE',
   disabled = false,
   tabIndex = 0,
   variant = 'default',
@@ -452,7 +452,7 @@ export function DateRangePicker({
         style={{ outline: 'none', boxShadow: 'none' }}
         className={
           variant === 'underline'
-            ? `w-full flex items-center justify-between gap-1.5 px-1.5 py-0.5 min-h-[28px] text-[13px] rounded-t-sm transition-all duration-150 text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 border-t-0 border-x-0 ${borderStyle} focus:border-solid focus:border-primary focus:bg-primary/10 cursor-pointer print:border-none`
+            ? `w-full flex items-center justify-between gap-1.5 px-1.5 py-0.5 min-h-[30px] text-[14px] rounded-t-sm transition-all duration-150 text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 border-t-0 border-x-0 ${borderStyle} focus:border-solid focus:border-primary focus:bg-primary/10 cursor-pointer print:border-none`
             : `w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-between transition-colors ${
                 disabled
                   ? 'border-border pointer-events-none bg-muted text-muted-foreground'
@@ -465,7 +465,7 @@ export function DateRangePicker({
         <span
           className={
             variant === 'underline'
-              ? `truncate flex-1 ${displayValue ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground/50'}`
+              ? `truncate flex-1 text-[14px] ${displayValue ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground/50 uppercase'}`
               : `font-semibold ${startDate ? 'text-primary-foreground' : 'font-medium text-muted-foreground'}`
           }
         >

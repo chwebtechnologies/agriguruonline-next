@@ -196,7 +196,7 @@ export function DocNotesEditor({
           aria-multiline="true"
           aria-label="Notes description"
           style={{ outline: 'none' }}
-          className={`w-full min-h-[56px] text-[13px] text-foreground outline-none focus:outline-none focus-visible:outline-none leading-relaxed [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 ${
+          className={`w-full min-h-[56px] text-[14px] font-normal text-foreground outline-none focus:outline-none focus-visible:outline-none leading-relaxed [&>p]:text-[14px] [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 ${
             disabled ? 'opacity-60 cursor-not-allowed' : ''
           }`}
           data-placeholder={placeholder}
@@ -204,7 +204,7 @@ export function DocNotesEditor({
         {(!value || value === '<br>' || value === '' || value === '<p></p>') && (
           <div
             onClick={() => editorRef.current?.focus()}
-            className="absolute top-2 left-2 text-muted-foreground/50 font-normal text-[13px] pointer-events-none select-none italic"
+            className="absolute top-2 left-2 text-muted-foreground/50 font-normal text-[14px] pointer-events-none select-none not-italic uppercase"
           >
             {placeholder}
           </div>

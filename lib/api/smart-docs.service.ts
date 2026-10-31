@@ -647,6 +647,37 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches the document list for selection with authentication:
+   * GET /document-list/for-selection?lang_code=en&source=web
+   */
+  getDocumentListForSelection: async (
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const url = `${baseUrl}/document-list/for-selection`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getDocumentListForSelection] error:', error);
+      return null;
+    }
+  },
+
+  /**
    * Saves or updates a Confirmation draft:
    * POST /confirmation/save?lang_code=en&source=web
    */
@@ -810,6 +841,179 @@ export const smartDocsService = {
     } catch (error) {
       console.error('[smartDocsService.getConfirmation] error:', error);
       return null;
+    }
+  },
+
+  /**
+   * Fetches the Contract details by ID with authentication:
+   * GET /contract/:id?lang_code=en&source=web
+   */
+  getContract: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !id) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const encodedId = encodeURIComponent(String(id).trim());
+    const url = `${baseUrl}/contract/${encodedId}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getContract] error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Saves or updates a Contract draft with authentication:
+   * POST /contract/save?lang_code=en&source=web
+   */
+  saveContractDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const url = `${baseUrl}/contract/save`;
+
+    try {
+      const sanitizedPayload = cleanContractPayload(payload);
+      const response = await customFetch(url, {
+        method: 'POST',
+        token,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        body: JSON.stringify(sanitizedPayload),
+        cache: 'no-store',
+      });
+
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        return {
+          ...(typeof json === 'object' && json !== null ? json : {}),
+          success: false,
+          status: response.status,
+          message: json?.message || json?.error || `Request failed with status ${response.status}`,
+          data: json?.data !== undefined ? json.data : json,
+          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+          error_fields: json?.error_fields || json?.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      if (json && typeof json === 'object') {
+        return {
+          ...json,
+          success:
+            json.success === 1 ||
+            json.success === true ||
+            json.status === true ||
+            json.status === 200 ||
+            json.status === 201 ||
+            json.status === 'success',
+          error_fields: json.error_fields || json.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      return json;
+    } catch (error: any) {
+      console.error('[smartDocsService.saveContractDraft] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Network error occurred while saving contract draft',
+      };
+    }
+  },
+
+  /**
+   * Submits a Contract to advance workflow (e.g. to Proforma Invoice):
+   * POST /contract/submit?lang_code=en&source=web
+   */
+  submitContract: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const url = `${baseUrl}/contract/submit`;
+
+    try {
+      const sanitizedPayload = cleanContractPayload(payload);
+      const response = await customFetch(url, {
+        method: 'POST',
+        token,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        body: JSON.stringify(sanitizedPayload),
+        cache: 'no-store',
+      });
+
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        return {
+          ...(typeof json === 'object' && json !== null ? json : {}),
+          success: false,
+          status: response.status,
+          message: json?.message || json?.error || `Request failed with status ${response.status}`,
+          data: json?.data !== undefined ? json.data : json,
+          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+          error_fields: json?.error_fields || json?.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      if (json && typeof json === 'object') {
+        return {
+          ...json,
+          success:
+            json.success === 1 ||
+            json.success === true ||
+            json.status === true ||
+            json.status === 200 ||
+            json.status === 201 ||
+            json.status === 'success',
+          error_fields: json.error_fields || json.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      return json;
+    } catch (error: any) {
+      console.error('[smartDocsService.submitContract] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Network error occurred while submitting contract',
+      };
     }
   },
 
@@ -1066,7 +1270,25 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
   const cleaned: Record<string, any> = {};
 
   for (const [key, value] of Object.entries(payload)) {
-    if (value === undefined || value === null) continue;
+    if (value === undefined) continue;
+    if (value === null) {
+      if (
+        key === 'is_partial' ||
+        key === 'partial_shipment_allowed' ||
+        key === 'is_partial_allowed' ||
+        key === 'split_count' ||
+        key === 'transhipment_allowed' ||
+        key === 'transit_clause_allowed' ||
+        key === 'any_advance' ||
+        key === 'is_broker' ||
+        key === 'sales_broker_allowed' ||
+        key === 'broker_commission_type' ||
+        key === 'sales_broker_type'
+      ) {
+        cleaned[key] = null;
+      }
+      continue;
+    }
     if (typeof value === 'string') {
       const trimmed = value.trim();
       if (trimmed === '') continue;
@@ -1100,6 +1322,86 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
   if (cleaned.ship_by === 'VESSEL') {
     delete cleaned.fcl_quantity;
     delete cleaned.fcl_capacity;
+  }
+
+  return cleaned;
+}
+
+/**
+ * Robustly extracts the contract document object from backend API response.
+ */
+export function extractContractData(data: any): any {
+  if (!data) return null;
+  let current = data;
+  let parentData: any = null;
+  if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
+    parentData = current.data;
+    current = current.data;
+    if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
+      current = current.data;
+    }
+  }
+  if (current.contract && typeof current.contract === 'object' && !Array.isArray(current.contract)) {
+    // Merge so parent level fields (like signature fields/labels) and contract fields are both preserved
+    current = { ...(parentData || {}), ...current, ...current.contract };
+  }
+  return current;
+}
+
+/**
+ * Sanitizes contract payload before sending to backend.
+ */
+export function cleanContractPayload(payload: Record<string, any>): Record<string, any> {
+  if (!payload || typeof payload !== 'object') return {};
+  const cleaned: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined) continue;
+    if (value === null) {
+      if (
+        key === 'is_partial' ||
+        key === 'partial_shipment_allowed' ||
+        key === 'is_partial_allowed' ||
+        key === 'split_count' ||
+        key === 'transhipment_allowed' ||
+        key === 'transit_clause_allowed' ||
+        key === 'any_advance' ||
+        key === 'is_broker' ||
+        key === 'sales_broker_allowed' ||
+        key === 'broker_commission_type' ||
+        key === 'sales_broker_type'
+      ) {
+        cleaned[key] = null;
+      }
+      continue;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') continue;
+      if (
+        key === 'notes' ||
+        key === 'container_terms' ||
+        key === 'other_terms_2' ||
+        key === 'force_majeur' ||
+        key === 'confidentiality' ||
+        key === 'other_terms' ||
+        key === 'other_terms_1'
+      ) {
+        const stripped = trimmed.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+        if (stripped === '') continue;
+      }
+      cleaned[key] = trimmed;
+    } else if (typeof value === 'number') {
+      if (isNaN(value)) continue;
+      cleaned[key] = value;
+    } else if (typeof value === 'boolean') {
+      cleaned[key] = value;
+    } else if (Array.isArray(value)) {
+      if (value.length > 0) cleaned[key] = value;
+    } else if (typeof value === 'object') {
+      const nested = cleanContractPayload(value);
+      if (Object.keys(nested).length > 0) cleaned[key] = nested;
+    }
   }
 
   return cleaned;
@@ -2894,6 +3196,16 @@ export function normalizeCurrencyCode(val: any): string {
     return 'USD';
   }
 
+  // If it's a database ID or hash or hex token, do NOT treat it as a currency code!
+  if (
+    /^[0-9a-f]{16,64}$/i.test(clean) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean) ||
+    /^c[a-z0-9]{15,36}$/i.test(clean) ||
+    (!clean.includes(' ') && clean.length >= 14 && /^[A-Z0-9_-]+$/.test(clean))
+  ) {
+    return 'USD';
+  }
+
   // Direct alias match
   if (CURRENCY_ALIAS_MAP[clean]) {
     return CURRENCY_ALIAS_MAP[clean];
@@ -2917,7 +3229,12 @@ export function normalizeCurrencyCode(val: any): string {
     return stripped;
   }
 
-  return stripped || clean || 'USD';
+  // If 2 to 4 alphabetic code
+  if (/^[A-Z]{2,4}$/.test(stripped)) {
+    return stripped;
+  }
+
+  return 'USD';
 }
 
 /**
@@ -2946,9 +3263,6 @@ export function getCurrencySymbol(currencyOrCode: any): string {
  * Guarantees that "US Dollar" / "US DOLLAR" is cleanly represented as { value: 'USD', label: 'USD ($)', code: 'USD', symbol: '$' }.
  */
 export function normalizeCurrencyOption(raw: any, existingList?: any[]): SmartDocsCurrencyOption {
-  const code = normalizeCurrencyCode(raw);
-  const known = KNOWN_CURRENCIES[code];
-
   let id: string | undefined = undefined;
   let rawSymbol: string | undefined = undefined;
   let rawObj: any = undefined;
@@ -2962,31 +3276,52 @@ export function normalizeCurrencyOption(raw: any, existingList?: any[]): SmartDo
       raw.currencySymbol ||
       raw.sign ||
       raw.icon;
+  } else if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (
+      /^[0-9a-f]{16,64}$/i.test(trimmed) ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed) ||
+      /^c[a-z0-9]{15,36}$/i.test(trimmed) ||
+      (!trimmed.includes(' ') && trimmed.length >= 14 && /^[a-z0-9_-]+$/i.test(trimmed))
+    ) {
+      id = trimmed;
+    }
   }
+
+  const code = normalizeCurrencyCode(raw);
+  const known = KNOWN_CURRENCIES[code];
 
   // Check if an existing option matches by ID or Code in existingList
   if (existingList && Array.isArray(existingList) && existingList.length > 0) {
     const rawIdStr = id ? String(id) : typeof raw === 'string' ? raw.trim() : '';
     const match = existingList.find(
       (item: any) =>
-        (rawIdStr && (String(item.id) === rawIdStr || String(item.value) === rawIdStr || String(item.raw?.id || item.raw?._id) === rawIdStr)) ||
+        (rawIdStr && (
+          String(item.id) === rawIdStr ||
+          String(item._id) === rawIdStr ||
+          String(item.value) === rawIdStr ||
+          String(item.raw?.id) === rawIdStr ||
+          String(item.raw?._id) === rawIdStr ||
+          String(item.raw?.currency_id) === rawIdStr
+        )) ||
         (item.value && String(item.value).toUpperCase() === code) ||
         (item.code && String(item.code).toUpperCase() === code) ||
         (item.label && String(item.label).toUpperCase().startsWith(code))
     );
     if (match) {
-      const matchId = match.id || match.raw?.id || match.raw?._id || match.raw?.currency_id || id;
+      const matchId = match.id || match._id || match.raw?.id || match.raw?._id || match.raw?.currency_id || id;
+      const matchCode = match.code || match.value || code;
       const matchSymbol = match.symbol || rawSymbol || known?.symbol || '$';
       const matchLabel =
         match.label && match.label.includes('(')
           ? match.label
-          : `${code} (${matchSymbol})`;
+          : `${matchCode} (${matchSymbol})`;
 
       return {
         id: matchId ? String(matchId) : undefined,
-        value: code,
+        value: matchCode,
         label: matchLabel,
-        code: code,
+        code: matchCode,
         symbol: matchSymbol,
         subLabel: match.subLabel || known?.name,
         raw: match.raw || rawObj,
@@ -3079,6 +3414,128 @@ export function extractCurrenciesData(data: any): SmartDocsCurrencyOption[] {
 
   return formatted;
 }
+
+export interface SmartDocsSelectionDocumentOption {
+  id: string;
+  name: string;
+  label: string;
+  value: string;
+  code?: string;
+  [key: string]: any;
+}
+
+export const DEFAULT_DOCUMENT_SELECTION_OPTIONS: SmartDocsSelectionDocumentOption[] = [
+  { id: '1', name: 'PROFORMA INVOICE', label: 'PROFORMA INVOICE', value: 'PROFORMA INVOICE' },
+  { id: '2', name: 'SHIPMENT INSTRUCTION', label: 'SHIPMENT INSTRUCTION', value: 'SHIPMENT INSTRUCTION' },
+  { id: '3', name: 'BILL OF LADING', label: 'BILL OF LADING', value: 'BILL OF LADING' },
+  { id: '4', name: 'CUSTOM INVOICE', label: 'CUSTOM INVOICE', value: 'CUSTOM INVOICE' },
+  { id: '5', name: 'COMMERCIAL INVOICE', label: 'COMMERCIAL INVOICE', value: 'COMMERCIAL INVOICE' },
+  { id: '6', name: 'PACKING LIST', label: 'PACKING LIST', value: 'PACKING LIST' },
+  { id: '7', name: 'PHYTO CERTIFICATE', label: 'PHYTO CERTIFICATE', value: 'PHYTO CERTIFICATE' },
+  { id: '8', name: 'FUMIGATION CERTIFICATE', label: 'FUMIGATION CERTIFICATE', value: 'FUMIGATION CERTIFICATE' },
+  { id: '9', name: 'CERTIFICATE OF ORIGIN', label: 'CERTIFICATE OF ORIGIN', value: 'CERTIFICATE OF ORIGIN' },
+  { id: '10', name: 'W & Q CERTIFICATE', label: 'W & Q CERTIFICATE', value: 'W & Q CERTIFICATE' },
+];
+
+/**
+ * Extracts and normalizes document list from /document-list/for-selection API.
+ */
+export function extractDocumentListData(data: any): SmartDocsSelectionDocumentOption[] {
+  if (!data) return DEFAULT_DOCUMENT_SELECTION_OPTIONS;
+
+  const d = data.data ?? data;
+  let rawList: any[] = [];
+
+  if (Array.isArray(d)) {
+    rawList = d;
+  } else if (Array.isArray(d?.documents)) {
+    rawList = d.documents;
+  } else if (Array.isArray(d?.document_list)) {
+    rawList = d.document_list;
+  } else if (Array.isArray(d?.documentList)) {
+    rawList = d.documentList;
+  } else if (Array.isArray(d?.records)) {
+    rawList = d.records;
+  } else if (Array.isArray(d?.items)) {
+    rawList = d.items;
+  } else if (Array.isArray(d?.list)) {
+    rawList = d.list;
+  } else if (Array.isArray(data?.documents)) {
+    rawList = data.documents;
+  } else if (Array.isArray(data?.document_list)) {
+    rawList = data.document_list;
+  } else if (Array.isArray(data?.records)) {
+    rawList = data.records;
+  } else if (Array.isArray(data?.list)) {
+    rawList = data.list;
+  }
+
+  if (rawList.length === 0 && d && typeof d === 'object') {
+    for (const val of Object.values(d)) {
+      if (Array.isArray(val) && val.length > 0) {
+        rawList = val;
+        break;
+      }
+    }
+  }
+
+  if (rawList.length === 0) {
+    return DEFAULT_DOCUMENT_SELECTION_OPTIONS;
+  }
+
+  const seen = new Set<string>();
+  const result: SmartDocsSelectionDocumentOption[] = [];
+
+  for (let idx = 0; idx < rawList.length; idx++) {
+    const item = rawList[idx];
+    if (!item) continue;
+
+    let id = '';
+    let name = '';
+
+    if (typeof item === 'string') {
+      name = item.trim();
+      id = name;
+    } else if (typeof item === 'object') {
+      name = String(
+        item.document_name ||
+        item.name ||
+        item.title ||
+        item.doc_name ||
+        item.document_title ||
+        item.label ||
+        ''
+      ).trim();
+
+      id = String(
+        item.id ||
+        item._id ||
+        item.document_id ||
+        item.doc_id ||
+        item.code ||
+        name ||
+        `doc-${idx}`
+      );
+    }
+
+    if (!name) continue;
+
+    const key = name.toUpperCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push({
+        ...(typeof item === 'object' ? item : {}),
+        id,
+        name,
+        label: name,
+        value: name,
+      });
+    }
+  }
+
+  return result.length > 0 ? result : DEFAULT_DOCUMENT_SELECTION_OPTIONS;
+}
+
 
 
 

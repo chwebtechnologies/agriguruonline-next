@@ -10,6 +10,8 @@ export interface DocSignatureBoxProps {
   onSignatureChange: (url: string) => void;
   authorityTitle: string;
   onAuthorityTitleChange: (val: string) => void;
+  titlePlaceholder?: string;
+  authorityPlaceholder?: string;
   readOnly?: boolean;
   className?: string;
   uploadButtonLabel?: string;
@@ -32,6 +34,8 @@ export function DocSignatureBox({
   onSignatureChange,
   authorityTitle,
   onAuthorityTitleChange,
+  titlePlaceholder,
+  authorityPlaceholder,
   readOnly = false,
   className = '',
 }: DocSignatureBoxProps) {
@@ -383,17 +387,26 @@ export function DocSignatureBox({
           onChange={(e) => onTitleChange(e.target.value.toUpperCase())}
           disabled={readOnly}
           aria-label={`${partyType} title`}
-          className="font-bold text-center tracking-wider text-xs sm:text-[13px] uppercase bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[180px] sm:max-w-[220px] transition-colors"
+          placeholder={
+            titlePlaceholder ||
+            (partyType === 'exporter'
+              ? 'SELLER / EXPORTER'
+              : partyType === 'broker'
+              ? 'BROKER'
+              : 'BUYER / IMPORTER')
+          }
+          className="font-bold text-center tracking-wider text-[14px] uppercase bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:uppercase placeholder:text-muted-foreground/50"
         />
-        <button
-          type="button"
-          onClick={() => titleInputRef.current?.focus()}
-          title="Edit title"
-          disabled={readOnly}
-          className="text-primary hover:text-primary-hover transition-colors p-0.5 cursor-pointer disabled:opacity-40"
-        >
-          <i className="fa-solid fa-pen text-xs" />
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => titleInputRef.current?.focus()}
+            title="Edit title"
+            className="text-primary hover:text-primary-hover transition-colors p-0.5 cursor-pointer disabled:opacity-40"
+          >
+            <i className="fa-solid fa-pen text-xs" />
+          </button>
+        )}
       </div>
 
       {/* Signature & Stamp Multi-Layer Interactive Canvas */}
@@ -526,17 +539,19 @@ export function DocSignatureBox({
           onChange={(e) => onAuthorityTitleChange(e.target.value.toUpperCase())}
           disabled={readOnly}
           aria-label={`${partyType} authority title`}
-          className="font-bold text-center tracking-wider text-[11px] sm:text-xs uppercase bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors"
+          placeholder={authorityPlaceholder || 'AUTHORISED SIGNATURE'}
+          className="font-bold text-center tracking-wider text-[14px] uppercase bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:uppercase placeholder:text-muted-foreground/50"
         />
-        <button
-          type="button"
-          onClick={() => authTitleInputRef.current?.focus()}
-          title="Edit title"
-          disabled={readOnly}
-          className="text-primary hover:text-primary-hover transition-colors p-0.5 cursor-pointer disabled:opacity-40"
-        >
-          <i className="fa-solid fa-pen text-xs" />
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => authTitleInputRef.current?.focus()}
+            title="Edit label"
+            className="text-primary hover:text-primary-hover transition-colors p-0.5 cursor-pointer disabled:opacity-40"
+          >
+            <i className="fa-solid fa-pen text-xs" />
+          </button>
+        )}
       </div>
     </div>
   );

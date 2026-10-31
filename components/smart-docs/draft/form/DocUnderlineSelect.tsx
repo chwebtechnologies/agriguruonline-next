@@ -2,6 +2,23 @@
 
 import React, { useState, useRef, useEffect, useCallback, useId } from 'react';
 
+export function isRawDbId(str?: string | null): boolean {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.trim();
+  if (!s || s === '[object Object]' || s === 'undefined' || s === 'null') return true;
+  // CUID or CUID2 (e.g. c..., cm..., cl...)
+  if (/^c[a-z0-9]{15,36}$/i.test(s)) return true;
+  // Standard UUID (8-4-4-4-12)
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
+  // Hex strings of 16-64 chars (e.g. Mongo ObjectId 24-char, MD5, SHA)
+  if (/^[0-9a-f]{16,64}$/i.test(s)) return true;
+  // Generic DB ID / hash / token with no spaces, 14+ alphanumeric chars
+  if (!s.includes(' ') && s.length >= 14 && /^[a-z0-9_-]+$/i.test(s)) return true;
+  // Common entity ID prefixes: prod_..., port_..., user_..., etc.
+  if (/^(usr|user|prod|product|seller|buyer|party|port|pack|pay|conf|cont|doc)_[a-z0-9_-]+$/i.test(s)) return true;
+  return false;
+}
+
 export interface DocSelectOption {
   value: string;
   label: string;
@@ -30,6 +47,7 @@ export interface DocUnderlineSelectProps {
   addNewLabel?: string;
   onAddNew?: () => void;
   allowCustom?: boolean;
+  align?: 'left' | 'center' | 'right';
 }
 
 export function DocUnderlineSelect({
@@ -53,6 +71,7 @@ export function DocUnderlineSelect({
   addNewLabel = 'Add New',
   onAddNew,
   allowCustom = false,
+  align = 'left',
 }: DocUnderlineSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -69,7 +88,7 @@ export function DocUnderlineSelect({
     .map((opt: any) => {
       if (typeof opt === 'string') {
         const clean = opt.trim();
-        if (!clean || clean === '[object Object]' || clean === 'undefined' || clean === 'null') {
+        if (!clean || clean === '[object Object]' || clean === 'undefined' || clean === 'null' || isRawDbId(clean)) {
           return null;
         }
         return { value: clean, label: clean };
@@ -85,6 +104,7 @@ export function DocUnderlineSelect({
       let cleanLbl = lbl === '[object Object]' ? cleanVal : lbl;
 
       if (!cleanVal && !cleanLbl) return null;
+      if (cleanLbl && isRawDbId(cleanLbl)) return null;
 
       const upperVal = cleanVal.toUpperCase().trim();
       const upperLbl = cleanLbl.toUpperCase().trim();
@@ -126,7 +146,10 @@ export function DocUnderlineSelect({
       (isUsdInput && (String(opt.value).toUpperCase() === 'USD' || String((opt as any).code || '').toUpperCase() === 'USD')) ||
       (!!value && String((opt as any).code || '').toUpperCase() === String(value).toUpperCase()) ||
       (!!value && String((opt as any).id || '') === String(value)) ||
-      (!!value && String(opt.label).toLowerCase() === String(value).toLowerCase())
+      (!!value && String(opt.label).toLowerCase() === String(value).toLowerCase()) ||
+      (!!value && (upperInputVal === '20_FT_FCL' || upperInputVal === 'FCL_20_FT') && (String(opt.value).toUpperCase().includes('20') || String(opt.label).toUpperCase().includes('20'))) ||
+      (!!value && (upperInputVal === '40_FT_FCL' || upperInputVal === 'FCL_40_FT') && (String(opt.value).toUpperCase().includes('40') || String(opt.label).toUpperCase().includes('40'))) ||
+      (!!value && (upperInputVal === 'VESSEL' || upperInputVal === 'BULK') && (String(opt.value).toUpperCase().includes('VESSEL') || String(opt.label).toUpperCase().includes('VESSEL')))
   );
 
   const exactMatch = normalizedOptions.some(
@@ -343,31 +366,63 @@ export function DocUnderlineSelect({
         aria-expanded={isOpen}
         aria-label={ariaLabel || placeholder}
         style={{ outline: 'none', boxShadow: 'none' }}
-        className={`w-full flex items-center justify-between gap-1.5 px-1.5 py-0.5 min-h-[28px] text-[13px] rounded-t-sm transition-all duration-150 text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ring-0 ring-offset-0 border-t-0 border-x-0 ${borderStyle} focus:border-solid focus:border-primary bg-transparent print:border-none ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+        className={`w-full flex items-center justify-between gap-1 px-1.5 py-0.5 min-h-[30px] text-[14px] rounded-t-sm transition-all duration-150 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ring-0 ring-offset-0 border-t-0 border-x-0 ${borderStyle} focus:border-solid focus:border-primary bg-transparent print:border-none ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
       >
-        <span
-          className={`truncate flex-1 ${
-            selectedOption ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground/50'
-          }`}
-        >
-          {(() => {
+        {(() => {
+          const displayText = (() => {
             if (loading && !selectedOption) {
               return searchPlaceholder === 'Search...' ? 'Loading options...' : placeholder;
             }
             if (selectedOption && selectedOption.label && selectedOption.label !== '[object Object]') {
+              if (isRawDbId(selectedOption.label)) {
+                return placeholder;
+              }
               return selectedOption.label;
             }
             const cleanVal = typeof value === 'string' ? value.trim() : '';
             if (cleanVal && cleanVal !== '[object Object]' && cleanVal !== 'undefined' && cleanVal !== 'null') {
+              if (isRawDbId(cleanVal) || (!cleanVal.includes(' ') && cleanVal.length >= 14)) {
+                return placeholder;
+              }
               const upperClean = cleanVal.toUpperCase();
               if (upperClean === 'US DOLLAR' || upperClean === 'US DOLLARS' || upperClean === 'USD') {
                 return 'USD ($)';
               }
+              if (upperClean === '20_FT_FCL' || upperClean === 'FCL_20_FT' || upperClean === '20_FT') {
+                return '20 FT';
+              }
+              if (upperClean === '40_FT_FCL' || upperClean === 'FCL_40_FT' || upperClean === '40_FT') {
+                return '40 FT';
+              }
+              if (upperClean === 'VESSEL' || upperClean === 'BULK') {
+                return 'Vessel';
+              }
               return cleanVal;
             }
             return placeholder;
-          })()}
-        </span>
+          })();
+
+          const isSelectedOrHasDisplayValue = Boolean(
+            displayText &&
+            displayText !== placeholder &&
+            displayText !== 'Loading options...' &&
+            !isRawDbId(displayText)
+          );
+
+          const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
+
+          return (
+            <span
+              className={`truncate flex-1 text-[14px] ${alignClass} ${
+                isSelectedOrHasDisplayValue
+                  ? 'font-semibold text-foreground'
+                  : 'font-normal text-muted-foreground/50 uppercase'
+              }`}
+            >
+              {displayText}
+            </span>
+          );
+        })()}
         <span className={`${isOpen || isFocused ? 'text-primary scale-110 font-bold' : 'text-primary hover:text-primary-hover'} text-[11px] shrink-0 transition-all duration-200 flex items-center gap-1`}>
           {loading && (
             <i className="fa-solid fa-circle-notch fa-spin text-[10px] text-primary" />
@@ -411,7 +466,7 @@ export function DocUnderlineSelect({
                   onKeyDown={handleSearchKeyDown}
                   placeholder={searchPlaceholder}
                   style={{ outline: 'none' }}
-                  className="w-full pl-7 pr-2.5 py-1 text-xs bg-background text-foreground border border-border rounded-md outline-none focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-muted-foreground/50"
+                  className="w-full pl-7 pr-2.5 py-1 text-[13px] sm:text-[14px] bg-background text-foreground border border-border rounded-md outline-none focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-[13px] sm:placeholder:text-[14px] placeholder:text-muted-foreground/50"
                 />
                 {search && (
                   <button

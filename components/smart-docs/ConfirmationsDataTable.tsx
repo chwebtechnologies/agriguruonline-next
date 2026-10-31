@@ -25,6 +25,69 @@ export function extractSmartDocId(row: any): string {
   return allIds[0] || '';
 }
 
+/**
+ * Resolves the main contract number for a Smart Docs record.
+ * When contracts are split into partial shipments, suffixes like "/A", "/B", "/C" etc.
+ * are appended to the contract number (e.g. CONT/00001/A, CONT/00001/B).
+ * This function extracts the contract/confirmation number and strips any split suffix,
+ * ensuring the parent/main contract number (e.g. CONT/00001) is displayed.
+ */
+export function getMainContractNumber(row: any): string {
+  if (!row) return '';
+
+  // 1. Check explicit parent / main contract number fields if provided by backend
+  const explicitMain =
+    row.main_contract_number ||
+    row.main_contract_no ||
+    row.parent_contract_number ||
+    row.parent_contract_no ||
+    row.original_contract_number ||
+    row.original_contract_no ||
+    row.contract?.main_contract_number ||
+    row.contract?.parent_contract_number;
+
+  if (explicitMain && typeof explicitMain === 'string' && explicitMain.trim()) {
+    return explicitMain.trim().replace(/\s*\/[A-Za-z]{1,2}$/, '');
+  }
+
+  // 2. Candidate fields where contract or confirmation number might reside
+  const rawCandidate =
+    row.contract_no ||
+    row.contract_number ||
+    row.confirmation_no ||
+    row.confirmation_number ||
+    row.contract?.contract_no ||
+    row.contract?.contract_number ||
+    row.confirmation?.confirmation_no ||
+    row.confirmation?.confirmation_number ||
+    row.confirmation_id ||
+    row.contract_id ||
+    row.doc_no ||
+    row.document_no ||
+    row.doc_number ||
+    row.document_number ||
+    row.smart_doc_no ||
+    row.smart_docs_no ||
+    row.inquiry_no ||
+    row.order_no ||
+    row.ref_no ||
+    row.reference_no ||
+    '';
+
+  const cleaned = String(rawCandidate || '').trim();
+  if (!cleaned) return '';
+
+  // Ignore database internal IDs if passed
+  if (/^[0-9a-fA-F]{24}$/.test(cleaned)) return '';
+  if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(cleaned)) return '';
+
+  // 3. Strip trailing split suffix like "/A", "/B", "/C" etc.
+  // "CONT/00001/A" -> "CONT/00001"
+  // "CONT/00001/B" -> "CONT/00001"
+  // "SC/26-27/00142/A" -> "SC/26-27/00142"
+  return cleaned.replace(/\s*\/[A-Za-z]{1,2}$/, '');
+}
+
 export const SMART_DOCS_ACTION_OPTIONS = [
   { label: 'ALL', value: 'All' },
   { label: 'CONFIRMATION', value: 'Confirmation' },
@@ -681,6 +744,75 @@ export function ConfirmationsDataTable({
     },
     [currentPage, pageSize, selectedAction, searchQuery, selectedSearchColumn, lang]
   );
+
+  // Memoized description showing the main contract number of the thread being deleted
+  const deleteModalDescription = useMemo(() => {
+    const rawConfirm =
+      dict?.smart_docs?.delete_record_confirm ||
+      'Are you sure you want to delete this record? This will also delete all associated confirmations, contracts, and documents.';
+
+    if (!rowToDelete) return rawConfirm;
+
+    const mainContractNo = getMainContractNumber(rowToDelete);
+    if (!mainContractNo) return rawConfirm;
+
+    // Check if the localized template contains known phrases to replace
+    if (rawConfirm.includes('this record')) {
+      const parts = rawConfirm.split('this record');
+      return (
+        <span>
+          {parts[0]}
+          <span>contract </span>
+          <strong className="font-semibold text-foreground font-mono">{mainContractNo}</strong>
+          {parts[1]}
+        </span>
+      );
+    }
+
+    if (rawConfirm.includes('هذا السجل')) {
+      const parts = rawConfirm.split('هذا السجل');
+      return (
+        <span>
+          {parts[0]}
+          <span>العقد </span>
+          <strong className="font-semibold text-foreground font-mono">{mainContractNo}</strong>
+          {parts[1]}
+        </span>
+      );
+    }
+
+    if (rawConfirm.includes('cet enregistrement')) {
+      const parts = rawConfirm.split('cet enregistrement');
+      return (
+        <span>
+          {parts[0]}
+          <span>le contrat </span>
+          <strong className="font-semibold text-foreground font-mono">{mainContractNo}</strong>
+          {parts[1]}
+        </span>
+      );
+    }
+
+    if (rawConfirm.includes('此记录')) {
+      const parts = rawConfirm.split('此记录');
+      return (
+        <span>
+          {parts[0]}
+          <span>合同 </span>
+          <strong className="font-semibold text-foreground font-mono">{mainContractNo}</strong>
+          {parts[1]}
+        </span>
+      );
+    }
+
+    return (
+      <span>
+        Are you sure you want to delete contract{' '}
+        <strong className="font-semibold text-foreground font-mono">{mainContractNo}</strong>?{' '}
+        {rawConfirm.includes('?') ? rawConfirm.split('?')[1]?.trim() : rawConfirm}
+      </span>
+    );
+  }, [rowToDelete, dict]);
 
   // Handle document deletion via authenticated Server Action
   const handleConfirmDelete = async () => {
@@ -2330,7 +2462,7 @@ export function ConfirmationsDataTable({
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
         title={dict?.smart_docs?.delete_record || 'Delete Record'}
-        description={dict?.smart_docs?.delete_record_confirm || 'Are you sure you want to delete this record? This will also delete all associated confirmations, contracts, and documents.'}
+        description={deleteModalDescription}
         confirmText={dict?.smart_docs?.yes_delete || 'Yes, Delete'}
         cancelText={dict?.smart_docs?.cancel || dict?.common?.cancel || 'Cancel'}
       />

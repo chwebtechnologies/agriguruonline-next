@@ -4,6 +4,7 @@ import disposableDomains from "disposable-email-domains";
 import { cookies } from "next/headers";
 import { authService, userService, invalidateUserAuthCache } from "@/lib/api";
 import { getUserApiUrl } from "@/lib/api-utils";
+import { getIsSecureCookie } from "@/lib/auth-cookie";
 
 /**
  * Internal timeout wrapper for auth requests to prevent hanging when User API is slow.
@@ -35,6 +36,7 @@ export async function validateEmailDomain(email: string): Promise<{ isValid: boo
 export async function createSession(accessToken: string, refreshToken: string | null, user: any) {
   // In Next.js 15, cookies() must be awaited
   const cookieStore = await cookies();
+  const isSecure = await getIsSecureCookie();
   
   // Invalidate any old session cache
   const oldToken = cookieStore.get("auth_token")?.value;
@@ -43,10 +45,10 @@ export async function createSession(accessToken: string, refreshToken: string | 
   }
   invalidateUserAuthCache(accessToken);
   
-  // Secure HttpOnly cookie for the access token
+  // HttpOnly cookie for the access token
   cookieStore.set("auth_token", accessToken, {
     httpOnly: true,
-    secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https") ?? process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
@@ -55,7 +57,7 @@ export async function createSession(accessToken: string, refreshToken: string | 
   if (refreshToken) {
     cookieStore.set("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https") ?? process.env.NODE_ENV === "production",
+      secure: isSecure,
       sameSite: "lax",
       path: "/",
       maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -101,7 +103,7 @@ export async function createSession(accessToken: string, refreshToken: string | 
   // Non-HttpOnly cookie for non-sensitive user info (optional, if client needs it)
   cookieStore.set("user_info", JSON.stringify(safeUser), {
     httpOnly: false, 
-    secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith("https") ?? process.env.NODE_ENV === "production",
+    secure: isSecure,
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
@@ -528,9 +530,10 @@ export async function refreshTokensAction() {
     const data = await response.json();
 
     if (data?.data?.access_token) {
+      const isSecure = await getIsSecureCookie();
       cookieStore.set('auth_token', data.data.access_token, {
         httpOnly: true,
-        secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') ?? process.env.NODE_ENV === 'production',
+        secure: isSecure,
         sameSite: 'lax',
         path: '/',
         maxAge: 7 * 24 * 60 * 60,
@@ -540,7 +543,7 @@ export async function refreshTokensAction() {
       if (finalRefreshToken) {
         cookieStore.set('refresh_token', finalRefreshToken, {
           httpOnly: true,
-          secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') ?? process.env.NODE_ENV === 'production',
+          secure: isSecure,
           sameSite: 'lax',
           path: '/',
           maxAge: 30 * 24 * 60 * 60,

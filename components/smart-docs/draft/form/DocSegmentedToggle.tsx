@@ -19,6 +19,7 @@ export interface DocSegmentedToggleProps<T = any> {
   falseIcon?: string;
   disabled?: boolean;
   className?: string;
+  allowDeselect?: boolean;
 }
 
 export function DocSegmentedToggle<T = any>({
@@ -32,6 +33,7 @@ export function DocSegmentedToggle<T = any>({
   falseIcon = 'fa-solid fa-circle-xmark',
   disabled = false,
   className = '',
+  allowDeselect = true,
 }: DocSegmentedToggleProps<T>) {
   if (options && options.length > 0) {
     return (
@@ -51,7 +53,13 @@ export function DocSegmentedToggle<T = any>({
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => onChange(opt.value)}
+                onClick={() => {
+                  if (allowDeselect && isSelected) {
+                    onChange(null as unknown as T);
+                  } else {
+                    onChange(opt.value);
+                  }
+                }}
                 className={`px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
                   isSelected
                     ? 'bg-foreground/10 dark:bg-foreground/15 text-foreground font-extrabold shadow-2xs'
@@ -74,6 +82,22 @@ export function DocSegmentedToggle<T = any>({
     );
   }
 
+  const handleSelectTrue = () => {
+    if (allowDeselect && value === true) {
+      onChange(null as unknown as T);
+    } else {
+      onChange(true as unknown as T);
+    }
+  };
+
+  const handleSelectFalse = () => {
+    if (allowDeselect && value === false) {
+      onChange(null as unknown as T);
+    } else {
+      onChange(false as unknown as T);
+    }
+  };
+
   return (
     <div
       id={id}
@@ -85,7 +109,7 @@ export function DocSegmentedToggle<T = any>({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onChange(true as unknown as T)}
+        onClick={handleSelectTrue}
         className={`px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
           value === true
             ? 'bg-foreground/10 dark:bg-foreground/15 text-foreground font-extrabold shadow-2xs'
@@ -107,7 +131,7 @@ export function DocSegmentedToggle<T = any>({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => onChange(false as unknown as T)}
+        onClick={handleSelectFalse}
         className={`px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
           value === false
             ? 'bg-foreground/10 dark:bg-foreground/15 text-foreground font-extrabold shadow-2xs'

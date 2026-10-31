@@ -51,6 +51,29 @@ function getLocale(request: NextRequest): string {
   return defaultLocale
 }
 
+function isSecureRequest(req: NextRequest): boolean {
+  const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol.replace(':', '');
+  if (proto === 'https') return true;
+  if (proto === 'http') return false;
+
+  const referer = req.headers.get('referer');
+  if (referer?.startsWith('https://')) return true;
+  if (referer?.startsWith('http://')) return false;
+
+  const host = req.headers.get('host') || req.nextUrl.host;
+  if (
+    host.includes('localhost') ||
+    host.includes('127.0.0.1') ||
+    host.startsWith('192.168.') ||
+    host.startsWith('10.') ||
+    host.startsWith('172.')
+  ) {
+    return false;
+  }
+
+  return process.env.NODE_ENV === 'production';
+}
+
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const ip = request.headers.get('x-forwarded-for') || 'unknown';
@@ -215,11 +238,12 @@ export default async function middleware(request: NextRequest) {
 
   // Helper to apply new cookies to any NextResponse
   const applyNewCookies = (res: NextResponse) => {
+    const isSecure = isSecureRequest(request);
     const newAuthToken = request.headers.get('x-new-auth-token');
     if (newAuthToken) {
       res.cookies.set('auth_token', newAuthToken, {
         httpOnly: true,
-        secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') ?? process.env.NODE_ENV === 'production',
+        secure: isSecure,
         sameSite: 'lax',
         path: '/',
         maxAge: 7 * 24 * 60 * 60,
@@ -229,7 +253,7 @@ export default async function middleware(request: NextRequest) {
     if (newRefreshToken) {
       res.cookies.set('refresh_token', newRefreshToken, {
         httpOnly: true,
-        secure: process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') ?? process.env.NODE_ENV === 'production',
+        secure: isSecure,
         sameSite: 'lax',
         path: '/',
         maxAge: 30 * 24 * 60 * 60,

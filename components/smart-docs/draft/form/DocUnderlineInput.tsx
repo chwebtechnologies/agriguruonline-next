@@ -81,7 +81,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
       align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
     const hasValue = String(value ?? '').trim().length > 0;
-    const effectivePlaceholder = placeholder || (type === 'date' ? 'Select Date' : '');
+    const effectivePlaceholder = placeholder || (type === 'date' ? 'SELECT DATE' : '');
 
     const [isFocused, setIsFocused] = useState(false);
 
@@ -183,7 +183,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               }
             }
           }}
-          className={`relative flex ${multiline ? 'items-start pt-1' : 'items-center'} w-full px-1.5 py-0.5 min-h-[28px] rounded-t-sm transition-all duration-150 ${borderStyle} ${
+          className={`relative flex ${multiline ? 'items-start pt-1' : 'items-center'} w-full px-1.5 py-0.5 min-h-[30px] rounded-t-sm transition-all duration-150 ${borderStyle} ${
             error
               ? 'focus-within:border-brand-red'
               : 'focus-within:border-solid focus-within:border-primary'
@@ -209,10 +209,10 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
             </button>
           )}
 
-          {type === 'date' && !hasValue && effectivePlaceholder && (
+          {!hasValue && effectivePlaceholder && (
             <span
               aria-hidden="true"
-              className={`absolute top-1/2 -translate-y-1/2 pointer-events-none select-none text-[13px] font-normal leading-normal truncate transition-opacity ${
+              className={`absolute ${multiline ? 'top-1.5' : 'top-1/2 -translate-y-1/2'} pointer-events-none select-none text-[14px] font-normal uppercase leading-normal truncate transition-opacity print:hidden ${
                 error
                   ? 'text-brand-red/50'
                   : 'text-muted-foreground/50'
@@ -248,11 +248,13 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               aria-label={ariaLabel || effectivePlaceholder}
               aria-invalid={Boolean(error)}
               style={{ outline: 'none', boxShadow: 'none' }}
-              className={`w-full bg-transparent px-0 py-0.5 text-[13px] font-semibold ${
+              className={`w-full bg-transparent px-0 py-0.5 text-[14px] ${
+                hasValue ? 'font-semibold' : 'font-normal'
+              } ${
                 error
-                  ? 'text-brand-red placeholder:text-brand-red/50'
-                  : 'text-foreground placeholder:text-muted-foreground/50'
-              } placeholder:font-normal border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 resize-y leading-relaxed ${alignClass} ${
+                  ? 'text-brand-red placeholder:text-transparent'
+                  : 'text-foreground placeholder:text-transparent'
+              } placeholder:text-[14px] placeholder:font-normal placeholder:uppercase border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 resize-y leading-relaxed ${alignClass} ${
                 disabled ? 'cursor-not-allowed text-muted-foreground' : ''
               } ${inputClassName}`}
             />
@@ -284,11 +286,13 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               aria-label={ariaLabel || effectivePlaceholder}
               aria-invalid={Boolean(error)}
               style={{ outline: 'none', boxShadow: 'none' }}
-              className={`w-full bg-transparent px-0 py-0.5 text-[13px] font-semibold ${
+              className={`w-full bg-transparent px-0 py-0.5 text-[14px] ${
+                hasValue ? 'font-semibold' : 'font-normal'
+              } ${
                 error
-                  ? 'text-brand-red placeholder:text-brand-red/50'
-                  : 'text-foreground placeholder:text-muted-foreground/50'
-              } placeholder:font-normal border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${alignClass} ${
+                  ? 'text-brand-red placeholder:text-transparent'
+                  : 'text-foreground placeholder:text-transparent'
+              } placeholder:text-[14px] placeholder:font-normal placeholder:uppercase border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${alignClass} ${
                 type === 'date'
                   ? `cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                       !hasValue
@@ -312,7 +316,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
                   : isFocused
                   ? 'text-primary scale-110 font-bold'
                   : 'text-primary hover:text-primary-hover'
-              } text-xs shrink-0 cursor-pointer focus:outline-hidden transition-all ${multiline ? 'mt-1' : ''}`}
+              } text-[11px] shrink-0 cursor-pointer focus:outline-hidden transition-all ${multiline ? 'mt-1' : ''}`}
               aria-label="Input action"
             >
               <i className={icon} />

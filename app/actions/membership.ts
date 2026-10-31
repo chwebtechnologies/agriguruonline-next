@@ -7,6 +7,7 @@ import { tradingService } from '@/lib/api/trading.service';
 import { getTradingApiUrl } from '@/lib/api-utils';
 import { customFetch } from '@/lib/api/fetcher';
 import type { InitiateUpgradeResponse } from '@/lib/api/user.service';
+import { getIsSecureCookie } from '@/lib/auth-cookie';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -302,9 +303,7 @@ export async function captureSubscriptionAction(
 
               cookieStore.set('user_info', JSON.stringify(safeUser), {
                 httpOnly: false,
-                secure:
-                  process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') ??
-                  process.env.NODE_ENV === 'production',
+                secure: await getIsSecureCookie(),
                 sameSite: 'lax',
                 path: '/',
                 maxAge: 7 * 24 * 60 * 60,
@@ -375,9 +374,7 @@ export async function captureSubscriptionAction(
 
         cookieStore.set('user_info', JSON.stringify(safeUser), {
           httpOnly: false,
-          secure:
-            process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https') ??
-            process.env.NODE_ENV === 'production',
+          secure: await getIsSecureCookie(),
           sameSite: 'lax',
           path: '/',
           maxAge: 7 * 24 * 60 * 60,

@@ -5,6 +5,7 @@ import type {
   StepperDocumentItem,
   InstructionPartyOption,
   SmartDocsProductOption,
+  SmartDocsSelectionDocumentOption,
 } from '@/lib/api/smart-docs.service';
 import DocumentStatusStepper, { normalizeStepStatus } from './DocumentStatusStepper';
 import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
@@ -13,6 +14,9 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import {
   saveConfirmationDraftAction,
   submitConfirmationAction,
+  saveContractDraftAction,
+  submitContractAction,
+  getContractAction,
   getStepperListAction,
 } from '@/app/actions/smart-docs';
 
@@ -26,7 +30,9 @@ export interface DocumentDraftWorkspaceProps {
   initialPaymentTerms?: FormOptionItem[];
   initialCurrencies?: FormOptionItem[];
   shippingTerms?: FormOptionItem[];
+  initialDocumentList?: SmartDocsSelectionDocumentOption[];
   initialData?: any;
+  initialContractData?: any;
   initialId?: string;
   initialStepParam?: string;
 }
@@ -107,14 +113,18 @@ export function DocumentDraftWorkspace({
   initialPaymentTerms = [],
   initialCurrencies = [],
   shippingTerms,
+  initialDocumentList = [],
   initialData,
+  initialContractData,
   initialId,
   initialStepParam,
 }: DocumentDraftWorkspaceProps) {
   const [steps, setSteps] = useState<StepperDocumentItem[]>(initialSteps);
   const [draftId, setDraftId] = useState<string>(
-    initialId || initialData?.id || initialData?._id || initialData?.confirmation_id || ''
+    initialId || initialContractData?.id || initialContractData?._id || initialData?.id || initialData?._id || initialData?.confirmation_id || ''
   );
+  const [contractData, setContractData] = useState<any>(initialContractData || null);
+  const [isLoadingContract, setIsLoadingContract] = useState<boolean>(false);
 
   // Compute initial selected step (honoring explicit URL param or defaulting to latest open step)
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(() =>
@@ -184,6 +194,31 @@ export function DocumentDraftWorkspace({
     }
   }, [pageTitle]);
 
+  useEffect(() => {
+    if (initialContractData) {
+      setContractData(initialContractData);
+    }
+  }, [initialContractData]);
+
+  // Fetch contract data dynamically if contract step is active and contract data not yet loaded
+  useEffect(() => {
+    if (isContract && draftId && !contractData && !isLoadingContract) {
+      setIsLoadingContract(true);
+      getContractAction(draftId, lang)
+        .then((res) => {
+          if (res?.success && res.data) {
+            setContractData(res.data);
+          }
+        })
+        .catch((err) => {
+          console.error('[DocumentDraftWorkspace] Error fetching contract dynamically:', err);
+        })
+        .finally(() => {
+          setIsLoadingContract(false);
+        });
+    }
+  }, [isContract, draftId, contractData, isLoadingContract, lang]);
+
   const activeDocName =
     selectedStep?.document_name ||
     selectedStep?.name ||
@@ -201,10 +236,12 @@ export function DocumentDraftWorkspace({
           title={pageTitle}
           backText={dict?.common?.back || 'Back'}
           backHref={`/${lang}/smart-docs`}
+          size="sm"
+          className="!top-0"
         />
       </div>
 
-      <div className="w-full flex-1 min-h-fit lg:min-h-0 lg:h-full flex flex-col lg:flex-row items-stretch justify-start gap-3 sm:gap-4 lg:gap-5 pb-2 sm:pb-3 lg:pb-0">
+      <div className="w-full flex-1 min-h-fit lg:min-h-0 lg:h-full flex flex-col lg:flex-row items-stretch justify-start gap-2.5 sm:gap-3 lg:gap-3.5 pb-1 sm:pb-1.5 lg:pb-0">
       {/* 
         Mobile Stepper Banner (< lg only):
         Compact, non-intrusive step tracker with expandable drawer
@@ -305,6 +342,12 @@ export function DocumentDraftWorkspace({
                   draftId;
                 if (newId) {
                   setDraftId(String(newId));
+                  // Fetch the newly generated contract data dynamically
+                  getContractAction(String(newId), lang).then((cRes) => {
+                    if (cRes?.success && cRes.data) {
+                      setContractData(cRes.data);
+                    }
+                  });
                 }
 
                 // Update stepper to reflect completion and switch to contract step
@@ -354,7 +397,7 @@ export function DocumentDraftWorkspace({
         {/* Contract Document Form: Visible when Contract Step is active */}
         <div className={`w-full h-full flex flex-col ${isContract ? 'flex' : 'hidden'}`}>
           <ContractDocumentForm
-            initialData={undefined}
+            initialData={contractData || initialContractData || initialData}
             lang={lang}
             dict={dict}
             sellers={initialSellers}
@@ -363,12 +406,27 @@ export function DocumentDraftWorkspace({
             paymentTerms={initialPaymentTerms}
             currencies={initialCurrencies}
             shippingTerms={shippingTerms}
+            documentsList={initialDocumentList}
+            onSaveSuccess={(savedId) => {
+              if (savedId) {
+                setDraftId(savedId);
+                if (typeof window !== 'undefined') {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('id', savedId);
+                  url.searchParams.set('step', 'contract');
+                  window.history.replaceState(null, '', url.toString());
+                }
+              }
+            }}
             onSaveDraft={async (formData) => {
-              const res = await saveConfirmationDraftAction(formData, lang);
+              const res = await saveContractDraftAction(formData, lang);
+              if (res?.success && res.id) {
+                setDraftId(String(res.id));
+              }
               return res;
             }}
             onSubmitContract={async (formData) => {
-              const res = await submitConfirmationAction(formData, lang);
+              const res = await submitContractAction(formData, lang);
               return res;
             }}
           />

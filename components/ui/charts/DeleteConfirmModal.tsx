@@ -9,7 +9,7 @@ export interface DeleteConfirmModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title?: string;
-  description?: string;
+  description?: React.ReactNode;
   isDeleting?: boolean;
   confirmText?: string;
   cancelText?: string;

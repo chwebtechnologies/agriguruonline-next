@@ -83,6 +83,8 @@ export function ContractSignatureSection({
           onSignatureChange={onImporterSignatureChange}
           authorityTitle={importerAuthorityTitle}
           onAuthorityTitleChange={onImporterAuthorityTitleChange}
+          titlePlaceholder="BUYER SIGNATURE"
+          authorityPlaceholder="BUYER SIGNATURE LABEL"
           readOnly={readOnly}
         />
         {isSalesBrokerAllowed && (
@@ -94,6 +96,8 @@ export function ContractSignatureSection({
             onSignatureChange={onBrokerSignatureChange}
             authorityTitle={brokerAuthorityTitle}
             onAuthorityTitleChange={onBrokerAuthorityTitleChange}
+            titlePlaceholder="BROKER SIGNATURE"
+            authorityPlaceholder="BROKER SIGNATURE LABEL"
             readOnly={readOnly}
           />
         )}
@@ -105,17 +109,18 @@ export function ContractSignatureSection({
           onSignatureChange={onExporterSignatureChange}
           authorityTitle={exporterAuthorityTitle}
           onAuthorityTitleChange={onExporterAuthorityTitleChange}
+          titlePlaceholder="SELLER SIGNATURE"
+          authorityPlaceholder="SELLER SIGNATURE LABEL"
           readOnly={readOnly}
         />
       </div>
 
       {/* 
         MOBILE & TABLET RESPONSIVE LAYOUT (< md):
-        Collapsible / Expandable Accordion to prevent lengthy vertical scrolling:
-        Ordered strictly per client requirement:
-        1. Exporter Signature
-        2. Broker Signature (If applicable)
-        3. Importer Signature
+        Collapsible / Expandable Accordion with responsive sequence:
+        1. Exporter Signature (Top)
+        2. Broker Signature (Middle, if applicable)
+        3. Importer Signature (Bottom)
       */}
       <div className="flex md:hidden flex-col divide-y divide-border">
         {/* 1. EXPORTER SIGNATURE ACCORDION */}
@@ -132,10 +137,10 @@ export function ContractSignatureSection({
               </span>
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-bold uppercase tracking-wide text-foreground truncate">
-                  {exporterTitle || 'EXPORTER SIGNATURE'}
+                  {exporterTitle || 'SELLER SIGNATURE'}
                 </span>
                 <span className="text-[10px] text-muted-foreground truncate">
-                  {exporterAuthorityTitle || 'AUTHORITY SIGNATURE'}
+                  {exporterAuthorityTitle || 'AUTHORISED SIGNATURE'}
                 </span>
               </div>
             </div>
@@ -169,6 +174,8 @@ export function ContractSignatureSection({
                 onSignatureChange={onExporterSignatureChange}
                 authorityTitle={exporterAuthorityTitle}
                 onAuthorityTitleChange={onExporterAuthorityTitleChange}
+                titlePlaceholder="SELLER SIGNATURE"
+                authorityPlaceholder="SELLER SIGNATURE LABEL"
                 readOnly={readOnly}
               />
             </div>
@@ -185,79 +192,21 @@ export function ContractSignatureSection({
               className="w-full py-2.5 px-3 flex items-center justify-between text-left bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer select-none"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-6 h-6 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xs shrink-0">
-                  <i className="fa-solid fa-user-tie text-[11px]" />
+                <span className="w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs shrink-0">
+                  <i className="fa-solid fa-file-signature text-[11px]" />
                 </span>
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs font-bold uppercase tracking-wide text-foreground truncate">
                     {brokerTitle || 'BROKER SIGNATURE'}
                   </span>
                   <span className="text-[10px] text-muted-foreground truncate">
-                    {brokerAuthorityTitle || 'AUTHORITY SIGNATURE'}
+                    {brokerAuthorityTitle || 'AUTHORISED SIGNATURE'}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                {brokerSignature ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    <i className="fa-solid fa-check text-[9px]" />
-                    <span>Signed</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border">
-                    <span>Click to Sign</span>
-                  </span>
-                )}
-                <i
-                  className={`fa-solid fa-chevron-down text-xs text-muted-foreground transition-transform duration-200 ${
-                    openAccordion === 'broker' ? 'rotate-180 text-primary' : ''
-                  }`}
-                />
-              </div>
-            </button>
-
-            {openAccordion === 'broker' && (
-              <div className="p-1 sm:p-2 bg-card border-t border-border animate-in fade-in duration-150">
-                <DocSignatureBox
-                  partyType="broker"
-                  title={brokerTitle}
-                  onTitleChange={onBrokerTitleChange}
-                  signatureUrl={brokerSignature}
-                  onSignatureChange={onBrokerSignatureChange}
-                  authorityTitle={brokerAuthorityTitle}
-                  onAuthorityTitleChange={onBrokerAuthorityTitleChange}
-                  readOnly={readOnly}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 3. IMPORTER SIGNATURE ACCORDION */}
-        <div className="w-full">
-          <button
-            type="button"
-            onClick={() => toggleAccordion('importer')}
-            aria-expanded={openAccordion === 'importer'}
-            className="w-full py-2.5 px-3 flex items-center justify-between text-left bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer select-none"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-6 h-6 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs shrink-0">
-                <i className="fa-solid fa-file-signature text-[11px]" />
-              </span>
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-bold uppercase tracking-wide text-foreground truncate">
-                  {importerTitle || 'IMPORTER SIGNATURE'}
-                </span>
-                <span className="text-[10px] text-muted-foreground truncate">
-                  {importerAuthorityTitle || 'AUTHORITY SIGNATURE'}
-                </span>
-              </div>
-            </div>
-
             <div className="flex items-center gap-2 shrink-0">
-              {importerSignature ? (
+              {brokerSignature ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   <i className="fa-solid fa-check text-[9px]" />
                   <span>Signed</span>
@@ -269,27 +218,89 @@ export function ContractSignatureSection({
               )}
               <i
                 className={`fa-solid fa-chevron-down text-xs text-muted-foreground transition-transform duration-200 ${
-                  openAccordion === 'importer' ? 'rotate-180 text-primary' : ''
+                  openAccordion === 'broker' ? 'rotate-180 text-primary' : ''
                 }`}
               />
             </div>
           </button>
 
-          {openAccordion === 'importer' && (
+          {openAccordion === 'broker' && (
             <div className="p-1 sm:p-2 bg-card border-t border-border animate-in fade-in duration-150">
               <DocSignatureBox
-                partyType="importer"
-                title={importerTitle}
-                onTitleChange={onImporterTitleChange}
-                signatureUrl={importerSignature}
-                onSignatureChange={onImporterSignatureChange}
-                authorityTitle={importerAuthorityTitle}
-                onAuthorityTitleChange={onImporterAuthorityTitleChange}
+                partyType="broker"
+                title={brokerTitle}
+                onTitleChange={onBrokerTitleChange}
+                signatureUrl={brokerSignature}
+                onSignatureChange={onBrokerSignatureChange}
+                authorityTitle={brokerAuthorityTitle}
+                onAuthorityTitleChange={onBrokerAuthorityTitleChange}
+                titlePlaceholder="BROKER SIGNATURE"
+                authorityPlaceholder="BROKER SIGNATURE LABEL"
                 readOnly={readOnly}
               />
             </div>
           )}
         </div>
+      )}
+
+      {/* 3. IMPORTER SIGNATURE ACCORDION */}
+      <div className="w-full">
+        <button
+          type="button"
+          onClick={() => toggleAccordion('importer')}
+          aria-expanded={openAccordion === 'importer'}
+          className="w-full py-2.5 px-3 flex items-center justify-between text-left bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer select-none"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center text-xs shrink-0">
+              <i className="fa-solid fa-file-signature text-[11px]" />
+            </span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold uppercase tracking-wide text-foreground truncate">
+                {importerTitle || 'BUYER SIGNATURE'}
+              </span>
+              <span className="text-[10px] text-muted-foreground truncate">
+                {importerAuthorityTitle || 'AUTHORISED SIGNATURE'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {importerSignature ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <i className="fa-solid fa-check text-[9px]" />
+                <span>Signed</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border">
+                <span>Click to Sign</span>
+              </span>
+            )}
+            <i
+              className={`fa-solid fa-chevron-down text-xs text-muted-foreground transition-transform duration-200 ${
+                openAccordion === 'importer' ? 'rotate-180 text-primary' : ''
+              }`}
+            />
+          </div>
+        </button>
+
+        {openAccordion === 'importer' && (
+          <div className="p-1 sm:p-2 bg-card border-t border-border animate-in fade-in duration-150">
+            <DocSignatureBox
+              partyType="importer"
+              title={importerTitle}
+              onTitleChange={onImporterTitleChange}
+              signatureUrl={importerSignature}
+              onSignatureChange={onImporterSignatureChange}
+              authorityTitle={importerAuthorityTitle}
+              onAuthorityTitleChange={onImporterAuthorityTitleChange}
+              titlePlaceholder="BUYER SIGNATURE"
+              authorityPlaceholder="BUYER SIGNATURE LABEL"
+              readOnly={readOnly}
+            />
+          </div>
+        )}
+      </div>
       </div>
     </div>
   );
