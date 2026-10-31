@@ -22,6 +22,8 @@ import {
   getSmartDocsCurrenciesAction,
   getSmartDocsDocumentListAction,
   downloadDocPdfAction,
+  saveContractDraftAction,
+  getStepperListAction,
 } from '@/app/actions/smart-docs';
 import {
   DEFAULT_CURRENCIES,
@@ -31,13 +33,24 @@ import {
   getCurrencySymbol,
   normalizeCurrencyCode,
   normalizeCurrencyOption,
+  formatSignatureUrl,
+  normalizeSignaturePayload,
+  extractContractData,
   type SmartDocsSelectionDocumentOption,
+  type StepperDocumentItem,
+  isContractStep,
+  getContractStep,
+  extractStepId,
 } from '@/lib/api/smart-docs.service';
 import type { FormOptionItem } from './ConfirmationDocumentForm';
-import { normalizeCountryString, normalizeHsnString } from './ConfirmationDocumentForm';
+import { normalizeCountryString, normalizeHsnString, deduplicateValidationMessage } from './ConfirmationDocumentForm';
 
 export interface ContractDocumentFormProps {
   initialData?: any;
+  contractId?: string;
+  steps?: StepperDocumentItem[];
+  selectedStep?: StepperDocumentItem | null;
+  onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
   sellers?: FormOptionItem[];
   buyers?: FormOptionItem[];
   products?: FormOptionItem[];
@@ -57,9 +70,9 @@ export interface ContractDocumentFormProps {
 }
 
 const DEFAULT_FCL_TYPES: FormOptionItem[] = [
-  { value: '20 FT', label: '20 FT' },  
-  { value: '40 FT', label: '40 FT' },
-  { value: 'Vessel', label: 'Vessel' }
+  { value: 'FCL_20_FT', label: '20 FT' },
+  { value: 'FCL_40_FT', label: '40 FT' },
+  { value: 'VESSEL', label: 'Vessel' },
 ];
 
 const DEFAULT_SHIPPING_TERMS: FormOptionItem[] = [
@@ -162,6 +175,1046 @@ export interface ContractSplitItem {
   [key: string]: any;
 }
 
+/**
+ * Robustly converts a base64 data URL into a binary File object.
+ * Returns null if dataUrl is empty or invalid.
+ */
+export function dataUrlToFile(dataUrl: string, filename: string): File | null {
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  const trimmed = dataUrl.trim();
+  if (!trimmed.startsWith('data:')) return null;
+
+  try {
+    const parts = trimmed.split(',');
+    if (parts.length < 2) return null;
+    const match = parts[0].match(/:(.*?);/);
+    const mime = match ? match[1] : 'image/png';
+    const binary = atob(parts[1]);
+    const array = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      array[i] = binary.charCodeAt(i);
+    }
+    return new File([array], filename, { type: mime });
+  } catch (e) {
+    console.warn('[dataUrlToFile] Failed to convert dataUrl to File:', e);
+    return null;
+  }
+}
+
+/**
+ * Visual order of contract fields for smooth scroll-to-focus on validation failure.
+ */
+export const CONTRACT_FIELD_VISUAL_ORDER = [
+  'documentTitle',
+  'confirmationDate',
+  'contractNumber',
+  'contractDate',
+  'partiesHeader',
+  'sellerId',
+  'sellerInstruction',
+  'buyerId',
+  'buyerInstruction',
+  'shippingInstruction',
+  'productId',
+  'specification',
+  'shipmentPeriod',
+  'paymentTerm',
+  'fclType',
+  'packing',
+  'markingBrand',
+  'loadingPort',
+  'loadingCondition',
+  'destinationPort',
+  'fclQty',
+  'fclCapacity',
+  'mtQty',
+  'bagQty',
+  'currency',
+  'price',
+  'totalValue',
+  'inspection',
+  'incoterm',
+  'partialTotal',
+  'advanceAmount',
+  'advancePercentage',
+  'brokerCommission',
+  'brokerName',
+  'freeDays',
+  'emptyBags',
+  'additionalComment',
+  'otherTermsPayment',
+  'documentsRequired',
+  'shippingLine',
+  'arbitration',
+  'containerStandards',
+  'forceMajeur',
+  'confidentiality',
+  'notes',
+  'exporterSignature',
+  'importerSignature',
+  'brokerSignature',
+];
+
+/**
+ * Smoothly scrolls to the first contract field that failed validation, focuses the input,
+ * and adds an active highlight ring so the user immediately knows where input is needed.
+ */
+export function scrollToAndFocusContractField(fieldErrorsOrKey: string | Record<string, string>): void {
+  if (typeof window === 'undefined') return;
+
+  let targetKey = '';
+  if (typeof fieldErrorsOrKey === 'string') {
+    targetKey = fieldErrorsOrKey;
+  } else if (fieldErrorsOrKey && typeof fieldErrorsOrKey === 'object') {
+    for (const key of CONTRACT_FIELD_VISUAL_ORDER) {
+      if (fieldErrorsOrKey[key]) {
+        targetKey = key;
+        break;
+      }
+    }
+    if (!targetKey) {
+      const keys = Object.keys(fieldErrorsOrKey);
+      if (keys.length > 0) targetKey = keys[0];
+    }
+  }
+
+  if (!targetKey) return;
+
+  if (
+    targetKey === 'shipmentStartDate' ||
+    targetKey === 'shipmentEndDate' ||
+    targetKey === 'shipment_start_date' ||
+    targetKey === 'shipment_end_date'
+  ) {
+    targetKey = 'shipmentPeriod';
+  }
+
+  const selectors = [
+    `#field-${targetKey}`,
+    `#field-contract-${targetKey}`,
+    `[data-field="${targetKey}"]`,
+    `#${targetKey}`,
+    `[name="${targetKey}"]`,
+  ];
+
+  if (targetKey === 'contractNumber') {
+    selectors.unshift('#contract-number-input', '#field-contractNumber');
+  }
+
+  let el: HTMLElement | null = null;
+  for (const sel of selectors) {
+    const found = document.querySelector<HTMLElement>(sel);
+    if (found) {
+      el = found;
+      break;
+    }
+  }
+
+  if (!el) {
+    const cleanKey = targetKey.toLowerCase().replace(/[-_.]/g, '');
+    const allFieldEls = document.querySelectorAll<HTMLElement>('[data-field], [id^="field-"]');
+    for (let i = 0; i < allFieldEls.length; i++) {
+      const item = allFieldEls[i];
+      const attr = (item.getAttribute('data-field') || item.id || '').toLowerCase().replace(/[-_.]/g, '');
+      if (attr.includes(cleanKey) || cleanKey.includes(attr)) {
+        el = item;
+        break;
+      }
+    }
+  }
+
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    setTimeout(() => {
+      const focusable =
+        el!.matches('input, select, textarea, button, [tabindex="0"]')
+          ? el
+          : el!.querySelector<HTMLElement>('input, select, textarea, button, [tabindex="0"]');
+
+      if (focusable) {
+        focusable.focus();
+        if (typeof (focusable as HTMLInputElement).select === 'function' && focusable.tagName !== 'BUTTON') {
+          (focusable as HTMLInputElement).select();
+        }
+      }
+
+      el!.classList.add('ring-2', 'ring-brand-red', 'ring-offset-2', 'rounded-sm', 'transition-all', 'duration-300');
+      setTimeout(() => {
+        el!.classList.remove('ring-2', 'ring-brand-red', 'ring-offset-2', 'rounded-sm', 'transition-all', 'duration-300');
+      }, 2500);
+    }, 120);
+  }
+}
+
+/**
+ * Detects which contract form field an error message or identifier belongs to.
+ * Supports snake_case, spaced text, and lowercase camelCase matching.
+ */
+export function detectContractFieldInSentence(text: string): { key: string; rawField: string } | null {
+  if (!text || typeof text !== 'string') return null;
+  const lower = text.toLowerCase();
+  const normalized = lower.replace(/[-_.]/g, ' ');
+
+  // 1. Contract Number
+  if (
+    normalized.includes('contract number') ||
+    normalized.includes('contract no') ||
+    lower.includes('contractnumber') ||
+    lower.includes('contractno')
+  ) {
+    return { key: 'contractNumber', rawField: 'contract_number' };
+  }
+
+  // 2. Contract Date
+  if (
+    normalized.includes('contract date') ||
+    lower.includes('contractdate')
+  ) {
+    return { key: 'contractDate', rawField: 'contract_date' };
+  }
+
+  // 3. Confirmation Date
+  if (
+    normalized.includes('confirmation date') ||
+    lower.includes('confirmationdate')
+  ) {
+    return { key: 'confirmationDate', rawField: 'confirmation_date' };
+  }
+
+  // 4. Document / PDF Title
+  if (
+    normalized.includes('pdf title') ||
+    normalized.includes('document title') ||
+    lower.includes('pdftitle') ||
+    lower.includes('documenttitle')
+  ) {
+    return { key: 'documentTitle', rawField: 'pdf_title' };
+  }
+
+  // 5. Party Header Label
+  if (
+    normalized.includes('party header') ||
+    normalized.includes('parties header') ||
+    lower.includes('partyheader')
+  ) {
+    return { key: 'partiesHeader', rawField: 'party_header_label' };
+  }
+
+  // 6. Seller / Exporter
+  if (
+    normalized.includes('seller instruction id') ||
+    normalized.includes('seller id') ||
+    lower.includes('sellerinstructionid') ||
+    lower.includes('sellerid')
+  ) {
+    return { key: 'sellerId', rawField: 'seller_instruction_id' };
+  }
+  if (
+    normalized.includes('seller instruction') ||
+    lower.includes('sellerinstruction')
+  ) {
+    return { key: 'sellerInstruction', rawField: 'seller_instruction' };
+  }
+  if (normalized.includes('seller') || normalized.includes('exporter')) {
+    return { key: 'sellerId', rawField: 'seller_instruction_id' };
+  }
+
+  // 7. Buyer / Importer
+  if (
+    normalized.includes('buyer instruction id') ||
+    normalized.includes('buyer id') ||
+    lower.includes('buyerinstructionid') ||
+    lower.includes('buyerid')
+  ) {
+    return { key: 'buyerId', rawField: 'buyer_instruction_id' };
+  }
+  if (
+    normalized.includes('buyer instruction') ||
+    lower.includes('buyerinstruction')
+  ) {
+    return { key: 'buyerInstruction', rawField: 'buyer_instruction' };
+  }
+  if (normalized.includes('buyer') || normalized.includes('importer')) {
+    return { key: 'buyerId', rawField: 'buyer_instruction_id' };
+  }
+
+  // 8. Shipping Instruction / Terms & Condition
+  if (
+    normalized.includes('shipping instruction') ||
+    normalized.includes('terms and condition') ||
+    normalized.includes('terms & condition') ||
+    lower.includes('termsandcondition') ||
+    lower.includes('shippinginstruction')
+  ) {
+    return { key: 'shippingInstruction', rawField: 'terms_and_condition' };
+  }
+
+  // 9. Product
+  if (
+    normalized.includes('product id') ||
+    normalized.includes('product name') ||
+    lower.includes('productid') ||
+    normalized.includes('product')
+  ) {
+    return { key: 'productId', rawField: 'product_id' };
+  }
+
+  // 10. Quality Specification
+  if (
+    normalized.includes('quality specification') ||
+    normalized.includes('specification') ||
+    lower.includes('qualityspecification')
+  ) {
+    return { key: 'specification', rawField: 'quality_specification' };
+  }
+
+  // 11. Shipment Dates / Period
+  if (
+    normalized.includes('shipment start') ||
+    normalized.includes('shipment end') ||
+    normalized.includes('shipment period') ||
+    normalized.includes('shipment date') ||
+    lower.includes('shipmentstart') ||
+    lower.includes('shipmentend') ||
+    lower.includes('shipmentperiod')
+  ) {
+    return { key: 'shipmentPeriod', rawField: 'shipment_start_date' };
+  }
+
+  // 12. Payment Term
+  if (
+    normalized.includes('payment term') ||
+    lower.includes('paymentterm')
+  ) {
+    return { key: 'paymentTerm', rawField: 'payment_term_id' };
+  }
+
+  // 13. FCL Type / Ship By
+  if (
+    normalized.includes('ship by') ||
+    normalized.includes('fcl type') ||
+    lower.includes('shipby') ||
+    lower.includes('fcltype')
+  ) {
+    return { key: 'fclType', rawField: 'ship_by' };
+  }
+
+  // 14. Packing Type
+  if (
+    normalized.includes('packing type') ||
+    normalized.includes('packing') ||
+    lower.includes('packingtype')
+  ) {
+    return { key: 'packing', rawField: 'packing_type_id' };
+  }
+
+  // 15. Marking Brand
+  if (
+    normalized.includes('marking brand') ||
+    lower.includes('markingbrand')
+  ) {
+    return { key: 'markingBrand', rawField: 'marking_brand' };
+  }
+
+  // 16. Loading Port
+  if (
+    normalized.includes('loading port') ||
+    lower.includes('loadingport')
+  ) {
+    return { key: 'loadingPort', rawField: 'loading_port_id' };
+  }
+
+  // 17. Loading Condition
+  if (
+    normalized.includes('loading condition') ||
+    lower.includes('loadingcondition')
+  ) {
+    return { key: 'loadingCondition', rawField: 'loading_condition' };
+  }
+
+  // 18. Destination Port
+  if (
+    normalized.includes('destination port') ||
+    lower.includes('destinationport')
+  ) {
+    return { key: 'destinationPort', rawField: 'destination_port_id' };
+  }
+
+  // 19. FCL Quantity
+  if (
+    normalized.includes('fcl quantity') ||
+    normalized.includes('fcl qty') ||
+    lower.includes('fclquantity') ||
+    lower.includes('fclqty')
+  ) {
+    return { key: 'fclQty', rawField: 'fcl_quantity' };
+  }
+
+  // 20. FCL Capacity
+  if (
+    normalized.includes('fcl capacity') ||
+    normalized.includes('fcl cap') ||
+    lower.includes('fclcapacity')
+  ) {
+    return { key: 'fclCapacity', rawField: 'fcl_capacity' };
+  }
+
+  // 21. MT Quantity
+  if (
+    normalized.includes('mt quantity') ||
+    normalized.includes('mt qty') ||
+    normalized.includes('metric tons') ||
+    lower.includes('mtquantity') ||
+    lower.includes('mtqty')
+  ) {
+    return { key: 'mtQty', rawField: 'mt_quantity' };
+  }
+
+  // 22. Bag Quantity
+  if (
+    normalized.includes('bag quantity') ||
+    normalized.includes('bag qty') ||
+    lower.includes('bagquantity') ||
+    lower.includes('bagqty')
+  ) {
+    return { key: 'bagQty', rawField: 'bag_quantity' };
+  }
+
+  // 23. Currency
+  if (
+    normalized.includes('currency id') ||
+    normalized.includes('currency code') ||
+    lower.includes('currencyid') ||
+    normalized.includes('currency')
+  ) {
+    return { key: 'currency', rawField: 'currency_id' };
+  }
+
+  // 24. Price
+  if (
+    normalized.includes('unit price') ||
+    normalized.includes('price') ||
+    lower.includes('unitprice')
+  ) {
+    return { key: 'price', rawField: 'price' };
+  }
+
+  // 25. Total Value
+  if (
+    normalized.includes('total value') ||
+    normalized.includes('total amount') ||
+    lower.includes('totalvalue')
+  ) {
+    return { key: 'totalValue', rawField: 'total_value' };
+  }
+
+  // 26. Inspection
+  if (
+    normalized.includes('inspection') ||
+    lower.includes('inspection')
+  ) {
+    return { key: 'inspection', rawField: 'inspection' };
+  }
+
+  // 27. Shipping Term / Incoterm
+  if (
+    normalized.includes('shipping term') ||
+    normalized.includes('incoterm') ||
+    lower.includes('shippingterm')
+  ) {
+    return { key: 'incoterm', rawField: 'shipping_term' };
+  }
+
+  // 28. Splits / Partials
+  if (
+    normalized.includes('split') ||
+    normalized.includes('partial')
+  ) {
+    return { key: 'partialTotal', rawField: 'splits' };
+  }
+
+  // 29. Advance
+  if (
+    normalized.includes('advance amount') ||
+    normalized.includes('advance percent') ||
+    normalized.includes('advance')
+  ) {
+    return { key: 'advanceAmount', rawField: 'advance_amount' };
+  }
+
+  // 30. Broker
+  if (
+    normalized.includes('broker commission') ||
+    lower.includes('brokercommission')
+  ) {
+    return { key: 'brokerCommission', rawField: 'broker_commission' };
+  }
+  if (
+    normalized.includes('broker name') ||
+    lower.includes('brokername')
+  ) {
+    return { key: 'brokerName', rawField: 'broker_name' };
+  }
+
+  // 31. Free Days
+  if (
+    normalized.includes('free days') ||
+    lower.includes('freedays')
+  ) {
+    return { key: 'freeDays', rawField: 'free_days' };
+  }
+
+  // 32. Empty Bags
+  if (
+    normalized.includes('empty bags') ||
+    lower.includes('emptybags')
+  ) {
+    return { key: 'emptyBags', rawField: 'empty_bags' };
+  }
+
+  // 33. Additional Comment
+  if (
+    normalized.includes('additional comment') ||
+    normalized.includes('comment') ||
+    lower.includes('additionalcomment')
+  ) {
+    return { key: 'additionalComment', rawField: 'comment' };
+  }
+
+  // 34. Other Terms 1 (Payment / Bank Charges)
+  if (
+    normalized.includes('other terms 1') ||
+    normalized.includes('other terms payment') ||
+    lower.includes('otherterms1')
+  ) {
+    return { key: 'otherTermsPayment', rawField: 'other_terms_1' };
+  }
+
+  // 35. Documents Required
+  if (
+    normalized.includes('document') ||
+    lower.includes('documentsrequired')
+  ) {
+    return { key: 'documentsRequired', rawField: 'documents_required' };
+  }
+
+  // 36. Shipping Line
+  if (
+    normalized.includes('shipping line') ||
+    lower.includes('shippingline')
+  ) {
+    return { key: 'shippingLine', rawField: 'shipping_line' };
+  }
+
+  // 37. Arbitration
+  if (
+    normalized.includes('arbitration') ||
+    lower.includes('arbitration')
+  ) {
+    return { key: 'arbitration', rawField: 'arbitration' };
+  }
+
+  // 38. Other Terms 2 (Container standards)
+  if (
+    normalized.includes('other terms 2') ||
+    normalized.includes('container standards') ||
+    lower.includes('otherterms2')
+  ) {
+    return { key: 'containerStandards', rawField: 'other_terms_2' };
+  }
+
+  // 39. Force Majeur
+  if (
+    normalized.includes('force majeur') ||
+    lower.includes('forcemajeur')
+  ) {
+    return { key: 'forceMajeur', rawField: 'force_majeur' };
+  }
+
+  // 40. Confidentiality
+  if (
+    normalized.includes('confidentiality') ||
+    lower.includes('confidentiality')
+  ) {
+    return { key: 'confidentiality', rawField: 'confidentiality' };
+  }
+
+  // 41. Notes
+  if (
+    normalized.includes('notes') ||
+    normalized.includes('remark')
+  ) {
+    return { key: 'notes', rawField: 'notes' };
+  }
+
+  // 42. Signatures
+  if (normalized.includes('seller signature') || lower.includes('sellersignature') || normalized.includes('exporter signature')) {
+    return { key: 'exporterSignature', rawField: 'seller_signature' };
+  }
+  if (normalized.includes('buyer signature') || lower.includes('buyersignature') || normalized.includes('importer signature')) {
+    return { key: 'importerSignature', rawField: 'buyer_signature' };
+  }
+  if (normalized.includes('broker signature') || lower.includes('brokersignature')) {
+    return { key: 'brokerSignature', rawField: 'broker_signature' };
+  }
+
+  return null;
+}
+
+/**
+ * Transforms raw backend validator messages into clean, user-friendly labels.
+ * Explicitly prevents generic headers like "Form Validation Error" or technical strings from leaking.
+ */
+export function humanizeContractValidationMessage(rawMsg: any, fieldKey?: string): string {
+  if (!rawMsg) return 'Invalid value. Please check the field.';
+  let msg = typeof rawMsg === 'string' ? rawMsg : (rawMsg?.message || rawMsg?.msg || JSON.stringify(rawMsg));
+  msg = String(msg).trim();
+
+  // Known specific technical validation errors
+  if (/shipment_start_date.*must be a date instance/i.test(msg)) {
+    return 'Please select a valid shipment start date';
+  }
+  if (/shipment_end_date.*must be a date instance/i.test(msg)) {
+    return 'Please select a valid shipment end date';
+  }
+  if (/ship_by.*must be one of/i.test(msg) || /fcl.*type.*must be one of/i.test(msg)) {
+    return 'Please select a valid FCL Type (20 FT, 40 FT, Vessel)';
+  }
+  if (/must be a date instance/i.test(msg)) {
+    msg = msg.replace(/must be a date instance/gi, 'must be a valid date');
+  }
+  if (/must be an? (?:isodate|iso8601|valid iso)/i.test(msg)) {
+    msg = msg.replace(/must be an? (?:isodate|iso8601|valid iso)[^,]*/gi, 'must be a valid date');
+  }
+  if (/(?:should not|must not|cannot|is not allowed to) be empty/i.test(msg)) {
+    msg = msg.replace(/(?:should not|must not|cannot|is not allowed to) be empty/gi, 'is required');
+  }
+  if (/must be a string/i.test(msg)) {
+    msg = msg.replace(/must be a string/gi, 'is required');
+  }
+  if (/must be a number/i.test(msg)) {
+    msg = msg.replace(/must be a number/gi, 'must be a valid number');
+  }
+  if (/must be an integer/i.test(msg)) {
+    msg = msg.replace(/must be an integer/gi, 'must be a whole number');
+  }
+
+  // Replace technical field identifiers with clean, user-friendly names
+  const replacements: [RegExp, string][] = [
+    [/\bcontract_number\b/gi, 'Contract number'],
+    [/\bcontract_date\b/gi, 'Contract date'],
+    [/\bconfirmation_date\b/gi, 'Confirmation date'],
+    [/\bparty_header_label\b/gi, 'Parties header'],
+    [/\bseller_instruction_id\b/gi, 'Exporter (Seller)'],
+    [/\bseller_instruction\b/gi, 'Seller instruction'],
+    [/\bbuyer_instruction_id\b/gi, 'Importer (Buyer)'],
+    [/\bbuyer_instruction\b/gi, 'Buyer instruction'],
+    [/\bterms_and_condition\b/gi, 'Shipping instruction'],
+    [/\bproduct_id\b/gi, 'Product'],
+    [/\bquality_specification\b/gi, 'Specification'],
+    [/\bshipment_start_date\b/gi, 'Shipment start date'],
+    [/\bshipment_end_date\b/gi, 'Shipment end date'],
+    [/\bpayment_term_id\b/gi, 'Payment term'],
+    [/\bship_by\b/gi, 'FCL Type'],
+    [/\bpacking_type_id\b/gi, 'Packing'],
+    [/\bmarking_brand\b/gi, 'Marking brand'],
+    [/\bloading_port_id\b/gi, 'Loading port'],
+    [/\bloading_condition\b/gi, 'Loading condition'],
+    [/\bdestination_port_id\b/gi, 'Destination port'],
+    [/\bfcl_quantity\b/gi, 'FCL quantity'],
+    [/\bfcl_capacity\b/gi, 'FCL capacity'],
+    [/\bmt_quantity\b/gi, 'MT quantity'],
+    [/\bbag_quantity\b/gi, 'Bag quantity'],
+    [/\bcurrency_id\b/gi, 'Currency'],
+    [/\bshipping_term\b/gi, 'Shipping term'],
+    [/\bsplit_count\b/gi, 'Split count'],
+    [/\bsplits\b/gi, 'Partial breakdown'],
+    [/\bbroker_commission\b/gi, 'Broker commission'],
+    [/\bbroker_name\b/gi, 'Broker name'],
+    [/\bfree_days\b/gi, 'Free days'],
+    [/\bempty_bags\b/gi, 'Empty bags'],
+    [/\bother_terms_1\b/gi, 'Payment terms'],
+    [/\bother_terms_2\b/gi, 'Container standards'],
+    [/\bforce_majeur\b/gi, 'Force Majeur'],
+    [/\bconfidentiality\b/gi, 'Confidentiality'],
+    [/\bnotes\b/gi, 'Notes'],
+    [/\bseller_signature\b/gi, 'Seller signature'],
+    [/\bbuyer_signature\b/gi, 'Buyer signature'],
+    [/\bbroker_signature\b/gi, 'Broker signature'],
+  ];
+
+  for (const [pattern, label] of replacements) {
+    msg = msg.replace(pattern, label);
+  }
+
+  // Convert snake_case identifiers
+  msg = msg.replace(/\b[a-z]+(_[a-z0-9]+)+\b/gi, (match: string) => {
+    return match
+      .replace(/_id$/i, '')
+      .replace(/_/g, ' ')
+      .trim();
+  });
+
+  const formatted = msg.charAt(0).toUpperCase() + msg.slice(1);
+  return deduplicateValidationMessage(formatted);
+}
+
+/**
+ * Robust helper to extract field-wise validation errors and general error from backend API response for contracts.
+ * Automatically humanizes all technical field names and error messages, and maps them directly to form fields.
+ * NEVER leaks generic error messages like "Form Validation Error" as the generalError or field error.
+ */
+export function parseContractBackendErrors(
+  result: any
+): { fieldErrors: Record<string, string>; generalError: string | null } {
+  const fieldErrors: Record<string, string> = {};
+  let generalError: string | null = null;
+
+  if (!result) return { fieldErrors, generalError: 'Failed to save draft' };
+
+  const mapFieldNameToErrorKey = (field: string): string => {
+    const f = String(field || '').trim();
+    const clean = f.toLowerCase().replace(/[-_.]/g, '');
+
+    switch (clean) {
+      case 'contractnumber':
+      case 'contractno':
+      case 'contract':
+        return 'contractNumber';
+      case 'contractdate':
+        return 'contractDate';
+      case 'confirmationnumber':
+      case 'confirmationno':
+        return 'confirmationNumber';
+      case 'confirmationdate':
+        return 'confirmationDate';
+      case 'partyheaderlabel':
+      case 'partiesheader':
+      case 'partyheader':
+        return 'partiesHeader';
+      case 'sellerinstructionid':
+      case 'sellerid':
+      case 'seller':
+      case 'exporter':
+      case 'exporterid':
+        return 'sellerId';
+      case 'sellerinstruction':
+      case 'sellerinstructions':
+        return 'sellerInstruction';
+      case 'buyerinstructionid':
+      case 'buyerid':
+      case 'buyer':
+      case 'importer':
+      case 'importerid':
+        return 'buyerId';
+      case 'buyerinstruction':
+      case 'buyerinstructions':
+        return 'buyerInstruction';
+      case 'termsandcondition':
+      case 'termsandconditions':
+      case 'shippinginstruction':
+      case 'termscondition':
+        return 'shippingInstruction';
+      case 'productid':
+      case 'product':
+      case 'productname':
+        return 'productId';
+      case 'hsncode':
+      case 'hsn':
+        return 'hsnCode';
+      case 'qualityspecification':
+      case 'specification':
+      case 'spec':
+        return 'specification';
+      case 'shipby':
+      case 'fcltype':
+      case 'shippingmode':
+        return 'fclType';
+      case 'loadingportid':
+      case 'loadingport':
+      case 'portofloading':
+        return 'loadingPort';
+      case 'loadingcondition':
+        return 'loadingCondition';
+      case 'destinationportid':
+      case 'destinationport':
+      case 'portofdestination':
+        return 'destinationPort';
+      case 'packingtypeid':
+      case 'packingtype':
+      case 'packing':
+        return 'packing';
+      case 'markingbrand':
+      case 'brand':
+        return 'markingBrand';
+      case 'shippingterm':
+      case 'incoterm':
+      case 'deliveryterm':
+        return 'incoterm';
+      case 'fclquantity':
+      case 'fclqty':
+        return 'fclQty';
+      case 'fclcapacity':
+      case 'fclcap':
+        return 'fclCapacity';
+      case 'mtquantity':
+      case 'mtqty':
+        return 'mtQty';
+      case 'bagquantity':
+      case 'bagqty':
+        return 'bagQty';
+      case 'currencyid':
+      case 'currency':
+        return 'currency';
+      case 'price':
+      case 'unitprice':
+      case 'rate':
+        return 'price';
+      case 'totalvalue':
+      case 'totalamount':
+      case 'total':
+        return 'totalValue';
+      case 'inspection':
+        return 'inspection';
+      case 'shipmentstartdate':
+      case 'shipmentenddate':
+      case 'shipmentperiod':
+        return 'shipmentPeriod';
+      case 'paymenttermid':
+      case 'paymentterm':
+      case 'paymentterms':
+        return 'paymentTerm';
+      case 'splitcount':
+      case 'splits':
+      case 'partialcount':
+      case 'partialtotal':
+        return 'partialTotal';
+      case 'advanceamount':
+        return 'advanceAmount';
+      case 'advancepercentage':
+      case 'advancepercent':
+        return 'advancePercentage';
+      case 'brokercommissiontype':
+        return 'brokerCommissionType';
+      case 'brokercommission':
+        return 'brokerCommission';
+      case 'brokercommissionamt':
+      case 'brokercommissionamount':
+        return 'brokerCommissionAmt';
+      case 'brokername':
+        return 'brokerName';
+      case 'brokersignaturefield':
+      case 'brokertitle':
+        return 'brokerTitle';
+      case 'brokersignaturelabel':
+      case 'brokerauthoritytitle':
+        return 'brokerAuthorityTitle';
+      case 'brokersignature':
+        return 'brokerSignature';
+      case 'freedays':
+        return 'freeDays';
+      case 'emptybags':
+        return 'emptyBags';
+      case 'comment':
+      case 'additionalcomment':
+        return 'additionalComment';
+      case 'otherterms1':
+      case 'othertermspayment':
+        return 'otherTermsPayment';
+      case 'documentsrequired':
+      case 'documents':
+        return 'documentsRequired';
+      case 'shippingline':
+        return 'shippingLine';
+      case 'arbitration':
+        return 'arbitration';
+      case 'otherterms2':
+      case 'containerstandards':
+        return 'containerStandards';
+      case 'forcemajeur':
+        return 'forceMajeur';
+      case 'confidentiality':
+        return 'confidentiality';
+      case 'notes':
+        return 'notes';
+      case 'sellersignaturefield':
+      case 'exportertitle':
+        return 'exporterTitle';
+      case 'sellersignaturelabel':
+      case 'exporterauthoritytitle':
+        return 'exporterAuthorityTitle';
+      case 'sellersignature':
+      case 'exportersignature':
+        return 'exporterSignature';
+      case 'buyersignaturefield':
+      case 'importertitle':
+        return 'importerTitle';
+      case 'buyersignaturelabel':
+      case 'importerauthoritytitle':
+        return 'importerAuthorityTitle';
+      case 'buyersignature':
+      case 'importersignature':
+        return 'importerSignature';
+      case 'pdftitle':
+      case 'documenttitle':
+        return 'documentTitle';
+      default: {
+        const detected = detectContractFieldInSentence(f);
+        return detected ? detected.key : f;
+      }
+    }
+  };
+
+  const isGenericValidationString = (str: string): boolean => {
+    return /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(
+      String(str || '').trim()
+    );
+  };
+
+  const ingestErrorItem = (fieldHint: string | undefined, msgVal: any): void => {
+    if (!msgVal) return;
+
+    if (Array.isArray(msgVal)) {
+      for (const sub of msgVal) {
+        ingestErrorItem(fieldHint, sub);
+      }
+      return;
+    }
+
+    if (typeof msgVal === 'object') {
+      const fieldFromObj =
+        msgVal.field ||
+        msgVal.field_name ||
+        msgVal.fieldName ||
+        msgVal.param ||
+        msgVal.name ||
+        msgVal.column ||
+        msgVal.property ||
+        msgVal.key ||
+        (Array.isArray(msgVal.path) ? msgVal.path.join('.') : msgVal.path);
+
+      if (msgVal.constraints && typeof msgVal.constraints === 'object') {
+        for (const constraintMsg of Object.values(msgVal.constraints)) {
+          ingestErrorItem(fieldFromObj || fieldHint, constraintMsg);
+        }
+      }
+
+      if (msgVal.children && Array.isArray(msgVal.children)) {
+        for (const child of msgVal.children) {
+          ingestErrorItem(undefined, child);
+        }
+      }
+
+      const text = msgVal.message || msgVal.msg || msgVal.error || msgVal.text || msgVal.description;
+      if (text) {
+        ingestErrorItem(fieldFromObj || fieldHint, text);
+      }
+      return;
+    }
+
+    const rawStr = String(msgVal).trim();
+    if (!rawStr) return;
+
+    // Split compound sentences (e.g. "seller_instruction_id is required, buyer_instruction_id is required")
+    const clauses = rawStr
+      .split(/(?:,|\n|;)+/)
+      .map((c) => c.trim())
+      .filter(Boolean);
+
+    for (const clause of clauses) {
+      if (isGenericValidationString(clause)) continue;
+
+      let targetKey: string | null = null;
+      if (fieldHint) {
+        targetKey = mapFieldNameToErrorKey(fieldHint);
+      }
+
+      const detected = detectContractFieldInSentence(clause);
+      if (detected) {
+        targetKey = detected.key;
+      } else if (!targetKey) {
+        const keyFromClause = mapFieldNameToErrorKey(clause);
+        if (keyFromClause && keyFromClause !== clause) {
+          targetKey = keyFromClause;
+        }
+      }
+
+      const cleanMsg = humanizeContractValidationMessage(clause, targetKey || undefined);
+      if (!cleanMsg || isGenericValidationString(cleanMsg)) continue;
+
+      if (targetKey) {
+        if (!fieldErrors[targetKey]) {
+          fieldErrors[targetKey] = cleanMsg;
+        } else if (!fieldErrors[targetKey].includes(cleanMsg)) {
+          fieldErrors[targetKey] = `${fieldErrors[targetKey]}, ${cleanMsg}`;
+        }
+      } else {
+        if (!generalError && !isGenericValidationString(cleanMsg)) {
+          generalError = cleanMsg;
+        }
+      }
+    }
+  };
+
+  const candidates = [
+    result.error_fields,
+    result.data?.error_fields,
+    result.raw?.error_fields,
+    result.errors,
+    result.data?.errors,
+    result.raw?.errors,
+    result.raw?.data?.error_fields,
+    result.raw?.data?.errors,
+    result.message,
+    result.raw?.message,
+    result.validation?.body,
+    result.details,
+    result.data,
+    result.raw,
+  ];
+
+  for (const src of candidates) {
+    if (!src) continue;
+
+    if (Array.isArray(src)) {
+      for (const item of src) {
+        ingestErrorItem(undefined, item);
+      }
+      continue;
+    }
+
+    if (typeof src === 'object') {
+      for (const [k, v] of Object.entries(src)) {
+        if (['status', 'statusCode', 'success', 'code', 'stack', 'raw'].includes(k)) {
+          continue;
+        }
+        if (k === 'message' || k === 'error') {
+          ingestErrorItem(undefined, v);
+          continue;
+        }
+        ingestErrorItem(k, v);
+      }
+    }
+  }
+
+  const rawMsg = result.error || result.message;
+  if (rawMsg) {
+    ingestErrorItem(undefined, rawMsg);
+  }
+
+  // If generalError happens to be generic, wipe it out
+  if (generalError && isGenericValidationString(generalError)) {
+    generalError = null;
+  }
+
+  if (!generalError && Object.keys(fieldErrors).length > 0) {
+    generalError = Object.values(fieldErrors)[0];
+  }
+
+  return { fieldErrors, generalError };
+}
+
 export function getPartialLabel(index: number): string {
   let label = '';
   let n = index;
@@ -190,8 +1243,39 @@ export function parseInitialIsBroker(data: any): boolean | null {
     data.isBroker ??
     data.sales_broker_allowed ??
     data.sales_broker ??
-    data.broker_allowed;
-  return parseNullableBoolean(raw);
+    data.broker_allowed ??
+    data.is_sales_broker ??
+    data.is_sales_broker_allowed ??
+    data.has_broker ??
+    data.has_sales_broker;
+
+  const parsed = parseNullableBoolean(raw);
+  if (parsed !== null) return parsed;
+
+  // Check if any broker-specific fields are actively populated in the data
+  const hasBrokerDetails = Boolean(
+    data.broker_name ||
+    data.sales_broker_name ||
+    data.brokerName ||
+    data.broker_commission ||
+    data.sales_broker_commission ||
+    data.brokerCommission ||
+    data.broker_commission_type ||
+    data.sales_broker_type ||
+    data.brokerCommissionType ||
+    data.broker_signature ||
+    data.sales_broker_signature ||
+    data.brokerSignature ||
+    data.broker_signature_field ||
+    data.broker_title ||
+    data.sales_broker_title
+  );
+
+  if (hasBrokerDetails) {
+    return true;
+  }
+
+  return null;
 }
 
 export function parseBrokerCommissionType(val: any): 'PERCENTAGE' | 'PMT' | null {
@@ -303,10 +1387,10 @@ export function normalizeFclType(val?: string | null): string {
   if (!val) return '';
   const s = String(val).trim().toUpperCase();
   if (s.includes('VESSEL') || s.includes('BREAK BULK') || s.includes('BREAKBULK') || s.includes('BULK')) {
-    return 'Vessel';
+    return 'VESSEL';
   }
-  if (s.includes('40')) return '40 FT';
-  if (s.includes('20')) return '20 FT';
+  if (s.includes('40')) return 'FCL_40_FT';
+  if (s.includes('20')) return 'FCL_20_FT';
   return '';
 }
 
@@ -834,6 +1918,10 @@ export function extractAndResolveContractDocuments(
 
 export function ContractDocumentForm({
   initialData,
+  contractId: contractIdProp,
+  steps = [],
+  selectedStep = null,
+  onUpdateSteps,
   sellers = [],
   buyers = [],
   products = [],
@@ -851,17 +1939,72 @@ export function ContractDocumentForm({
   dict,
   readOnly = false,
 }: ContractDocumentFormProps) {
-  // Saved Draft / Contract ID (from API)
-  const [draftId, setDraftId] = useState<string>(() =>
-    toCleanId(
-      initialData?.id ||
-      initialData?._id ||
+  // Helper to check for invalid placeholder IDs like "contract", "sales-contract", etc.
+  const isInvalidPlaceholder = useCallback((val?: string | null): boolean => {
+    if (!val) return true;
+    const clean = String(val).trim().toLowerCase();
+    return (
+      clean === '' ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        clean
+      )
+    );
+  }, []);
+
+  // Safely resolve Confirmation ID (if opened from or attached to a confirmation)
+  const confirmationId = toCleanId(
+    initialData?.confirmation_id ||
+    initialData?.confirmationId ||
+    (initialData?.confirmation && typeof initialData.confirmation === 'object' ? initialData.confirmation.id || initialData.confirmation._id : '') ||
+    // If initialData is a confirmation record (not a standalone contract)
+    (!initialData?.contract_id && !initialData?.contractId && (initialData?.confirmation_number || initialData?.confirmation_date) ? initialData?.id || initialData?._id : '') ||
+    (initialData?.confirmation_number || initialData?.confirmation_date ? initialData?.id || initialData?._id : '') ||
+    (!initialData?.contract_number && !initialData?.contract_date ? initialData?.id || initialData?._id : '')
+  );
+
+  // Saved Draft / Contract ID (from Stepper / API)
+  const [draftId, setDraftId] = useState<string>(() => {
+    // 1. Explicit contractId prop
+    if (contractIdProp && !isInvalidPlaceholder(contractIdProp)) {
+      return contractIdProp.trim();
+    }
+    // 2. Extracted directly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
+    const stepContract = getContractStep(steps, selectedStep);
+    const stepperId = extractStepId(stepContract);
+    if (stepperId && !isInvalidPlaceholder(stepperId)) {
+      return stepperId.trim();
+    }
+    // 3. From initialData if strictly contract data
+    const cid = toCleanId(
       initialData?.contract_id ||
       initialData?.contractId ||
-      initialData?.confirmation_id ||
-      initialData?.confirmationId
-    )
-  );
+      (initialData?.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '')
+    );
+    if (cid && !isInvalidPlaceholder(cid)) return cid.trim();
+    if (initialData?.id && !isInvalidPlaceholder(initialData.id)) {
+      return toCleanId(initialData.id);
+    }
+    if (initialData?._id && !isInvalidPlaceholder(initialData._id)) {
+      return toCleanId(initialData._id);
+    }
+    if (confirmationId && !isInvalidPlaceholder(confirmationId)) {
+      return confirmationId.trim();
+    }
+    return '';
+  });
+
+  // Keep draftId synced whenever stepper steps or contractId prop updates
+  useEffect(() => {
+    if (contractIdProp && !isInvalidPlaceholder(contractIdProp)) {
+      setDraftId(contractIdProp.trim());
+      return;
+    }
+    const stepContract = getContractStep(steps, selectedStep);
+    const stepperId = extractStepId(stepContract);
+    if (stepperId && !isInvalidPlaceholder(stepperId)) {
+      setDraftId(stepperId.trim());
+    }
+  }, [contractIdProp, steps, selectedStep, isInvalidPlaceholder]);
 
   // Top Header Configuration
   const [letterhead, setLetterhead] = useState<boolean>(
@@ -1261,6 +2404,15 @@ export function ContractDocumentForm({
   const [isSalesBrokerAllowed, setIsSalesBrokerAllowed] = useState<boolean | null>(() =>
     parseInitialIsBroker(initialData)
   );
+  const userToggledBrokerRef = useRef<boolean>(false);
+  const currentContractKey = String(contractIdProp || draftId || confirmationId || '');
+  const prevContractKeyRef = useRef<string>(currentContractKey);
+  useEffect(() => {
+    if (currentContractKey && prevContractKeyRef.current !== currentContractKey) {
+      prevContractKeyRef.current = currentContractKey;
+      userToggledBrokerRef.current = false;
+    }
+  }, [currentContractKey]);
   const [brokerCommissionType, setBrokerCommissionType] = useState<'PERCENTAGE' | 'PMT' | null>(() => {
     return parseBrokerCommissionType(
       initialData?.broker_commission_type ??
@@ -1411,17 +2563,50 @@ export function ContractDocumentForm({
   // Helper to extract signature fields / labels from API response
   const resolveSigValue = (data: any, keys: string[], fallback: string = ''): string => {
     if (!data) return fallback;
+
+    const extractString = (val: any): string | null => {
+      if (val === undefined || val === null) return null;
+      if (typeof val === 'string') {
+        const s = val.trim();
+        if (s !== '' && s !== 'null' && s !== 'undefined' && s !== '[object Object]') {
+          return s;
+        }
+        return null;
+      }
+      if (typeof val === 'object') {
+        const possibleKeys = ['url', 'path', 'src', 'image', 'file', 'endpoint', 'location'];
+        for (const pk of possibleKeys) {
+          if (val[pk] && typeof val[pk] === 'string') {
+            const s = val[pk].trim();
+            if (s !== '' && s !== 'null' && s !== 'undefined') {
+              return s;
+            }
+          }
+        }
+      }
+      return null;
+    };
+
+    const layers = [
+      data,
+      data.contract,
+      data.data,
+      data.data?.contract,
+      data.contract?.data,
+      data.contract_data,
+      data.details,
+      data.signatures,
+      data.contract?.signatures,
+    ].filter(Boolean);
+
     for (const k of keys) {
-      if (data[k] !== undefined && data[k] !== null && String(data[k]).trim() !== '') {
-        return String(data[k]).trim();
-      }
-      if (data.contract && data.contract[k] !== undefined && data.contract[k] !== null && String(data.contract[k]).trim() !== '') {
-        return String(data.contract[k]).trim();
-      }
-      if (data.data && data.data[k] !== undefined && data.data[k] !== null && String(data.data[k]).trim() !== '') {
-        return String(data.data[k]).trim();
+      for (const layer of layers) {
+        if (!layer || typeof layer !== 'object') continue;
+        const found = extractString(layer[k]);
+        if (found) return found;
       }
     }
+
     return fallback;
   };
 
@@ -1437,12 +2622,14 @@ export function ContractDocumentForm({
       )
   );
   const [importerSignature, setImporterSignature] = useState<string>(
-    () =>
-      resolveSigValue(
+    () => {
+      const val = resolveSigValue(
         initialData,
         ['buyer_signature', 'buyerSignature', 'importer_signature', 'importerSignature'],
         ''
-      )
+      );
+      return val ? formatSignatureUrl(val) : '';
+    }
   );
   const [importerAuthorityTitle, setImporterAuthorityTitle] = useState<string>(
     () =>
@@ -1462,12 +2649,14 @@ export function ContractDocumentForm({
       )
   );
   const [brokerSignature, setBrokerSignature] = useState<string>(
-    () =>
-      resolveSigValue(
+    () => {
+      const val = resolveSigValue(
         initialData,
         ['broker_signature', 'sales_broker_signature', 'brokerSignature'],
         ''
-      )
+      );
+      return val ? formatSignatureUrl(val) : '';
+    }
   );
   const [brokerAuthorityTitle, setBrokerAuthorityTitle] = useState<string>(
     () =>
@@ -1487,12 +2676,14 @@ export function ContractDocumentForm({
       )
   );
   const [exporterSignature, setExporterSignature] = useState<string>(
-    () =>
-      resolveSigValue(
+    () => {
+      const val = resolveSigValue(
         initialData,
         ['seller_signature', 'sellerSignature', 'exporter_signature', 'exporterSignature'],
         ''
-      )
+      );
+      return val ? formatSignatureUrl(val) : '';
+    }
   );
   const [exporterAuthorityTitle, setExporterAuthorityTitle] = useState<string>(
     () =>
@@ -2240,15 +3431,16 @@ export function ContractDocumentForm({
   useEffect(() => {
     if (!initialData) return;
 
-    const id = toCleanId(
-      initialData.id ||
-      initialData._id ||
+    // Extract Contract ID only if strictly a contract (never overwrite draftId with confirmation id!)
+    const contractIdCandidate = toCleanId(
       initialData.contract_id ||
       initialData.contractId ||
-      initialData.confirmation_id ||
-      initialData.confirmationId
+      (initialData.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '') ||
+      (!initialData.confirmation_number && !initialData.confirmation_date && initialData.id !== confirmationId ? initialData.id : '')
     );
-    if (id) setDraftId(id);
+    if (contractIdCandidate && !isInvalidPlaceholder(contractIdCandidate) && contractIdCandidate !== confirmationId) {
+      setDraftId(contractIdCandidate);
+    }
 
     if (initialData.letterhead_space !== undefined) setLetterhead(Boolean(initialData.letterhead_space));
     else if (initialData.letterhead !== undefined) setLetterhead(Boolean(initialData.letterhead));
@@ -2433,15 +3625,18 @@ export function ContractDocumentForm({
     if (advPct !== undefined && advPct !== null && advPct !== '') setAdvancePercentage(advPct);
 
     const brokerVal = parseInitialIsBroker(initialData);
-    setIsSalesBrokerAllowed(brokerVal);
+    if (brokerVal !== null && !userToggledBrokerRef.current) {
+      setIsSalesBrokerAllowed(brokerVal);
+    }
 
-    setBrokerCommissionType(
-      parseBrokerCommissionType(
-        initialData.broker_commission_type ??
-        initialData.sales_broker_type ??
-        initialData.brokerCommissionType
-      )
+    const bType = parseBrokerCommissionType(
+      initialData.broker_commission_type ??
+      initialData.sales_broker_type ??
+      initialData.brokerCommissionType
     );
+    if (bType !== null) {
+      setBrokerCommissionType(bType);
+    }
 
     const bComm = initialData.broker_commission ?? initialData.sales_broker_commission ?? initialData.brokerCommission;
     if (bComm !== undefined && bComm !== null && bComm !== '') setBrokerCommission(String(bComm));
@@ -2549,7 +3744,10 @@ export function ContractDocumentForm({
       'importer_signature',
       'importerSignature',
     ]);
-    if (bSig) setImporterSignature(bSig);
+    if (bSig) {
+      const formatted = formatSignatureUrl(bSig);
+      setImporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+    }
 
     const bLabel = resolveSigValue(initialData, [
       'buyer_signature_label',
@@ -2575,7 +3773,10 @@ export function ContractDocumentForm({
       'sales_broker_signature',
       'brokerSignature',
     ]);
-    if (brSig) setBrokerSignature(brSig);
+    if (brSig) {
+      const formatted = formatSignatureUrl(brSig);
+      setBrokerSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+    }
 
     const brLabel = resolveSigValue(initialData, [
       'broker_signature_label',
@@ -2602,7 +3803,10 @@ export function ContractDocumentForm({
       'exporter_signature',
       'exporterSignature',
     ]);
-    if (sSig) setExporterSignature(sSig);
+    if (sSig) {
+      const formatted = formatSignatureUrl(sSig);
+      setExporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+    }
 
     const sLabel = resolveSigValue(initialData, [
       'seller_signature_label',
@@ -2612,7 +3816,7 @@ export function ContractDocumentForm({
       'exporterAuthorityTitle',
     ]);
     if (sLabel) setExporterAuthorityTitle(sLabel);
-  }, [initialData, shippingTerms, draftId, fetchAndApplyProductDetails]);
+  }, [initialData, shippingTerms, fetchAndApplyProductDetails]);
 
   // Ensure product details (ports, packing) are fetched on mount if productId is present and options are not yet loaded
   useEffect(() => {
@@ -2730,24 +3934,260 @@ export function ContractDocumentForm({
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (Object.keys(newErrors).length > 0) {
+      scrollToAndFocusContractField(newErrors);
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * Constructs the complete multipart/form-data payload for the Contract Save As Draft / Submit API.
+   * Signatures are converted to binary files (seller_signature, buyer_signature, broker_signature)
+   * and array fields (splits, documents_required[]) follow the exact contract API contract.
+   */
+  const getContractFormData = (): FormData => {
+    const formData = new FormData();
+    const effectiveContractId = getEffectiveContractId() || draftId || confirmationId;
+    if (effectiveContractId) {
+      formData.append('id', effectiveContractId);
+      formData.append('contract_id', effectiveContractId);
+    }
+
+    const confId = confirmationId || effectiveContractId;
+    if (confId) {
+      formData.append('confirmation_id', confId);
+    }
+
+    // Letterhead & Watermark
+    formData.append('letterhead_space', String(Boolean(letterhead)));
+    formData.append('is_watermark_enabled', String(Boolean(watermark)));
+    formData.append('pdf_title', documentTitle.trim() || 'CONTRACT');
+
+    // Dates & Numbers
+    const formattedConfDate = confirmationDate ? String(confirmationDate).trim() : '';
+    formData.append('confirmation_date', formattedConfDate);
+
+    formData.append('contract_number', contractNumber.trim());
+    const formattedContractDate = contractDate ? String(contractDate).trim() : '';
+    formData.append('contract_date', formattedContractDate);
+
+    // Parties
+    const pHeader = partiesHeader.trim() || 'THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES';
+    formData.append('party_header_label', pHeader);
+    formData.append('parties_header', pHeader);
+
+    formData.append('seller_instruction_id', sellerId || '');
+    formData.append('seller_instruction', sellerInstruction.trim());
+    formData.append('buyer_instruction_id', buyerId || '');
+    formData.append('buyer_instruction', buyerInstruction.trim());
+
+    // Terms & Conditions
+    const terms = shippingInstruction.trim() || 'NOT TO BE ADVICED';
+    formData.append('terms_and_condition', terms);
+    formData.append('shipping_instruction', shippingInstruction.trim());
+
+    // Product & Specifications
+    formData.append('product_id', productId || '');
+    formData.append('hsn_code', hsnCode || '');
+    formData.append('country', productCountry || '');
+    formData.append('quality_specification', specification.trim());
+
+    // Shipment Dates
+    const startDateStr = shipmentRange.start instanceof Date && !isNaN(shipmentRange.start.getTime())
+      ? shipmentRange.start.toISOString().split('T')[0]
+      : '';
+    const endDateStr = shipmentRange.end instanceof Date && !isNaN(shipmentRange.end.getTime())
+      ? shipmentRange.end.toISOString().split('T')[0]
+      : '';
+    formData.append('shipment_start_date', startDateStr);
+    formData.append('shipment_end_date', endDateStr);
+
+    // Payment & Shipping
+    formData.append('payment_term_id', paymentTerm || '');
+    formData.append('ship_by', normalizeFclType(fclType) || fclType || '');
+    formData.append('packing_type_id', packing || '');
+    formData.append('marking_brand', markingBrand.trim());
+    formData.append('loading_port_id', loadingPort || '');
+    formData.append('loading_condition', loadingCondition || '');
+
+    const isAnyPort = Boolean(
+      loadingCondition &&
+      loadingCondition.trim().toLowerCase() === 'any port of loading'
+    );
+    formData.append('any_loading_port', String(isAnyPort));
+    formData.append('destination_port_id', destinationPort || '');
+
+    // Quantities & Pricing
+    if (isFcl && fclQty) {
+      formData.append('fcl_quantity', String(fclQty));
+    }
+    if (isFcl && fclCapacity) {
+      formData.append('fcl_capacity', String(fclCapacity));
+    }
+    if (mtQty) {
+      formData.append('mt_quantity', String(mtQty));
+    }
+    if (bagQty) {
+      formData.append('bag_quantity', String(bagQty));
+    }
+
+    formData.append('currency_id', currencyId || currency || '');
+    if (price) {
+      formData.append('price', String(price));
+    }
+    if (totalValue) {
+      formData.append('total_value', String(totalValue));
+    }
+
+    formData.append('inspection', inspection.trim());
+    formData.append('shipping_term', incoterm.trim());
+    formData.append('incoterm', incoterm.trim());
+    formData.append('insurance', (effectiveInsurance || insurance || '').trim());
+
+    // Splits / Partial Shipment
+    formData.append('is_partial', String(Boolean(isPartialAllowed)));
+    if (isPartialAllowed) {
+      const sCount = splitCount ? Number(splitCount) : splits.length || 2;
+      formData.append('split_count', String(sCount));
+
+      splits.forEach((s, idx) => {
+        const splitNum = s.split_number !== undefined && s.split_number !== null && String(s.split_number).trim() !== ''
+          ? String(s.split_number).trim()
+          : String.fromCharCode(65 + idx);
+        const qtyVal = s.fcl_quantity !== undefined && s.fcl_quantity !== null && s.fcl_quantity !== ''
+          ? String(s.fcl_quantity)
+          : '0';
+        formData.append(`splits[${idx}][split_number]`, splitNum);
+        formData.append(`splits[${idx}][fcl_quantity]`, qtyVal);
+      });
+    } else {
+      formData.append('split_count', '0');
+    }
+
+    // Transport & Advance
+    formData.append('transhipment', String(Boolean(isTranshipmentAllowed)));
+    formData.append('transhipment_allowed', String(Boolean(isTranshipmentAllowed)));
+    formData.append('transit_clause', String(Boolean(isTransitClauseAllowed)));
+    formData.append('transit_clause_allowed', String(Boolean(isTransitClauseAllowed)));
+
+    formData.append('any_advance', String(Boolean(hasAdvance)));
+    if (hasAdvance) {
+      formData.append('advance_type', advanceType || '');
+      if (advanceType === 'amount') {
+        if (advanceAmount) formData.append('advance_amount', String(advanceAmount));
+      } else {
+        if (advancePercentage) formData.append('advance_percentage', String(advancePercentage));
+        if (calculatedAdvanceAmount) formData.append('advance_amount', String(calculatedAdvanceAmount));
+      }
+    }
+
+    // Broker Details
+    formData.append('is_broker', String(Boolean(isSalesBrokerAllowed)));
+    formData.append('sales_broker_allowed', String(Boolean(isSalesBrokerAllowed)));
+    if (isSalesBrokerAllowed) {
+      if (brokerCommissionType) {
+        formData.append('broker_commission_type', brokerCommissionType);
+        formData.append('sales_broker_type', brokerCommissionType);
+      }
+      if (brokerCommission) {
+        formData.append('broker_commission', String(brokerCommission));
+        formData.append('sales_broker_commission', String(brokerCommission));
+      }
+      const cAmt = calculatedBrokerCommission || brokerCommissionAmt;
+      if (cAmt) {
+        formData.append('broker_commission_amt', String(cAmt));
+        formData.append('broker_commission_amount', String(cAmt));
+      }
+      if (brokerName.trim()) {
+        formData.append('broker_name', brokerName.trim());
+        formData.append('sales_broker_name', brokerName.trim());
+      }
+    }
+
+    // Broker Signature
+    formData.append('broker_signature_field', isSalesBrokerAllowed ? brokerTitle.trim() : '');
+    formData.append('broker_signature_label', isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : '');
+    if (isSalesBrokerAllowed && brokerSignature) {
+      if (brokerSignature.startsWith('data:') || brokerSignature.startsWith('blob:')) {
+        const file = dataUrlToFile(brokerSignature, 'broker_signature.png');
+        if (file) {
+          formData.append('broker_signature', file);
+        }
+      }
+      formData.append('remove_broker_signature', 'false');
+    } else {
+      formData.append('remove_broker_signature', 'true');
+    }
+
+    // Other details
+    formData.append('free_days', freeDays.trim());
+    formData.append('empty_bags', emptyBags.trim());
+    formData.append('comment', additionalComment.trim());
+    formData.append('additional_comment', additionalComment.trim());
+
+    // Terms & Documents
+    formData.append('other_terms_1', otherTermsPayment.trim());
+    formData.append('other_terms', otherTermsPayment.trim());
+
+    if (selectedDocuments && selectedDocuments.length > 0) {
+      for (const doc of selectedDocuments) {
+        if (doc && doc.trim()) {
+          formData.append('documents_required[]', doc.trim());
+        }
+      }
+    }
+
+    formData.append('shipping_line', shippingLine.trim());
+    formData.append('arbitration', arbitration.trim());
+    formData.append('other_terms_2', containerStandards.trim());
+    formData.append('container_terms', containerStandards.trim());
+    formData.append('force_majeur', forceMajeur.trim());
+    formData.append('confidentiality', confidentiality.trim());
+    formData.append('notes', notes.trim());
+
+    // Seller (Exporter) Signature: binary File conversion from merged/composite dataUrl
+    formData.append('seller_signature_field', exporterTitle.trim());
+    formData.append('seller_signature_label', exporterAuthorityTitle.trim());
+    if (exporterSignature) {
+      if (exporterSignature.startsWith('data:') || exporterSignature.startsWith('blob:')) {
+        const file = dataUrlToFile(exporterSignature, 'seller_signature.png');
+        if (file) {
+          formData.append('seller_signature', file);
+        }
+      }
+      formData.append('remove_seller_signature', 'false');
+    } else {
+      formData.append('remove_seller_signature', 'true');
+    }
+
+    // Buyer (Importer) Signature: binary File conversion from merged/composite dataUrl
+    formData.append('buyer_signature_field', importerTitle.trim());
+    formData.append('buyer_signature_label', importerAuthorityTitle.trim());
+    if (importerSignature) {
+      if (importerSignature.startsWith('data:') || importerSignature.startsWith('blob:')) {
+        const file = dataUrlToFile(importerSignature, 'buyer_signature.png');
+        if (file) {
+          formData.append('buyer_signature', file);
+        }
+      }
+      formData.append('remove_buyer_signature', 'false');
+    } else {
+      formData.append('remove_buyer_signature', 'true');
+    }
+
+    return formData;
   };
 
   const getContractPayload = () => {
-    const effectiveContractId =
-      draftId ||
-      toCleanId(
-        initialData?.id ||
-        initialData?._id ||
-        initialData?.contract_id ||
-        initialData?.contractId
-      ) ||
-      undefined;
+    const effectiveContractId = getEffectiveContractId() || undefined;
 
     const confId =
+      confirmationId ||
       toCleanId(
         initialData?.confirmation_id ||
-        initialData?.confirmationId
+        initialData?.confirmationId ||
+        (initialData?.confirmation_number || initialData?.confirmation_date ? initialData?.id || initialData?._id : '')
       ) || undefined;
 
     return {
@@ -2761,13 +4201,14 @@ export function ContractDocumentForm({
       pdf_title: documentTitle.trim() || 'CONTRACT',
       letterhead_space: Boolean(letterhead),
       is_watermark_enabled: Boolean(watermark),
+      party_header_label: partiesHeader.trim() || 'THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES',
       parties_header: partiesHeader.trim(),
       seller_instruction_id: sellerId,
       seller_instruction: sellerInstruction.trim(),
       buyer_instruction_id: buyerId,
       buyer_instruction: buyerInstruction.trim(),
       shipping_instruction: shippingInstruction.trim(),
-      terms_and_condition: shippingInstruction.trim(),
+      terms_and_condition: shippingInstruction.trim() || 'NOT TO BE ADVICED',
       product_id: productId,
       hsn_code: hsnCode,
       country: productCountry,
@@ -2775,8 +4216,8 @@ export function ContractDocumentForm({
       shipment_start_date: shipmentRange.start ? shipmentRange.start.toISOString().split('T')[0] : undefined,
       shipment_end_date: shipmentRange.end ? shipmentRange.end.toISOString().split('T')[0] : undefined,
       payment_term_id: paymentTerm,
-      fcl_type: fclType,
-      ship_by: fclType,
+      fcl_type: normalizeFclType(fclType) || fclType,
+      ship_by: normalizeFclType(fclType) || fclType,
       packing_type_id: packing,
       marking_brand: markingBrand.trim(),
       loading_port_id: loadingPort,
@@ -2807,7 +4248,7 @@ export function ContractDocumentForm({
         isPartialAllowed && splits.length > 0
           ? splits.map((s, idx) => ({
               ...s,
-              split_number: s.split_number ?? idx + 1,
+              split_number: s.split_number ?? getPartialLabel(idx),
               fcl_quantity: s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined ? Number(s.fcl_quantity) : 0,
             }))
           : [],
@@ -2819,7 +4260,9 @@ export function ContractDocumentForm({
         isPartialAllowed && splits.length > 0
           ? splits.map((s) => (s.fcl_quantity !== '' ? Number(s.fcl_quantity) : 0))
           : undefined,
+      transhipment: Boolean(isTranshipmentAllowed),
       transhipment_allowed: isTranshipmentAllowed !== null ? isTranshipmentAllowed : undefined,
+      transit_clause: Boolean(isTransitClauseAllowed),
       transit_clause_allowed: isTransitClauseAllowed !== null ? isTransitClauseAllowed : undefined,
       any_advance: hasAdvance !== null ? hasAdvance : undefined,
       advance_type: hasAdvance ? advanceType : undefined,
@@ -2844,6 +4287,7 @@ export function ContractDocumentForm({
       sales_broker_name: isSalesBrokerAllowed && brokerName.trim() ? brokerName.trim() : undefined,
       free_days: freeDays.trim(),
       empty_bags: emptyBags.trim(),
+      comment: additionalComment.trim(),
       additional_comment: additionalComment.trim(),
       other_terms: otherTermsPayment.trim(),
       other_terms_1: otherTermsPayment.trim(),
@@ -2862,47 +4306,71 @@ export function ContractDocumentForm({
       // Signature fields for contract API (seller_signature_field, broker_signature_field, buyer_signature_field)
       seller_signature_field: exporterTitle.trim(),
       seller_signature_label: exporterAuthorityTitle.trim(),
-      seller_signature: exporterSignature,
+      seller_signature: normalizeSignaturePayload(exporterSignature),
+      remove_seller_signature: !exporterSignature,
 
       broker_signature_field: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
       broker_signature_label: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
-      broker_signature: isSalesBrokerAllowed ? brokerSignature : undefined,
+      broker_signature: isSalesBrokerAllowed ? normalizeSignaturePayload(brokerSignature) : undefined,
+      remove_broker_signature: !isSalesBrokerAllowed || !brokerSignature,
 
       buyer_signature_field: importerTitle.trim(),
       buyer_signature_label: importerAuthorityTitle.trim(),
-      buyer_signature: importerSignature,
+      buyer_signature: normalizeSignaturePayload(importerSignature),
+      remove_buyer_signature: !importerSignature,
 
       // Retain legacy keys for backward compatibility
       importer_title: importerTitle.trim(),
-      importer_signature: importerSignature,
+      importer_signature: normalizeSignaturePayload(importerSignature),
       importer_authority_title: importerAuthorityTitle.trim(),
       broker_title: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
       broker_authority_title: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
       sales_broker_title: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
-      sales_broker_signature: isSalesBrokerAllowed ? brokerSignature : undefined,
+      sales_broker_signature: isSalesBrokerAllowed ? normalizeSignaturePayload(brokerSignature) : undefined,
       sales_broker_authority_title: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
       exporter_title: exporterTitle.trim(),
-      exporter_signature: exporterSignature,
+      exporter_signature: normalizeSignaturePayload(exporterSignature),
       exporter_authority_title: exporterAuthorityTitle.trim(),
     };
   };
 
-  const getEffectiveContractId = (): string => {
-    return (
-      draftId ||
-      toCleanId(
-        initialData?.id ||
-        initialData?._id ||
-        initialData?.contract_id ||
-        initialData?.contractId ||
-        initialData?.confirmation_id ||
-        initialData?.confirmationId
-      ) ||
-      (typeof window !== 'undefined'
-        ? new URL(window.location.href).searchParams.get('id') || ''
-        : '')
+  const getEffectiveContractId = useCallback((): string => {
+    // 1. Explicit contractId prop
+    if (contractIdProp && !isInvalidPlaceholder(contractIdProp)) {
+      return contractIdProp.trim();
+    }
+    // 2. Saved Draft ID from current session
+    if (draftId && !isInvalidPlaceholder(draftId)) {
+      return draftId.trim();
+    }
+    // 3. Extracted directly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
+    const stepContract = getContractStep(steps, selectedStep);
+    const stepperId = extractStepId(stepContract);
+    if (stepperId && !isInvalidPlaceholder(stepperId)) {
+      return stepperId.trim();
+    }
+    // 4. Initial contract data fields
+    const cid = toCleanId(
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      (initialData?.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '')
     );
-  };
+    if (cid && !isInvalidPlaceholder(cid)) {
+      return cid.trim();
+    }
+    // 5. Initial data id
+    if (initialData?.id && !isInvalidPlaceholder(initialData.id)) {
+      return toCleanId(initialData.id);
+    }
+    if (initialData?._id && !isInvalidPlaceholder(initialData._id)) {
+      return toCleanId(initialData._id);
+    }
+    // 6. Confirmation ID fallback (the workflow document ID)
+    if (confirmationId && !isInvalidPlaceholder(confirmationId)) {
+      return confirmationId.trim();
+    }
+    return '';
+  }, [contractIdProp, steps, selectedStep, draftId, confirmationId, initialData, isInvalidPlaceholder]);
 
   const handleOpenPrintPreview = async () => {
     let effectiveId = getEffectiveContractId();
@@ -2911,7 +4379,7 @@ export function ContractDocumentForm({
     if (!effectiveId && onSaveDraft && contractNumber.trim()) {
       setIsSavingDraft(true);
       try {
-        const payload = getContractPayload();
+        const payload = getContractFormData();
         const res = await onSaveDraft(payload);
         if (res?.success) {
           const newId = String(
@@ -2954,7 +4422,7 @@ export function ContractDocumentForm({
     if (!effectiveId && onSaveDraft && contractNumber.trim()) {
       setIsSavingDraft(true);
       try {
-        const payload = getContractPayload();
+        const payload = getContractFormData();
         const res = await onSaveDraft(payload);
         if (res?.success) {
           const newId = String(
@@ -3069,37 +4537,120 @@ export function ContractDocumentForm({
         contractNumber:
           dict?.smart_docs?.contract_form?.contract_number_required || 'Contract number is required',
       }));
-      toast.error(
-        dict?.smart_docs?.contract_form?.contract_number_required ||
-        'Please enter contract number before saving'
-      );
       contractInputRef.current?.focus();
       return;
     }
 
     setIsSavingDraft(true);
+    setErrors({});
     try {
-      const payload = getContractPayload();
+      const formDataPayload = getContractFormData();
+      const effectiveId = getEffectiveContractId() || draftId || confirmationId;
+      let res: any = null;
       if (onSaveDraft) {
-        const res = await onSaveDraft(payload);
-        if (res?.success) {
-          toast.success(
-            dict?.smart_docs?.contract_form?.saved_as_draft_success ||
-            'Contract saved as draft successfully!'
-          );
-          const newId = res.id || res.data?.id || res.data?.contract_id || res.contract_id;
-          if (newId) {
-            setDraftId(String(newId));
-            if (onSaveSuccess) {
-              onSaveSuccess(String(newId));
+        res = await onSaveDraft(formDataPayload);
+      } else {
+        res = await saveContractDraftAction(formDataPayload, lang, effectiveId);
+      }
+
+      if (!res) {
+        toast.error('No response received while saving draft. Please retry.');
+        return;
+      }
+
+      const hasFieldErrors = Boolean(
+        (Array.isArray(res.error_fields) && res.error_fields.length > 0) ||
+        (Array.isArray(res.errors) && res.errors.length > 0) ||
+        (res.errors && typeof res.errors === 'object' && Object.keys(res.errors).length > 0) ||
+        (res.error_fields && typeof res.error_fields === 'object' && Object.keys(res.error_fields).length > 0)
+      );
+
+      const isFailed = res.success === false || res.success === 0 || hasFieldErrors;
+
+      if (isFailed) {
+        const { fieldErrors, generalError } = parseContractBackendErrors(res);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors(fieldErrors);
+          scrollToAndFocusContractField(fieldErrors);
+        } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
+          toast.error(generalError);
+        } else {
+          toast.error(res.message || res.error || 'Failed to save draft. Please check highlighted fields.');
+        }
+        return;
+      }
+
+      // Success workflow
+      const successText =
+        res?.message ||
+        dict?.smart_docs?.contract_form?.saved_as_draft_success ||
+        'Contract saved as draft successfully!';
+      toast.success(successText);
+
+      const newId = String(
+        res.id ||
+        res.data?.id ||
+        res.data?.contract_id ||
+        res.contract_id ||
+        res.data?._id ||
+        res._id ||
+        effectiveId ||
+        ''
+      );
+
+      if (newId && !isInvalidPlaceholder(newId)) {
+        setDraftId(newId);
+        if (onSaveSuccess) {
+          onSaveSuccess(newId);
+        }
+
+        // Synchronize fresh signature URLs from backend response if available
+        const savedContract =
+          res.data && typeof res.data === 'object'
+            ? extractContractData(res.data) || res.data
+            : null;
+        if (savedContract) {
+          const sSellerSig = savedContract.seller_signature || savedContract.exporter_signature;
+          if (sSellerSig) {
+            setExporterSignature(formatSignatureUrl(sSellerSig));
+          }
+          const sBuyerSig = savedContract.buyer_signature || savedContract.importer_signature;
+          if (sBuyerSig) {
+            setImporterSignature(formatSignatureUrl(sBuyerSig));
+          }
+          const sBrokerSig = savedContract.broker_signature || savedContract.sales_broker_signature;
+          if (sBrokerSig) {
+            setBrokerSignature(formatSignatureUrl(sBrokerSig));
+          }
+        }
+
+        // Concurrently refresh stepper list from backend so all steps stay fresh
+        try {
+          const stepperRes = await getStepperListAction({
+            action: 'confirmation',
+            step: confirmationId || newId || 'new-confirmation',
+            lang,
+          });
+          if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+            if (onUpdateSteps) {
+              onUpdateSteps(stepperRes.data);
             }
           }
-        } else {
-          toast.error(res?.message || 'Failed to save contract draft');
+        } catch (postSyncErr) {
+          console.error('[ContractDocumentForm] Post-save stepper update error:', postSyncErr);
         }
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Network error while saving draft');
+      console.error('[ContractDocumentForm] handleSaveDraft error:', err);
+      const { fieldErrors, generalError } = parseContractBackendErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setErrors(fieldErrors);
+        scrollToAndFocusContractField(fieldErrors);
+      } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
+        toast.error(generalError);
+      } else {
+        toast.error(err?.message || 'Failed to save draft. Please retry.');
+      }
     } finally {
       setIsSavingDraft(false);
     }
@@ -3107,30 +4658,71 @@ export function ContractDocumentForm({
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      toast.error(
-        dict?.smart_docs?.confirmation_form?.validation_error ||
-        'Please fill all required highlighted fields before submitting.'
-      );
       return;
     }
 
     setIsSubmitting(true);
+    setErrors({});
     try {
-      const payload = getContractPayload();
+      const payload = getContractFormData();
+      const effectiveId = getEffectiveContractId() || draftId || confirmationId;
       if (onSubmitContract) {
         const res = await onSubmitContract(payload);
-        if (res?.success) {
+        const hasFieldErrors = Boolean(
+          (Array.isArray(res?.error_fields) && res.error_fields.length > 0) ||
+          (Array.isArray(res?.errors) && res.errors.length > 0) ||
+          (res?.errors && typeof res.errors === 'object' && Object.keys(res.errors).length > 0) ||
+          (res?.error_fields && typeof res.error_fields === 'object' && Object.keys(res.error_fields).length > 0)
+        );
+
+        if (res?.success && !hasFieldErrors) {
           toast.success('Contract submitted successfully to Proforma Invoice!');
-          const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id;
-          if (newId && onSaveSuccess) {
-            onSaveSuccess(String(newId));
+          const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id || effectiveId;
+          if (newId && !isInvalidPlaceholder(String(newId))) {
+            setDraftId(String(newId));
+            if (onSaveSuccess) {
+              onSaveSuccess(String(newId));
+            }
+          }
+
+          // Concurrently refresh stepper list from backend
+          try {
+            const stepperRes = await getStepperListAction({
+              action: 'confirmation',
+              step: String(confirmationId || newId || 'new-confirmation'),
+              lang,
+            });
+            if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+              if (onUpdateSteps) {
+                onUpdateSteps(stepperRes.data);
+              }
+            }
+          } catch (postSyncErr) {
+            console.error('[ContractDocumentForm] Post-submit stepper update error:', postSyncErr);
           }
         } else {
-          toast.error(res?.message || 'Failed to submit contract to Proforma');
+          const { fieldErrors, generalError } = parseContractBackendErrors(res);
+          if (Object.keys(fieldErrors).length > 0) {
+            setErrors(fieldErrors);
+            scrollToAndFocusContractField(fieldErrors);
+          } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
+            toast.error(generalError);
+          } else {
+            toast.error(res?.message || 'Failed to submit contract to Proforma');
+          }
         }
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Network error while submitting contract');
+      console.error('[ContractDocumentForm] handleSubmit error:', err);
+      const { fieldErrors, generalError } = parseContractBackendErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setErrors(fieldErrors);
+        scrollToAndFocusContractField(fieldErrors);
+      } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
+        toast.error(generalError);
+      } else {
+        toast.error(err?.message || 'Network error while submitting contract');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -3263,7 +4855,11 @@ export function ContractDocumentForm({
                   id="field-confirmationDate"
                   type="date"
                   value={confirmationDate}
-                  onChange={setConfirmationDate}
+                  onChange={(val) => {
+                    setConfirmationDate(val);
+                    setErrors((prev) => ({ ...prev, confirmationDate: '' }));
+                  }}
+                  error={errors.confirmationDate}
                   icon="fa-regular fa-calendar"
                   disabled={readOnly}
                   placeholder={
@@ -3335,7 +4931,11 @@ export function ContractDocumentForm({
             <DocUnderlineInput
               id="field-partiesHeader"
               value={partiesHeader}
-              onChange={setPartiesHeader}
+              onChange={(val) => {
+                setPartiesHeader(val);
+                setErrors((prev) => ({ ...prev, partiesHeader: '' }));
+              }}
+              error={errors.partiesHeader}
               disabled={readOnly}
               icon="fa-solid fa-pen"
               placeholder="THIS CONTRACT IS DRAWN BETWEEN FOLLOWING PARTIES"
@@ -3372,7 +4972,11 @@ export function ContractDocumentForm({
                 rows={3}
                 icon="fa-solid fa-pen"
                 value={sellerInstruction}
-                onChange={setSellerInstruction}
+                onChange={(val) => {
+                  setSellerInstruction(val);
+                  setErrors((prev) => ({ ...prev, sellerInstruction: '' }));
+                }}
+                error={errors.sellerInstruction}
                 placeholder="COMPANY NAME, ADDRESS, CONTACT, EMAIL..."
                 disabled={readOnly}
               />
@@ -3404,7 +5008,11 @@ export function ContractDocumentForm({
                 rows={3}
                 icon="fa-solid fa-pen"
                 value={buyerInstruction}
-                onChange={setBuyerInstruction}
+                onChange={(val) => {
+                  setBuyerInstruction(val);
+                  setErrors((prev) => ({ ...prev, buyerInstruction: '' }));
+                }}
+                error={errors.buyerInstruction}
                 placeholder="COMPANY NAME, ADDRESS, CONTACT, EMAIL..."
                 disabled={readOnly}
               />
@@ -3422,7 +5030,11 @@ export function ContractDocumentForm({
               <DocUnderlineInput
                 id="field-shippingInstruction"
                 value={shippingInstruction}
-                onChange={setShippingInstruction}
+                onChange={(val) => {
+                  setShippingInstruction(val);
+                  setErrors((prev) => ({ ...prev, shippingInstruction: '', termsAndCondition: '' }));
+                }}
+                error={errors.shippingInstruction || errors.termsAndCondition}
                 icon="fa-solid fa-pen"
                 placeholder="TO BE ADVICE"
                 disabled={readOnly}
@@ -3487,7 +5099,11 @@ export function ContractDocumentForm({
                 multiline
                 rows={2}
                 value={specification}
-                onChange={setSpecification}
+                onChange={(val) => {
+                  setSpecification(val);
+                  setErrors((prev) => ({ ...prev, specification: '' }));
+                }}
+                error={errors.specification}
                 icon="fa-solid fa-pen"
                 placeholder={dict?.smart_docs?.confirmation_form?.enter_specification || 'Enter Specification'}
                 disabled={readOnly}
@@ -3496,23 +5112,30 @@ export function ContractDocumentForm({
           </div>
 
           {/* ROW 8: SHIPMENT PERIOD */}
-          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="shipmentPeriod">
+          <div
+            id="field-shipmentPeriod"
+            className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border"
+            data-field="shipmentPeriod"
+          >
             <div className="md:col-span-3 py-1.5 px-2.5 sm:px-3 flex items-center">
               <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                 {dict?.smart_docs?.confirmation_form?.shipment_period || 'SHIPMENT PERIOD'}
               </label>
             </div>
-            <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex items-center">
+            <div className="md:col-span-9 py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col items-start justify-center">
               <DateRangePicker
+                id="shipment-period-picker"
                 variant="underline"
                 startDate={shipmentRange.start}
                 endDate={shipmentRange.end}
                 onChange={(start, end) => {
                   setShipmentRange({ start, end });
+                  setErrors((prev) => ({ ...prev, shipmentPeriod: '', shipmentStartDate: '', shipmentEndDate: '' }));
                 }}
                 formatString="dd/MM/yyyy"
                 placeholder="SELECT SHIPMENT PERIOD"
                 disabled={readOnly}
+                error={errors.shipmentPeriod || errors.shipmentStartDate || errors.shipmentEndDate}
               />
             </div>
           </div>
@@ -3529,7 +5152,11 @@ export function ContractDocumentForm({
                 id="field-contract-paymentTerm"
                 options={paymentTermsList}
                 value={paymentTerm}
-                onChange={setPaymentTerm}
+                onChange={(val) => {
+                  setPaymentTerm(val);
+                  setErrors((prev) => ({ ...prev, paymentTerm: '' }));
+                }}
+                error={errors.paymentTerm}
                 placeholder="SELECT PAYMENT TERM"
                 searchable={true}
                 disabled={readOnly}
@@ -3598,7 +5225,11 @@ export function ContractDocumentForm({
               <DocUnderlineInput
                 id="field-markingBrand"
                 value={markingBrand}
-                onChange={setMarkingBrand}
+                onChange={(val) => {
+                  setMarkingBrand(val);
+                  setErrors((prev) => ({ ...prev, markingBrand: '' }));
+                }}
+                error={errors.markingBrand}
                 icon="fa-solid fa-pen"
                 placeholder="ENTER MARKING BRAND"
                 disabled={readOnly}
@@ -3759,15 +5390,18 @@ export function ContractDocumentForm({
               </div>
 
               {/* BAG QTY */}
-              <div className="p-1.5 sm:p-2 border-b sm:border-b lg:border-r lg:border-b-0 border-border flex flex-col items-center justify-center">
+              <div className="p-1.5 sm:p-2 border-b sm:border-b lg:border-r lg:border-b-0 border-border flex flex-col items-center justify-center" data-field="bagQty">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   BAG QTY
                 </span>
                 <span className="text-[14px] font-bold text-foreground py-0.5">{bagQty || '-'}</span>
+                {errors.bagQty && (
+                  <span className="text-[11px] text-brand-red font-semibold mt-0.5 px-0.5">{errors.bagQty}</span>
+                )}
               </div>
 
               {/* CURRENCY */}
-              <div className="p-1.5 sm:p-2 border-r border-b sm:border-r sm:border-b-0 lg:border-b-0 border-border flex flex-col items-center justify-center">
+              <div className="p-1.5 sm:p-2 border-r border-b sm:border-r sm:border-b-0 lg:border-b-0 border-border flex flex-col items-center justify-center" data-field="currency">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   CURRENCY
                 </span>
@@ -3776,7 +5410,11 @@ export function ContractDocumentForm({
                     id="field-contract-currency"
                     options={currenciesList}
                     value={currency}
-                    onChange={handleCurrencyChange}
+                    onChange={(val) => {
+                      handleCurrencyChange(val);
+                      setErrors((prev) => ({ ...prev, currency: '' }));
+                    }}
+                    error={errors.currency}
                     disabled={readOnly}
                     searchable={true}
                     loading={isLoadingCurrencies}
@@ -3810,13 +5448,16 @@ export function ContractDocumentForm({
               </div>
 
               {/* TOTAL VALUE */}
-              <div className="p-1.5 sm:p-2 col-span-2 sm:col-span-2 lg:col-span-1 flex flex-col items-center justify-center">
+              <div className="p-1.5 sm:p-2 col-span-2 sm:col-span-2 lg:col-span-1 flex flex-col items-center justify-center" data-field="totalValue">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   TOTAL VALUE ({currencySymbol})
                 </span>
                 <span className="text-[14px] font-bold text-foreground py-0.5">
                   {formatNumberWithCommas(totalValue)}
                 </span>
+                {errors.totalValue && (
+                  <span className="text-[11px] text-brand-red font-semibold mt-0.5 px-0.5">{errors.totalValue}</span>
+                )}
               </div>
             </div>
           ) : (
@@ -3845,15 +5486,18 @@ export function ContractDocumentForm({
               </div>
 
               {/* BAG QTY */}
-              <div className="p-1.5 sm:p-2 border-b sm:border-b-0 sm:border-r border-border flex flex-col items-center justify-center">
+              <div className="p-1.5 sm:p-2 border-b sm:border-b-0 sm:border-r border-border flex flex-col items-center justify-center" data-field="bagQty">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   BAG QTY
                 </span>
                 <span className="text-[14px] font-bold text-foreground py-0.5">{bagQty || '-'}</span>
+                {errors.bagQty && (
+                  <span className="text-[11px] text-brand-red font-semibold mt-0.5 px-0.5">{errors.bagQty}</span>
+                )}
               </div>
 
               {/* CURRENCY */}
-              <div className="p-1.5 sm:p-2 border-r border-b sm:border-b-0 sm:border-r border-border flex flex-col items-center justify-center">
+              <div className="p-1.5 sm:p-2 border-r border-b sm:border-b-0 sm:border-r border-border flex flex-col items-center justify-center" data-field="currency">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   CURRENCY
                 </span>
@@ -3862,7 +5506,11 @@ export function ContractDocumentForm({
                     id="field-contract-currency"
                     options={currenciesList}
                     value={currency}
-                    onChange={handleCurrencyChange}
+                    onChange={(val) => {
+                      handleCurrencyChange(val);
+                      setErrors((prev) => ({ ...prev, currency: '' }));
+                    }}
+                    error={errors.currency}
                     disabled={readOnly}
                     searchable={true}
                     loading={isLoadingCurrencies}
@@ -3896,13 +5544,16 @@ export function ContractDocumentForm({
               </div>
 
               {/* TOTAL VALUE */}
-              <div className="p-1.5 sm:p-2 col-span-2 sm:col-span-1 flex flex-col items-center justify-center">
+              <div className="p-1.5 sm:p-2 col-span-2 sm:col-span-1 flex flex-col items-center justify-center" data-field="totalValue">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   TOTAL VALUE ({currencySymbol})
                 </span>
                 <span className="text-[14px] font-bold text-foreground py-0.5">
                   {formatNumberWithCommas(totalValue)}
                 </span>
+                {errors.totalValue && (
+                  <span className="text-[11px] text-brand-red font-semibold mt-0.5 px-0.5">{errors.totalValue}</span>
+                )}
               </div>
             </div>
           )}
@@ -3918,7 +5569,11 @@ export function ContractDocumentForm({
               <DocUnderlineInput
                 id="field-inspection"
                 value={inspection}
-                onChange={setInspection}
+                onChange={(val) => {
+                  setInspection(val);
+                  setErrors((prev) => ({ ...prev, inspection: '' }));
+                }}
+                error={errors.inspection}
                 icon="fa-solid fa-pen"
                 placeholder="ENTER INSPECTION"
                 disabled={readOnly}
@@ -3938,7 +5593,11 @@ export function ContractDocumentForm({
                 id="field-incoterm"
                 options={shippingTerms || DEFAULT_SHIPPING_TERMS}
                 value={incoterm}
-                onChange={handleIncotermChange}
+                onChange={(val) => {
+                  handleIncotermChange(val);
+                  setErrors((prev) => ({ ...prev, incoterm: '', shippingTerm: '' }));
+                }}
+                error={errors.incoterm || errors.shippingTerm}
                 placeholder="SELECT INCOTERM"
                 disabled={readOnly}
               />
@@ -4198,6 +5857,7 @@ export function ContractDocumentForm({
                             setAdvanceAmount(val);
                             setErrors((prev) => ({ ...prev, advanceAmount: '' }));
                           }}
+                          error={errors.advanceAmount}
                           placeholder="0.00"
                           align="center"
                           disabled={readOnly}
@@ -4224,6 +5884,7 @@ export function ContractDocumentForm({
                               setAdvancePercentage(val);
                               setErrors((prev) => ({ ...prev, advancePercentage: '' }));
                             }}
+                            error={errors.advancePercentage}
                             placeholder="0%"
                             align="center"
                             disabled={readOnly}
@@ -4263,7 +5924,10 @@ export function ContractDocumentForm({
               <DocSegmentedToggle
                 id="toggle-salesBroker"
                 value={isSalesBrokerAllowed}
-                onChange={(val) => setIsSalesBrokerAllowed(val)}
+                onChange={(val) => {
+                  userToggledBrokerRef.current = true;
+                  setIsSalesBrokerAllowed(val);
+                }}
                 trueLabel="ALLOWED"
                 falseLabel="NOT ALLOWED"
                 allowDeselect={true}
@@ -4301,7 +5965,9 @@ export function ContractDocumentForm({
                         value={brokerCommission}
                         onChange={(val) => {
                           setBrokerCommission(val);
+                          setErrors((prev) => ({ ...prev, brokerCommission: '' }));
                         }}
+                        error={errors.brokerCommission}
                         placeholder="0.00"
                         align="center"
                         disabled={readOnly}
@@ -4335,7 +6001,11 @@ export function ContractDocumentForm({
                       <DocUnderlineInput
                         id="field-broker-name"
                         value={brokerName}
-                        onChange={setBrokerName}
+                        onChange={(val) => {
+                          setBrokerName(val);
+                          setErrors((prev) => ({ ...prev, brokerName: '' }));
+                        }}
+                        error={errors.brokerName}
                         placeholder="BROKER NAME"
                         icon="fa-solid fa-pen"
                         disabled={readOnly}
@@ -4367,7 +6037,11 @@ export function ContractDocumentForm({
                   <DocUnderlineInput
                     id="field-freeDays"
                     value={freeDays}
-                    onChange={setFreeDays}
+                    onChange={(val) => {
+                      setFreeDays(val);
+                      setErrors((prev) => ({ ...prev, freeDays: '' }));
+                    }}
+                    error={errors.freeDays}
                     icon="fa-solid fa-pen"
                     placeholder="ENTER FREE DAYS"
                     disabled={readOnly}
@@ -4387,7 +6061,11 @@ export function ContractDocumentForm({
                   <DocUnderlineInput
                     id="field-emptyBags"
                     value={emptyBags}
-                    onChange={setEmptyBags}
+                    onChange={(val) => {
+                      setEmptyBags(val);
+                      setErrors((prev) => ({ ...prev, emptyBags: '' }));
+                    }}
+                    error={errors.emptyBags}
                     icon="fa-solid fa-pen"
                     placeholder="ENTER EMPTY BAGS"
                     disabled={readOnly}
@@ -4407,7 +6085,11 @@ export function ContractDocumentForm({
                   <DocUnderlineInput
                     id="field-additionalComment"
                     value={additionalComment}
-                    onChange={setAdditionalComment}
+                    onChange={(val) => {
+                      setAdditionalComment(val);
+                      setErrors((prev) => ({ ...prev, additionalComment: '', comment: '' }));
+                    }}
+                    error={errors.additionalComment || errors.comment}
                     icon="fa-solid fa-pen"
                     placeholder="ENTER COMMENT"
                     disabled={readOnly}
@@ -4428,7 +6110,11 @@ export function ContractDocumentForm({
               <DocNotesEditor
                 id="field-otherTermsPayment"
                 value={otherTermsPayment}
-                onChange={setOtherTermsPayment}
+                onChange={(val) => {
+                  setOtherTermsPayment(val);
+                  setErrors((prev) => ({ ...prev, otherTermsPayment: '', other_terms_1: '' }));
+                }}
+                error={errors.otherTermsPayment || errors.other_terms_1}
                 placeholder="PAYMENT TERMS, BANK CHARGES INSTRUCTIONS..."
                 disabled={readOnly}
               />
@@ -4445,13 +6131,22 @@ export function ContractDocumentForm({
             <div className="md:col-span-9 py-2 px-2.5 sm:px-3">
               <DocDocumentMultiSelect
                 value={selectedDocuments}
-                onChange={setSelectedDocuments}
+                onChange={(val) => {
+                  setSelectedDocuments(val);
+                  setErrors((prev) => ({ ...prev, documentsRequired: '', documents: '' }));
+                }}
                 options={internalDocumentList}
                 defaultDocuments={defaultDocuments}
                 disabled={readOnly}
                 placeholder="SELECT DOCUMENTS"
                 lang={lang}
               />
+              {(errors.documentsRequired || errors.documents) && (
+                <div className="w-full text-[11px] text-brand-red font-semibold px-0.5 tracking-tight flex items-center gap-1.5 mt-1 select-none">
+                  <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                  <span>{errors.documentsRequired || errors.documents}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -4466,7 +6161,11 @@ export function ContractDocumentForm({
               <DocUnderlineInput
                 id="field-shippingLine"
                 value={shippingLine}
-                onChange={setShippingLine}
+                onChange={(val) => {
+                  setShippingLine(val);
+                  setErrors((prev) => ({ ...prev, shippingLine: '' }));
+                }}
+                error={errors.shippingLine}
                 icon="fa-solid fa-pen"
                 placeholder="SHIPMENT IN CONTAINERS ( DO NOT USE NVOCC & IRANIAN SHIPPING LINE )"
                 disabled={readOnly}
@@ -4485,7 +6184,11 @@ export function ContractDocumentForm({
               <DocUnderlineInput
                 id="field-arbitration"
                 value={arbitration}
-                onChange={setArbitration}
+                onChange={(val) => {
+                  setArbitration(val);
+                  setErrors((prev) => ({ ...prev, arbitration: '' }));
+                }}
+                error={errors.arbitration}
                 icon="fa-solid fa-pen"
                 placeholder="ENTER ARBITRATION"
                 disabled={readOnly}
@@ -4504,7 +6207,11 @@ export function ContractDocumentForm({
               <DocNotesEditor
                 id="field-containerStandards"
                 value={containerStandards}
-                onChange={setContainerStandards}
+                onChange={(val) => {
+                  setContainerStandards(val);
+                  setErrors((prev) => ({ ...prev, containerStandards: '', other_terms_2: '' }));
+                }}
+                error={errors.containerStandards || errors.other_terms_2}
                 placeholder="SPECIAL CONTAINER TERMS, EMPTY BAGS, SILICA GEL, PLASTIC SHEETS..."
                 disabled={readOnly}
               />
@@ -4522,7 +6229,11 @@ export function ContractDocumentForm({
               <DocNotesEditor
                 id="field-forceMajeur"
                 value={forceMajeur}
-                onChange={setForceMajeur}
+                onChange={(val) => {
+                  setForceMajeur(val);
+                  setErrors((prev) => ({ ...prev, forceMajeur: '' }));
+                }}
+                error={errors.forceMajeur}
                 placeholder="FORCE MAJEURE CLAUSES..."
                 disabled={readOnly}
               />
@@ -4540,7 +6251,11 @@ export function ContractDocumentForm({
               <DocNotesEditor
                 id="field-confidentiality"
                 value={confidentiality}
-                onChange={setConfidentiality}
+                onChange={(val) => {
+                  setConfidentiality(val);
+                  setErrors((prev) => ({ ...prev, confidentiality: '' }));
+                }}
+                error={errors.confidentiality}
                 placeholder="CONFIDENTIALITY AND BROKER SAFETY PROTECTION CLAUSE..."
                 disabled={readOnly}
               />
@@ -4558,7 +6273,11 @@ export function ContractDocumentForm({
               <DocNotesEditor
                 id="field-contract-notes"
                 value={notes}
-                onChange={setNotes}
+                onChange={(val) => {
+                  setNotes(val);
+                  setErrors((prev) => ({ ...prev, notes: '' }));
+                }}
+                error={errors.notes}
                 placeholder="WRITE YOUR DESCRIPTION..."
                 disabled={readOnly}
               />
@@ -4567,7 +6286,7 @@ export function ContractDocumentForm({
 
           {/* ROW 34: SIGNATURES - RESPONSIVE COLLAPSIBLE ON MOBILE/TABLET & SIDE-BY-SIDE ON DESKTOP */}
           <ContractSignatureSection
-            isSalesBrokerAllowed={isSalesBrokerAllowed}
+            isSalesBrokerAllowed={Boolean(isSalesBrokerAllowed)}
             exporterTitle={exporterTitle}
             onExporterTitleChange={setExporterTitle}
             exporterSignature={exporterSignature}
@@ -4587,6 +6306,9 @@ export function ContractDocumentForm({
             importerAuthorityTitle={importerAuthorityTitle}
             onImporterAuthorityTitleChange={setImporterAuthorityTitle}
             readOnly={readOnly}
+            exporterError={errors.exporterSignature || errors.seller_signature}
+            brokerError={errors.brokerSignature || errors.broker_signature}
+            importerError={errors.importerSignature || errors.buyer_signature}
           />
 
         </div>

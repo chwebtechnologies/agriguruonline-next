@@ -9,6 +9,7 @@ export interface DocNotesEditorProps {
   disabled?: boolean;
   className?: string;
   id?: string;
+  error?: string | null;
 }
 
 export function DocNotesEditor({
@@ -18,6 +19,7 @@ export function DocNotesEditor({
   disabled = false,
   className = '',
   id = 'notes-editor',
+  error = null,
 }: DocNotesEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalChange = useRef(false);
@@ -82,7 +84,11 @@ export function DocNotesEditor({
 
   return (
     <div
-      className={`w-full flex flex-col rounded-md border border-border bg-card focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all shadow-xs ${className}`}
+      className={`w-full flex flex-col rounded-md border ${
+        error
+          ? 'border-brand-red ring-1 ring-brand-red/30'
+          : 'border-border focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20'
+      } bg-card transition-all shadow-xs ${className}`}
     >
       {/* Rich Text Toolbar with Font Awesome icons */}
       <div className="flex flex-wrap items-center gap-1 px-2 py-1 border-b border-border bg-muted/40 text-muted-foreground select-none print:hidden">
@@ -210,6 +216,13 @@ export function DocNotesEditor({
           </div>
         )}
       </div>
+
+      {error && (
+        <div className="w-full text-[11px] text-brand-red font-semibold px-2 py-1 tracking-tight flex items-center gap-1.5 border-t border-brand-red/30 bg-destructive/5 select-none animate-in fade-in duration-200">
+          <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+          <span className="text-brand-red">{error}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { getSmartDocsApiUrl, getSafeLang } from '@/lib/api-utils';
+import { getSmartDocsApiUrl, getSafeLang, getAssetsUrl } from '@/lib/api-utils';
 import { customFetch, customFetchJSON } from './fetcher';
 
 export interface SmartDocsListParams {
@@ -879,36 +879,59 @@ export const smartDocsService = {
 
   /**
    * Saves or updates a Contract draft with authentication:
-   * POST /contract/save?lang_code=en&source=web
+   * PATCH /contract/save/{id}?lang_code=en&source=web
+   * Supports FormData (for binary images/signatures) and JSON payload.
    */
   saveContractDraft: async (
     payload: any,
-    params: { lang?: string; source?: string } = {},
+    params: { lang?: string; source?: string; id?: string } = {},
     token: string
   ): Promise<any | null> => {
     if (!token) return null;
 
     const baseUrl = getSmartDocsApiUrl();
     const safeLang = getSafeLang(params.lang || 'en');
-    const url = `${baseUrl}/contract/save`;
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const rawCandidate =
+      params.id ||
+      (isFormData
+        ? (payload.get('contract_id') || payload.get('id') || payload.get('confirmation_id'))
+        : (payload?.contract_id || payload?.id || payload?.confirmation_id));
+
+    const cleanCandidate = sanitizeDocId(rawCandidate);
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(cleanCandidate);
+    const cleanId = isPlaceholder ? '' : cleanCandidate;
+
+    const url = cleanId ? `${baseUrl}/contract/save/${encodeURIComponent(cleanId)}` : `${baseUrl}/contract/save`;
 
     try {
-      const sanitizedPayload = cleanContractPayload(payload);
-      const response = await customFetch(url, {
-        method: 'POST',
+      const headers: Record<string, string> = {};
+      let body: any;
+
+      if (isFormData) {
+        body = payload;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(cleanContractPayload(payload));
+      }
+
+      let response = await customFetch(url, {
+        method: 'PATCH',
         token,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         params: {
           lang_code: safeLang,
           source: params.source || 'web',
         },
-        body: JSON.stringify(sanitizedPayload),
+        body,
         cache: 'no-store',
       });
 
-      const json = await response.json().catch(() => null);
+      let json = await response.json().catch(() => null);
+
       if (!response.ok) {
         return {
           ...(typeof json === 'object' && json !== null ? json : {}),
@@ -933,6 +956,7 @@ export const smartDocsService = {
             json.status === 201 ||
             json.status === 'success',
           error_fields: json.error_fields || json.data?.error_fields || null,
+          errors: json.errors || json.data?.errors || null,
           raw: json,
         };
       }
@@ -1283,7 +1307,10 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
         key === 'is_broker' ||
         key === 'sales_broker_allowed' ||
         key === 'broker_commission_type' ||
-        key === 'sales_broker_type'
+        key === 'sales_broker_type' ||
+        key === 'seller_signature' ||
+        key === 'buyer_signature' ||
+        key === 'broker_signature'
       ) {
         cleaned[key] = null;
       }
@@ -1328,24 +1355,95 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
 }
 
 /**
+ * Formats a signature endpoint or path into a fully qualified image URL using the assets CDN domain.
+ * If raw is null, undefined, 'null', or empty, returns an empty string.
+ * Supports string paths or objects ({ url: '...', path: '...' }).
+ */
+export function formatSignatureUrl(raw?: any): string {
+  if (!raw) return '';
+  let str = '';
+  if (typeof raw === 'string') {
+    str = raw.trim();
+  } else if (typeof raw === 'object') {
+    const possibleKeys = ['url', 'path', 'src', 'image', 'file', 'endpoint', 'location'];
+    for (const pk of possibleKeys) {
+      if (raw[pk] && typeof raw[pk] === 'string') {
+        str = raw[pk].trim();
+        break;
+      }
+    }
+  }
+
+  if (
+    !str ||
+    str === 'null' ||
+    str === 'undefined' ||
+    str === '[object Object]'
+  ) {
+    return '';
+  }
+
+  // If already a base64 data URL, blob URL, or full HTTP/HTTPS URL
+  if (str.startsWith('data:') || str.startsWith('blob:') || /^https?:\/\//i.test(str)) {
+    return str.replace('assets.agriguruonline.cloud', 'assets.agriguruonline.com');
+  }
+
+  const assetsUrl = getAssetsUrl();
+  const cleanPath = str.replace(/^\/+/, '');
+  return `${assetsUrl}/${cleanPath}`;
+}
+
+/**
+ * Normalizes signature value for payload submission.
+ * - If data URL / base64: returns the new drawn/uploaded signature.
+ * - If unmodified URL with asset prefix: strips back to relative endpoint.
+ * - If empty/null: returns null so the backend properly clears or omits it.
+ */
+export function normalizeSignaturePayload(sig?: string | null): string | null | undefined {
+  if (!sig || typeof sig !== 'string') return null;
+  const trimmed = sig.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  const assetsUrl = getAssetsUrl();
+  if (trimmed.startsWith(assetsUrl)) {
+    return trimmed.slice(assetsUrl.length).replace(/^\//, '');
+  }
+  return trimmed;
+}
+
+/**
  * Robustly extracts the contract document object from backend API response.
  */
 export function extractContractData(data: any): any {
   if (!data) return null;
-  let current = data;
-  let parentData: any = null;
-  if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
-    parentData = current.data;
-    current = current.data;
-    if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
-      current = current.data;
+  let root = data;
+  let dataLevel = data?.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : null;
+  let nestedDataLevel = dataLevel?.data && typeof dataLevel.data === 'object' && !Array.isArray(dataLevel.data) ? dataLevel.data : null;
+  let contractLevel = (nestedDataLevel?.contract || dataLevel?.contract || root?.contract);
+  if (contractLevel && typeof contractLevel !== 'object') contractLevel = null;
+
+  const merged: Record<string, any> = {};
+  const layers = [contractLevel, nestedDataLevel, dataLevel, root].filter(Boolean);
+
+  for (const layer of layers) {
+    for (const [k, v] of Object.entries(layer)) {
+      if (k === 'contract' || k === 'data') continue;
+      const isValid = v !== undefined && v !== null && v !== '' && v !== 'null' && v !== 'undefined';
+      if (isValid) {
+        merged[k] = v;
+      } else if (merged[k] === undefined) {
+        merged[k] = v;
+      }
     }
   }
-  if (current.contract && typeof current.contract === 'object' && !Array.isArray(current.contract)) {
-    // Merge so parent level fields (like signature fields/labels) and contract fields are both preserved
-    current = { ...(parentData || {}), ...current, ...current.contract };
+
+  if (contractLevel) {
+    merged.contract = contractLevel;
   }
-  return current;
+
+  return merged;
 }
 
 /**
@@ -1369,7 +1467,10 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
         key === 'is_broker' ||
         key === 'sales_broker_allowed' ||
         key === 'broker_commission_type' ||
-        key === 'sales_broker_type'
+        key === 'sales_broker_type' ||
+        key === 'seller_signature' ||
+        key === 'buyer_signature' ||
+        key === 'broker_signature'
       ) {
         cleaned[key] = null;
       }
@@ -1508,6 +1609,147 @@ export function extractStepperList(data: any): StepperDocumentItem[] {
   }
 
   return [];
+}
+
+export type NormalizedStepStatus = 'completed' | 'in_progress' | 'pending' | 'locked';
+
+export function normalizeStepStatus(rawStatus?: string): NormalizedStepStatus {
+  if (!rawStatus) return 'pending';
+  const s = String(rawStatus).toLowerCase().trim();
+  if (['completed', 'complete', 'done', 'approved', 'success', 'finished'].includes(s)) {
+    return 'completed';
+  }
+  if (['in_progress', 'inprogress', 'in-progress', 'active', 'current', 'processing', 'draft'].includes(s)) {
+    return 'in_progress';
+  }
+  if (['locked', 'lock', 'blocked'].includes(s)) {
+    return 'locked';
+  }
+  return 'pending';
+}
+
+/**
+ * Extracts a clean document/step ID from a StepperDocumentItem.
+ * Filters out dummy placeholder names like "contract", "sales-contract", etc.
+ */
+export function extractStepId(step?: StepperDocumentItem | null): string {
+  if (!step) return '';
+  const isInvalidPlaceholder = (val: string) =>
+    !val ||
+    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+      val.trim()
+    );
+
+  const status = normalizeStepStatus(step.status || step.document_status || step.step_status);
+
+  // Explicit document ID fields from backend
+  const explicitCandidates = [
+    step.contract_id,
+    step.contractId,
+    step.confirmation_id,
+    step.confirmationId,
+    step.document_id,
+    step.documentId,
+    step.doc_id,
+    step.docId,
+    step.smart_doc_id,
+    step.smartDocId,
+  ];
+
+  for (const raw of explicitCandidates) {
+    if (raw !== undefined && raw !== null) {
+      const clean = String(raw).trim();
+      if (clean && !isInvalidPlaceholder(clean)) {
+        return clean;
+      }
+    }
+  }
+
+  // If status is pending or locked, this step has not generated/attached a document yet.
+  // Never treat the stepper template item _id as a document ID!
+  if (status === 'pending' || status === 'locked') {
+    return '';
+  }
+
+  // Only for active/completed steps, check step.id if distinct from template _id
+  if (step.id && step.id !== step._id) {
+    const clean = String(step.id).trim();
+    if (clean && !isInvalidPlaceholder(clean)) {
+      return clean;
+    }
+  }
+
+  return '';
+}
+
+export function isConfirmationStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (index === 0) return true;
+  if (index === 1) return false;
+  if (!step) return false;
+
+  const stepNum = Number(step.step ?? step.step_number ?? step.order);
+  if (stepNum === 1) return true;
+  if (stepNum === 2) return false;
+
+  const id = String(step.id || step._id || '').toLowerCase();
+  const name = String(
+    step.document_name ||
+    step.name ||
+    step.title ||
+    step.doc_name ||
+    step.step_name ||
+    step.label ||
+    ''
+  ).toLowerCase();
+  return id.includes('confirmation') || name.includes('confirmation');
+}
+
+export function isContractStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (index === 0) return false;
+  if (index === 1) return true;
+  if (!step) return false;
+
+  const stepNum = Number(step.step ?? step.step_number ?? step.order);
+  if (stepNum === 1) return false;
+  if (stepNum === 2) return true;
+
+  const id = String(step.id || step._id || '').toLowerCase();
+  const name = String(
+    step.document_name ||
+    step.name ||
+    step.title ||
+    step.doc_name ||
+    step.step_name ||
+    step.label ||
+    ''
+  ).toLowerCase();
+
+  if (id.includes('confirmation') || name.includes('confirmation')) return false;
+  return id.includes('contract') || name.includes('contract');
+}
+
+export function getContractStep(
+  steps: StepperDocumentItem[] = [],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isContractStep(selectedStep)) {
+    return selectedStep;
+  }
+  const found = steps.find((s, idx) => isContractStep(s, idx));
+  if (found) return found;
+
+  if (steps.length > 1 && !isConfirmationStep(steps[1], 1)) {
+    return steps[1];
+  }
+  return null;
+}
+
+export function getContractIdFromStepper(
+  steps: StepperDocumentItem[] = [],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getContractStep(steps, selectedStep);
+  return extractStepId(step);
 }
 
 export interface SmartDocsInstructionsParams {

@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { getSafeLang } from "@/lib/api-utils";
+import { getSafeLang, getAssetsUrl } from "@/lib/api-utils";
 import { refreshTokensAction } from "@/app/actions/auth";
 import {
   smartDocsService,
@@ -1009,7 +1009,8 @@ export interface SaveContractDraftActionResult {
  */
 export async function saveContractDraftAction(
   payload: any,
-  lang: string = "en"
+  lang: string = "en",
+  id?: string
 ): Promise<SaveContractDraftActionResult> {
   try {
     const cookieStore = await cookies();
@@ -1036,12 +1037,29 @@ export async function saveContractDraftAction(
       };
     }
 
+    const isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("contract_id") || payload.get("id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.contract_id || payload?.id || payload?.confirmation_id || "").trim());
+
+    // Filter out invalid placeholder words like "contract", "confirmation", etc.
+    const effectiveId =
+      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawEffectiveId)
+        ? rawEffectiveId
+        : undefined;
+
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.saveContractDraft(
       payload,
       {
         lang: safeLang,
         source: "web",
+        id: effectiveId,
       },
       token
     );
@@ -1062,6 +1080,7 @@ export async function saveContractDraftAction(
             {
               lang: safeLang,
               source: "web",
+              id: effectiveId,
             },
             refreshRes.access_token
           );
@@ -1097,7 +1116,8 @@ export async function saveContractDraftAction(
       rawRes?.id ||
       rawRes?._id ||
       rawRes?.data?.confirmation_id ||
-      rawRes?.confirmation_id;
+      rawRes?.confirmation_id ||
+      effectiveId;
 
     if (isSuccess) {
       try {
@@ -1111,7 +1131,7 @@ export async function saveContractDraftAction(
         success: true,
         message: rawRes.message || "Contract draft saved successfully!",
         data: rawRes.data || rawRes,
-        id: generatedId ? String(generatedId) : payload.id,
+        id: generatedId ? String(generatedId) : effectiveId,
         raw: rawRes.raw || rawRes,
       };
     }
@@ -1131,7 +1151,7 @@ export async function saveContractDraftAction(
       errors: errorFields,
       error_fields: errorFields,
       raw: rawRes.raw || rawRes,
-      id: generatedId ? String(generatedId) : payload.id,
+      id: generatedId ? String(generatedId) : effectiveId,
       error: rawRes?.message || "Failed to save contract draft",
     };
   } catch (error: any) {
@@ -1660,6 +1680,73 @@ export async function downloadDocPdfAction(
     };
   }
 }
+
+/**
+ * Server Action to securely fetch a remote signature or stamp image
+ * and convert it to a non-tainted base64 Data URL for HTML5 Canvas.
+ * Solves browser CORS restrictions and prevents canvas SecurityError.
+ */
+export async function fetchSignatureAsDataUrlAction(
+  url: string
+): Promise<string | null> {
+  if (!url || typeof url !== "string") return null;
+  const trimmed = url.trim();
+  if (
+    !trimmed ||
+    trimmed === "null" ||
+    trimmed === "undefined" ||
+    trimmed === "[object Object]"
+  ) {
+    return null;
+  }
+
+  // If already a Data URL or Blob URL, return directly
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
+
+  try {
+    let targetUrl = trimmed;
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      const assetsUrl = getAssetsUrl();
+      targetUrl = `${assetsUrl}/${targetUrl.replace(/^\/+/, "")}`;
+    }
+
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    let res = await fetch(targetUrl, {
+      headers,
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      // Retry without Authorization (in case of Cloud Storage / S3 / public CDN asset)
+      res = await fetch(targetUrl, { cache: "no-store" });
+    }
+
+    if (!res.ok) {
+      console.warn("[fetchSignatureAsDataUrlAction] Failed to fetch image:", res.status, targetUrl);
+      return null;
+    }
+
+    const buffer = await res.arrayBuffer();
+    const contentType = res.headers.get("content-type") || "image/png";
+    const base64 = Buffer.from(buffer).toString("base64");
+    return `data:${contentType};base64,${base64}`;
+  } catch (err) {
+    console.warn("[fetchSignatureAsDataUrlAction] Exception while converting signature:", trimmed, err);
+    return null;
+  }
+}
+
 
 
 

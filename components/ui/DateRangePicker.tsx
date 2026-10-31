@@ -408,7 +408,7 @@ export function DateRangePicker({
   // Underline variant border styles
   let borderStyle = 'border-b-2 border-dotted border-primary/70 dark:border-primary/80 hover:border-primary';
   if (error) {
-    borderStyle = 'border-b-2 border-solid border-destructive text-destructive bg-destructive/5';
+    borderStyle = 'border-b-2 border-solid !border-brand-red text-brand-red bg-destructive/5';
   } else if (disabled) {
     borderStyle = 'border-b-2 border-dotted border-muted-foreground/30 opacity-60 cursor-not-allowed';
   } else if (isOpen || isFocused) {
@@ -452,7 +452,11 @@ export function DateRangePicker({
         style={{ outline: 'none', boxShadow: 'none' }}
         className={
           variant === 'underline'
-            ? `w-full flex items-center justify-between gap-1.5 px-1.5 py-0.5 min-h-[30px] text-[14px] rounded-t-sm transition-all duration-150 text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 border-t-0 border-x-0 ${borderStyle} focus:border-solid focus:border-primary focus:bg-primary/10 cursor-pointer print:border-none`
+            ? `w-full flex items-center justify-between gap-1.5 px-1.5 py-0.5 min-h-[30px] text-[14px] rounded-t-sm transition-all duration-150 text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 border-t-0 border-x-0 ${borderStyle} ${
+                error
+                  ? '!border-brand-red focus:!border-brand-red focus:border-solid text-brand-red'
+                  : 'focus:border-solid focus:border-primary focus:bg-primary/10'
+              } cursor-pointer print:border-none`
             : `w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-between transition-colors ${
                 disabled
                   ? 'border-border pointer-events-none bg-muted text-muted-foreground'
@@ -465,7 +469,7 @@ export function DateRangePicker({
         <span
           className={
             variant === 'underline'
-              ? `truncate flex-1 text-[14px] ${displayValue ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground/50 uppercase'}`
+              ? `truncate flex-1 text-[14px] ${error ? 'font-semibold text-brand-red' : displayValue ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground/50 uppercase'}`
               : `font-semibold ${startDate ? 'text-primary-foreground' : 'font-medium text-muted-foreground'}`
           }
         >
@@ -474,7 +478,7 @@ export function DateRangePicker({
         <i
           className={
             variant === 'underline'
-              ? `fa-regular fa-calendar ${isOpen || isFocused ? 'text-primary font-bold scale-110' : 'text-primary hover:text-primary-hover'} text-xs shrink-0 transition-all ml-1.5`
+              ? `fa-regular fa-calendar ${error ? '!text-brand-red' : isOpen || isFocused ? 'text-primary font-bold scale-110' : 'text-primary hover:text-primary-hover'} text-xs shrink-0 transition-all ml-1.5`
               : `fa-regular fa-calendar ${startDate ? 'text-primary-foreground/90' : 'text-muted-foreground'}`
           }
         />

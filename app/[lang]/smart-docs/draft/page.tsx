@@ -15,6 +15,8 @@ import {
   extractConfirmationData,
   extractContractData,
   extractDocumentListData,
+  isContractStep,
+  extractStepId,
 } from '@/lib/api/smart-docs.service';
 
 export const dynamic = 'force-dynamic';
@@ -27,14 +29,14 @@ export async function generateMetadata(props: {
   const searchParams = props.searchParams ? await props.searchParams : undefined;
   const activeLang = getSafeLanguage(params?.lang);
   const siteUrl = getSiteUrl();
-  const isContractStep = searchParams?.step === 'contract' || searchParams?.step === '2';
+  const isContractRequested = searchParams?.step === 'contract' || searchParams?.step === '2';
   const queryParts = [];
   if (searchParams?.id) queryParts.push(`id=${encodeURIComponent(searchParams.id)}`);
   if (searchParams?.step) queryParts.push(`step=${encodeURIComponent(searchParams.step)}`);
   const idQuery = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
   return {
-    title: `${isContractStep ? 'Draft Contract' : 'Draft Confirmation'} | Smart Docs | AgriGuru Online`,
+    title: `${isContractRequested ? 'Draft Contract' : 'Draft Confirmation'} | Smart Docs | AgriGuru Online`,
     description: 'Create and configure smart agricultural trade confirmation and contract drafts.',
     robots: {
       index: false,
@@ -55,7 +57,7 @@ export default async function SmartDocsDraftPage(props: {
   const lang = getSafeLanguage(params?.lang);
   const draftId = searchParams?.id ? String(searchParams.id).trim() : '';
   const initialStepParam = searchParams?.step ? String(searchParams.step).trim() : '';
-  const isContractStep = initialStepParam === 'contract' || initialStepParam === '2';
+  const isContractRequested = initialStepParam === 'contract' || initialStepParam === '2';
 
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
@@ -181,12 +183,32 @@ export default async function SmartDocsDraftPage(props: {
   const initialCurrencies = extractCurrenciesData(currenciesRes);
   const initialDocumentList = extractDocumentListData(documentListRes);
   const initialConfirmationData = extractConfirmationData(confirmationRes);
-  const initialContractData = extractContractData(contractRes);
+  let initialContractData = extractContractData(contractRes);
+
+  const stepperContractStep = initialSteps.find((s, idx) => isContractStep(s, idx));
+  const stepperContractId = extractStepId(stepperContractStep);
+
+  // If initialContractData wasn't fetched yet (because draftId in URL was confirmation ID)
+  // and stepper has a valid contract step ID, fetch the contract data immediately!
+  if (!initialContractData && stepperContractId && stepperContractId !== draftId) {
+    try {
+      const contractDetailsRes = await smartDocsService.getContract(
+        stepperContractId,
+        { lang, source: 'web' },
+        token
+      );
+      if (contractDetailsRes?.success && contractDetailsRes.data) {
+        initialContractData = extractContractData(contractDetailsRes.data);
+      }
+    } catch {
+      // non-blocking
+    }
+  }
 
   // If this ID is a Contract (or contract step requested), ensure initialStepParam defaults to contract
   const effectiveStepParam =
     initialStepParam ||
-    (isContractStep
+    (isContractRequested
       ? 'contract'
       : initialContractData && !initialConfirmationData
       ? 'contract'

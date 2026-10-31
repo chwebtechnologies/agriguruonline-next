@@ -90,7 +90,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
       'border-b-2 border-dotted border-primary/70 dark:border-primary/80 hover:border-primary bg-transparent';
 
     if (error) {
-      borderStyle = 'border-b-2 border-solid border-brand-red bg-transparent';
+      borderStyle = 'border-b-2 border-solid !border-brand-red text-brand-red bg-transparent';
     } else if (disabled) {
       borderStyle = 'border-b-2 border-dotted border-muted-foreground/30 opacity-60 cursor-not-allowed bg-transparent';
     } else if (isFocused) {
@@ -185,7 +185,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
           }}
           className={`relative flex ${multiline ? 'items-start pt-1' : 'items-center'} w-full px-1.5 py-0.5 min-h-[30px] rounded-t-sm transition-all duration-150 ${borderStyle} ${
             error
-              ? 'focus-within:border-brand-red'
+              ? '!border-brand-red focus-within:!border-brand-red focus-within:border-solid'
               : 'focus-within:border-solid focus-within:border-primary'
           } ${type === 'date' && !disabled && !readOnly ? 'cursor-pointer' : ''} bg-transparent print:border-none`}
         >
@@ -198,7 +198,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               style={{ outline: 'none' }}
               className={`mr-1.5 ${
                 error
-                  ? 'text-brand-red'
+                  ? '!text-brand-red'
                   : isFocused
                   ? 'text-primary scale-110 font-bold'
                   : 'text-primary hover:text-primary-hover'
@@ -312,7 +312,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               disabled={disabled || readOnly}
               className={`ml-1.5 ${
                 error
-                  ? 'text-brand-red'
+                  ? '!text-brand-red'
                   : isFocused
                   ? 'text-primary scale-110 font-bold'
                   : 'text-primary hover:text-primary-hover'

@@ -28,6 +28,9 @@ export interface ContractSignatureSectionProps {
   onImporterAuthorityTitleChange: (val: string) => void;
 
   readOnly?: boolean;
+  exporterError?: string | null;
+  brokerError?: string | null;
+  importerError?: string | null;
 }
 
 export function ContractSignatureSection({
@@ -55,6 +58,9 @@ export function ContractSignatureSection({
   onImporterAuthorityTitleChange,
 
   readOnly = false,
+  exporterError = null,
+  brokerError = null,
+  importerError = null,
 }: ContractSignatureSectionProps) {
   // Mobile / Tablet accordion active tab: 'exporter' | 'broker' | 'importer' | null
   // Defaults to null (collapsed) so user isn't overwhelmed by lengthy stacked boxes
@@ -86,6 +92,7 @@ export function ContractSignatureSection({
           titlePlaceholder="BUYER SIGNATURE"
           authorityPlaceholder="BUYER SIGNATURE LABEL"
           readOnly={readOnly}
+          error={importerError}
         />
         {isSalesBrokerAllowed && (
           <DocSignatureBox
@@ -99,6 +106,7 @@ export function ContractSignatureSection({
             titlePlaceholder="BROKER SIGNATURE"
             authorityPlaceholder="BROKER SIGNATURE LABEL"
             readOnly={readOnly}
+            error={brokerError}
           />
         )}
         <DocSignatureBox
@@ -112,6 +120,7 @@ export function ContractSignatureSection({
           titlePlaceholder="SELLER SIGNATURE"
           authorityPlaceholder="SELLER SIGNATURE LABEL"
           readOnly={readOnly}
+          error={exporterError}
         />
       </div>
 
@@ -177,6 +186,7 @@ export function ContractSignatureSection({
                 titlePlaceholder="SELLER SIGNATURE"
                 authorityPlaceholder="SELLER SIGNATURE LABEL"
                 readOnly={readOnly}
+                error={exporterError}
               />
             </div>
           )}
@@ -237,6 +247,7 @@ export function ContractSignatureSection({
                 titlePlaceholder="BROKER SIGNATURE"
                 authorityPlaceholder="BROKER SIGNATURE LABEL"
                 readOnly={readOnly}
+                error={brokerError}
               />
             </div>
           )}
@@ -297,6 +308,7 @@ export function ContractSignatureSection({
               titlePlaceholder="BUYER SIGNATURE"
               authorityPlaceholder="BUYER SIGNATURE LABEL"
               readOnly={readOnly}
+              error={importerError}
             />
           </div>
         )}
