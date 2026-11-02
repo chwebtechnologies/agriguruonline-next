@@ -1986,21 +1986,27 @@ export function ConfirmationDocumentForm({
 
   // Helper to fetch and populate product specific fields (HSN, Spec, Packing Types, Loading & Destination Ports)
   const fetchAndApplyProductDetails = useCallback(
-    async (targetProdId: string) => {
+    async (targetProdId: string, forceOverwrite = false) => {
       if (!targetProdId || !targetProdId.trim()) return;
       const cleanId = targetProdId.trim();
 
       // Check cache first
       if (productDetailsCacheRef.current[cleanId]) {
         const cached = productDetailsCacheRef.current[cleanId];
-        if (cached.hsnCode || cached.hsn) {
-          setHsnCode(normalizeHsnString(cached.hsnCode || cached.hsn));
+        if (forceOverwrite || !hsnCode) {
+          if (cached.hsnCode || cached.hsn) {
+            setHsnCode(normalizeHsnString(cached.hsnCode || cached.hsn));
+          }
         }
-        if (cached.country) {
-          setProductCountry(normalizeCountryString(cached.country));
+        if (forceOverwrite || !productCountry) {
+          if (cached.country) {
+            setProductCountry(normalizeCountryString(cached.country));
+          }
         }
-        if (cached.specification) {
-          setSpecification(cached.specification);
+        if (forceOverwrite || !specification) {
+          if (cached.specification) {
+            setSpecification(cached.specification);
+          }
         }
         if (cached.packingTypes && cached.packingTypes.length > 0) {
           setInternalPackingOptions(cached.packingTypes);
@@ -2035,14 +2041,20 @@ export function ConfirmationDocumentForm({
             return;
           }
 
-          if (d.hsnCode || d.hsn) {
-            setHsnCode(normalizeHsnString(d.hsnCode || d.hsn));
+          if (forceOverwrite || !hsnCode) {
+            if (d.hsnCode || d.hsn) {
+              setHsnCode(normalizeHsnString(d.hsnCode || d.hsn));
+            }
           }
-          if (d.country) {
-            setProductCountry(normalizeCountryString(d.country));
+          if (forceOverwrite || !productCountry) {
+            if (d.country) {
+              setProductCountry(normalizeCountryString(d.country));
+            }
           }
-          if (d.specification) {
-            setSpecification(d.specification);
+          if (forceOverwrite || !specification) {
+            if (d.specification) {
+              setSpecification(d.specification);
+            }
           }
           if (d.packingTypes && d.packingTypes.length > 0) {
             setInternalPackingOptions(d.packingTypes);
@@ -2062,7 +2074,7 @@ export function ConfirmationDocumentForm({
         }
       }
     },
-    [lang]
+    [lang, hsnCode, productCountry, specification]
   );
 
   // Auto-fill HSN, Country & Specification when Product is selected, and trigger product details API
@@ -2125,7 +2137,7 @@ export function ConfirmationDocumentForm({
       if (resolvedSpec) setSpecification(resolvedSpec);
 
       const targetId = String(found.id || found._id || found.value || prodId);
-      fetchAndApplyProductDetails(targetId);
+      fetchAndApplyProductDetails(targetId, true);
     } else {
       setHsnCode('');
       setProductCountry('');
@@ -2134,7 +2146,7 @@ export function ConfirmationDocumentForm({
       setInternalLoadingPorts([]);
       setInternalDestinationPorts([]);
       if (prodId) {
-        fetchAndApplyProductDetails(prodId);
+        fetchAndApplyProductDetails(prodId, true);
       }
     }
   };
@@ -2204,15 +2216,15 @@ export function ConfirmationDocumentForm({
         }
         const targetId = String(found.id || found._id || found.value || productId);
         if (!productDetailsCacheRef.current[targetId]) {
-          fetchAndApplyProductDetails(targetId);
+          fetchAndApplyProductDetails(targetId, false);
         }
       } else {
         if (!productDetailsCacheRef.current[productId]) {
-          fetchAndApplyProductDetails(productId);
+          fetchAndApplyProductDetails(productId, false);
         }
       }
     }
-  }, [productId, hsnCode, productCountry, specification, productsList, fetchAndApplyProductDetails]);
+  }, [productId, productsList, fetchAndApplyProductDetails]);
 
   // Track document ID to prevent background RSC re-renders from wiping active user edits
   const lastLoadedDocIdRef = useRef<string>(
@@ -2620,15 +2632,9 @@ export function ConfirmationDocumentForm({
       initialData.confirmationId
     );
 
-    // If the form was already initialized and this incoming data is for the SAME document (e.g. background RSC re-render after Server Action),
-    // NEVER overwrite the user's active in-progress edits!
+    // Once the form was already initialized, NEVER overwrite the user's active in-progress edits!
     if (isFormInitializedRef.current) {
-      if (incomingDocId && incomingDocId === lastLoadedDocIdRef.current) {
-        return;
-      }
-      if (!incomingDocId && !lastLoadedDocIdRef.current) {
-        return;
-      }
+      return;
     }
 
     // New document or initial async load
@@ -3122,20 +3128,14 @@ export function ConfirmationDocumentForm({
           }
         }
 
-        // Concurrently trigger required post-save API workflows:
-        // 1. To update stepper:
-        //    GET /dms/stepper-list/confirmation/:id?lang_code=en&source=web
-        // 2. Form me data fill and set karvane ke liye:
-        //    GET /confirmation/:id?lang_code=en&source=web
+        // Concurrently trigger required post-save API workflow:
+        // Update stepper via GET /dms/stepper-list/confirmation/:id?lang_code=en&source=web
         try {
-          const [stepperRes, confirmationRes] = await Promise.all([
-            getStepperListAction({
-              action: 'confirmation',
-              step: cleanId,
-              lang,
-            }),
-            getConfirmationAction(cleanId, lang),
-          ]);
+          const stepperRes = await getStepperListAction({
+            action: 'confirmation',
+            step: cleanId,
+            lang,
+          });
 
           if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
             if (onUpdateSteps) {
@@ -3143,12 +3143,8 @@ export function ConfirmationDocumentForm({
             }
           }
 
-          if (confirmationRes?.success && confirmationRes.data) {
-            populateConfirmationData(confirmationRes.data);
-          }
-
           if (onSaveSuccess) {
-            await onSaveSuccess(cleanId, confirmationRes?.data || result?.data);
+            await onSaveSuccess(cleanId, result?.data);
           }
         } catch (postSyncErr) {
           console.error('[ConfirmationDocumentForm] Post-save API sync error:', postSyncErr);

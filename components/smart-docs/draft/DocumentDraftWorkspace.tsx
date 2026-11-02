@@ -18,6 +18,7 @@ import {
 import DocumentStatusStepper from './DocumentStatusStepper';
 import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
 import ContractDocumentForm from './form/ContractDocumentForm';
+import DocumentDraftSkeleton from './DocumentDraftSkeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
   saveConfirmationDraftAction,
@@ -122,7 +123,10 @@ export function DocumentDraftWorkspace({
     initialId || initialContractData?.id || initialContractData?._id || initialData?.id || initialData?._id || initialData?.confirmation_id || ''
   );
   const [contractData, setContractData] = useState<any>(initialContractData || null);
-  const [isLoadingContract, setIsLoadingContract] = useState<boolean>(false);
+  const [isLoadingContract, setIsLoadingContract] = useState<boolean>(() => {
+    const isInitiallyContract = initialStepParam === 'contract' || initialStepParam === '2';
+    return isInitiallyContract && !initialContractData;
+  });
 
   // Compute initial selected step (honoring explicit URL param or defaulting to latest open step)
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(() =>
@@ -166,6 +170,11 @@ export function DocumentDraftWorkspace({
       setSelectedStep(step);
       setIsMobileStepperOpen(false);
 
+      const isSelectingContract = index === 1 || isContractStep(step, index);
+      if (isSelectingContract && !contractData && !initialContractData) {
+        setIsLoadingContract(true);
+      }
+
       const stepDocId = extractStepId(step);
       if (stepDocId) {
         setDraftId(stepDocId);
@@ -204,10 +213,10 @@ export function DocumentDraftWorkspace({
   }, [pageTitle]);
 
   useEffect(() => {
-    if (initialContractData) {
+    if (initialContractData && !contractData) {
       setContractData(initialContractData);
     }
-  }, [initialContractData]);
+  }, [initialContractData, contractData]);
 
   // Fetch contract data dynamically if contract step is active and contract data not yet loaded
   useEffect(() => {
@@ -426,13 +435,8 @@ export function DocumentDraftWorkspace({
 
         {/* Contract Document Form: Visible when Contract Step is active */}
         <div className={`w-full h-full flex flex-col ${isContract ? 'flex' : 'hidden'}`}>
-          {isContract && isLoadingContract && !contractData && !initialContractData ? (
-            <div className="flex-1 min-w-0 h-full min-h-0 bg-card border border-border rounded-xl shadow-xs animate-pulse overflow-hidden p-4 sm:p-6 lg:p-8 flex flex-col gap-4">
-              <div className="h-6 w-48 bg-muted/40 rounded-md" />
-              <div className="h-10 w-full bg-muted/20 rounded-md" />
-              <div className="h-24 w-full bg-muted/15 rounded-md" />
-              <div className="h-32 w-full bg-muted/15 rounded-md" />
-            </div>
+          {isContract && (isLoadingContract || (!contractData && !initialContractData)) ? (
+            <DocumentDraftSkeleton mode="contract" isFormCardOnly />
           ) : (
             <ContractDocumentForm
               initialData={contractData || initialContractData || initialData}
@@ -503,45 +507,6 @@ export function DocumentDraftWorkspace({
                   const newId = res.id || res.data?.id || res.data?.contract_id || (res as any)?.contract_id;
                   if (newId) {
                     setDraftId(String(newId));
-                  }
-                  if (res.data) {
-                    const extracted = extractContractData(res.data) || res.data;
-                    setContractData((prev: any) => {
-                      const updated = { ...(prev || {}) };
-                      if (extracted && typeof extracted === 'object') {
-                        for (const [k, v] of Object.entries(extracted)) {
-                          if (v !== undefined && v !== null && v !== '') {
-                            updated[k] = v;
-                          }
-                        }
-                      }
-                      return updated;
-                    });
-                  }
-
-                  // Fresh background contract fetch to keep full database consistency
-                  const targetContractId = newId || validEffectiveId;
-                  if (targetContractId && !/^(contract|confirmation|new-confirmation)$/i.test(String(targetContractId))) {
-                    getContractAction(String(targetContractId), lang)
-                      .then((freshRes) => {
-                        if (freshRes?.success && freshRes.data) {
-                          const fresh = extractContractData(freshRes.data) || freshRes.data;
-                          setContractData((prev: any) => {
-                            const updated = { ...(prev || {}) };
-                            if (fresh && typeof fresh === 'object') {
-                              for (const [k, v] of Object.entries(fresh)) {
-                                if (v !== undefined && v !== null && v !== '') {
-                                  updated[k] = v;
-                                }
-                              }
-                            }
-                            return updated;
-                          });
-                        }
-                      })
-                      .catch((err) => {
-                        console.error('[DocumentDraftWorkspace] Post-save getContractAction error:', err);
-                      });
                   }
 
                   // Concurrently refresh stepper list from backend so all steps stay fresh

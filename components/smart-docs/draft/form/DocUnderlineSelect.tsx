@@ -80,6 +80,7 @@ export function DocUnderlineSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const lastKnownLabelRef = useRef<Record<string, string>>({});
   const generatedId = useId();
   const selectId = id || generatedId;
 
@@ -379,9 +380,13 @@ export function DocUnderlineSelect({
             }
             if (selectedOption && selectedOption.label && selectedOption.label !== '[object Object]') {
               if (isRawDbId(selectedOption.label)) {
-                return placeholder;
+                return lastKnownLabelRef.current[String(value)] || placeholder;
               }
+              lastKnownLabelRef.current[String(value)] = selectedOption.label;
               return selectedOption.label;
+            }
+            if (lastKnownLabelRef.current[String(value)]) {
+              return lastKnownLabelRef.current[String(value)];
             }
             const cleanVal = typeof value === 'string' ? value.trim() : '';
             if (cleanVal && cleanVal !== '[object Object]' && cleanVal !== 'undefined' && cleanVal !== 'null') {

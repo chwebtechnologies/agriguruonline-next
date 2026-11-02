@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSafeLanguage, getSiteUrl } from '@/lib/seo';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import DocumentDraftWorkspace from '@/components/smart-docs/draft/DocumentDraftWorkspace';
+import DocumentDraftSkeleton from '@/components/smart-docs/draft/DocumentDraftSkeleton';
 import {
   smartDocsService,
   extractStepperList,
@@ -49,6 +50,21 @@ export async function generateMetadata(props: {
 }
 
 export default async function SmartDocsDraftPage(props: {
+  params: Promise<{ lang: string }>;
+  searchParams?: Promise<{ id?: string; step?: string }>;
+}) {
+  const searchParams = props.searchParams ? await props.searchParams : undefined;
+  const initialStepParam = searchParams?.step ? String(searchParams.step).trim() : '';
+  const isContractRequested = initialStepParam === 'contract' || initialStepParam === '2';
+
+  return (
+    <Suspense fallback={<DocumentDraftSkeleton mode={isContractRequested ? 'contract' : 'confirmation'} />}>
+      <DraftPageDataLoader {...props} />
+    </Suspense>
+  );
+}
+
+async function DraftPageDataLoader(props: {
   params: Promise<{ lang: string }>;
   searchParams?: Promise<{ id?: string; step?: string }>;
 }) {

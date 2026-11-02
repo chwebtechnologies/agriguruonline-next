@@ -2006,6 +2006,18 @@ export function ContractDocumentForm({
     }
   }, [contractIdProp, steps, selectedStep, isInvalidPlaceholder]);
 
+  // Track document ID to prevent background RSC / API re-renders from wiping active user edits
+  const lastLoadedDocIdRef = useRef<string>(
+    toCleanId(
+      contractIdProp ||
+      initialData?.id ||
+      initialData?._id ||
+      initialData?.contract_id ||
+      initialData?.contractId
+    )
+  );
+  const isFormInitializedRef = useRef<boolean>(false);
+
   // Top Header Configuration
   const [letterhead, setLetterhead] = useState<boolean>(
     initialData?.letterhead_space !== undefined
@@ -2938,6 +2950,10 @@ export function ContractDocumentForm({
 
   // Sync loadingCondition when any_loading_port is specified in API response
   useEffect(() => {
+    // If form is already initialized and user has a loadingCondition, don't overwrite it
+    if (isFormInitializedRef.current && loadingCondition) {
+      return;
+    }
     const anyPortFlag = parseAnyLoadingPort(initialData);
     if (anyPortFlag === true) {
       if (loadingCondition !== DEFAULT_FIXED_LOADING_CONDITION.value) {
@@ -3438,8 +3454,47 @@ export function ContractDocumentForm({
       (initialData.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '') ||
       (!initialData.confirmation_number && !initialData.confirmation_date && initialData.id !== confirmationId ? initialData.id : '')
     );
+
+    // Once the form has been initialized, NEVER overwrite the user's active in-progress edits!
+    if (isFormInitializedRef.current) {
+      // Still update fresh signature URLs from backend if available and not yet set
+      const sSig = resolveSigValue(initialData, [
+        'seller_signature',
+        'sellerSignature',
+        'exporter_signature',
+        'exporterSignature',
+      ]);
+      if (sSig) {
+        const formatted = formatSignatureUrl(sSig);
+        setExporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+      }
+      const bSig = resolveSigValue(initialData, [
+        'buyer_signature',
+        'buyerSignature',
+        'importer_signature',
+        'importerSignature',
+      ]);
+      if (bSig) {
+        const formatted = formatSignatureUrl(bSig);
+        setImporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+      }
+      const brSig = resolveSigValue(initialData, [
+        'broker_signature',
+        'brokerSignature',
+        'sales_broker_signature',
+        'salesBrokerSignature',
+      ]);
+      if (brSig) {
+        const formatted = formatSignatureUrl(brSig);
+        setBrokerSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+      }
+      return;
+    }
+
+    isFormInitializedRef.current = true;
     if (contractIdCandidate && !isInvalidPlaceholder(contractIdCandidate) && contractIdCandidate !== confirmationId) {
       setDraftId(contractIdCandidate);
+      lastLoadedDocIdRef.current = contractIdCandidate;
     }
 
     if (initialData.letterhead_space !== undefined) setLetterhead(Boolean(initialData.letterhead_space));
@@ -4600,6 +4655,8 @@ export function ContractDocumentForm({
 
       if (newId && !isInvalidPlaceholder(newId)) {
         setDraftId(newId);
+        lastLoadedDocIdRef.current = newId;
+        isFormInitializedRef.current = true;
         if (onSaveSuccess) {
           onSaveSuccess(newId);
         }
@@ -4680,6 +4737,8 @@ export function ContractDocumentForm({
           const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id || effectiveId;
           if (newId && !isInvalidPlaceholder(String(newId))) {
             setDraftId(String(newId));
+            lastLoadedDocIdRef.current = String(newId);
+            isFormInitializedRef.current = true;
             if (onSaveSuccess) {
               onSaveSuccess(String(newId));
             }
