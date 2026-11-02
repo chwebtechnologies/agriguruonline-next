@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect, useTransition } from 'react';
 import type { StepperDocumentItem } from '@/lib/api/smart-docs.service';
-import { DEFAULT_WORKFLOW_STEPPER_ITEMS } from '@/lib/api/smart-docs.service';
+import {
+  DEFAULT_WORKFLOW_STEPPER_ITEMS,
+  downloadPdfFromActionResponse,
+} from '@/lib/api/smart-docs.service';
 import { getStepperListAction, downloadDocPdfAction } from '@/app/actions/smart-docs';
 
 export type NormalizedStatus = 'completed' | 'in_progress' | 'pending' | 'locked';
@@ -173,25 +176,8 @@ export function DocumentStatusStepper({
       });
 
       if (res.success) {
-        if (res.url) {
-          window.open(res.url, '_blank', 'noopener,noreferrer');
-        } else if (res.base64) {
-          const binaryStr = atob(res.base64);
-          const bytes = new Uint8Array(binaryStr.length);
-          for (let i = 0; i < binaryStr.length; i++) {
-            bytes[i] = binaryStr.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: res.contentType || 'application/pdf' });
-          const blobUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.target = '_blank';
-          a.rel = 'noopener noreferrer';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
-        }
+        const fallbackName = `${prefix.toUpperCase()}-${cleanId}.pdf`;
+        downloadPdfFromActionResponse(res, fallbackName);
       }
     } catch (err) {
       console.error('[DocumentStatusStepper] handlePdfClick error:', err);

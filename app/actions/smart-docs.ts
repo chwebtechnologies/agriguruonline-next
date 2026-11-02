@@ -1177,11 +1177,12 @@ export interface SubmitContractActionResult {
 
 /**
  * Server Action to submit Contract (to Proforma Invoice) with secure Bearer authentication:
- * POST /contract/submit?lang_code=en&source=web
+ * PATCH /contract/submit/:id?lang_code=en&source=web
  */
 export async function submitContractAction(
   payload: any,
-  lang: string = "en"
+  lang: string = "en",
+  id?: string
 ): Promise<SubmitContractActionResult> {
   try {
     const cookieStore = await cookies();
@@ -1208,12 +1209,29 @@ export async function submitContractAction(
       };
     }
 
+    const isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("contract_id") || payload.get("id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.contract_id || payload?.id || payload?.confirmation_id || "").trim());
+
+    // Filter out invalid placeholder words like "contract", "confirmation", etc.
+    const effectiveId =
+      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawEffectiveId)
+        ? rawEffectiveId
+        : undefined;
+
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.submitContract(
       payload,
       {
         lang: safeLang,
         source: "web",
+        id: effectiveId,
       },
       token
     );
@@ -1234,6 +1252,7 @@ export async function submitContractAction(
             {
               lang: safeLang,
               source: "web",
+              id: effectiveId,
             },
             refreshRes.access_token
           );
@@ -1269,7 +1288,8 @@ export async function submitContractAction(
       rawRes?.data?.id ||
       rawRes?.data?._id ||
       rawRes?.id ||
-      rawRes?._id;
+      rawRes?._id ||
+      effectiveId;
 
     if (isSuccess) {
       try {
@@ -1283,7 +1303,7 @@ export async function submitContractAction(
         success: true,
         message: rawRes.message || "Contract submitted successfully!",
         data: rawRes.data || rawRes,
-        id: generatedId ? String(generatedId) : payload.id,
+        id: generatedId ? String(generatedId) : effectiveId,
         raw: rawRes.raw || rawRes,
       };
     }
@@ -1303,7 +1323,7 @@ export async function submitContractAction(
       errors: errorFields,
       error_fields: errorFields,
       raw: rawRes.raw || rawRes,
-      id: generatedId ? String(generatedId) : payload.id,
+      id: generatedId ? String(generatedId) : effectiveId,
       error: rawRes?.message || "Failed to submit contract",
     };
   } catch (error: any) {
@@ -1583,6 +1603,8 @@ export interface DownloadDocPdfActionParams {
 export interface DownloadDocPdfActionResult {
   success: boolean;
   base64?: string;
+  pdf_buffer?: any;
+  data?: any;
   url?: string;
   contentType?: string;
   filename?: string;

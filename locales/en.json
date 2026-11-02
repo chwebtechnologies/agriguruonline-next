@@ -759,7 +759,9 @@
       "submit_contract_success": "Confirmation submitted successfully for Contract generation!",
       "saved_as_draft_success": "Confirmation saved as draft successfully!",
       "validation_error": "Please fill all required highlighted fields before submitting.",
-      "confirmation_number_required": "Confirmation number is required"
+      "confirmation_number_required": "Confirmation number is required",
+      "enter_title": "Enter Title",
+      "enter_comment": "Enter Comment"
     },
     "contract_form": {
       "contract_title": "CONTRACT",
@@ -770,11 +772,17 @@
       "select_date": "Select Date",
       "enter_contract_number": "e.g. SC/26-27/00142",
       "contract_number_required": "Contract number is required",
+      "print_preview": "Print Preview",
+      "download_pdf": "Download PDF",
+      "save_draft_first_preview": "Please save the draft first to preview the document.",
+      "save_draft_first_download": "Please save the draft first to download PDF.",
       "save_as_draft": "Save As Draft",
       "saved_as_draft_success": "Contract saved as draft successfully!",
       "submit_contract": "Submit Contract",
       "submit_contract_success": "Contract submitted successfully!",
-      "submit_to_invoice": "Submit To Commercial Invoice"
+      "submit_to_invoice": "Submit To Commercial Invoice",
+      "enter_title": "Enter Title",
+      "enter_comment": "Enter Comment"
     }
   }
 }

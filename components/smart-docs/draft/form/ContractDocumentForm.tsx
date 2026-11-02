@@ -43,6 +43,7 @@ import {
   isContractStep,
   getContractStep,
   extractStepId,
+  downloadPdfFromActionResponse,
 } from '@/lib/api/smart-docs.service';
 import type { FormOptionItem } from './ConfirmationDocumentForm';
 import { normalizeCountryString, normalizeHsnString, deduplicateValidationMessage } from './ConfirmationDocumentForm';
@@ -65,7 +66,7 @@ export interface ContractDocumentFormProps {
   documentsList?: SmartDocsSelectionDocumentOption[];
   onSaveDraft?: (payload: any) => Promise<any>;
   onSaveSuccess?: (savedId: string) => void;
-  onSubmitContract?: (payload: any) => Promise<any>;
+  onSubmitContract?: (payload: any, id?: string) => Promise<any>;
   lang?: string;
   dict?: any;
   readOnly?: boolean;
@@ -675,7 +676,25 @@ export function detectContractFieldInSentence(text: string): { key: string; rawF
     return { key: 'emptyBags', rawField: 'empty_bags' };
   }
 
-  // 33. Additional Comment
+  // 33. Contract Comment Title / Label
+  if (
+    lower.includes('comment_label') ||
+    lower.includes('commentlabel') ||
+    normalized.includes('comment label')
+  ) {
+    return { key: 'commentLabel', rawField: 'comment_label' };
+  }
+
+  // 34. Contract Comment Value
+  if (
+    lower.includes('comment_value') ||
+    lower.includes('commentvalue') ||
+    normalized.includes('comment value')
+  ) {
+    return { key: 'commentValue', rawField: 'comment_value' };
+  }
+
+  // 35. Additional Comment
   if (
     normalized.includes('additional comment') ||
     normalized.includes('comment') ||
@@ -1018,6 +1037,12 @@ export function parseContractBackendErrors(
         return 'freeDays';
       case 'emptybags':
         return 'emptyBags';
+      case 'commentlabel':
+      case 'comment_label':
+        return 'commentLabel';
+      case 'commentvalue':
+      case 'comment_value':
+        return 'commentValue';
       case 'comment':
       case 'additionalcomment':
         return 'additionalComment';
@@ -2538,6 +2563,28 @@ export function ContractDocumentForm({
     return toCleanLabel(initialData?.additional_comment || initialData?.additionalComment || initialData?.comment) || '';
   });
 
+  // ROW 35: Contract Comments (comment_label & comment_value)
+  const [commentLabel, setCommentLabel] = useState<string>(() => {
+    return (
+      toCleanLabel(
+        initialData?.comment_label ??
+        initialData?.commentLabel ??
+        initialData?.contract_comment_label ??
+        initialData?.comment_title
+      ) || ''
+    );
+  });
+  const [commentValue, setCommentValue] = useState<string>(() => {
+    return (
+      toCleanLabel(
+        initialData?.comment_value ??
+        initialData?.commentValue ??
+        initialData?.contract_comment_value ??
+        initialData?.comment_text
+      ) || ''
+    );
+  });
+
   // ROW 26: Other Terms 1 (Payment & Charges)
   const [otherTermsPayment, setOtherTermsPayment] = useState<string>(() => {
     return (
@@ -3782,6 +3829,22 @@ export function ContractDocumentForm({
     const aComment = toCleanLabel(initialData.additional_comment || initialData.additionalComment || initialData.comment);
     if (aComment) setAdditionalComment(aComment);
 
+    const cLabel = toCleanLabel(
+      initialData.comment_label ??
+      initialData.commentLabel ??
+      initialData.contract_comment_label ??
+      initialData.comment_title
+    );
+    if (cLabel !== undefined && cLabel !== null) setCommentLabel(cLabel);
+
+    const cValue = toCleanLabel(
+      initialData.comment_value ??
+      initialData.commentValue ??
+      initialData.contract_comment_value ??
+      initialData.comment_text
+    );
+    if (cValue !== undefined && cValue !== null) setCommentValue(cValue);
+
     const oTerms =
       initialData.other_terms_1 ||
       initialData.other_terms1 ||
@@ -4236,17 +4299,28 @@ export function ContractDocumentForm({
         if (file) {
           formData.append('broker_signature', file);
         }
+      } else {
+        const relUrl = normalizeSignaturePayload(brokerSignature);
+        if (relUrl) {
+          formData.append('broker_signature_url', relUrl);
+        }
       }
       formData.append('remove_broker_signature', 'false');
     } else {
       formData.append('remove_broker_signature', 'true');
     }
 
+    // ECTN / COC fields
+    formData.append('ectn_field', String(Boolean(initialData?.ectn_field)));
+    formData.append('coc_fields', String(Boolean(initialData?.coc_fields)));
+
     // Other details
     formData.append('free_days', freeDays.trim());
     formData.append('empty_bags', emptyBags.trim());
     formData.append('comment', additionalComment.trim());
     formData.append('additional_comment', additionalComment.trim());
+    formData.append('comment_label', commentLabel.trim());
+    formData.append('comment_value', commentValue.trim());
 
     // Terms & Documents
     formData.append('other_terms_1', otherTermsPayment.trim());
@@ -4277,6 +4351,11 @@ export function ContractDocumentForm({
         if (file) {
           formData.append('seller_signature', file);
         }
+      } else {
+        const relUrl = normalizeSignaturePayload(exporterSignature);
+        if (relUrl) {
+          formData.append('seller_signature_url', relUrl);
+        }
       }
       formData.append('remove_seller_signature', 'false');
     } else {
@@ -4291,6 +4370,11 @@ export function ContractDocumentForm({
         const file = dataUrlToFile(importerSignature, 'buyer_signature.png');
         if (file) {
           formData.append('buyer_signature', file);
+        }
+      } else {
+        const relUrl = normalizeSignaturePayload(importerSignature);
+        if (relUrl) {
+          formData.append('buyer_signature_url', relUrl);
         }
       }
       formData.append('remove_buyer_signature', 'false');
@@ -4411,6 +4495,8 @@ export function ContractDocumentForm({
       empty_bags: emptyBags.trim(),
       comment: additionalComment.trim(),
       additional_comment: additionalComment.trim(),
+      comment_label: commentLabel.trim(),
+      comment_value: commentValue.trim(),
       other_terms: otherTermsPayment.trim(),
       other_terms_1: otherTermsPayment.trim(),
       default_documents: defaultDocuments.length > 0 ? defaultDocuments : undefined,
@@ -4487,7 +4573,14 @@ export function ContractDocumentForm({
     if (initialData?._id && !isInvalidPlaceholder(initialData._id)) {
       return toCleanId(initialData._id);
     }
-    // 6. Confirmation ID fallback (the workflow document ID)
+    // 6. URL query param fallback
+    if (typeof window !== 'undefined') {
+      const urlId = new URL(window.location.href).searchParams.get('id');
+      if (urlId && !isInvalidPlaceholder(urlId)) {
+        return urlId.trim();
+      }
+    }
+    // 7. Confirmation ID fallback (the workflow document ID)
     if (confirmationId && !isInvalidPlaceholder(confirmationId)) {
       return confirmationId.trim();
     }
@@ -4528,6 +4621,7 @@ export function ContractDocumentForm({
 
     if (!effectiveId) {
       toast.error(
+        dict?.smart_docs?.contract_form?.save_draft_first_preview ||
         dict?.smart_docs?.confirmation_form?.save_draft_first_preview ||
         'Please save the draft first to preview the document.'
       );
@@ -4571,6 +4665,7 @@ export function ContractDocumentForm({
 
     if (!effectiveId) {
       toast.error(
+        dict?.smart_docs?.contract_form?.save_draft_first_download ||
         dict?.smart_docs?.confirmation_form?.save_draft_first_download ||
         'Please save the draft first to download PDF.'
       );
@@ -4599,48 +4694,13 @@ export function ContractDocumentForm({
 
         const downloadName = `CONTRACT-${cleanNumber}.pdf`;
 
-        if (res.url) {
-          try {
-            const fileRes = await fetch(res.url);
-            const blob = await fileRes.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = downloadName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
-            toast.success('PDF downloaded successfully!');
-          } catch {
-            const a = document.createElement('a');
-            a.href = res.url;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            a.download = downloadName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            toast.success('PDF downloaded successfully!');
-          }
-        } else if (res.base64) {
-          const binaryStr = atob(res.base64);
-          const bytes = new Uint8Array(binaryStr.length);
-          for (let i = 0; i < binaryStr.length; i++) {
-            bytes[i] = binaryStr.charCodeAt(i);
-          }
-          const blob = new Blob([bytes], { type: res.contentType || 'application/pdf' });
-          const blobUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = downloadName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
-          toast.success('PDF downloaded successfully!');
+        const downloaded = downloadPdfFromActionResponse(res, downloadName);
+        if (downloaded) {
+          toast.success(
+            dict?.smart_docs?.pdf_download_success || 'PDF downloaded successfully!'
+          );
         } else {
-          toast.error(res.message || 'Failed to generate PDF download URL');
+          toast.error(res.message || 'No PDF data received from server');
         }
       } else {
         toast.error(res.message || res.error || 'Failed to download PDF');
@@ -4796,7 +4856,7 @@ export function ContractDocumentForm({
       const payload = getContractFormData();
       const effectiveId = getEffectiveContractId() || draftId || confirmationId;
       if (onSubmitContract) {
-        const res = await onSubmitContract(payload);
+        const res = await onSubmitContract(payload, effectiveId);
         const hasFieldErrors = Boolean(
           (Array.isArray(res?.error_fields) && res.error_fields.length > 0) ||
           (Array.isArray(res?.errors) && res.errors.length > 0) ||
@@ -6443,6 +6503,50 @@ export function ContractDocumentForm({
             importerError={errors.importerSignature || errors.buyer_signature}
           />
 
+          {/* ROW 35: CONTRACT COMMENTS (comment_label & comment_value) */}
+          <div
+            className={`grid grid-cols-1 ${
+              isSalesBrokerAllowed ? 'md:grid-cols-3' : 'md:grid-cols-2'
+            } divide-y md:divide-y-0 md:divide-x divide-border`}
+            data-field="commentSection"
+          >
+            <div className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0" data-field="commentLabel">
+              <DocUnderlineInput
+                id="field-commentLabel"
+                value={commentLabel}
+                onChange={(val) => {
+                  setCommentLabel(val);
+                  setErrors((prev) => ({ ...prev, commentLabel: '', comment_label: '' }));
+                }}
+                error={errors.commentLabel || errors.comment_label}
+                icon="fa-solid fa-pen"
+                disabled={readOnly}
+                placeholder={dict?.smart_docs?.contract_form?.enter_title || 'Enter Title'}
+                uppercase={false}
+              />
+            </div>
+            <div
+              className={`py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 ${
+                isSalesBrokerAllowed ? 'md:col-span-2' : 'md:col-span-1'
+              }`}
+              data-field="commentValue"
+            >
+              <DocUnderlineInput
+                id="field-commentValue"
+                value={commentValue}
+                onChange={(val) => {
+                  setCommentValue(val);
+                  setErrors((prev) => ({ ...prev, commentValue: '', comment_value: '' }));
+                }}
+                error={errors.commentValue || errors.comment_value}
+                icon="fa-solid fa-pen"
+                disabled={readOnly}
+                placeholder={dict?.smart_docs?.contract_form?.enter_comment || 'Enter Comment'}
+                uppercase={false}
+              />
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -6452,28 +6556,37 @@ export function ContractDocumentForm({
         Sticky on mobile docked at viewport bottom, static on desktop at bottom of card.
       */}
       <div className="shrink-0 sticky bottom-0 lg:static border-t border-border bg-card/95 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-2.5 print:hidden z-30 shadow-md lg:shadow-none rounded-b-xl">
-        {/* Left Action Buttons: Print Preview & Download PDF (Disabled in Contract, Red themed like Confirmation) */}
+        {/* Left Action Buttons: Print Preview & Download PDF (Red themed like Confirmation) */}
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
-          {/* Print Preview Button (Disabled) */}
+          {/* Print Preview Button */}
           <button
             type="button"
-            disabled
-            title={dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview'}
-            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 text-destructive opacity-60 cursor-not-allowed select-none shadow-xs transition-all"
+            onClick={handleOpenPrintPreview}
+            title={dict?.smart_docs?.contract_form?.print_preview || dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview'}
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 text-destructive active:scale-[0.98] transition-all duration-150 shadow-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-destructive/20"
           >
             <i className="fa-solid fa-print text-xs" />
-            <span>{dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview'}</span>
+            <span>{dict?.smart_docs?.contract_form?.print_preview || dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview'}</span>
           </button>
 
-          {/* Download PDF Button (Disabled) */}
+          {/* Download PDF Button */}
           <button
             type="button"
-            disabled
-            title={dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}
-            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 text-destructive opacity-60 cursor-not-allowed select-none shadow-xs transition-all"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            title={dict?.smart_docs?.contract_form?.download_pdf || dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 text-destructive active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-destructive/20"
           >
-            <i className="fa-solid fa-file-pdf text-xs" />
-            <span>{dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}</span>
+            {isDownloadingPdf ? (
+              <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+            ) : (
+              <i className="fa-solid fa-file-pdf text-xs" />
+            )}
+            <span>
+              {isDownloadingPdf
+                ? dict?.smart_docs?.downloading || 'Downloading...'
+                : dict?.smart_docs?.contract_form?.download_pdf || dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}
+            </span>
           </button>
         </div>
 
@@ -6605,7 +6718,19 @@ export function ContractDocumentForm({
         onClose={() => setIsPreviewOpen(false)}
         prefix="contract"
         docId={getEffectiveContractId()}
-        docNumber={contractNumber}
+        docNumber={
+          contractNumber ||
+          toCleanLabel(
+            initialData?.contract_number ||
+            initialData?.contractNumber ||
+            initialData?.contract_no ||
+            initialData?.contractNo ||
+            (initialData?.contract && typeof initialData.contract === 'object'
+              ? initialData.contract.contract_number || initialData.contract.contract_no
+              : '')
+          ) ||
+          ''
+        }
         lang={lang}
         dict={dict}
       />

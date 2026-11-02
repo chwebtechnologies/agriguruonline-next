@@ -31,6 +31,7 @@ export interface DocUnderlineInputProps {
   onClick?: (e: React.MouseEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onFocus?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   ariaLabel?: string;
+  uppercase?: boolean;
 }
 
 export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaElement, DocUnderlineInputProps>(
@@ -64,6 +65,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
       onClick,
       onFocus,
       ariaLabel,
+      uppercase = true,
     },
     ref
   ) => {
@@ -212,7 +214,9 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
           {!hasValue && effectivePlaceholder && (
             <span
               aria-hidden="true"
-              className={`absolute ${multiline ? 'top-1.5' : 'top-1/2 -translate-y-1/2'} pointer-events-none select-none text-[14px] font-normal uppercase leading-normal truncate transition-opacity print:hidden ${
+              className={`absolute ${multiline ? 'top-1.5' : 'top-1/2 -translate-y-1/2'} pointer-events-none select-none text-[14px] font-normal ${
+                uppercase ? 'uppercase' : ''
+              } leading-normal truncate transition-opacity print:hidden ${
                 error
                   ? 'text-brand-red/50'
                   : 'text-muted-foreground/50'
@@ -254,7 +258,9 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
                 error
                   ? 'text-brand-red placeholder:text-transparent'
                   : 'text-foreground placeholder:text-transparent'
-              } placeholder:text-[14px] placeholder:font-normal placeholder:uppercase border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 resize-y leading-relaxed ${alignClass} ${
+              } placeholder:text-[14px] placeholder:font-normal ${
+                uppercase ? 'placeholder:uppercase' : ''
+              } border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 resize-y leading-relaxed ${alignClass} ${
                 disabled ? 'cursor-not-allowed text-muted-foreground' : ''
               } ${inputClassName}`}
             />
@@ -292,7 +298,9 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
                 error
                   ? 'text-brand-red placeholder:text-transparent'
                   : 'text-foreground placeholder:text-transparent'
-              } placeholder:text-[14px] placeholder:font-normal placeholder:uppercase border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${alignClass} ${
+              } placeholder:text-[14px] placeholder:font-normal ${
+                uppercase ? 'placeholder:uppercase' : ''
+              } border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 ${alignClass} ${
                 type === 'date'
                   ? `cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                       !hasValue

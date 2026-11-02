@@ -36,6 +36,7 @@ import {
   normalizeStepStatus,
   type SaveConfirmationPayload,
   type StepperDocumentItem,
+  downloadPdfFromActionResponse,
 } from '@/lib/api/smart-docs.service';
 import ProductManageModal from './ProductManageModal';
 import PaymentTermManageModal from './PaymentTermManageModal';
@@ -610,7 +611,25 @@ export function detectFieldInSentence(text: string): { key: string; rawField: st
     return { key: 'notes', rawField: 'notes' };
   }
 
-  // 23. Document Title
+  // 23. Comment Label
+  if (
+    lower.includes('comment_label') ||
+    lower.includes('commentlabel') ||
+    normalized.includes('comment label')
+  ) {
+    return { key: 'commentLabel', rawField: 'comment_label' };
+  }
+
+  // 24. Comment Value
+  if (
+    lower.includes('comment_value') ||
+    lower.includes('commentvalue') ||
+    normalized.includes('comment value')
+  ) {
+    return { key: 'commentValue', rawField: 'comment_value' };
+  }
+
+  // 25. Document Title
   if (
     normalized.includes('pdf title') ||
     normalized.includes('document title') ||
@@ -650,6 +669,8 @@ export const FORM_FIELD_VISUAL_ORDER = [
   'shipmentPeriod',
   'paymentTerm',
   'notes',
+  'commentLabel',
+  'commentValue',
 ];
 
 /**
@@ -878,6 +899,12 @@ export function parseBackendFieldErrors(
       case 'remark':
       case 'remarks':
         return 'notes';
+      case 'commentlabel':
+      case 'comment_label':
+        return 'commentLabel';
+      case 'commentvalue':
+      case 'comment_value':
+        return 'commentValue';
       case 'pdftitle':
       case 'documenttitle':
       case 'title':
@@ -1284,6 +1311,28 @@ export function ConfirmationDocumentForm({
     initialData?.notes || ''
   );
 
+  // Row 14: Confirmation Comments (comment_label & comment_value)
+  const [commentLabel, setCommentLabel] = useState<string>(() => {
+    return (
+      toCleanLabel(
+        initialData?.comment_label ??
+        initialData?.commentLabel ??
+        initialData?.confirmation_comment_label ??
+        initialData?.comment_title
+      ) || ''
+    );
+  });
+  const [commentValue, setCommentValue] = useState<string>(() => {
+    return (
+      toCleanLabel(
+        initialData?.comment_value ??
+        initialData?.commentValue ??
+        initialData?.confirmation_comment_value ??
+        initialData?.comment_text
+      ) || ''
+    );
+  });
+
   // UI States
   const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -1460,50 +1509,13 @@ export function ConfirmationDocumentForm({
 
         const downloadName = `CONFIRMATION-${cleanNumber}.pdf`;
 
-        if (res.url) {
-          try {
-            const fileRes = await fetch(res.url);
-            const blob = await fileRes.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = downloadName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
-            toast.success('PDF downloaded successfully!');
-          } catch {
-            const a = document.createElement('a');
-            a.href = res.url;
-            a.download = downloadName;
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            toast.success('PDF download started!');
-          }
-        } else if (res.base64) {
-          const byteCharacters = atob(res.base64);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: res.contentType || 'application/pdf' });
-          const blobUrl = URL.createObjectURL(blob);
-
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = downloadName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
-          toast.success('PDF downloaded successfully!');
+        const downloaded = downloadPdfFromActionResponse(res, downloadName);
+        if (downloaded) {
+          toast.success(
+            dict?.smart_docs?.pdf_download_success || 'PDF downloaded successfully!'
+          );
         } else {
-          toast.error('No PDF data received from server.');
+          toast.error(res.message || 'No PDF data received from server.');
         }
       } else {
         toast.error(res.message || res.error || 'Failed to download PDF.');
@@ -2665,6 +2677,26 @@ export function ConfirmationDocumentForm({
         }
       }
 
+      const cLabel = toCleanLabel(
+        d.comment_label ??
+        d.commentLabel ??
+        d.confirmation_comment_label ??
+        d.comment_title
+      );
+      if (cLabel !== undefined && cLabel !== null) {
+        setCommentLabel(cLabel);
+      }
+
+      const cValue = toCleanLabel(
+        d.comment_value ??
+        d.commentValue ??
+        d.confirmation_comment_value ??
+        d.comment_text
+      );
+      if (cValue !== undefined && cValue !== null) {
+        setCommentValue(cValue);
+      }
+
       // Update document status if present in loaded document
       const statusFromDoc = extractDocumentStatus(d);
       if (statusFromDoc) {
@@ -3029,6 +3061,10 @@ export function ConfirmationDocumentForm({
       }
     }
 
+    // Comment fields (comment_label & comment_value)
+    rawPayload.comment_label = commentLabel.trim();
+    rawPayload.comment_value = commentValue.trim();
+
     return cleanConfirmationPayload(rawPayload) as SaveConfirmationPayload;
   };
 
@@ -3113,6 +3149,10 @@ export function ConfirmationDocumentForm({
       payment_term_id: selectedPay?.value || paymentTerm || '',
       paymentTermId: selectedPay?.value || paymentTerm || '',
       notes,
+      comment_label: commentLabel.trim(),
+      comment_value: commentValue.trim(),
+      commentLabel: commentLabel.trim(),
+      commentValue: commentValue.trim(),
     };
   };
 
@@ -3265,6 +3305,8 @@ export function ConfirmationDocumentForm({
     setShipmentPeriod('');
     setPaymentTerm('');
     setNotes('');
+    setCommentLabel('');
+    setCommentValue('');
     setErrors({});
   }, []);
 
@@ -4282,6 +4324,54 @@ export function ConfirmationDocumentForm({
                   <span>{errors.notes}</span>
                 </span>
               )}
+            </div>
+          </div>
+
+          {/* ROW 14: CONFIRMATION COMMENTS (comment_label & comment_value) */}
+          <div
+            className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border"
+            data-field="commentSection"
+          >
+            <div className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0" data-field="commentLabel">
+              <DocUnderlineInput
+                id="field-commentLabel"
+                value={commentLabel}
+                onChange={(val) => {
+                  setCommentLabel(val);
+                  setErrors((prev) => ({ ...prev, commentLabel: '', comment_label: '' }));
+                }}
+                error={errors.commentLabel || errors.comment_label}
+                icon="fa-solid fa-pen"
+                disabled={readOnly}
+                placeholder={
+                  dict?.smart_docs?.confirmation_form?.enter_title ||
+                  dict?.smart_docs?.contract_form?.enter_title ||
+                  'Enter Title'
+                }
+                uppercase={false}
+              />
+            </div>
+            <div
+              className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 md:col-span-2"
+              data-field="commentValue"
+            >
+              <DocUnderlineInput
+                id="field-commentValue"
+                value={commentValue}
+                onChange={(val) => {
+                  setCommentValue(val);
+                  setErrors((prev) => ({ ...prev, commentValue: '', comment_value: '' }));
+                }}
+                error={errors.commentValue || errors.comment_value}
+                icon="fa-solid fa-pen"
+                disabled={readOnly}
+                placeholder={
+                  dict?.smart_docs?.confirmation_form?.enter_comment ||
+                  dict?.smart_docs?.contract_form?.enter_comment ||
+                  'Enter Comment'
+                }
+                uppercase={false}
+              />
             </div>
           </div>
         </div>

@@ -577,7 +577,7 @@ export function DocumentDraftWorkspace({
           ) : (
             <ContractDocumentForm
               initialData={contractData || initialContractData || initialData}
-              contractId={contractIdFromStepper}
+              contractId={contractIdFromStepper || canonicalContractId}
               steps={steps}
               selectedStep={selectedStep}
               onUpdateSteps={(newSteps) => {
@@ -663,8 +663,45 @@ export function DocumentDraftWorkspace({
                 }
                 return res;
               }}
-              onSubmitContract={async (formData) => {
-                const res = await submitContractAction(formData, lang);
+              onSubmitContract={async (formData, passedId) => {
+                const activeDocId =
+                  sanitizeDocId(
+                    passedId ||
+                    (contractData?.contract_id || contractData?.id) ||
+                    (initialContractData?.contract_id || initialContractData?.id) ||
+                    contractIdFromStepper ||
+                    canonicalContractId ||
+                    draftId ||
+                    initialId ||
+                    initialData?.contract_id ||
+                    initialData?.contractId ||
+                    initialData?.id ||
+                    initialData?._id ||
+                    initialData?.confirmation_id ||
+                    initialData?.confirmationId
+                  );
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                if (validEffectiveId && typeof formData?.set === 'function') {
+                  formData.set('id', validEffectiveId);
+                  formData.set('contract_id', validEffectiveId);
+                }
+
+                const confId = sanitizeDocId(
+                  initialData?.confirmation_id ||
+                  initialData?.confirmationId ||
+                  validEffectiveId
+                );
+                if (confId && typeof formData?.set === 'function' && !formData.get('confirmation_id')) {
+                  formData.set('confirmation_id', confId);
+                }
+
+                const res = await submitContractAction(formData, lang, validEffectiveId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id;
                   if (newId) {
@@ -688,7 +725,7 @@ export function DocumentDraftWorkspace({
                   try {
                     const stepperRes = await getStepperListAction({
                       action: 'confirmation',
-                      step: String(newId || draftId || 'new-confirmation'),
+                      step: String(newId || validEffectiveId || draftId || 'new-confirmation'),
                       lang,
                     });
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {

@@ -14,110 +14,74 @@ export interface DocPrintPreviewModalProps {
   dict?: any;
 }
 
-// Standard A4 width in pixels at 96 DPI (210mm = 794px)
-const A4_WIDTH = 794;
-
 /**
- * Prepares preview HTML for clean presentation and printing:
- * - Preserves standard 794px (210mm) A4 printable geometry with 0 margin
- * - Injects UTF-8 meta, zero print margin for exact backend template fit
- * - Eliminates dark viewer backgrounds (#525659, #474c50) from templates
+ * Prepares preview HTML from backend:
+ * - Injects Calibri webfont and local fallbacks for platforms without Microsoft fonts
+ * - Keeps backend HTML, layout, page breaks, and exact font sizes completely intact
+ * - Enforces clean A4 print styles for printing
  */
 function preparePreviewHtml(rawHtml: string): string {
   if (!rawHtml) return '';
 
-  const printStyles = `
-    <style id="agriguru-print-rules">
+  const calibriAndPrintStyles = `
+    <style id="agriguru-preview-calibri">
+      @import url('https://fonts.cdnfonts.com/css/calibri-and-calibri-light');
+
+      @font-face {
+        font-family: 'Calibri';
+        src: local('Calibri'), local('Calibri Regular'), local('Candara'), local('Segoe UI');
+        font-weight: 400;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Calibri';
+        src: local('Calibri Bold'), local('Segoe UI Bold');
+        font-weight: 700;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Calibri';
+        src: local('Calibri Italic'), local('Segoe UI Italic');
+        font-weight: 400;
+        font-style: italic;
+      }
+
+      /* Base Calibri typography fallback */
+      body, table, td, th, p, span, div, h1, h2, h3, h4, h5, h6 {
+        font-family: 'Calibri', Candara, 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      }
+
+      @media screen {
+        body {
+          margin: 0 auto;
+        }
+      }
+
       @page {
-        size: auto;
+        size: A4 portrait;
         margin: 0mm;
       }
+
       @media print {
         @page {
-          size: auto;
+          size: A4 portrait;
           margin: 0mm;
         }
         html, body {
-          width: 100% !important;
-          max-width: 100% !important;
-          height: auto !important;
-          min-height: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          overflow: visible !important;
           background: #ffffff !important;
-          color: #000000 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
-          zoom: 100% !important;
         }
-        * {
-          overflow: visible !important;
-        }
-        .page-break {
-          page-break-after: always;
-          break-after: page;
-        }
-      }
-      @media screen {
-        ::-webkit-scrollbar {
-          display: none !important;
-          width: 0 !important;
-          height: 0 !important;
-        }
-        * {
-          scrollbar-width: none !important;
-          -ms-overflow-style: none !important;
-        }
-      }
-      html, body {
-        width: 794px !important;
-        max-width: 794px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        background-color: #ffffff !important;
-        color: #111827 !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        box-sizing: border-box !important;
-      }
-      table {
-        box-sizing: border-box !important;
-      }
-      /* Remove dark grey canvas/pdf backgrounds from backend templates */
-      html, body, div, table, tr, td, main, section {
-        border-color: #e5e7eb;
-      }
-      [style*="background-color: #5"], [style*="background-color:#5"],
-      [style*="background: #5"], [style*="background:#5"],
-      [style*="background-color: #4"], [style*="background-color:#4"],
-      [style*="background: #4"], [style*="background:#4"],
-      [style*="background-color: rgb(82"], [style*="background-color:rgb(82"],
-      [style*="background-color: rgb(71"], [style*="background-color:rgb(71"] {
-        background: #ffffff !important;
-        background-color: #ffffff !important;
       }
     </style>
   `;
 
-  let processed = rawHtml;
-  // If template has dark background hardcoded in body style
-  processed = processed.replace(/(<body[^>]*)\bstyle="([^"]*background[^"]*)"/gi, (match, prefix, style) => {
-    const cleanedStyle = style.replace(/background(-color)?\s*:\s*[^;]+;?/gi, 'background: #ffffff !important;');
-    return `${prefix} style="${cleanedStyle}"`;
-  });
-
-  if (/<head[^>]*>/i.test(processed)) {
-    if (/<\/head>/i.test(processed)) {
-      return processed.replace(/<\/head>/i, `${printStyles}</head>`);
-    }
-    return processed.replace(/<head[^>]*>/i, `$&${printStyles}`);
+  if (/<head[^>]*>/i.test(rawHtml)) {
+    return rawHtml.replace(/<head[^>]*>/i, `$&${calibriAndPrintStyles}`);
   }
 
-  if (/<body[^>]*>/i.test(processed)) {
-    return processed.replace(/<body[^>]*>/i, `$&${printStyles}`);
+  if (/<body[^>]*>/i.test(rawHtml)) {
+    return rawHtml.replace(/<body[^>]*>/i, `<head>${calibriAndPrintStyles}</head>$&`);
   }
 
   return `<!DOCTYPE html>
@@ -126,10 +90,10 @@ function preparePreviewHtml(rawHtml: string): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Document Print Preview</title>
-  ${printStyles}
+  ${calibriAndPrintStyles}
 </head>
-<body style="background: #ffffff !important; width: 794px !important; margin: 0 !important; padding: 0 !important;">
-  ${processed}
+<body style="margin: 0 auto; padding: 0; background: #ffffff;">
+  ${rawHtml}
 </body>
 </html>`;
 }
@@ -148,19 +112,13 @@ export default function DocPrintPreviewModal({
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  // Responsive scaling states:
-  // autoScale fits A4_WIDTH (794px) into available canvas width on mobile/tablet/narrow screens
-  const [autoScale, setAutoScale] = useState<number>(1);
-  const [contentHeight, setContentHeight] = useState<number>(1123); // Default A4 297mm height
-
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Lock body scroll when modal is active to prevent backdrop scroll thrashing
+  // Lock body scroll when modal is active
   useEffect(() => {
     if (isOpen) {
       const prevOverflow = document.body.style.overflow;
@@ -203,54 +161,13 @@ export default function DocPrintPreviewModal({
     }
   }, [prefix, docId, lang]);
 
-  // Dynamic responsive auto-fit scale calculation
-  const updateScale = useCallback(() => {
-    if (!canvasRef.current) return;
-    const canvasWidth = canvasRef.current.clientWidth;
-    if (!canvasWidth) return;
-
-    // Equal padding on left & right:
-    // Mobile (< 640px): 12px each side = 24px total padding
-    // Desktop: 20px each side = 40px total padding
-    const padding = canvasWidth < 640 ? 24 : 40;
-    const availableWidth = Math.max(100, canvasWidth - padding);
-
-    if (availableWidth < A4_WIDTH) {
-      const fit = availableWidth / A4_WIDTH;
-      setAutoScale(fit);
-    } else {
-      setAutoScale(1);
-    }
-  }, []);
-
   useEffect(() => {
     if (!isOpen) {
       setHtmlContent('');
       setError(null);
-      setAutoScale(1);
       return;
     }
-
-    updateScale();
-
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined' && canvasRef.current) {
-      resizeObserver = new ResizeObserver(() => {
-        updateScale();
-      });
-      resizeObserver.observe(canvasRef.current);
-    }
-
-    const onWinResize = () => updateScale();
-    window.addEventListener('resize', onWinResize);
-    window.addEventListener('orientationchange', onWinResize);
-
-    return () => {
-      if (resizeObserver) resizeObserver.disconnect();
-      window.removeEventListener('resize', onWinResize);
-      window.removeEventListener('orientationchange', onWinResize);
-    };
-  }, [isOpen, updateScale]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && docId) {
@@ -270,82 +187,11 @@ export default function DocPrintPreviewModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Measure exact content height from iframe
-  const measureHeight = useCallback(() => {
-    if (!iframeRef.current) return;
-    try {
-      const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
-      if (doc) {
-        // Enforce pure white background & remove any dark blocks
-        const allElements = doc.querySelectorAll('*');
-        allElements.forEach((el) => {
-          const htmlEl = el as HTMLElement;
-          const bg = window.getComputedStyle(htmlEl).backgroundColor;
-          if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
-            const match = bg.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-            if (match) {
-              const [, r, g, b] = match.map(Number);
-              if (r < 110 && g < 110 && b < 110) {
-                htmlEl.style.backgroundColor = '#ffffff';
-                htmlEl.style.background = '#ffffff';
-              }
-            }
-          }
-        });
-
-        if (doc.documentElement) {
-          doc.documentElement.style.background = '#ffffff';
-          doc.documentElement.style.backgroundColor = '#ffffff';
-          doc.documentElement.style.width = `${A4_WIDTH}px`;
-        }
-        if (doc.body) {
-          doc.body.style.background = '#ffffff';
-          doc.body.style.backgroundColor = '#ffffff';
-          doc.body.style.width = `${A4_WIDTH}px`;
-          doc.body.style.margin = '0';
-          doc.body.style.padding = '0';
-        }
-
-        const measured = Math.max(
-          doc.body?.scrollHeight || 0,
-          doc.documentElement?.scrollHeight || 0,
-          doc.body?.offsetHeight || 0,
-          doc.documentElement?.offsetHeight || 0
-        );
-
-        if (measured > 150) {
-          setContentHeight(measured);
-        }
-      }
-    } catch (e) {
-      console.warn('[DocPrintPreviewModal] height measurement error:', e);
-    }
-  }, []);
-
-  const handleIframeLoad = () => {
-    measureHeight();
-    setTimeout(measureHeight, 200);
-    setTimeout(measureHeight, 600);
-  };
-
-  // Print document through iframe
+  // Direct print through iframe
   const handlePrint = () => {
     if (!iframeRef.current?.contentWindow) return;
     try {
       const win = iframeRef.current.contentWindow;
-      const doc = iframeRef.current.contentDocument || win.document;
-      if (doc) {
-        if (doc.documentElement) {
-          doc.documentElement.style.overflow = 'visible';
-          doc.documentElement.style.height = 'auto';
-          doc.documentElement.style.width = '100%';
-        }
-        if (doc.body) {
-          doc.body.style.overflow = 'visible';
-          doc.body.style.height = 'auto';
-          doc.body.style.width = '100%';
-        }
-      }
       win.focus();
       win.print();
     } catch (e) {
@@ -356,7 +202,7 @@ export default function DocPrintPreviewModal({
           win.document.write(preparePreviewHtml(htmlContent));
           win.document.close();
           win.focus();
-          setTimeout(() => win.print(), 250);
+          setTimeout(() => win.print(), 300);
         }
       }
     }
@@ -378,36 +224,31 @@ export default function DocPrintPreviewModal({
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const modalTitle =
-    dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview';
+    dict?.smart_docs?.[`${prefix}_form`]?.print_preview ||
+    dict?.smart_docs?.confirmation_form?.print_preview ||
+    'Print Preview';
   const cleanDocNumber = docNumber
     ? (docNumber.startsWith('#') ? docNumber : `#${docNumber}`)
     : '';
-
-  // Effective scale calculation:
-  // Automatically fits A4 width (794px) into available canvas width across mobile, tablet, desktop and 4K displays
-  const effectiveScale = autoScale;
-
-  const scaledWidth = Math.round(A4_WIDTH * effectiveScale);
-  const scaledHeight = Math.round(contentHeight * effectiveScale);
 
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="doc-preview-modal-title"
-      className="fixed inset-0 z-9999 flex items-center justify-center p-3 sm:p-6 md:p-8 2xl:p-14 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto overscroll-contain isolate"
+      className="fixed inset-0 z-9999 flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150 isolate"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-4xl 2xl:max-w-5xl h-[88vh] max-h-[calc(100dvh-2.5rem)] 2xl:max-h-[920px] bg-card text-foreground border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-5xl h-[92vh] max-h-[calc(100dvh-2rem)] bg-card text-foreground border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Compact, Clean Header Bar */}
-        <div className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border bg-card z-10">
-          {/* Left: Highlighted Confirmation Number & Title */}
+        {/* Header Bar */}
+        <div className="shrink-0 flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-border bg-card z-10 gap-2">
+          {/* Left: Document Type Icon, Title & Doc Number */}
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs sm:text-sm shrink-0">
-              <i className="fa-solid fa-file-invoice" />
+              <i className={prefix === 'contract' ? 'fa-solid fa-file-contract' : 'fa-solid fa-file-invoice'} />
             </span>
 
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
@@ -427,8 +268,20 @@ export default function DocPrintPreviewModal({
             </div>
           </div>
 
-          {/* Right: Actions (Open New Tab, Print/PDF, Close) */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Right: Actions (Print, Open in New Tab, Close) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Print Button */}
+            <button
+              type="button"
+              onClick={handlePrint}
+              disabled={loading || !htmlContent}
+              title="Print"
+              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold bg-primary hover:bg-primary/90 !text-white shadow-xs active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+            >
+              <i className="fa-solid fa-print text-xs !text-white" />
+              <span className="!text-white font-semibold">Print</span>
+            </button>
+
             {/* Open in New Tab Button */}
             <button
               type="button"
@@ -438,18 +291,6 @@ export default function DocPrintPreviewModal({
               className="w-7 h-7 hidden sm:flex items-center justify-center rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40 cursor-pointer transition-colors"
             >
               <i className="fa-solid fa-arrow-up-right-from-square text-xs" />
-            </button>
-
-            {/* Print Button - Guaranteed White Text In Light & Dark Themes */}
-            <button
-              type="button"
-              onClick={handlePrint}
-              disabled={loading || !htmlContent}
-              title="Print / Save PDF"
-              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold bg-primary hover:bg-primary/90 !text-white shadow-xs active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
-            >
-              <i className="fa-solid fa-print text-xs !text-white" />
-              <span className="!text-white font-semibold">Print / PDF</span>
             </button>
 
             {/* Close Button */}
@@ -464,14 +305,11 @@ export default function DocPrintPreviewModal({
           </div>
         </div>
 
-        {/* Modal Canvas Area - Equal top and bottom spacing with native smooth scroll */}
-        <div
-          ref={canvasRef}
-          className="flex-1 w-full overflow-y-auto overflow-x-hidden overscroll-contain bg-zinc-200/80 dark:bg-zinc-900/90 py-4 px-2 sm:py-5 sm:px-4 flex flex-col items-center"
-        >
+        {/* Modal Body: Direct Full-Height Document Frame */}
+        <div className="flex-1 w-full h-full min-h-0 bg-neutral-100 dark:bg-neutral-900 overflow-hidden relative flex flex-col">
           {/* Loading State */}
           {loading && (
-            <div className="my-auto py-12 flex flex-col items-center justify-center text-center animate-in fade-in duration-150">
+            <div className="m-auto py-12 flex flex-col items-center justify-center text-center">
               <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2.5">
                 <i className="fa-solid fa-circle-notch fa-spin text-lg" />
               </div>
@@ -479,14 +317,14 @@ export default function DocPrintPreviewModal({
                 Generating Document Preview...
               </h3>
               <p className="text-[11px] text-muted-foreground max-w-sm">
-                Fetching rendered confirmation template...
+                Fetching rendered print template...
               </p>
             </div>
           )}
 
           {/* Error State */}
           {!loading && error && (
-            <div className="my-auto py-8 px-5 max-w-md w-full flex flex-col items-center justify-center text-center bg-card border border-destructive/30 rounded-xl shadow-md animate-in fade-in duration-150">
+            <div className="m-auto py-8 px-5 max-w-md w-full flex flex-col items-center justify-center text-center bg-card border border-destructive/30 rounded-xl shadow-md">
               <div className="w-10 h-10 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center mb-2.5">
                 <i className="fa-solid fa-triangle-exclamation text-lg" />
               </div>
@@ -516,36 +354,14 @@ export default function DocPrintPreviewModal({
             </div>
           )}
 
-          {/* Rendered HTML Document Sheet - Standard A4 794px Geometry with Transform Scaling */}
+          {/* Rendered HTML Document Frame */}
           {!loading && !error && htmlContent && (
-            <div
-              style={{
-                width: `${scaledWidth}px`,
-                height: `${scaledHeight}px`,
-                minHeight: `${scaledHeight}px`,
-              }}
-              className="relative my-0 shrink-0 select-none transition-all duration-75"
-            >
-              <div
-                style={{
-                  width: `${A4_WIDTH}px`,
-                  height: `${contentHeight}px`,
-                  transform: `scale(${effectiveScale})`,
-                  transformOrigin: 'top left',
-                }}
-                className="absolute top-0 left-0 bg-white text-zinc-900 rounded-sm shadow-xl border border-neutral-300 dark:border-neutral-700/80 overflow-hidden"
-              >
-                <iframe
-                  ref={iframeRef}
-                  srcDoc={preparePreviewHtml(htmlContent)}
-                  onLoad={handleIframeLoad}
-                  title="Document Print Preview"
-                  scrolling="no"
-                  sandbox="allow-same-origin allow-modals allow-popups"
-                  className="w-full h-full border-0 block bg-white pointer-events-none"
-                />
-              </div>
-            </div>
+            <iframe
+              ref={iframeRef}
+              srcDoc={preparePreviewHtml(htmlContent)}
+              title="Document Print Preview"
+              className="w-full h-full border-0 block bg-white"
+            />
           )}
         </div>
       </div>

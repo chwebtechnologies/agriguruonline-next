@@ -1090,33 +1090,55 @@ export const smartDocsService = {
   },
 
   /**
-   * Submits a Contract to advance workflow (e.g. to Proforma Invoice):
-   * POST /contract/submit?lang_code=en&source=web
+   * Submits a Contract to advance workflow to Proforma Invoice:
+   * PATCH /contract/submit/:id?lang_code=en&source=web
+   * Supports FormData (for binary files/signatures) and JSON payload.
    */
   submitContract: async (
     payload: any,
-    params: { lang?: string; source?: string } = {},
+    params: { lang?: string; source?: string; id?: string } = {},
     token: string
   ): Promise<any | null> => {
     if (!token) return null;
 
     const baseUrl = getSmartDocsApiUrl();
     const safeLang = getSafeLang(params.lang || 'en');
-    const url = `${baseUrl}/contract/submit`;
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const rawCandidate =
+      params.id ||
+      (isFormData
+        ? (payload.get('contract_id') || payload.get('id') || payload.get('confirmation_id'))
+        : (payload?.contract_id || payload?.id || payload?.confirmation_id));
+
+    const cleanCandidate = sanitizeDocId(rawCandidate);
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(cleanCandidate);
+    const cleanId = isPlaceholder ? '' : cleanCandidate;
+
+    const url = cleanId ? `${baseUrl}/contract/submit/${encodeURIComponent(cleanId)}` : `${baseUrl}/contract/submit`;
 
     try {
-      const sanitizedPayload = cleanContractPayload(payload);
+      const headers: Record<string, string> = {};
+      let body: any;
+
+      if (isFormData) {
+        body = payload;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(cleanContractPayload(payload));
+      }
+
       const response = await customFetch(url, {
-        method: 'POST',
+        method: 'PATCH',
         token,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         params: {
           lang_code: safeLang,
           source: params.source || 'web',
         },
-        body: JSON.stringify(sanitizedPayload),
+        body,
         cache: 'no-store',
       });
 
@@ -1145,6 +1167,7 @@ export const smartDocsService = {
             json.status === 201 ||
             json.status === 'success',
           error_fields: json.error_fields || json.data?.error_fields || null,
+          errors: json.errors || json.data?.errors || null,
           raw: json,
         };
       }
@@ -1233,8 +1256,22 @@ export const smartDocsService = {
             const htmlContent =
               parsed.data?.html ||
               parsed.data?.template ||
+              parsed.data?.content ||
+              parsed.data?.template_html ||
+              parsed.data?.preview_html ||
+              parsed.data?.print_html ||
+              parsed.data?.html_content ||
+              parsed.data?.rendered_html ||
+              parsed.data?.preview ||
               parsed.html ||
               parsed.template ||
+              parsed.content ||
+              parsed.template_html ||
+              parsed.preview_html ||
+              parsed.print_html ||
+              parsed.html_content ||
+              parsed.rendered_html ||
+              parsed.preview ||
               (typeof parsed.data === 'string' ? parsed.data : '');
             if (htmlContent) {
               return { success: true, html: htmlContent };
@@ -1272,6 +1309,8 @@ export const smartDocsService = {
   ): Promise<{
     success: boolean;
     base64?: string;
+    pdf_buffer?: string;
+    data?: any;
     url?: string;
     contentType?: string;
     filename?: string;
@@ -1330,38 +1369,94 @@ export const smartDocsService = {
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Check if response is JSON (e.g. download URL or error object)
+      // Check if response is JSON (e.g. download URL, pdf_buffer, or error object)
       const isJson = contentType.includes('application/json') || (buffer.length > 0 && buffer[0] === 123);
       if (isJson) {
         try {
           const jsonStr = buffer.toString('utf-8');
           const json = JSON.parse(jsonStr);
           if (json && typeof json === 'object') {
-            if (json.success === false || json.status === false) {
+            if (
+              json.success === false ||
+              json.status === false ||
+              (typeof json.status === 'number' && json.status >= 400)
+            ) {
               return {
                 success: false,
                 error: json.message || json.error || 'Failed to download PDF',
                 message: json.message || json.error || 'Failed to download PDF',
               };
             }
-            if (json.data?.url || json.url || json.data?.download_url || json.download_url) {
+
+            // Custom filename if returned in response data
+            const serverFileName =
+              json.data?.file_name ||
+              json.data?.filename ||
+              json.data?.fileName ||
+              json.file_name ||
+              json.filename ||
+              json.fileName;
+            if (serverFileName && typeof serverFileName === 'string') {
+              filename = serverFileName.trim();
+            }
+
+            // Direct URL
+            const directUrl =
+              json.data?.url ||
+              json.url ||
+              json.data?.download_url ||
+              json.download_url ||
+              json.data?.pdf_url ||
+              json.pdf_url;
+            if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('http')) {
               return {
                 success: true,
-                url: json.data?.url || json.url || json.data?.download_url || json.download_url,
+                url: directUrl,
                 filename,
               };
             }
-            if (json.data?.base64 || json.base64) {
+
+            // Check pdf_buffer / base64 in data or root
+            const rawBuffer =
+              json.data?.pdf_buffer ??
+              json.data?.pdfBuffer ??
+              json.data?.buffer ??
+              json.data?.file_buffer ??
+              json.data?.fileBuffer ??
+              json.data?.base64 ??
+              json.data?.pdf ??
+              json.pdf_buffer ??
+              json.pdfBuffer ??
+              json.buffer ??
+              json.file_buffer ??
+              json.base64 ??
+              json.data;
+
+            const extractedBase64 = extractPdfBase64(rawBuffer);
+            if (extractedBase64) {
               return {
                 success: true,
-                base64: json.data?.base64 || json.base64,
+                base64: extractedBase64,
+                pdf_buffer: extractedBase64,
+                data: {
+                  pdf_buffer: extractedBase64,
+                  file_name: filename,
+                },
                 contentType: 'application/pdf',
                 filename,
               };
             }
+
+            // If it was valid JSON but did not contain any valid PDF payload
+            return {
+              success: false,
+              error: json.message || json.error || 'No PDF data received from server',
+              message: json.message || json.error || 'No PDF data received from server',
+            };
           }
-        } catch {
-          // Not valid JSON, fall through to treating as binary PDF buffer
+        } catch (jsonErr: any) {
+          // If JSON parsing failed unexpectedly, fall through to treating as binary PDF
+          console.warn('[smartDocsService.downloadDocPdf] JSON parse error, treating as binary:', jsonErr);
         }
       }
 
@@ -1371,6 +1466,11 @@ export const smartDocsService = {
       return {
         success: true,
         base64,
+        pdf_buffer: base64,
+        data: {
+          pdf_buffer: base64,
+          file_name: filename,
+        },
         contentType: contentType || 'application/pdf',
         filename,
       };
@@ -1384,6 +1484,269 @@ export const smartDocsService = {
     }
   },
 };
+
+/**
+ * Safely extracts a clean base64 PDF string from diverse payload formats:
+ * - base64 string (with or without data URL prefix)
+ * - Node Buffer serialized as JSON ({ type: "Buffer", data: number[] })
+ * - Direct byte array (number[])
+ * - Uint8Array or ArrayBuffer
+ * - Binary PDF string starting with %PDF-
+ * - Hex string starting with 25504446
+ */
+export function extractPdfBase64(raw: any): string | null {
+  if (!raw) return null;
+
+  // 1. String formats
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+
+    // Data URI prefix: data:application/pdf;base64,...
+    if (trimmed.startsWith('data:')) {
+      const idx = trimmed.indexOf(';base64,');
+      if (idx !== -1) {
+        return trimmed.slice(idx + 8).replace(/\s+/g, '');
+      }
+      const commaIdx = trimmed.indexOf(',');
+      if (commaIdx !== -1) {
+        return trimmed.slice(commaIdx + 1).replace(/\s+/g, '');
+      }
+    }
+
+    // JSON-encoded object: {"type":"Buffer","data":[...]}
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        const nested = extractPdfBase64(parsed);
+        if (nested) return nested;
+      } catch {
+        // ignore
+      }
+    }
+
+    // Raw binary string (starts with %PDF-)
+    if (trimmed.startsWith('%PDF-')) {
+      return typeof Buffer !== 'undefined'
+        ? Buffer.from(trimmed, 'binary').toString('base64')
+        : btoa(trimmed);
+    }
+
+    // Hex string (starts with 25504446 -> %PDF)
+    if (
+      /^[0-9a-fA-F]+$/.test(trimmed) &&
+      trimmed.length % 2 === 0 &&
+      trimmed.toLowerCase().startsWith('25504446')
+    ) {
+      return typeof Buffer !== 'undefined'
+        ? Buffer.from(trimmed, 'hex').toString('base64')
+        : null;
+    }
+
+    // Standard base64 string
+    const cleanStr = trimmed.replace(/\s+/g, '');
+    return cleanStr;
+  }
+
+  // 2. Node.js Buffer
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(raw)) {
+    return raw.toString('base64');
+  }
+
+  // 3. Uint8Array or ArrayBuffer
+  if (raw instanceof Uint8Array) {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(raw).toString('base64');
+    }
+    let binary = '';
+    const len = raw.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(raw[i]);
+    }
+    return btoa(binary);
+  }
+  if (raw instanceof ArrayBuffer) {
+    const uint8 = new Uint8Array(raw);
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(uint8).toString('base64');
+    }
+    let binary = '';
+    const len = uint8.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(uint8[i]);
+    }
+    return btoa(binary);
+  }
+
+  // 4. Object representations
+  if (typeof raw === 'object' && raw !== null) {
+    // Array of numbers [37, 80, 68, 70, ...]
+    if (Array.isArray(raw)) {
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(raw).toString('base64');
+      }
+      let binary = '';
+      for (let i = 0; i < raw.length; i++) {
+        binary += String.fromCharCode(raw[i]);
+      }
+      return btoa(binary);
+    }
+
+    // Standard Node Buffer JSON: { type: 'Buffer', data: number[] }
+    if (Array.isArray(raw.data)) {
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(raw.data).toString('base64');
+      }
+      let binary = '';
+      for (let i = 0; i < raw.data.length; i++) {
+        binary += String.fromCharCode(raw.data[i]);
+      }
+      return btoa(binary);
+    }
+
+    // Nested properties
+    if (raw.pdf_buffer !== undefined) {
+      return extractPdfBase64(raw.pdf_buffer);
+    }
+    if (raw.pdfBuffer !== undefined) {
+      return extractPdfBase64(raw.pdfBuffer);
+    }
+    if (raw.buffer !== undefined) {
+      return extractPdfBase64(raw.buffer);
+    }
+    if (raw.file_buffer !== undefined) {
+      return extractPdfBase64(raw.file_buffer);
+    }
+    if (raw.base64 !== undefined) {
+      return extractPdfBase64(raw.base64);
+    }
+    if (raw.pdf !== undefined) {
+      return extractPdfBase64(raw.pdf);
+    }
+    if (raw.data !== undefined) {
+      return extractPdfBase64(raw.data);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Universal browser-safe downloader for Smart Docs PDF payloads.
+ * Seamlessly handles:
+ * - Direct HTTP URLs (fetch via Blob or window.open)
+ * - Base64 strings (res.base64, res.pdf_buffer, res.data?.pdf_buffer)
+ * - Node Buffer serialized as JSON ({ type: 'Buffer', data: number[] })
+ * - Direct Byte Array (number[], Uint8Array, ArrayBuffer)
+ */
+export function downloadPdfFromActionResponse(
+  res: any,
+  fallbackFilename: string
+): boolean {
+  if (typeof window === 'undefined' || !res) return false;
+
+  // 1. Direct URL handling
+  const directUrl =
+    res.url ||
+    res.data?.url ||
+    res.download_url ||
+    res.data?.download_url ||
+    res.data?.pdf_url;
+  if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('http')) {
+    try {
+      fetch(directUrl)
+        .then((fileRes) => fileRes.blob())
+        .then((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = res.filename || fallbackFilename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+        })
+        .catch(() => {
+          window.open(directUrl, '_blank', 'noopener,noreferrer');
+        });
+      return true;
+    } catch {
+      window.open(directUrl, '_blank', 'noopener,noreferrer');
+      return true;
+    }
+  }
+
+  // 2. Extract buffer or base64
+  const rawPayload =
+    res.base64 ||
+    res.pdf_buffer ||
+    res.data?.pdf_buffer ||
+    res.data?.buffer ||
+    res.data?.base64 ||
+    res.buffer;
+
+  if (!rawPayload) return false;
+
+  let byteArray: Uint8Array | null = null;
+
+  if (rawPayload instanceof Uint8Array) {
+    byteArray = rawPayload;
+  } else if (rawPayload instanceof ArrayBuffer) {
+    byteArray = new Uint8Array(rawPayload);
+  } else if (Array.isArray(rawPayload)) {
+    byteArray = new Uint8Array(rawPayload);
+  } else if (
+    typeof rawPayload === 'object' &&
+    rawPayload !== null &&
+    Array.isArray(rawPayload.data)
+  ) {
+    byteArray = new Uint8Array(rawPayload.data);
+  } else if (typeof rawPayload === 'string') {
+    let clean = rawPayload.trim();
+    if (clean.startsWith('{') && clean.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(clean);
+        if (Array.isArray(parsed.data)) {
+          byteArray = new Uint8Array(parsed.data);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    if (!byteArray) {
+      if (clean.includes(';base64,')) {
+        clean = clean.split(';base64,')[1];
+      } else if (clean.startsWith('data:')) {
+        const commaIdx = clean.indexOf(',');
+        if (commaIdx !== -1) clean = clean.slice(commaIdx + 1);
+      }
+      clean = clean.replace(/\s+/g, '');
+      const binaryStr = atob(clean);
+      const len = binaryStr.length;
+      byteArray = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        byteArray[i] = binaryStr.charCodeAt(i);
+      }
+    }
+  }
+
+  if (!byteArray || byteArray.length === 0) {
+    return false;
+  }
+
+  const filename = res.filename || fallbackFilename;
+  const cleanName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+  const blob = new Blob([byteArray as any], { type: res.contentType || 'application/pdf' });
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = cleanName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+  return true;
+}
 
 /**
  * Robustly extracts the confirmation document object from backend API response.
@@ -1445,7 +1808,9 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
         key === 'sales_broker_type' ||
         key === 'seller_signature' ||
         key === 'buyer_signature' ||
-        key === 'broker_signature'
+        key === 'broker_signature' ||
+        key === 'comment_label' ||
+        key === 'comment_value'
       ) {
         cleaned[key] = null;
       }
@@ -1453,7 +1818,12 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
     }
     if (typeof value === 'string') {
       const trimmed = value.trim();
-      if (trimmed === '') continue;
+      if (trimmed === '') {
+        if (key === 'comment_label' || key === 'comment_value') {
+          cleaned[key] = '';
+        }
+        continue;
+      }
       // Also check if notes contains only empty HTML
       if (key === 'notes') {
         const stripped = trimmed.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
@@ -1614,7 +1984,9 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
         key === 'sales_broker_type' ||
         key === 'seller_signature' ||
         key === 'buyer_signature' ||
-        key === 'broker_signature'
+        key === 'broker_signature' ||
+        key === 'comment_label' ||
+        key === 'comment_value'
       ) {
         cleaned[key] = null;
       }
@@ -1622,7 +1994,12 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
     }
     if (typeof value === 'string') {
       const trimmed = value.trim();
-      if (trimmed === '') continue;
+      if (trimmed === '') {
+        if (key === 'comment_label' || key === 'comment_value') {
+          cleaned[key] = '';
+        }
+        continue;
+      }
       if (
         key === 'notes' ||
         key === 'container_terms' ||
@@ -1657,6 +2034,8 @@ export interface SaveConfirmationPayload {
   bag_quantity?: number;
   buyer_instruction?: string;
   buyer_instruction_id?: string;
+  comment_label?: string;
+  comment_value?: string;
   confirmation_date?: string;
   confirmation_number?: string;
   currency_id?: string;
