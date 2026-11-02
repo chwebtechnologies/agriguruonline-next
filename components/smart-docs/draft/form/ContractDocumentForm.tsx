@@ -2182,10 +2182,10 @@ export function ContractDocumentForm({
     toCleanId(initialData?.product_id || initialData?.productId || initialData?.product)
   );
   const [hsnCode, setHsnCode] = useState<string>(() =>
-    normalizeHsnString(initialData?.hsn_code || initialData?.hsnCode || initialData?.hsn || (typeof initialData?.product === 'object' ? initialData.product.hsn : ''))
+    normalizeHsnString(initialData?.hsn_code || initialData?.hsnCode || initialData?.hsn || (typeof initialData?.product === 'object' ? initialData.product.hsn || initialData.product.hsn_code : ''))
   );
   const [productCountry, setProductCountry] = useState<string>(() =>
-    normalizeCountryString(initialData?.country || initialData?.productCountry || initialData?.product_country || (typeof initialData?.product === 'object' ? initialData.product.country : ''))
+    normalizeCountryString(initialData?.country || initialData?.productCountry || initialData?.product_country || (typeof initialData?.product === 'object' ? initialData.product.country || initialData.product.origin_country : ''))
   );
 
   // ROW 7: Specification
@@ -2814,6 +2814,38 @@ export function ContractDocumentForm({
         'AUTHORISED SIGNATURE'
       )
   );
+
+  // Track explicit user clears for signatures to prevent stale initialData from reviving them
+  const hasUserClearedExporterSigRef = useRef<boolean>(false);
+  const hasUserClearedImporterSigRef = useRef<boolean>(false);
+  const hasUserClearedBrokerSigRef = useRef<boolean>(false);
+
+  const handleExporterSignatureChange = useCallback((val: string) => {
+    if (!val) {
+      hasUserClearedExporterSigRef.current = true;
+    } else {
+      hasUserClearedExporterSigRef.current = false;
+    }
+    setExporterSignature(val);
+  }, []);
+
+  const handleImporterSignatureChange = useCallback((val: string) => {
+    if (!val) {
+      hasUserClearedImporterSigRef.current = true;
+    } else {
+      hasUserClearedImporterSigRef.current = false;
+    }
+    setImporterSignature(val);
+  }, []);
+
+  const handleBrokerSignatureChange = useCallback((val: string) => {
+    if (!val) {
+      hasUserClearedBrokerSigRef.current = true;
+    } else {
+      hasUserClearedBrokerSigRef.current = false;
+    }
+    setBrokerSignature(val);
+  }, []);
 
   // UI States
   const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
@@ -3571,34 +3603,42 @@ export function ContractDocumentForm({
 
     // Once the form has been initialized, NEVER overwrite the user's active in-progress edits!
     if (isFormInitializedRef.current) {
-      // Still update fresh signature URLs from backend if available and not yet set
+      // Still update fresh signature URLs from backend if available and not cleared by user
       const sSig = resolveSigValue(initialData, [
         'seller_signature',
         'sellerSignature',
         'exporter_signature',
         'exporterSignature',
       ]);
-      if (sSig) {
+      if (hasUserClearedExporterSigRef.current || !exporterSignature) {
+        setExporterSignature('');
+      } else if (sSig) {
         const formatted = formatSignatureUrl(sSig);
         setExporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
       }
+
       const bSig = resolveSigValue(initialData, [
         'buyer_signature',
         'buyerSignature',
         'importer_signature',
         'importerSignature',
       ]);
-      if (bSig) {
+      if (hasUserClearedImporterSigRef.current || !importerSignature) {
+        setImporterSignature('');
+      } else if (bSig) {
         const formatted = formatSignatureUrl(bSig);
         setImporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
       }
+
       const brSig = resolveSigValue(initialData, [
         'broker_signature',
         'brokerSignature',
         'sales_broker_signature',
         'salesBrokerSignature',
       ]);
-      if (brSig) {
+      if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
+        setBrokerSignature('');
+      } else if (brSig) {
         const formatted = formatSignatureUrl(brSig);
         setBrokerSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
       }
@@ -3666,10 +3706,10 @@ export function ContractDocumentForm({
       fetchAndApplyProductDetails(pId, false);
     }
 
-    const hsn = normalizeHsnString(initialData.hsn_code || initialData.hsnCode || initialData.hsn || (typeof initialData.product === 'object' ? initialData.product.hsn : ''));
+    const hsn = normalizeHsnString(initialData.hsn_code || initialData.hsnCode || initialData.hsn || (typeof initialData.product === 'object' ? initialData.product.hsn || initialData.product.hsn_code : ''));
     if (hsn) setHsnCode(hsn);
 
-    const ctry = normalizeCountryString(initialData.country || initialData.productCountry || initialData.product_country || (typeof initialData.product === 'object' ? initialData.product.country : ''));
+    const ctry = normalizeCountryString(initialData.country || initialData.productCountry || initialData.product_country || (typeof initialData.product === 'object' ? initialData.product.country || initialData.product.origin_country : ''));
     if (ctry) setProductCountry(ctry);
 
     const spec = toCleanLabel(initialData.quality_specification || initialData.specification || (typeof initialData.product === 'object' ? initialData.product.specification || initialData.product.quality_specification : ''));
@@ -3929,7 +3969,13 @@ export function ContractDocumentForm({
       'importer_signature',
       'importerSignature',
     ]);
-    if (bSig) {
+    if (hasUserClearedImporterSigRef.current || !importerSignature) {
+      if (hasUserClearedImporterSigRef.current) {
+        setImporterSignature('');
+      } else if (bSig) {
+        setImporterSignature(formatSignatureUrl(bSig));
+      }
+    } else if (bSig) {
       const formatted = formatSignatureUrl(bSig);
       setImporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
     }
@@ -3958,7 +4004,13 @@ export function ContractDocumentForm({
       'sales_broker_signature',
       'brokerSignature',
     ]);
-    if (brSig) {
+    if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
+      if (hasUserClearedBrokerSigRef.current) {
+        setBrokerSignature('');
+      } else if (brSig) {
+        setBrokerSignature(formatSignatureUrl(brSig));
+      }
+    } else if (brSig) {
       const formatted = formatSignatureUrl(brSig);
       setBrokerSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
     }
@@ -3988,7 +4040,13 @@ export function ContractDocumentForm({
       'exporter_signature',
       'exporterSignature',
     ]);
-    if (sSig) {
+    if (hasUserClearedExporterSigRef.current || !exporterSignature) {
+      if (hasUserClearedExporterSigRef.current) {
+        setExporterSignature('');
+      } else if (sSig) {
+        setExporterSignature(formatSignatureUrl(sSig));
+      }
+    } else if (sSig) {
       const formatted = formatSignatureUrl(sSig);
       setExporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
     }
@@ -4308,6 +4366,11 @@ export function ContractDocumentForm({
       formData.append('remove_broker_signature', 'false');
     } else {
       formData.append('remove_broker_signature', 'true');
+      formData.append('remove_sales_broker_signature', 'true');
+      formData.append('broker_signature', '');
+      formData.append('broker_signature_url', '');
+      formData.append('sales_broker_signature', '');
+      formData.append('sales_broker_signature_url', '');
     }
 
     // ECTN / COC fields
@@ -4360,6 +4423,11 @@ export function ContractDocumentForm({
       formData.append('remove_seller_signature', 'false');
     } else {
       formData.append('remove_seller_signature', 'true');
+      formData.append('remove_exporter_signature', 'true');
+      formData.append('seller_signature', '');
+      formData.append('seller_signature_url', '');
+      formData.append('exporter_signature', '');
+      formData.append('exporter_signature_url', '');
     }
 
     // Buyer (Importer) Signature: binary File conversion from merged/composite dataUrl
@@ -4380,6 +4448,11 @@ export function ContractDocumentForm({
       formData.append('remove_buyer_signature', 'false');
     } else {
       formData.append('remove_buyer_signature', 'true');
+      formData.append('remove_importer_signature', 'true');
+      formData.append('buyer_signature', '');
+      formData.append('buyer_signature_url', '');
+      formData.append('importer_signature', '');
+      formData.append('importer_signature_url', '');
     }
 
     return formData;
@@ -4514,30 +4587,39 @@ export function ContractDocumentForm({
       // Signature fields for contract API (seller_signature_field, broker_signature_field, buyer_signature_field)
       seller_signature_field: exporterTitle.trim(),
       seller_signature_label: exporterAuthorityTitle.trim(),
-      seller_signature: normalizeSignaturePayload(exporterSignature),
+      seller_signature: exporterSignature ? normalizeSignaturePayload(exporterSignature) : null,
+      seller_signature_url: exporterSignature ? normalizeSignaturePayload(exporterSignature) : null,
       remove_seller_signature: !exporterSignature,
+      remove_exporter_signature: !exporterSignature,
 
       broker_signature_field: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
       broker_signature_label: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
-      broker_signature: isSalesBrokerAllowed ? normalizeSignaturePayload(brokerSignature) : undefined,
+      broker_signature: isSalesBrokerAllowed && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
+      broker_signature_url: isSalesBrokerAllowed && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
       remove_broker_signature: !isSalesBrokerAllowed || !brokerSignature,
+      remove_sales_broker_signature: !isSalesBrokerAllowed || !brokerSignature,
 
       buyer_signature_field: importerTitle.trim(),
       buyer_signature_label: importerAuthorityTitle.trim(),
-      buyer_signature: normalizeSignaturePayload(importerSignature),
+      buyer_signature: importerSignature ? normalizeSignaturePayload(importerSignature) : null,
+      buyer_signature_url: importerSignature ? normalizeSignaturePayload(importerSignature) : null,
       remove_buyer_signature: !importerSignature,
+      remove_importer_signature: !importerSignature,
 
       // Retain legacy keys for backward compatibility
       importer_title: importerTitle.trim(),
-      importer_signature: normalizeSignaturePayload(importerSignature),
+      importer_signature: importerSignature ? normalizeSignaturePayload(importerSignature) : null,
+      importer_signature_url: importerSignature ? normalizeSignaturePayload(importerSignature) : null,
       importer_authority_title: importerAuthorityTitle.trim(),
       broker_title: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
       broker_authority_title: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
       sales_broker_title: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
-      sales_broker_signature: isSalesBrokerAllowed ? normalizeSignaturePayload(brokerSignature) : undefined,
+      sales_broker_signature: isSalesBrokerAllowed && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
+      sales_broker_signature_url: isSalesBrokerAllowed && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
       sales_broker_authority_title: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
       exporter_title: exporterTitle.trim(),
-      exporter_signature: normalizeSignaturePayload(exporterSignature),
+      exporter_signature: exporterSignature ? normalizeSignaturePayload(exporterSignature) : null,
+      exporter_signature_url: exporterSignature ? normalizeSignaturePayload(exporterSignature) : null,
       exporter_authority_title: exporterAuthorityTitle.trim(),
     };
   };
@@ -4800,15 +4882,23 @@ export function ContractDocumentForm({
             : null;
         if (savedContract) {
           const sSellerSig = savedContract.seller_signature || savedContract.exporter_signature;
-          if (sSellerSig) {
+          if (hasUserClearedExporterSigRef.current || !exporterSignature) {
+            setExporterSignature('');
+          } else if (sSellerSig) {
             setExporterSignature(formatSignatureUrl(sSellerSig));
           }
+
           const sBuyerSig = savedContract.buyer_signature || savedContract.importer_signature;
-          if (sBuyerSig) {
+          if (hasUserClearedImporterSigRef.current || !importerSignature) {
+            setImporterSignature('');
+          } else if (sBuyerSig) {
             setImporterSignature(formatSignatureUrl(sBuyerSig));
           }
+
           const sBrokerSig = savedContract.broker_signature || savedContract.sales_broker_signature;
-          if (sBrokerSig) {
+          if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
+            setBrokerSignature('');
+          } else if (sBrokerSig) {
             setBrokerSignature(formatSignatureUrl(sBrokerSig));
           }
         }
@@ -4866,15 +4956,21 @@ export function ContractDocumentForm({
 
         if (res?.success && !hasFieldErrors) {
           setDocStatus('COMPLETED');
+          if (hasUserClearedExporterSigRef.current || !exporterSignature) {
+            setExporterSignature('');
+          }
+          if (hasUserClearedImporterSigRef.current || !importerSignature) {
+            setImporterSignature('');
+          }
+          if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
+            setBrokerSignature('');
+          }
           toast.success('Contract submitted successfully to Proforma Invoice!');
           const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id || effectiveId;
           if (newId && !isInvalidPlaceholder(String(newId))) {
             setDraftId(String(newId));
             lastLoadedDocIdRef.current = String(newId);
             isFormInitializedRef.current = true;
-            if (onSaveSuccess) {
-              onSaveSuccess(String(newId));
-            }
           }
 
           // Concurrently refresh stepper list from backend
@@ -5264,7 +5360,7 @@ export function ContractDocumentForm({
                   HSN CODE
                 </span>
                 <span className="text-[14px] font-semibold text-foreground truncate min-w-0 mt-0.5 leading-snug">
-                  {isLoadingProductDetails ? 'Loading...' : hsnCode || '-'}
+                  {isLoadingProductDetails ? 'Loading...' : normalizeHsnString(hsnCode) || '-'}
                 </span>
               </div>
               <div className="py-1 px-2.5 sm:py-1.5 sm:px-3 flex flex-col justify-center min-w-0 overflow-hidden" data-field="productCountry">
@@ -5272,7 +5368,7 @@ export function ContractDocumentForm({
                   COUNTRY
                 </span>
                 <span className="text-[14px] font-semibold text-foreground uppercase truncate min-w-0 mt-0.5 leading-snug">
-                  {isLoadingProductDetails ? 'Loading...' : productCountry || '-'}
+                  {isLoadingProductDetails ? 'Loading...' : normalizeCountryString(productCountry) || '-'}
                 </span>
               </div>
             </div>
@@ -6482,19 +6578,19 @@ export function ContractDocumentForm({
             exporterTitle={exporterTitle}
             onExporterTitleChange={setExporterTitle}
             exporterSignature={exporterSignature}
-            onExporterSignatureChange={setExporterSignature}
+            onExporterSignatureChange={handleExporterSignatureChange}
             exporterAuthorityTitle={exporterAuthorityTitle}
             onExporterAuthorityTitleChange={setExporterAuthorityTitle}
             brokerTitle={brokerTitle}
             onBrokerTitleChange={setBrokerTitle}
             brokerSignature={brokerSignature}
-            onBrokerSignatureChange={setBrokerSignature}
+            onBrokerSignatureChange={handleBrokerSignatureChange}
             brokerAuthorityTitle={brokerAuthorityTitle}
             onBrokerAuthorityTitleChange={setBrokerAuthorityTitle}
             importerTitle={importerTitle}
             onImporterTitleChange={setImporterTitle}
             importerSignature={importerSignature}
-            onImporterSignatureChange={setImporterSignature}
+            onImporterSignatureChange={handleImporterSignatureChange}
             importerAuthorityTitle={importerAuthorityTitle}
             onImporterAuthorityTitleChange={setImporterAuthorityTitle}
             readOnly={readOnly}
@@ -6555,7 +6651,10 @@ export function ContractDocumentForm({
         Theme-compliant buttons matching AgriGuru brand system (exact match with confirmation).
         Sticky on mobile docked at viewport bottom, static on desktop at bottom of card.
       */}
-      <div className="shrink-0 sticky bottom-0 lg:static border-t border-border bg-card/95 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-2.5 print:hidden z-30 shadow-md lg:shadow-none rounded-b-xl">
+      <div 
+        style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+        className="shrink-0 sticky bottom-0 lg:static border-t border-border bg-card px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-2.5 print:hidden z-30 shadow-md lg:shadow-none rounded-b-xl transform-gpu"
+      >
         {/* Left Action Buttons: Print Preview & Download PDF (Red themed like Confirmation) */}
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
           {/* Print Preview Button */}

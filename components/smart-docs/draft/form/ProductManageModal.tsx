@@ -90,6 +90,20 @@ export function ProductManageModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Lock body scroll when modal is active
+  useEffect(() => {
+    if (isOpen) {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -138,7 +152,7 @@ export function ProductManageModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20 shrink-0">
           <div className="flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm">
               <i
@@ -172,7 +186,7 @@ export function ProductManageModal({
         </div>
 
         {/* Modal Body / Form */}
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4 text-xs sm:text-sm">
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4 text-xs sm:text-sm overflow-y-auto custom-scrollbar flex-1">
           {/* Product Name */}
           <div className="flex flex-col gap-1.5">
             <label className="font-semibold text-xs text-foreground flex items-center gap-1">
@@ -247,7 +261,7 @@ export function ProductManageModal({
           </div>
 
           {/* Modal Actions */}
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border mt-1">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border mt-1 shrink-0">
             <button
               type="button"
               onClick={onClose}

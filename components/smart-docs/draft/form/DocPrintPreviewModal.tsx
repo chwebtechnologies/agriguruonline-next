@@ -51,9 +51,35 @@ function preparePreviewHtml(rawHtml: string): string {
         font-family: 'Calibri', Candara, 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
       }
 
+      /* 1. Force entire viewport and root containers to pure white */
+      html, body {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        width: 100% !important;
+        min-height: 100% !important;
+      }
+
       @media screen {
+        html {
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
         body {
-          margin: 0 auto;
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          margin: 0 auto !important;
+          padding: 16px 20px !important;
+          max-width: 820px !important;
+          box-shadow: none !important;
+          border: none !important;
+          border-radius: 0 !important;
+          box-sizing: border-box !important;
         }
       }
 
@@ -69,12 +95,21 @@ function preparePreviewHtml(rawHtml: string): string {
         }
         html, body {
           background: #ffffff !important;
+          background-color: #ffffff !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+          margin: 0 !important;
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
       }
     </style>
   `;
+
+  // Inject at the very end of <head> so it takes strict precedence over any backend styles
+  if (/<\/head>/i.test(rawHtml)) {
+    return rawHtml.replace(/<\/head>/i, `${calibriAndPrintStyles}</head>`);
+  }
 
   if (/<head[^>]*>/i.test(rawHtml)) {
     return rawHtml.replace(/<head[^>]*>/i, `$&${calibriAndPrintStyles}`);
@@ -92,7 +127,7 @@ function preparePreviewHtml(rawHtml: string): string {
   <title>Document Print Preview</title>
   ${calibriAndPrintStyles}
 </head>
-<body style="margin: 0 auto; padding: 0; background: #ffffff;">
+<body style="margin: 0 auto; padding: 16px 20px; background: #ffffff;">
   ${rawHtml}
 </body>
 </html>`;
@@ -236,11 +271,12 @@ export default function DocPrintPreviewModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="doc-preview-modal-title"
-      className="fixed inset-0 z-9999 flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150 isolate"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-sm overflow-y-auto overscroll-contain animate-in fade-in duration-150"
       onClick={onClose}
     >
+      {/* Modal Panel: Fitted precisely to document width with no excess empty margins */}
       <div
-        className="relative w-full max-w-5xl h-[92vh] max-h-[calc(100dvh-2rem)] bg-card text-foreground border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-[850px] h-[90vh] bg-card text-foreground border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}
@@ -306,7 +342,7 @@ export default function DocPrintPreviewModal({
         </div>
 
         {/* Modal Body: Direct Full-Height Document Frame */}
-        <div className="flex-1 w-full h-full min-h-0 bg-neutral-100 dark:bg-neutral-900 overflow-hidden relative flex flex-col">
+        <div className="flex-1 w-full h-full min-h-0 bg-white overflow-hidden relative flex flex-col">
           {/* Loading State */}
           {loading && (
             <div className="m-auto py-12 flex flex-col items-center justify-center text-center">

@@ -34,13 +34,20 @@ export async function generateMetadata(props: {
   const activeLang = getSafeLanguage(params?.lang);
   const siteUrl = getSiteUrl();
   const isContractRequested = searchParams?.step === 'contract' || searchParams?.step === '2';
+  const isProformaRequested = searchParams?.step === 'proforma' || searchParams?.step === '3';
   const queryParts = [];
   if (searchParams?.id) queryParts.push(`id=${encodeURIComponent(searchParams.id)}`);
   if (searchParams?.step) queryParts.push(`step=${encodeURIComponent(searchParams.step)}`);
   const idQuery = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
+  const pageTitle = isProformaRequested
+    ? 'Proforma Invoice'
+    : isContractRequested
+    ? 'Draft Contract'
+    : 'Draft Confirmation';
+
   return {
-    title: `${isContractRequested ? 'Draft Contract' : 'Draft Confirmation'} | Smart Docs | AgriGuru Online`,
+    title: `${pageTitle} | Smart Docs | AgriGuru Online`,
     description: 'Create and configure smart agricultural trade confirmation and contract drafts.',
     robots: {
       index: false,
@@ -59,6 +66,7 @@ export default async function SmartDocsDraftPage(props: {
   const searchParams = props.searchParams ? await props.searchParams : undefined;
   const initialStepParam = searchParams?.step ? String(searchParams.step).trim() : '';
   const isContractRequested = initialStepParam === 'contract' || initialStepParam === '2';
+  const isProformaRequested = initialStepParam === 'proforma' || initialStepParam === '3';
 
   return (
     <Suspense fallback={<DocumentDraftSkeleton mode={isContractRequested ? 'contract' : 'confirmation'} />}>
@@ -77,6 +85,7 @@ async function DraftPageDataLoader(props: {
   const draftId = searchParams?.id ? String(searchParams.id).trim() : '';
   const initialStepParam = searchParams?.step ? String(searchParams.step).trim() : '';
   const isContractRequested = initialStepParam === 'contract' || initialStepParam === '2';
+  const isProformaRequested = initialStepParam === 'proforma' || initialStepParam === '3';
 
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
@@ -301,17 +310,21 @@ async function DraftPageDataLoader(props: {
     initialSteps = DEFAULT_WORKFLOW_STEPPER_ITEMS;
   }
 
-  // If this ID is a Contract (or contract step requested), ensure initialStepParam defaults to contract
+  // If this ID is a Contract or Proforma (or step requested), ensure initialStepParam defaults accordingly
   const effectiveStepParam =
     initialStepParam ||
-    (isContractRequested
+    (isProformaRequested
+      ? 'proforma'
+      : isContractRequested
       ? 'contract'
       : initialContractData && !initialConfirmationData
       ? 'contract'
       : undefined);
 
   const effectiveDraftId =
-    isContractRequested
+    isProformaRequested
+      ? (draftId || stepperContractId || '')
+      : isContractRequested
       ? (stepperContractId || (initialContractData && draftId) || draftId || '')
       : (initialConfirmationData?.id || initialConfirmationData?._id || linkedConfId || draftId || '');
 

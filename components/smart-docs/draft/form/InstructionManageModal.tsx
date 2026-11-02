@@ -81,6 +81,20 @@ export function InstructionManageModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Lock body scroll when modal is active
+  useEffect(() => {
+    if (isOpen) {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevHtmlOverflow = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow;
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const isSeller = partyType === 'seller';
@@ -131,7 +145,7 @@ export function InstructionManageModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30 shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs">
               <i className="fa-solid fa-building" />
@@ -156,7 +170,7 @@ export function InstructionManageModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar flex-1">
           {error && (
             <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-center gap-2">
               <i className="fa-solid fa-circle-exclamation text-xs shrink-0" />
@@ -202,7 +216,7 @@ export function InstructionManageModal({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border shrink-0">
             <button
               type="button"
               onClick={onClose}

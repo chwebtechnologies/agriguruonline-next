@@ -116,12 +116,20 @@ export function DocUnderlineSelect({
         cleanLbl = 'USD ($)';
       }
 
+      const rawSub = opt.subLabel ?? opt.country ?? opt.description;
+      const cleanSub =
+        typeof rawSub === 'string'
+          ? rawSub.trim()
+          : typeof rawSub === 'object' && rawSub !== null
+          ? String(rawSub.name || rawSub.country_name || rawSub.label || rawSub.title || '').trim()
+          : '';
+
       return {
         ...opt,
         value: cleanVal || cleanLbl,
         label: cleanLbl || cleanVal,
-        subLabel: opt.subLabel || opt.country || opt.description,
-        badge: opt.badge,
+        subLabel: cleanSub || undefined,
+        badge: typeof opt.badge === 'string' ? opt.badge : undefined,
       };
     })
     .filter((opt): opt is DocSelectOption => opt !== null);
@@ -459,7 +467,8 @@ export function DocUnderlineSelect({
           role="dialog"
           aria-label={placeholder}
           onKeyDown={handleListKeyDown}
-          className="absolute left-0 top-full mt-1 w-full min-w-[240px] max-w-[380px] bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150"
+          style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+          className="absolute left-0 top-full mt-1 w-full min-w-[240px] max-w-[380px] bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150 transform-gpu"
         >
           {/* Search Box whenever searchable is true */}
           {searchable && (

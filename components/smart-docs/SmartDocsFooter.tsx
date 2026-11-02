@@ -13,8 +13,13 @@ export function SmartDocsFooter({ activeLang = 'en', dict }: SmartDocsFooterProp
   return (
     <footer 
       id="smart-docs-footer"
-      className="fixed bottom-0 left-0 right-0 z-[60] w-full bg-card/95 backdrop-blur-md border-t border-border text-foreground transition-colors duration-200 shadow-xs"
-      style={{ paddingLeft: 'var(--ag-container-px, 1rem)', paddingRight: 'var(--ag-container-px, 1rem)' }}
+      className="fixed bottom-0 left-0 right-0 z-[60] w-full bg-card border-t border-border text-foreground transition-colors duration-200 shadow-xs transform-gpu"
+      style={{ 
+        paddingLeft: 'var(--ag-container-px, 1rem)', 
+        paddingRight: 'var(--ag-container-px, 1rem)',
+        transform: 'translate3d(0, 0, 0)',
+        backfaceVisibility: 'hidden'
+      }}
     >
       <div className="mx-auto max-w-7xl h-11 sm:h-12 flex flex-row items-center justify-between gap-2.5 sm:gap-4 select-none">
         {/* Left Side: Copyright Notice */}

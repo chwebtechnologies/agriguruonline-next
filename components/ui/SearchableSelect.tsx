@@ -71,9 +71,6 @@ export function SearchableSelect({
     if (isOpen && wrapperRef.current) {
       if (variant === 'mobile') {
         setComputedMenuPosition('bottom');
-        setTimeout(() => {
-          wrapperRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 60);
       } else {
         const rect = wrapperRef.current.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
@@ -83,9 +80,6 @@ export function SearchableSelect({
           setComputedMenuPosition('top');
         } else {
           setComputedMenuPosition(menuPosition);
-          if (spaceBelow < 250) {
-            wrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }
         }
       }
     }
@@ -138,7 +132,7 @@ export function SearchableSelect({
 
   return (
     <div
-      className={`relative w-full min-w-0 ${isOpen && isInteractive ? 'z-[9999]' : ''} ${className}`}
+      className={`relative w-full min-w-0 ${isOpen && isInteractive ? 'z-50' : ''} ${className}`}
       ref={wrapperRef}
       title={displayValue}
     >
@@ -232,7 +226,8 @@ export function SearchableSelect({
 
       {isOpen && isInteractive && (
         <div
-          className={`absolute z-50 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-2xl max-h-[240px] flex flex-col left-0 ${
+          style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+          className={`absolute z-50 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-2xl max-h-[240px] flex flex-col left-0 transform-gpu ${
             computedMenuPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >

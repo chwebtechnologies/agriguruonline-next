@@ -167,7 +167,8 @@ export function DocumentStatusStepper({
         step.document_name || step.name || step.title || step.id || ''
       ).toLowerCase();
       const isContract = stepName.includes('contract') || step.step === 2;
-      const prefix = isContract ? 'contract' : 'confirmation';
+      const isProforma = stepName.includes('proforma') || step.step === 3;
+      const prefix = isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
 
       const res = await downloadDocPdfAction({
         prefix,

@@ -275,7 +275,10 @@ export function DocDocumentMultiSelect({
 
         {/* Dropdown Popup */}
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-2.5 flex flex-col gap-2 max-h-80 animate-in fade-in zoom-in-95 duration-150">
+          <div
+            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+            className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-2.5 flex flex-col gap-2 max-h-80 animate-in fade-in zoom-in-95 duration-150 transform-gpu"
+          >
             {/* Search Input */}
             <div className="relative">
               <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />

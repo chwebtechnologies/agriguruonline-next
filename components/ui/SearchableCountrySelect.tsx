@@ -264,7 +264,9 @@ export default function SearchableCountrySelect({
 
       {/* Dropdown / Mobile Sheet Overlay */}
       {isOpen && (
-        <div className="fixed sm:absolute inset-0 sm:inset-auto sm:top-full sm:left-0 sm:mt-2 z-50 bg-black/80 sm:bg-transparent flex items-end sm:items-start justify-center p-0 overscroll-contain">
+        <div 
+          className="fixed sm:absolute inset-0 sm:inset-auto sm:top-full sm:left-0 sm:mt-2 z-50 bg-black/70 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none flex items-end sm:items-start justify-center p-0 overscroll-contain"
+        >
           <div
             className="w-full sm:w-80 md:w-96 bg-background border border-foreground/15 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[440px] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
             onKeyDown={handleKeyDown}

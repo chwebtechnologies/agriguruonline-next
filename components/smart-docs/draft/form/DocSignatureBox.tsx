@@ -276,6 +276,8 @@ export function DocSignatureBox({
       baseImageObjRef.current = null;
       strokesRef.current = [];
       setHasDrawnSignature(false);
+      setIsDrawingMode(false);
+      lastExportedUrlRef.current = '';
       redrawCanvas();
       return;
     }

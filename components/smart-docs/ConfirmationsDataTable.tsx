@@ -1069,22 +1069,13 @@ export function ConfirmationsDataTable({
             row.id ||
             row._id ||
             `CONF-${String((currentPage - 1) * pageSize + index + 1).padStart(4, '0')}`;
-          const docType = getSmartDocType(row, selectedAction);
-          const isContract = docType === 'Contract';
-          const rowDocId = isContract ? extractContractDocId(row) : extractSmartDocId(row);
-          const targetUrl = rowDocId
-            ? `/${lang}/smart-docs/draft?id=${encodeURIComponent(rowDocId)}${isContract ? '&step=contract' : ''}`
-            : `/${lang}/smart-docs/draft${isContract ? '?step=contract' : ''}`;
-
           return (
-            <Link
-              href={targetUrl}
-              onClick={(e) => e.stopPropagation()}
-              className="font-mono text-[14px] font-semibold text-primary hover:underline hover:text-primary-hover whitespace-nowrap block text-left transition-colors"
+            <span
+              className="font-mono text-[14px] font-medium text-foreground whitespace-nowrap block text-left"
               title={String(val)}
             >
               {String(val)}
-            </Link>
+            </span>
           );
         },
       },
@@ -2269,17 +2260,9 @@ export function ConfirmationsDataTable({
                       onClick={() => {
                         if (onRowClick) {
                           onRowClick(row);
-                        } else {
-                          const docType = getSmartDocType(row, selectedAction);
-                          const isContract = docType === 'Contract';
-                          const rowDocId = isContract ? extractContractDocId(row) : extractSmartDocId(row);
-                          const targetUrl = rowDocId
-                            ? `/${lang}/smart-docs/draft?id=${encodeURIComponent(rowDocId)}${isContract ? '&step=contract' : ''}`
-                            : `/${lang}/smart-docs/draft${isContract ? '?step=contract' : ''}`;
-                          router.push(targetUrl);
                         }
                       }}
-                      className="group cursor-pointer"
+                      className={`group ${onRowClick ? 'cursor-pointer' : ''}`}
                     >
                       {activeColumns.map((col) => {
                         const isStickyLeft = col.sticky === 'left';

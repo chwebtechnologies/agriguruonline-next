@@ -1775,6 +1775,10 @@ export function extractConfirmationData(data: any): any {
   }
   if (!current || typeof current !== 'object' || Array.isArray(current)) return null;
 
+  if (current.product && typeof current.product === 'object' && !current.product_name) {
+    current.product_name = current.product.name || current.product.product_name || current.product.title || '';
+  }
+
   const keys = Object.keys(current);
   if (keys.length === 0 || (keys.length <= 2 && keys.every(k => ['message', 'error', 'success', 'status', 'statusCode'].includes(k)))) {
     return null;
@@ -1807,8 +1811,17 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
         key === 'broker_commission_type' ||
         key === 'sales_broker_type' ||
         key === 'seller_signature' ||
+        key === 'seller_signature_url' ||
+        key === 'exporter_signature' ||
+        key === 'exporter_signature_url' ||
         key === 'buyer_signature' ||
+        key === 'buyer_signature_url' ||
+        key === 'importer_signature' ||
+        key === 'importer_signature_url' ||
         key === 'broker_signature' ||
+        key === 'broker_signature_url' ||
+        key === 'sales_broker_signature' ||
+        key === 'sales_broker_signature_url' ||
         key === 'comment_label' ||
         key === 'comment_value'
       ) {
@@ -1821,6 +1834,21 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
       if (trimmed === '') {
         if (key === 'comment_label' || key === 'comment_value') {
           cleaned[key] = '';
+        } else if (
+          key === 'seller_signature' ||
+          key === 'seller_signature_url' ||
+          key === 'exporter_signature' ||
+          key === 'exporter_signature_url' ||
+          key === 'buyer_signature' ||
+          key === 'buyer_signature_url' ||
+          key === 'importer_signature' ||
+          key === 'importer_signature_url' ||
+          key === 'broker_signature' ||
+          key === 'broker_signature_url' ||
+          key === 'sales_broker_signature' ||
+          key === 'sales_broker_signature_url'
+        ) {
+          cleaned[key] = null;
         }
         continue;
       }
@@ -1939,17 +1967,25 @@ export function extractContractData(data: any): any {
   for (const layer of layers) {
     for (const [k, v] of Object.entries(layer)) {
       if (k === 'contract' || k === 'data') continue;
-      const isValid = v !== undefined && v !== null && v !== '' && v !== 'null' && v !== 'undefined';
-      if (isValid) {
+      if (!(k in merged)) {
         merged[k] = v;
-      } else if (merged[k] === undefined) {
-        merged[k] = v;
+      } else if ((merged[k] === undefined || merged[k] === null || merged[k] === '') && v !== undefined && v !== null && v !== '') {
+        // If inner layer didn't specify a value, fallback to outer layer
+        // BUT do not fallback for signatures if inner layer explicitly cleared them
+        const isSigKey = /signature/i.test(k);
+        if (!isSigKey) {
+          merged[k] = v;
+        }
       }
     }
   }
 
   if (contractLevel) {
     merged.contract = contractLevel;
+  }
+
+  if (merged.product && typeof merged.product === 'object' && !merged.product_name) {
+    merged.product_name = merged.product.name || merged.product.product_name || merged.product.title || '';
   }
 
   const keys = Object.keys(merged);
@@ -1983,8 +2019,17 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
         key === 'broker_commission_type' ||
         key === 'sales_broker_type' ||
         key === 'seller_signature' ||
+        key === 'seller_signature_url' ||
+        key === 'exporter_signature' ||
+        key === 'exporter_signature_url' ||
         key === 'buyer_signature' ||
+        key === 'buyer_signature_url' ||
+        key === 'importer_signature' ||
+        key === 'importer_signature_url' ||
         key === 'broker_signature' ||
+        key === 'broker_signature_url' ||
+        key === 'sales_broker_signature' ||
+        key === 'sales_broker_signature_url' ||
         key === 'comment_label' ||
         key === 'comment_value'
       ) {
@@ -1997,6 +2042,21 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
       if (trimmed === '') {
         if (key === 'comment_label' || key === 'comment_value') {
           cleaned[key] = '';
+        } else if (
+          key === 'seller_signature' ||
+          key === 'seller_signature_url' ||
+          key === 'exporter_signature' ||
+          key === 'exporter_signature_url' ||
+          key === 'buyer_signature' ||
+          key === 'buyer_signature_url' ||
+          key === 'importer_signature' ||
+          key === 'importer_signature_url' ||
+          key === 'broker_signature' ||
+          key === 'broker_signature_url' ||
+          key === 'sales_broker_signature' ||
+          key === 'sales_broker_signature_url'
+        ) {
+          cleaned[key] = null;
         }
         continue;
       }
@@ -2189,12 +2249,14 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
   if (!step) return '';
   const isInvalidPlaceholder = (val: string) =>
     !val ||
-    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+|null|undefined|nan|\[object object\])$/i.test(
       val.trim()
     );
 
   // Explicit document ID fields from backend
   const explicitCandidates = [
+    step.proforma_id,
+    step.proformaId,
     step.contract_id,
     step.contractId,
     step.confirmation_id,
@@ -2223,12 +2285,12 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
 
 export function isConfirmationStep(step?: StepperDocumentItem | null, index?: number): boolean {
   if (index === 0) return true;
-  if (index === 1) return false;
+  if (index === 1 || index === 2) return false;
   if (!step) return false;
 
   const stepNum = Number(step.step ?? step.step_number ?? step.order);
   if (stepNum === 1) return true;
-  if (stepNum === 2) return false;
+  if (stepNum === 2 || stepNum === 3) return false;
 
   const id = String(step.id || step._id || '').toLowerCase();
   const name = String(
@@ -2244,12 +2306,12 @@ export function isConfirmationStep(step?: StepperDocumentItem | null, index?: nu
 }
 
 export function isContractStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0) return false;
+  if (index === 0 || index === 2) return false;
   if (index === 1) return true;
   if (!step) return false;
 
   const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1) return false;
+  if (stepNum === 1 || stepNum === 3) return false;
   if (stepNum === 2) return true;
 
   const id = String(step.id || step._id || '').toLowerCase();
@@ -2264,7 +2326,57 @@ export function isContractStep(step?: StepperDocumentItem | null, index?: number
   ).toLowerCase();
 
   if (id.includes('confirmation') || name.includes('confirmation')) return false;
+  if (id.includes('proforma') || name.includes('proforma')) return false;
   return id.includes('contract') || name.includes('contract');
+}
+
+export function isProformaStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (index === 0 || index === 1) return false;
+  if (index === 2) return true;
+  if (!step) return false;
+
+  const stepNum = Number(step.step ?? step.step_number ?? step.order);
+  if (stepNum === 1 || stepNum === 2) return false;
+  if (stepNum === 3) return true;
+
+  const id = String(step.id || step._id || '').toLowerCase();
+  const name = String(
+    step.document_name ||
+    step.name ||
+    step.title ||
+    step.doc_name ||
+    step.step_name ||
+    step.label ||
+    ''
+  ).toLowerCase();
+
+  if (id.includes('confirmation') || name.includes('confirmation')) return false;
+  if (id.includes('contract') || name.includes('contract')) return false;
+  return id.includes('proforma') || name.includes('proforma');
+}
+
+export function getProformaStep(
+  steps: StepperDocumentItem[] = [],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isProformaStep(selectedStep)) {
+    return selectedStep;
+  }
+  const found = steps.find((s, idx) => isProformaStep(s, idx));
+  if (found) return found;
+
+  if (steps.length > 2 && !isConfirmationStep(steps[2], 2) && !isContractStep(steps[2], 2)) {
+    return steps[2];
+  }
+  return null;
+}
+
+export function getProformaIdFromStepper(
+  steps: StepperDocumentItem[] = [],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getProformaStep(steps, selectedStep);
+  return extractStepId(step);
 }
 
 export function getConfirmationStep(

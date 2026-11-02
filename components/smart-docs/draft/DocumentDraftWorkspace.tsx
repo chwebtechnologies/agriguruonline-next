@@ -12,8 +12,11 @@ import {
   extractStepId,
   isConfirmationStep,
   isContractStep,
+  isProformaStep,
   getContractStep,
+  getProformaStep,
   getContractIdFromStepper,
+  getProformaIdFromStepper,
   sanitizeDocId,
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
 } from '@/lib/api/smart-docs.service';
@@ -36,10 +39,63 @@ export {
   extractStepId,
   isConfirmationStep,
   isContractStep,
+  isProformaStep,
   getContractStep,
+  getProformaStep,
   getContractIdFromStepper,
+  getProformaIdFromStepper,
   normalizeStepStatus,
 };
+
+export function getSafeDisplayString(val: any, fallback = 'N/A'): string {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') {
+      return fallback;
+    }
+    return trimmed;
+  }
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    const text =
+      val.name ||
+      val.product_name ||
+      val.commodity ||
+      val.title ||
+      val.label ||
+      val.port_name ||
+      val.portName ||
+      val.company_name ||
+      val.instruction ||
+      val.instructionText ||
+      val.details ||
+      val.code ||
+      val.incoterm ||
+      val.payment_term ||
+      val.text ||
+      '';
+    if (typeof text === 'string' && text.trim()) {
+      return text.trim();
+    }
+    return fallback;
+  }
+  return String(val) || fallback;
+}
+
+export function getSafeInstructionString(val: any): string {
+  if (!val) return '';
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') return '';
+    return trimmed;
+  }
+  if (typeof val === 'object') {
+    const text = val.instruction || val.instructionText || val.details || val.text || val.description || '';
+    if (typeof text === 'string') return text.trim();
+  }
+  return '';
+}
 
 export interface DocumentDraftWorkspaceProps {
   lang?: string;
@@ -61,6 +117,7 @@ export interface DocumentDraftWorkspaceProps {
 export function getStepSlug(step?: StepperDocumentItem | null, index?: number): string {
   if (index === 0 || isConfirmationStep(step, index)) return 'confirmation';
   if (index === 1 || isContractStep(step, index)) return 'contract';
+  if (index === 2 || isProformaStep(step, index)) return 'proforma';
   if (step?.id) return String(step.id);
   return `step-${(index ?? 0) + 1}`;
 }
@@ -91,6 +148,11 @@ export function resolveInitialStepIndex(
       if (!stepList || stepList.length === 0) return 1;
       const contractIdx = stepList.findIndex((s, idx) => isContractStep(s, idx));
       return contractIdx >= 0 ? contractIdx : (stepList.length > 1 ? 1 : 1);
+    }
+    if (clean === 'proforma' || clean === '3') {
+      if (!stepList || stepList.length === 0) return 2;
+      const proformaIdx = stepList.findIndex((s, idx) => isProformaStep(s, idx));
+      return proformaIdx >= 0 ? proformaIdx : (stepList.length > 2 ? 2 : 2);
     }
     if (stepList && stepList.length > 0) {
       const matchedIdx = stepList.findIndex((s, i) => {
@@ -181,6 +243,7 @@ export function DocumentDraftWorkspace({
 
   const isConfirmation = selectedStepIndex === 0 || isConfirmationStep(selectedStep, selectedStepIndex);
   const isContract = !isConfirmation && (selectedStepIndex === 1 || isContractStep(selectedStep, selectedStepIndex));
+  const isProforma = !isConfirmation && !isContract && (selectedStepIndex === 2 || isProformaStep(selectedStep, selectedStepIndex));
 
   // Canonical Contract Document ID (strictly contract)
   const canonicalContractId = useMemo(() => {
@@ -201,6 +264,16 @@ export function DocumentDraftWorkspace({
     const clean = sanitizeDocId(raw);
     return clean && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(clean) ? clean : '';
   }, [contractIdFromStepper, contractData, initialContractData, initialData, isContract, draftId]);
+
+  // Canonical Proforma Document ID (strictly proforma)
+  const canonicalProformaId = useMemo(() => {
+    const raw =
+      getProformaIdFromStepper(steps, selectedStep) ||
+      (isProforma ? draftId : '') ||
+      '';
+    const clean = sanitizeDocId(raw);
+    return clean && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(clean) ? clean : '';
+  }, [steps, selectedStep, isProforma, draftId]);
 
   useEffect(() => {
     if (initialSteps && initialSteps.length > 0) {
@@ -239,8 +312,22 @@ export function DocumentDraftWorkspace({
         url.searchParams.set('step', 'contract');
         window.history.replaceState(null, '', url.toString());
       }
+    } else if (isProforma) {
+      const activeProformaId = canonicalProformaId || (currentUrlId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(currentUrlId) ? currentUrlId : '');
+      let shouldUpdate = false;
+      if (activeProformaId && currentUrlId !== activeProformaId) {
+        url.searchParams.set('id', activeProformaId);
+        shouldUpdate = true;
+      }
+      if (url.searchParams.get('step') !== 'proforma') {
+        url.searchParams.set('step', 'proforma');
+        shouldUpdate = true;
+      }
+      if (shouldUpdate) {
+        window.history.replaceState(null, '', url.toString());
+      }
     }
-  }, [isConfirmation, isContract, effectiveConfirmationId, canonicalContractId]);
+  }, [isConfirmation, isContract, isProforma, effectiveConfirmationId, canonicalContractId, canonicalProformaId]);
 
   // Handle step selection with URL shallow synchronization for proper linking
   const handleSelectStep = useCallback(
@@ -251,6 +338,7 @@ export function DocumentDraftWorkspace({
 
       const isSelectingContract = index === 1 || isContractStep(step, index);
       const isSelectingConf = index === 0 || isConfirmationStep(step, index);
+      const isSelectingProforma = index === 2 || isProformaStep(step, index);
 
       if (isSelectingContract && !contractData && !initialContractData) {
         setIsLoadingContract(true);
@@ -261,6 +349,8 @@ export function DocumentDraftWorkspace({
         targetId = effectiveConfirmationId;
       } else if (isSelectingContract) {
         targetId = canonicalContractId;
+      } else if (isSelectingProforma) {
+        targetId = canonicalProformaId || extractStepId(step);
       } else {
         targetId = extractStepId(step);
       }
@@ -282,11 +372,13 @@ export function DocumentDraftWorkspace({
         window.history.replaceState(null, '', url.toString());
       }
     },
-    [effectiveConfirmationId, canonicalContractId, contractData, initialContractData]
+    [effectiveConfirmationId, canonicalContractId, canonicalProformaId, contractData, initialContractData]
   );
 
   const pageTitle = isContract
     ? dict?.smart_docs?.draft_contract_title || dict?.smart_docs?.draft_contract || 'Draft Contract'
+    : isProforma
+    ? dict?.smart_docs?.draft_proforma_title || 'Proforma Invoice'
     : dict?.smart_docs?.draft_title ||
       dict?.smart_docs?.add_new_confirmation ||
       dict?.smart_docs?.add_confirmation ||
@@ -381,6 +473,8 @@ export function DocumentDraftWorkspace({
     selectedStep?.doc_name ||
     (isContract
       ? dict?.smart_docs?.contract_form?.sales_contract_title || 'Sales Contract'
+      : isProforma
+      ? 'Proforma Invoice'
       : dict?.smart_docs?.draft_title || 'Trade Confirmation');
 
   return (
@@ -600,7 +694,9 @@ export function DocumentDraftWorkspace({
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
                     url.searchParams.set('id', savedId);
-                    url.searchParams.set('step', 'contract');
+                    if (url.searchParams.get('step') !== 'proforma') {
+                      url.searchParams.set('step', 'contract');
+                    }
                     window.history.replaceState(null, '', url.toString());
                   }
                 }
@@ -644,6 +740,40 @@ export function DocumentDraftWorkspace({
                   const newId = res.id || res.data?.id || res.data?.contract_id || (res as any)?.contract_id;
                   if (newId) {
                     setDraftId(String(newId));
+                  }
+
+                  if (res.data) {
+                    const extracted = extractContractData(res.data) || res.data;
+                    setContractData((prev: any) => {
+                      const updated = { ...(prev || {}) };
+                      if (extracted && typeof extracted === 'object') {
+                        for (const [k, v] of Object.entries(extracted)) {
+                          if (v !== undefined) {
+                            updated[k] = v;
+                          }
+                        }
+                      }
+                      const isFormData = typeof formData?.get === 'function';
+                      if (isFormData && (formData.get('remove_seller_signature') === 'true' || formData.get('seller_signature') === '')) {
+                        updated.seller_signature = null;
+                        updated.seller_signature_url = null;
+                        updated.exporter_signature = null;
+                        updated.exporter_signature_url = null;
+                      }
+                      if (isFormData && (formData.get('remove_buyer_signature') === 'true' || formData.get('buyer_signature') === '')) {
+                        updated.buyer_signature = null;
+                        updated.buyer_signature_url = null;
+                        updated.importer_signature = null;
+                        updated.importer_signature_url = null;
+                      }
+                      if (isFormData && (formData.get('remove_broker_signature') === 'true' || formData.get('broker_signature') === '')) {
+                        updated.broker_signature = null;
+                        updated.broker_signature_url = null;
+                        updated.sales_broker_signature = null;
+                        updated.sales_broker_signature_url = null;
+                      }
+                      return updated;
+                    });
                   }
 
                   // Concurrently refresh stepper list from backend so all steps stay fresh
@@ -713,23 +843,74 @@ export function DocumentDraftWorkspace({
                       const updated = { ...(prev || {}) };
                       if (extracted && typeof extracted === 'object') {
                         for (const [k, v] of Object.entries(extracted)) {
-                          if (v !== undefined && v !== null && v !== '') {
+                          if (v !== undefined) {
                             updated[k] = v;
                           }
                         }
                       }
+                      const isFormData = typeof formData?.get === 'function';
+                      if (isFormData && (formData.get('remove_seller_signature') === 'true' || formData.get('seller_signature') === '')) {
+                        updated.seller_signature = null;
+                        updated.seller_signature_url = null;
+                        updated.exporter_signature = null;
+                        updated.exporter_signature_url = null;
+                      }
+                      if (isFormData && (formData.get('remove_buyer_signature') === 'true' || formData.get('buyer_signature') === '')) {
+                        updated.buyer_signature = null;
+                        updated.buyer_signature_url = null;
+                        updated.importer_signature = null;
+                        updated.importer_signature_url = null;
+                      }
+                      if (isFormData && (formData.get('remove_broker_signature') === 'true' || formData.get('broker_signature') === '')) {
+                        updated.broker_signature = null;
+                        updated.broker_signature_url = null;
+                        updated.sales_broker_signature = null;
+                        updated.sales_broker_signature_url = null;
+                      }
                       return updated;
                     });
                   }
-                  // Refresh stepper
+                  // Update stepper to reflect completion and switch to proforma step (just like confirmation switches to contract!)
                   try {
+                    const stepperParam = effectiveConfirmationId || confId || 'new-confirmation';
                     const stepperRes = await getStepperListAction({
                       action: 'confirmation',
-                      step: String(newId || validEffectiveId || draftId || 'new-confirmation'),
+                      step: String(stepperParam),
                       lang,
                     });
+
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
                       setSteps(stepperRes.data);
+                      const proformaIndex = stepperRes.data.findIndex((s, idx) => isProformaStep(s, idx));
+                      const targetIdx =
+                        proformaIndex >= 0 ? proformaIndex : (stepperRes.data.length > 2 ? 2 : 2);
+                      setSelectedStepIndex(targetIdx);
+                      const newProformaStep = stepperRes.data[targetIdx] || null;
+                      setSelectedStep(newProformaStep);
+
+                      const newProformaId = extractStepId(newProformaStep) || res.data?.proforma_id || res.id || newId;
+                      if (newProformaId) {
+                        setDraftId(String(newProformaId));
+                      }
+
+                      // Update URL to proforma step
+                      if (typeof window !== 'undefined') {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('id', String(newProformaId || newId || validEffectiveId));
+                        url.searchParams.set('step', 'proforma');
+                        window.history.replaceState(null, '', url.toString());
+                      }
+                    } else if (steps.length > 2) {
+                      const proformaIndex = steps.findIndex((s, idx) => isProformaStep(s, idx));
+                      const targetIdx = proformaIndex >= 0 ? proformaIndex : 2;
+                      setSelectedStepIndex(targetIdx);
+                      setSelectedStep(steps[targetIdx]);
+                      if (typeof window !== 'undefined') {
+                        const url = new URL(window.location.href);
+                        if (newId) url.searchParams.set('id', String(newId));
+                        url.searchParams.set('step', 'proforma');
+                        window.history.replaceState(null, '', url.toString());
+                      }
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit contract stepper error:', stepErr);
@@ -740,6 +921,9 @@ export function DocumentDraftWorkspace({
             />
           )}
         </div>
+
+        {/* Proforma Invoice & Subsequent Workflow Steps View: Completely blank */}
+        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract ? 'flex' : 'hidden'}`} />
       </div>
 
       {/* 

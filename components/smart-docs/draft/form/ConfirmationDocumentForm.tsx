@@ -4382,7 +4382,10 @@ export function ConfirmationDocumentForm({
         Theme-compliant buttons matching AgriGuru brand system.
         Sticky on mobile docked at viewport bottom, static on desktop at bottom of card.
       */}
-      <div className="shrink-0 sticky bottom-0 lg:static border-t border-border bg-card/95 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-2.5 print:hidden z-30 shadow-md lg:shadow-none rounded-b-xl">
+      <div 
+        style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+        className="shrink-0 sticky bottom-0 lg:static border-t border-border bg-card px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-2.5 print:hidden z-30 shadow-md lg:shadow-none rounded-b-xl transform-gpu"
+      >
         {/* Left Action Buttons: Print Preview & Download PDF (Red themed like Contract) */}
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
           {/* Print Preview Button */}
