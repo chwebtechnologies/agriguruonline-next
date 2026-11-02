@@ -36,6 +36,8 @@ import {
   formatSignatureUrl,
   normalizeSignaturePayload,
   extractContractData,
+  extractDocumentStatus,
+  normalizeStepStatus,
   type SmartDocsSelectionDocumentOption,
   type StepperDocumentItem,
   isContractStep,
@@ -1993,6 +1995,66 @@ export function ContractDocumentForm({
     return '';
   });
 
+  // Document Status: 'PENDING' shows Save As Draft; 'COMPLETED' strictly hides Save As Draft
+  const contractStepItem = getContractStep(steps, selectedStep);
+  const [docStatus, setDocStatus] = useState<string>(() => {
+    // 1. Check if contract step in stepper is completed
+    if (contractStepItem) {
+      const norm = normalizeStepStatus(contractStepItem.status || contractStepItem.document_status || contractStepItem.step_status);
+      if (norm === 'completed') return 'COMPLETED';
+    }
+    // 2. Check initialData status ONLY if initialData represents a Contract (not an inherited Confirmation)
+    const isExplicitContract = Boolean(
+      initialData?.contract_number ||
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      initialData?.contract ||
+      (initialData && !initialData.confirmation_number && !initialData.confirmation_id && initialData.status)
+    );
+    if (isExplicitContract) {
+      const fromData = extractDocumentStatus(initialData);
+      if (fromData) return fromData;
+    }
+    return 'PENDING';
+  });
+
+  // Guard against blinking: if contract ID exists but data/status is still loading/unknown, wait with a smooth skeleton
+  const [statusLoadTimedOut, setStatusLoadTimedOut] = useState<boolean>(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setStatusLoadTimedOut(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const isStatusLoading = !statusLoadTimedOut && Boolean(
+    (contractIdProp || draftId || confirmationId) &&
+    !initialData &&
+    !steps?.some((s, idx) => isContractStep(s, idx) && (s.status || s.document_status || s.step_status))
+  );
+
+  useEffect(() => {
+    const currentStep = getContractStep(steps, selectedStep);
+    if (currentStep) {
+      const norm = normalizeStepStatus(currentStep.status || currentStep.document_status || currentStep.step_status);
+      if (norm === 'completed') {
+        setDocStatus('COMPLETED');
+        return;
+      }
+    }
+    const isExplicitContract = Boolean(
+      initialData?.contract_number ||
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      initialData?.contract ||
+      (initialData && !initialData.confirmation_number && !initialData.confirmation_id && initialData.status)
+    );
+    if (isExplicitContract) {
+      const fromData = extractDocumentStatus(initialData);
+      if (fromData) {
+        setDocStatus(fromData);
+      }
+    }
+  }, [initialData, steps, selectedStep]);
+
   // Keep draftId synced whenever stepper steps or contractId prop updates
   useEffect(() => {
     if (contractIdProp && !isInvalidPlaceholder(contractIdProp)) {
@@ -3447,6 +3509,11 @@ export function ContractDocumentForm({
   useEffect(() => {
     if (!initialData) return;
 
+    const statusFromDoc = extractDocumentStatus(initialData);
+    if (statusFromDoc) {
+      setDocStatus(statusFromDoc);
+    }
+
     // Extract Contract ID only if strictly a contract (never overwrite draftId with confirmation id!)
     const contractIdCandidate = toCleanId(
       initialData.contract_id ||
@@ -4642,6 +4709,11 @@ export function ContractDocumentForm({
         'Contract saved as draft successfully!';
       toast.success(successText);
 
+      const statusFromRes = extractDocumentStatus(res?.data) || extractDocumentStatus(res);
+      if (statusFromRes) {
+        setDocStatus(statusFromRes);
+      }
+
       const newId = String(
         res.id ||
         res.data?.id ||
@@ -4733,6 +4805,7 @@ export function ContractDocumentForm({
         );
 
         if (res?.success && !hasFieldErrors) {
+          setDocStatus('COMPLETED');
           toast.success('Contract submitted successfully to Proforma Invoice!');
           const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id || effectiveId;
           if (newId && !isInvalidPlaceholder(String(newId))) {
@@ -6405,32 +6478,38 @@ export function ContractDocumentForm({
         </div>
 
         {/* Right Action Buttons: Save As Draft & Submit To Proforma */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
-          {/* Save As Draft */}
-          <button
-            type="button"
-            disabled={isSavingDraft || readOnly}
-            onClick={handleSaveDraft}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-md text-xs font-semibold border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            {isSavingDraft ? (
-              <i className="fa-solid fa-circle-notch fa-spin text-xs" />
-            ) : (
-              <i className="fa-regular fa-floppy-disk text-xs" />
-            )}
-            <span className="truncate">
-              {isSavingDraft
-                ? 'Saving...'
-                : dict?.smart_docs?.confirmation_form?.save_as_draft || 'Save As Draft'}
-            </span>
-          </button>
+        <div className={`grid ${docStatus === 'COMPLETED' ? 'grid-cols-1' : 'grid-cols-2'} sm:flex sm:items-center gap-2 sm:gap-2.5 transition-all duration-200`}>
+          {/* Save As Draft: Shown only while status is PENDING; hidden when COMPLETED */}
+          {isStatusLoading ? (
+            <div className="h-7 w-28 rounded-md bg-muted/60 animate-pulse border border-border" />
+          ) : docStatus !== 'COMPLETED' ? (
+            <button
+              type="button"
+              disabled={isSavingDraft || isSubmitting || readOnly}
+              onClick={handleSaveDraft}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-md text-xs font-semibold border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 animate-in fade-in"
+            >
+              {isSavingDraft ? (
+                <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+              ) : (
+                <i className="fa-regular fa-floppy-disk text-xs" />
+              )}
+              <span className="truncate">
+                {isSavingDraft
+                  ? 'Saving...'
+                  : dict?.smart_docs?.confirmation_form?.save_as_draft || 'Save As Draft'}
+              </span>
+            </button>
+          ) : null}
 
           {/* Submit To Proforma */}
           <button
             type="button"
             disabled={isSubmitting || readOnly}
             onClick={handleSubmit}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30 group"
+            className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30 group ${
+              docStatus === 'COMPLETED' ? 'w-full sm:w-auto' : ''
+            }`}
           >
             <span className="truncate">
               {isSubmitting ? 'Submitting...' : 'Submit To Proforma'}

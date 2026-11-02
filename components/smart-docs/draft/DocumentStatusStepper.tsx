@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useTransition } from 'react';
 import type { StepperDocumentItem } from '@/lib/api/smart-docs.service';
+import { DEFAULT_WORKFLOW_STEPPER_ITEMS } from '@/lib/api/smart-docs.service';
 import { getStepperListAction, downloadDocPdfAction } from '@/app/actions/smart-docs';
 
 export type NormalizedStatus = 'completed' | 'in_progress' | 'pending' | 'locked';
@@ -39,6 +40,7 @@ export interface DocumentStatusStepperProps {
   initialSteps?: StepperDocumentItem[];
   currentStepIndex?: number;
   onSelectStep?: (step: StepperDocumentItem, index: number) => void;
+  onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
   lang?: string;
   dict?: any;
   isMobile?: boolean;
@@ -49,6 +51,7 @@ export function DocumentStatusStepper({
   initialSteps,
   currentStepIndex = 0,
   onSelectStep,
+  onUpdateSteps,
   lang = 'en',
   dict,
   isMobile = false,
@@ -60,7 +63,7 @@ export function DocumentStatusStepper({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Load steps if initialSteps wasn't provided or empty
+  // Load steps from API if initialSteps is empty or not provided
   useEffect(() => {
     if (initialSteps && initialSteps.length > 0) {
       setSteps(initialSteps);
@@ -73,26 +76,44 @@ export function DocumentStatusStepper({
       setIsLoading(true);
       setError(null);
       try {
-        const res = await getStepperListAction({
+        const targetStep = stepId || 'new-confirmation';
+        let res = await getStepperListAction({
           action: 'confirmation',
-          step: stepId || 'new-confirmation',
+          step: targetStep,
           lang,
         });
 
         if (!isMounted) return;
 
-        if (res.success && res.data && res.data.length > 0) {
-          setSteps(res.data);
-        } else if (res.error) {
-          setError(res.error);
-        } else {
-          // Fallback initial draft workflow steps
-          setSteps(getDefaultSteps());
+        let stepsData = res?.success && res?.data && res.data.length > 0 ? res.data : [];
+
+        // If specific step ID returned empty, try fallback to new-confirmation template
+        if (stepsData.length === 0 && targetStep !== 'new-confirmation') {
+          try {
+            const fallbackRes = await getStepperListAction({
+              action: 'confirmation',
+              step: 'new-confirmation',
+              lang,
+            });
+            if (fallbackRes?.success && fallbackRes?.data && fallbackRes.data.length > 0) {
+              stepsData = fallbackRes.data;
+            }
+          } catch {
+            // ignore
+          }
         }
+
+        // Final fallback to standard workflow items so stepper is NEVER empty!
+        if (stepsData.length === 0) {
+          stepsData = DEFAULT_WORKFLOW_STEPPER_ITEMS;
+        }
+
+        setSteps(stepsData);
+        onUpdateSteps?.(stepsData);
       } catch (err: any) {
         if (!isMounted) return;
-        setError(err?.message || 'Failed to load steps');
-        setSteps(getDefaultSteps());
+        setSteps(DEFAULT_WORKFLOW_STEPPER_ITEMS);
+        onUpdateSteps?.(DEFAULT_WORKFLOW_STEPPER_ITEMS);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -103,7 +124,15 @@ export function DocumentStatusStepper({
     return () => {
       isMounted = false;
     };
-  }, [initialSteps, stepId, lang]);
+  }, [initialSteps, stepId, lang, onUpdateSteps]);
+
+  // Keep internal steps synced if parent provides fresh steps
+  useEffect(() => {
+    if (initialSteps && initialSteps.length > 0) {
+      setSteps(initialSteps);
+      setIsLoading(false);
+    }
+  }, [initialSteps]);
 
   // Keep internal selection synced if parent passes new currentStepIndex
   useEffect(() => {
@@ -174,15 +203,29 @@ export function DocumentStatusStepper({
       setIsLoading(true);
       setError(null);
       try {
-        const res = await getStepperListAction({
+        const targetStep = stepId || 'new-confirmation';
+        let res = await getStepperListAction({
           action: 'confirmation',
-          step: stepId || 'new-confirmation',
+          step: targetStep,
           lang,
         });
-        if (res.success && res.data && res.data.length > 0) {
-          setSteps(res.data);
+        let stepsData = res.success && res.data && res.data.length > 0 ? res.data : [];
+        if (stepsData.length === 0 && targetStep !== 'new-confirmation') {
+          const fallbackRes = await getStepperListAction({
+            action: 'confirmation',
+            step: 'new-confirmation',
+            lang,
+          });
+          if (fallbackRes.success && fallbackRes.data && fallbackRes.data.length > 0) {
+            stepsData = fallbackRes.data;
+          }
+        }
+        if (stepsData.length > 0) {
+          setSteps(stepsData);
+          onUpdateSteps?.(stepsData);
         } else {
-          setError(res.error || 'Failed to refresh steps');
+          setSteps(DEFAULT_WORKFLOW_STEPPER_ITEMS);
+          onUpdateSteps?.(DEFAULT_WORKFLOW_STEPPER_ITEMS);
         }
       } catch (err: any) {
         setError(err?.message || 'Failed to refresh steps');
@@ -458,7 +501,7 @@ function StatusBadge({
 /**
  * Skeleton Loader matching simple sober compact dimensions
  */
-function StepperSkeleton({ count = 11 }: { count?: number }) {
+function StepperSkeleton({ count = 5 }: { count?: number }) {
   const items = Array.from({ length: Math.min(count, 12) }, (_, i) => i + 1);
   return (
     <div className="space-y-0.5 animate-pulse">
@@ -474,46 +517,6 @@ function StepperSkeleton({ count = 11 }: { count?: number }) {
       ))}
     </div>
   );
-}
-
-/**
- * Default fallback steps when initial response is empty
- */
-function getDefaultSteps(): StepperDocumentItem[] {
-  return [
-    {
-      id: 'trade-confirmation',
-      document_name: 'Trade Confirmation',
-      status: 'in_progress',
-      step: 1,
-      pdf_url: null,
-      is_pdf_available: false,
-    },
-    {
-      id: 'sales-contract',
-      document_name: 'Sales Contract',
-      status: 'pending',
-      step: 2,
-      pdf_url: null,
-      is_pdf_available: false,
-    },
-    {
-      id: 'commercial-invoice',
-      document_name: 'Commercial Invoice',
-      status: 'pending',
-      step: 3,
-      pdf_url: null,
-      is_pdf_available: false,
-    },
-    {
-      id: 'packing-list',
-      document_name: 'Packing List',
-      status: 'pending',
-      step: 4,
-      pdf_url: null,
-      is_pdf_available: false,
-    },
-  ];
 }
 
 export default DocumentStatusStepper;

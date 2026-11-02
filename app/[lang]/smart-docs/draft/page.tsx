@@ -18,6 +18,9 @@ import {
   extractDocumentListData,
   isContractStep,
   extractStepId,
+  DEFAULT_WORKFLOW_STEPPER_ITEMS,
+  extractLinkedConfirmationId,
+  extractLinkedContractId,
 } from '@/lib/api/smart-docs.service';
 
 export const dynamic = 'force-dynamic';
@@ -192,20 +195,67 @@ async function DraftPageDataLoader(props: {
   ]);
 
   const dict = rawDict as any;
-  const initialSteps = extractStepperList(stepperRes);
+  let initialSteps = extractStepperList(stepperRes);
   const { sellers: initialSellers, buyers: initialBuyers } = extractInstructionsData(instructionsRes);
   const initialProducts = extractProductsData(productsRes);
   const initialPaymentTerms = extractPaymentTermsData(paymentTermsRes);
   const initialCurrencies = extractCurrenciesData(currenciesRes);
   const initialDocumentList = extractDocumentListData(documentListRes);
-  const initialConfirmationData = extractConfirmationData(confirmationRes);
+  let initialConfirmationData = extractConfirmationData(confirmationRes);
   let initialContractData = extractContractData(contractRes);
 
-  const stepperContractStep = initialSteps.find((s, idx) => isContractStep(s, idx));
-  const stepperContractId = extractStepId(stepperContractStep);
+  // SCENARIO 1: draftId in URL was a Contract ID
+  // In this case, initialContractData is populated, but stepper list was called with a contract ID
+  // (which returns empty from the confirmation-based stepper API).
+  // Find linked confirmation ID from initialContractData and re-fetch stepper & confirmation!
+  const linkedConfId = extractLinkedConfirmationId(initialContractData);
 
-  // If initialContractData wasn't fetched yet (because draftId in URL was confirmation ID)
-  // and stepper has a valid contract step ID, fetch the contract data immediately!
+  if (linkedConfId && String(linkedConfId) !== draftId) {
+    if (!initialConfirmationData) {
+      try {
+        const confRes = await smartDocsService.getConfirmation(
+          String(linkedConfId),
+          { lang, source: 'web' },
+          token
+        );
+        if (confRes) {
+          const extracted = extractConfirmationData(confRes);
+          if (extracted) {
+            initialConfirmationData = extracted;
+          }
+        }
+      } catch (err) {
+        console.error('[SmartDocsDraftPage] Linked confirmation fetch error:', err);
+      }
+    }
+
+    if (initialSteps.length === 0) {
+      try {
+        const confStepperRes = await smartDocsService.getStepperList(
+          {
+            action: 'confirmation',
+            step: String(linkedConfId),
+            lang,
+            source: 'web',
+          },
+          token
+        );
+        const fetchedSteps = extractStepperList(confStepperRes);
+        if (fetchedSteps.length > 0) {
+          initialSteps = fetchedSteps;
+        }
+      } catch (err) {
+        console.error('[SmartDocsDraftPage] Linked stepper fetch error:', err);
+      }
+    }
+  }
+
+  // SCENARIO 2: draftId was a Confirmation ID and Contract Step is requested
+  // In this case, initialConfirmationData is present and initialSteps has the contract step.
+  // Extract contract ID from stepper contract step and fetch contract data!
+  const stepperContractStep = initialSteps.find((s, idx) => isContractStep(s, idx));
+  const stepperContractId = extractStepId(stepperContractStep) || extractLinkedContractId(initialConfirmationData);
+
   if (!initialContractData && stepperContractId && stepperContractId !== draftId) {
     try {
       const contractDetailsRes = await smartDocsService.getContract(
@@ -213,12 +263,42 @@ async function DraftPageDataLoader(props: {
         { lang, source: 'web' },
         token
       );
-      if (contractDetailsRes?.success && contractDetailsRes.data) {
-        initialContractData = extractContractData(contractDetailsRes.data);
+      if (contractDetailsRes) {
+        const extracted = extractContractData(contractDetailsRes);
+        if (extracted) {
+          initialContractData = extracted;
+        }
       }
     } catch {
       // non-blocking
     }
+  }
+
+  // SCENARIO 3: Stepper list is still empty (new contract/confirmation draft, or API glitch)
+  // Fall back to template stepper list so "No Documents in Workflow" NEVER appears!
+  if (initialSteps.length === 0) {
+    try {
+      const templateStepperRes = await smartDocsService.getStepperList(
+        {
+          action: 'confirmation',
+          step: 'new-confirmation',
+          lang,
+          source: 'web',
+        },
+        token
+      );
+      const templateSteps = extractStepperList(templateStepperRes);
+      if (templateSteps.length > 0) {
+        initialSteps = templateSteps;
+      }
+    } catch {
+      // non-blocking
+    }
+  }
+
+  // Ultimate fallback to guarantee stepper is never empty on hard refresh
+  if (initialSteps.length === 0) {
+    initialSteps = DEFAULT_WORKFLOW_STEPPER_ITEMS;
   }
 
   // If this ID is a Contract (or contract step requested), ensure initialStepParam defaults to contract
@@ -229,6 +309,11 @@ async function DraftPageDataLoader(props: {
       : initialContractData && !initialConfirmationData
       ? 'contract'
       : undefined);
+
+  const effectiveDraftId =
+    isContractRequested
+      ? (stepperContractId || (initialContractData && draftId) || draftId || '')
+      : (initialConfirmationData?.id || initialConfirmationData?._id || linkedConfId || draftId || '');
 
   return (
     <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">
@@ -247,7 +332,7 @@ async function DraftPageDataLoader(props: {
             initialDocumentList={initialDocumentList}
             initialData={initialConfirmationData}
             initialContractData={initialContractData}
-            initialId={draftId}
+            initialId={effectiveDraftId}
             initialStepParam={effectiveStepParam}
           />
         </div>

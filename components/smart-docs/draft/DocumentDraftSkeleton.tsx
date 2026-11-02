@@ -398,25 +398,13 @@ export default function DocumentDraftSkeleton({
                   <div className="h-4 w-16 bg-muted/30 rounded-full" />
                 </div>
                 <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
-                  <div className="h-full w-1/11 bg-primary/40 rounded-full" />
+                  <div className="h-full w-1/3 bg-primary/40 rounded-full" />
                 </div>
               </div>
 
-              {/* 11 Workflow Steps List */}
+              {/* Workflow Steps Skeleton List */}
               <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
-                {[
-                  'Trade Confirmation',
-                  'Sales Contract',
-                  'Proforma Invoice',
-                  'Commercial Invoice',
-                  'Packing List',
-                  'Certificate of Origin',
-                  'Insurance Policy',
-                  'Bill of Lading',
-                  'Phytosanitary Cert',
-                  'Fumigation Cert',
-                  'Inspection Cert',
-                ].map((stepName, idx) => (
+                {Array.from({ length: 6 }).map((_, idx) => (
                   <div key={idx} className="flex items-center gap-3">
                     <div
                       className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold border ${

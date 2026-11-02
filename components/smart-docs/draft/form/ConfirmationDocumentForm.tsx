@@ -29,6 +29,11 @@ import {
   normalizeCurrencyOption,
   getCurrencySymbol,
   parsePackingBagWeightKg,
+  extractDocumentStatus,
+  getConfirmationStep,
+  isConfirmationStep,
+  isStatusCompleted,
+  normalizeStepStatus,
   type SaveConfirmationPayload,
   type StepperDocumentItem,
 } from '@/lib/api/smart-docs.service';
@@ -1041,6 +1046,8 @@ export function parseBackendFieldErrors(
 
 export interface ConfirmationDocumentFormProps {
   initialData?: any;
+  steps?: StepperDocumentItem[];
+  selectedStep?: StepperDocumentItem | null;
   sellers?: FormOptionItem[];
   buyers?: FormOptionItem[];
   products?: FormOptionItem[];
@@ -1062,6 +1069,8 @@ export interface ConfirmationDocumentFormProps {
 
 export function ConfirmationDocumentForm({
   initialData,
+  steps = [],
+  selectedStep = null,
   sellers,
   buyers,
   products,
@@ -1084,6 +1093,46 @@ export function ConfirmationDocumentForm({
   const [draftId, setDraftId] = useState<string>(() =>
     toCleanId(initialData?.id || initialData?._id || initialData?.confirmation_id || initialData?.confirmationId)
   );
+
+  // Document Status: 'PENDING' shows Save As Draft; 'COMPLETED' strictly hides Save As Draft
+  const confStep = getConfirmationStep(steps, selectedStep);
+  const [docStatus, setDocStatus] = useState<string>(() => {
+    const fromData = extractDocumentStatus(initialData);
+    if (fromData) return fromData;
+    if (confStep) {
+      const norm = normalizeStepStatus(confStep.status || confStep.document_status || confStep.step_status);
+      if (norm === 'completed') return 'COMPLETED';
+    }
+    return 'PENDING';
+  });
+
+  // Guard against blinking: if document ID exists but document status is still loading/unknown, wait with a smooth skeleton
+  const [statusLoadTimedOut, setStatusLoadTimedOut] = useState<boolean>(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setStatusLoadTimedOut(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const isStatusLoading = !statusLoadTimedOut && Boolean(
+    draftId &&
+    !initialData &&
+    !steps?.some((s, idx) => isConfirmationStep(s, idx) && (s.status || s.document_status || s.step_status))
+  );
+
+  useEffect(() => {
+    const fromData = extractDocumentStatus(initialData);
+    if (fromData) {
+      setDocStatus(fromData);
+      return;
+    }
+    const currentStep = getConfirmationStep(steps, selectedStep);
+    if (currentStep) {
+      const norm = normalizeStepStatus(currentStep.status || currentStep.document_status || currentStep.step_status);
+      if (norm === 'completed') {
+        setDocStatus('COMPLETED');
+      }
+    }
+  }, [initialData, steps, selectedStep]);
 
   // Document Configuration
   const [letterhead, setLetterhead] = useState<boolean>(
@@ -2615,6 +2664,12 @@ export function ConfirmationDocumentForm({
           setNotes(cleanNotes);
         }
       }
+
+      // Update document status if present in loaded document
+      const statusFromDoc = extractDocumentStatus(d);
+      if (statusFromDoc) {
+        setDocStatus(statusFromDoc);
+      }
     },
     [fetchAndApplyProductDetails]
   );
@@ -3105,6 +3160,10 @@ export function ConfirmationDocumentForm({
 
       // Backend returns the generated ID; preserve it in state so subsequent saves pass this id
       setErrors({});
+      const statusFromRes = extractDocumentStatus(result?.data) || extractDocumentStatus(result);
+      if (statusFromRes) {
+        setDocStatus(statusFromRes);
+      }
       const savedId =
         result?.data?.id ||
         result?.data?._id ||
@@ -3253,6 +3312,7 @@ export function ConfirmationDocumentForm({
       }
 
       // Success workflow:
+      setDocStatus('COMPLETED');
       const cleanId = toCleanId(
         result.id ||
         result.data?.id ||
@@ -4268,32 +4328,38 @@ export function ConfirmationDocumentForm({
         </div>
 
         {/* Right Action Buttons: Save As Draft & Submit To Contract */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
-          {/* Save As Draft */}
-          <button
-            type="button"
-            disabled={isSavingDraft || readOnly}
-            onClick={handleSaveDraft}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-md text-xs font-semibold border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            {isSavingDraft ? (
-              <i className="fa-solid fa-circle-notch fa-spin text-xs" />
-            ) : (
-              <i className="fa-regular fa-floppy-disk text-xs" />
-            )}
-            <span className="truncate">
-              {isSavingDraft
-                ? 'Saving...'
-                : dict?.smart_docs?.confirmation_form?.save_as_draft || 'Save As Draft'}
-            </span>
-          </button>
+        <div className={`grid ${docStatus === 'COMPLETED' ? 'grid-cols-1' : 'grid-cols-2'} sm:flex sm:items-center gap-2 sm:gap-2.5 transition-all duration-200`}>
+          {/* Save As Draft: Shown only while status is PENDING; hidden when COMPLETED */}
+          {isStatusLoading ? (
+            <div className="h-7 w-28 rounded-md bg-muted/60 animate-pulse border border-border" />
+          ) : docStatus !== 'COMPLETED' ? (
+            <button
+              type="button"
+              disabled={isSavingDraft || isSubmitting || readOnly}
+              onClick={handleSaveDraft}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-md text-xs font-semibold border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 animate-in fade-in"
+            >
+              {isSavingDraft ? (
+                <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+              ) : (
+                <i className="fa-regular fa-floppy-disk text-xs" />
+              )}
+              <span className="truncate">
+                {isSavingDraft
+                  ? 'Saving...'
+                  : dict?.smart_docs?.confirmation_form?.save_as_draft || 'Save As Draft'}
+              </span>
+            </button>
+          ) : null}
 
           {/* Submit To Contract */}
           <button
             type="button"
             disabled={isSubmitting || readOnly}
             onClick={handleSubmitContract}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30 group"
+            className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30 group ${
+              docStatus === 'COMPLETED' ? 'w-full sm:w-auto' : ''
+            }`}
           >
             <span className="truncate">
               {isSubmitting

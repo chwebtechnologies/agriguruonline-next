@@ -7,6 +7,7 @@ import {
   type SmartDocsProductOption,
   type SmartDocsSelectionDocumentOption,
   extractContractData,
+  extractConfirmationData,
   normalizeStepStatus,
   extractStepId,
   isConfirmationStep,
@@ -14,6 +15,7 @@ import {
   getContractStep,
   getContractIdFromStepper,
   sanitizeDocId,
+  DEFAULT_WORKFLOW_STEPPER_ITEMS,
 } from '@/lib/api/smart-docs.service';
 import DocumentStatusStepper from './DocumentStatusStepper';
 import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
@@ -26,6 +28,7 @@ import {
   saveContractDraftAction,
   submitContractAction,
   getContractAction,
+  getConfirmationAction,
   getStepperListAction,
 } from '@/app/actions/smart-docs';
 
@@ -78,8 +81,6 @@ export function resolveInitialStepIndex(
   stepList: StepperDocumentItem[],
   stepParam?: string
 ): number {
-  if (!stepList || stepList.length === 0) return 0;
-
   // 1. If explicit step param in URL, match requested step
   if (stepParam && stepParam.trim()) {
     const clean = stepParam.trim().toLowerCase();
@@ -87,16 +88,21 @@ export function resolveInitialStepIndex(
       return 0;
     }
     if (clean === 'contract' || clean === '2') {
+      if (!stepList || stepList.length === 0) return 1;
       const contractIdx = stepList.findIndex((s, idx) => isContractStep(s, idx));
-      return contractIdx >= 0 ? contractIdx : (stepList.length > 1 ? 1 : 0);
+      return contractIdx >= 0 ? contractIdx : (stepList.length > 1 ? 1 : 1);
     }
-    const matchedIdx = stepList.findIndex((s, i) => {
-      const id = String(s.id || '').toLowerCase();
-      const name = String(s.document_name || s.name || '').toLowerCase();
-      return id === clean || name === clean || String(i + 1) === clean;
-    });
-    if (matchedIdx >= 0) return matchedIdx;
+    if (stepList && stepList.length > 0) {
+      const matchedIdx = stepList.findIndex((s, i) => {
+        const id = String(s.id || '').toLowerCase();
+        const name = String(s.document_name || s.name || '').toLowerCase();
+        return id === clean || name === clean || String(i + 1) === clean;
+      });
+      if (matchedIdx >= 0) return matchedIdx;
+    }
   }
+
+  if (!stepList || stepList.length === 0) return 0;
 
   // 2. Default: Open the latest open step! ("ek cheese stepper me proper hai ki open latest open ho raha hai")
   return findLatestOpenStepIndex(stepList);
@@ -118,23 +124,26 @@ export function DocumentDraftWorkspace({
   initialId,
   initialStepParam,
 }: DocumentDraftWorkspaceProps) {
-  const [steps, setSteps] = useState<StepperDocumentItem[]>(initialSteps);
+  const [steps, setSteps] = useState<StepperDocumentItem[]>(() => {
+    if (initialSteps && initialSteps.length > 0) return initialSteps;
+    return DEFAULT_WORKFLOW_STEPPER_ITEMS;
+  });
   const [draftId, setDraftId] = useState<string>(
     initialId || initialContractData?.id || initialContractData?._id || initialData?.id || initialData?._id || initialData?.confirmation_id || ''
   );
+  const [confirmationData, setConfirmationData] = useState<any>(initialData || null);
+  const [isLoadingConfirmation, setIsLoadingConfirmation] = useState<boolean>(false);
   const [contractData, setContractData] = useState<any>(initialContractData || null);
-  const [isLoadingContract, setIsLoadingContract] = useState<boolean>(() => {
-    const isInitiallyContract = initialStepParam === 'contract' || initialStepParam === '2';
-    return isInitiallyContract && !initialContractData;
-  });
+  const [isLoadingContract, setIsLoadingContract] = useState<boolean>(false);
 
   // Compute initial selected step (honoring explicit URL param or defaulting to latest open step)
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(() =>
-    resolveInitialStepIndex(initialSteps, initialStepParam)
+    resolveInitialStepIndex(initialSteps && initialSteps.length > 0 ? initialSteps : steps, initialStepParam)
   );
   const [selectedStep, setSelectedStep] = useState<StepperDocumentItem | null>(() => {
-    const idx = resolveInitialStepIndex(initialSteps, initialStepParam);
-    return initialSteps && initialSteps.length > 0 ? initialSteps[idx] || initialSteps[0] : null;
+    const list = initialSteps && initialSteps.length > 0 ? initialSteps : steps;
+    const idx = resolveInitialStepIndex(list, initialStepParam);
+    return list && list.length > 0 ? list[idx] || list[0] : null;
   });
 
   const [isMobileStepperOpen, setIsMobileStepperOpen] = useState<boolean>(false);
@@ -143,6 +152,55 @@ export function DocumentDraftWorkspace({
   const contractIdFromStepper = useMemo(() => {
     return getContractIdFromStepper(steps, selectedStep);
   }, [steps, selectedStep]);
+
+  // Confirmation ID for Stepper workflow operations (strictly confirmation, NEVER contract ID)
+  const effectiveConfirmationId = useMemo(() => {
+    const raw =
+      initialData?.id ||
+      initialData?._id ||
+      initialData?.confirmation_id ||
+      initialData?.confirmationId ||
+      confirmationData?.id ||
+      confirmationData?._id ||
+      confirmationData?.confirmation_id ||
+      confirmationData?.confirmationId ||
+      contractData?.confirmation_id ||
+      contractData?.confirmationId ||
+      contractData?.confirmation?.id ||
+      contractData?.confirmation?._id ||
+      initialContractData?.confirmation_id ||
+      initialContractData?.confirmationId ||
+      initialContractData?.confirmation?.id ||
+      initialContractData?.confirmation?._id ||
+      (typeof contractData?.confirmation === 'string' ? contractData.confirmation : '') ||
+      (typeof initialContractData?.confirmation === 'string' ? initialContractData.confirmation : '') ||
+      '';
+    const clean = sanitizeDocId(raw);
+    return clean && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(clean) ? clean : '';
+  }, [initialData, confirmationData, contractData, initialContractData]);
+
+  const isConfirmation = selectedStepIndex === 0 || isConfirmationStep(selectedStep, selectedStepIndex);
+  const isContract = !isConfirmation && (selectedStepIndex === 1 || isContractStep(selectedStep, selectedStepIndex));
+
+  // Canonical Contract Document ID (strictly contract)
+  const canonicalContractId = useMemo(() => {
+    const raw =
+      contractIdFromStepper ||
+      contractData?.id ||
+      contractData?._id ||
+      contractData?.contract_id ||
+      contractData?.contractId ||
+      initialContractData?.id ||
+      initialContractData?._id ||
+      initialContractData?.contract_id ||
+      initialContractData?.contractId ||
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      (isContract ? draftId : '') ||
+      '';
+    const clean = sanitizeDocId(raw);
+    return clean && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(clean) ? clean : '';
+  }, [contractIdFromStepper, contractData, initialContractData, initialData, isContract, draftId]);
 
   useEffect(() => {
     if (initialSteps && initialSteps.length > 0) {
@@ -163,6 +221,27 @@ export function DocumentDraftWorkspace({
     }
   }, [steps, selectedStepIndex]);
 
+  // Ensure the browser URL query parameter 'id' always mirrors the correct canonical ID of the active step
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const currentUrlId = url.searchParams.get('id');
+
+    if (isConfirmation && effectiveConfirmationId) {
+      if (currentUrlId !== effectiveConfirmationId) {
+        url.searchParams.set('id', effectiveConfirmationId);
+        url.searchParams.set('step', 'confirmation');
+        window.history.replaceState(null, '', url.toString());
+      }
+    } else if (isContract && canonicalContractId) {
+      if (currentUrlId !== canonicalContractId) {
+        url.searchParams.set('id', canonicalContractId);
+        url.searchParams.set('step', 'contract');
+        window.history.replaceState(null, '', url.toString());
+      }
+    }
+  }, [isConfirmation, isContract, effectiveConfirmationId, canonicalContractId]);
+
   // Handle step selection with URL shallow synchronization for proper linking
   const handleSelectStep = useCallback(
     (step: StepperDocumentItem, index: number) => {
@@ -171,32 +250,40 @@ export function DocumentDraftWorkspace({
       setIsMobileStepperOpen(false);
 
       const isSelectingContract = index === 1 || isContractStep(step, index);
+      const isSelectingConf = index === 0 || isConfirmationStep(step, index);
+
       if (isSelectingContract && !contractData && !initialContractData) {
         setIsLoadingContract(true);
       }
 
-      const stepDocId = extractStepId(step);
-      if (stepDocId) {
-        setDraftId(stepDocId);
+      let targetId = '';
+      if (isSelectingConf) {
+        targetId = effectiveConfirmationId;
+      } else if (isSelectingContract) {
+        targetId = canonicalContractId;
+      } else {
+        targetId = extractStepId(step);
+      }
+
+      if (targetId) {
+        setDraftId(targetId);
       }
 
       // Deep link navigation: update URL query parameters without full page reload
       const slug = getStepSlug(step, index);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        const urlId = stepDocId || draftId;
-        if (urlId) {
-          url.searchParams.set('id', urlId);
+        if (targetId) {
+          url.searchParams.set('id', targetId);
+        } else {
+          url.searchParams.delete('id');
         }
         url.searchParams.set('step', slug);
         window.history.replaceState(null, '', url.toString());
       }
     },
-    [draftId]
+    [effectiveConfirmationId, canonicalContractId, contractData, initialContractData]
   );
-
-  const isConfirmation = selectedStepIndex === 0 || isConfirmationStep(selectedStep, selectedStepIndex);
-  const isContract = !isConfirmation && (selectedStepIndex === 1 || isContractStep(selectedStep, selectedStepIndex));
 
   const pageTitle = isContract
     ? dict?.smart_docs?.draft_contract_title || dict?.smart_docs?.draft_contract || 'Draft Contract'
@@ -218,18 +305,57 @@ export function DocumentDraftWorkspace({
     }
   }, [initialContractData, contractData]);
 
+  useEffect(() => {
+    if (initialData && !confirmationData) {
+      setConfirmationData(initialData);
+    }
+  }, [initialData, confirmationData]);
+
+  // Fetch confirmation data dynamically if confirmation step is active and data not yet loaded
+  useEffect(() => {
+    if (!isConfirmation || confirmationData || initialData) return;
+    const cleanConfId = sanitizeDocId(effectiveConfirmationId);
+    if (cleanConfId) {
+      setIsLoadingConfirmation(true);
+      getConfirmationAction(cleanConfId, lang)
+        .then((res) => {
+          if (res?.success && res.data) {
+            setConfirmationData(extractConfirmationData(res.data));
+          }
+        })
+        .catch((err) => {
+          console.error('[DocumentDraftWorkspace] Error fetching confirmation dynamically:', err);
+        })
+        .finally(() => {
+          setIsLoadingConfirmation(false);
+        });
+    }
+  }, [isConfirmation, confirmationData, initialData, effectiveConfirmationId, lang]);
+
   // Fetch contract data dynamically if contract step is active and contract data not yet loaded
   useEffect(() => {
-    const effectiveContractId =
+    if (!isContract || contractData || initialContractData) {
+      return;
+    }
+
+    const confId =
+      initialData?.id ||
+      initialData?._id ||
+      initialData?.confirmation_id ||
+      initialData?.confirmationId;
+
+    const candidateContractId =
       contractIdFromStepper ||
-      initialContractData?.id ||
-      initialContractData?._id ||
-      contractData?.id ||
-      contractData?._id ||
+      (draftId && draftId !== confId ? draftId : '') ||
       initialData?.contract_id ||
       initialData?.contractId;
 
-    if (isContract && effectiveContractId && !contractData && !isLoadingContract) {
+    const effectiveContractId =
+      candidateContractId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(candidateContractId)
+        ? candidateContractId
+        : '';
+
+    if (effectiveContractId) {
       setIsLoadingContract(true);
       getContractAction(effectiveContractId, lang)
         .then((res) => {
@@ -243,8 +369,10 @@ export function DocumentDraftWorkspace({
         .finally(() => {
           setIsLoadingContract(false);
         });
+    } else {
+      setIsLoadingContract(false);
     }
-  }, [isContract, contractIdFromStepper, initialContractData, initialData, contractData, isLoadingContract, lang]);
+  }, [isContract, contractIdFromStepper, draftId, initialData, contractData, initialContractData, lang]);
 
   const activeDocName =
     selectedStep?.document_name ||
@@ -281,7 +409,8 @@ export function DocumentDraftWorkspace({
             </span>
             <div className="flex flex-col min-w-0">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {dict?.smart_docs?.document_status || 'Document Step'} ({selectedStepIndex + 1}/{steps.length || 11})
+                {dict?.smart_docs?.document_status || 'Document Step'}
+                {steps.length > 0 ? ` (${selectedStepIndex + 1}/${steps.length})` : ''}
               </span>
               <span className="text-xs font-bold text-foreground truncate">
                 {activeDocName}
@@ -304,10 +433,11 @@ export function DocumentDraftWorkspace({
           <div className="mt-2.5 pt-2 border-t border-border animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y">
             <DocumentStatusStepper
               isMobile
-              stepId={draftId}
+              stepId={effectiveConfirmationId || 'new-confirmation'}
               initialSteps={steps}
               currentStepIndex={selectedStepIndex}
               onSelectStep={handleSelectStep}
+              onUpdateSteps={setSteps}
               lang={lang}
               dict={dict}
             />
@@ -328,8 +458,13 @@ export function DocumentDraftWorkspace({
       >
         {/* Confirmation Document Form: Visible when Confirmation Step is active */}
         <div className={`w-full h-full flex flex-col ${isConfirmation ? 'flex' : 'hidden'}`}>
-          <ConfirmationDocumentForm
-            initialData={initialData}
+          {isConfirmation && isLoadingConfirmation ? (
+            <DocumentDraftSkeleton mode="confirmation" isFormCardOnly />
+          ) : (
+            <ConfirmationDocumentForm
+              initialData={confirmationData || initialData}
+            steps={steps}
+            selectedStep={selectedStep}
             lang={lang}
             dict={dict}
             sellers={initialSellers}
@@ -346,6 +481,7 @@ export function DocumentDraftWorkspace({
             onSaveSuccess={(savedId) => {
               if (savedId) {
                 setDraftId(savedId);
+                setConfirmationData((prev: any) => ({ ...(prev || {}), id: savedId, _id: savedId }));
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
                   url.searchParams.set('id', savedId);
@@ -431,11 +567,12 @@ export function DocumentDraftWorkspace({
               return res;
             }}
           />
+          )}
         </div>
 
         {/* Contract Document Form: Visible when Contract Step is active */}
         <div className={`w-full h-full flex flex-col ${isContract ? 'flex' : 'hidden'}`}>
-          {isContract && (isLoadingContract || (!contractData && !initialContractData)) ? (
+          {isContract && isLoadingContract ? (
             <DocumentDraftSkeleton mode="contract" isFormCardOnly />
           ) : (
             <ContractDocumentForm
@@ -579,10 +716,11 @@ export function DocumentDraftWorkspace({
         {/* Stepper Viewport (pinned header with internal scrollable list) */}
         <div className="w-full h-full flex flex-col p-2.5 sm:p-3 min-h-0">
           <DocumentStatusStepper
-            stepId={draftId}
+            stepId={effectiveConfirmationId || 'new-confirmation'}
             initialSteps={steps}
             currentStepIndex={selectedStepIndex}
             onSelectStep={handleSelectStep}
+            onUpdateSteps={setSteps}
             lang={lang}
             dict={dict}
           />

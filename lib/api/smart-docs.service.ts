@@ -106,6 +106,11 @@ export function extractAllSmartDocIds(row: any): string[] {
   pushIfValid(row.uuid);
 
   // 2. Nested objects if any
+  if (row.contract && typeof row.contract === 'object') {
+    pushIfValid(row.contract.id);
+    pushIfValid(row.contract._id);
+    pushIfValid(row.contract.contract_id);
+  }
   if (row.confirmation && typeof row.confirmation === 'object') {
     pushIfValid(row.confirmation.id);
     pushIfValid(row.confirmation._id);
@@ -118,6 +123,119 @@ export function extractAllSmartDocIds(row: any): string[] {
   }
 
   return ids;
+}
+
+/**
+ * Extracts a unique primary document identifier from a Smart Docs record.
+ */
+export function extractSmartDocId(row: any): string {
+  if (!row) return '';
+  const allIds = extractAllSmartDocIds(row);
+  return allIds[0] || '';
+}
+
+/**
+ * Extracts a unique Contract identifier specifically from a Smart Docs record.
+ * Prioritizes contract-specific IDs (contract_id, contractId, contract.id, etc.)
+ */
+export function extractContractDocId(row: any): string {
+  if (!row) return '';
+  if (typeof row === 'string' || typeof row === 'number') {
+    const clean = sanitizeDocId(row);
+    return clean ? clean : '';
+  }
+
+  const clean = (val: any) => sanitizeDocId(val);
+  return (
+    clean(row.contract_id) ||
+    clean(row.contractId) ||
+    clean(row.contract?.id) ||
+    clean(row.contract?._id) ||
+    clean(row.contract?.contract_id) ||
+    clean(row.id) ||
+    clean(row._id) ||
+    clean(row.confirmation_id) ||
+    clean(row.confirmationId) ||
+    clean(row.doc_id) ||
+    clean(row.document_id) ||
+    clean(extractSmartDocId(row)) ||
+    ''
+  );
+}
+
+/**
+ * Extracts the linked confirmation ID from any contract record (searching all candidate levels).
+ */
+export function extractLinkedConfirmationId(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  const clean = (val: any) => sanitizeDocId(val);
+
+  const candidates = [
+    data.confirmation_id,
+    data.confirmationId,
+    data.trade_confirmation_id,
+    data.tradeConfirmationId,
+    typeof data.confirmation === 'string' ? data.confirmation : '',
+    data.confirmation?.id,
+    data.confirmation?._id,
+    data.confirmation?.confirmation_id,
+    data.contract?.confirmation_id,
+    data.contract?.confirmationId,
+    typeof data.contract?.confirmation === 'string' ? data.contract.confirmation : '',
+    data.contract?.confirmation?.id,
+    data.contract?.confirmation?._id,
+    data.data?.confirmation_id,
+    data.data?.confirmationId,
+    typeof data.data?.confirmation === 'string' ? data.data.confirmation : '',
+    data.data?.confirmation?.id,
+    data.data?.confirmation?._id,
+    data.doc_id,
+    data.source_id,
+    data.parent_id,
+    data.ref_id,
+  ];
+
+  for (const c of candidates) {
+    const id = clean(c);
+    if (id && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(id)) {
+      return id;
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Extracts the linked contract ID from any confirmation record (searching all candidate levels).
+ */
+export function extractLinkedContractId(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  const clean = (val: any) => sanitizeDocId(val);
+
+  const candidates = [
+    data.contract_id,
+    data.contractId,
+    typeof data.contract === 'string' ? data.contract : '',
+    data.contract?.id,
+    data.contract?._id,
+    data.contract?.contract_id,
+    data.data?.contract_id,
+    data.data?.contractId,
+    typeof data.data?.contract === 'string' ? data.data.contract : '',
+    data.data?.contract?.id,
+    data.data?.contract?._id,
+    data.sales_contract_id,
+    data.salesContractId,
+  ];
+
+  for (const c of candidates) {
+    const id = clean(c);
+    if (id && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(id)) {
+      return id;
+    }
+  }
+
+  return '';
 }
 
 /**
@@ -1272,16 +1390,33 @@ export const smartDocsService = {
  */
 export function extractConfirmationData(data: any): any {
   if (!data) return null;
+  if (data?.success === false && !data?.data) return null;
+  if (data?.status === 404 || data?.status === 400 || data?.statusCode === 404) return null;
+  if (data?.message && typeof data.message === 'string' && /not found/i.test(data.message) && !data?.data) return null;
+
   let current = data;
+  let status = data?.status || data?.data?.status;
   if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
+    if (typeof current.data.status === 'string') status = current.data.status;
     current = current.data;
     if (current.data && typeof current.data === 'object' && !Array.isArray(current.data)) {
+      if (typeof current.data.status === 'string') status = current.data.status;
       current = current.data;
     }
   }
   if (current.confirmation && typeof current.confirmation === 'object' && !Array.isArray(current.confirmation)) {
     current = current.confirmation;
   }
+  if (current && typeof current === 'object' && !Array.isArray(current) && !current.status && typeof status === 'string') {
+    current.status = status;
+  }
+  if (!current || typeof current !== 'object' || Array.isArray(current)) return null;
+
+  const keys = Object.keys(current);
+  if (keys.length === 0 || (keys.length <= 2 && keys.every(k => ['message', 'error', 'success', 'status', 'statusCode'].includes(k)))) {
+    return null;
+  }
+
   return current;
 }
 
@@ -1418,6 +1553,10 @@ export function normalizeSignaturePayload(sig?: string | null): string | null | 
  */
 export function extractContractData(data: any): any {
   if (!data) return null;
+  if (data?.success === false && !data?.data) return null;
+  if (data?.status === 404 || data?.status === 400 || data?.statusCode === 404) return null;
+  if (data?.message && typeof data.message === 'string' && /not found/i.test(data.message) && !data?.data) return null;
+
   let root = data;
   let dataLevel = data?.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : null;
   let nestedDataLevel = dataLevel?.data && typeof dataLevel.data === 'object' && !Array.isArray(dataLevel.data) ? dataLevel.data : null;
@@ -1441,6 +1580,11 @@ export function extractContractData(data: any): any {
 
   if (contractLevel) {
     merged.contract = contractLevel;
+  }
+
+  const keys = Object.keys(merged);
+  if (keys.length === 0 || (keys.length <= 2 && keys.every(k => ['message', 'error', 'success', 'status', 'statusCode'].includes(k)))) {
+    return null;
   }
 
   return merged;
@@ -1580,6 +1724,21 @@ export interface StepperDocumentItem {
   [key: string]: any;
 }
 
+export const DEFAULT_WORKFLOW_STEPPER_ITEMS: StepperDocumentItem[] = [
+  { step: 1, order: 1, name: 'Trade Confirmation', document_name: 'Trade Confirmation', status: 'completed' },
+  { step: 2, order: 2, name: 'Sales Contract', document_name: 'Sales Contract', status: 'in_progress' },
+  { step: 3, order: 3, name: 'Proforma Invoice', document_name: 'Proforma Invoice', status: 'pending' },
+  { step: 4, order: 4, name: 'Shipment Instruction', document_name: 'Shipment Instruction', status: 'pending' },
+  { step: 5, order: 5, name: 'Bill Of Lading', document_name: 'Bill Of Lading', status: 'pending' },
+  { step: 6, order: 6, name: 'Custom Invoice', document_name: 'Custom Invoice', status: 'pending' },
+  { step: 7, order: 7, name: 'Commercial Invoice', document_name: 'Commercial Invoice', status: 'pending' },
+  { step: 8, order: 8, name: 'Packing List', document_name: 'Packing List', status: 'pending' },
+  { step: 9, order: 9, name: 'Phyto Certificate', document_name: 'Phyto Certificate', status: 'pending' },
+  { step: 10, order: 10, name: 'Fumigation Certificate', document_name: 'Fumigation Certificate', status: 'pending' },
+  { step: 11, order: 11, name: 'Certificate Of Origin', document_name: 'Certificate Of Origin', status: 'pending' },
+  { step: 12, order: 12, name: 'W & Q Certificate', document_name: 'W & Q Certificate', status: 'pending' },
+];
+
 /**
  * Robustly extracts the stepper documents array from backend API response.
  */
@@ -1601,11 +1760,25 @@ export function extractStepperList(data: any): StepperDocumentItem[] {
     'records',
     'list',
     'items',
+    'result',
+    'results',
+    'rows',
+    'data',
   ];
+
+  for (const key of candidateKeys) {
+    if (Array.isArray(d?.[key]) && d[key].length > 0) return d[key];
+    if (Array.isArray(data?.[key]) && data[key].length > 0) return data[key];
+  }
 
   for (const key of candidateKeys) {
     if (Array.isArray(d?.[key])) return d[key];
     if (Array.isArray(data?.[key])) return data[key];
+  }
+
+  const fallback = extractSmartDocsArray(data);
+  if (Array.isArray(fallback) && fallback.length > 0) {
+    return fallback;
   }
 
   return [];
@@ -1631,6 +1804,7 @@ export function normalizeStepStatus(rawStatus?: string): NormalizedStepStatus {
 /**
  * Extracts a clean document/step ID from a StepperDocumentItem.
  * Filters out dummy placeholder names like "contract", "sales-contract", etc.
+ * Never treats stepper template array _id as document primary key!
  */
 export function extractStepId(step?: StepperDocumentItem | null): string {
   if (!step) return '';
@@ -1639,8 +1813,6 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
     /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+|null|undefined|nan|\[object object\])$/i.test(
       val.trim()
     );
-
-  const status = normalizeStepStatus(step.status || step.document_status || step.step_status);
 
   // Explicit document ID fields from backend
   const explicitCandidates = [
@@ -1654,6 +1826,8 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
     step.docId,
     step.smart_doc_id,
     step.smartDocId,
+    step.record_id,
+    step.recordId,
   ];
 
   for (const raw of explicitCandidates) {
@@ -1662,20 +1836,6 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
       if (clean && !isInvalidPlaceholder(clean)) {
         return clean;
       }
-    }
-  }
-
-  // If status is pending or locked, this step has not generated/attached a document yet.
-  // Never treat the stepper template item _id as a document ID!
-  if (status === 'pending' || status === 'locked') {
-    return '';
-  }
-
-  // Only for active/completed steps, check step.id if distinct from template _id
-  if (step.id && step.id !== step._id) {
-    const clean = String(step.id).trim();
-    if (clean && !isInvalidPlaceholder(clean)) {
-      return clean;
     }
   }
 
@@ -1726,6 +1886,58 @@ export function isContractStep(step?: StepperDocumentItem | null, index?: number
 
   if (id.includes('confirmation') || name.includes('confirmation')) return false;
   return id.includes('contract') || name.includes('contract');
+}
+
+export function getConfirmationStep(
+  steps: StepperDocumentItem[] = [],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isConfirmationStep(selectedStep)) {
+    return selectedStep;
+  }
+  const found = steps.find((s, idx) => isConfirmationStep(s, idx));
+  if (found) return found;
+  if (steps.length > 0 && !isContractStep(steps[0], 0)) {
+    return steps[0];
+  }
+  return null;
+}
+
+/**
+ * Safely extracts status key from confirmation or contract API response / data object.
+ * Returns normalized uppercase status ('PENDING', 'COMPLETED', etc.) or empty string.
+ */
+export function extractDocumentStatus(data?: any): string {
+  if (!data) return '';
+  const raw =
+    data.status ||
+    data.confirmation_status ||
+    data.contract_status ||
+    data.document_status ||
+    data.step_status ||
+    (typeof data.confirmation === 'object' && data.confirmation?.status) ||
+    (typeof data.contract === 'object' && data.contract?.status) ||
+    (typeof data.data === 'object' && data.data?.status) ||
+    '';
+  return String(raw).trim().toUpperCase();
+}
+
+/**
+ * Returns true if the status indicates the document has completed / been submitted.
+ */
+export function isStatusCompleted(status?: string | null): boolean {
+  if (!status) return false;
+  const s = String(status).trim().toUpperCase();
+  return s === 'COMPLETED' || s === 'COMPLETE' || s === 'DONE' || s === 'APPROVED' || s === 'SUCCESS' || s === 'FINISHED';
+}
+
+/**
+ * Returns true if the status indicates the document is pending submission (or draft).
+ */
+export function isStatusPending(status?: string | null): boolean {
+  if (!status) return true;
+  const s = String(status).trim().toUpperCase();
+  return s === 'PENDING' || s === 'DRAFT' || s === 'IN_PROGRESS' || s === 'INPROGRESS';
 }
 
 export function getContractStep(
