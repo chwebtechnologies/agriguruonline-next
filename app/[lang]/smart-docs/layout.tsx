@@ -66,6 +66,7 @@ export default async function SmartDocsLayout({
     ai_predicts: 'AI Predicts',
     my_profile: 'My Profile',
     dashboard: 'Dashboard',
+    marketplace: 'Marketplace',
     my_settings: 'Settings',
   };
 
@@ -80,6 +81,7 @@ export default async function SmartDocsLayout({
     },
     footer: (rawDict as any)?.footer || {},
     common: (rawDict as any)?.common || {},
+    smart_docs: (rawDict as any)?.smart_docs || {},
   };
 
   const clientAuth = authState as any;

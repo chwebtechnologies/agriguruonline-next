@@ -226,7 +226,7 @@ export function PaymentTermManageModal({
 
           {/* Payment Term Name */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-xs text-foreground flex items-center gap-1">
+            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
               <span>{dict?.smart_docs?.confirmation_form?.payment_term || 'Payment Term / Terms'}</span>
               <span className="text-destructive">*</span>
             </label>
@@ -239,22 +239,23 @@ export function PaymentTermManageModal({
                 if (error) setError('');
               }}
               placeholder="e.g. 30% Advance, 70% against BL copy or 100% LC at Sight"
-              className={`w-full px-3 py-2 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors ${
+              className={`w-full h-10 px-3.5 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors ${
                 error
                   ? 'border-destructive focus:ring-1 focus:ring-destructive'
                   : 'border-border focus:border-primary focus:ring-1 focus:ring-primary'
               }`}
             />
             {error && (
-              <span className="text-[11px] text-destructive font-medium animate-in fade-in">
-                {error}
+              <span className="text-[11px] text-destructive font-medium animate-in fade-in flex items-center gap-1">
+                <i className="fa-solid fa-circle-exclamation text-[10px]" />
+                <span>{error}</span>
               </span>
             )}
           </div>
 
           {/* Credit Days / Period */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-xs text-foreground">
+            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
               Credit Period / Days (Optional)
             </label>
             <input
@@ -262,13 +263,13 @@ export function PaymentTermManageModal({
               value={days}
               onChange={(e) => setDays(e.target.value)}
               placeholder="e.g. 30, 60, or At Sight"
-              className="w-full px-3 py-2 text-xs sm:text-sm bg-background text-foreground border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+              className="w-full h-10 px-3.5 text-xs sm:text-sm bg-background text-foreground border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
             />
           </div>
 
           {/* Description / Additional Conditions */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-xs text-foreground">
+            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
               Additional Details / Description (Optional)
             </label>
             <textarea
@@ -276,7 +277,7 @@ export function PaymentTermManageModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Balance payment within 7 working days upon receipt of scanned BL copy via email"
-              className="w-full px-3 py-2 text-xs sm:text-sm bg-background text-foreground border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-none"
+              className="w-full p-3 px-3.5 text-xs sm:text-sm bg-background text-foreground border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-none leading-relaxed"
             />
           </div>
 

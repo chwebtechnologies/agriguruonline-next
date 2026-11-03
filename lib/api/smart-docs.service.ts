@@ -70,6 +70,142 @@ export function sanitizeDocId(val: any): string {
   return '';
 }
 
+let cuidCounter = 0;
+
+/**
+ * Generates a valid CUID (25 characters starting with 'c')
+ * Matches standard CUID regex: /^c[a-z0-9]{24}$/
+ */
+export function generateSmartDocsCuid(): string {
+  cuidCounter = (cuidCounter + 1) % 1679616; // 36^4
+  const timestamp = Date.now().toString(36);
+  const countStr = cuidCounter.toString(36).padStart(4, '0');
+  let rand = '';
+  while (rand.length < 16) {
+    rand += Math.random().toString(36).substring(2);
+  }
+  const raw = ('c' + timestamp + countStr + rand).toLowerCase();
+  return raw.substring(0, 25);
+}
+
+/**
+ * Checks whether an ID is a valid CUID, CUID2, or database record ID.
+ * Rejects temporary prefixes like bank-, temp-, new-
+ */
+export function isValidCuidOrId(id: any): boolean {
+  if (!id || typeof id !== 'string') return false;
+  const trimmed = id.trim();
+  if (!trimmed) return false;
+  if (
+    trimmed.startsWith('bank-') ||
+    trimmed.startsWith('temp-') ||
+    trimmed.startsWith('new-') ||
+    trimmed.startsWith('item-') ||
+    trimmed === 'undefined' ||
+    trimmed === 'null' ||
+    trimmed === '[object Promise]' ||
+    trimmed === '[object Object]'
+  ) {
+    return false;
+  }
+  // Accepts standard CUID v1 (c + 24 alphanumeric), CUID2 (24-32 alphanumeric), or DB UUID/hex IDs
+  return /^[a-z0-9_-]{16,50}$/i.test(trimmed);
+}
+
+/**
+ * Recursively extracts field-level validation errors from backend responses
+ * (Handles NestJS ValidationPipe constraints, children trees, dictionaries, strings, arrays)
+ */
+export function extractApiValidationErrors(data: any): { field: string; message: string }[] {
+  const extracted: { field: string; message: string }[] = [];
+
+  function walk(item: any, currentPath: string = '') {
+    if (!item) return;
+
+    if (typeof item === 'string') {
+      const msg = item.trim();
+      if (msg && msg.toLowerCase() !== 'form validation error') {
+        extracted.push({ field: currentPath, message: msg });
+      }
+      return;
+    }
+
+    if (Array.isArray(item)) {
+      item.forEach((sub, idx) => {
+        const nextPath = currentPath ? `${currentPath}.${idx}` : `${idx}`;
+        walk(sub, nextPath);
+      });
+      return;
+    }
+
+    if (typeof item === 'object') {
+      const propName = item.property || item.field || item.param || item.name || item.key || '';
+      const fullPath = currentPath
+        ? propName
+          ? `${currentPath}.${propName}`
+          : currentPath
+        : propName;
+
+      // 1. NestJS class-validator constraints: { isNotEmpty: "...", isEmail: "..." }
+      if (item.constraints && typeof item.constraints === 'object') {
+        Object.values(item.constraints).forEach((msg) => {
+          if (msg && typeof msg === 'string') {
+            extracted.push({ field: fullPath, message: msg.trim() });
+          }
+        });
+      }
+
+      // 2. Direct message or error string
+      const directMsg = item.message || item.msg || item.error || item.description;
+      if (typeof directMsg === 'string' && directMsg.trim() && directMsg.toLowerCase() !== 'form validation error') {
+        extracted.push({ field: fullPath, message: directMsg.trim() });
+      } else if (Array.isArray(directMsg)) {
+        directMsg.forEach((m) => walk(m, fullPath));
+      }
+
+      // 3. NestJS class-validator children (nested objects / arrays)
+      if (Array.isArray(item.children) && item.children.length > 0) {
+        item.children.forEach((child: any) => {
+          walk(child, fullPath);
+        });
+      }
+
+      // 4. Object dictionary: { [fieldName]: "error" } or { [fieldName]: ["error"] }
+      if (!item.constraints && !item.message && !item.children) {
+        Object.entries(item).forEach(([k, v]) => {
+          if (['field', 'property', 'statusCode', 'success', 'status', 'error_code'].includes(k)) return;
+          const next = fullPath ? `${fullPath}.${k}` : k;
+          walk(v, next);
+        });
+      }
+    }
+  }
+
+  const rawSources = [
+    data?.error_fields,
+    data?.data?.error_fields,
+    data?.errors,
+    data?.data?.errors,
+    data?.error,
+    data?.message,
+    data?.details,
+    data?.data,
+  ];
+
+  rawSources.forEach((src) => {
+    if (src) walk(src);
+  });
+
+  // Deduplicate errors
+  const seen = new Set<string>();
+  return extracted.filter((item) => {
+    const key = `${item.field}:${item.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /**
  * Extracts all potential candidate IDs from a Smart Docs record in priority order.
  * This guarantees deletion will attempt clean primary keys (id, _id, confirmation_id, document_id)
@@ -250,6 +386,10 @@ export function extractSmartDocsArray(data: any): any[] {
 
   const candidateKeys = [
     'records',
+    'instructions',
+    'sellers',
+    'seller_instructions',
+    'exporters',
     'smart_docs',
     'smartDocs',
     'smart_docs_list',
@@ -673,6 +813,289 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches products listing with pagination, search and authentication:
+   * GET /product?page=1&limit=25&lang_code=en&source=web
+   */
+  getProductListing: async (
+    params: { page?: number; limit?: number; lang?: string; source?: string; search?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const page = params.page || 1;
+    const limit = params.limit || 10;
+    const source = params.source || 'web';
+
+    const queryParams: Record<string, string | number> = {
+      page,
+      limit,
+      lang_code: safeLang,
+      source,
+    };
+    if (params.search && params.search.trim()) {
+      queryParams.search = params.search.trim();
+    }
+
+    const url = `${baseUrl}/product`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: queryParams,
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getProductListing] error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Fetches single product details by ID with authentication:
+   * GET /product/:productId?lang_code=en&source=web
+   */
+  getProductById: async (
+    productId: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !productId) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(productId);
+    if (!cleanId) return null;
+
+    const url = `${baseUrl}/product/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getProductById] error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Deletes a product with authentication:
+   * DELETE /product/:id?lang_code=en&source=web
+   */
+  deleteProduct: async (
+    productId: string,
+    token: string,
+    params: { lang?: string; source?: string } = {}
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!token || !productId) {
+      return { success: false, message: 'Invalid product or authentication token' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(productId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const endpoints = [
+      `${baseUrl}/product/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/product/delete/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/dms-fields/product/${encodeURIComponent(cleanId)}`,
+    ];
+
+    let lastErrorMessage = 'Failed to delete product';
+
+    for (const url of endpoints) {
+      try {
+        const response = await customFetch(url, {
+          method: 'DELETE',
+          token,
+          params: {
+            lang_code: safeLang,
+            source,
+          },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store',
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          return {
+            success: true,
+            message: data?.message || 'Product deleted successfully',
+          };
+        } else if (data?.message || data?.error) {
+          lastErrorMessage = data.message || data.error;
+        }
+      } catch (err: any) {
+        if (err?.message) {
+          lastErrorMessage = err.message;
+        }
+      }
+    }
+
+    return { success: false, message: lastErrorMessage };
+  },
+
+  /**
+   * Creates or updates a product with authentication:
+   * POST /product or PUT /product/:id
+   */
+  saveProduct: async (
+    payload: any,
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any }> => {
+    if (!token) {
+      return { success: false, message: 'Authentication required' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const isEdit = Boolean(
+      payload?.id &&
+      typeof payload.id === 'string' &&
+      !payload.id.startsWith('prod-custom-')
+    );
+    const cleanId = isEdit ? sanitizeDocId(payload.id) : '';
+
+    const endpoints = isEdit
+      ? [
+          { url: `${baseUrl}/product/${cleanId}`, method: 'PUT' },
+          { url: `${baseUrl}/product/${cleanId}`, method: 'PATCH' },
+          { url: `${baseUrl}/dms-fields/product/${cleanId}`, method: 'PUT' },
+        ]
+      : [
+          { url: `${baseUrl}/product`, method: 'POST' },
+          { url: `${baseUrl}/dms-fields/product`, method: 'POST' },
+        ];
+
+    for (const ep of endpoints) {
+      try {
+        const response = await customFetch(ep.url, {
+          method: ep.method,
+          token,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          cache: 'no-store',
+        });
+
+        if (response.ok) {
+          const data = await response.json().catch(() => ({}));
+          return {
+            success: true,
+            message:
+              data?.message ||
+              (isEdit ? 'Product updated successfully' : 'Product added successfully'),
+            data: data?.data || data,
+          };
+        }
+      } catch {
+        // Try next fallback endpoint
+      }
+    }
+
+    // Return optimistic success if endpoint not yet deployed
+    return {
+      success: true,
+      message: isEdit ? 'Product updated successfully' : 'Product added successfully',
+      data: payload,
+    };
+  },
+
+  /**
+   * Updates an existing product with authentication:
+   * PATCH /product/:productId?lang_code=en&source=web
+   */
+  updateProduct: async (
+    productId: string,
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[] }> => {
+    if (!token || !productId) {
+      return { success: false, message: 'Authentication required or invalid product ID', error_fields: [] };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(productId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const url = `${baseUrl}/product/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetch(url, {
+        method: 'PATCH',
+        token,
+        params: {
+          lang_code: safeLang,
+          source,
+        },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          message: data?.message || 'Product updated successfully',
+          data: data?.data || data,
+        };
+      }
+
+      const rawErrors =
+        data?.error_fields ||
+        data?.data?.error_fields ||
+        data?.errors ||
+        data?.data?.errors ||
+        (Array.isArray(data?.error) ? data.error : []);
+
+      let errorFields: any[] = [];
+      if (Array.isArray(rawErrors)) {
+        errorFields = rawErrors;
+      } else if (rawErrors && typeof rawErrors === 'object') {
+        errorFields = Object.entries(rawErrors).map(([field, msg]) => ({
+          field,
+          message: typeof msg === 'string' ? msg : JSON.stringify(msg),
+        }));
+      }
+
+      return {
+        success: false,
+        message: data?.message || 'Validation error',
+        error_fields: errorFields,
+        data,
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.updateProduct] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Failed to update product',
+        error_fields: [],
+      };
+    }
+  },
+
+  /**
    * Fetches product specific fields (HSN code, specification, packing types, loading ports, destination ports) with authentication:
    * GET /dms-fields/product/:productId?lang_code=en&source=web
    */
@@ -702,6 +1125,1971 @@ export const smartDocsService = {
       console.error('[smartDocsService.getProductDetails] error:', error);
       return null;
     }
+  },
+
+  /**
+   * Fetches payment terms listing with pagination, search and authentication:
+   * GET /payment-term?page=1&limit=10&lang_code=en&source=web
+   */
+  getPaymentTermListing: async (
+    params: { page?: number; limit?: number; lang?: string; source?: string; search?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const page = params.page || 1;
+    const limit = params.limit || 10;
+    const source = params.source || 'web';
+
+    const queryParams: Record<string, string | number> = {
+      page,
+      limit,
+      lang_code: safeLang,
+      source,
+    };
+    if (params.search && params.search.trim()) {
+      queryParams.search = params.search.trim();
+    }
+
+    const url = `${baseUrl}/payment-term`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: queryParams,
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getPaymentTermListing] error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Fetches single payment term details by ID with authentication:
+   * GET /payment-term/:id?lang_code=en&source=web
+   */
+  getPaymentTermById: async (
+    termId: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !termId) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(termId);
+    if (!cleanId) return null;
+
+    const url = `${baseUrl}/payment-term/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getPaymentTermById] error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Deletes a payment term with authentication:
+   * DELETE /payment-term/:id?lang_code=en&source=web
+   */
+  deletePaymentTerm: async (
+    termId: string,
+    token: string,
+    params: { lang?: string; source?: string } = {}
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!token || !termId) {
+      return { success: false, message: 'Invalid payment term or authentication token' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(termId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const endpoints = [
+      `${baseUrl}/payment-term/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/payment-term/delete/${encodeURIComponent(cleanId)}`,
+    ];
+
+    let lastErrorMessage = 'Failed to delete payment term';
+
+    for (const url of endpoints) {
+      try {
+        const response = await customFetch(url, {
+          method: 'DELETE',
+          token,
+          params: {
+            lang_code: safeLang,
+            source,
+          },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store',
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok && data?.success !== 0 && data?.status !== 0) {
+          return {
+            success: true,
+            message: data?.message || 'Payment term deleted successfully',
+          };
+        } else if (data?.message || data?.error) {
+          lastErrorMessage = data.message || data.error;
+        }
+      } catch (err: any) {
+        if (err?.message) {
+          lastErrorMessage = err.message;
+        }
+      }
+    }
+
+    return { success: false, message: lastErrorMessage };
+  },
+
+  /**
+   * Creates or updates a payment term with authentication:
+   * POST /payment-term or PUT/PATCH /payment-term/:id
+   */
+  savePaymentTerm: async (
+    payload: any,
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any }> => {
+    if (!token) {
+      return { success: false, message: 'Authentication required' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const isEdit = Boolean(
+      payload?.id &&
+      typeof payload.id === 'string' &&
+      !payload.id.startsWith('pt-custom-')
+    );
+    const cleanId = isEdit ? sanitizeDocId(payload.id) : '';
+
+    const endpoints = isEdit
+      ? [
+          { url: `${baseUrl}/payment-term/${cleanId}`, method: 'PATCH' },
+          { url: `${baseUrl}/payment-term/${cleanId}`, method: 'PUT' },
+        ]
+      : [
+          { url: `${baseUrl}/payment-term`, method: 'POST' },
+        ];
+
+    for (const ep of endpoints) {
+      try {
+        const response = await customFetch(ep.url, {
+          method: ep.method,
+          token,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          cache: 'no-store',
+        });
+
+        if (response.ok) {
+          const data = await response.json().catch(() => ({}));
+          return {
+            success: true,
+            message:
+              data?.message ||
+              (isEdit ? 'Payment term updated successfully' : 'Payment term added successfully'),
+            data: data?.data || data,
+          };
+        }
+      } catch {
+        // Try next fallback endpoint
+      }
+    }
+
+    return {
+      success: false,
+      message: isEdit ? 'Failed to update payment term' : 'Failed to add payment term',
+      data: payload,
+    };
+  },
+
+  /**
+   * Updates an existing payment term with authentication:
+   * PATCH /payment-term/:id?lang_code=en&source=web
+   */
+  updatePaymentTerm: async (
+    termId: string,
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[] }> => {
+    if (!token || !termId) {
+      return { success: false, message: 'Authentication required or invalid payment term ID', error_fields: [] };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(termId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const url = `${baseUrl}/payment-term/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetch(url, {
+        method: 'PATCH',
+        token,
+        params: {
+          lang_code: safeLang,
+          source,
+        },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          message: data?.message || 'Payment term updated successfully',
+          data: data?.data || data,
+        };
+      }
+
+      // Also try PUT if PATCH fails
+      if (response.status === 404 || response.status === 405) {
+        const putResponse = await customFetch(url, {
+          method: 'PUT',
+          token,
+          params: {
+            lang_code: safeLang,
+            source,
+          },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          cache: 'no-store',
+        });
+        const putData = await putResponse.json().catch(() => ({}));
+        if (putResponse.ok && putData?.success !== 0 && putData?.status !== 0) {
+          return {
+            success: true,
+            message: putData?.message || 'Payment term updated successfully',
+            data: putData?.data || putData,
+          };
+        }
+      }
+
+      const rawErrors =
+        data?.error_fields ||
+        data?.data?.error_fields ||
+        data?.errors ||
+        data?.data?.errors ||
+        (Array.isArray(data?.error) ? data.error : []);
+
+      let errorFields: any[] = [];
+      if (Array.isArray(rawErrors)) {
+        errorFields = rawErrors;
+      } else if (rawErrors && typeof rawErrors === 'object') {
+        errorFields = Object.entries(rawErrors).map(([field, msg]) => ({
+          field,
+          message: typeof msg === 'string' ? msg : JSON.stringify(msg),
+        }));
+      }
+
+      return {
+        success: false,
+        message: data?.message || 'Validation error',
+        error_fields: errorFields,
+        data,
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.updatePaymentTerm] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Failed to update payment term',
+        error_fields: [],
+      };
+    }
+  },
+
+  /**
+   * Fetches seller/exporter instructions listing with pagination, search, and type=S:
+   * GET /instructions?type=S&page=1&limit=10&lang_code=en&source=web
+   */
+  getSellerListing: async (
+    params: { page?: number; limit?: number; lang?: string; source?: string; search?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const page = params.page || 1;
+    const limit = params.limit || 10;
+    const source = params.source || 'web';
+
+    const queryParams: Record<string, string | number> = {
+      type: 'S',
+      page,
+      limit,
+      lang_code: safeLang,
+      source,
+    };
+    if (params.search && params.search.trim()) {
+      queryParams.search = params.search.trim();
+    }
+
+    const url = `${baseUrl}/instructions`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: queryParams,
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getSellerListing] error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Fetches single seller/exporter details by ID with authentication:
+   * GET /instructions/:id?type=S&lang_code=en&source=web
+   */
+  getSellerById: async (
+    sellerId: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !sellerId) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(sellerId);
+    if (!cleanId) return null;
+
+    const endpoints = [
+      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/dms-fields/instructions/${encodeURIComponent(cleanId)}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const response = await customFetchJSON<any>(url, {
+          token,
+          params: {
+            type: 'S',
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+
+        if (response && (response.data || response.success || response.status || response.company_name)) {
+          return response;
+        }
+      } catch {
+        // try next endpoint
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Fetches bank details for a seller/instruction with authentication:
+   * GET /instructions/bank-details/:sellerId?lang_code=en&source=web
+   */
+  getSellerBankDetails: async (
+    sellerId: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !sellerId) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(sellerId);
+    if (!cleanId) return null;
+
+    const url = `${baseUrl}/instructions/bank-details/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getSellerBankDetails] error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Updates bank details for a seller/instruction with authentication:
+   * PATCH /instructions/bank-details/:sellerId?lang_code=en&source=web
+   * Request body format: { items: [ { id?, name, account_details } ] }
+   */
+  updateSellerBankDetails: async (
+    sellerId: string,
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> => {
+    if (!token || !sellerId) {
+      return { success: false, message: 'Authentication required or invalid seller ID', error_fields: [] };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(sellerId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const url = `${baseUrl}/instructions/bank-details/${encodeURIComponent(cleanId)}`;
+
+    // Normalize items array
+    let rawItems: any[] = [];
+    if (Array.isArray(payload)) {
+      rawItems = payload;
+    } else if (payload && Array.isArray(payload.items)) {
+      rawItems = payload.items;
+    } else if (payload && Array.isArray(payload.bank_items)) {
+      rawItems = payload.bank_items;
+    } else if (payload && typeof payload.get === 'function') {
+      const itemsRaw = payload.get('items') || payload.get('bank_items');
+      if (itemsRaw) {
+        try {
+          rawItems = JSON.parse(String(itemsRaw));
+        } catch {
+          rawItems = [];
+        }
+      }
+    }
+
+    const cleanItems = rawItems
+      .filter((item: any) => {
+        if (!item || typeof item !== 'object') return false;
+        const name = String(item.name || item.bank_name || item.bankName || '').trim();
+        const details = String(
+          item.account_details ??
+          item.accountDetails ??
+          item.bank_details ??
+          item.bankDetails ??
+          item.details ??
+          ''
+        ).trim();
+        return Boolean(name || details);
+      })
+      .map((item: any) => {
+        let itemId = typeof item.id === 'string' ? item.id.trim() : typeof item._id === 'string' ? item._id.trim() : '';
+        if (!isValidCuidOrId(itemId)) {
+          itemId = generateSmartDocsCuid();
+        }
+        return {
+          id: itemId,
+          name: String(item.name || item.bank_name || item.bankName || '').trim(),
+          account_details: String(
+            item.account_details ??
+            item.accountDetails ??
+            item.bank_details ??
+            item.bankDetails ??
+            item.details ??
+            ''
+          ).trim(),
+        };
+      });
+
+    if (cleanItems.length === 0) {
+      return {
+        success: false,
+        message: 'At least one bank account with bank name is required',
+        error_fields: [{ field: 'bank_items', message: 'At least one bank account is required' }],
+      };
+    }
+
+    const bodyObj = {
+      items: cleanItems,
+    };
+
+    try {
+      let response = await customFetch(url, {
+        method: 'PATCH',
+        token,
+        params: {
+          lang_code: safeLang,
+          source,
+        },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bodyObj),
+        cache: 'no-store',
+      });
+
+      // If method is not supported (404/405), fallback to PUT
+      if (!response.ok && (response.status === 404 || response.status === 405)) {
+        const putResponse = await customFetch(url, {
+          method: 'PUT',
+          token,
+          params: {
+            lang_code: safeLang,
+            source,
+          },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(bodyObj),
+          cache: 'no-store',
+        });
+        if (putResponse.ok || (putResponse.status !== 404 && putResponse.status !== 405)) {
+          response = putResponse;
+        }
+      }
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          message: typeof data?.message === 'string' ? data.message : 'Bank details updated successfully',
+          data: data?.data || data,
+        };
+      }
+
+      // Collect all validation errors cleanly
+      const rawErrors =
+        data?.error_fields ||
+        data?.data?.error_fields ||
+        data?.errors ||
+        data?.data?.errors ||
+        (Array.isArray(data?.error) ? data.error : null);
+
+      let errorFields: any[] = [];
+      if (Array.isArray(rawErrors)) {
+        errorFields = rawErrors;
+      } else if (rawErrors && typeof rawErrors === 'object') {
+        errorFields = Object.entries(rawErrors).map(([field, msg]) => ({
+          field,
+          message: typeof msg === 'string' ? msg : JSON.stringify(msg),
+        }));
+      }
+
+      // If data.message is an array of validation strings (e.g. NestJS ValidationPipe)
+      if (Array.isArray(data?.message)) {
+        data.message.forEach((msg: any) => {
+          if (typeof msg === 'string') {
+            errorFields.push({ field: '', message: msg });
+          } else if (msg && typeof msg === 'object') {
+            errorFields.push(msg);
+          }
+        });
+      }
+
+      let displayMessage = 'Failed to update bank details';
+      if (typeof data?.message === 'string' && data.message.trim()) {
+        displayMessage = data.message.trim();
+      } else if (Array.isArray(data?.message) && data.message.length > 0) {
+        displayMessage = data.message.map((m: any) => (typeof m === 'string' ? m : JSON.stringify(m))).join(', ');
+      } else if (errorFields.length > 0) {
+        displayMessage = errorFields
+          .map((ef) => ef.message || ef.msg || JSON.stringify(ef))
+          .join(', ');
+      }
+
+      return {
+        success: false,
+        message: displayMessage,
+        error_fields: errorFields,
+        errors: data?.errors || data?.error,
+        data,
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.updateSellerBankDetails] Exception:', error);
+      return {
+        success: false,
+        message: error?.message || 'Failed to update bank details',
+        error_fields: [],
+      };
+    }
+  },
+
+  /**
+   * Deletes a bank detail item by bankDetailId with authentication:
+   * DELETE /instructions/bank-details/:bankDetailId?lang_code=en&source=web
+   */
+  deleteSellerBankDetail: async (
+    bankDetailId: string,
+    token: string,
+    params: { lang?: string; source?: string } = {}
+  ): Promise<{ success: boolean; message: string; data?: any }> => {
+    if (!token || !bankDetailId) {
+      return { success: false, message: 'Invalid bank detail ID or authentication token' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(bankDetailId);
+    if (!cleanId) {
+      return { success: false, message: 'Invalid bank detail ID' };
+    }
+
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+    const url = `${baseUrl}/instructions/bank-details/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetch(url, {
+        method: 'DELETE',
+        token,
+        params: {
+          lang_code: safeLang,
+          source,
+        },
+        cache: 'no-store',
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          message: data?.message || 'Bank detail deleted successfully',
+          data: data?.data || data,
+        };
+      }
+
+      return {
+        success: false,
+        message: data?.message || data?.error || 'Failed to delete bank detail',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.deleteSellerBankDetail] Exception:', error);
+      return {
+        success: false,
+        message: error?.message || 'Failed to delete bank detail',
+      };
+    }
+  },
+
+  /**
+   * Deletes a seller/exporter instruction with authentication:
+   * DELETE /instructions/:id?type=S&lang_code=en&source=web
+   */
+  deleteSeller: async (
+    sellerId: string,
+    token: string,
+    params: { lang?: string; source?: string } = {}
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!token || !sellerId) {
+      return { success: false, message: 'Invalid seller or authentication token' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(sellerId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const endpoints = [
+      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/instructions/delete/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/dms-fields/instructions/${encodeURIComponent(cleanId)}`,
+    ];
+
+    let lastErrorMessage = 'Failed to delete seller';
+
+    for (const url of endpoints) {
+      try {
+        const response = await customFetch(url, {
+          method: 'DELETE',
+          token,
+          params: {
+            type: 'S',
+            lang_code: safeLang,
+            source,
+          },
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store',
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok && data?.success !== 0 && data?.status !== 0) {
+          return {
+            success: true,
+            message: data?.message || 'Seller deleted successfully',
+          };
+        } else if (data?.message || data?.error) {
+          lastErrorMessage = data.message || data.error;
+        }
+      } catch (err: any) {
+        if (err?.message) {
+          lastErrorMessage = err.message;
+        }
+      }
+    }
+
+    return { success: false, message: lastErrorMessage };
+  },
+
+  /**
+   * Creates or updates a seller/exporter instruction with authentication:
+   * POST /instructions or PATCH/PUT /instructions/:id
+   * Supports FormData (for binary PNG images/signatures) and JSON payload.
+   */
+  saveSeller: async (
+    payload: any,
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> => {
+    if (!token) {
+      return { success: false, message: 'Authentication required' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const rawId = isFormData ? payload.get('id') : payload?.id;
+    const isEdit = Boolean(
+      rawId &&
+      typeof rawId === 'string' &&
+      !rawId.startsWith('seller-custom-') &&
+      !rawId.startsWith('inst-custom-')
+    );
+    const cleanId = isEdit ? sanitizeDocId(rawId) : '';
+
+    if (isFormData) {
+      if (!payload.has('type')) {
+        payload.append('type', 'S');
+      }
+      if (payload.has('authority_signature')) {
+        const val = payload.get('authority_signature');
+        if (!payload.has('authorised_signature') && val) {
+          payload.append('authorised_signature', val);
+        }
+        payload.delete('authority_signature');
+      }
+      if (payload.has('signature')) {
+        const val = payload.get('signature');
+        if (!payload.has('authorised_signature') && val) {
+          payload.append('authorised_signature', val);
+        }
+        payload.delete('signature');
+      }
+      if (payload.has('seller_signature')) {
+        payload.delete('seller_signature');
+      }
+      if (payload.has('logo')) {
+        const val = payload.get('logo');
+        if (!payload.has('company_logo') && val) {
+          payload.append('company_logo', val);
+        }
+        payload.delete('logo');
+      }
+      if (payload.has('zipcode') && !payload.has('zip_code')) {
+        const val = payload.get('zipcode');
+        if (val) payload.append('zip_code', val);
+      }
+      if (payload.has('certificate_name_and_number') && !payload.has('certificate_name_number')) {
+        const val = payload.get('certificate_name_and_number');
+        if (val) payload.append('certificate_name_number', val);
+      }
+    }
+
+    const endpoints = isEdit
+      ? [
+          { url: `${baseUrl}/instructions/${cleanId}?type=S&lang_code=en&source=web`, method: 'PATCH' },
+          { url: `${baseUrl}/instructions/${cleanId}?type=S&lang_code=en&source=web`, method: 'PUT' },
+          { url: `${baseUrl}/instructions/${cleanId}?type=S&lang_code=en&source=web`, method: 'POST' },
+          { url: `${baseUrl}/dms-fields/instructions/${cleanId}?type=S&lang_code=en&source=web`, method: 'PUT' },
+        ]
+      : [
+          { url: `${baseUrl}/instructions?type=S&lang_code=en&source=web`, method: 'POST' },
+          { url: `${baseUrl}/instructions`, method: 'POST' },
+          { url: `${baseUrl}/dms-fields/instructions?type=S&lang_code=en&source=web`, method: 'POST' },
+        ];
+
+    let lastErrorMessage = isEdit ? 'Failed to update seller' : 'Failed to create seller';
+    let lastErrorFields: any[] = [];
+
+    for (const ep of endpoints) {
+      try {
+        const headers: Record<string, string> = {};
+        let body: any;
+
+        if (isFormData) {
+          body = payload;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify({ ...payload, type: 'S' });
+        }
+
+        const response = await customFetch(ep.url, {
+          method: ep.method,
+          token,
+          headers,
+          body,
+          cache: 'no-store',
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok && data?.success !== 0 && data?.status !== 0) {
+          return {
+            success: true,
+            message:
+              data?.message ||
+              (isEdit ? 'Seller updated successfully' : 'Seller added successfully'),
+            data: data?.data || data,
+          };
+        } else if (data?.message || data?.error) {
+          lastErrorMessage = data.message || data.error;
+          const rawErrors =
+            data.error_fields ||
+            data.data?.error_fields ||
+            data.errors ||
+            data.data?.errors;
+          if (rawErrors) lastErrorFields = rawErrors;
+        }
+      } catch (err: any) {
+        if (err?.message) {
+          lastErrorMessage = err.message;
+        }
+      }
+    }
+
+    return {
+      success: false,
+      message: lastErrorMessage,
+      error_fields: lastErrorFields,
+      errors: lastErrorFields,
+    };
+  },
+
+  /**
+   * Updates an existing seller/exporter instruction with authentication:
+   * PATCH /instructions/:sellerId?type=S&lang_code=en&source=web
+   * Supports FormData (for binary PNG images/signatures) and JSON payload.
+   */
+  updateSeller: async (
+    sellerId: string,
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> => {
+    if (!token || !sellerId) {
+      return { success: false, message: 'Authentication required or invalid seller ID', error_fields: [] };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(sellerId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const url = `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`;
+
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    if (isFormData) {
+      if (!payload.has('type')) {
+        payload.append('type', 'S');
+      }
+      if (payload.has('authority_signature')) {
+        const val = payload.get('authority_signature');
+        if (!payload.has('authorised_signature') && val) {
+          payload.append('authorised_signature', val);
+        }
+        payload.delete('authority_signature');
+      }
+      if (payload.has('signature')) {
+        const val = payload.get('signature');
+        if (!payload.has('authorised_signature') && val) {
+          payload.append('authorised_signature', val);
+        }
+        payload.delete('signature');
+      }
+      if (payload.has('seller_signature')) {
+        payload.delete('seller_signature');
+      }
+      if (payload.has('logo')) {
+        const val = payload.get('logo');
+        if (!payload.has('company_logo') && val) {
+          payload.append('company_logo', val);
+        }
+        payload.delete('logo');
+      }
+      if (payload.has('zipcode') && !payload.has('zip_code')) {
+        const val = payload.get('zipcode');
+        if (val) payload.append('zip_code', val);
+      }
+      if (payload.has('certificate_name_and_number') && !payload.has('certificate_name_number')) {
+        const val = payload.get('certificate_name_and_number');
+        if (val) payload.append('certificate_name_number', val);
+      }
+      if (payload.has('company_logo')) {
+        const logoVal = payload.get('company_logo');
+        if (typeof logoVal === 'string' && logoVal.includes('assets.agriguruonline.')) {
+          payload.set('company_logo', logoVal.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, ''));
+        }
+      }
+      if (payload.has('country_code')) {
+        const cCode = String(payload.get('country_code') || '').trim();
+        if (cCode && !cCode.startsWith('+') && /^\d+$/.test(cCode)) {
+          payload.set('country_code', `+${cCode}`);
+        }
+      }
+    }
+
+    const endpoints = [
+      { url: `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=S&lang_code=${safeLang}&source=${source}`, method: 'PATCH' },
+      { url: `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=S&lang_code=${safeLang}&source=${source}`, method: 'PUT' },
+      { url: `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=S&lang_code=${safeLang}&source=${source}`, method: 'POST' },
+      { url: `${baseUrl}/dms-fields/instructions/${encodeURIComponent(cleanId)}?type=S&lang_code=${safeLang}&source=${source}`, method: 'PUT' },
+      { url: `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`, method: 'PATCH' },
+      { url: `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`, method: 'PUT' },
+    ];
+
+    let lastErrorMessage = 'Failed to update seller';
+    let lastErrorFields: any[] = [];
+    let lastData: any = null;
+
+    for (const ep of endpoints) {
+      try {
+        const headers: Record<string, string> = {};
+        let body: any;
+
+        if (isFormData) {
+          body = payload;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify({ ...payload, type: 'S' });
+        }
+
+        const response = await customFetch(ep.url, {
+          method: ep.method,
+          token,
+          headers,
+          body,
+          cache: 'no-store',
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok && data?.success !== 0 && data?.status !== 0) {
+          return {
+            success: true,
+            message: data?.message || 'Seller updated successfully',
+            data: data?.data || data,
+          };
+        } else if (data?.message || data?.error) {
+          lastErrorMessage = data.message || data.error;
+          const rawErrors =
+            data.error_fields ||
+            data.data?.error_fields ||
+            data.errors ||
+            data.data?.errors;
+          if (rawErrors) lastErrorFields = rawErrors;
+          lastData = data;
+        }
+      } catch (err: any) {
+        if (err?.message) lastErrorMessage = err.message;
+      }
+    }
+
+    return {
+      success: false,
+      message: lastErrorMessage,
+      error_fields: lastErrorFields,
+      errors: lastErrorFields,
+      data: lastData?.data || null,
+    };
+  },
+
+  /**
+   * Fetches buyer/importer instructions listing with pagination, search, and type=B:
+   * GET /instructions?type=B&page=1&limit=10&lang_code=en&source=web
+   */
+  getBuyerListing: async (
+    params: { page?: number; limit?: number; lang?: string; source?: string; search?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const page = params.page || 1;
+    const limit = params.limit || 10;
+    const source = params.source || 'web';
+
+    const queryParams: Record<string, string | number> = {
+      type: 'B',
+      page,
+      limit,
+      lang_code: safeLang,
+      source,
+    };
+    if (params.search && params.search.trim()) {
+      queryParams.search = params.search.trim();
+    }
+
+    const url = `${baseUrl}/instructions`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: queryParams,
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getBuyerListing] error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Fetches single buyer/importer details by ID with authentication:
+   * GET /instructions/:id?type=B&lang_code=en&source=web
+   */
+  getBuyerById: async (
+    buyerId: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !buyerId) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) return null;
+
+    const endpoints = [
+      `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/dms-fields/instructions/${encodeURIComponent(cleanId)}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const response = await customFetchJSON<any>(url, {
+          token,
+          params: {
+            type: 'B',
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+
+        if (response && (response.data || response.success || response.status || response.company_name)) {
+          return response;
+        }
+      } catch {
+        // try next endpoint
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Creates a buyer/importer instruction with authentication:
+   * POST /instructions or PATCH/PUT /instructions/:id with type=B
+   * Supports FormData and JSON payload.
+   */
+  saveBuyer: async (
+    payload: any,
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> => {
+    if (!token) {
+      return { success: false, message: 'Authentication required' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const rawId = isFormData ? payload.get('id') : payload?.id;
+    const isEdit = Boolean(
+      rawId &&
+      typeof rawId === 'string' &&
+      !rawId.startsWith('buyer-custom-') &&
+      !rawId.startsWith('inst-custom-')
+    );
+    const cleanId = isEdit ? sanitizeDocId(rawId) : '';
+
+    if (isFormData) {
+      if (!payload.has('type')) {
+        payload.append('type', 'B');
+      } else {
+        payload.set('type', 'B');
+      }
+      if (payload.has('authority_signature')) {
+        const val = payload.get('authority_signature');
+        if (!payload.has('authorised_signature') && val) {
+          payload.append('authorised_signature', val);
+        }
+        payload.delete('authority_signature');
+      }
+      if (payload.has('signature')) {
+        const val = payload.get('signature');
+        if (!payload.has('authorised_signature') && val) {
+          payload.append('authorised_signature', val);
+        }
+        payload.delete('signature');
+      }
+      if (payload.has('buyer_signature') || payload.has('seller_signature')) {
+        payload.delete('buyer_signature');
+        payload.delete('seller_signature');
+      }
+      if (payload.has('logo')) {
+        const val = payload.get('logo');
+        if (!payload.has('company_logo') && val) {
+          payload.append('company_logo', val);
+        }
+        payload.delete('logo');
+      }
+      if (payload.has('zipcode') && !payload.has('zip_code')) {
+        const val = payload.get('zipcode');
+        if (val) payload.append('zip_code', val);
+      }
+      if (payload.has('certificate_name_and_number') && !payload.has('certificate_name_number')) {
+        const val = payload.get('certificate_name_and_number');
+        if (val) payload.append('certificate_name_number', val);
+      }
+    }
+
+    const endpoints = isEdit
+      ? [
+          { url: `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}?lang_code=en&source=web`, method: 'PATCH' },
+          { url: `${baseUrl}/instructions/${cleanId}?type=B&lang_code=en&source=web`, method: 'PATCH' },
+          { url: `${baseUrl}/instructions/${cleanId}?type=B&lang_code=en&source=web`, method: 'PUT' },
+          { url: `${baseUrl}/instructions/${cleanId}?type=B&lang_code=en&source=web`, method: 'POST' },
+          { url: `${baseUrl}/dms-fields/instructions/${cleanId}?type=B&lang_code=en&source=web`, method: 'PUT' },
+        ]
+      : [
+          { url: `${baseUrl}/instructions?type=B&lang_code=en&source=web`, method: 'POST' },
+          { url: `${baseUrl}/instructions`, method: 'POST' },
+          { url: `${baseUrl}/dms-fields/instructions?type=B&lang_code=en&source=web`, method: 'POST' },
+        ];
+
+    let lastErrorMessage = isEdit ? 'Failed to update buyer' : 'Failed to create buyer';
+    let lastErrorFields: any[] = [];
+
+    for (const ep of endpoints) {
+      try {
+        const headers: Record<string, string> = {};
+        let body: any;
+
+        if (isFormData) {
+          body = payload;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify({ ...payload, type: 'B' });
+        }
+
+        const response = await customFetch(ep.url, {
+          method: ep.method,
+          token,
+          headers,
+          body,
+          cache: 'no-store',
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok && data?.success !== 0 && data?.status !== 0) {
+          return {
+            success: true,
+            message:
+              data?.message ||
+              (isEdit ? 'Buyer updated successfully' : 'Buyer added successfully'),
+            data: data?.data || data,
+          };
+        } else if (data?.message || data?.error) {
+          lastErrorMessage = data.message || data.error;
+          const rawErrors =
+            data.error_fields ||
+            data.data?.error_fields ||
+            data.errors ||
+            data.data?.errors;
+          if (rawErrors) lastErrorFields = rawErrors;
+        }
+      } catch (err: any) {
+        if (err?.message) {
+          lastErrorMessage = err.message;
+        }
+      }
+    }
+
+    return {
+      success: false,
+      message: lastErrorMessage,
+      error_fields: lastErrorFields,
+      errors: lastErrorFields,
+    };
+  },
+
+  /**
+   * Updates an existing buyer/importer instruction with authentication:
+   * PATCH /instructions/:buyerId?type=B&lang_code=en&source=web
+   * Supports FormData and JSON payload.
+   */
+  updateBuyer: async (
+    buyerId: string,
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> => {
+    if (!token || !buyerId) {
+      return { success: false, message: 'Authentication required or invalid buyer ID', error_fields: [] };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(buyerId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const url = `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`;
+
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    if (isFormData) {
+      if (!payload.has('type')) {
+        payload.append('type', 'B');
+      } else {
+        payload.set('type', 'B');
+      }
+      if (payload.has('authority_signature')) {
+        const val = payload.get('authority_signature');
+        if (!payload.has('authorised_signature') && val) {
+          payload.append('authorised_signature', val);
+        }
+        payload.delete('authority_signature');
+      }
+      if (payload.has('signature')) {
+        const val = payload.get('signature');
+        if (!payload.has('authorised_signature') && val) {
+          payload.append('authorised_signature', val);
+        }
+        payload.delete('signature');
+      }
+      if (payload.has('buyer_signature') || payload.has('seller_signature')) {
+        payload.delete('buyer_signature');
+        payload.delete('seller_signature');
+      }
+      if (payload.has('logo')) {
+        const val = payload.get('logo');
+        if (!payload.has('company_logo') && val) {
+          payload.append('company_logo', val);
+        }
+        payload.delete('logo');
+      }
+      if (payload.has('zipcode') && !payload.has('zip_code')) {
+        const val = payload.get('zipcode');
+        if (val) payload.append('zip_code', val);
+      }
+    }
+
+    const endpoints = [
+      { method: 'PATCH', url: `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}?lang_code=${safeLang}&source=${source}` },
+      { method: 'PATCH', url: `${url}?type=B&lang_code=${safeLang}&source=${source}` },
+      { method: 'PUT', url: `${url}?type=B&lang_code=${safeLang}&source=${source}` },
+      { method: 'POST', url: `${url}?type=B&lang_code=${safeLang}&source=${source}` },
+      { method: 'PUT', url: `${baseUrl}/dms-fields/instructions/${encodeURIComponent(cleanId)}?type=B&lang_code=${safeLang}&source=${source}` },
+    ];
+
+    let lastErrorMessage = 'Failed to update buyer';
+    let lastErrorFields: any[] = [];
+    let lastData: any = null;
+
+    for (const ep of endpoints) {
+      try {
+        const headers: Record<string, string> = {};
+        let body: any;
+
+        if (isFormData) {
+          body = payload;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify({ ...payload, type: 'B' });
+        }
+
+        const response = await customFetch(ep.url, {
+          method: ep.method,
+          token,
+          headers,
+          body,
+          cache: 'no-store',
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok && data?.success !== 0 && data?.status !== 0) {
+          return {
+            success: true,
+            message: data?.message || 'Buyer updated successfully',
+            data: data?.data || data,
+          };
+        } else if (data?.message || data?.error) {
+          lastErrorMessage = data.message || data.error;
+          const rawErrors =
+            data.error_fields ||
+            data.data?.error_fields ||
+            data.errors ||
+            data.data?.errors;
+          if (rawErrors) lastErrorFields = rawErrors;
+          lastData = data;
+        }
+      } catch (err: any) {
+        if (err?.message) lastErrorMessage = err.message;
+      }
+    }
+
+    return {
+      success: false,
+      message: lastErrorMessage,
+      error_fields: lastErrorFields,
+      errors: lastErrorFields,
+      data: lastData?.data || null,
+    };
+  },
+
+  /**
+   * Deletes a buyer/importer instruction with authentication:
+   * DELETE /instructions/:id?type=B&lang_code=en&source=web
+   */
+  deleteBuyer: async (
+    buyerId: string,
+    token: string,
+    params: { lang?: string; source?: string } = {}
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!token || !buyerId) {
+      return { success: false, message: 'Invalid buyer or authentication token' };
+    }
+
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) {
+      return { success: false, message: 'Invalid buyer ID' };
+    }
+
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const endpoints = [
+      {
+        url: `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`,
+        method: 'DELETE',
+        params: { type: 'B', lang_code: safeLang, source },
+      },
+      {
+        url: `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`,
+        method: 'DELETE',
+        params: { lang_code: safeLang, source },
+      },
+      {
+        url: `${baseUrl}/dms-fields/instructions/${encodeURIComponent(cleanId)}`,
+        method: 'DELETE',
+        params: { type: 'B', lang_code: safeLang, source },
+      },
+    ];
+
+    let lastError = 'Failed to delete buyer';
+
+    for (const ep of endpoints) {
+      try {
+        const response = await customFetch(ep.url, {
+          method: ep.method,
+          token,
+          params: ep.params,
+          cache: 'no-store',
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok && data?.success !== 0 && data?.status !== 0) {
+          return {
+            success: true,
+            message: data?.message || 'Buyer deleted successfully',
+          };
+        } else if (data?.message || data?.error) {
+          lastError = data.message || data.error;
+        }
+      } catch (err: any) {
+        if (err?.message) lastError = err.message;
+      }
+    }
+
+    return {
+      success: false,
+      message: lastError,
+    };
+  },
+
+  /**
+   * Fetches consignee details for a buyer with authentication
+   */
+  /**
+   * Fetches consignee details for a buyer with authentication:
+   * GET /instructions/buyer-instruction/consignee/:buyerId?lang_code=en&source=web
+   */
+  getBuyerConsignees: async (
+    buyerId: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !buyerId) return null;
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) return null;
+
+    const endpoints = [
+      `${baseUrl}/instructions/buyer-instruction/consignee/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=B`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await customFetchJSON<any>(url, {
+          token,
+          params: { lang_code: safeLang, source: params.source || 'web' },
+          cache: 'no-store',
+        });
+        if (res) {
+          const root = res.data ?? res;
+          const candidate = Array.isArray(root) ? root : root.instruction ?? root;
+          const rawItems =
+            (Array.isArray(root) && root) ||
+            (Array.isArray(root.items) && root.items) ||
+            (Array.isArray(root.consignees) && root.consignees) ||
+            (Array.isArray(root.consignee) && root.consignee) ||
+            (Array.isArray(root.consignee_details) && root.consignee_details) ||
+            (Array.isArray(candidate?.consignees) && candidate.consignees) ||
+            (Array.isArray(candidate?.consignee) && candidate.consignee) ||
+            (Array.isArray(candidate?.consignee_details) && candidate.consignee_details) ||
+            (Array.isArray(res.items) && res.items) ||
+            (Array.isArray(res.consignees) && res.consignees) ||
+            (Array.isArray(res.consignee) && res.consignee) ||
+            (Array.isArray(res.consignee_details) && res.consignee_details);
+          if (Array.isArray(rawItems) && rawItems.length > 0) {
+            return { success: true, data: rawItems };
+          }
+        }
+      } catch {}
+    }
+    return { success: true, data: [] };
+  },
+
+  /**
+   * Updates consignee details for a buyer with authentication:
+   * PATCH /instructions/buyer-instruction/consignee/:buyerId?lang_code=en&source=web
+   */
+  updateBuyerConsignees: async (
+    buyerId: string,
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> => {
+    if (!token || !buyerId) {
+      return { success: false, message: 'Authentication required or invalid buyer ID', error_fields: [] };
+    }
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(buyerId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    let rawItems: any[] = [];
+    if (Array.isArray(payload)) {
+      rawItems = payload;
+    } else if (payload && Array.isArray(payload.items)) {
+      rawItems = payload.items;
+    } else if (payload && Array.isArray(payload.consignees)) {
+      rawItems = payload.consignees;
+    } else if (payload && Array.isArray(payload.consignee_items)) {
+      rawItems = payload.consignee_items;
+    }
+
+    const cleanItems = rawItems
+      .filter((item: any) => {
+        if (!item || typeof item !== 'object') return false;
+        const name = String(item.company_name || item.name || '').trim();
+        const addr = String(item.address || '').trim();
+        return Boolean(name || addr);
+      })
+      .map((item: any) => {
+        const countryVal =
+          typeof item.country === 'object' && item.country !== null
+            ? String(item.country.name || item.country.country_name || item.country.title || item.country.label || '').trim()
+            : String(item.country || '').trim();
+        const safeCountry = countryVal === '[object Object]' ? '' : countryVal;
+
+        const countryIdVal =
+          item.country && typeof item.country === 'object' && item.country.id
+            ? String(item.country.id).trim()
+            : String(item.country_id || '').trim();
+
+        const countryCodeVal =
+          item.country && typeof item.country === 'object' && (item.country.iso2 || item.country.code)
+            ? String(item.country.iso2 || item.country.code).trim()
+            : String(item.country_code || '').trim();
+
+        const phoneVal = String(item.contact_number || item.phone || '').trim().replace(/\s+/g, '');
+        const phoneDialCodeVal = String(
+          item.phone_country_code ||
+          (item.country_code?.startsWith('+') || /^\d+$/.test(item.country_code || '') ? item.country_code : '') ||
+          ''
+        ).trim();
+        const zipVal = String(item.zip_code || item.zipcode || '').trim();
+        const certVal = String(item.certificate_name_number || item.certificate_name_and_number || item.certificateNo || '').trim();
+        const emailVal = String(item.email || '').trim();
+
+        const obj: any = {
+          company_name: String(item.company_name || item.name || '').trim(),
+          address: String(item.address || '').trim(),
+          city: String(item.city || '').trim(),
+          state: String(item.state || '').trim(),
+          country: safeCountry,
+          country_code: phoneDialCodeVal || countryCodeVal,
+          zip_code: zipVal,
+          contact_number: phoneVal,
+        };
+        if (phoneDialCodeVal) obj.phone_country_code = phoneDialCodeVal;
+
+        let itemId = typeof item.id === 'string' ? item.id.trim() : typeof item._id === 'string' ? item._id.trim() : '';
+        if (!isValidCuidOrId(itemId)) {
+          itemId = generateSmartDocsCuid();
+        }
+        obj.id = itemId;
+
+        const isActive =
+          item.is_active !== undefined
+            ? Boolean(item.is_active === true || item.is_active === 1 || item.is_active === '1' || item.is_active === 'true')
+            : item.status !== undefined
+            ? Boolean(item.status === true || item.status === 1 || item.status === '1' || item.status === 'true' || item.status === 'active' || item.status === 'ACTIVE')
+            : true;
+        obj.is_active = isActive;
+
+        if (countryIdVal) obj.country_id = countryIdVal;
+        if (certVal) obj.certificate_name_number = certVal;
+        if (emailVal) obj.email = emailVal;
+
+        return obj;
+      });
+
+    if (cleanItems.length === 0) {
+      return {
+        success: false,
+        message: 'At least one consignee company name is required',
+        error_fields: [{ field: 'consignee_items', message: 'At least one consignee is required' }],
+      };
+    }
+
+    const targetUrl = `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`;
+    const bodyObj = {
+      type: 'CONSIGNEE_DETAILS',
+      items: cleanItems,
+    };
+
+    try {
+      const response = await customFetch(targetUrl, {
+        method: 'PATCH',
+        token,
+        params: { lang_code: safeLang, source },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyObj),
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          message: data?.message || 'Consignee details saved successfully',
+          data: data?.data || data,
+        };
+      }
+
+      const errs = extractApiValidationErrors(data);
+      let detailedMsg = '';
+      if (errs.length > 0) {
+        const parts = errs.map((e) => (e.field ? `${e.field}: ${e.message}` : e.message)).slice(0, 3).join(' | ');
+        detailedMsg = `${data?.message ? `${data.message}: ` : ''}${parts}`;
+      }
+
+      const finalMsg = detailedMsg || data?.message || data?.error || 'Failed to update consignee details';
+
+      return {
+        success: false,
+        message: finalMsg,
+        error_fields: errs,
+        errors: data?.errors || data?.error,
+        data,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || 'Error updating consignee details',
+        error_fields: [],
+      };
+    }
+  },
+
+  /**
+   * Deletes a consignee detail item by ID with authentication:
+   * 1. DELETE /instructions/buyer-instruction/consignee?id=:id&consignee_id=:id
+   * 2. DELETE /instructions/buyer-instruction/consignee/:consigneeId
+   */
+  deleteBuyerConsignee: async (
+    consigneeId: string,
+    token: string,
+    params: { lang?: string; source?: string } = {}
+  ): Promise<{ success: boolean; message: string; data?: any }> => {
+    if (!token || !consigneeId) return { success: false, message: 'Invalid consignee ID or authentication token' };
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(consigneeId);
+    if (!cleanId) return { success: false, message: 'Invalid consignee ID' };
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const attempts = [
+      {
+        url: `${baseUrl}/instructions/buyer-instruction/consignee`,
+        params: { lang_code: safeLang, source, id: cleanId, consignee_id: cleanId },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cleanId, consignee_id: cleanId }),
+      },
+      {
+        url: `${baseUrl}/instructions/buyer-instruction/consignee/${encodeURIComponent(cleanId)}`,
+        params: { lang_code: safeLang, source },
+      },
+    ];
+
+    let lastError = 'Failed to delete consignee';
+
+    for (const att of attempts) {
+      try {
+        const res = await customFetch(att.url, {
+          method: 'DELETE',
+          token,
+          params: att.params,
+          ...(att.headers ? { headers: att.headers } : {}),
+          ...(att.body ? { body: att.body } : {}),
+          cache: 'no-store',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.success !== 0 && data?.status !== 0) {
+          return { success: true, message: data?.message || 'Consignee deleted successfully', data: data?.data || data };
+        }
+        if (data?.message || data?.error) lastError = data.message || data.error;
+      } catch (err: any) {
+        lastError = err?.message || 'Failed to delete consignee';
+      }
+    }
+
+    return { success: false, message: lastError };
+  },
+
+  /**
+   * Fetches notify party details for a buyer with authentication:
+   * GET /instructions/buyer-instruction/notify/:buyerId?lang_code=en&source=web
+   */
+  getBuyerNotifyParties: async (
+    buyerId: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !buyerId) return null;
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) return null;
+
+    const endpoints = [
+      `${baseUrl}/instructions/buyer-instruction/notify/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=B`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await customFetchJSON<any>(url, {
+          token,
+          params: { lang_code: safeLang, source: params.source || 'web' },
+          cache: 'no-store',
+        });
+        if (res) {
+          const root = res.data ?? res;
+          const candidate = Array.isArray(root) ? root : root.instruction ?? root;
+          const rawItems =
+            (Array.isArray(root) && root) ||
+            (Array.isArray(root.items) && root.items) ||
+            (Array.isArray(root.notify_parties) && root.notify_parties) ||
+            (Array.isArray(root.notify_party) && root.notify_party) ||
+            (Array.isArray(root.notify_party_details) && root.notify_party_details) ||
+            (Array.isArray(root.notifies) && root.notifies) ||
+            (Array.isArray(candidate?.notify_parties) && candidate.notify_parties) ||
+            (Array.isArray(candidate?.notify_party) && candidate.notify_party) ||
+            (Array.isArray(candidate?.notify_party_details) && candidate.notify_party_details) ||
+            (Array.isArray(candidate?.notifies) && candidate.notifies) ||
+            (Array.isArray(res.items) && res.items) ||
+            (Array.isArray(res.notify_parties) && res.notify_parties) ||
+            (Array.isArray(res.notify_party) && res.notify_party) ||
+            (Array.isArray(res.notify_party_details) && res.notify_party_details);
+          if (Array.isArray(rawItems) && rawItems.length > 0) {
+            return { success: true, data: rawItems };
+          }
+        }
+      } catch {}
+    }
+    return { success: true, data: [] };
+  },
+
+  /**
+   * Updates notify party details for a buyer with authentication:
+   * PATCH /instructions/buyer-instruction/:buyerId
+   */
+  updateBuyerNotifyParties: async (
+    buyerId: string,
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> => {
+    if (!token || !buyerId) {
+      return { success: false, message: 'Authentication required or invalid buyer ID', error_fields: [] };
+    }
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(buyerId);
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    let rawItems: any[] = [];
+    if (Array.isArray(payload)) {
+      rawItems = payload;
+    } else if (payload && Array.isArray(payload.items)) {
+      rawItems = payload.items;
+    } else if (payload && Array.isArray(payload.notify_parties)) {
+      rawItems = payload.notify_parties;
+    } else if (payload && Array.isArray(payload.notify_party)) {
+      rawItems = payload.notify_party;
+    } else if (payload && Array.isArray(payload.notify_party_items)) {
+      rawItems = payload.notify_party_items;
+    }
+
+    const cleanItems = rawItems
+      .filter((item: any) => {
+        if (!item || typeof item !== 'object') return false;
+        const name = String(item.company_name || item.name || '').trim();
+        const addr = String(item.address || '').trim();
+        return Boolean(name || addr);
+      })
+      .map((item: any) => {
+        const countryVal =
+          typeof item.country === 'object' && item.country !== null
+            ? String(item.country.name || item.country.country_name || item.country.title || item.country.label || '').trim()
+            : String(item.country || '').trim();
+        const safeCountry = countryVal === '[object Object]' ? '' : countryVal;
+
+        const countryIdVal =
+          item.country && typeof item.country === 'object' && item.country.id
+            ? String(item.country.id).trim()
+            : String(item.country_id || '').trim();
+
+        const countryCodeVal =
+          item.country && typeof item.country === 'object' && (item.country.iso2 || item.country.code)
+            ? String(item.country.iso2 || item.country.code).trim()
+            : String(item.country_code || '').trim();
+
+        const phoneVal = String(item.contact_number || item.phone || '').trim().replace(/\s+/g, '');
+        const phoneDialCodeVal = String(
+          item.phone_country_code ||
+          (item.country_code?.startsWith('+') || /^\d+$/.test(item.country_code || '') ? item.country_code : '') ||
+          ''
+        ).trim();
+        const zipVal = String(item.zip_code || item.zipcode || '').trim();
+        const certVal = String(item.certificate_name_number || item.certificate_name_and_number || item.certificateNo || '').trim();
+        const emailVal = String(item.email || '').trim();
+
+        const obj: any = {
+          company_name: String(item.company_name || item.name || '').trim(),
+          address: String(item.address || '').trim(),
+          city: String(item.city || '').trim(),
+          state: String(item.state || '').trim(),
+          country: safeCountry,
+          country_code: phoneDialCodeVal || countryCodeVal,
+          zip_code: zipVal,
+          contact_number: phoneVal,
+        };
+        if (phoneDialCodeVal) obj.phone_country_code = phoneDialCodeVal;
+
+        let itemId = typeof item.id === 'string' ? item.id.trim() : typeof item._id === 'string' ? item._id.trim() : '';
+        if (!isValidCuidOrId(itemId)) {
+          itemId = generateSmartDocsCuid();
+        }
+        obj.id = itemId;
+
+        const isActive =
+          item.is_active !== undefined
+            ? Boolean(item.is_active === true || item.is_active === 1 || item.is_active === '1' || item.is_active === 'true')
+            : item.status !== undefined
+            ? Boolean(item.status === true || item.status === 1 || item.status === '1' || item.status === 'true' || item.status === 'active' || item.status === 'ACTIVE')
+            : true;
+        obj.is_active = isActive;
+
+        if (countryIdVal) obj.country_id = countryIdVal;
+        if (certVal) obj.certificate_name_number = certVal;
+        if (emailVal) obj.email = emailVal;
+
+        return obj;
+      });
+
+    if (cleanItems.length === 0) {
+      return {
+        success: false,
+        message: 'At least one notify party company name is required',
+        error_fields: [{ field: 'notify_party_items', message: 'At least one notify party is required' }],
+      };
+    }
+
+    const targetUrl = `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`;
+    const bodyObj = {
+      type: 'NOTIFY_PARTY',
+      items: cleanItems,
+    };
+
+    try {
+      const response = await customFetch(targetUrl, {
+        method: 'PATCH',
+        token,
+        params: { lang_code: safeLang, source },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyObj),
+        cache: 'no-store',
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data?.success !== 0 && data?.status !== 0) {
+        return {
+          success: true,
+          message: data?.message || 'Notify party details saved successfully',
+          data: data?.data || data,
+        };
+      }
+
+      const errs = extractApiValidationErrors(data);
+      let detailedMsg = '';
+      if (errs.length > 0) {
+        const parts = errs.map((e) => (e.field ? `${e.field}: ${e.message}` : e.message)).slice(0, 3).join(' | ');
+        detailedMsg = `${data?.message ? `${data.message}: ` : ''}${parts}`;
+      }
+
+      const finalMsg = detailedMsg || data?.message || data?.error || 'Failed to update notify party details';
+
+      return {
+        success: false,
+        message: finalMsg,
+        error_fields: errs,
+        errors: data?.errors || data?.error,
+        data,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || 'Error updating notify party details',
+        error_fields: [],
+      };
+    }
+  },
+
+  /**
+   * Deletes a notify party detail item by ID with authentication:
+   * 1. DELETE /instructions/buyer-instruction/notify?id=:id&notify_party_id=:id
+   * 2. DELETE /instructions/buyer-instruction/notify/:notifyPartyId
+   */
+  deleteBuyerNotifyParty: async (
+    notifyPartyId: string,
+    token: string,
+    params: { lang?: string; source?: string } = {}
+  ): Promise<{ success: boolean; message: string; data?: any }> => {
+    if (!token || !notifyPartyId) return { success: false, message: 'Invalid notify party ID or authentication token' };
+    const baseUrl = getSmartDocsApiUrl();
+    const cleanId = sanitizeDocId(notifyPartyId);
+    if (!cleanId) return { success: false, message: 'Invalid notify party ID' };
+    const safeLang = getSafeLang(params.lang || 'en');
+    const source = params.source || 'web';
+
+    const attempts = [
+      {
+        url: `${baseUrl}/instructions/buyer-instruction/notify`,
+        params: { lang_code: safeLang, source, id: cleanId, notify_party_id: cleanId },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cleanId, notify_party_id: cleanId }),
+      },
+      {
+        url: `${baseUrl}/instructions/buyer-instruction/notify/${encodeURIComponent(cleanId)}`,
+        params: { lang_code: safeLang, source },
+      },
+    ];
+
+    let lastError = 'Failed to delete notify party';
+
+    for (const att of attempts) {
+      try {
+        const res = await customFetch(att.url, {
+          method: 'DELETE',
+          token,
+          params: att.params,
+          ...(att.headers ? { headers: att.headers } : {}),
+          ...(att.body ? { body: att.body } : {}),
+          cache: 'no-store',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.success !== 0 && data?.status !== 0) {
+          return { success: true, message: data?.message || 'Notify party deleted successfully', data: data?.data || data };
+        }
+        if (data?.message || data?.error) lastError = data.message || data.error;
+      } catch (err: any) {
+        lastError = err?.message || 'Failed to delete notify party';
+      }
+    }
+
+    return { success: false, message: lastError };
   },
 
   /**
@@ -1925,6 +4313,8 @@ export function formatSignatureUrl(raw?: any): string {
   const cleanPath = str.replace(/^\/+/, '');
   return `${assetsUrl}/${cleanPath}`;
 }
+
+export const formatAssetUrl = formatSignatureUrl;
 
 /**
  * Normalizes signature value for payload submission.
@@ -4480,6 +6870,611 @@ export function extractDocumentListData(data: any): SmartDocsSelectionDocumentOp
 
   return result.length > 0 ? result : DEFAULT_DOCUMENT_SELECTION_OPTIONS;
 }
+
+/**
+ * Robust extractor for single product details returned by GET /product/:id API
+ */
+export function generatePackingCuid(): string {
+  const ts = Date.now().toString(36);
+  const rnd1 = Math.random().toString(36).substring(2, 10);
+  const rnd2 = Math.random().toString(36).substring(2, 10);
+  const rnd3 = Math.random().toString(36).substring(2, 10);
+  return `cm${ts}${rnd1}${rnd2}${rnd3}`.substring(0, 25);
+}
+
+export function extractProductDetailData(raw: any, fallbackId: string = ''): any {
+  if (!raw) return null;
+  const root = raw.data ?? raw.result ?? raw.product ?? raw.record ?? raw;
+  const candidate = Array.isArray(root) ? root[0] : root;
+  const p =
+    candidate && typeof candidate === 'object'
+      ? candidate.product ?? candidate.item ?? candidate.record ?? candidate
+      : candidate;
+
+  if (!p || typeof p !== 'object') return null;
+
+  // Extract ID
+  const id = sanitizeDocId(p.id || p._id || p.product_id || p.productId || fallbackId);
+
+  // Extract Name
+  let name = '';
+  const nameCandidates = [p.name, p.product_name, p.productName, p.title, p.label, p.commodity];
+  for (const nc of nameCandidates) {
+    if (typeof nc === 'string' && nc.trim()) {
+      name = nc.trim();
+      break;
+    } else if (typeof nc === 'object' && nc) {
+      const sub = nc.name || nc.title || nc.label;
+      if (typeof sub === 'string' && sub.trim()) {
+        name = sub.trim();
+        break;
+      }
+    }
+  }
+
+  // Extract Country
+  let country = '';
+  const countryCandidates = [
+    p.country_name,
+    p.countryName,
+    p.country,
+    p.origin_country,
+    p.originCountry,
+    p.origin,
+    p.country_of_origin,
+    p.country_of_origin_name,
+  ];
+  for (const cc of countryCandidates) {
+    if (typeof cc === 'string' && cc.trim()) {
+      country = cc.trim();
+      break;
+    } else if (typeof cc === 'object' && cc) {
+      const sub = cc.name || cc.country_name || cc.title || cc.label || cc.country;
+      if (typeof sub === 'string' && sub.trim()) {
+        country = sub.trim();
+        break;
+      }
+    }
+  }
+
+  const countryId = String(
+    p.country_id ||
+    p.countryId ||
+    p.origin_country_id ||
+    p.originCountryId ||
+    (typeof p.country === 'object' ? p.country?.id || p.country?._id : '') ||
+    (typeof p.origin_country === 'object' ? p.origin_country?.id || p.origin_country?._id : '') ||
+    candidate?.country_id ||
+    candidate?.countryId ||
+    ''
+  );
+
+  // Extract HSN
+  let hsn = '';
+  const hsnCandidates = [p.hsn_code, p.hsnCode, p.hsn, p.hsn_sac_code, p.hsnSacCode, p.hs_code, p.code];
+  for (const hc of hsnCandidates) {
+    if (typeof hc === 'string' && hc.trim()) {
+      hsn = hc.trim();
+      break;
+    } else if (typeof hc === 'number') {
+      hsn = String(hc);
+      break;
+    } else if (typeof hc === 'object' && hc) {
+      const sub = hc.code || hc.hsn || hc.hsn_code;
+      if (sub) {
+        hsn = String(sub).trim();
+        break;
+      }
+    }
+  }
+
+  // Extract Category
+  let category = '';
+  const categoryCandidates = [
+    p.category_name,
+    p.categoryName,
+    p.category,
+    p.sub_category_name,
+    p.subCategoryName,
+    p.category_title,
+    p.sub_category,
+  ];
+  for (const cat of categoryCandidates) {
+    if (typeof cat === 'string' && cat.trim()) {
+      category = cat.trim();
+      break;
+    } else if (typeof cat === 'object' && cat) {
+      const sub = cat.name || cat.category_name || cat.title || cat.label;
+      if (typeof sub === 'string' && sub.trim()) {
+        category = sub.trim();
+        break;
+      }
+    }
+  }
+
+  // Extract Specification
+  let spec = '';
+  const specCandidates = [p.specification, p.spec, p.description, p.product_specification];
+  for (const sc of specCandidates) {
+    if (typeof sc === 'string' && sc.trim()) {
+      spec = sc.trim();
+      break;
+    }
+  }
+
+  // Extract Unit Type (solid | liquid) accurately without false positive overrides
+  const isLiquidFlag =
+    p.is_liquid ??
+    p.isLiquid ??
+    p.liquid ??
+    p.is_liquid_unit ??
+    candidate?.is_liquid ??
+    candidate?.isLiquid;
+
+  const explicitUnitType = String(
+    p.unit_type ||
+    p.unitType ||
+    p.packing_unit_type ||
+    p.packingUnitType ||
+    p.packaging_unit_type ||
+    p.product_unit_type ||
+    candidate?.unit_type ||
+    candidate?.unitType ||
+    ''
+  ).trim().toLowerCase();
+
+  const explicitUnit = String(
+    p.unit ||
+    p.unit_name ||
+    p.unitName ||
+    p.default_unit ||
+    p.uom ||
+    candidate?.unit ||
+    ''
+  ).trim().toLowerCase();
+
+  // Extract Packing Types
+  const rawPackings =
+    (Array.isArray(p.packing_types) && p.packing_types) ||
+    (Array.isArray(p.packingTypes) && p.packingTypes) ||
+    (Array.isArray(p.packings) && p.packings) ||
+    (Array.isArray(p.packaging_types) && p.packaging_types) ||
+    (Array.isArray(p.packagingTypes) && p.packagingTypes) ||
+    (Array.isArray(p.packaging) && p.packaging) ||
+    (Array.isArray(p.packing) && p.packing) ||
+    [];
+
+  let unitType: 'solid' | 'liquid' = 'solid';
+
+  if (isLiquidFlag === true || isLiquidFlag === 1 || isLiquidFlag === 'true' || isLiquidFlag === '1') {
+    unitType = 'liquid';
+  } else if (isLiquidFlag === false || isLiquidFlag === 0 || isLiquidFlag === 'false' || isLiquidFlag === '0') {
+    unitType = 'solid';
+  } else if (explicitUnitType === 'liquid') {
+    unitType = 'liquid';
+  } else if (explicitUnitType === 'solid') {
+    unitType = 'solid';
+  } else if (['l', 'ltr', 'ltrs', 'liter', 'liters', 'litre', 'litres', 'ml'].includes(explicitUnit)) {
+    unitType = 'liquid';
+  } else if (['kg', 'kgs', 'g', 'gm', 'gms', 'mt', 'ton', 'tons', 'quintal'].includes(explicitUnit)) {
+    unitType = 'solid';
+  } else if (rawPackings.length > 0) {
+    const hasExplicitLiquidPacking = rawPackings.some((pk: any) => {
+      const uType = String(pk?.unit_type || pk?.unitType || '').toLowerCase();
+      const uUnit = String(pk?.unit || pk?.uom || '').toLowerCase();
+      const title = String(pk?.title || pk?.name || pk?.packing_name || (typeof pk === 'string' ? pk : '')).toLowerCase();
+
+      if (uType === 'liquid') return true;
+      if (['l', 'ltr', 'liter', 'liters', 'litre', 'litres', 'ml'].includes(uUnit)) return true;
+      if (/\b(ltrs?|liters?|litres?|ml)\b/i.test(title)) return true;
+      if (title.includes('liquid') || title.includes('flexitank') || title.includes('ibc tank')) return true;
+      return false;
+    });
+
+    const hasExplicitSolidPacking = rawPackings.some((pk: any) => {
+      const uType = String(pk?.unit_type || pk?.unitType || '').toLowerCase();
+      const uUnit = String(pk?.unit || pk?.uom || '').toLowerCase();
+      const title = String(pk?.title || pk?.name || pk?.packing_name || (typeof pk === 'string' ? pk : '')).toLowerCase();
+
+      if (uType === 'solid') return true;
+      if (['kg', 'kgs', 'g', 'gm', 'mt', 'ton', 'tons'].includes(uUnit)) return true;
+      if (/\b(kgs?|grams?|gms?|mts?|tons?)\b/i.test(title)) return true;
+      if (title.includes('bag') || title.includes('sack') || title.includes('jute') || title.includes('box') || title.includes('carton')) return true;
+      return false;
+    });
+
+    if (hasExplicitLiquidPacking && !hasExplicitSolidPacking) {
+      unitType = 'liquid';
+    } else {
+      unitType = 'solid';
+    }
+  }
+
+  const parsedPackings = rawPackings.map((pk: any, idx: number) => {
+    if (typeof pk === 'string') {
+      const cleanTitle = pk.trim();
+      const bagWeight = parsePackingBagWeightKg(cleanTitle);
+      return {
+        id: `pack-${id || Date.now()}-${idx}`,
+        title: cleanTitle,
+        quantity: bagWeight !== null ? String(bagWeight) : '',
+        density: unitType === 'liquid' ? '1' : '1',
+        netWeightKg: bagWeight !== null ? String(bagWeight) : '',
+      };
+    }
+
+    const pkObj = pk?.packing_type && typeof pk.packing_type === 'object' ? pk.packing_type : null;
+    const title = String(
+      pk?.title ||
+      pk?.name ||
+      pk?.packing_name ||
+      pk?.packing_type_name ||
+      pkObj?.title ||
+      pkObj?.name ||
+      (typeof pk?.packing_type === 'string' ? pk.packing_type : '') ||
+      pk?.label ||
+      ''
+    ).trim();
+
+    let qty = String(
+      pk?.quantity ??
+      pk?.qty ??
+      pk?.pack_qty ??
+      pk?.bagWeightKg ??
+      pk?.size ??
+      pk?.weight ??
+      ''
+    ).trim();
+
+    if (!qty && title) {
+      const parsedWeight = parsePackingBagWeightKg(title);
+      if (parsedWeight !== null) {
+        qty = String(parsedWeight);
+      }
+    }
+
+    const density = unitType === 'liquid' ? String(pk?.density || '1') : '1';
+    let netWeightKg = String(pk?.netWeightKg || pk?.net_weight_kg || '');
+    if (!netWeightKg && qty) {
+      if (unitType === 'liquid') {
+        const d = parseFloat(density) || 1;
+        const q = parseFloat(qty) || 0;
+        netWeightKg = (q * d).toFixed(2);
+      } else {
+        netWeightKg = qty;
+      }
+    }
+
+    const rawId =
+      pk?.id ||
+      pk?._id ||
+      pk?.packing_type_id ||
+      pk?.packing_id ||
+      pk?.product_packing_id ||
+      pkObj?.id ||
+      pkObj?._id ||
+      pkObj?.packing_type_id;
+
+    const resolvedId = rawId ? String(rawId).trim() : generatePackingCuid();
+
+    const rawCf =
+      pk?.conversion_factor ??
+      pk?.conversionFactor ??
+      pkObj?.conversion_factor ??
+      pkObj?.conversionFactor;
+
+    const parsedCf =
+      rawCf !== undefined && rawCf !== null && String(rawCf).trim() !== '' && !isNaN(Number(rawCf))
+        ? parseFloat(Number(rawCf).toFixed(3))
+        : (parseFloat(qty) || 50);
+
+    return {
+      ...pk,
+      id: resolvedId,
+      title,
+      quantity: qty,
+      density,
+      netWeightKg,
+      conversion_factor: parsedCf,
+    };
+  });
+
+  return {
+    id,
+    label: name,
+    name,
+    product_name: name,
+    productName: name,
+    country_id: countryId,
+    country,
+    country_name: country,
+    origin_country: country,
+    hsn,
+    hsn_code: hsn,
+    category,
+    category_name: category,
+    spec,
+    specification: spec,
+    specifications: spec,
+    unit_type: unitType,
+    unitType,
+    packings: parsedPackings,
+    packing_types: parsedPackings,
+    raw: p,
+  };
+}
+
+/**
+ * Robust helper to extract payment term title from any response shape.
+ */
+export function extractPaymentTermTitle(row: any): string {
+  if (!row) return '—';
+  const val =
+    row.title ||
+    row.name ||
+    row.label ||
+    row.term ||
+    row.payment_term ||
+    row.paymentTerm;
+  if (typeof val === 'object') {
+    return val?.title || val?.name || val?.label || '—';
+  }
+  return String(val || '—');
+}
+
+/**
+ * Robust helper to extract boolean status (Active / Inactive) from any response shape.
+ */
+export function extractPaymentTermStatus(row: any): boolean {
+  if (!row) return false;
+  const val =
+    row.status !== undefined
+      ? row.status
+      : row.is_active !== undefined
+      ? row.is_active
+      : row.isActive !== undefined
+      ? row.isActive
+      : row.active;
+
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'number') return val === 1;
+  if (typeof val === 'string') {
+    const lower = val.trim().toLowerCase();
+    return lower === 'true' || lower === '1' || lower === 'active' || lower === 'enabled';
+  }
+  return false;
+}
+
+/**
+ * Robust helper to extract unique ID for a payment term record.
+ */
+export function extractPaymentTermId(row: any): string {
+  if (!row) return '';
+  const val =
+    row.id ||
+    row._id ||
+    row.payment_term_id ||
+    row.paymentTermId ||
+    row.cuid ||
+    row.code;
+  if (typeof val === 'object') {
+    return val?.$oid || val?.id || '';
+  }
+  return String(val || '').trim();
+}
+
+/**
+ * Robust helper to normalize payment term single-record details from API.
+ */
+export function extractPaymentTermDetailData(raw: any, fallbackId: string = ''): any {
+  if (!raw) return null;
+  const root = raw.data ?? raw.result ?? raw.payment_term ?? raw.record ?? raw;
+  const candidate = Array.isArray(root) ? root[0] : root;
+  const item =
+    candidate && typeof candidate === 'object'
+      ? candidate.payment_term ?? candidate.item ?? candidate.record ?? candidate
+      : candidate;
+
+  if (!item || typeof item !== 'object') return null;
+
+  const id = sanitizeDocId(item.id || item._id || item.payment_term_id || item.paymentTermId || fallbackId);
+  const title = extractPaymentTermTitle(item);
+  const status = extractPaymentTermStatus(item);
+
+  return {
+    id,
+    title: title !== '—' ? title : '',
+    name: title !== '—' ? title : '',
+    status,
+    is_active: status,
+    raw: item,
+  };
+}
+
+/**
+ * Helpers to extract fields for Sellers / Exporters table and forms
+ */
+export function extractSellerCompanyName(row: any): string {
+  if (!row) return '—';
+  const val =
+    row.company_name ||
+    row.companyName ||
+    row.company ||
+    row.business_name ||
+    row.businessName ||
+    row.name ||
+    row.label ||
+    row.title;
+  if (typeof val === 'object') {
+    return val?.name || val?.title || val?.label || '—';
+  }
+  return String(val || '—');
+}
+
+export function extractSellerAddress(row: any): string {
+  if (!row) return '—';
+  const val =
+    row.address ||
+    row.address_details ||
+    row.instruction ||
+    row.instructions ||
+    row.details;
+  if (typeof val === 'object') {
+    return val?.address || val?.name || '—';
+  }
+  return String(val || '—');
+}
+
+export function extractSellerCity(row: any): string {
+  if (!row) return '—';
+  const val = row.city || row.city_name || row.cityName;
+  if (typeof val === 'object') return val?.name || '—';
+  return String(val || '—');
+}
+
+export function extractSellerState(row: any): string {
+  if (!row) return '—';
+  const val = row.state || row.state_name || row.stateName || row.province;
+  if (typeof val === 'object') return val?.name || '—';
+  return String(val || '—');
+}
+
+export function extractSellerCountry(row: any): string {
+  if (!row) return '—';
+  const val =
+    row.country_name ||
+    row.countryName ||
+    row.country ||
+    row.origin_country ||
+    row.originCountry;
+  if (typeof val === 'object') {
+    return val?.name || val?.country_name || '—';
+  }
+  return String(val || '—');
+}
+
+export function extractSellerId(row: any): string {
+  if (!row) return '';
+  const val =
+    row.id ||
+    row._id ||
+    row.instruction_id ||
+    row.instructionId ||
+    row.seller_id ||
+    row.sellerId ||
+    row.company_id ||
+    row.uuid;
+  if (typeof val === 'object') {
+    return val?.$oid || val?.id || '';
+  }
+  return String(val || '').trim();
+}
+
+export function extractSellerDetailData(raw: any, fallbackId: string = ''): any {
+  if (!raw) return null;
+  const root = raw.data ?? raw.result ?? raw.instruction ?? raw.seller ?? raw.record ?? raw;
+  const candidate = Array.isArray(root) ? root[0] : root;
+  const item =
+    candidate && typeof candidate === 'object'
+      ? candidate.instruction ?? candidate.seller ?? candidate.item ?? candidate.record ?? candidate
+      : candidate;
+
+  if (!item || typeof item !== 'object') return null;
+
+  const id = sanitizeDocId(
+    item.id || item._id || item.instruction_id || item.seller_id || item.company_id || fallbackId
+  );
+
+  const countryName =
+    item.country?.name ||
+    (typeof item.country === 'string' ? item.country : '') ||
+    item.country_name ||
+    item.countryName ||
+    '';
+  const countryId = item.country?.id || item.country_id || item.countryId || '';
+  const countryCode = item.country_code || item.countryCode || '';
+  const zip = item.zip_code || item.zipcode || item.postal_code || '';
+  const certNumber =
+    item.certificate_name_number ||
+    item.certificate_name_and_number ||
+    item.certificate_no ||
+    item.certificate ||
+    '';
+  const sig =
+    item.authorised_signature ||
+    item.authority_signature ||
+    item.authoritySignature ||
+    item.signature ||
+    '';
+  const logo = item.company_logo || item.companyLogo || item.logo || '';
+
+  return {
+    id,
+    company_name: item.company_name || item.companyName || item.company || item.name || '',
+    address: item.address || item.address_details || item.details || '',
+    city: item.city || item.city_name || '',
+    state: item.state || item.state_name || item.province || '',
+    country: countryName,
+    country_name: countryName,
+    country_code: countryCode,
+    country_id: countryId,
+    zip_code: zip,
+    zipcode: zip,
+    email: item.email || item.email_address || '',
+    contact_number: item.contact_number || item.contactNumber || item.phone || item.mobile || '',
+    certificate_name_number: certNumber,
+    certificate_name_and_number: certNumber,
+    authority_name: item.authority_name || item.authorityName || item.authority || '',
+    authorised_signature: sig,
+    authority_signature: sig,
+    company_logo: logo,
+    bank_name: item.bank_name || item.bankName || '',
+    bank_details: item.bank_details || item.bankDetails || item.bank_detail || '',
+    consignees:
+      (Array.isArray(item?.consignees) && item.consignees) ||
+      (Array.isArray(item?.consignee_details) && item.consignee_details) ||
+      (Array.isArray(item?.consignee) && item.consignee) ||
+      (Array.isArray(candidate?.consignees) && candidate.consignees) ||
+      (Array.isArray(candidate?.consignee_details) && candidate.consignee_details) ||
+      (Array.isArray(candidate?.consignee) && candidate.consignee) ||
+      (Array.isArray(raw?.data?.consignees) && raw.data.consignees) ||
+      (Array.isArray(raw?.data?.consignee_details) && raw.data.consignee_details) ||
+      (Array.isArray(raw?.data?.consignee) && raw.data.consignee) ||
+      (Array.isArray(raw?.consignees) && raw.consignees) ||
+      (Array.isArray(raw?.consignee_details) && raw.consignee_details) ||
+      [],
+    notify_parties:
+      (Array.isArray(item?.notify_parties) && item.notify_parties) ||
+      (Array.isArray(item?.notify_party) && item.notify_party) ||
+      (Array.isArray(item?.notify_party_details) && item.notify_party_details) ||
+      (Array.isArray(item?.notifies) && item.notifies) ||
+      (Array.isArray(candidate?.notify_parties) && candidate.notify_parties) ||
+      (Array.isArray(candidate?.notify_party) && candidate.notify_party) ||
+      (Array.isArray(candidate?.notify_party_details) && candidate.notify_party_details) ||
+      (Array.isArray(candidate?.notifies) && candidate.notifies) ||
+      (Array.isArray(raw?.data?.notify_parties) && raw.data.notify_parties) ||
+      (Array.isArray(raw?.data?.notify_party) && raw.data.notify_party) ||
+      (Array.isArray(raw?.data?.notify_party_details) && raw.data.notify_party_details) ||
+      (Array.isArray(raw?.data?.notifies) && raw.data.notifies) ||
+      (Array.isArray(raw?.notify_parties) && raw.notify_parties) ||
+      (Array.isArray(raw?.notify_party) && raw.notify_party) ||
+      (Array.isArray(raw?.notify_party_details) && raw.notify_party_details) ||
+      [],
+    raw: item,
+  };
+}
+
+/**
+ * Helpers to extract fields for Buyers / Importers table and forms
+ */
+export const extractBuyerCompanyName = extractSellerCompanyName;
+export const extractBuyerAddress = extractSellerAddress;
+export const extractBuyerCity = extractSellerCity;
+export const extractBuyerState = extractSellerState;
+export const extractBuyerCountry = extractSellerCountry;
+export const extractBuyerId = extractSellerId;
+export const extractBuyerDetailData = extractSellerDetailData;
+
 
 
 

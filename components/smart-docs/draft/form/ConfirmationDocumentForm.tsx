@@ -1815,6 +1815,23 @@ export function ConfirmationDocumentForm({
     if (savedProd.spec) {
       setSpecification(savedProd.spec);
     }
+
+    // Auto-populate packing options if provided from product modal
+    if (Array.isArray((savedProd as any).packings) && (savedProd as any).packings.length > 0) {
+      const newPackings: FormOptionItem[] = (savedProd as any).packings.map((p: any) => ({
+        value: p.title || String(p.quantity),
+        label: p.title || `${p.quantity} KG`,
+        bagWeightKg:
+          p.unitType === 'liquid'
+            ? parseFloat(p.netWeightKg || p.quantity) || undefined
+            : parseFloat(p.quantity) || undefined,
+      }));
+      setInternalPackingOptions((prev) => [...newPackings, ...prev]);
+      if (newPackings[0]) {
+        setPacking(newPackings[0].value);
+      }
+    }
+
     setErrors((prev) => ({ ...prev, productId: '' }));
     fetchAndApplyProductDetails(savedProd.id);
   };

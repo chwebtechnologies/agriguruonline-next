@@ -29,6 +29,12 @@ import {
   type SaveConfirmationPayload,
   extractConfirmationData,
   extractContractData,
+  extractProductDetailData,
+  extractPaymentTermDetailData,
+  extractSellerDetailData,
+  sanitizeDocId,
+  generateSmartDocsCuid,
+  isValidCuidOrId,
 } from "@/lib/api/smart-docs.service";
 
 export interface GetSmartDocsListActionParams {
@@ -1768,6 +1774,1787 @@ export async function fetchSignatureAsDataUrlAction(
     return null;
   }
 }
+
+export interface GetProductListingParams {
+  page?: number;
+  limit?: number;
+  lang?: string;
+  source?: string;
+  search?: string;
+}
+
+export interface GetProductListingResult {
+  success: boolean;
+  message?: string;
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  error?: string;
+}
+
+export async function getProductListingAction(
+  params: GetProductListingParams = {}
+): Promise<GetProductListingResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    const page = params.page ?? 1;
+    const limit = params.limit ?? 10;
+    const safeLang = getSafeLang(params.lang || "en");
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing",
+        data: [],
+        total: 0,
+        page,
+        limit,
+      };
+    }
+
+    const rawRes = await smartDocsService.getProductListing(
+      {
+        page,
+        limit,
+        lang: safeLang,
+        source: params.source || "web",
+        search: params.search,
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch products",
+        data: [],
+        total: 0,
+        page,
+        limit,
+      };
+    }
+
+    const dataArray = extractSmartDocsArray(rawRes);
+    const totalCount = extractSmartDocsTotal(rawRes, dataArray.length);
+
+    return {
+      success: Boolean(rawRes.success || rawRes.status || rawRes.data),
+      message: rawRes.message,
+      data: dataArray,
+      total: totalCount,
+      page,
+      limit,
+    };
+  } catch (error: any) {
+    console.error("[getProductListingAction] Exception:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to load products",
+      data: [],
+      total: 0,
+      page: params.page ?? 1,
+      limit: params.limit ?? 25,
+    };
+  }
+}
+
+export async function deleteProductAction(
+  productId: string,
+  lang: string = "en"
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const result = await smartDocsService.deleteProduct(productId, token, {
+      lang: safeLang,
+      source: "web",
+    });
+    revalidatePath("/[lang]/smart-docs/products", "page");
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to delete product" };
+  }
+}
+
+export async function saveProductAction(
+  productData: any
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const result = await smartDocsService.saveProduct(productData, token);
+    revalidatePath("/[lang]/smart-docs/products", "page");
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to save product" };
+  }
+}
+
+export interface GetProductByIdResult {
+  success: boolean;
+  message?: string;
+  data: any | null;
+  error?: string;
+}
+
+export async function getProductByIdAction(
+  productId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<GetProductByIdResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing",
+        data: null,
+      };
+    }
+
+    const cleanId = sanitizeDocId(productId);
+    if (!cleanId) {
+      return {
+        success: false,
+        error: "Invalid product ID",
+        message: "Product ID is missing or invalid",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getProductById(
+      cleanId,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch product details",
+        data: null,
+      };
+    }
+
+    const productData = extractProductDetailData(rawRes, cleanId);
+
+    return {
+      success: Boolean(rawRes.success || rawRes.status || productData),
+      message: rawRes.message,
+      data: productData,
+    };
+  } catch (error: any) {
+    console.error("[getProductByIdAction] Exception:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to load product details",
+      data: null,
+    };
+  }
+}
+
+export async function updateProductAction(
+  productId: string,
+  payload: any,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[] }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized", error_fields: [] };
+    }
+
+    const cleanId = sanitizeDocId(productId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid product ID", error_fields: [] };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const result = await smartDocsService.updateProduct(
+      cleanId,
+      payload,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/products", "page");
+    }
+    return result;
+  } catch (error: any) {
+    console.error("[updateProductAction] Error:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to update product",
+      error_fields: [],
+    };
+  }
+}
+
+export interface GetPaymentTermListingActionParams {
+  page?: number;
+  limit?: number;
+  lang?: string;
+  source?: string;
+  search?: string;
+}
+
+export interface GetPaymentTermListingActionResult {
+  success: boolean;
+  message?: string;
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  error?: string;
+}
+
+export async function getPaymentTermListingAction(
+  params: GetPaymentTermListingActionParams = {}
+): Promise<GetPaymentTermListingActionResult> {
+  try {
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        data: [],
+        total: 0,
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const page = params.page ?? 1;
+    const limit = params.limit ?? 10;
+
+    const rawRes = await smartDocsService.getPaymentTermListing(
+      {
+        page,
+        limit,
+        lang: safeLang,
+        source: params.source || "web",
+        search: params.search,
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch payment terms",
+        data: [],
+        total: 0,
+        page,
+        limit,
+      };
+    }
+
+    const dataArray = extractSmartDocsArray(rawRes);
+    const totalCount = extractSmartDocsTotal(rawRes, dataArray.length);
+
+    return {
+      success: Boolean(rawRes.success ?? true),
+      message: rawRes.message,
+      data: dataArray,
+      total: totalCount,
+      page,
+      limit,
+    };
+  } catch (error: any) {
+    console.error("[getPaymentTermListingAction] Exception:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to load payment terms",
+      data: [],
+      total: 0,
+      page: params.page ?? 1,
+      limit: params.limit ?? 10,
+    };
+  }
+}
+
+export async function deletePaymentTermAction(
+  termId: string,
+  lang: string = "en"
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const result = await smartDocsService.deletePaymentTerm(termId, token, {
+      lang: safeLang,
+      source: "web",
+    });
+    revalidatePath("/[lang]/smart-docs/payment-terms", "page");
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to delete payment term" };
+  }
+}
+
+export async function savePaymentTermAction(
+  termData: any
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const result = await smartDocsService.savePaymentTerm(termData, token);
+    revalidatePath("/[lang]/smart-docs/payment-terms", "page");
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to save payment term" };
+  }
+}
+
+export interface GetPaymentTermByIdResult {
+  success: boolean;
+  message?: string;
+  data: any | null;
+  error?: string;
+}
+
+export async function getPaymentTermByIdAction(
+  termId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<GetPaymentTermByIdResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing",
+        data: null,
+      };
+    }
+
+    const cleanId = sanitizeDocId(termId);
+    if (!cleanId) {
+      return {
+        success: false,
+        error: "Invalid payment term ID",
+        message: "Payment term ID is missing or invalid",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getPaymentTermById(
+      cleanId,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch payment term details",
+        data: null,
+      };
+    }
+
+    const termData = extractPaymentTermDetailData(rawRes, cleanId);
+
+    return {
+      success: Boolean(rawRes.success || rawRes.status || termData),
+      message: rawRes.message,
+      data: termData,
+    };
+  } catch (error: any) {
+    console.error("[getPaymentTermByIdAction] Exception:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to load payment term details",
+      data: null,
+    };
+  }
+}
+
+export async function updatePaymentTermAction(
+  termId: string,
+  payload: any,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[] }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized", error_fields: [] };
+    }
+
+    const cleanId = sanitizeDocId(termId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid payment term ID", error_fields: [] };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const result = await smartDocsService.updatePaymentTerm(
+      cleanId,
+      payload,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/payment-terms", "page");
+    }
+    return result;
+  } catch (error: any) {
+    console.error("[updatePaymentTermAction] Error:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to update payment term",
+      error_fields: [],
+    };
+  }
+}
+
+export async function togglePaymentTermStatusAction(
+  termId: string,
+  newStatus: boolean,
+  lang: string = "en"
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const cleanId = sanitizeDocId(termId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid payment term ID" };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const payload = {
+      status: newStatus,
+      is_active: newStatus,
+    };
+
+    const result = await smartDocsService.updatePaymentTerm(
+      cleanId,
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/payment-terms", "page");
+    }
+    return {
+      success: result.success,
+      message: result.message || `Payment term marked as ${newStatus ? "Active" : "Inactive"}`,
+    };
+  } catch (error: any) {
+    console.error("[togglePaymentTermStatusAction] Error:", error);
+    return {
+      success: false,
+      message: error?.message || "Failed to update payment term status",
+    };
+  }
+}
+
+export interface GetSellerListingParams {
+  page?: number;
+  limit?: number;
+  lang?: string;
+  source?: string;
+  search?: string;
+}
+
+export interface GetSellerListingResult {
+  success: boolean;
+  message?: string;
+  data: any[];
+  total: number;
+  error?: string;
+}
+
+export async function getSellerListingAction(
+  params: GetSellerListingParams = {}
+): Promise<GetSellerListingResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing",
+        data: [],
+        total: 0,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const page = params.page || 1;
+    const limit = params.limit || 10;
+
+    const rawRes = await smartDocsService.getSellerListing(
+      {
+        page,
+        limit,
+        lang: safeLang,
+        source: params.source || "web",
+        search: params.search,
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch sellers list",
+        data: [],
+        total: 0,
+      };
+    }
+
+    const sellersData = extractSmartDocsArray(rawRes);
+    const totalRecords = extractSmartDocsTotal(rawRes, sellersData.length);
+
+    return {
+      success: true,
+      message: rawRes.message || "Sellers fetched successfully",
+      data: sellersData,
+      total: totalRecords,
+    };
+  } catch (error: any) {
+    console.error("[getSellerListingAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch sellers",
+      data: [],
+      total: 0,
+    };
+  }
+}
+
+export interface GetSellerByIdResult {
+  success: boolean;
+  message?: string;
+  data: any | null;
+  error?: string;
+}
+
+export async function getSellerByIdAction(
+  sellerId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<GetSellerByIdResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing",
+        data: null,
+      };
+    }
+
+    const cleanId = sanitizeDocId(sellerId);
+    if (!cleanId) {
+      return {
+        success: false,
+        error: "Invalid seller ID",
+        message: "Seller ID is missing or invalid",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getSellerById(
+      cleanId,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch seller details",
+        data: null,
+      };
+    }
+
+    const sellerData = extractSellerDetailData(rawRes, cleanId);
+
+    return {
+      success: Boolean(rawRes.success || rawRes.status || sellerData),
+      message: rawRes.message,
+      data: sellerData,
+    };
+  } catch (error: any) {
+    console.error("[getSellerByIdAction] Exception:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to load seller details",
+      data: null,
+    };
+  }
+}
+
+function nodeDataUrlToFile(dataUrl: string, filename: string): File | null {
+  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) return null;
+  try {
+    const parts = dataUrl.split(',');
+    if (parts.length < 2) return null;
+    const match = parts[0].match(/:(.*?);/);
+    const mime = match ? match[1] : 'image/png';
+    const buffer = Buffer.from(parts[1], 'base64');
+    return new File([buffer], filename, { type: mime });
+  } catch (e) {
+    console.warn('[nodeDataUrlToFile] Error converting data URL to File:', e);
+    return null;
+  }
+}
+
+function normalizePhoneCountryCode(code?: any): string {
+  if (!code) return '';
+  const str = String(code).trim();
+  if (!str) return '';
+  if (str.startsWith('+')) return str;
+  if (/^[A-Za-z]{2}$/.test(str)) {
+    const upper = str.toUpperCase();
+    if (upper === 'IN') return '+91';
+    if (upper === 'AE') return '+971';
+    if (upper === 'VN') return '+84';
+    if (upper === 'US') return '+1';
+    if (upper === 'CN') return '+86';
+    if (upper === 'BR') return '+55';
+    if (upper === 'TH') return '+66';
+    if (upper === 'ID') return '+62';
+    if (upper === 'SG') return '+65';
+    if (upper === 'MY') return '+60';
+  }
+  if (/^\d+$/.test(str)) {
+    return `+${str}`;
+  }
+  return str;
+}
+
+function resolveSellerCountryId(countryName?: string, countryCode?: string, existingId?: string): string {
+  if (existingId && existingId.trim()) return existingId.trim();
+  const cName = String(countryName || '').toLowerCase().trim();
+  if (!cName) return '';
+  if (cName.includes('emirates') || cName.includes('uae')) {
+    return 'cm710prgz006emzt0kchb1zw9';
+  }
+  if (cName.includes('india')) {
+    return 'cm710m0og002smzt00fy4a8cg';
+  }
+  return '';
+}
+
+function normalizeSellerPayloadToFormData(payload: any): FormData | any {
+  if (!payload) return payload;
+  const isFd =
+    (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+    (typeof payload?.get === 'function' && typeof payload?.append === 'function');
+  if (isFd) {
+    if (!payload.has('type')) {
+      payload.append('type', 'S');
+    }
+    // Clean up any legacy or unexpected field names to satisfy backend multer validations
+    if (payload.has('authority_signature')) {
+      const val = payload.get('authority_signature');
+      if (!payload.has('authorised_signature') && val) {
+        payload.append('authorised_signature', val);
+      }
+      payload.delete('authority_signature');
+    }
+    if (payload.has('signature')) {
+      const val = payload.get('signature');
+      if (!payload.has('authorised_signature') && val) {
+        payload.append('authorised_signature', val);
+      }
+      payload.delete('signature');
+    }
+    if (payload.has('seller_signature')) {
+      payload.delete('seller_signature');
+    }
+    if (payload.has('logo')) {
+      const val = payload.get('logo');
+      if (!payload.has('company_logo') && val) {
+        payload.append('company_logo', val);
+      }
+      payload.delete('logo');
+    }
+    if (payload.has('zipcode') && !payload.has('zip_code')) {
+      const val = payload.get('zipcode');
+      if (val) payload.append('zip_code', val);
+    }
+    if (payload.has('certificate_name_and_number') && !payload.has('certificate_name_number')) {
+      const val = payload.get('certificate_name_and_number');
+      if (val) payload.append('certificate_name_number', val);
+    }
+
+    // Ensure company_logo strips external asset url prefix if sent as string
+    if (payload.has('company_logo')) {
+      const logoVal = payload.get('company_logo');
+      if (typeof logoVal === 'string' && logoVal.includes('assets.agriguruonline.')) {
+        payload.set('company_logo', logoVal.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, ''));
+      }
+    }
+
+    // Ensure authorised_signature strips external asset url prefix if sent as string
+    if (payload.has('authorised_signature')) {
+      const sigVal = payload.get('authorised_signature');
+      if (typeof sigVal === 'string' && sigVal.includes('assets.agriguruonline.')) {
+        payload.set('authorised_signature', sigVal.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, ''));
+      }
+    }
+
+    // Normalize country_code only if provided
+    if (payload.has('country_code')) {
+      const pCode = payload.get('country_code');
+      const normalized = normalizePhoneCountryCode(pCode);
+      if (normalized) {
+        payload.set('country_code', normalized);
+      } else {
+        payload.delete('country_code');
+      }
+    }
+
+    // Resolve country_id only if country or country_id is explicitly provided
+    const rawCid = payload.get('country_id');
+    const countryName = payload.get('country');
+    if (!rawCid && countryName) {
+      const resolvedCid = resolveSellerCountryId(String(countryName), '', '');
+      if (resolvedCid) payload.set('country_id', resolvedCid);
+    }
+
+    return payload;
+  }
+
+  // If payload is a plain object, convert to FormData so files are binary and form fields match
+  const fd = new FormData();
+  fd.append('type', 'S');
+
+  for (const [key, val] of Object.entries(payload)) {
+    if (val === undefined || val === null || val === '') continue;
+
+    if (
+      key === 'authorised_signature' ||
+      key === 'authority_signature' ||
+      key === 'signature' ||
+      key === 'seller_signature'
+    ) {
+      if (typeof val === 'string' && val.startsWith('data:')) {
+        const file = nodeDataUrlToFile(val, 'authorised_signature.png');
+        if (file) {
+          fd.append('authorised_signature', file);
+        }
+      } else if (typeof val === 'string' && val.trim()) {
+        const cleanSig = val.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, '').trim();
+        fd.append('authorised_signature', cleanSig);
+      }
+    } else if (key === 'company_logo' || key === 'logo') {
+      if (typeof val === 'string' && val.startsWith('data:')) {
+        const file = nodeDataUrlToFile(val, 'company_logo.png');
+        if (file) {
+          fd.append('company_logo', file);
+        }
+      } else if (typeof val === 'string' && val.trim()) {
+        const cleanLogo = val.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, '').trim();
+        fd.append('company_logo', cleanLogo);
+      }
+    } else if (key === 'zipcode' || key === 'zip_code') {
+      fd.append('zip_code', String(val).trim());
+    } else if (key === 'certificate_name_and_number' || key === 'certificate_name_number') {
+      fd.append('certificate_name_number', String(val).trim());
+    } else if (key === 'country_code') {
+      const norm = normalizePhoneCountryCode(val);
+      if (norm) fd.append('country_code', norm);
+    } else {
+      fd.append(key, String(val));
+    }
+  }
+
+  const rawCid = fd.get('country_id');
+  const countryName = fd.get('country');
+  if (!rawCid && countryName) {
+    const resolvedCid = resolveSellerCountryId(String(countryName), '', '');
+    if (resolvedCid) fd.set('country_id', resolvedCid);
+  }
+
+  return fd;
+}
+
+export async function saveSellerAction(
+  sellerData: any
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized", error_fields: [] };
+    }
+
+    const payload = normalizeSellerPayloadToFormData(sellerData);
+    const result = await smartDocsService.saveSeller(payload, token);
+    revalidatePath("/[lang]/smart-docs/sellers", "page");
+    revalidatePath("/[lang]/smart-docs/draft", "page");
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to save seller", error_fields: [] };
+  }
+}
+
+export async function updateSellerAction(
+  sellerId: string,
+  payload: any,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized", error_fields: [] };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const cleanId = sanitizeDocId(sellerId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid seller ID", error_fields: [] };
+    }
+
+    const payloadToSend = normalizeSellerPayloadToFormData(payload);
+    const result = await smartDocsService.updateSeller(
+      cleanId,
+      payloadToSend,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/sellers", "page");
+      revalidatePath("/[lang]/smart-docs/draft", "page");
+    }
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to update seller", error_fields: [] };
+  }
+}
+
+export async function deleteSellerAction(
+  sellerId: string,
+  lang: string = "en"
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const cleanId = sanitizeDocId(sellerId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid seller ID" };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const result = await smartDocsService.deleteSeller(cleanId, token, {
+      lang: safeLang,
+      source: "web",
+    });
+    revalidatePath("/[lang]/smart-docs/sellers", "page");
+    revalidatePath("/[lang]/smart-docs/draft", "page");
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to delete seller" };
+  }
+}
+
+export interface GetSellerBankDetailsActionResult {
+  success: boolean;
+  message?: string;
+  data: {
+    items: Array<{
+      id: string;
+      name: string;
+      account_details: string;
+    }>;
+    total: number;
+  } | null;
+  error?: string;
+}
+
+/**
+ * Fetches bank details for a seller/instruction with authentication:
+ * GET /instructions/bank-details/:sellerId?lang_code=en&source=web
+ */
+export async function getSellerBankDetailsAction(
+  sellerId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<GetSellerBankDetailsActionResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing",
+        data: null,
+      };
+    }
+
+    const cleanId = sanitizeDocId(sellerId);
+    if (!cleanId) {
+      return {
+        success: false,
+        error: "Invalid seller ID",
+        message: "Seller ID is missing or invalid",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getSellerBankDetails(
+      cleanId,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch bank details",
+        data: null,
+      };
+    }
+
+    const rawItems = Array.isArray(rawRes.data?.items)
+      ? rawRes.data.items
+      : Array.isArray(rawRes.data)
+      ? rawRes.data
+      : Array.isArray(rawRes.items)
+      ? rawRes.items
+      : [];
+
+    const items = rawItems.map((it: any) => ({
+      id: isValidCuidOrId(it.id || it._id)
+        ? String(it.id || it._id).trim()
+        : generateSmartDocsCuid(),
+      name: String(it.name || it.bank_name || it.bankName || "").trim(),
+      account_details: String(
+        it.account_details ??
+          it.accountDetails ??
+          it.bank_details ??
+          it.bankDetails ??
+          it.details ??
+          ""
+      ).trim(),
+    }));
+
+    return {
+      success: Boolean(rawRes.success || rawRes.status || items.length > 0),
+      message: rawRes.message || "Bank details fetched successfully",
+      data: {
+        items,
+        total: rawRes.data?.total ?? items.length,
+      },
+    };
+  } catch (error: any) {
+    console.error("[getSellerBankDetailsAction] Exception:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to load bank details",
+      data: null,
+    };
+  }
+}
+
+/**
+ * Saves/updates bank details for a seller/instruction with authentication:
+ * PATCH /instructions/bank-details/:sellerId?lang_code=en&source=web
+ */
+export async function updateSellerBankDetailsAction(
+  sellerId: string,
+  bankData: any,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized", error_fields: [] };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const cleanId = sanitizeDocId(sellerId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid seller ID", error_fields: [] };
+    }
+
+    const result = await smartDocsService.updateSellerBankDetails(
+      cleanId,
+      bankData,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/sellers", "page");
+      revalidatePath("/[lang]/smart-docs/draft", "page");
+    }
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.message || "Failed to update bank details",
+      error_fields: [],
+    };
+  }
+}
+
+/**
+ * Deletes a bank detail item with authentication:
+ * DELETE /instructions/bank-details/:bankDetailId?lang_code=en&source=web
+ */
+export async function deleteSellerBankDetailAction(
+  bankDetailId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const cleanId = sanitizeDocId(bankDetailId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid bank detail ID" };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const result = await smartDocsService.deleteSellerBankDetail(
+      cleanId,
+      token,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      }
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/sellers", "page");
+      revalidatePath("/[lang]/smart-docs/draft", "page");
+    }
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.message || "Failed to delete bank detail",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// BUYERS MANAGEMENT SERVER ACTIONS (type: 'B')
+// ---------------------------------------------------------------------------
+
+export interface GetBuyerListingParams {
+  page?: number;
+  limit?: number;
+  lang?: string;
+  source?: string;
+  search?: string;
+}
+
+export interface GetBuyerListingResult {
+  success: boolean;
+  message?: string;
+  data: any[];
+  total: number;
+  error?: string;
+}
+
+export async function getBuyerListingAction(
+  params: GetBuyerListingParams = {}
+): Promise<GetBuyerListingResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing",
+        data: [],
+        total: 0,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const page = params.page || 1;
+    const limit = params.limit || 10;
+
+    const rawRes = await smartDocsService.getBuyerListing(
+      {
+        page,
+        limit,
+        lang: safeLang,
+        source: params.source || "web",
+        search: params.search,
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch buyers list",
+        data: [],
+        total: 0,
+      };
+    }
+
+    const buyersData = extractSmartDocsArray(rawRes);
+    const totalRecords = extractSmartDocsTotal(rawRes, buyersData.length);
+
+    return {
+      success: true,
+      message: rawRes.message || "Buyers fetched successfully",
+      data: buyersData,
+      total: totalRecords,
+    };
+  } catch (error: any) {
+    console.error("[getBuyerListingAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch buyers",
+      data: [],
+      total: 0,
+    };
+  }
+}
+
+export interface GetBuyerByIdResult {
+  success: boolean;
+  message?: string;
+  data: any | null;
+  error?: string;
+}
+
+export async function getBuyerByIdAction(
+  buyerId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<GetBuyerByIdResult> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing",
+        data: null,
+      };
+    }
+
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) {
+      return {
+        success: false,
+        error: "Invalid buyer ID",
+        message: "Buyer ID is missing or invalid",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getBuyerById(
+      cleanId,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch buyer details",
+        data: null,
+      };
+    }
+
+    const buyerData = extractSellerDetailData(rawRes, cleanId);
+
+    return {
+      success: Boolean(rawRes.success || rawRes.status || buyerData),
+      message: rawRes.message,
+      data: buyerData,
+    };
+  } catch (error: any) {
+    console.error("[getBuyerByIdAction] Exception:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to load buyer details",
+      data: null,
+    };
+  }
+}
+
+function normalizeBuyerPayloadToFormData(payload: any): FormData | any {
+  if (!payload) return payload;
+  const isFd =
+    (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+    (typeof payload?.get === 'function' && typeof payload?.append === 'function');
+  if (isFd) {
+    if (!payload.has('type')) {
+      payload.append('type', 'B');
+    } else {
+      payload.set('type', 'B');
+    }
+    if (payload.has('authority_signature')) {
+      const val = payload.get('authority_signature');
+      if (!payload.has('authorised_signature') && val) {
+        payload.append('authorised_signature', val);
+      }
+      payload.delete('authority_signature');
+    }
+    if (payload.has('signature')) {
+      const val = payload.get('signature');
+      if (!payload.has('authorised_signature') && val) {
+        payload.append('authorised_signature', val);
+      }
+      payload.delete('signature');
+    }
+    if (payload.has('seller_signature') || payload.has('buyer_signature')) {
+      payload.delete('seller_signature');
+      payload.delete('buyer_signature');
+    }
+    if (payload.has('logo')) {
+      const val = payload.get('logo');
+      if (!payload.has('company_logo') && val) {
+        payload.append('company_logo', val);
+      }
+      payload.delete('logo');
+    }
+    if (payload.has('zipcode') && !payload.has('zip_code')) {
+      const val = payload.get('zipcode');
+      if (val) payload.append('zip_code', val);
+    }
+    if (payload.has('certificate_name_and_number') && !payload.has('certificate_name_number')) {
+      const val = payload.get('certificate_name_and_number');
+      if (val) payload.append('certificate_name_number', val);
+    }
+
+    if (payload.has('company_logo')) {
+      const logoVal = payload.get('company_logo');
+      if (typeof logoVal === 'string' && logoVal.includes('assets.agriguruonline.')) {
+        payload.set('company_logo', logoVal.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, ''));
+      }
+    }
+
+    if (payload.has('authorised_signature')) {
+      const sigVal = payload.get('authorised_signature');
+      if (typeof sigVal === 'string' && sigVal.includes('assets.agriguruonline.')) {
+        payload.set('authorised_signature', sigVal.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, ''));
+      }
+    }
+
+    if (payload.has('country_code')) {
+      const pCode = payload.get('country_code');
+      const normalized = normalizePhoneCountryCode(pCode);
+      if (normalized) {
+        payload.set('country_code', normalized);
+      } else {
+        payload.delete('country_code');
+      }
+    }
+
+    const rawCid = payload.get('country_id');
+    const countryName = payload.get('country');
+    if (!rawCid && countryName) {
+      const resolvedCid = resolveSellerCountryId(String(countryName), '', '');
+      if (resolvedCid) payload.set('country_id', resolvedCid);
+    }
+
+    return payload;
+  }
+
+  const fd = new FormData();
+  fd.append('type', 'B');
+
+  for (const [key, val] of Object.entries(payload)) {
+    if (val === undefined || val === null || val === '') continue;
+
+    if (
+      key === 'authorised_signature' ||
+      key === 'authority_signature' ||
+      key === 'signature' ||
+      key === 'buyer_signature' ||
+      key === 'seller_signature'
+    ) {
+      if (typeof val === 'string' && val.startsWith('data:')) {
+        const file = nodeDataUrlToFile(val, 'authorised_signature.png');
+        if (file) {
+          fd.append('authorised_signature', file);
+        }
+      } else if (typeof val === 'string' && val.trim()) {
+        const cleanSig = val.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, '').trim();
+        fd.append('authorised_signature', cleanSig);
+      }
+    } else if (key === 'company_logo' || key === 'logo') {
+      if (typeof val === 'string' && val.startsWith('data:')) {
+        const file = nodeDataUrlToFile(val, 'company_logo.png');
+        if (file) {
+          fd.append('company_logo', file);
+        }
+      } else if (typeof val === 'string' && val.trim()) {
+        const cleanLogo = val.replace(/^https?:\/\/assets\.agriguruonline\.(com|cloud)\/?/, '').trim();
+        fd.append('company_logo', cleanLogo);
+      }
+    } else if (key === 'zipcode' || key === 'zip_code') {
+      fd.append('zip_code', String(val).trim());
+    } else if (key === 'certificate_name_and_number' || key === 'certificate_name_number') {
+      fd.append('certificate_name_number', String(val).trim());
+    } else if (key === 'country_code') {
+      const norm = normalizePhoneCountryCode(val);
+      if (norm) fd.append('country_code', norm);
+    } else {
+      fd.append(key, String(val));
+    }
+  }
+
+  const rawCid = fd.get('country_id');
+  const countryName = fd.get('country');
+  if (!rawCid && countryName) {
+    const resolvedCid = resolveSellerCountryId(String(countryName), '', '');
+    if (resolvedCid) fd.set('country_id', resolvedCid);
+  }
+
+  return fd;
+}
+
+export async function saveBuyerAction(
+  buyerData: any
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized", error_fields: [] };
+    }
+
+    const payload = normalizeBuyerPayloadToFormData(buyerData);
+    const result = await smartDocsService.saveBuyer(payload, token);
+    revalidatePath("/[lang]/smart-docs/buyers", "page");
+    revalidatePath("/[lang]/smart-docs/draft", "page");
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to save buyer", error_fields: [] };
+  }
+}
+
+export async function updateBuyerAction(
+  buyerId: string,
+  payload: any,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized", error_fields: [] };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid buyer ID", error_fields: [] };
+    }
+
+    const payloadToSend = normalizeBuyerPayloadToFormData(payload);
+    const result = await smartDocsService.updateBuyer(
+      cleanId,
+      payloadToSend,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/buyers", "page");
+      revalidatePath("/[lang]/smart-docs/draft", "page");
+    }
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to update buyer", error_fields: [] };
+  }
+}
+
+export async function deleteBuyerAction(
+  buyerId: string,
+  lang: string = "en"
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) {
+      return { success: false, message: "Invalid buyer ID" };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const result = await smartDocsService.deleteBuyer(cleanId, token, {
+      lang: safeLang,
+      source: "web",
+    });
+    revalidatePath("/[lang]/smart-docs/buyers", "page");
+    revalidatePath("/[lang]/smart-docs/draft", "page");
+    return result;
+  } catch (error: any) {
+    return { success: false, message: error?.message || "Failed to delete buyer" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CONSIGNEE DETAILS SERVER ACTIONS
+// ---------------------------------------------------------------------------
+
+export async function getBuyerConsigneesAction(
+  buyerId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; data?: any[]; message?: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) return { success: false, message: "Unauthorized", data: [] };
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) return { success: false, message: "Invalid buyer ID", data: [] };
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const res = await smartDocsService.getBuyerConsignees(cleanId, { lang: safeLang, source: params.source || "web" }, token);
+    const dataObj = res?.data || res;
+    const rawItems = Array.isArray(dataObj?.items)
+      ? dataObj.items
+      : Array.isArray(dataObj?.consignees)
+      ? dataObj.consignees
+      : Array.isArray(dataObj?.consignee)
+      ? dataObj.consignee
+      : Array.isArray(dataObj?.consignee_details)
+      ? dataObj.consignee_details
+      : Array.isArray(dataObj)
+      ? dataObj
+      : Array.isArray(res?.items)
+      ? res.items
+      : Array.isArray(res?.consignees)
+      ? res.consignees
+      : Array.isArray(res?.consignee)
+      ? res.consignee
+      : Array.isArray(res)
+      ? res
+      : [];
+    return { success: true, data: rawItems };
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Failed to fetch consignees", data: [] };
+  }
+}
+
+export async function saveBuyerConsigneesAction(
+  buyerId: string,
+  items: any[],
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) return { success: false, message: "Unauthorized", error_fields: [] };
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) return { success: false, message: "Invalid buyer ID", error_fields: [] };
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const result = await smartDocsService.updateBuyerConsignees(
+      cleanId,
+      { items },
+      { lang: safeLang, source: params.source || "web" },
+      token
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/buyers", "page");
+    }
+    return result;
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Failed to save consignees", error_fields: [] };
+  }
+}
+
+export async function deleteBuyerConsigneeAction(
+  consigneeId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) return { success: false, message: "Unauthorized" };
+    const cleanId = sanitizeDocId(consigneeId);
+    if (!cleanId) return { success: false, message: "Invalid consignee ID" };
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const result = await smartDocsService.deleteBuyerConsignee(cleanId, token, {
+      lang: safeLang,
+      source: params.source || "web",
+    });
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/buyers", "page");
+    }
+    return result;
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Failed to delete consignee" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NOTIFY PARTY DETAILS SERVER ACTIONS
+// ---------------------------------------------------------------------------
+
+export async function getBuyerNotifyPartiesAction(
+  buyerId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; data?: any[]; message?: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) return { success: false, message: "Unauthorized", data: [] };
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) return { success: false, message: "Invalid buyer ID", data: [] };
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const res = await smartDocsService.getBuyerNotifyParties(cleanId, { lang: safeLang, source: params.source || "web" }, token);
+    const rawItems = Array.isArray(res?.data?.items)
+      ? res.data.items
+      : Array.isArray(res?.data?.notify_parties)
+      ? res.data.notify_parties
+      : Array.isArray(res?.data?.notify_party)
+      ? res.data.notify_party
+      : Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.items)
+      ? res.items
+      : [];
+    return { success: true, data: rawItems };
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Failed to fetch notify parties", data: [] };
+  }
+}
+
+export async function saveBuyerNotifyPartiesAction(
+  buyerId: string,
+  items: any[],
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) return { success: false, message: "Unauthorized", error_fields: [] };
+    const cleanId = sanitizeDocId(buyerId);
+    if (!cleanId) return { success: false, message: "Invalid buyer ID", error_fields: [] };
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const result = await smartDocsService.updateBuyerNotifyParties(
+      cleanId,
+      { items },
+      { lang: safeLang, source: params.source || "web" },
+      token
+    );
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/buyers", "page");
+    }
+    return result;
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Failed to save notify parties", error_fields: [] };
+  }
+}
+
+export async function deleteBuyerNotifyPartyAction(
+  notifyPartyId: string,
+  params: { lang?: string; source?: string } = {}
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    const token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value;
+
+    if (!token) return { success: false, message: "Unauthorized" };
+    const cleanId = sanitizeDocId(notifyPartyId);
+    if (!cleanId) return { success: false, message: "Invalid notify party ID" };
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const result = await smartDocsService.deleteBuyerNotifyParty(cleanId, token, {
+      lang: safeLang,
+      source: params.source || "web",
+    });
+
+    if (result.success) {
+      revalidatePath("/[lang]/smart-docs/buyers", "page");
+    }
+    return result;
+  } catch (err: any) {
+    return { success: false, message: err?.message || "Failed to delete notify party" };
+  }
+}
+
+
 
 
 

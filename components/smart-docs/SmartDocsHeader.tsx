@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { AgriGuruLogo } from '@/components/layout/HeaderGuest';
-import { AppMenu } from '@/components/layout/AppMenu';
+import { SmartDocsMenu } from '@/components/smart-docs/SmartDocsMenu';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useNotification } from '@/components/providers/NotificationProvider';
 import { getAssetsUrl, getNormalizedUserType, getUserApiUrl, getTradingApiUrl } from '@/lib/api-utils';
@@ -246,7 +246,7 @@ export function SmartDocsHeader({
               
               {/* Menu Icon before logo - unified h-8 / h-9 */}
               <div className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center shrink-0">
-                <AppMenu
+                <SmartDocsMenu
                   dict={dict}
                   align="left"
                   profile={profile}
@@ -262,7 +262,7 @@ export function SmartDocsHeader({
                   >
                     <i className="fa-solid fa-bars text-lg sm:text-2xl flex items-center justify-center"></i>
                   </div>
-                </AppMenu>
+                </SmartDocsMenu>
               </div>
 
               {/* Logo - unified 32px / 36px sizing */}

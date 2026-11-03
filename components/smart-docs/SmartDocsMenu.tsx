@@ -1,0 +1,500 @@
+'use client';
+
+import React, { useState, useEffect, useRef, useId } from 'react';
+import { createPortal } from 'react-dom';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { logoutUser } from '@/app/actions/auth';
+import { useScrollLock } from '@/lib/scroll-lock';
+import { useTheme } from '@/components/providers/ThemeProvider';
+import BecomeMemberModal from '@/components/membership/BecomeMemberModal';
+
+interface MenuItem {
+  label: string;
+  icon: string;
+  href: string;
+  iconBg: string;
+  textColor?: string;
+}
+
+interface SmartDocsMenuProps {
+  children?: React.ReactNode;
+  align?: 'left' | 'right';
+  profile?: any;
+  dict?: any;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onOpenBecomeMemberModal?: () => void;
+}
+
+export function SmartDocsMenu({
+  children,
+  align = 'left',
+  profile,
+  isOpen: controlledIsOpen,
+  onOpenChange,
+  onOpenBecomeMemberModal,
+  dict,
+}: SmartDocsMenuProps) {
+  const params = useParams();
+  const lang = (params?.lang as string) || 'en';
+  const menuId = useId();
+  const isControlled = controlledIsOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = isControlled ? controlledIsOpen : internalOpen;
+
+  const setIsOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    const nextValue = typeof value === 'function' ? value(isOpen) : value;
+    if (!isControlled) {
+      setInternalOpen(nextValue);
+    }
+    onOpenChange?.(nextValue);
+  };
+
+  const { theme, setTheme } = useTheme();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isBecomeMemberOpen, setIsBecomeMemberOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useScrollLock(showLogoutConfirm);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const toggleTheme = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+  };
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node | null;
+      if (menuRef.current && menuRef.current.contains(target)) {
+        return;
+      }
+      const el = target instanceof Element ? target : target?.parentElement;
+      if (el && el.closest('[data-smart-docs-menu="true"]')) {
+        return;
+      }
+      setIsOpen(false);
+    }
+
+    function updateHeaderBottom() {
+      const header = document.getElementById('site-header');
+      if (header && menuRef.current) {
+        const bottom = header.getBoundingClientRect().bottom;
+        menuRef.current.style.setProperty('--header-bottom', `${bottom}px`);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      updateHeaderBottom();
+      window.addEventListener('scroll', updateHeaderBottom, { passive: true });
+      window.addEventListener('resize', updateHeaderBottom, { passive: true });
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', updateHeaderBottom);
+      window.removeEventListener('resize', updateHeaderBottom);
+    };
+  }, [isOpen]);
+
+  const confirmLogout = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogout = async () => {
+    setShowLogoutConfirm(false);
+    setIsOpen(false);
+    try {
+      document.cookie = 'user_info=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      localStorage.removeItem('auth_token');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth-state-change'));
+      }
+    } catch (e) {}
+    await logoutUser();
+    const currentLang = typeof window !== 'undefined' ? window.location.pathname.split('/')[1] || 'en' : 'en';
+    window.location.href = `/${currentLang}/`;
+  };
+
+  // Helper to safely extract user type string
+  const getNormalizedType = (typeData: any) => {
+    if (!typeData) return '';
+    if (typeof typeData === 'string') return typeData.toLowerCase();
+    if (typeof typeData === 'object') return String(typeData.name || typeData.title || '').toLowerCase();
+    return String(typeData).toLowerCase();
+  };
+
+  const isRegular =
+    getNormalizedType(profile?.user_type) === 'regular' ||
+    (typeof profile?.user_type === 'object' && profile?.user_type?.name?.toLowerCase() === 'regular') ||
+    profile?.role?.name?.toLowerCase() === 'regular' ||
+    profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
+    profile?.membership?.plan_name?.toLowerCase() === 'regular';
+
+  // Smart Docs Dedicated Menu Structure
+  // 1. Dashboard (as it is)
+  // 2. Marketplace (linked to /)
+  // 3. Sellers Management
+  // 4. Buyers Management
+  // 5. Products Management
+  // 6. Payment Terms Management
+  const MENU_GROUPS: MenuItem[][] = [
+    [
+      {
+        label: dict?.header?.dashboard || 'Dashboard',
+        icon: 'fa-solid fa-table-cells-large',
+        href: `/${lang}/dashboard`,
+        iconBg: 'bg-blue-500',
+      },
+      {
+        label: dict?.header?.marketplace || 'Marketplace',
+        icon: 'fa-solid fa-store',
+        href: `/${lang}`,
+        iconBg: 'bg-sky-500',
+      },
+    ],
+    [
+      {
+        label: dict?.smart_docs?.sellers_management || 'Sellers Management',
+        icon: 'fa-solid fa-user-tie',
+        href: `/${lang}/smart-docs/sellers`,
+        iconBg: 'bg-indigo-500',
+      },
+      {
+        label: dict?.smart_docs?.buyers_management || 'Buyers Management',
+        icon: 'fa-solid fa-cart-shopping',
+        href: `/${lang}/smart-docs/buyers`,
+        iconBg: 'bg-emerald-500',
+      },
+      {
+        label: dict?.smart_docs?.products_management || 'Products Management',
+        icon: 'fa-solid fa-boxes-stacked',
+        href: `/${lang}/smart-docs/products`,
+        iconBg: 'bg-amber-500',
+      },
+      {
+        label: dict?.smart_docs?.payment_terms_management || 'Payment Terms Management',
+        icon: 'fa-solid fa-file-invoice-dollar',
+        href: `/${lang}/smart-docs/payment-terms`,
+        iconBg: 'bg-teal-500',
+      },
+    ],
+  ];
+
+  const isRtl = lang === 'ar';
+  let alignClass = '';
+  if (align === 'left') {
+    alignClass = isRtl ? 'lg:right-0 lg:origin-top-right' : 'lg:left-0 lg:origin-top-left';
+  } else {
+    alignClass = isRtl ? 'lg:left-0 lg:origin-top-left' : 'lg:right-0 lg:origin-top-right';
+  }
+
+  return (
+    <div className="lg:relative" ref={menuRef} data-smart-docs-menu="true" suppressHydrationWarning>
+      {/* Trigger Button */}
+      <button
+        type="button"
+        id={menuId}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        aria-expanded={isOpen}
+        aria-label="Toggle Smart Docs menu"
+        className="block cursor-pointer bg-transparent border-0 p-0 m-0 appearance-none outline-none text-left"
+      >
+        {children || (
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-background border border-border shadow-sm hover:shadow text-foreground transition-all">
+            <span className="sr-only">Toggle menu</span>
+            <i className="fa-solid fa-bars text-xl" aria-hidden="true"></i>
+          </div>
+        )}
+      </button>
+
+      {/* Responsive Unified Dropdown / Drawer View */}
+      {isOpen && (
+        <div
+          className={`
+            /* Mobile & Tablet: Fixed drawer below header */
+            fixed lg:absolute top-[var(--header-bottom,62px)] lg:top-[calc(100%+0.5rem)]
+            left-0 right-0 lg:left-auto lg:right-auto ${alignClass}
+            w-full lg:w-[260px] h-[calc(100dvh-var(--header-bottom,62px))] lg:h-auto
+            bg-background z-[100] border-t lg:border border-border lg:rounded-2xl
+            overflow-y-auto lg:overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)]
+            animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out lg:zoom-in-95 lg:duration-200
+          `}
+          suppressHydrationWarning
+        >
+          <div
+            className="w-full max-w-2xl lg:max-w-none mx-auto px-3 min-[390px]:px-4 py-4 lg:p-2 space-y-3.5 lg:space-y-0 pb-28 lg:pb-2 lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto"
+            suppressHydrationWarning
+          >
+            {/* Quick Actions Row (Mobile & Tablet) */}
+            <div className="lg:hidden grid grid-cols-3 gap-2 min-[390px]:gap-2.5 mb-3.5">
+              {profile ? (
+                <button
+                  type="button"
+                  onClick={confirmLogout}
+                  className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden cursor-pointer"
+                >
+                  <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-brand-red shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+                    <i className="fa-solid fa-power-off text-[10px] min-[390px]:text-[11px] text-white"></i>
+                  </div>
+                  <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">
+                    {dict?.header?.logout || 'Logout'}
+                  </span>
+                </button>
+              ) : (
+                <Link
+                  onClick={() => setIsOpen(false)}
+                  href={`/${lang}/login`}
+                  className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden"
+                >
+                  <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-emerald-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+                    <i className="fa-solid fa-user text-[10px] min-[390px]:text-[11px] text-white"></i>
+                  </div>
+                  <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">
+                    {dict?.header?.login || 'Login'}
+                  </span>
+                </Link>
+              )}
+              <Link
+                onClick={() => setIsOpen(false)}
+                href={`/${lang}`}
+                className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden"
+              >
+                <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-blue-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+                  <i className="fa-solid fa-house text-[10px] min-[390px]:text-[11px] text-white"></i>
+                </div>
+                <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">
+                  {dict?.header?.home_menu || 'Home'}
+                </span>
+              </Link>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden w-full cursor-pointer"
+              >
+                <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-purple-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+                  <i
+                    className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} text-[10px] min-[390px]:text-[11px] text-white`}
+                  ></i>
+                </div>
+                <span
+                  suppressHydrationWarning
+                  className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap"
+                >
+                  {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                </span>
+              </button>
+            </div>
+
+            {/* Premium Upgrade Banner (Mobile & Tablet) */}
+            <div className="lg:hidden flex justify-center my-1.5 mb-3.5">
+              <Link
+                onClick={() => setIsOpen(false)}
+                href={`/${lang}/membership`}
+                className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden"
+              >
+                <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
+                <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[13px] min-[390px]:text-[14px]"></i>
+                <span className="tracking-wider uppercase text-[12px] min-[390px]:text-[13px] relative z-10 drop-shadow-md whitespace-nowrap">
+                  {profile && !isRegular ? 'Upgrade Plan' : 'Membership Plan'}
+                </span>
+                <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-[14px] min-[390px]:text-[16px]"></i>
+              </Link>
+            </div>
+
+            {/* Unified Menu Links */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 min-[390px]:gap-2.5 lg:flex lg:flex-col lg:gap-0 lg:space-y-1.5">
+              {MENU_GROUPS.map((group, groupIndex) => (
+                <div
+                  key={`group-${groupIndex}`}
+                  className="contents lg:block lg:bg-background lg:rounded-[10px] lg:overflow-hidden lg:border lg:border-border/50 lg:shadow-sm"
+                >
+                  <ul className="contents lg:flex lg:flex-col">
+                    {group.map((item, index) => {
+                      const isNoLink = item.href === '#' || !item.href;
+
+                      const handleItemClick = (e: React.MouseEvent) => {
+                        if (isNoLink) {
+                          e.preventDefault();
+                          setIsOpen(false);
+                          return;
+                        }
+                        setIsOpen(false);
+                      };
+
+                      return (
+                        <li key={`item-${item.label}-${index}`} className="contents lg:block lg:relative lg:group">
+                          {isNoLink ? (
+                            <button
+                              type="button"
+                              onClick={handleItemClick}
+                              className="
+                                flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden w-full text-left cursor-pointer
+                                lg:justify-between lg:px-3 lg:py-1.5 lg:hover:bg-muted lg:border-none lg:rounded-none lg:shadow-none
+                              "
+                            >
+                              <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3">
+                                <div
+                                  className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 lg:w-6 lg:h-6 rounded-md lg:rounded-[5px] shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}
+                                >
+                                  <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] lg:text-[12px] text-white`}></i>
+                                </div>
+                                <span
+                                  className={`font-semibold text-[12.5px] min-[375px]:text-[13.5px] lg:text-[13.5px] lg:tracking-tight ${item.textColor || 'text-foreground'} tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0`}
+                                >
+                                  {item.label}
+                                </span>
+                              </div>
+                              <i className="hidden lg:block fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                            </button>
+                          ) : (
+                            <Link
+                              href={item.href}
+                              onClick={handleItemClick}
+                              className="
+                                flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden
+                                lg:justify-between lg:px-3 lg:py-1.5 lg:hover:bg-muted lg:border-none lg:rounded-none lg:shadow-none
+                              "
+                            >
+                              <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3">
+                                <div
+                                  className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 lg:w-6 lg:h-6 rounded-md lg:rounded-[5px] shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}
+                                >
+                                  <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] lg:text-[12px] text-white`}></i>
+                                </div>
+                                <span
+                                  className={`font-semibold text-[12.5px] min-[375px]:text-[13.5px] lg:text-[13.5px] lg:tracking-tight ${item.textColor || 'text-foreground'} tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0`}
+                                >
+                                  {item.label}
+                                </span>
+                              </div>
+                              <i className="hidden lg:block fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                            </Link>
+                          )}
+                          {index !== group.length - 1 && (
+                            <div className="hidden lg:block absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+
+              {/* Desktop Logout Appended manually */}
+              {profile && (
+                <div className="hidden lg:block bg-background rounded-[10px] overflow-hidden border border-border/50 shadow-sm mt-1.5">
+                  <ul className="flex flex-col">
+                    <li className="relative group">
+                      <button
+                        type="button"
+                        onClick={confirmLogout}
+                        className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-muted transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 rounded-[5px] bg-brand-red shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
+                            <i className="fa-solid fa-power-off text-[12px] text-white"></i>
+                          </div>
+                          <span className="text-[13.5px] font-semibold tracking-tight text-brand-red hover:text-brand-red-hover">
+                            Logout
+                          </span>
+                        </div>
+                        <i className="fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Smart Docs Info / Sponsoring card for Mobile & Tablet */}
+            <div className="lg:hidden w-full mt-3.5 rounded-xl overflow-hidden shadow-md relative bg-gradient-to-br from-cyan-950/80 via-slate-900 to-sky-950/80 border border-cyan-800/40 h-[120px] min-[390px]:h-[140px] flex flex-col justify-center px-5 min-[390px]:px-6">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500 rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500 rounded-full blur-3xl opacity-15 -ml-10 -mb-10"></div>
+              <div className="relative z-10 flex flex-col gap-1">
+                <span className="inline-block px-1.5 py-0.5 bg-cyan-600 text-white text-[9px] font-bold tracking-widest uppercase rounded-sm w-max mb-1">
+                  Smart Docs Suite
+                </span>
+                <h2 className="font-extrabold text-white text-[17px] min-[390px]:text-[19px] leading-tight">
+                  Agricultural Contracts & Trade Confirmations
+                </h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout Confirmation Popup */}
+      {showLogoutConfirm && mounted && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 overflow-y-auto overscroll-contain"
+          onClick={() => setShowLogoutConfirm(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-background rounded-2xl p-5 w-full sm:w-max max-w-[95vw] shadow-2xl border border-border animate-in fade-in zoom-in-95 duration-200 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex gap-4 items-center mb-6">
+              <div className="w-12 h-12 bg-brand-red/10 dark:bg-brand-red/20 rounded-full flex items-center justify-center shrink-0 text-brand-red">
+                <i className="fa-solid fa-triangle-exclamation text-xl"></i>
+              </div>
+              <div className="flex flex-col justify-center w-full items-center">
+                <h2 className="text-[17px] font-bold text-brand-red mb-1 leading-none text-center">
+                  {dict?.header?.logout || 'Logout'}
+                </h2>
+                <p className="text-foreground/80 text-[14px] leading-snug whitespace-nowrap text-center">
+                  Are you sure you want to log out of your account?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex w-full gap-3">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex-1 py-2.5 rounded-xl bg-brand-red text-white font-semibold text-[15px] shadow-sm hover:bg-brand-red-hover active:scale-[0.98] transition-all cursor-pointer"
+              >
+                Logout
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-border bg-background hover:bg-muted text-foreground font-semibold text-[15px] shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Become Member Modal for Regular Users */}
+      <BecomeMemberModal
+        isOpen={isBecomeMemberOpen}
+        onClose={() => setIsBecomeMemberOpen(false)}
+        lang={lang}
+        userProfile={profile}
+        dict={dict}
+      />
+    </div>
+  );
+}
+
+export default SmartDocsMenu;
+
