@@ -532,6 +532,20 @@ export const smartDocsService = {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
+        // When 401 or 403, user may not have DMS permissions or Smart Docs requires membership setup.
+        // Return a safe empty list response so the page renders normally without logging out the user!
+        if (response.status === 401 || response.status === 403) {
+          console.warn('[smartDocsService.getSmartDocsList] Smart docs access restricted (401/403):', data?.message || 'Unauthorized');
+          return {
+            success: false,
+            status: response.status,
+            message: data?.message || 'Access to Smart Docs is restricted for your account',
+            data: [],
+            total: 0,
+            unauthorized: true,
+          };
+        }
+
         // When the list is empty (e.g. after records are deleted), backend returns 404 or "not found"
         if (
           response.status === 404 ||
@@ -748,6 +762,271 @@ export const smartDocsService = {
       console.error('[smartDocsService.getStepperList] error:', error);
       return null;
     }
+  },
+
+  /**
+   * Fetches available stepper documents configuration list:
+   * GET /dms/stepper-docs/${stepperType}/${id}?lang_code=en&source=web
+   */
+  getStepperDocsList: async (
+    stepperTypeOrId: string,
+    idOrLang?: string,
+    langOrToken?: string,
+    maybeToken?: string,
+    fallbackId?: string
+  ): Promise<any | null> => {
+    const baseUrl = getSmartDocsApiUrl();
+
+    let stepperType = 'confirmation';
+    let id = '';
+    let lang = 'en';
+    let token: string | undefined = undefined;
+
+    // Detect signatures:
+    // Signature A: (stepperType, id, lang, token, fallbackId)
+    // Signature B: (documentId, lang, token)
+    if (
+      maybeToken !== undefined ||
+      (idOrLang &&
+        ['confirmation', 'document', 'contract'].includes(
+          String(stepperTypeOrId).toLowerCase().trim()
+        ))
+    ) {
+      stepperType = String(stepperTypeOrId || 'confirmation').trim().toLowerCase();
+      id = String(idOrLang || '').trim();
+      lang = String(langOrToken || 'en');
+      token = maybeToken || undefined;
+    } else {
+      id = String(stepperTypeOrId || '').trim();
+      lang = String(idOrLang || 'en');
+      token = langOrToken || undefined;
+    }
+
+    if (!id || id === 'new-confirmation' || id === 'undefined' || id === 'null') {
+      if (fallbackId && fallbackId !== 'new-confirmation' && fallbackId !== 'undefined' && fallbackId !== 'null') {
+        id = fallbackId;
+      } else {
+        return null;
+      }
+    }
+
+    const safeLang = getSafeLang(lang || 'en');
+    const isContract = stepperType === 'contract' || stepperType === 'document';
+
+    // Build endpoint candidates in priority order
+    const endpointCandidates: { type: string; id: string }[] = [];
+
+    if (isContract) {
+      // 1. /dms/stepper-docs/contract/${id}
+      endpointCandidates.push({ type: 'contract', id });
+      // 2. If fallbackId provided and different (e.g. confirmationId)
+      if (fallbackId && fallbackId !== id) {
+        endpointCandidates.push({ type: 'contract', id: fallbackId });
+      }
+      // 3. /dms/stepper-docs/document/${id}
+      endpointCandidates.push({ type: 'document', id });
+      if (fallbackId && fallbackId !== id) {
+        endpointCandidates.push({ type: 'document', id: fallbackId });
+      }
+      // 4. Fallback to confirmation endpoint
+      const confId = fallbackId || id;
+      endpointCandidates.push({ type: 'confirmation', id: confId });
+    } else {
+      endpointCandidates.push({ type: 'confirmation', id });
+      if (fallbackId && fallbackId !== id) {
+        endpointCandidates.push({ type: 'confirmation', id: fallbackId });
+      }
+      endpointCandidates.push({ type: 'document', id });
+    }
+
+    for (const ep of endpointCandidates) {
+      const cleanType = encodeURIComponent(ep.type);
+      const cleanId = encodeURIComponent(ep.id);
+      const url = `${baseUrl}/dms/stepper-docs/${cleanType}/${cleanId}`;
+
+      try {
+        const response = await customFetch(url, {
+          method: 'GET',
+          token: token || undefined,
+          params: {
+            lang_code: safeLang,
+            source: 'web',
+          },
+          cache: 'no-store',
+        });
+
+        if (response.status === 401) {
+          return { message: 'Unauthorized', status: 401, statusCode: 401 };
+        }
+
+        if (response.ok) {
+          const data = await response.json().catch(() => null);
+          const rawList = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.data?.documents)
+            ? data.data.documents
+            : Array.isArray(data?.documents)
+            ? data.documents
+            : null;
+
+          if (rawList && rawList.length > 0) {
+            return data;
+          }
+          if (data && typeof data === 'object') {
+            return data;
+          }
+        }
+      } catch (error) {
+        console.warn(`[smartDocsService.getStepperDocsList] attempt at ${ep.type}/${ep.id} error:`, error);
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Updates stepper documents configuration list:
+   * PATCH /dms/stepper-docs/${stepperType}/${id}?lang_code=en&source=web
+   */
+  updateStepperDocsList: async (
+    stepperTypeOrId: string,
+    idOrData: any,
+    dataOrLang?: any,
+    langOrToken?: string,
+    maybeToken?: string,
+    fallbackId?: string
+  ): Promise<any | null> => {
+    const baseUrl = getSmartDocsApiUrl();
+
+    let stepperType = 'confirmation';
+    let id = '';
+    let data: any = {};
+    let lang = 'en';
+    let token: string | undefined = undefined;
+
+    // Detect signatures:
+    // Signature A: (stepperType, id, data, lang, token, fallbackId)
+    // Signature B: (documentId, data, lang, token)
+    if (
+      typeof idOrData === 'string' &&
+      ['confirmation', 'document', 'contract'].includes(
+        String(stepperTypeOrId).toLowerCase().trim()
+      )
+    ) {
+      stepperType = String(stepperTypeOrId || 'confirmation').trim().toLowerCase();
+      id = String(idOrData || '').trim();
+      data = dataOrLang;
+      lang = String(langOrToken || 'en');
+      token = maybeToken || undefined;
+    } else {
+      id = String(stepperTypeOrId || '').trim();
+      data = idOrData;
+      lang = String(dataOrLang || 'en');
+      token = langOrToken || undefined;
+    }
+
+    if (!id || id === 'new-confirmation' || id === 'undefined' || id === 'null') {
+      if (fallbackId && fallbackId !== 'new-confirmation' && fallbackId !== 'undefined' && fallbackId !== 'null') {
+        id = fallbackId;
+      } else {
+        return null;
+      }
+    }
+
+    const safeLang = getSafeLang(lang || 'en');
+    const isContract = stepperType === 'contract' || stepperType === 'document';
+
+    // Build endpoint candidates in priority order
+    const endpointCandidates: { type: string; id: string }[] = [];
+
+    if (isContract) {
+      endpointCandidates.push({ type: 'contract', id });
+      if (fallbackId && fallbackId !== id) {
+        endpointCandidates.push({ type: 'contract', id: fallbackId });
+      }
+      endpointCandidates.push({ type: 'document', id });
+      if (fallbackId && fallbackId !== id) {
+        endpointCandidates.push({ type: 'document', id: fallbackId });
+      }
+      const confId = fallbackId || id;
+      endpointCandidates.push({ type: 'confirmation', id: confId });
+    } else {
+      endpointCandidates.push({ type: 'confirmation', id });
+      if (fallbackId && fallbackId !== id) {
+        endpointCandidates.push({ type: 'confirmation', id: fallbackId });
+      }
+      endpointCandidates.push({ type: 'document', id });
+    }
+
+    const jsonBody = typeof data === 'string' ? data : JSON.stringify(data);
+    let lastErrorMessage = '';
+    let lastStatusCode = 0;
+
+    for (const ep of endpointCandidates) {
+      const cleanType = encodeURIComponent(ep.type);
+      const cleanId = encodeURIComponent(ep.id);
+      const url = `${baseUrl}/dms/stepper-docs/${cleanType}/${cleanId}`;
+
+      // Try PATCH first, then PUT if 404 or 405
+      const methods: ('PATCH' | 'PUT')[] = ['PATCH', 'PUT'];
+
+      for (const method of methods) {
+        try {
+          const response = await customFetch(url, {
+            method,
+            token: token || undefined,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            params: {
+              lang_code: safeLang,
+              source: 'web',
+            },
+            body: jsonBody,
+            cache: 'no-store',
+          });
+
+          if (response.status === 401) {
+            return { message: 'Unauthorized', status: 401, statusCode: 401 };
+          }
+
+          const responseData = await response.json().catch(() => ({}));
+
+          if (response.ok) {
+            return {
+              success: true,
+              status: true,
+              statusCode: response.status,
+              message: responseData?.message || 'Updated successfully',
+              data: responseData?.data || responseData,
+            };
+          }
+
+          lastStatusCode = response.status;
+          if (responseData?.message) {
+            lastErrorMessage = responseData.message;
+          } else if (responseData?.error) {
+            lastErrorMessage = responseData.error;
+          }
+
+          // If 404 or 405, continue trying next method / candidate
+          if (response.status === 404 || response.status === 405) {
+            continue;
+          }
+        } catch (error: any) {
+          console.warn(`[smartDocsService.updateStepperDocsList] error at ${method} ${ep.type}/${ep.id}:`, error);
+        }
+      }
+    }
+
+    return {
+      success: false,
+      status: false,
+      statusCode: lastStatusCode || 400,
+      message: lastErrorMessage || 'Failed to update documents list',
+    };
   },
 
   /**
@@ -4550,6 +4829,10 @@ export interface StepperDocumentItem {
   pdf_enabled?: boolean;
   is_completed?: boolean;
   description?: string;
+  redirect_id?: string;
+  redirectId?: string;
+  redirect_url?: string;
+  redirect?: string;
   [key: string]: any;
 }
 
@@ -4668,6 +4951,107 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
         return clean;
       }
     }
+  }
+
+  return '';
+}
+
+/**
+ * Extracts the dynamic redirect_id from a StepperDocumentItem.
+ * Prioritizes redirect_id / redirectId from the backend stepper-list response.
+ */
+export function extractStepRedirectId(step?: StepperDocumentItem | null): string {
+  if (!step) return '';
+
+  const isInvalidPlaceholder = (val: string) =>
+    !val ||
+    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+|null|undefined|nan|\[object object\]|draft|edit|view|new|smart-docs)$/i.test(
+      val.trim()
+    );
+
+  const cleanScalarId = (raw: any): string => {
+    if (!raw) return '';
+    const str = String(raw).trim();
+    if (!str || isInvalidPlaceholder(str)) return '';
+    // Must be a pure ID without URL characters or spaces
+    if (str.includes('/') || str.includes('?') || str.includes('=') || str.includes('&') || str.includes(' ')) {
+      return '';
+    }
+    // Must not be a pure integer step index like "1", "2"
+    if (/^\d+$/.test(str)) return '';
+    if (str.length < 6) return '';
+    return str;
+  };
+
+  const cleanUrlId = (raw: any): string => {
+    if (!raw) return '';
+    const str = String(raw).trim();
+    if (!str || isInvalidPlaceholder(str)) return '';
+
+    // Check ?id= or &id= query param
+    if (str.includes('?id=') || str.includes('&id=')) {
+      const match = str.match(/[?&]id=([^&]+)/);
+      if (match && match[1]) {
+        const extracted = decodeURIComponent(match[1]).trim();
+        if (cleanScalarId(extracted)) return extracted;
+      }
+    }
+
+    // Check path segments for CUID/UUID (length >= 10 alphanumeric)
+    if (str.includes('/')) {
+      const parts = str.split('?')[0].split('/').filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last && cleanScalarId(last) && last.length >= 10) {
+        return last.trim();
+      }
+    }
+
+    return '';
+  };
+
+  // 1. Direct scalar ID candidates from step object
+  const scalarCandidates = [
+    step.redirect_id,
+    step.redirectId,
+    step.redirect_document_id,
+    step.redirectDocumentId,
+    step.redirect_doc_id,
+    step.redirectDocId,
+    step.document_id,
+    step.documentId,
+    step.doc_id,
+    step.docId,
+    step.confirmation_id,
+    step.confirmationId,
+    step.contract_id,
+    step.contractId,
+    step.proforma_id,
+    step.proformaId,
+    step.smart_doc_id,
+    step.smartDocId,
+    step.record_id,
+    step.recordId,
+    step.id,
+    step._id,
+  ];
+
+  for (const cand of scalarCandidates) {
+    const val = cleanScalarId(cand);
+    if (val) return val;
+  }
+
+  // 2. Extract from URL fields
+  const urlCandidates = [
+    step.redirect,
+    step.redirect_url,
+    step.redirectUrl,
+    step.redirect_link,
+    step.redirectLink,
+  ];
+
+  for (const cand of urlCandidates) {
+    const val = cleanUrlId(cand);
+    if (val) return val;
   }
 
   return '';

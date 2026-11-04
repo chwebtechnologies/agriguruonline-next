@@ -5,6 +5,7 @@ import { getSafeLang } from "@/lib/api-utils";
 import { tradingService } from "@/lib/api";
 import { encryptData } from "@/lib/crypto-utils";
 import { getUserProfile } from "@/lib/user-data";
+import { getValidAuthToken } from "@/lib/auth-token";
 export interface ServerActionResponse<T = any> {
   success: boolean;
   message?: string;
@@ -143,18 +144,10 @@ export async function addFavoriteProductAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      const refreshRes = await refreshTokensAction();
-      if (refreshRes.success && refreshRes.access_token) {
-        token = refreshRes.access_token;
-      }
-    }
+    const token = await getValidAuthToken();
     const safeLang = getSafeLang(lang);
 
-    const result = await tradingService.addFavoriteProduct(payload, token, safeLang);
+    const result = await tradingService.addFavoriteProduct(payload, token || undefined, safeLang);
     if (!result.success && result.error && /unauthori/i.test(result.error)) {
       const refreshRes = await refreshTokensAction();
       if (refreshRes.success && refreshRes.access_token) {
@@ -178,18 +171,10 @@ export async function deleteFavoriteProductAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      const refreshRes = await refreshTokensAction();
-      if (refreshRes.success && refreshRes.access_token) {
-        token = refreshRes.access_token;
-      }
-    }
+    const token = await getValidAuthToken();
     const safeLang = getSafeLang(lang);
 
-    const result = await tradingService.deleteFavoriteProduct(id, token, safeLang);
+    const result = await tradingService.deleteFavoriteProduct(id, token || undefined, safeLang);
     if (!result.success && result.error && /unauthori/i.test(result.error)) {
       const refreshRes = await refreshTokensAction();
       if (refreshRes.success && refreshRes.access_token) {
@@ -210,9 +195,7 @@ export async function getFavoriteProductsAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    const token = await getValidAuthToken();
     const safeLang = getSafeLang(lang);
 
     const rawFavs = await tradingService.getFavoriteProducts(token || '', safeLang);
@@ -233,23 +216,21 @@ export async function getPriceHistoryAction(
 ): Promise<ServerActionResponse> {
   try {
     if (!id) return { success: false, data: null };
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
+    const token = await getValidAuthToken();
     const safeLang = getSafeLang(lang);
 
     const isFreight = type === "freight" || String(type).toLowerCase().includes("freight");
     let res = isFreight
-      ? await tradingService.getFreightPriceHistory(id, token, safeLang)
-      : await tradingService.getPriceHistory(id, token, safeLang);
+      ? await tradingService.getFreightPriceHistory(id, token || undefined, safeLang)
+      : await tradingService.getPriceHistory(id, token || undefined, safeLang);
 
     // Fallback if initial fetch failed
     if (!res?.success || !res?.data) {
       if (isFreight) {
-        const altRes = await tradingService.getPriceHistory(id, token, safeLang);
+        const altRes = await tradingService.getPriceHistory(id, token || undefined, safeLang);
         if (altRes?.success && altRes?.data) res = altRes;
       } else {
-        const altRes = await tradingService.getFreightPriceHistory(id, token, safeLang);
+        const altRes = await tradingService.getFreightPriceHistory(id, token || undefined, safeLang);
         if (altRes?.success && altRes?.data) res = altRes;
       }
     }
@@ -287,10 +268,7 @@ export async function savePriceAlertAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    
+    const token = await getValidAuthToken();
     if (!token) return { success: false, error: "Not authenticated" };
 
     const safeLang = getSafeLang(lang);
@@ -327,10 +305,7 @@ export async function updatePriceAlertAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    
+    const token = await getValidAuthToken();
     if (!token) return { success: false, error: "Not authenticated" };
 
     const safeLang = getSafeLang(lang);
@@ -365,10 +340,7 @@ export async function getAlertSetupsAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    
+    const token = await getValidAuthToken();
     if (!token) return { success: false, error: "Not authenticated", data: [] };
 
     const safeLang = getSafeLang(lang);
@@ -388,10 +360,7 @@ export async function getAiPredictsAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    
+    const token = await getValidAuthToken();
     if (!token) return { success: false, error: "Not authenticated", data: [] };
 
     const safeLang = getSafeLang(lang);
@@ -413,10 +382,7 @@ export async function getPriceAnalysisDetailsAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    
+    const token = await getValidAuthToken();
     if (!token) return { success: false, error: "Not authenticated", data: null };
 
     const safeLang = getSafeLang(lang);

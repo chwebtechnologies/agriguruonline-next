@@ -1,5 +1,6 @@
 export interface ApiFetchOptions extends RequestInit {
   token?: string;
+  refreshToken?: string;
   params?: Record<string, string | number | boolean | undefined | null>;
   revalidate?: number | false;
   timeout?: number;
@@ -10,6 +11,7 @@ export interface ApiFetchOptions extends RequestInit {
 }
 
 import { refreshTokensAction } from "@/app/actions/auth";
+import { isJwtExpired } from "@/lib/auth-cookie";
 
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
@@ -69,7 +71,52 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
     headers.set('source', 'web');
   }
   if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+    let cleanToken = token.trim().replace(/^Bearer\s+/i, '');
+
+    // Server-side proactive refresh: If token is expired or expiring within 5s, refresh before calling API
+    if (typeof window === 'undefined' && isJwtExpired(cleanToken, 5)) {
+      try {
+        const { executeRefreshToken } = await import('@/lib/auth-token');
+        const refreshResult = await executeRefreshToken();
+        if (refreshResult.success && refreshResult.access_token) {
+          cleanToken = refreshResult.access_token.trim().replace(/^Bearer\s+/i, '');
+        }
+      } catch (e) {
+        // Fall back to original token, letting 401 interceptor handle if needed
+      }
+    }
+
+    headers.set('Authorization', `Bearer ${cleanToken}`);
+
+    // Attach refresh token to all authenticated requests
+    let activeRefreshToken = options.refreshToken;
+    if (!activeRefreshToken && typeof window === 'undefined') {
+      try {
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        activeRefreshToken = cookieStore.get('refresh_token')?.value || cookieStore.get('web_refresh_token')?.value;
+      } catch (e) {
+        // cookies() may not be available outside request context (e.g. static generation)
+      }
+    }
+
+    if (activeRefreshToken) {
+      if (!headers.has('x-refresh-token')) headers.set('x-refresh-token', activeRefreshToken);
+      if (!headers.has('refresh-token')) headers.set('refresh-token', activeRefreshToken);
+
+      const existingCookie = headers.get('Cookie') || '';
+      const cookieParts = existingCookie ? existingCookie.split(';').map(c => c.trim()).filter(Boolean) : [];
+      if (!cookieParts.some(c => c.startsWith('web_refresh_token='))) {
+        cookieParts.push(`web_refresh_token=${activeRefreshToken}`);
+      }
+      if (!cookieParts.some(c => c.startsWith('refresh_token='))) {
+        cookieParts.push(`refresh_token=${activeRefreshToken}`);
+      }
+      if (!cookieParts.some(c => c.startsWith('auth_token='))) {
+        cookieParts.push(`auth_token=${cleanToken}`);
+      }
+      headers.set('Cookie', cookieParts.join('; '));
+    }
   }
 
   // Determine caching strategy:
@@ -147,6 +194,15 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
 
       // 401 Interceptor for both server-side and client-side fetches
       if (res.status === 401 && isAuthRequest && !finalUrl.includes('/auth/refresh-token')) {
+        // Only core auth/user profile endpoints can determine if the overall user session is truly dead.
+        // Secondary microservices (smart-docs-api, trading-api, cms-api) may return 401 due to feature permissions/plans
+        // and MUST NEVER trigger a full-site logout or redirect to /login!
+        const isCoreUserApi =
+          finalUrl.includes('/profile') ||
+          finalUrl.includes('/user/') ||
+          finalUrl.includes('/auth/user') ||
+          finalUrl.includes('/auth/me');
+
         if (typeof window !== 'undefined') {
           if (!isRefreshing) {
             isRefreshing = true;
@@ -154,13 +210,14 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
               const result = await refreshTokensAction();
               if (result.success && result.access_token) {
                 onRefreshed(result.access_token);
+                window.dispatchEvent(
+                  new CustomEvent('auth-token-refreshed', { detail: { token: result.access_token } })
+                );
               } else {
                 onRefreshed('');
-                window.location.href = '/en/login';
               }
             } catch (error) {
               onRefreshed('');
-              window.location.href = '/en/login';
             } finally {
               isRefreshing = false;
             }
@@ -186,10 +243,18 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
         } else {
           // Server-side (Server Components and Server Actions)
           try {
-            const refreshRes = await refreshTokensAction();
+            const { executeRefreshToken } = await import('@/lib/auth-token');
+            const refreshRes = await executeRefreshToken();
             if (refreshRes.success && refreshRes.access_token) {
               const retryHeaders = new Headers(fetchInit.headers);
               retryHeaders.set('Authorization', `Bearer ${refreshRes.access_token}`);
+              const existingCookie = retryHeaders.get('Cookie') || '';
+              const cookieParts = existingCookie
+                .split(';')
+                .map(c => c.trim())
+                .filter(c => c && !c.startsWith('auth_token='));
+              cookieParts.push(`auth_token=${refreshRes.access_token}`);
+              retryHeaders.set('Cookie', cookieParts.join('; '));
               fetchInit.headers = retryHeaders;
               clearTimeout(timeoutId);
               const retriedRes = await fetch(finalUrl, fetchInit);

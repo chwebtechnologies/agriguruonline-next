@@ -7,6 +7,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries';
 import { getClientAuthData } from '@/app/actions/authData';
 import { SmartDocsHeader } from '@/components/smart-docs/SmartDocsHeader';
 import { SmartDocsFooter } from '@/components/smart-docs/SmartDocsFooter';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export async function generateMetadata(props: {
   params: Promise<{ lang: string }>;
@@ -38,8 +39,7 @@ export default async function SmartDocsLayout({
   const resolvedParams = await params;
   const activeLang = getSafeLanguage(resolvedParams?.lang);
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     redirect(`/${activeLang}/login?redirectUrl=/${activeLang}/smart-docs`);

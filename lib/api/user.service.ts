@@ -264,17 +264,16 @@ export const userService = {
 
       if (res.ok) {
         const json = await res.json();
-        if (json.success === false || !json.data) {
-          invalidateUserAuthCache(token);
-          return { userProfile: null, shouldLogout: true };
+        const profile = json?.data?.user || json?.data?.profile || json?.data || null;
+        if (!profile || json?.success === 0 || json?.success === false) {
+          return { userProfile: null, shouldLogout: false };
         }
-        const result = { userProfile: json.data, shouldLogout: false };
+        const result = { userProfile: profile, shouldLogout: false };
         cleanOldCacheEntries();
         userProfileMemoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
         return result;
-      } else if (res.status === 401 || res.status === 403) {
-        invalidateUserAuthCache(token);
-        return { userProfile: null, shouldLogout: true };
+      } else {
+        return { userProfile: null, shouldLogout: false };
       }
     } catch (err) {
       console.error('[userService.getUserProfile] Fetch error:', err);

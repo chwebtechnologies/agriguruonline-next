@@ -4,7 +4,8 @@ import disposableDomains from "disposable-email-domains";
 import { cookies } from "next/headers";
 import { authService, userService, invalidateUserAuthCache } from "@/lib/api";
 import { getUserApiUrl } from "@/lib/api-utils";
-import { getIsSecureCookie } from "@/lib/auth-cookie";
+import { getIsSecureCookie, extractRefreshTokenFromResponse } from "@/lib/auth-cookie";
+import { executeRefreshToken } from "@/lib/auth-token";
 
 /**
  * Internal timeout wrapper for auth requests to prevent hanging when User API is slow.
@@ -12,8 +13,13 @@ import { getIsSecureCookie } from "@/lib/auth-cookie";
 async function authFetch(url: string, init: RequestInit, timeoutMs = 15000): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const headers = new Headers(init.headers || {});
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+  if (!headers.has('x-app-source')) headers.set('x-app-source', 'web');
+  if (!headers.has('source')) headers.set('source', 'web');
+
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetch(url, { ...init, headers, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -56,6 +62,13 @@ export async function createSession(accessToken: string, refreshToken: string | 
 
   if (refreshToken) {
     cookieStore.set("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+    });
+    cookieStore.set("web_refresh_token", refreshToken, {
       httpOnly: true,
       secure: isSecure,
       sameSite: "lax",
@@ -116,30 +129,13 @@ export async function serverVerifyOtp(email: string, otp: string, lang: string) 
   
   const response = await authFetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      "x-app-source": "web",
+      "source": "web"
+    },
     body: JSON.stringify({ email, otp, source: "WEB" }),
   });
-
-  const setCookieHeader = response.headers.get("set-cookie");
-  let backendRefreshToken = null;
-
-  if (setCookieHeader) {
-    // Parse the web_refresh_token from the Set-Cookie header
-    const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
-    if (match) {
-      backendRefreshToken = match[1];
-    }
-  } else {
-    // In node, headers.getSetCookie() might be needed for multiple cookies
-    const cookiesArr = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
-    for (const c of cookiesArr) {
-      const match = c.match(/web_refresh_token=([^;]+)/);
-      if (match) {
-        backendRefreshToken = match[1];
-        break;
-      }
-    }
-  }
 
   let data = null;
   try {
@@ -148,14 +144,17 @@ export async function serverVerifyOtp(email: string, otp: string, lang: string) 
     return { ok: false, error: "Invalid JSON response from backend" };
   }
 
-  if (response.ok && data?.success === 1) {
+  const backendRefreshToken = extractRefreshTokenFromResponse(response, data);
+  const isSuccess = response.ok && (data?.success === 1 || data?.success === true || data?.status === true);
+
+  if (isSuccess) {
     const successData = data;
-    const nextStep = successData?.data?.next_step || successData?.next_step || null;
-    const token = successData?.data?.access_token || successData?.access_token;
+    const token = successData?.data?.access_token || successData?.data?.token || successData?.access_token || successData?.token;
+    const nextStep = successData?.data?.next_step || successData?.next_step || (token ? "LOGGED_IN" : null);
     const refreshToken = backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null;
     const user = successData?.data?.user || successData?.user || null;
 
-    if (nextStep === "LOGGED_IN" && token) {
+    if (token && nextStep !== "REQUIRE_REGISTRATION") {
       try {
         await createSession(token, refreshToken, user);
       } catch (sessionErr: any) {
@@ -165,7 +164,7 @@ export async function serverVerifyOtp(email: string, otp: string, lang: string) 
     }
 
     // Return the extracted refresh token along with the JSON data so the client can use it
-    return { ok: true, data, nextStep, backendRefreshToken };
+    return { ok: true, data, nextStep, backendRefreshToken: refreshToken };
   }
 
   return { ok: false, error: data?.message || data?.error || "OTP Verification failed", status: response.status };
@@ -177,28 +176,13 @@ export async function serverGoogleLogin(idToken: string, lang: string) {
 
   const response = await authFetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      "x-app-source": "web",
+      "source": "web"
+    },
     body: JSON.stringify({ id_token: idToken, source: "WEB" }),
   });
-
-  const setCookieHeader = response.headers.get("set-cookie");
-  let backendRefreshToken = null;
-
-  if (setCookieHeader) {
-    const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
-    if (match) {
-      backendRefreshToken = match[1];
-    }
-  } else {
-    const cookiesArr = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
-    for (const c of cookiesArr) {
-      const match = c.match(/web_refresh_token=([^;]+)/);
-      if (match) {
-        backendRefreshToken = match[1];
-        break;
-      }
-    }
-  }
 
   let data = null;
   try {
@@ -207,7 +191,9 @@ export async function serverGoogleLogin(idToken: string, lang: string) {
     return { ok: false, error: "Invalid JSON response from backend" };
   }
 
-  if (response.ok && (data?.success === 1 || data?.success === true)) {
+  const backendRefreshToken = extractRefreshTokenFromResponse(response, data);
+
+  if (response.ok && (data?.success === 1 || data?.success === true || data?.status === true)) {
     return { ok: true, data, backendRefreshToken };
   }
 
@@ -220,28 +206,13 @@ export async function serverAppleLogin(applePayload: any, lang: string) {
 
   const response = await authFetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      "x-app-source": "web",
+      "source": "web"
+    },
     body: JSON.stringify({ ...applePayload, source: "WEB" }),
   });
-
-  const setCookieHeader = response.headers.get("set-cookie");
-  let backendRefreshToken = null;
-
-  if (setCookieHeader) {
-    const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
-    if (match) {
-      backendRefreshToken = match[1];
-    }
-  } else {
-    const cookiesArr = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
-    for (const c of cookiesArr) {
-      const match = c.match(/web_refresh_token=([^;]+)/);
-      if (match) {
-        backendRefreshToken = match[1];
-        break;
-      }
-    }
-  }
 
   let data = null;
   try {
@@ -250,7 +221,9 @@ export async function serverAppleLogin(applePayload: any, lang: string) {
     return { ok: false, error: "Invalid JSON response from backend" };
   }
 
-  if (response.ok && (data?.success === 1 || data?.success === true)) {
+  const backendRefreshToken = extractRefreshTokenFromResponse(response, data);
+
+  if (response.ok && (data?.success === 1 || data?.success === true || data?.status === true)) {
     return { ok: true, data, backendRefreshToken };
   }
 
@@ -263,28 +236,13 @@ export async function serverVerifyAppleOtp(email: string, otp: string, transacti
 
   const response = await authFetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      "x-app-source": "web",
+      "source": "web"
+    },
     body: JSON.stringify({ transaction_id: transactionId, otp, ...(email ? { email } : {}), source: "WEB" }),
   });
-
-  const setCookieHeader = response.headers.get("set-cookie");
-  let backendRefreshToken = null;
-
-  if (setCookieHeader) {
-    const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
-    if (match) {
-      backendRefreshToken = match[1];
-    }
-  } else {
-    const cookiesArr = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
-    for (const c of cookiesArr) {
-      const match = c.match(/web_refresh_token=([^;]+)/);
-      if (match) {
-        backendRefreshToken = match[1];
-        break;
-      }
-    }
-  }
 
   let data = null;
   try {
@@ -293,21 +251,23 @@ export async function serverVerifyAppleOtp(email: string, otp: string, transacti
     return { ok: false, error: "Invalid JSON response from backend" };
   }
 
-  if (response.ok && data?.success === 1) {
+  const backendRefreshToken = extractRefreshTokenFromResponse(response, data);
+
+  if (response.ok && (data?.success === 1 || data?.success === true || data?.status === true)) {
     const successData = data;
-    const nextStep = successData?.data?.next_step || successData?.next_step || null;
-    const token = successData?.data?.access_token || successData?.access_token;
+    const token = successData?.data?.access_token || successData?.data?.token || successData?.access_token || successData?.token;
+    const nextStep = successData?.data?.next_step || successData?.next_step || (token ? "LOGGED_IN" : null);
     const refreshToken = backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null;
     const user = successData?.data?.user || successData?.user || null;
 
-    if (nextStep === "LOGGED_IN" && token) {
+    if (token && nextStep !== "REQUIRE_REGISTRATION") {
       try {
         await createSession(token, refreshToken, user);
       } catch (sessionErr: any) {
         return { ok: false, error: "Failed to setup session. Please try again." };
       }
     }
-    return { ok: true, data, nextStep, backendRefreshToken };
+    return { ok: true, data, nextStep, backendRefreshToken: refreshToken };
   }
   return { ok: false, error: data?.message || data?.error || "OTP Verification failed", status: response.status };
 }
@@ -322,10 +282,12 @@ async function destroySession() {
     }
     cookieStore.delete({ name: "auth_token", path: "/" });
     cookieStore.delete({ name: "refresh_token", path: "/" });
+    cookieStore.delete({ name: "web_refresh_token", path: "/" });
     cookieStore.delete({ name: "user_info", path: "/" });
     cookieStore.delete({ name: "__Secure-uid", path: "/" });
     cookieStore.set("auth_token", "", { path: "/", maxAge: 0 });
     cookieStore.set("refresh_token", "", { path: "/", maxAge: 0 });
+    cookieStore.set("web_refresh_token", "", { path: "/", maxAge: 0 });
     cookieStore.set("user_info", "", { path: "/", maxAge: 0 });
     cookieStore.set("__Secure-uid", "", { path: "/", maxAge: 0 });
   } catch (cookieErr) {
@@ -479,86 +441,7 @@ export async function uploadProfileImage(formData: FormData) {
 }
 
 export async function refreshTokensAction() {
-  try {
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get('refresh_token')?.value;
-    const oldToken = cookieStore.get('auth_token')?.value;
-    const tokenToRefresh = refreshToken || oldToken;
-
-    if (!tokenToRefresh) {
-      return { success: false, message: 'No token available for refresh' };
-    }
-
-    const apiUrl = getUserApiUrl();
-    const bodyPayload = { refresh_token: tokenToRefresh, source: 'WEB' };
-
-    const response = await authFetch(`${apiUrl}/auth/refresh-token?lang_code=en&source=web`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-app-source': 'web',
-        'source': 'web',
-        'Cookie': `web_refresh_token=${refreshToken}`
-      },
-      body: JSON.stringify(bodyPayload),
-    });
-
-    const setCookieHeader = response.headers.get("set-cookie");
-    let newRefreshToken = refreshToken;
-
-    if (setCookieHeader) {
-      const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
-      if (match) {
-        newRefreshToken = match[1];
-      }
-    } else {
-      const cookiesArr = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
-      for (const c of cookiesArr) {
-        const match = c.match(/web_refresh_token=([^;]+)/);
-        if (match) {
-          newRefreshToken = match[1];
-          break;
-        }
-      }
-    }
-
-    if (!response.ok) {
-      await destroySession();
-      return { success: false, message: 'Refresh token expired or invalid' };
-    }
-
-    const data = await response.json();
-
-    if (data?.data?.access_token) {
-      const isSecure = await getIsSecureCookie();
-      cookieStore.set('auth_token', data.data.access_token, {
-        httpOnly: true,
-        secure: isSecure,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60,
-      });
-      
-      const finalRefreshToken = newRefreshToken || data.data.refresh_token;
-      if (finalRefreshToken) {
-        cookieStore.set('refresh_token', finalRefreshToken, {
-          httpOnly: true,
-          secure: isSecure,
-          sameSite: 'lax',
-          path: '/',
-          maxAge: 30 * 24 * 60 * 60,
-        });
-      }
-
-      return { success: true, message: 'Token refreshed successfully', access_token: data.data.access_token };
-    } else {
-      await destroySession();
-      return { success: false, message: 'Invalid response from refresh server' };
-    }
-  } catch (error) {
-    console.error('[Action] Token refresh error:', error);
-    return { success: false, message: 'Internal server error' };
-  }
+  return await executeRefreshToken();
 }
 
 /**

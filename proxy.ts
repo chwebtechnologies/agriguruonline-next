@@ -123,52 +123,62 @@ export default async function middleware(request: NextRequest) {
         // Default validity: valid if not expired
         isTokenValid = !isExpired;
         
-        // Refresh if within 30 seconds of expiry or already expired
-        if (payload.exp && nowMs >= expMs - 30 * 1000) {
+        // Refresh if within 5 seconds of expiry or already expired
+        if (payload.exp && nowMs >= expMs - 5 * 1000) {
           
-          const refreshToken = request.cookies.get('refresh_token')?.value;
-          const oldToken = request.cookies.get('auth_token')?.value;
-          const tokenToRefresh = refreshToken || oldToken;
+          const refreshToken = request.cookies.get('refresh_token')?.value || request.cookies.get('web_refresh_token')?.value;
           
-          if (tokenToRefresh) {
+          if (refreshToken) {
             try {
               const backendUrl = process.env.NEXT_PUBLIC_USER_API_URL || 'https://user-api.agriguruonline.cloud';
-                const bodyPayload = { refresh_token: tokenToRefresh, source: 'WEB' };
-                const refreshRes = await fetch(`${backendUrl}/auth/refresh-token?lang_code=en&source=web`, {
-                  method: 'POST',
-                  headers: { 
-                    'Content-Type': 'application/json',
-                    'x-app-source': 'web',
-                    'source': 'web',
-                    'Cookie': `web_refresh_token=${tokenToRefresh}`
-                  },
-                  body: JSON.stringify(bodyPayload)
-                });
-                
-                if (refreshRes.ok) {
-                  const refreshData = await refreshRes.json();
-                  if (refreshData?.data?.access_token) {
-                  token = refreshData.data.access_token;
+              const bodyPayload = { 
+                refresh_token: refreshToken, 
+                refreshToken: refreshToken, 
+                web_refresh_token: refreshToken,
+                source: 'web' 
+              };
+              const cookieHeaderParts = [
+                `web_refresh_token=${refreshToken}`,
+                `refresh_token=${refreshToken}`
+              ];
+              const refreshRes = await fetch(`${backendUrl}/auth/refresh-token?lang_code=en&source=web`, {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                  'x-app-source': 'web',
+                  'source': 'web',
+                  'x-refresh-token': refreshToken,
+                  'refresh-token': refreshToken,
+                  'Cookie': cookieHeaderParts.join('; ')
+                },
+                body: JSON.stringify(bodyPayload)
+              });
+              
+              if (refreshRes.ok) {
+                const refreshData = await refreshRes.json();
+                const newAccess = refreshData?.data?.access_token || refreshData?.data?.token || refreshData?.access_token;
+                if (newAccess) {
+                  token = newAccess;
                   isTokenValid = true;
                   
                   // Signal downstream that we have new tokens
-                  request.headers.set('x-new-auth-token', refreshData.data.access_token);
-                  request.cookies.set('auth_token', refreshData.data.access_token);
+                  request.headers.set('x-new-auth-token', newAccess);
+                  request.cookies.set('auth_token', newAccess);
                   
-                  // Check if backend returned a new web_refresh_token via Set-Cookie
+                  // Check if backend returned a new web_refresh_token via Set-Cookie or JSON
+                  let newRefreshToken = refreshData?.data?.refresh_token || refreshData?.data?.refreshToken || refreshData?.data?.web_refresh_token || null;
                   const setCookieHeader = refreshRes.headers.get("set-cookie");
-                  let newRefreshToken = refreshData.data.refresh_token || null;
-                  
                   if (setCookieHeader) {
-                    const match = setCookieHeader.match(/web_refresh_token=([^;]+)/);
-                    if (match) {
+                    const match = setCookieHeader.match(/(?:web_refresh_token|refresh_token|refreshToken)=([^;,\s]+)/i);
+                    if (match && match[1] && match[1] !== 'deleted') {
                       newRefreshToken = match[1];
                     }
-                  } else {
-                    const cookiesArr = refreshRes.headers.getSetCookie ? refreshRes.headers.getSetCookie() : [];
+                  } else if (typeof (refreshRes.headers as any).getSetCookie === 'function') {
+                    const cookiesArr = (refreshRes.headers as any).getSetCookie();
                     for (const c of cookiesArr) {
-                      const match = c.match(/web_refresh_token=([^;]+)/);
-                      if (match) {
+                      const match = c.match(/(?:web_refresh_token|refresh_token|refreshToken)=([^;,\s]+)/i);
+                      if (match && match[1] && match[1] !== 'deleted') {
                         newRefreshToken = match[1];
                         break;
                       }
@@ -178,37 +188,34 @@ export default async function middleware(request: NextRequest) {
                   if (newRefreshToken) {
                     request.headers.set('x-new-refresh-token', newRefreshToken);
                     request.cookies.set('refresh_token', newRefreshToken);
+                    request.cookies.set('web_refresh_token', newRefreshToken);
                   }
 
                   // CRITICAL FIX: Next.js Server Components read from the raw 'cookie' header.
-                  // We must override the raw cookie header so they see the newly refreshed token!
+                  // Avoid leading semicolon if updatedCookies is empty!
                   const currentCookies = request.headers.get('cookie') || '';
                   const updatedCookies = currentCookies
                     .split(';')
                     .map(c => c.trim())
-                    .filter(c => !c.startsWith('auth_token=') && !c.startsWith('refresh_token='))
+                    .filter(c => c && !c.startsWith('auth_token=') && !c.startsWith('refresh_token=') && !c.startsWith('web_refresh_token='))
                     .join('; ');
                   
-                  const newCookieStr = [
-                    updatedCookies,
-                    `auth_token=${refreshData.data.access_token}`
-                  ];
-                  
+                  const cookieParts = updatedCookies ? [updatedCookies] : [];
+                  cookieParts.push(`auth_token=${newAccess}`);
                   if (newRefreshToken) {
-                    newCookieStr.push(`refresh_token=${newRefreshToken}`);
+                    cookieParts.push(`refresh_token=${newRefreshToken}`);
+                    cookieParts.push(`web_refresh_token=${newRefreshToken}`);
                   }
                   
-                  request.headers.set('cookie', newCookieStr.join('; '));
+                  request.headers.set('cookie', cookieParts.join('; '));
                 }
-              } else {
-                // Refresh failed
               }
             } catch (err) {
               console.error('Middleware proactive refresh failed:', err);
             }
           }
           
-          // If refresh failed or didn't happen, but the token is still technically alive, let it through
+          // If refresh failed or had a network blip, but token is not yet past expMs, allow it through
           if (!isTokenValid && nowMs < expMs) {
              isTokenValid = true;
           }
@@ -221,7 +228,7 @@ export default async function middleware(request: NextRequest) {
       }
     } catch (e) {
       console.error('Error decoding JWT token in middleware:', e);
-      isTokenValid = false; // Safe fallback for security
+      isTokenValid = false;
     }
   }
   
@@ -258,6 +265,13 @@ export default async function middleware(request: NextRequest) {
         path: '/',
         maxAge: 30 * 24 * 60 * 60,
       });
+      res.cookies.set('web_refresh_token', newRefreshToken, {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60,
+      });
     }
     return res;
   };
@@ -276,17 +290,7 @@ export default async function middleware(request: NextRequest) {
 
     const loginUrl = new URL(`/${locale}/login`, request.url);
     loginUrl.searchParams.set('redirectUrl', pathname);
-    const response = NextResponse.redirect(loginUrl);
-    
-    // Clear expired auth token
-    response.cookies.delete('auth_token');
-    response.cookies.delete('refresh_token');
-    response.cookies.delete('user_info');
-    response.cookies.set('auth_token', '', { path: '/', maxAge: 0 });
-    response.cookies.set('refresh_token', '', { path: '/', maxAge: 0 });
-    response.cookies.set('user_info', '', { path: '/', maxAge: 0 });
-    
-    return response;
+    return NextResponse.redirect(loginUrl);
   }
 
   // Define guest-only routes (redirect if logged in)

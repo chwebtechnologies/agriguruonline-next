@@ -107,12 +107,29 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   const [notificationsData, setNotificationsData] = useState<any[]>(initialNotifications)
   const [alertsData, setAlertsData] = useState<any[]>(initialAlerts)
   const [aiPredictsData, setAiPredictsData] = useState<any[]>(initialAiPredicts)
+  const [currentToken, setCurrentToken] = useState<string>(token || '')
 
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false)
   const [isLoadingAlerts, setIsLoadingAlerts] = useState(false)
   const [isLoadingAiPredicts, setIsLoadingAiPredicts] = useState(false)
 
   // Keep state synced if SSR props change
+  useEffect(() => {
+    if (token) {
+      setCurrentToken(token);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    const handleRefreshed = (e: any) => {
+      if (e.detail?.token) {
+        setCurrentToken(e.detail.token);
+      }
+    };
+    window.addEventListener('auth-token-refreshed', handleRefreshed);
+    return () => window.removeEventListener('auth-token-refreshed', handleRefreshed);
+  }, []);
+
   useEffect(() => {
     if (initialProfile) {
       setProfile(initialProfile);
@@ -138,11 +155,11 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
   }, [initialAiPredicts]);
 
   const fetchNotifications = useCallback(async (showLoading = false) => {
-    if (!token) return;
+    if (!currentToken) return;
     if (showLoading) setIsLoadingNotifications(true);
     try {
       const url = `${getUserApiUrl()}/custom-notification?lang_code=${activeLang}&source=web`;
-      const res = await customFetch(url, { token });
+      const res = await customFetch(url, { token: currentToken });
       if (res.ok) {
         const data = await res.json();
         const extractedItems = Array.isArray(data) ? data : 
@@ -160,14 +177,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     } finally {
       if (showLoading) setIsLoadingNotifications(false);
     }
-  }, [token, activeLang]);
+  }, [currentToken, activeLang]);
 
   const fetchAlerts = useCallback(async (showLoading = false) => {
-    if (!token) return;
+    if (!currentToken) return;
     if (showLoading) setIsLoadingAlerts(true);
     try {
       const url = `${getTradingApiUrl()}/price-alert?lang_code=${activeLang}&source=web`;
-      const res = await customFetch(url, { token });
+      const res = await customFetch(url, { token: currentToken });
       if (res.ok) {
         const data = await res.json();
         const extracted = Array.isArray(data) ? data :
@@ -186,14 +203,14 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     } finally {
       if (showLoading) setIsLoadingAlerts(false);
     }
-  }, [token, activeLang]);
+  }, [currentToken, activeLang]);
 
   const fetchAiPredicts = useCallback(async (showLoading = false) => {
-    if (!token) return;
+    if (!currentToken) return;
     if (showLoading) setIsLoadingAiPredicts(true);
     try {
       const url = `${getTradingApiUrl()}/price-analysis?lang_code=${activeLang}&source=web`;
-      const res = await customFetch(url, { token });
+      const res = await customFetch(url, { token: currentToken });
       if (res.ok) {
         const data = await res.json();
         const extracted = extractPredicts(data);
@@ -204,7 +221,7 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     } finally {
       if (showLoading) setIsLoadingAiPredicts(false);
     }
-  }, [token, activeLang]);
+  }, [currentToken, activeLang]);
 
   const fetchNotificationsRef = useRef(fetchNotifications);
   fetchNotificationsRef.current = fetchNotifications;
@@ -396,7 +413,51 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     };
   }, [token, activeLang, setHasUnread]);
 
-  // Removed silent heartbeat as the interceptor flow is now working perfectly with web_refresh_token
+  // Active session silent refresh: backend tokens expire in 30 seconds.
+  // Refresh token every 20 seconds and on tab focus/visibility to ensure seamless UX.
+  const tokenRef = useRef(currentToken);
+  useEffect(() => {
+    tokenRef.current = currentToken;
+  }, [currentToken]);
+
+  useEffect(() => {
+    if (!token && !currentToken) return;
+    let isCancelled = false;
+
+    const performSilentRefresh = async () => {
+      if (!tokenRef.current) return;
+      try {
+        const { refreshTokensAction } = await import('@/app/actions/auth');
+        const res = await refreshTokensAction();
+        if (res.success && res.access_token && !isCancelled) {
+          setCurrentToken(res.access_token);
+          window.dispatchEvent(
+            new CustomEvent('auth-token-refreshed', { detail: { token: res.access_token } })
+          );
+        }
+      } catch (e) {
+        // Silently fail on network hiccup; on-demand interceptors will handle
+      }
+    };
+
+    const interval = setInterval(performSilentRefresh, 20000);
+
+    const handleActive = () => {
+      if (document.visibilityState === 'visible') {
+        performSilentRefresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleActive);
+    window.addEventListener('focus', handleActive);
+
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleActive);
+      window.removeEventListener('focus', handleActive);
+    };
+  }, [token]);
 
   // Combined: show dot if either context OR local listener has unread
   const showUnreadDot = hasUnread || localUnread

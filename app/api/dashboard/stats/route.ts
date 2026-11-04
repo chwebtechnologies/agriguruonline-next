@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { tradingService } from '@/lib/api/trading.service';
 import { userService } from '@/lib/api/user.service';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+    const token = await getValidAuthToken();
     
     if (!token) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });

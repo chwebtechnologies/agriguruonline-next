@@ -87,8 +87,8 @@ export default function AppleLoginButton({ lang, onSuccess }: AppleLoginButtonPr
 
         const successData = result.data;
         const nextStep = successData?.data?.next_step || successData?.next_step;
-        const token = successData?.data?.access_token || successData?.access_token;
-        const refreshToken = result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null;
+        const token = successData?.data?.access_token || successData?.data?.token || successData?.access_token || successData?.token;
+        const refreshToken = result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.data?.web_refresh_token || successData?.refresh_token || null;
         const user = successData?.data?.user || successData?.user || null;
         
         let userEmail = user?.email || successData?.data?.email || successData?.email || response.user?.email || "";
@@ -114,23 +114,25 @@ export default function AppleLoginButton({ lang, onSuccess }: AppleLoginButtonPr
           }
         }
 
-        if (nextStep === "LOGGED_IN" && token) {
+        const resolvedNextStep = nextStep || (token ? "LOGGED_IN" : null);
+
+        if (token && resolvedNextStep !== "REQUIRE_REGISTRATION" && resolvedNextStep !== "REQUIRE_EMAIL") {
           await createSession(token, refreshToken, user);
           if (typeof window !== "undefined") {
             try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
             window.dispatchEvent(new Event("auth-state-change"));
           }
           toast.success(successData?.message || "Logged in successfully");
-        } else if (nextStep === "REQUIRE_REGISTRATION") {
+        } else if (resolvedNextStep === "REQUIRE_REGISTRATION") {
           toast.success("Please complete your registration");
-        } else if (nextStep === "REQUIRE_EMAIL") {
+        } else if (resolvedNextStep === "REQUIRE_EMAIL") {
           toast.info("Please provide your email to continue Apple verification");
         } else {
           toast.success(successData?.message || "Logged in successfully");
         }
 
         if (onSuccess) {
-          onSuccess(userEmail, nextStep);
+          onSuccess(userEmail, resolvedNextStep);
         } else {
           try {
             const stored = getStoredPlanSelection();

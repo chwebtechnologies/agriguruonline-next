@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { userService } from '@/lib/api/user.service';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token =
-      cookieStore.get('auth_token')?.value ||
-      cookieStore.get('__Secure-uid')?.value ||
-      request.cookies.get('auth_token')?.value ||
-      request.cookies.get('__Secure-uid')?.value;
+    const token = await getValidAuthToken();
 
     if (!token) {
       return NextResponse.json(

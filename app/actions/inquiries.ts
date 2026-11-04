@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { getSafeLang } from "@/lib/api-utils";
 import { tradingService } from "@/lib/api";
+import { getValidAuthToken } from "@/lib/auth-token";
 
 export interface ServerActionResponse {
   success: boolean;
@@ -23,11 +24,8 @@ export async function getInquiryDetailsAction(
   try {
     if (!id) return { success: false, error: "Inquiry ID is required", data: null };
 
-    const cookieStore = await cookies();
-    const token =
-      passedToken ||
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    const token = await getValidAuthToken(passedToken);
+    if (!token) return { success: false, error: "Unauthorized", data: null };
 
     const safeLang = getSafeLang(lang);
     return await tradingService.getInquiryDetails(id, token, safeLang, type);
@@ -54,11 +52,7 @@ export async function getLatestInquiryDetailsAction(
   try {
     if (!id) return { success: 0, message: "Inquiry ID is required" };
 
-    const cookieStore = await cookies();
-    const token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
+    const token = await getValidAuthToken();
     if (!token) {
       return { success: 0, message: "Unauthorized", isUnauthorized: true };
     }
@@ -85,11 +79,8 @@ export async function submitInquiryNegotiationAction(
     if (!inquiryId) return { success: false, error: "Inquiry ID is required" };
     if (!price || price <= 0) return { success: false, error: "Valid price is required" };
 
-    const cookieStore = await cookies();
-    const token =
-      passedToken ||
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    const token = await getValidAuthToken(passedToken);
+    if (!token) return { success: false, error: "Unauthorized" };
 
     const safeLang = getSafeLang(lang);
     return await tradingService.submitInquiryNegotiation(inquiryId, price, note, token, safeLang);
@@ -112,11 +103,8 @@ export async function respondInquiryAction(
   try {
     if (!inquiryId) return { success: false, error: "Inquiry ID is required" };
 
-    const cookieStore = await cookies();
-    const token =
-      passedToken ||
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    const token = await getValidAuthToken(passedToken);
+    if (!token) return { success: false, error: "Unauthorized" };
 
     const safeLang = getSafeLang(lang);
     return await tradingService.respondInquiry(
@@ -142,11 +130,8 @@ export async function deleteInquiriesAction(
   passedToken?: string
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    const token =
-      passedToken ||
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    const token = await getValidAuthToken(passedToken);
+    if (!token) return { success: false, error: "Unauthorized" };
 
     const safeLang = getSafeLang(lang);
     return await tradingService.deleteInquiries(type, payload, token, safeLang);
@@ -238,12 +223,7 @@ export async function fetchInquiriesListAction(
   passedToken?: string
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    const token =
-      passedToken ||
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
+    const token = await getValidAuthToken(passedToken);
     if (!token) return { success: false, error: "Unauthorized", data: [] };
 
     const safeLang = getSafeLang(lang);

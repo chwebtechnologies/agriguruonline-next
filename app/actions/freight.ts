@@ -7,6 +7,7 @@ import { ServerActionResponse } from "./charts";
 import { customFetch, customFetchJSON } from "@/lib/api/fetcher";
 import { refreshTokensAction } from "@/app/actions/auth";
 import { getUserProfile } from "@/lib/user-data";
+import { getValidAuthToken } from "@/lib/auth-token";
 
 /**
  * Fetch shipping containers for Freight Chart
@@ -70,15 +71,7 @@ export async function getFavoritePortsAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      const refreshRes = await refreshTokensAction();
-      if (refreshRes.success && refreshRes.access_token) {
-        token = refreshRes.access_token;
-      }
-    }
+    const token = await getValidAuthToken();
     const safeLang = getSafeLang(lang);
 
     const ports = await tradingService.getFavoritePorts(token || "", safeLang);
@@ -101,18 +94,10 @@ export async function addFavoritePortAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      const refreshRes = await refreshTokensAction();
-      if (refreshRes.success && refreshRes.access_token) {
-        token = refreshRes.access_token;
-      }
-    }
+    const token = await getValidAuthToken();
     const safeLang = getSafeLang(lang);
 
-    const result = await tradingService.addFavoritePort(payload, token, safeLang);
+    const result = await tradingService.addFavoritePort(payload, token || undefined, safeLang);
     if (!result.success && result.error && /unauthori/i.test(result.error)) {
       const refreshRes = await refreshTokensAction();
       if (refreshRes.success && refreshRes.access_token) {
@@ -137,18 +122,10 @@ export async function deleteFavoritePortAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      const refreshRes = await refreshTokensAction();
-      if (refreshRes.success && refreshRes.access_token) {
-        token = refreshRes.access_token;
-      }
-    }
+    const token = await getValidAuthToken();
     const safeLang = getSafeLang(lang);
 
-    const result = await tradingService.deleteFavoritePort(id, token, safeLang);
+    const result = await tradingService.deleteFavoritePort(id, token || undefined, safeLang);
     if (!result.success && result.error && /unauthori/i.test(result.error)) {
       const refreshRes = await refreshTokensAction();
       if (refreshRes.success && refreshRes.access_token) {
@@ -178,16 +155,7 @@ export async function fetchFreightPriceAction(params: {
   lang_code?: string;
 }): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes && refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch {}
-    }
+    const token = await getValidAuthToken();
 
     if (!token) {
       return { success: false, error: "Unauthorized", data: null };
@@ -253,15 +221,7 @@ export async function submitFreightInquiryAction(
   lang: string = "en"
 ): Promise<ServerActionResponse> {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value;
-    if (!token) token = cookieStore.get("__Secure-uid")?.value;
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      const refreshRes = await refreshTokensAction();
-      if (refreshRes.success && refreshRes.access_token) {
-        token = refreshRes.access_token;
-      }
-    }
+    const token = await getValidAuthToken();
 
     if (!token) {
       return { success: false, error: "Unauthorized. Please log in first." };
@@ -324,18 +284,7 @@ export async function checkFreightKYCStatus(
   langCode?: string
 ) {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes && refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refreshErr) {
-        console.error("Token refresh failed in checkFreightKYCStatus:", refreshErr);
-      }
-    }
+    const token = await getValidAuthToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", data: null, isUnauthorized: true };
@@ -373,6 +322,7 @@ export async function checkFreightKYCStatus(
     }
 
     if (!user_id) {
+      const cookieStore = await cookies();
       const userInfoCookie = cookieStore.get("user_info")?.value;
       if (userInfoCookie) {
         try {

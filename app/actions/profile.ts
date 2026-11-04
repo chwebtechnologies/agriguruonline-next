@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { userService } from "@/lib/api";
+import { getValidAuthToken } from "@/lib/auth-token";
 
 export interface ServerActionResponse {
   success: boolean;
@@ -19,8 +20,7 @@ export async function updateProfile(
   payload: any,
   lang: string = "en"
 ): Promise<ServerActionResponse> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, error: "Authentication token missing. Please log in again." };
@@ -56,8 +56,7 @@ export async function updateProfile(
 }
 
 export async function revalidateProfile(lang: string = "en") {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  const token = await getValidAuthToken();
   if (token) {
     const { invalidateUserAuthCache } = await import("@/lib/api");
     invalidateUserAuthCache(token);
@@ -73,8 +72,7 @@ export async function uploadKycDocument(
   formData: FormData,
   lang: string = "en"
 ): Promise<ServerActionResponse> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, error: "Authentication token missing. Please log in again." };
@@ -109,8 +107,7 @@ export async function uploadKycDocument(
 }
 
 export async function fetchKycDocsForClient(lang: string = "en", userId: string): Promise<any> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+  const token = await getValidAuthToken();
 
   if (!token || !userId) {
     return { success: false, data: [] };
@@ -132,8 +129,7 @@ export async function saveNotificationSettings(
   payload: Record<string, any>,
   lang: string = "en"
 ): Promise<ServerActionResponse> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, error: "Authentication required" };

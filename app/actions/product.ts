@@ -5,11 +5,11 @@ import { cookies } from "next/headers";
 import { getTradingApiUrl, getUserApiUrl } from "@/lib/api-utils";
 import { getUserProfile } from "@/lib/user-data";
 import { refreshTokensAction } from "@/app/actions/auth";
+import { getValidAuthToken } from "@/lib/auth-token";
 import fs from "fs";
 
 export async function fetchProductDetails(productId: string, langCode: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null };
@@ -28,8 +28,7 @@ export async function fetchProductDetails(productId: string, langCode: string) {
 }
 
 export async function fetchShippingTerms(langCode: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null };
@@ -48,8 +47,7 @@ export async function fetchShippingTerms(langCode: string) {
 }
 
 export async function fetchLoadingPorts(productId: string, containerId: string, shippingTermId: string, langCode: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null };
@@ -68,8 +66,7 @@ export async function fetchLoadingPorts(productId: string, containerId: string, 
 }
 
 export async function fetchDestinationPorts(productId: string, containerId: string, loadingPortId: string, langCode: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null };
@@ -88,8 +85,7 @@ export async function fetchDestinationPorts(productId: string, containerId: stri
 }
 
 export async function fetchPaymentTerms(langCode: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null };
@@ -117,8 +113,7 @@ export async function fetchTradingPrice(params: {
   packing_type_id: string;
   lang_code: string;
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null };
@@ -172,8 +167,7 @@ export async function fetchTradingPrice(params: {
 }
 
 export async function submitTradingInquiry(payload: any) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null };
@@ -244,8 +238,7 @@ export async function submitTradingInquiry(payload: any) {
 }
 
 export async function checkKYCStatus(langCode: string, type: string, favoriteProductId?: string | number) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null, isUnauthorized: true };
@@ -269,6 +262,7 @@ export async function checkKYCStatus(langCode: string, type: string, favoritePro
   }
 
   if (!user_id) {
+    const cookieStore = await cookies();
     const userInfoCookie = cookieStore.get("user_info")?.value;
     if (userInfoCookie) {
       try {
@@ -298,7 +292,7 @@ export async function checkKYCStatus(langCode: string, type: string, favoritePro
 
     const res = await customFetch(url, {
       method: "POST",
-      token,
+      token: token || undefined,
       timeout: 15000,
       headers: {
         'Content-Type': 'application/json',
@@ -328,8 +322,7 @@ export async function checkKYCStatus(langCode: string, type: string, favoritePro
 }
 
 export async function fetchFavoriteProductDetails(favoriteProductId: string | number, langCode: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, message: "Unauthorized", data: null };
@@ -353,19 +346,7 @@ export async function fetchFavoriteProductDetails(favoriteProductId: string | nu
  */
 export async function checkFavoriteProductLimit(langCode: string = 'en') {
   const safeLang = langCode || 'en';
-  const cookieStore = await cookies();
-  let token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
-
-  if (!token && cookieStore.get("refresh_token")?.value) {
-    try {
-      const refreshRes = await refreshTokensAction();
-      if (refreshRes && refreshRes.success && refreshRes.access_token) {
-        token = refreshRes.access_token;
-      }
-    } catch (refreshErr) {
-      console.error("Token refresh failed in checkFavoriteProductLimit:", refreshErr);
-    }
-  }
+  const token = await getValidAuthToken();
 
   let user_id = '';
   let isKycVerified = false;
@@ -386,6 +367,7 @@ export async function checkFavoriteProductLimit(langCode: string = 'en') {
   }
 
   if (!user_id) {
+    const cookieStore = await cookies();
     const userInfoCookie = cookieStore.get("user_info")?.value;
     if (userInfoCookie) {
       try {
@@ -412,7 +394,7 @@ export async function checkFavoriteProductLimit(langCode: string = 'en') {
 
     const res = await customFetch(url, {
       method: "POST",
-      token,
+      token: token || undefined,
       timeout: 15000,
       headers: {
         'Content-Type': 'application/json',

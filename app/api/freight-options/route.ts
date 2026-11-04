@@ -4,6 +4,7 @@ import { getTradingApiUrl, getSafeLang } from '@/lib/api-utils';
 import { refreshTokensAction } from '@/app/actions/auth';
 import { getUserProfile } from '@/lib/user-data';
 import { tradingService } from '@/lib/api';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,18 +18,7 @@ export async function GET(req: NextRequest) {
     if (type === 'check-kyc') {
       const favFreightId = searchParams.get('favFreightId') || '';
       try {
-        const cookieStore = await cookies();
-        let token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
-        if (!token && cookieStore.get('refresh_token')?.value) {
-          try {
-            const refreshRes = await refreshTokensAction();
-            if (refreshRes && refreshRes.success && refreshRes.access_token) {
-              token = refreshRes.access_token;
-            }
-          } catch (refreshErr) {
-            console.error('Token refresh failed in check-kyc route:', refreshErr);
-          }
-        }
+        const token = await getValidAuthToken();
 
         if (!token) {
           return NextResponse.json({ success: false, message: 'Unauthorized', data: null, isUnauthorized: true });
@@ -51,6 +41,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (!user_id) {
+          const cookieStore = await cookies();
           const userInfoCookie = cookieStore.get('user_info')?.value;
           if (userInfoCookie) {
             try {
@@ -131,16 +122,7 @@ export async function GET(req: NextRequest) {
 
     if (type === 'price') {
       try {
-        const cookieStore = await cookies();
-        let token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
-        if (!token && cookieStore.get('refresh_token')?.value) {
-          try {
-            const refreshRes = await refreshTokensAction();
-            if (refreshRes && refreshRes.success && refreshRes.access_token) {
-              token = refreshRes.access_token;
-            }
-          } catch {}
-        }
+        const token = await getValidAuthToken();
 
         if (!token) {
           return NextResponse.json({ success: false, message: 'Unauthorized', data: null });
@@ -302,8 +284,7 @@ export async function GET(req: NextRequest) {
 
     if (type === 'payment-terms') {
       try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+        const token = await getValidAuthToken();
         const headers: Record<string, string> = {
           'Accept': 'application/json',
           'x-app-source': 'web'
@@ -346,18 +327,7 @@ export async function POST(req: NextRequest) {
 
     if (type === 'submit-inquiry') {
       const payload = await req.json().catch(() => ({}));
-      const cookieStore = await cookies();
-      let token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
-      if (!token && cookieStore.get('refresh_token')?.value) {
-        try {
-          const refreshRes = await refreshTokensAction();
-          if (refreshRes && refreshRes.success && refreshRes.access_token) {
-            token = refreshRes.access_token;
-          }
-        } catch (refreshErr) {
-          console.error('Token refresh failed in submit-inquiry:', refreshErr);
-        }
-      }
+      const token = await getValidAuthToken();
 
       if (!token) {
         return NextResponse.json({ success: false, error: 'Unauthorized. Please log in.' }, { status: 401 });

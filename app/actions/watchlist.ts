@@ -4,11 +4,10 @@ import { cookies } from 'next/headers';
 import { getSafeLang, getNormalizedUserType, withTimeout } from '@/lib/api-utils';
 import { tradingService } from '@/lib/api/trading.service';
 import { getUserProfile } from '@/lib/user-data';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export async function getWatchlistProductsAction(lang: string = 'en') {
-  const cookieStore = await cookies();
-  let token = cookieStore.get('auth_token')?.value || '';
-  if (!token) token = cookieStore.get('__Secure-uid')?.value || '';
+  let token = (await getValidAuthToken()) || '';
   const safeLang = getSafeLang(lang);
 
   let products: any[] = [];
@@ -139,9 +138,7 @@ export async function getWatchlistProductsAction(lang: string = 'en') {
 }
 
 export async function getWatchlistFreightAction(lang: string = 'en') {
-  const cookieStore = await cookies();
-  let token = cookieStore.get('auth_token')?.value || '';
-  if (!token) token = cookieStore.get('__Secure-uid')?.value || '';
+  let token = (await getValidAuthToken()) || '';
   const safeLang = getSafeLang(lang);
 
   let shippingContainers: any[] = [];

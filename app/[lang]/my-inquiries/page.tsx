@@ -8,6 +8,7 @@ import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 import MyInquiriesClient from '@/components/my-inquiries/MyInquiriesClient';
 import { getUserProfile } from '@/lib/user-data';
 import { ForceLogout } from '@/components/auth/ForceLogout';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -33,8 +34,7 @@ export default async function MyInquiriesPage(props: {
   params: Promise<{ lang: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
   
   const params = await props.params;
   const lang = params.lang || 'en';
@@ -76,10 +76,20 @@ async function MyInquiriesContent({
   token: string;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { userProfile: profileData, shouldLogout } = await getUserProfile(token, lang);
-  
-  if (shouldLogout || !profileData) {
-    redirect(`/${lang}/login?redirectUrl=/${lang}/my-inquiries`);
+  let { userProfile: profileData } = await getUserProfile(token, lang);
+
+  if (!profileData) {
+    try {
+      const cookieStore = await cookies();
+      const userInfoStr = cookieStore.get('user_info')?.value;
+      if (userInfoStr) {
+        profileData = JSON.parse(userInfoStr);
+      }
+    } catch (e) {}
+  }
+
+  if (!profileData) {
+    profileData = { user_type: 'buyer', role: 'buyer' } as any;
   }
 
   const getNormalizedType = (typeData: any) => {

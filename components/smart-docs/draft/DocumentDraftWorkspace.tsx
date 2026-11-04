@@ -582,7 +582,10 @@ export function DocumentDraftWorkspace({
           <div className="mt-2.5 pt-2 border-t border-border animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y">
             <DocumentStatusStepper
               isMobile
-              stepId={effectiveConfirmationId || 'new-confirmation'}
+              stepperType={isContract ? 'contract' : 'confirmation'}
+              stepperId={isContract ? (canonicalContractId || draftId) : (effectiveConfirmationId || draftId)}
+              stepId={draftId || effectiveConfirmationId || 'new-confirmation'}
+              confirmationId={effectiveConfirmationId}
               initialSteps={steps}
               currentStepIndex={selectedStepIndex}
               onSelectStep={handleSelectStep}
@@ -1058,12 +1061,15 @@ export function DocumentDraftWorkspace({
       */}
       <aside 
         id="draft-stepper-card"
-        className="hidden lg:flex w-[260px] xl:w-[280px] 2xl:w-[300px] shrink-0 h-full min-h-0 bg-card border border-border rounded-xl shadow-xs overflow-hidden flex-col relative z-10"
+        className="hidden lg:flex w-[260px] xl:w-[280px] 2xl:w-[300px] shrink-0 h-full min-h-0 bg-card border border-border rounded-xl shadow-xs flex-col relative z-20"
       >
         {/* Stepper Viewport (pinned header with internal scrollable list) */}
         <div className="w-full h-full flex flex-col p-2.5 sm:p-3 min-h-0">
           <DocumentStatusStepper
-            stepId={effectiveConfirmationId || 'new-confirmation'}
+            stepperType={isContract ? 'contract' : 'confirmation'}
+            stepperId={isContract ? (canonicalContractId || draftId) : (effectiveConfirmationId || draftId)}
+            stepId={draftId || effectiveConfirmationId || 'new-confirmation'}
+            confirmationId={effectiveConfirmationId}
             initialSteps={steps}
             currentStepIndex={selectedStepIndex}
             onSelectStep={handleSelectStep}

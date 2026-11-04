@@ -9,6 +9,7 @@ import { userService } from '@/lib/api/user.service'
 import { tradingService } from '@/lib/api/trading.service'
 import { getUserProfile } from '@/lib/user-data'
 import { getNormalizedUserType } from '@/lib/api-utils'
+import { getValidAuthToken } from '@/lib/auth-token'
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -27,8 +28,8 @@ export async function generateMetadata(
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage(props: { params: Promise<{ lang: string }> }) {
+  const token = await getValidAuthToken();
   const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
 
   const params = await props.params
   const lang = params.lang || 'en'
@@ -54,14 +55,20 @@ export default async function DashboardPage(props: { params: Promise<{ lang: str
     }),
   ]);
 
-  if (userProfile?.shouldLogout) {
-    redirect(`/${lang}/login?redirectUrl=/${lang}/dashboard`);
+  let effectiveUserProfile = userProfile?.userProfile;
+  if (!effectiveUserProfile) {
+    try {
+      const userInfoStr = cookieStore.get('user_info')?.value;
+      if (userInfoStr) {
+        effectiveUserProfile = JSON.parse(userInfoStr);
+      }
+    } catch (e) {}
   }
 
-  const userType = getNormalizedUserType(userProfile?.userProfile?.user_type) || 'buyer';
+  const userType = getNormalizedUserType(effectiveUserProfile?.user_type) || 'buyer';
 
   // Merge feature count limits from membership plan if available
-  const membershipFeatures = userProfile?.userProfile?.membership?.features || [];
+  const membershipFeatures = effectiveUserProfile?.membership?.features || [];
   let productLimit = stats?.favourite_product_count_limit;
   let portLimit = stats?.favourite_port_count_limit;
 

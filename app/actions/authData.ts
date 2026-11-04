@@ -2,10 +2,11 @@
 
 import { cookies } from "next/headers";
 import { getAuthData, invalidateUserAuthCache } from "@/lib/user-data";
+import { getValidAuthToken } from "@/lib/auth-token";
 
 export async function getClientAuthData(activeLang: string) {
+  const token = await getValidAuthToken();
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
 
   if (!token) {
     return { isAuthenticated: false };
@@ -14,21 +15,40 @@ export async function getClientAuthData(activeLang: string) {
   try {
     const data = await getAuthData(token, activeLang);
     
-    if (data.shouldLogout) {
-      invalidateUserAuthCache(token);
-      return { isAuthenticated: false, shouldLogout: true };
+    let userProfile = data?.userProfile;
+    if (!userProfile) {
+      try {
+        const userInfoStr = cookieStore.get('user_info')?.value;
+        if (userInfoStr) {
+          userProfile = JSON.parse(userInfoStr);
+        }
+      } catch (e) {}
     }
 
     return { 
       isAuthenticated: true, 
       token: token, 
-      userProfile: data.userProfile, 
-      alertsData: data.alertsData, 
-      notificationsData: data.notificationsData, 
-      aiPredictsData: data.aiPredictsData 
+      userProfile: userProfile || null, 
+      alertsData: data?.alertsData || [], 
+      notificationsData: data?.notificationsData || [], 
+      aiPredictsData: data?.aiPredictsData || [] 
     };
   } catch (error) {
     console.error("Error fetching client auth data:", error);
-    return { isAuthenticated: false };
+    let fallbackProfile = null;
+    try {
+      const userInfoStr = cookieStore.get('user_info')?.value;
+      if (userInfoStr) {
+        fallbackProfile = JSON.parse(userInfoStr);
+      }
+    } catch (e) {}
+    return { 
+      isAuthenticated: true, 
+      token: token, 
+      userProfile: fallbackProfile, 
+      alertsData: [], 
+      notificationsData: [], 
+      aiPredictsData: [] 
+    };
   }
 }

@@ -10,6 +10,7 @@ import {
   extractSmartDocsTotal,
 } from '@/lib/api/smart-docs.service';
 import { getDictionary } from '@/app/[lang]/dictionaries';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,8 +21,7 @@ export default async function ProductsPage(props: {
   const params = await props.params;
   const lang = getSafeLanguage(params?.lang);
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     redirect(`/${lang}/login?redirectUrl=/${lang}/smart-docs/products`);

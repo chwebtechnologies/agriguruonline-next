@@ -196,6 +196,19 @@ export default function InquiryDetailsPanel({
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [localOffers, setLocalOffers] = useState<any[]>([]);
   const [offerStatus, setOfferStatus] = useState<'normal' | 'confirmed' | 'rejected'>('normal');
+  const [currentToken, setCurrentToken] = useState(token);
+
+  useEffect(() => {
+    setCurrentToken(token);
+  }, [token]);
+
+  useEffect(() => {
+    const handleRefreshed = (e: any) => {
+      if (e?.detail?.token) setCurrentToken(e.detail.token);
+    };
+    window.addEventListener('auth-token-refreshed', handleRefreshed);
+    return () => window.removeEventListener('auth-token-refreshed', handleRefreshed);
+  }, []);
 
   // Reset local state when selected item changes
   useEffect(() => {
@@ -216,7 +229,7 @@ export default function InquiryDetailsPanel({
     const fetchDetails = async () => {
       setIsFetching(true);
       try {
-        const response = await getInquiryDetailsAction(idToFetch, lang, token, activeTab);
+        const response = await getInquiryDetailsAction(idToFetch, lang, currentToken, activeTab);
         if (!isMounted) return;
 
         if (response.success && response.data && typeof response.data === 'object') {
@@ -723,7 +736,7 @@ export default function InquiryDetailsPanel({
         priceNum,
         `User counter: ${currencySymbol}${priceNum}`,
         lang,
-        token
+        currentToken
       );
 
       const newOffer = {
@@ -768,7 +781,7 @@ export default function InquiryDetailsPanel({
         inquiryId,
         'CONFIRM',
         lang,
-        token,
+        currentToken,
         activeTab,
         payloadType
       );
@@ -811,7 +824,7 @@ export default function InquiryDetailsPanel({
         inquiryId,
         'REJECT',
         lang,
-        token,
+        currentToken,
         activeTab,
         payloadType
       );

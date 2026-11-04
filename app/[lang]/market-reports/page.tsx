@@ -34,6 +34,7 @@ export async function generateMetadata(
 
 
 import { cmsService } from '@/lib/api/cms.service'
+import { getValidAuthToken } from '@/lib/auth-token'
 
 /* ---------- Skeleton shown during Suspense ---------- */
 function MarketReportsGridSkeleton() {
@@ -213,8 +214,7 @@ export default async function MarketReportsPage(props: {
   params: Promise<{ lang: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
+  const token = (await getValidAuthToken()) || undefined;
   
   const params = await props.params;
   const lang = params.lang || 'en'

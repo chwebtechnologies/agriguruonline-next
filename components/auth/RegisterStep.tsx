@@ -101,11 +101,11 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
         }
 
         const data = await res.json();
-        const token = data?.data?.access_token || data?.access_token;
-        const refreshToken = data?.data?.refresh_token || data?.data?.refreshToken || data?.refresh_token || null;
+        const token = data?.data?.access_token || data?.data?.token || data?.access_token || data?.token;
+        const refreshToken = data?.data?.refresh_token || data?.data?.refreshToken || data?.data?.web_refresh_token || data?.refresh_token || data?.refreshToken || null;
         const user = data?.data?.user || data?.user || null;
         
-        if ((data.success === 1 || data.success === true) && token) {
+        if ((data.success === 1 || data.success === true || data.status === true) && token) {
            await createSession(
              token, 
              refreshToken,

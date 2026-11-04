@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSafeLanguage, getSiteUrl } from '@/lib/seo';
 import { getDictionary } from '@/app/[lang]/dictionaries';
+import { getValidAuthToken } from '@/lib/auth-token';
 import DocumentDraftWorkspace from '@/components/smart-docs/draft/DocumentDraftWorkspace';
 import DocumentDraftSkeleton from '@/components/smart-docs/draft/DocumentDraftSkeleton';
 import {
@@ -87,8 +88,7 @@ async function DraftPageDataLoader(props: {
   const isContractRequested = initialStepParam === 'contract' || initialStepParam === '2';
   const isProformaRequested = initialStepParam === 'proforma' || initialStepParam === '3';
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     const redirectParts = [];

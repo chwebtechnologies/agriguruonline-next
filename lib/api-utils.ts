@@ -27,7 +27,10 @@ export function getCmsApiUrl(): string {
 }
 
 export function getSmartDocsApiUrl(): string {
-  const url = process.env.NEXT_PUBLIC_SMART_DOCS_API_URL || process.env.SMART_DOCS_API_URL || "https://smart-docs-api.agriguruonline.cloud";
+  if (typeof window !== 'undefined') {
+    return '/api/proxy-smart-docs';
+  }
+  const url = process.env.NEXT_PUBLIC_SMART_DOCS_API_URL || process.env.SMART_DOCS_API_URL || "";
   return url.replace(/\/$/, "");
 }
 
@@ -49,11 +52,13 @@ export const getNormalizedUserType = (typeData: any): string => {
 
 /**
  * Universal timeout wrapper to prevent slow external API responses from blocking SSR streaming.
+ * Ensures a healthy minimum timeout (at least 8000ms) so slow network connections never cause empty listings.
  */
 export const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  const effectiveMs = Math.max(ms, 8000);
   let timeoutId: NodeJS.Timeout;
   const timeoutPromise = new Promise<T>((resolve) => {
-    timeoutId = setTimeout(() => resolve(fallback), ms);
+    timeoutId = setTimeout(() => resolve(fallback), effectiveMs);
   });
   return Promise.race([
     promise.finally(() => clearTimeout(timeoutId)),

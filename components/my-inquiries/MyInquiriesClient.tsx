@@ -38,6 +38,19 @@ export default function MyInquiriesClient({
   const [productInquiriesList, setProductInquiriesList] = useState<any[]>(initialProductInquiries);
   const [freightInquiriesList, setFreightInquiriesList] = useState<any[]>(initialFreightInquiries);
   const [isLoadingTab, setIsLoadingTab] = useState(false);
+  const [currentToken, setCurrentToken] = useState(token);
+
+  useEffect(() => {
+    setCurrentToken(token);
+  }, [token]);
+
+  useEffect(() => {
+    const handleRefreshed = (e: any) => {
+      if (e?.detail?.token) setCurrentToken(e.detail.token);
+    };
+    window.addEventListener('auth-token-refreshed', handleRefreshed);
+    return () => window.removeEventListener('auth-token-refreshed', handleRefreshed);
+  }, []);
 
   useEffect(() => {
     setProductInquiriesList(initialProductInquiries);
@@ -60,7 +73,7 @@ export default function MyInquiriesClient({
   const refreshTabList = async (tab: 'product' | 'freight') => {
     try {
       setIsLoadingTab(true);
-      const res = await fetchInquiriesListAction(tab, lang, token);
+      const res = await fetchInquiriesListAction(tab, lang, currentToken);
       if (res.success && Array.isArray(res.data)) {
         if (tab === 'product') {
           setProductInquiriesList(res.data);
@@ -200,7 +213,7 @@ export default function MyInquiriesClient({
         fresh_inquiry_ids: freshInquiryIds,
       };
 
-      const result = await deleteInquiriesAction(activeTab, payload, lang, token);
+      const result = await deleteInquiriesAction(activeTab, payload, lang, currentToken);
 
       if (result.success) {
         toast.success(result.message || 'Inquiries deleted successfully');
@@ -391,7 +404,7 @@ export default function MyInquiriesClient({
             selectedItemId={selectedItemId || (selectedItem?.id || selectedItem?._id || null)}
             activeTab={activeTab}
             lang={lang}
-            token={token}
+            token={currentToken}
             userProfile={userProfile}
             dict={dict}
             onBack={() => setIsMobileDetailView(false)}

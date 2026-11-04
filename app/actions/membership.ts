@@ -8,6 +8,7 @@ import { getTradingApiUrl } from '@/lib/api-utils';
 import { customFetch } from '@/lib/api/fetcher';
 import type { InitiateUpgradeResponse } from '@/lib/api/user.service';
 import { getIsSecureCookie } from '@/lib/auth-cookie';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export interface ActionResult<T = any> {
   success: boolean;
@@ -28,8 +29,7 @@ export async function initiateUpgradeAction(
   },
   lang: string = 'en'
 ): Promise<ActionResult<InitiateUpgradeResponse>> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return {
@@ -84,8 +84,8 @@ export async function startTrialAction(
   },
   lang: string = 'en'
 ): Promise<ActionResult> {
+  const token = await getValidAuthToken();
   const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
 
   if (!token) {
     return {
@@ -172,8 +172,7 @@ export async function createSubscriptionAction(
   },
   lang: string = 'en'
 ): Promise<ActionResult<any>> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return {
@@ -227,8 +226,8 @@ export async function captureSubscriptionAction(
   },
   lang: string = 'en'
 ): Promise<ActionResult> {
+  const token = await getValidAuthToken();
   const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
 
   if (!token) {
     return {
@@ -441,8 +440,7 @@ export async function captureSubscriptionAction(
  * Refreshes user profile and returns updated state.
  */
 export async function refreshUserProfileAction(lang: string = 'en'): Promise<ActionResult<any>> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return {
@@ -523,8 +521,7 @@ export async function getOnboardingDropdownsAction(lang: string = 'en'): Promise
  * Securely retrieves current user profile for client components (with phone, email, country code).
  */
 export async function getCurrentUserProfileAction(lang: string = 'en'): Promise<ActionResult<any>> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return { success: false, error: 'User is not logged in.' };
@@ -549,8 +546,7 @@ export async function getSubscriptionInvoiceAction(
   id: string,
   lang: string = 'en'
 ): Promise<ActionResult<{ file_name: string; pdf_buffer: string }>> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   if (!token) {
     return {

@@ -274,6 +274,298 @@ export async function getStepperListAction(
   }
 }
 
+export interface GetStepperDocsListActionParams {
+  stepperType?: string;
+  stepperId?: string;
+  id?: string;
+  documentId?: string;
+  confirmationId?: string;
+  contractId?: string;
+  lang?: string;
+}
+
+export interface StepperDocConfigItem {
+  id: string;
+  name: string;
+  allow_hide: boolean;
+  is_hidden: boolean;
+  order?: number;
+}
+
+export interface GetStepperDocsListActionResult {
+  success: boolean;
+  data: StepperDocConfigItem[];
+  message?: string;
+  error?: string;
+}
+
+export async function getStepperDocsListAction(
+  params: GetStepperDocsListActionParams
+): Promise<GetStepperDocsListActionResult> {
+  try {
+    const rawId = String(
+      params.stepperId || params.id || params.documentId || params.contractId || params.confirmationId || ""
+    ).trim();
+    let cleanType = String(params.stepperType || "confirmation")
+      .trim()
+      .toLowerCase();
+    if (cleanType === 'document') {
+      cleanType = 'contract';
+    }
+
+    const fallbackId = String(params.confirmationId || params.contractId || "").trim();
+    const cleanId = (!rawId || rawId === 'new-confirmation' || rawId === 'undefined' || rawId === 'null')
+      ? fallbackId
+      : rawId;
+
+    if (
+      !cleanId ||
+      cleanId === "new-confirmation" ||
+      cleanId === "undefined" ||
+      cleanId === "null"
+    ) {
+      return {
+        success: false,
+        data: [],
+        error: "Document ID is required to fetch stepper documents list",
+      };
+    }
+
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value ||
+      cookieStore.get("access_token")?.value ||
+      cookieStore.get("token")?.value;
+
+    if (!token) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[getStepperDocsListAction] Initial token refresh failed:", refErr);
+      }
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    let rawRes = await smartDocsService.getStepperDocsList(
+      cleanType,
+      cleanId,
+      safeLang,
+      token,
+      fallbackId
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        (rawRes as any).status === 401 ||
+        (rawRes as any).statusCode === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.getStepperDocsList(
+            cleanType,
+            cleanId,
+            safeLang,
+            refreshRes.access_token,
+            fallbackId
+          );
+        }
+      } catch (refErr) {
+        console.warn("[getStepperDocsListAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    const rawList = Array.isArray(rawRes?.data)
+      ? rawRes.data
+      : Array.isArray(rawRes?.data?.data)
+      ? rawRes.data.data
+      : Array.isArray(rawRes?.data?.documents)
+      ? rawRes.data.documents
+      : Array.isArray(rawRes)
+      ? rawRes
+      : [];
+
+    const items: StepperDocConfigItem[] = rawList.map((item: any, idx: number) => ({
+      id: String(item?.id || item?._id || `doc-${idx}`),
+      name: String(item?.name || item?.document_name || item?.title || 'Document'),
+      allow_hide:
+        item?.allow_hide === true ||
+        item?.allow_hide === 1 ||
+        String(item?.allow_hide).toLowerCase() === 'true',
+      is_hidden:
+        item?.is_hidden === true ||
+        item?.is_hidden === 1 ||
+        String(item?.is_hidden).toLowerCase() === 'true',
+      order: typeof item?.order === 'number' ? item.order : idx,
+    }));
+
+    if (!rawRes && items.length === 0) {
+      return {
+        success: false,
+        data: [],
+        error: "Failed to fetch document configuration from server",
+      };
+    }
+
+    return {
+      success: true,
+      data: items,
+      message: rawRes?.message,
+    };
+  } catch (error: any) {
+    console.error("[getStepperDocsListAction] Error:", error);
+    return {
+      success: false,
+      data: [],
+      error: error?.message || "Failed to fetch stepper docs list",
+    };
+  }
+}
+
+export interface SaveStepperDocsListActionParams {
+  stepperType?: string;
+  stepperId?: string;
+  id?: string;
+  documentId?: string;
+  confirmationId?: string;
+  contractId?: string;
+  stepper_docs?: { id: string; is_hidden: boolean; allow_hide?: boolean }[];
+  items?: { id: string; is_hidden: boolean; allow_hide?: boolean }[];
+  lang?: string;
+}
+
+export async function saveStepperDocsListAction(
+  params: SaveStepperDocsListActionParams
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const rawId = String(
+      params.stepperId || params.id || params.documentId || params.contractId || params.confirmationId || ""
+    ).trim();
+    let cleanType = String(params.stepperType || "confirmation")
+      .trim()
+      .toLowerCase();
+    if (cleanType === 'document') {
+      cleanType = 'contract';
+    }
+
+    const fallbackId = String(params.confirmationId || params.contractId || "").trim();
+    const cleanId = (!rawId || rawId === 'new-confirmation' || rawId === 'undefined' || rawId === 'null')
+      ? fallbackId
+      : rawId;
+
+    if (
+      !cleanId ||
+      cleanId === "new-confirmation" ||
+      cleanId === "undefined" ||
+      cleanId === "null"
+    ) {
+      return {
+        success: false,
+        error: "Stepper ID is required to update document visibility",
+      };
+    }
+
+    const cookieStore = await cookies();
+    let token =
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value ||
+      cookieStore.get("access_token")?.value ||
+      cookieStore.get("token")?.value;
+
+    if (!token) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[saveStepperDocsListAction] Initial token refresh failed:", refErr);
+      }
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawDocs = Array.isArray(params?.stepper_docs)
+      ? params.stepper_docs
+      : Array.isArray(params?.items)
+      ? params.items
+      : [];
+
+    const stepper_docs = rawDocs.map((doc: any) => ({
+      id: String(doc?.id || doc?._id || ""),
+      is_hidden: Boolean(doc?.is_hidden),
+    }));
+
+    const payload = {
+      stepper_docs,
+    };
+
+    let rawRes = await smartDocsService.updateStepperDocsList(
+      cleanType,
+      cleanId,
+      payload,
+      safeLang,
+      token,
+      fallbackId
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        (rawRes as any).status === 401 ||
+        (rawRes as any).statusCode === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.updateStepperDocsList(
+            cleanType,
+            cleanId,
+            payload,
+            safeLang,
+            refreshRes.access_token,
+            fallbackId
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveStepperDocsListAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    const isSuccess = Boolean(
+      rawRes?.status === true ||
+        rawRes?.success === 1 ||
+        rawRes?.success === true ||
+        (rawRes as any)?.statusCode === 200 ||
+        (rawRes as any)?.statusCode === 201 ||
+        (rawRes as any)?.statusCode === 204
+    );
+
+    return {
+      success: isSuccess,
+      message:
+        rawRes?.message ||
+        (isSuccess ? "Updated successfully" : "Failed to update documents list"),
+      error: !isSuccess ? rawRes?.message || "Failed to update documents list" : undefined,
+    };
+  } catch (error: any) {
+    console.error("[saveStepperDocsListAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to save stepper docs configuration",
+    };
+  }
+}
+
+
 export interface GetSmartDocsInstructionsActionParams {
   lang?: string;
   source?: string;

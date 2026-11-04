@@ -8,6 +8,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries';
 
 import { getUserAlerts } from '@/lib/user-data';
 import { withTimeout } from '@/lib/api-utils';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 
@@ -26,8 +27,7 @@ export async function generateMetadata(
 }
 
 export default async function AlertsSetupsPage(props: { params: Promise<{ lang: string }> }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
+  const token = await getValidAuthToken();
   
   const params = await props.params;
   const lang = params.lang || 'en';

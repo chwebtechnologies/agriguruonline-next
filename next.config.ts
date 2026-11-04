@@ -338,6 +338,7 @@ const nextConfig: NextConfig = {
     const tradingUrl = process.env.NEXT_PUBLIC_TRADING_API_URL || process.env.TRADING_API_URL || '';
     const cmsUrl = process.env.NEXT_PUBLIC_CMS_API_URL || process.env.CMS_API_URL || '';
     const userUrl = process.env.NEXT_PUBLIC_USER_API_URL || process.env.USER_API_URL || '';
+    const smartDocsUrl = process.env.NEXT_PUBLIC_SMART_DOCS_API_URL || process.env.SMART_DOCS_API_URL || '';
 
     return [
       {
@@ -351,6 +352,10 @@ const nextConfig: NextConfig = {
       {
         source: '/api/proxy-user/:path*',
         destination: `${userUrl.replace(/\/$/, '')}/:path*`,
+      },
+      {
+        source: '/api/proxy-smart-docs/:path*',
+        destination: `${smartDocsUrl.replace(/\/$/, '')}/:path*`,
       }
     ]
   },

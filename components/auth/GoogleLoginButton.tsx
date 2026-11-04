@@ -31,8 +31,8 @@ export default function GoogleLoginButton({ lang, onSuccess }: GoogleLoginButton
         }
 
         const successData = result.data;
-        const token = successData?.data?.access_token || successData?.access_token;
-        const refreshToken = result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null;
+        const token = successData?.data?.access_token || successData?.data?.token || successData?.access_token || successData?.token;
+        const refreshToken = result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.data?.web_refresh_token || successData?.refresh_token || null;
         const user = successData?.data?.user || successData?.user || null;
         const nextStep = successData?.data?.next_step || successData?.next_step || (token ? "LOGGED_IN" : null);
         const userEmail = user?.email || successData?.data?.email || successData?.email || "";

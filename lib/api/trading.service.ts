@@ -716,6 +716,8 @@ export const tradingService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-app-source': 'web',
+          'source': 'web',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(payload)

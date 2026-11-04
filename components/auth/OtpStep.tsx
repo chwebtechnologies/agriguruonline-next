@@ -103,11 +103,11 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
         }
 
         const successData = result.data;
-        const nextStep = result.nextStep || successData?.data?.next_step || successData?.next_step || null;
+        const token = successData?.data?.access_token || successData?.data?.token || successData?.access_token || successData?.token;
+        const nextStep = result.nextStep || successData?.data?.next_step || successData?.next_step || (token ? "LOGGED_IN" : null);
 
         // Fallback session creation in case it wasn't already handled on server
-        const token = successData?.data?.access_token || successData?.access_token;
-        if (nextStep === "LOGGED_IN") {
+        if (token && nextStep !== "REQUIRE_REGISTRATION") {
           try {
             localStorage.removeItem("apple_txn_id");
             localStorage.removeItem("apple_email");
@@ -115,16 +115,14 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
             localStorage.removeItem("apple_last_name");
           } catch (e) {}
 
-          if (token) {
-            try {
-              await createSession(
-                token, 
-                result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.refresh_token || null,
-                successData?.data?.user || successData?.user || null
-              );
-            } catch (e) {
-              // Already handled server-side in serverVerifyOtp
-            }
+          try {
+            await createSession(
+              token, 
+              result.backendRefreshToken || successData?.data?.refresh_token || successData?.data?.refreshToken || successData?.data?.web_refresh_token || successData?.refresh_token || null,
+              successData?.data?.user || successData?.user || null
+            );
+          } catch (e) {
+            // Already handled server-side in serverVerifyOtp
           }
         }
 

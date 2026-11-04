@@ -394,8 +394,9 @@ export default function DocumentDraftSkeleton({
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div className="w-5 h-5 rounded bg-muted/60 shrink-0" />
                   <div className="h-3.5 w-24 bg-muted/50 rounded" />
+                  <div className="h-4 w-7 rounded-full bg-muted/40 shrink-0" />
                 </div>
-                <div className="h-4 w-10 rounded-full bg-muted/40 shrink-0" />
+                <div className="w-3.5 h-3.5 rounded bg-muted/40 shrink-0" />
               </div>
 
               {/* Workflow Steps Skeleton List matching Stepper rows */}
