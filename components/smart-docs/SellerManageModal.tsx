@@ -5,6 +5,9 @@ import { createPortal } from 'react-dom';
 import flags from 'react-phone-number-input/flags';
 import { getCountries, getCountryCallingCode, parsePhoneNumber, type Country } from 'react-phone-number-input';
 import en from 'react-phone-number-input/locale/en.json';
+import CountrySelectField from './CountrySelectField';
+import PhoneInputField from './PhoneInputField';
+import { handleFormFocusScroll } from './form-scroll-utils';
 import DocSignatureBox from '@/components/smart-docs/draft/form/DocSignatureBox';
 import {
   getSellerBankDetailsAction,
@@ -561,26 +564,13 @@ export default function SellerManageModal({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isPhoneDropdownOpen]);
 
-  // Backdrop Click Handlers - Guard against text drags and child click bubbling
+  // Backdrop Click Handlers - Do NOT close on outside click to prevent data loss
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      backdropMouseDownRef.current = true;
-    } else {
-      backdropMouseDownRef.current = false;
-    }
+    // Backdrop click disabled to prevent accidental closure
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (
-      backdropMouseDownRef.current &&
-      e.target === e.currentTarget &&
-      !isSavingBusiness &&
-      !isSavingBank &&
-      !isLoading
-    ) {
-      onClose();
-    }
-    backdropMouseDownRef.current = false;
+    // Backdrop click disabled - only explicit [X] or Cancel button closes modal
   };
 
   // Handle ESC key to close
@@ -644,19 +634,19 @@ export default function SellerManageModal({
   };
 
   // Address Country Selection (Independent of Phone number's country)
-  const handleSelectCountry = (c: { code: Country; name: string }) => {
+  const handleSelectCountry = (c: { code: Country | null; name: string; id?: string }) => {
     setSelectedCountryName(c.name);
     setSelectedCountryCode(c.code);
 
-    let matchedId = '';
-    if (countries && countries.length > 0) {
+    let matchedId = c.id || '';
+    if (!matchedId && countries && countries.length > 0) {
       const match = countries.find(
         (item: any) =>
-          item.iso2?.toUpperCase() === c.code.toUpperCase() ||
+          (c.code && item.iso2?.toUpperCase() === c.code.toUpperCase()) ||
           item.name?.toLowerCase() === c.name.toLowerCase()
       );
       if (match?.id) {
-        matchedId = match.id;
+        matchedId = String(match.id);
       }
     }
 
@@ -1584,8 +1574,9 @@ export default function SellerManageModal({
         ) : (
           <div 
             ref={modalBodyRef}
-            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden', WebkitOverflowScrolling: 'touch' }}
-            className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-5 space-y-4 text-xs sm:text-sm transform-gpu"
+            onFocusCapture={handleFormFocusScroll}
+            style={{ WebkitOverflowScrolling: 'touch' }}
+            className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-5 space-y-4 text-xs sm:text-sm scroll-smooth"
           >
             {activeTab === 'business' ? (
               /* TAB 1: BUSINESS DETAILS */
@@ -1594,8 +1585,11 @@ export default function SellerManageModal({
                 <div className="flex flex-col sm:flex-row gap-3.5 items-start">
                   {/* Left: Square Company Logo (110px x 110px exact square matching the 2 inputs) */}
                   <div className="flex flex-col gap-1 shrink-0 self-center sm:self-start">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1 leading-4">
-                      Company Logo
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between leading-4">
+                      <span>Company Logo</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
 
                     <input
@@ -1692,8 +1686,11 @@ export default function SellerManageModal({
 
                     {/* Input 2: Certificate Name & Number */}
                     <div className="flex flex-col gap-1">
-                      <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1 leading-4">
-                        Certificate Name & Number
+                      <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between leading-4">
+                        <span>Certificate Name & Number</span>
+                        <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                          (optional)
+                        </span>
                       </label>
                       <input
                         type="text"
@@ -1721,8 +1718,11 @@ export default function SellerManageModal({
 
                 {/* Row 2: Address (Text Area) */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Address
+                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>Address</span>
+                    <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                      (optional)
+                    </span>
                   </label>
                   <textarea
                     rows={3}
@@ -1749,8 +1749,11 @@ export default function SellerManageModal({
                 {/* Row 3: City & State (2 columns) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      City
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>City</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="text"
@@ -1775,8 +1778,11 @@ export default function SellerManageModal({
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      State / Province
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>State / Province</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="text"
@@ -1803,149 +1809,24 @@ export default function SellerManageModal({
 
                 {/* Row 4: Country (Searchable Dropdown) & Zipcode (2 columns) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
-                  {/* Country Dropdown */}
-                  <div className="flex flex-col gap-1.5 relative" ref={countryDropdownRef}>
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      Country
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCountryDropdownOpen((prev) => !prev);
-                        setTimeout(() => countrySearchInputRef.current?.focus(), 50);
-                      }}
-                      className={`w-full h-10 px-3 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none flex items-center justify-between text-left transition-colors cursor-pointer ${
-                        errors.country
-                          ? 'border-destructive ring-1 ring-destructive'
-                          : isCountryDropdownOpen
-                          ? 'border-primary ring-1 ring-primary'
-                          : 'border-border hover:border-muted-foreground/50'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5 truncate">
-                        {renderFlag(selectedCountryCode, selectedCountryName)}
-                        <span
-                          className={`truncate ${
-                            selectedCountryName
-                              ? 'text-foreground font-medium'
-                              : 'text-muted-foreground'
-                          }`}
-                        >
-                          {selectedCountryName || 'Select Country'}
-                        </span>
-                      </span>
-                      <i
-                        className={`fa-solid fa-chevron-down text-[10px] text-muted-foreground transition-transform shrink-0 ${
-                          isCountryDropdownOpen ? 'rotate-180 text-brand-blue' : ''
-                        }`}
-                      />
-                    </button>
-                    {errors.country && (
-                      <span className="text-[11px] text-destructive font-medium flex items-center gap-1">
-                        <i className="fa-solid fa-circle-exclamation text-[10px]" />
-                        <span>{errors.country}</span>
-                      </span>
-                    )}
-
-                    {/* Country Popover */}
-                    {isCountryDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col max-h-60 animate-in fade-in-50 zoom-in-95 duration-150">
-                        <div className="p-2 border-b border-border bg-muted/30 sticky top-0 z-10">
-                          <div className="relative">
-                            <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />
-                            <input
-                              ref={countrySearchInputRef}
-                              type="text"
-                              value={countrySearch}
-                              onChange={(e) => setCountrySearch(e.target.value)}
-                              placeholder="Search country..."
-                              className="w-full h-8 pl-8 pr-7 text-xs bg-background border border-border rounded-md text-foreground placeholder:text-muted-foreground outline-none focus:border-brand-blue transition-colors"
-                            />
-                            {countrySearch && (
-                              <button
-                                type="button"
-                                onClick={() => setCountrySearch('')}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-                              >
-                                <i className="fa-solid fa-xmark" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="overflow-y-auto custom-scrollbar flex-1 p-1">
-                          {!countrySearch.trim() && (
-                            <div className="mb-1 pb-1 border-b border-border/50">
-                              <div className="px-2.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                                Popular Countries
-                              </div>
-                              {POPULAR_COUNTRY_CODES.map((code) => {
-                                const cname = countryNames[code] || code;
-                                const isSelected =
-                                  selectedCountryName.toLowerCase() === cname.toLowerCase();
-                                return (
-                                  <button
-                                    key={`pop-${code}`}
-                                    type="button"
-                                    onClick={() => handleSelectCountry({ code, name: cname })}
-                                    className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                                      isSelected
-                                        ? 'bg-primary/10 text-primary font-semibold'
-                                        : 'hover:bg-muted text-foreground'
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-2 truncate">
-                                      {renderFlag(code, cname)}
-                                      <span className="truncate">{cname}</span>
-                                    </span>
-                                    {isSelected && (
-                                      <i className="fa-solid fa-check text-[11px] text-primary" />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {!countrySearch.trim() && (
-                            <div className="px-2.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                              All Countries
-                            </div>
-                          )}
-
-                          {filteredCountries.map((c) => {
-                            const isSelected =
-                              selectedCountryName.toLowerCase() === c.name.toLowerCase();
-                            return (
-                              <button
-                                key={c.code}
-                                type="button"
-                                onClick={() => handleSelectCountry(c)}
-                                className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-primary/10 text-primary font-semibold'
-                                    : 'hover:bg-muted text-foreground'
-                                }`}
-                              >
-                                <span className="flex items-center gap-2 truncate">
-                                  {renderFlag(c.code, c.name)}
-                                  <span className="truncate">{c.name}</span>
-                                </span>
-                                {isSelected && (
-                                  <i className="fa-solid fa-check text-[11px] text-primary" />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <CountrySelectField
+                    label="Country"
+                    selectedCountryName={selectedCountryName}
+                    selectedCountryCode={selectedCountryCode}
+                    selectedCountryId={selectedCountryId}
+                    countries={countries}
+                    allCountries={allCountries}
+                    onSelect={(country) => handleSelectCountry(country)}
+                    error={errors.country}
+                  />
 
                   {/* Zipcode */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      Zipcode
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>Zipcode</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="text"
@@ -1974,8 +1855,11 @@ export default function SellerManageModal({
                 {/* Row 5: Email & Contact Number (2 columns) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      Email
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>Email</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="email"
@@ -1999,232 +1883,29 @@ export default function SellerManageModal({
                     )}
                   </div>
 
-                  {/* Contact Number (Strictly h-10, shadow-none, decoupled dial code, ZERO forced defaults) */}
-                  <div className="flex flex-col gap-1.5 relative">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                      <span className="flex items-center gap-1">Contact Number</span>
-                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
-                        (optional)
-                      </span>
-                    </label>
-
-                    <div
-                      className={`flex items-center w-full h-10 bg-background text-foreground border rounded-lg transition-colors shadow-none ${
-                        errors.contact_number || errors.contactNumber
-                          ? 'border-destructive focus-within:ring-1 focus-within:ring-destructive'
-                          : 'border-border focus-within:border-primary focus-within:ring-1 focus-within:ring-primary'
-                      }`}
-                    >
-                      {/* Dial Code Dropdown Trigger */}
-                      <div className="relative shrink-0 h-full" ref={phoneDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsPhoneDropdownOpen((prev) => !prev);
-                            setTimeout(() => phoneSearchInputRef.current?.focus(), 50);
-                          }}
-                          className="h-full px-2.5 flex items-center gap-1.5 hover:bg-muted/60 text-foreground transition-colors border-r border-border rounded-l-lg outline-none select-none cursor-pointer"
-                          title="Select Country Calling Code"
-                        >
-                          {phoneCountry ? (
-                            renderFlag(phoneCountry, countryNames[phoneCountry])
-                          ) : (
-                            <i className="fa-solid fa-globe text-muted-foreground text-xs shrink-0" />
-                          )}
-                          <span className="text-xs font-semibold text-foreground tracking-tight">
-                            {phoneCountryCode || '+ --'}
-                          </span>
-                          <i
-                            className={`fa-solid fa-chevron-down text-[9px] text-muted-foreground transition-transform duration-200 ${
-                              isPhoneDropdownOpen ? 'rotate-180' : ''
-                            }`}
-                          />
-                        </button>
-
-                        {/* Dial Code Dropdown Menu */}
-                        {isPhoneDropdownOpen && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              top: 'calc(100% + 4px)',
-                              left: 0,
-                              zIndex: 9999,
-                            }}
-                            className="w-72 max-h-60 bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-                          >
-                            {/* Search Input */}
-                            <div className="p-2 border-b border-border bg-muted/30 sticky top-0 z-10">
-                              <div className="relative">
-                                <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />
-                                <input
-                                  ref={phoneSearchInputRef}
-                                  type="text"
-                                  value={phoneSearch}
-                                  onChange={(e) => setPhoneSearch(e.target.value)}
-                                  placeholder="Search country or code..."
-                                  className="w-full h-8 pl-8 pr-7 text-xs bg-background border border-border rounded-md text-foreground placeholder:text-muted-foreground outline-none focus:border-brand-blue transition-colors"
-                                />
-                                {phoneSearch && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPhoneSearch('')}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-                                  >
-                                    <i className="fa-solid fa-xmark" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Dropdown Options */}
-                            <div className="overflow-y-auto custom-scrollbar flex-1 p-1">
-                              {/* Option: Clear / None */}
-                              {!phoneSearch.trim() && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSelectDialCode(null)}
-                                  className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer mb-1 border-b border-border/40 ${
-                                    !phoneCountryCode
-                                      ? 'bg-primary/10 text-primary font-semibold'
-                                      : 'hover:bg-muted text-muted-foreground'
-                                  }`}
-                                >
-                                  <span className="flex items-center gap-2">
-                                    <i className="fa-solid fa-ban text-xs" />
-                                    <span>No Country Code (None)</span>
-                                  </span>
-                                  {!phoneCountryCode && (
-                                    <i className="fa-solid fa-check text-[11px] text-primary" />
-                                  )}
-                                </button>
-                              )}
-
-                              {/* Popular Countries */}
-                              {!phoneSearch.trim() && (
-                                <div className="mb-1 pb-1 border-b border-border/50">
-                                  <div className="px-2.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                                    Popular
-                                  </div>
-                                  {POPULAR_PHONE_COUNTRY_CODES.map((code) => {
-                                    const cname = countryNames[code] || code;
-                                    let callingCode = '';
-                                    try {
-                                      callingCode = `+${getCountryCallingCode(code)}`;
-                                    } catch {}
-                                    const isSelected = phoneCountryCode === callingCode;
-                                    return (
-                                      <button
-                                        key={`pop-phone-${code}`}
-                                        type="button"
-                                        onClick={() =>
-                                          handleSelectDialCode({
-                                            code,
-                                            name: cname,
-                                            callingCode,
-                                          })
-                                        }
-                                        className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                                          isSelected
-                                            ? 'bg-primary/10 text-primary font-semibold'
-                                            : 'hover:bg-muted text-foreground'
-                                        }`}
-                                      >
-                                        <span className="flex items-center gap-2 truncate">
-                                          {renderFlag(code, cname)}
-                                          <span className="truncate">{cname}</span>
-                                        </span>
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                          <span className="text-[11px] font-mono text-muted-foreground">
-                                            {callingCode}
-                                          </span>
-                                          {isSelected && (
-                                            <i className="fa-solid fa-check text-[11px] text-primary" />
-                                          )}
-                                        </div>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {/* All Countries */}
-                              {!phoneSearch.trim() && (
-                                <div className="px-2.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                                  All Countries
-                                </div>
-                              )}
-
-                              {filteredPhoneCountries.map((c) => {
-                                const isSelected = phoneCountryCode === c.callingCode;
-                                return (
-                                  <button
-                                    key={`all-phone-${c.code}`}
-                                    type="button"
-                                    onClick={() => handleSelectDialCode(c)}
-                                    className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                                      isSelected
-                                        ? 'bg-primary/10 text-primary font-semibold'
-                                        : 'hover:bg-muted text-foreground'
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-2 truncate">
-                                      {renderFlag(c.code, c.name)}
-                                      <span className="truncate">{c.name}</span>
-                                    </span>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      <span className="text-[11px] font-mono text-muted-foreground">
-                                        {c.callingCode}
-                                      </span>
-                                      {isSelected && (
-                                        <i className="fa-solid fa-check text-[11px] text-primary" />
-                                      )}
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Number Input */}
-                      <input
-                        type="tel"
-                        inputMode="numeric"
-                        value={contactNumber}
-                        onChange={(e) => handleContactNumberChange(e.target.value)}
-                        placeholder="Enter contact number..."
-                        className="w-full h-full px-3 text-xs sm:text-sm bg-transparent text-foreground placeholder:text-muted-foreground outline-none font-medium shadow-none"
-                      />
-
-                      {contactNumber && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setContactNumber('');
-                            clearFieldError('contact_number', 'contactNumber');
-                          }}
-                          className="px-2.5 text-muted-foreground hover:text-foreground text-xs transition-colors cursor-pointer"
-                          title="Clear number"
-                        >
-                          <i className="fa-solid fa-xmark" />
-                        </button>
-                      )}
-                    </div>
-
-                    {(errors.contact_number || errors.contactNumber) && (
-                      <span className="text-[11px] text-destructive font-medium flex items-center gap-1">
-                        <i className="fa-solid fa-circle-exclamation text-[10px]" />
-                        <span>{errors.contact_number || errors.contactNumber}</span>
-                      </span>
-                    )}
-                  </div>
+                  {/* Contact Number */}
+                  <PhoneInputField
+                    label="Contact Number"
+                    phoneCountryCode={phoneCountryCode}
+                    contactNumber={contactNumber}
+                    allPhoneCountries={allPhoneCountries}
+                    onChange={({ phoneCountryCode: newCode, contactNumber: newNum }) => {
+                      setPhoneCountryCode(newCode);
+                      setContactNumber(newNum);
+                      clearFieldError('contact_number', 'contactNumber', 'country_code');
+                    }}
+                    error={errors.contact_number || errors.contactNumber}
+                    placeholder="Enter contact number..."
+                  />
                 </div>
 
                 {/* Row 6: Authority Name */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Authority Name
+                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>Authority Name</span>
+                    <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                      (optional)
+                    </span>
                   </label>
                   <input
                     type="text"
@@ -2250,8 +1931,11 @@ export default function SellerManageModal({
 
                 {/* Row 7: Authority Signature (Full width flush alignment with form) */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Authority Signature
+                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>Authority Signature</span>
+                    <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                      (optional)
+                    </span>
                   </label>
                   <div className="w-full">
                     <DocSignatureBox
@@ -2428,9 +2112,12 @@ export default function SellerManageModal({
                           <div className="flex flex-col gap-1">
                             <label
                               htmlFor={`bank_details_input_${item.id}`}
-                              className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1"
+                              className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between"
                             >
                               <span>Account Details</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <textarea
                               id={`bank_details_input_${item.id}`}

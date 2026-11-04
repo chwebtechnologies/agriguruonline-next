@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { FormOptionItem } from './ConfirmationDocumentForm';
+import { handleFormFocusScroll } from '@/components/smart-docs/form-scroll-utils';
 
 export interface PaymentTermManageModalProps {
   isOpen: boolean;
@@ -151,7 +152,6 @@ export function PaymentTermManageModal({
       aria-modal="true"
       aria-labelledby="payment-term-manage-title"
       className="fixed inset-0 w-screen h-screen z-9999 flex items-center justify-center p-3 sm:p-4 bg-black/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={onClose}
     >
       <div
         className="w-full max-w-lg bg-card border border-border text-foreground rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
@@ -192,7 +192,11 @@ export function PaymentTermManageModal({
         </div>
 
         {/* Modal Body / Form */}
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4 text-xs sm:text-sm overflow-y-auto custom-scrollbar flex-1">
+        <form
+          onSubmit={handleSubmit}
+          onFocusCapture={handleFormFocusScroll}
+          className="p-5 flex flex-col gap-4 text-xs sm:text-sm overflow-y-auto custom-scrollbar flex-1 scroll-smooth"
+        >
           {/* Quick preset chips */}
           {mode === 'add' && (
             <div className="flex flex-col gap-1.5">
@@ -204,6 +208,7 @@ export function PaymentTermManageModal({
                   <button
                     key={preset}
                     type="button"
+                    data-no-focus-outline="true"
                     onClick={() => {
                       setName(preset);
                       if (error) setError('');
@@ -211,7 +216,7 @@ export function PaymentTermManageModal({
                       else if (preset.includes('60 Days')) setDays('60');
                       else if (preset.includes('Sight')) setDays('At Sight');
                     }}
-                    className={`px-2 py-1 text-[11px] rounded-md border transition-colors cursor-pointer ${
+                    className={`px-2 py-1 text-[11px] rounded-md border transition-colors cursor-pointer data-no-focus-outline outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary ${
                       name === preset
                         ? 'bg-primary text-primary-foreground border-primary font-semibold'
                         : 'bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border-border'
@@ -255,8 +260,11 @@ export function PaymentTermManageModal({
 
           {/* Credit Days / Period */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              Credit Period / Days (Optional)
+            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+              <span>Credit Period / Days</span>
+              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                (optional)
+              </span>
             </label>
             <input
               type="text"
@@ -269,8 +277,11 @@ export function PaymentTermManageModal({
 
           {/* Description / Additional Conditions */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              Additional Details / Description (Optional)
+            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+              <span>Additional Details / Description</span>
+              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                (optional)
+              </span>
             </label>
             <textarea
               rows={3}

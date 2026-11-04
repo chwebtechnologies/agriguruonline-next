@@ -597,6 +597,12 @@
   },
   "actions": {},
   "smart_docs": {
+    "my_docs": "Mes documents",
+    "management": "Gestion",
+    "sellers": "Vendeurs",
+    "buyers": "Acheteurs",
+    "products": "Produits",
+    "payment_terms": "Conditions de paiement",
     "sellers_management": "Gestion des Vendeurs",
     "buyers_management": "Gestion des Acheteurs",
     "products_management": "Gestion des Produits",

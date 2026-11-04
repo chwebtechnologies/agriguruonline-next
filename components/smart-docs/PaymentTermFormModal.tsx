@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { handleFormFocusScroll } from './form-scroll-utils';
 
 export interface PaymentTermFormData {
   id?: string;
@@ -92,25 +93,13 @@ export function PaymentTermFormModal({
     }
   }, [externalErrors]);
 
-  // Backdrop Click Handlers - Guard against text selection drag closing
+  // Backdrop Click Handlers - Do NOT close on outside click to prevent data loss
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      backdropMouseDownRef.current = true;
-    } else {
-      backdropMouseDownRef.current = false;
-    }
+    // Backdrop click disabled to prevent accidental closure
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (
-      backdropMouseDownRef.current &&
-      e.target === e.currentTarget &&
-      !isSubmitting &&
-      !isLoading
-    ) {
-      onClose();
-    }
-    backdropMouseDownRef.current = false;
+    // Backdrop click disabled - only explicit [X] or Cancel button closes modal
   };
 
   // Handle ESC key to close
@@ -243,7 +232,7 @@ export function PaymentTermFormModal({
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col">
+          <form onSubmit={handleSubmit} onFocusCapture={handleFormFocusScroll} className="flex flex-col scroll-smooth">
             <div className="p-5 flex flex-col gap-4 text-xs sm:text-sm">
               {/* Title Input */}
               <div className="flex flex-col gap-1.5">
@@ -291,9 +280,22 @@ export function PaymentTermFormModal({
                   type="button"
                   role="switch"
                   aria-checked={status}
+                  data-no-focus-outline="true"
                   disabled={isLoading || isSubmitting}
                   onClick={() => setStatus(!status)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-blue focus:ring-offset-1 disabled:opacity-50 ${
+                  onKeyDown={(e) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                      e.preventDefault();
+                      setStatus((prev) => !prev);
+                    } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setStatus(true);
+                    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setStatus(false);
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out data-no-focus-outline outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 disabled:opacity-50 ${
                     status ? 'bg-brand-blue' : 'bg-muted-foreground/30'
                   }`}
                 >

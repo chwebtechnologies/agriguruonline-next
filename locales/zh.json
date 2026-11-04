@@ -597,6 +597,12 @@
   },
   "actions": {},
   "smart_docs": {
+    "my_docs": "我的文档",
+    "management": "管理",
+    "sellers": "卖家",
+    "buyers": "买家",
+    "products": "产品",
+    "payment_terms": "付款条款",
     "sellers_management": "卖家管理",
     "buyers_management": "买家管理",
     "products_management": "产品管理",

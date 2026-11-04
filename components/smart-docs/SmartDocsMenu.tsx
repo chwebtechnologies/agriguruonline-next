@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { logoutUser } from '@/app/actions/auth';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { useTheme } from '@/components/providers/ThemeProvider';
@@ -15,6 +15,11 @@ interface MenuItem {
   href: string;
   iconBg: string;
   textColor?: string;
+}
+
+interface MenuGroup {
+  title?: string;
+  items: MenuItem[];
 }
 
 interface SmartDocsMenuProps {
@@ -37,6 +42,7 @@ export function SmartDocsMenu({
   dict,
 }: SmartDocsMenuProps) {
   const params = useParams();
+  const pathname = usePathname() || '';
   const lang = (params?.lang as string) || 'en';
   const menuId = useId();
   const isControlled = controlledIsOpen !== undefined;
@@ -141,54 +147,72 @@ export function SmartDocsMenu({
     profile?.membership?.plan_name?.toLowerCase() === 'regular';
 
   // Smart Docs Dedicated Menu Structure
-  // 1. Dashboard (as it is)
-  // 2. Marketplace (linked to /)
-  // 3. Sellers Management
-  // 4. Buyers Management
-  // 5. Products Management
-  // 6. Payment Terms Management
-  const MENU_GROUPS: MenuItem[][] = [
-    [
-      {
-        label: dict?.header?.dashboard || 'Dashboard',
-        icon: 'fa-solid fa-table-cells-large',
-        href: `/${lang}/dashboard`,
-        iconBg: 'bg-blue-500',
-      },
-      {
-        label: dict?.header?.marketplace || 'Marketplace',
-        icon: 'fa-solid fa-store',
-        href: `/${lang}`,
-        iconBg: 'bg-sky-500',
-      },
-    ],
-    [
-      {
-        label: dict?.smart_docs?.sellers_management || 'Sellers Management',
-        icon: 'fa-solid fa-user-tie',
-        href: `/${lang}/smart-docs/sellers`,
-        iconBg: 'bg-indigo-500',
-      },
-      {
-        label: dict?.smart_docs?.buyers_management || 'Buyers Management',
-        icon: 'fa-solid fa-cart-shopping',
-        href: `/${lang}/smart-docs/buyers`,
-        iconBg: 'bg-emerald-500',
-      },
-      {
-        label: dict?.smart_docs?.products_management || 'Products Management',
-        icon: 'fa-solid fa-boxes-stacked',
-        href: `/${lang}/smart-docs/products`,
-        iconBg: 'bg-amber-500',
-      },
-      {
-        label: dict?.smart_docs?.payment_terms_management || 'Payment Terms Management',
-        icon: 'fa-solid fa-file-invoice-dollar',
-        href: `/${lang}/smart-docs/payment-terms`,
-        iconBg: 'bg-teal-500',
-      },
-    ],
+  // Group 1: Core Navigation (My Docs, Dashboard, Marketplace)
+  // Group 2: Master Management with common Group Title (Sellers, Buyers, Products, Payment Terms)
+  const MENU_GROUPS: MenuGroup[] = [
+    {
+      items: [    
+        {
+          label: dict?.header?.dashboard || 'Dashboard',
+          icon: 'fa-solid fa-table-cells-large',
+          href: `/${lang}/dashboard`,
+          iconBg: 'bg-blue-500',
+        },
+        {
+          label: dict?.smart_docs?.my_docs || 'My Docs',
+          icon: 'fa-solid fa-file-lines',
+          href: `/${lang}/smart-docs`,
+          iconBg: 'bg-cyan-500',
+        },
+        // {
+        //   label: dict?.header?.marketplace || 'Marketplace',
+        //   icon: 'fa-solid fa-store',
+        //   href: `/${lang}`,
+        //   iconBg: 'bg-sky-500',
+        // },
+      ],
+    },
+    {
+      title: dict?.smart_docs?.management || 'Management',
+      items: [
+        {
+          label: dict?.smart_docs?.sellers || 'Sellers',
+          icon: 'fa-solid fa-user-tie',
+          href: `/${lang}/smart-docs/sellers`,
+          iconBg: 'bg-indigo-500',
+        },
+        {
+          label: dict?.smart_docs?.buyers || 'Buyers',
+          icon: 'fa-solid fa-cart-shopping',
+          href: `/${lang}/smart-docs/buyers`,
+          iconBg: 'bg-emerald-500',
+        },
+        {
+          label: dict?.smart_docs?.products || 'Products',
+          icon: 'fa-solid fa-boxes-stacked',
+          href: `/${lang}/smart-docs/products`,
+          iconBg: 'bg-amber-500',
+        },
+        {
+          label: dict?.smart_docs?.payment_terms || 'Payment Terms',
+          icon: 'fa-solid fa-file-invoice-dollar',
+          href: `/${lang}/smart-docs/payment-terms`,
+          iconBg: 'bg-teal-500',
+        },
+      ],
+    },
   ];
+
+  const isItemActive = (href: string) => {
+    if (!pathname) return false;
+    if (href === `/${lang}/smart-docs`) {
+      return pathname === `/${lang}/smart-docs` || pathname.startsWith(`/${lang}/smart-docs/draft`);
+    }
+    if (href === `/${lang}` || href === `/${lang}/dashboard`) {
+      return pathname === href;
+    }
+    return pathname === href || pathname.startsWith(href);
+  };
 
   const isRtl = lang === 'ar';
   let alignClass = '';
@@ -228,7 +252,7 @@ export function SmartDocsMenu({
             /* Mobile & Tablet: Fixed drawer below header */
             fixed lg:absolute top-[var(--header-bottom,62px)] lg:top-[calc(100%+0.5rem)]
             left-0 right-0 lg:left-auto lg:right-auto ${alignClass}
-            w-full lg:w-[260px] h-[calc(100dvh-var(--header-bottom,62px))] lg:h-auto
+            w-full lg:w-[270px] h-[calc(100dvh-var(--header-bottom,62px))] lg:h-auto
             bg-background z-[100] border-t lg:border border-border lg:rounded-2xl
             overflow-y-auto lg:overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)]
             animate-in slide-in-from-left-8 fade-in-0 duration-300 ease-out lg:zoom-in-95 lg:duration-200
@@ -322,9 +346,27 @@ export function SmartDocsMenu({
                   key={`group-${groupIndex}`}
                   className="contents lg:block lg:bg-background lg:rounded-[10px] lg:overflow-hidden lg:border lg:border-border/50 lg:shadow-sm"
                 >
+                  {/* Group Title: Management & Data Masters */}
+                  {group.title && (
+                    <>
+                      {/* Mobile Section Title (spans full row across cards) */}
+                      <div className="col-span-2 md:col-span-3 lg:hidden px-1 pt-2.5 pb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground select-none">
+                        <i className="fa-solid fa-layer-group text-[9px] text-muted-foreground/80"></i>
+                        <span>{group.title}</span>
+                      </div>
+
+                      {/* Desktop Group Header inside Boxed Card */}
+                      <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 bg-muted/40 border-b border-border/50 text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground select-none">
+                        <i className="fa-solid fa-layer-group text-[9px] text-muted-foreground/80"></i>
+                        <span>{group.title}</span>
+                      </div>
+                    </>
+                  )}
+
                   <ul className="contents lg:flex lg:flex-col">
-                    {group.map((item, index) => {
+                    {group.items.map((item, index) => {
                       const isNoLink = item.href === '#' || !item.href;
+                      const active = !isNoLink && isItemActive(item.href);
 
                       const handleItemClick = (e: React.MouseEvent) => {
                         if (isNoLink) {
@@ -346,7 +388,7 @@ export function SmartDocsMenu({
                                 lg:justify-between lg:px-3 lg:py-1.5 lg:hover:bg-muted lg:border-none lg:rounded-none lg:shadow-none
                               "
                             >
-                              <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3">
+                              <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3 min-w-0">
                                 <div
                                   className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 lg:w-6 lg:h-6 rounded-md lg:rounded-[5px] shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}
                                 >
@@ -364,27 +406,28 @@ export function SmartDocsMenu({
                             <Link
                               href={item.href}
                               onClick={handleItemClick}
-                              className="
+                              className={`
                                 flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden
                                 lg:justify-between lg:px-3 lg:py-1.5 lg:hover:bg-muted lg:border-none lg:rounded-none lg:shadow-none
-                              "
+                                ${active ? 'bg-muted/60 lg:bg-muted/70 font-semibold ring-1 ring-primary/30 lg:ring-0' : ''}
+                              `}
                             >
-                              <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3">
+                              <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3 min-w-0">
                                 <div
                                   className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 lg:w-6 lg:h-6 rounded-md lg:rounded-[5px] shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}
                                 >
                                   <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] lg:text-[12px] text-white`}></i>
                                 </div>
                                 <span
-                                  className={`font-semibold text-[12.5px] min-[375px]:text-[13.5px] lg:text-[13.5px] lg:tracking-tight ${item.textColor || 'text-foreground'} tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0`}
+                                  className={`font-semibold text-[12.5px] min-[375px]:text-[13.5px] lg:text-[13.5px] lg:tracking-tight ${active ? 'text-primary' : item.textColor || 'text-foreground'} tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0`}
                                 >
                                   {item.label}
                                 </span>
                               </div>
-                              <i className="hidden lg:block fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
+                              <i className={`hidden lg:block fa-solid fa-chevron-right text-[9px] font-bold group-hover:translate-x-0.5 transition-transform ${active ? 'text-primary' : 'text-muted-foreground'}`}></i>
                             </Link>
                           )}
-                          {index !== group.length - 1 && (
+                          {index !== group.items.length - 1 && (
                             <div className="hidden lg:block absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>
                           )}
                         </li>

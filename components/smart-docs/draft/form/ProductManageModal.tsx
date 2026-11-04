@@ -6,6 +6,8 @@ import flags from 'react-phone-number-input/flags';
 import { getCountries, type Country } from 'react-phone-number-input';
 import en from 'react-phone-number-input/locale/en.json';
 import { generatePackingCuid } from '@/lib/api/smart-docs.service';
+import CountrySelectField from '@/components/smart-docs/CountrySelectField';
+import { handleFormFocusScroll } from '@/components/smart-docs/form-scroll-utils';
 
 const countryNames = en as Record<string, string>;
 
@@ -435,24 +437,13 @@ export function ProductManageModal({
   }, [isCountryDropdownOpen]);
 
   // Backdrop Click Handlers - Guard against text selection drag closing
+  // Backdrop Click Handlers - Do NOT close on outside click to prevent data loss
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      backdropMouseDownRef.current = true;
-    } else {
-      backdropMouseDownRef.current = false;
-    }
+    // Backdrop click disabled to prevent accidental closure
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (
-      backdropMouseDownRef.current &&
-      e.target === e.currentTarget &&
-      !isSubmitting &&
-      !isLoading
-    ) {
-      onClose();
-    }
-    backdropMouseDownRef.current = false;
+    // Backdrop click disabled - only explicit [X] or Cancel button closes modal
   };
 
   // Handle ESC key
@@ -488,9 +479,12 @@ export function ProductManageModal({
   if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   // Handle country selection
-  const handleSelectCountry = (country: { code: Country; name: string }) => {
+  const handleSelectCountry = (country: { code: Country | null; name: string; id?: string }) => {
     setSelectedCountryName(country.name);
     setSelectedCountryCode(country.code);
+    if (country.id) {
+      setSelectedCountryId(country.id);
+    }
     setIsCountryDropdownOpen(false);
     setCountrySearch('');
     if (errors.country) {
@@ -956,7 +950,8 @@ export function ProductManageModal({
             {/* Scrollable Form Body */}
             <div
               ref={scrollContainerRef}
-              className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 text-xs sm:text-sm"
+              onFocusCapture={handleFormFocusScroll}
+              className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4 text-xs sm:text-sm scroll-smooth"
             >
               {/* SECTION 1: PRODUCT DETAILS */}
           <div className="space-y-3.5">
@@ -1000,160 +995,24 @@ export function ProductManageModal({
             {/* Country, HSN CODE, and Category in 1 Row (3 Columns) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-3.5">
               {/* 1. Country* (Searchable Dropdown) */}
-              <div className="flex flex-col gap-1.5 relative" ref={countryDropdownRef}>
-                <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <span>
-                    {dict?.smart_docs?.confirmation_form?.country || 'Country'}
-                  </span>
-                  <span className="text-destructive">*</span>
-                </label>
-
-                {/* Country Trigger Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCountryDropdownOpen((prev) => !prev);
-                    setTimeout(() => {
-                      countrySearchInputRef.current?.focus();
-                    }, 50);
-                  }}
-                  className={`w-full h-10 px-3 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none flex items-center justify-between text-left transition-colors cursor-pointer ${
-                    errors.country
-                      ? 'border-destructive focus:ring-1 focus:ring-destructive'
-                      : isCountryDropdownOpen
-                      ? 'border-primary ring-1 ring-primary'
-                      : 'border-border hover:border-muted-foreground/50'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5 truncate">
-                    {renderFlag(selectedCountryCode, selectedCountryName)}
-                    <span
-                      className={`truncate ${
-                        selectedCountryName
-                          ? 'text-foreground font-medium'
-                          : 'text-muted-foreground'
-                      }`}
-                    >
-                      {selectedCountryName || 'Select Country'}
-                    </span>
-                  </span>
-                  <i
-                    className={`fa-solid fa-chevron-down text-[10px] text-muted-foreground transition-transform shrink-0 ${
-                      isCountryDropdownOpen ? 'rotate-180 text-primary' : ''
-                    }`}
-                  />
-                </button>
-
-                {errors.country && (
-                  <span className="text-[10px] text-destructive font-medium flex items-center gap-1">
-                    <i className="fa-solid fa-circle-exclamation text-[9px]" />
-                    <span>{errors.country}</span>
-                  </span>
-                )}
-
-                {/* Searchable Country Popover */}
-                {isCountryDropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col max-h-60 animate-in fade-in-50 zoom-in-95 duration-150">
-                    <div className="p-2 border-b border-border bg-muted/30 sticky top-0 z-10">
-                      <div className="relative">
-                        <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />
-                        <input
-                          ref={countrySearchInputRef}
-                          type="text"
-                          value={countrySearch}
-                          onChange={(e) => setCountrySearch(e.target.value)}
-                          placeholder="Search country..."
-                          className="w-full h-8 pl-8 pr-7 text-xs bg-background border border-border rounded-md text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-colors"
-                        />
-                        {countrySearch && (
-                          <button
-                            type="button"
-                            onClick={() => setCountrySearch('')}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-                          >
-                            <i className="fa-solid fa-xmark" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="overflow-y-auto custom-scrollbar flex-1 p-1">
-                      {!countrySearch.trim() && (
-                        <div className="mb-1 pb-1 border-b border-border/50">
-                          <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            Popular Countries
-                          </div>
-                          {POPULAR_COUNTRY_CODES.map((code) => {
-                            const cname = countryNames[code] || code;
-                            const isSelected = selectedCountryName.toLowerCase() === cname.toLowerCase();
-                            return (
-                              <button
-                                key={`pop-${code}`}
-                                type="button"
-                                onClick={() => handleSelectCountry({ code, name: cname })}
-                                className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-primary/10 text-primary font-semibold'
-                                    : 'hover:bg-muted text-foreground'
-                                }`}
-                              >
-                                <span className="flex items-center gap-2 truncate">
-                                  {renderFlag(code, cname)}
-                                  <span className="truncate">{cname}</span>
-                                </span>
-                                {isSelected && (
-                                  <i className="fa-solid fa-check text-[11px] text-primary" />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {!countrySearch.trim() && (
-                        <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          All Countries
-                        </div>
-                      )}
-
-                      {filteredCountries.length === 0 ? (
-                        <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                          No countries found
-                        </div>
-                      ) : (
-                        filteredCountries.map((c) => {
-                          const isSelected = selectedCountryName.toLowerCase() === c.name.toLowerCase();
-                          return (
-                            <button
-                              key={c.code}
-                              type="button"
-                              onClick={() => handleSelectCountry(c)}
-                              className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                                isSelected
-                                  ? 'bg-primary/10 text-primary font-semibold'
-                                  : 'hover:bg-muted text-foreground'
-                              }`}
-                            >
-                              <span className="flex items-center gap-2 truncate">
-                                {renderFlag(c.code, c.name)}
-                                <span className="truncate">{c.name}</span>
-                              </span>
-                              {isSelected && (
-                                <i className="fa-solid fa-check text-[11px] text-primary" />
-                              )}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <CountrySelectField
+                label={dict?.smart_docs?.confirmation_form?.country || 'Country'}
+                required={true}
+                selectedCountryName={selectedCountryName}
+                selectedCountryCode={selectedCountryCode}
+                selectedCountryId={selectedCountryId}
+                allCountries={allCountries}
+                onSelect={(country) => handleSelectCountry(country)}
+                error={errors.country}
+              />
 
               {/* 2. HSN CODE (Number Input) */}
               <div className="flex flex-col gap-1.5">
-                <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                   <span>{dict?.smart_docs?.confirmation_form?.hsn_code || 'HSN CODE'}</span>
+                  <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                    (optional)
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -1188,8 +1047,11 @@ export function ProductManageModal({
 
               {/* 3. Category (Text Input) */}
               <div className="flex flex-col gap-1.5">
-                <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                   <span>Category</span>
+                  <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                    (optional)
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -1222,8 +1084,11 @@ export function ProductManageModal({
 
             {/* Specifications (Text Area - 4 Rows) */}
             <div className="flex flex-col gap-1.5">
-              <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                 <span>{dict?.smart_docs?.confirmation_form?.specification || 'Specifications'}</span>
+                <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                  (optional)
+                </span>
               </label>
               <textarea
                 rows={4}
@@ -1286,11 +1151,24 @@ export function ProductManageModal({
                   <span>Unit Type</span>
                   <span className="text-destructive">*</span>:
                 </label>
-                <div className="inline-flex items-center p-1 bg-background border border-border rounded-xl shadow-xs">
+                <div
+                  role="radiogroup"
+                  aria-label="Unit Type"
+                  className="inline-flex items-center p-1 bg-background border border-border rounded-xl shadow-xs"
+                >
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={unitType === 'solid'}
+                    data-no-focus-outline="true"
                     onClick={() => handleUnitTypeChange('solid')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        handleUnitTypeChange('liquid');
+                      }
+                    }}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer data-no-focus-outline outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
                       unitType === 'solid'
                         ? 'bg-primary text-primary-foreground shadow-xs'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -1301,8 +1179,17 @@ export function ProductManageModal({
                   </button>
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={unitType === 'liquid'}
+                    data-no-focus-outline="true"
                     onClick={() => handleUnitTypeChange('liquid')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        handleUnitTypeChange('solid');
+                      }
+                    }}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer data-no-focus-outline outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
                       unitType === 'liquid'
                         ? 'bg-primary text-primary-foreground shadow-xs'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -1483,8 +1370,11 @@ export function ProductManageModal({
 
                           {/* Density (Kg/L) (Default: 1) */}
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                               <span>Density (Kg/L)</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <div className="relative">
                               <input

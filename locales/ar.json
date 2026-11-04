@@ -598,6 +598,12 @@
   },
   "actions": {},
   "smart_docs": {
+    "my_docs": "مستنداتي",
+    "management": "الإدارة",
+    "sellers": "البائعون",
+    "buyers": "المشترون",
+    "products": "المنتجات",
+    "payment_terms": "شروط الدفع",
     "sellers_management": "إدارة البائعين",
     "buyers_management": "إدارة المشترين",
     "products_management": "إدارة المنتجات",

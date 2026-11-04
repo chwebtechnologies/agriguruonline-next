@@ -387,10 +387,19 @@ body {
 }
 
 /* Universal Focus States for Keypad & Accessibility Users */
-*:focus-visible:not(input):not(select):not(textarea) {
+*:focus-visible:not(input):not(select):not(textarea):not(.outline-none):not([data-no-focus-outline]):not(.no-focus-outline) {
   outline: 3px solid var(--ag-primary);
   outline-offset: 2px;
   border-radius: 0.25rem;
+}
+
+.outline-none,
+[data-no-focus-outline],
+.no-focus-outline,
+[data-no-focus-outline] *:focus-visible,
+[data-dropdown-menu] *:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
 }
 
 /* Prevent double-tap zoom on all interactive elements (iOS/Android fix) */

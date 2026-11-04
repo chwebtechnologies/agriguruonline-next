@@ -608,6 +608,12 @@
   },
   "actions": {},
   "smart_docs": {
+    "my_docs": "My Docs",
+    "management": "Management",
+    "sellers": "Sellers",
+    "buyers": "Buyers",
+    "products": "Products",
+    "payment_terms": "Payment Terms",
     "sellers_management": "Sellers Management",
     "buyers_management": "Buyers Management",
     "products_management": "Products Management",

@@ -17,7 +17,19 @@ import {
 } from '@/app/actions/smart-docs';
 import { toast } from 'sonner';
 
-const countryNames = en as Record<string, string>;
+import CountrySelectField, {
+  CountrySelectFieldProps,
+  countryNames,
+  POPULAR_COUNTRY_CODES,
+  renderFlag,
+} from './CountrySelectField';
+import PhoneInputField, {
+  PhoneInputFieldProps,
+} from './PhoneInputField';
+import { handleFormFocusScroll } from './form-scroll-utils';
+
+export { CountrySelectField, PhoneInputField };
+export type { CountrySelectFieldProps, PhoneInputFieldProps };
 
 export interface ConsigneeOrNotifyItem {
   id: string;
@@ -36,562 +48,6 @@ export interface ConsigneeOrNotifyItem {
   email: string;
   contact_number: string;
   phone_country_code?: string;
-}
-
-const POPULAR_COUNTRY_CODES: Country[] = [
-  'IN', 'AE', 'VN', 'BR', 'CN', 'US', 'TH', 'ID', 'SG', 'MY',
-  'TR', 'EG', 'BD', 'PK', 'ZA', 'RU', 'UA', 'CA', 'AU', 'AR',
-];
-
-const POPULAR_PHONE_COUNTRY_CODES: Country[] = [
-  'IN', 'AE', 'US', 'GB', 'VN', 'TH', 'CN', 'SG', 'MY', 'CA',
-  'AU', 'TR', 'EG', 'BD', 'PK', 'BR', 'ZA',
-];
-
-export const renderFlag = (code?: Country | null, countryNameStr?: string) => {
-  if (!code) {
-    return <i className="fa-solid fa-globe text-muted-foreground text-xs shrink-0" />;
-  }
-  const FlagComp = flags[code];
-  if (FlagComp) {
-    return (
-      <span className="w-4.5 h-3.5 inline-flex items-center justify-center shrink-0 overflow-hidden rounded-[2px] shadow-2xs">
-        <FlagComp title={countryNameStr || code} />
-      </span>
-    );
-  }
-  return <i className="fa-solid fa-globe text-muted-foreground text-xs shrink-0" />;
-};
-
-export interface CountrySelectFieldProps {
-  label?: string;
-  required?: boolean;
-  selectedCountryName: string;
-  selectedCountryCode?: Country | null;
-  selectedCountryId?: string;
-  countries: any[];
-  allCountries: { code: Country; name: string }[];
-  onSelect: (country: { name: string; code: Country | null; id: string }) => void;
-  error?: string;
-  placeholder?: string;
-}
-
-export function CountrySelectField({
-  label = 'Country',
-  required = false,
-  selectedCountryName,
-  selectedCountryCode,
-  selectedCountryId,
-  countries,
-  allCountries,
-  onSelect,
-  error,
-  placeholder = 'Select Country',
-}: CountrySelectFieldProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isOpen]);
-
-  const cleanCountryName = useMemo(() => {
-    if (!selectedCountryName) return '';
-    if (typeof selectedCountryName === 'object') {
-      const obj = selectedCountryName as any;
-      const n = obj?.name || obj?.country_name || obj?.title || obj?.label;
-      if (typeof n === 'string' && n.trim() && n !== '[object Object]') return n.trim();
-      return '';
-    }
-    const str = String(selectedCountryName).trim();
-    if (str === '[object Object]' || str.toLowerCase() === 'undefined' || str.toLowerCase() === 'null') {
-      return '';
-    }
-    return str;
-  }, [selectedCountryName]);
-
-  const currentCode = useMemo<Country | null>(() => {
-    if (selectedCountryCode && typeof selectedCountryCode === 'string') {
-      const clean = selectedCountryCode.trim().toUpperCase();
-      if (/^[A-Z]{2}$/.test(clean)) return clean as Country;
-    }
-    if (selectedCountryId && countries?.length) {
-      const match = countries.find((c: any) => String(c.id) === String(selectedCountryId));
-      if (match?.iso2) return match.iso2.toUpperCase() as Country;
-    }
-    if (!cleanCountryName) return null;
-    const match = allCountries.find(
-      (c) => c.name.toLowerCase() === cleanCountryName.toLowerCase()
-    );
-    if (match) return match.code;
-    const matchMaster = countries?.find(
-      (c: any) =>
-        c.name?.toLowerCase() === cleanCountryName.toLowerCase() ||
-        c.iso2?.toLowerCase() === cleanCountryName.toLowerCase()
-    );
-    if (matchMaster?.iso2) return matchMaster.iso2.toUpperCase() as Country;
-    return null;
-  }, [selectedCountryCode, selectedCountryId, cleanCountryName, allCountries, countries]);
-
-  const displayCountryText = useMemo(() => {
-    if (cleanCountryName) return cleanCountryName;
-    if (currentCode) {
-      const match = allCountries.find((c) => c.code === currentCode);
-      if (match?.name) return match.name;
-    }
-    if (selectedCountryId && countries?.length) {
-      const match = countries.find((c: any) => String(c.id) === String(selectedCountryId));
-      if (match?.name) return match.name;
-    }
-    return '';
-  }, [cleanCountryName, currentCode, selectedCountryId, allCountries, countries]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return allCountries;
-    return allCountries.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
-    );
-  }, [allCountries, search]);
-
-  const handleChoose = (item: { code: Country; name: string }) => {
-    let rawCountryId = '';
-    const match = countries?.find(
-      (c: any) =>
-        (item.code && c.iso2?.toUpperCase() === item.code.toUpperCase()) ||
-        (item.name && c.name?.toLowerCase() === item.name.toLowerCase())
-    );
-    if (match?.id) rawCountryId = match.id;
-
-    onSelect({
-      name: item.name,
-      code: item.code,
-      id: rawCountryId,
-    });
-    setIsOpen(false);
-    setSearch('');
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5 relative" ref={dropdownRef}>
-      <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-        <span>{label}</span>
-        {required && <span className="text-destructive">*</span>}
-      </label>
-
-      <button
-        type="button"
-        onClick={() => {
-          setIsOpen((prev) => !prev);
-          setTimeout(() => searchInputRef.current?.focus(), 50);
-        }}
-        className={`w-full h-10 px-3 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none flex items-center justify-between text-left transition-colors cursor-pointer ${
-          error
-            ? 'border-destructive focus:ring-1 focus:ring-destructive'
-            : isOpen
-            ? 'border-primary ring-1 ring-primary'
-            : 'border-border hover:border-muted-foreground/50'
-        }`}
-      >
-        <span className="flex items-center gap-2 truncate">
-          {renderFlag(currentCode, displayCountryText)}
-          <span
-            className={`truncate ${
-              displayCountryText ? 'text-foreground font-medium' : 'text-muted-foreground'
-            }`}
-          >
-            {displayCountryText || placeholder}
-          </span>
-        </span>
-        <i
-          className={`fa-solid fa-chevron-down text-[10px] text-muted-foreground transition-transform shrink-0 ${
-            isOpen ? 'rotate-180 text-brand-blue' : ''
-          }`}
-        />
-      </button>
-
-      {error && (
-        <span className="text-[11px] text-destructive font-medium flex items-center gap-1">
-          <i className="fa-solid fa-circle-exclamation text-[10px]" />
-          <span>{error}</span>
-        </span>
-      )}
-
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col max-h-60 animate-in fade-in-50 zoom-in-95 duration-150">
-          <div className="p-2 border-b border-border bg-muted/30 sticky top-0 z-10">
-            <div className="relative">
-              <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search country..."
-                className="w-full h-8 pl-8 pr-7 text-xs bg-background border border-border rounded-md text-foreground placeholder:text-muted-foreground outline-none focus:border-brand-blue transition-colors"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-                >
-                  <i className="fa-solid fa-xmark" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="overflow-y-auto custom-scrollbar flex-1 p-1">
-            {!search.trim() && (
-              <div className="mb-1 pb-1 border-b border-border/50">
-                <div className="px-2.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Popular Countries
-                </div>
-                {POPULAR_COUNTRY_CODES.map((code) => {
-                  const cname = countryNames[code] || code;
-                  const isSelected = selectedCountryName?.toLowerCase() === cname.toLowerCase();
-                  return (
-                    <button
-                      key={`pop-country-${code}`}
-                      type="button"
-                      onClick={() => handleChoose({ code, name: cname })}
-                      className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-primary/10 text-primary font-semibold'
-                          : 'hover:bg-muted text-foreground'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2 truncate">
-                        {renderFlag(code, cname)}
-                        <span className="truncate">{cname}</span>
-                      </span>
-                      {isSelected && (
-                        <i className="fa-solid fa-check text-[11px] text-primary" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {filtered.map((c) => {
-              const isSelected = selectedCountryName?.toLowerCase() === c.name.toLowerCase();
-              return (
-                <button
-                  key={`all-country-${c.code}`}
-                  type="button"
-                  onClick={() => handleChoose(c)}
-                  className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                    isSelected
-                      ? 'bg-primary/10 text-primary font-semibold'
-                      : 'hover:bg-muted text-foreground'
-                  }`}
-                >
-                  <span className="flex items-center gap-2 truncate">
-                    {renderFlag(c.code, c.name)}
-                    <span className="truncate">{c.name}</span>
-                  </span>
-                  {isSelected && (
-                    <i className="fa-solid fa-check text-[11px] text-primary" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export interface PhoneInputFieldProps {
-  label?: string;
-  required?: boolean;
-  phoneCountryCode: string;
-  contactNumber: string;
-  allPhoneCountries: { code: Country; name: string; callingCode: string }[];
-  onChange: (data: { phoneCountryCode: string; contactNumber: string }) => void;
-  error?: string;
-  placeholder?: string;
-}
-
-export function PhoneInputField({
-  label = 'Contact Number',
-  required = false,
-  phoneCountryCode,
-  contactNumber,
-  allPhoneCountries,
-  onChange,
-  error,
-  placeholder = 'Phone / Mobile number',
-}: PhoneInputFieldProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isOpen]);
-
-  const phoneCountry = useMemo<Country | null>(() => {
-    if (!phoneCountryCode) return null;
-    const trimmed = String(phoneCountryCode).trim();
-    if (!trimmed || trimmed === '[object Object]' || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') return null;
-
-    // 1. If it's a 2-letter ISO code e.g. 'IN', 'US'
-    if (/^[A-Za-z]{2}$/.test(trimmed)) {
-      const match = allPhoneCountries.find((c) => c.code.toLowerCase() === trimmed.toLowerCase());
-      if (match) return match.code;
-    }
-
-    // 2. If it's a calling code e.g. '+91' or '91'
-    const cleanCode = trimmed.startsWith('+') ? trimmed : `+${trimmed}`;
-    const matched = allPhoneCountries.find((c) => c.callingCode === cleanCode);
-    return matched?.code || null;
-  }, [phoneCountryCode, allPhoneCountries]);
-
-  const displayCallingCode = useMemo(() => {
-    if (!phoneCountryCode) return '';
-    const trimmed = String(phoneCountryCode).trim();
-    if (!trimmed || trimmed === '[object Object]' || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') return '';
-    if (trimmed.startsWith('+')) return trimmed;
-    if (/^\d+$/.test(trimmed)) return `+${trimmed}`;
-    if (phoneCountry) {
-      try {
-        const calling = getCountryCallingCode(phoneCountry);
-        if (calling) return `+${calling}`;
-      } catch {}
-    }
-    return '';
-  }, [phoneCountryCode, phoneCountry]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return allPhoneCountries;
-    const qClean = q.replace(/^\+/, '');
-    return allPhoneCountries.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.code.toLowerCase().includes(q) ||
-        c.callingCode.replace(/^\+/, '').includes(qClean)
-    );
-  }, [allPhoneCountries, search]);
-
-  const handleSelectCode = (c: { code: Country; name: string; callingCode: string } | null) => {
-    onChange({
-      phoneCountryCode: c?.callingCode || '',
-      contactNumber,
-    });
-    setIsOpen(false);
-    setSearch('');
-  };
-
-  const handleNumberChange = (raw: string) => {
-    onChange({
-      phoneCountryCode: displayCallingCode || phoneCountryCode,
-      contactNumber: raw.replace(/[^\d\s-]/g, ''),
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5 relative">
-      <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-        <span>{label}</span>
-        {required && <span className="text-destructive">*</span>}
-      </label>
-
-      <div
-        className={`w-full h-10 bg-background border rounded-lg flex items-center transition-colors ${
-          error
-            ? 'border-destructive ring-1 ring-destructive'
-            : isOpen
-            ? 'border-primary ring-1 ring-primary'
-            : 'border-border focus-within:border-primary focus-within:ring-1 focus-within:ring-primary'
-        }`}
-      >
-        {/* Dial Code Button with Popover */}
-        <div className="relative h-full shrink-0" ref={dropdownRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setIsOpen((prev) => !prev);
-              setTimeout(() => searchInputRef.current?.focus(), 50);
-            }}
-            className="h-full px-2.5 flex items-center gap-1.5 hover:bg-muted/60 text-foreground transition-colors border-r border-border rounded-l-lg outline-none select-none cursor-pointer shrink-0 whitespace-nowrap"
-            title="Select Country Calling Code"
-          >
-            {phoneCountry ? (
-              renderFlag(phoneCountry, countryNames[phoneCountry])
-            ) : (
-              <i className="fa-solid fa-globe text-muted-foreground text-xs shrink-0" />
-            )}
-            <span className="text-xs font-semibold text-foreground tracking-tight shrink-0 whitespace-nowrap">
-              {displayCallingCode || '+ --'}
-            </span>
-            <i
-              className={`fa-solid fa-chevron-down text-[9px] text-muted-foreground transition-transform shrink-0 ${
-                isOpen ? 'rotate-180 text-brand-blue' : ''
-              }`}
-            />
-          </button>
-
-          {isOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 w-64 bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col max-h-64 animate-in fade-in-50 zoom-in-95 duration-150">
-              <div className="p-2 border-b border-border bg-muted/30 sticky top-0 z-10">
-                <div className="relative">
-                  <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search country or code..."
-                    className="w-full h-8 pl-8 pr-7 text-xs bg-background border border-border rounded-md text-foreground placeholder:text-muted-foreground outline-none focus:border-brand-blue transition-colors"
-                  />
-                  {search && (
-                    <button
-                      type="button"
-                      onClick={() => setSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
-                    >
-                      <i className="fa-solid fa-xmark" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="overflow-y-auto custom-scrollbar flex-1 p-1">
-                {!search.trim() && (
-                  <button
-                    type="button"
-                    onClick={() => handleSelectCode(null)}
-                    className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer mb-1 border-b border-border/40 ${
-                      !phoneCountryCode
-                        ? 'bg-primary/10 text-primary font-semibold'
-                        : 'hover:bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <i className="fa-solid fa-ban text-xs" />
-                      <span>No Country Code (None)</span>
-                    </span>
-                    {!phoneCountryCode && (
-                      <i className="fa-solid fa-check text-[11px] text-primary" />
-                    )}
-                  </button>
-                )}
-
-                {!search.trim() && (
-                  <div className="mb-1 pb-1 border-border/50 border-b">
-                    <div className="px-2.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Popular Calling Codes
-                    </div>
-                    {POPULAR_PHONE_COUNTRY_CODES.map((code) => {
-                      const cname = countryNames[code] || code;
-                      let callingCode = '';
-                      try {
-                        callingCode = `+${getCountryCallingCode(code)}`;
-                      } catch {}
-                      const isSelected = phoneCountryCode === callingCode;
-                      return (
-                        <button
-                          key={`pop-phone-${code}`}
-                          type="button"
-                          onClick={() =>
-                            handleSelectCode({ code, name: cname, callingCode })
-                          }
-                          className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                            isSelected
-                              ? 'bg-primary/10 text-primary font-semibold'
-                              : 'hover:bg-muted text-foreground'
-                          }`}
-                        >
-                          <span className="flex items-center gap-2 truncate">
-                            {renderFlag(code, cname)}
-                            <span className="truncate">{cname}</span>
-                          </span>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[11px] font-mono text-muted-foreground">
-                              {callingCode}
-                            </span>
-                            {isSelected && (
-                              <i className="fa-solid fa-check text-[11px] text-primary" />
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {filtered.map((c) => {
-                  const isSelected = phoneCountryCode === c.callingCode;
-                  return (
-                    <button
-                      key={`all-phone-${c.code}`}
-                      type="button"
-                      onClick={() => handleSelectCode(c)}
-                      className={`w-full px-2.5 py-1.5 rounded-md flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'bg-primary/10 text-primary font-semibold'
-                          : 'hover:bg-muted text-foreground'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2 truncate">
-                        {renderFlag(c.code, c.name)}
-                        <span className="truncate">{c.name}</span>
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[11px] font-mono text-muted-foreground">
-                          {c.callingCode}
-                        </span>
-                        {isSelected && (
-                          <i className="fa-solid fa-check text-[11px] text-primary" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <input
-          type="tel"
-          value={contactNumber}
-          onChange={(e) => handleNumberChange(e.target.value)}
-          placeholder={placeholder}
-          className="flex-1 h-full px-3 text-xs sm:text-sm bg-transparent text-foreground outline-none border-none placeholder:text-muted-foreground"
-        />
-      </div>
-
-      {error && (
-        <span className="text-[11px] text-destructive font-medium flex items-center gap-1">
-          <i className="fa-solid fa-circle-exclamation text-[10px]" />
-          <span>{error}</span>
-        </span>
-      )}
-    </div>
-  );
 }
 
 export interface BuyerFormData {
@@ -1456,27 +912,13 @@ export default function BuyerManageModal({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isPhoneDropdownOpen]);
 
-  // Backdrop Click Handlers
+  // Backdrop Click Handlers - Do NOT close on outside click to prevent data loss
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      backdropMouseDownRef.current = true;
-    } else {
-      backdropMouseDownRef.current = false;
-    }
+    // Backdrop click disabled to prevent accidental closure
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (
-      backdropMouseDownRef.current &&
-      e.target === e.currentTarget &&
-      !isSavingBusiness &&
-      !isSavingConsignees &&
-      !isSavingNotifyParties &&
-      !isLoading
-    ) {
-      onClose();
-    }
-    backdropMouseDownRef.current = false;
+    // Backdrop click disabled - only explicit [X] or Cancel button closes modal
   };
 
   // Handle ESC key
@@ -2514,8 +1956,9 @@ export default function BuyerManageModal({
         ) : (
           <div
             ref={modalBodyRef}
-            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden', WebkitOverflowScrolling: 'touch' }}
-            className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-5 space-y-4 text-xs sm:text-sm transform-gpu"
+            onFocusCapture={handleFormFocusScroll}
+            style={{ WebkitOverflowScrolling: 'touch' }}
+            className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-5 space-y-4 text-xs sm:text-sm scroll-smooth"
           >
             {/* ======================================================== */}
             {/* TAB 1: BUSINESS DETAILS (EXACT SAME AS SELLER) */}
@@ -2526,8 +1969,11 @@ export default function BuyerManageModal({
                 <div className="flex flex-col sm:flex-row gap-3.5 items-start">
                   {/* Left: Square Company Logo */}
                   <div className="flex flex-col gap-1 shrink-0 self-center sm:self-start">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1 leading-4">
-                      Company Logo
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between leading-4">
+                      <span>Company Logo</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
 
                     <input
@@ -2617,8 +2063,11 @@ export default function BuyerManageModal({
 
                     {/* Input 2: Certificate Name & Number */}
                     <div className="flex flex-col gap-1">
-                      <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1 leading-4">
-                        Certificate Name & Number
+                      <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between leading-4">
+                        <span>Certificate Name & Number</span>
+                        <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                          (optional)
+                        </span>
                       </label>
                       <input
                         type="text"
@@ -2636,8 +2085,11 @@ export default function BuyerManageModal({
 
                 {/* Row 2: Address Text Area */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Address
+                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>Address</span>
+                    <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                      (optional)
+                    </span>
                   </label>
                   <textarea
                     rows={3}
@@ -2654,8 +2106,11 @@ export default function BuyerManageModal({
                 {/* Row 3: City & State */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      City
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>City</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="text"
@@ -2670,8 +2125,11 @@ export default function BuyerManageModal({
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      State / Province
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>State / Province</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="text"
@@ -2706,8 +2164,11 @@ export default function BuyerManageModal({
 
                   {/* Zipcode */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      Zipcode
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>Zipcode</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="text"
@@ -2726,8 +2187,11 @@ export default function BuyerManageModal({
                 {/* Row 5: Email & Contact Number */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                   <div className="flex flex-col gap-1.5">
-                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      Email
+                    <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>Email</span>
+                      <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="email"
@@ -2757,8 +2221,11 @@ export default function BuyerManageModal({
 
                 {/* Row 6: Authority Name */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Authority Name
+                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>Authority Name</span>
+                    <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                      (optional)
+                    </span>
                   </label>
                   <input
                     type="text"
@@ -2774,8 +2241,11 @@ export default function BuyerManageModal({
 
                 {/* Row 7: Authority Signature */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    Authority Signature
+                  <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                    <span>Authority Signature</span>
+                    <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                      (optional)
+                    </span>
                   </label>
                   <div className="w-full">
                     <DocSignatureBox
@@ -2918,8 +2388,11 @@ export default function BuyerManageModal({
 
                           {/* Certificate Name & Number */}
                           <div className="flex flex-col gap-1">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1 leading-4">
-                              Certificate Name & Number
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between leading-4">
+                              <span>Certificate Name & Number</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="text"
@@ -2933,8 +2406,11 @@ export default function BuyerManageModal({
 
                         {/* Address */}
                         <div className="flex flex-col gap-1.5">
-                          <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                            Address
+                          <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Address</span>
+                            <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                              (optional)
+                            </span>
                           </label>
                           <textarea
                             rows={3}
@@ -2948,8 +2424,11 @@ export default function BuyerManageModal({
                         {/* City & State */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              City
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                              <span>City</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="text"
@@ -2960,8 +2439,11 @@ export default function BuyerManageModal({
                             />
                           </div>
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              State / Province
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                              <span>State / Province</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="text"
@@ -2985,14 +2467,14 @@ export default function BuyerManageModal({
                             onSelect={(sel) => {
                               setConsigneeItems((prev) =>
                                 prev.map((c) =>
-                                  c.id === item.id
-                                    ? {
-                                        ...c,
-                                        country: sel.name,
-                                        country_code: sel.code || '',
-                                        country_id: sel.id || '',
-                                      }
-                                    : c
+                                    c.id === item.id
+                                      ? {
+                                          ...c,
+                                          country: sel.name,
+                                          country_code: sel.code || '',
+                                          country_id: sel.id || '',
+                                        }
+                                      : c
                                 )
                               );
                               setErrors((prev) => {
@@ -3005,8 +2487,11 @@ export default function BuyerManageModal({
                           />
 
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              Zipcode
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                              <span>Zipcode</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="text"
@@ -3021,8 +2506,11 @@ export default function BuyerManageModal({
                         {/* Email & Contact Number */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              Email
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                              <span>Email</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="email"
@@ -3212,8 +2700,11 @@ export default function BuyerManageModal({
                           </div>
 
                           <div className="flex flex-col gap-1">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1 leading-4">
-                              Certificate Name & Number
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between leading-4">
+                              <span>Certificate Name & Number</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="text"
@@ -3226,8 +2717,11 @@ export default function BuyerManageModal({
                         </div>
 
                         <div className="flex flex-col gap-1.5">
-                          <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                            Address
+                          <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>Address</span>
+                            <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                              (optional)
+                            </span>
                           </label>
                           <textarea
                             rows={3}
@@ -3240,8 +2734,11 @@ export default function BuyerManageModal({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              City
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                              <span>City</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="text"
@@ -3252,8 +2749,11 @@ export default function BuyerManageModal({
                             />
                           </div>
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              State / Province
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                              <span>State / Province</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="text"
@@ -3296,8 +2796,11 @@ export default function BuyerManageModal({
                           />
 
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              Zipcode
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                              <span>Zipcode</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="text"
@@ -3311,8 +2814,11 @@ export default function BuyerManageModal({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
                           <div className="flex flex-col gap-1.5">
-                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                              Email
+                            <label className="font-bold text-xs uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                              <span>Email</span>
+                              <span className="text-[10px] lowercase text-muted-foreground/70 font-normal">
+                                (optional)
+                              </span>
                             </label>
                             <input
                               type="email"
