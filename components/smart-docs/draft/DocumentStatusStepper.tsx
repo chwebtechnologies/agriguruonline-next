@@ -5,8 +5,26 @@ import type { StepperDocumentItem } from '@/lib/api/smart-docs.service';
 import {
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
   downloadPdfFromActionResponse,
+  isConfirmationStep,
+  isContractStep,
 } from '@/lib/api/smart-docs.service';
 import { getStepperListAction, downloadDocPdfAction } from '@/app/actions/smart-docs';
+
+export function cleanDocNumber(val: any): string | null {
+  if (val === null || val === undefined) return null;
+  const str = String(val).trim();
+  if (
+    !str ||
+    str.toLowerCase() === 'null' ||
+    str.toLowerCase() === 'undefined' ||
+    str === '-' ||
+    str.toLowerCase() === 'n/a' ||
+    str.toLowerCase() === '[object object]'
+  ) {
+    return null;
+  }
+  return str;
+}
 
 export type NormalizedStatus = 'completed' | 'in_progress' | 'pending' | 'locked';
 
@@ -48,6 +66,9 @@ export interface DocumentStatusStepperProps {
   dict?: any;
   isMobile?: boolean;
   stepId?: string;
+  confirmationNumber?: string | null;
+  contractNumber?: string | null;
+  isContractStep?: boolean;
 }
 
 export function DocumentStatusStepper({
@@ -59,12 +80,16 @@ export function DocumentStatusStepper({
   dict,
   isMobile = false,
   stepId,
+  confirmationNumber,
+  contractNumber,
+  isContractStep: propIsContractStep,
 }: DocumentStatusStepperProps) {
   const [steps, setSteps] = useState<StepperDocumentItem[]>(initialSteps || []);
   const [selectedIndex, setSelectedIndex] = useState<number>(currentStepIndex);
   const [isLoading, setIsLoading] = useState<boolean>(!initialSteps || initialSteps.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [copied, setCopied] = useState<boolean>(false);
 
   // Load steps from API if initialSteps is empty or not provided
   useEffect(() => {
@@ -226,11 +251,94 @@ export function DocumentStatusStepper({
     (s) => normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed'
   ).length;
 
+  const isContractView =
+    Boolean(propIsContractStep) ||
+    selectedIndex === 1 ||
+    isContractStep(steps[selectedIndex], selectedIndex);
+
+  const cleanConf = cleanDocNumber(
+    confirmationNumber ||
+    steps[0]?.confirmation_number ||
+    steps.find((s, i) => isConfirmationStep(s, i))?.confirmation_number
+  );
+
+  const cleanCont = cleanDocNumber(
+    contractNumber ||
+    steps[1]?.contract_number ||
+    steps.find((s, i) => isContractStep(s, i))?.contract_number
+  );
+
+  // User requirement:
+  // 1. "Jab tak confirmation save as draft nahi hota tab tak kucch nahi aayega"
+  // 2. "save as draft karoge to Confirmation ki api response me confirmation_number me null ki jagah value mile to usko stepper ke uper me confirmation number dikhana hai"
+  // 3. "and if contract vale hai to usme jab tak contract_number contract ke response me null aaye to tab tak confirmation number and contract number dikhe to tab se vaha contract number dikhana hai"
+  // 4. "USER CONFIRMATION ME JAYE TO BHI CONTRACT NUMBER GENERATE HO GAYA HAI MEANS CONTRACT NUMBER HI AAYEGA"
+  // 5. "stepper me Document status ke uper"
+  let activeDocNumber: string | null = null;
+  let activeDocLabel: string = '';
+  let isContractNumberActive = false;
+
+  // Once contract_number is generated / present, CONTRACT NUMBER ALWAYS WINS everywhere
+  // (even if user clicks back to Confirmation step or any step).
+  if (cleanCont) {
+    activeDocNumber = cleanCont;
+    activeDocLabel = dict?.smart_docs?.contract_form?.contract_number || 'Contract Number';
+    isContractNumberActive = true;
+  } else if (cleanConf) {
+    // If contract_number is still null / not generated yet, show confirmation_number (once saved as draft).
+    activeDocNumber = cleanConf;
+    activeDocLabel = dict?.smart_docs?.confirmation_form?.confirmation_number || 'Confirmation Number';
+    isContractNumberActive = false;
+  }
+
+  const handleCopyNumber = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeDocNumber) return;
+    try {
+      navigator.clipboard.writeText(activeDocNumber);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.warn('[DocumentStatusStepper] Copy to clipboard failed:', err);
+    }
+  };
+
   return (
     <div className={`w-full flex flex-col ${isMobile ? '' : 'h-full'} select-none`}>
       {/* Simple Sober Header */}
       {!isMobile && (
         <div className="shrink-0 pb-2 mb-1 border-b border-border">
+          {/* Document Number Display: Exactly Above Document Status */}
+          {activeDocNumber && (
+            <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-muted/40 border border-border flex items-center justify-between gap-2 transition-all animate-in fade-in duration-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-5 h-5 rounded-md bg-brand-blue/10 text-brand-blue dark:text-sky-400 flex items-center justify-center shrink-0 text-xs">
+                  <i className={isContractNumberActive ? 'fa-solid fa-file-contract' : 'fa-solid fa-file-signature'} />
+                </span>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider truncate">
+                    {activeDocLabel}
+                  </span>
+                  <span
+                    className="text-xs sm:text-[13px] font-extrabold text-foreground tracking-tight truncate font-mono select-all"
+                    title={activeDocNumber}
+                  >
+                    {activeDocNumber}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyNumber}
+                title="Copy document number"
+                aria-label="Copy document number"
+                className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer shrink-0"
+              >
+                <i className={copied ? 'fa-solid fa-check text-green-500 text-xs' : 'fa-regular fa-copy text-xs'} />
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="w-5 h-5 rounded bg-brand-blue/10 text-brand-blue dark:text-sky-400 flex items-center justify-center shrink-0 text-xs">
@@ -250,6 +358,39 @@ export function DocumentStatusStepper({
                 {completedCount} / {steps.length}
               </span>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Drawer Header with Document Number above Document Status if active */}
+      {isMobile && activeDocNumber && (
+        <div className="shrink-0 pb-2 mb-2 border-b border-border">
+          <div className="px-2.5 py-1.5 rounded-lg bg-muted/40 border border-border flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-5 h-5 rounded-md bg-brand-blue/10 text-brand-blue dark:text-sky-400 flex items-center justify-center shrink-0 text-xs">
+                <i className={isContractNumberActive ? 'fa-solid fa-file-contract' : 'fa-solid fa-file-signature'} />
+              </span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider truncate">
+                  {activeDocLabel}
+                </span>
+                <span
+                  className="text-xs font-extrabold text-foreground tracking-tight truncate font-mono select-all"
+                  title={activeDocNumber}
+                >
+                  {activeDocNumber}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyNumber}
+              title="Copy document number"
+              aria-label="Copy document number"
+              className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer shrink-0"
+            >
+              <i className={copied ? 'fa-solid fa-check text-green-500 text-xs' : 'fa-regular fa-copy text-xs'} />
+            </button>
           </div>
         </div>
       )}

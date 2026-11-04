@@ -3231,6 +3231,23 @@ export function ConfirmationDocumentForm({
         result?.data?.confirmation_id ||
         result?.confirmation_id;
 
+      const respConfNum =
+        result?.data?.confirmation_number ||
+        result?.data?.confirmationNumber ||
+        result?.raw?.data?.confirmation_number ||
+        result?.confirmation_number ||
+        result?.data?.confirmation?.confirmation_number ||
+        payload.confirmation_number;
+
+      if (respConfNum && typeof respConfNum === 'string' && respConfNum.trim()) {
+        setConfirmationNumber(respConfNum.trim());
+      }
+
+      const returnData = {
+        ...(result?.data || result?.raw?.data || result || {}),
+        ...(respConfNum ? { confirmation_number: respConfNum } : {}),
+      };
+
       if (savedId) {
         const cleanId = String(savedId).trim();
         setDraftId(cleanId);
@@ -3260,11 +3277,13 @@ export function ConfirmationDocumentForm({
           }
 
           if (onSaveSuccess) {
-            await onSaveSuccess(cleanId, result?.data);
+            await onSaveSuccess(cleanId, returnData);
           }
         } catch (postSyncErr) {
           console.error('[ConfirmationDocumentForm] Post-save API sync error:', postSyncErr);
         }
+      } else if (onSaveSuccess && draftId) {
+        await onSaveSuccess(draftId, returnData);
       }
 
       const successText =
@@ -3382,11 +3401,27 @@ export function ConfirmationDocumentForm({
         draftId
       );
 
+      const submitConfNum =
+        result?.data?.confirmation_number ||
+        result?.data?.confirmationNumber ||
+        result?.raw?.data?.confirmation_number ||
+        result?.confirmation_number ||
+        payload.confirmation_number;
+
+      if (submitConfNum && typeof submitConfNum === 'string' && submitConfNum.trim()) {
+        setConfirmationNumber(submitConfNum.trim());
+      }
+
+      const submitReturnData = {
+        ...(result?.data || result?.raw?.data || result || {}),
+        ...(submitConfNum ? { confirmation_number: submitConfNum } : {}),
+      };
+
       if (cleanId) {
         setDraftId(cleanId);
         lastLoadedDocIdRef.current = cleanId;
         if (onSaveSuccess) {
-          onSaveSuccess(cleanId, result?.data);
+          onSaveSuccess(cleanId, submitReturnData);
         }
       }
 

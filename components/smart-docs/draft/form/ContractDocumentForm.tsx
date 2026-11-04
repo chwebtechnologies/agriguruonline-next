@@ -65,7 +65,7 @@ export interface ContractDocumentFormProps {
   paymentTerms?: FormOptionItem[];
   documentsList?: SmartDocsSelectionDocumentOption[];
   onSaveDraft?: (payload: any) => Promise<any>;
-  onSaveSuccess?: (savedId: string) => void;
+  onSaveSuccess?: (savedId: string, savedData?: any) => void;
   onSubmitContract?: (payload: any, id?: string) => Promise<any>;
   lang?: string;
   dict?: any;
@@ -4867,19 +4867,35 @@ export function ContractDocumentForm({
         ''
       );
 
+      // Synchronize fresh signature URLs & contract number from backend response if available
+      const savedContract =
+        res.data && typeof res.data === 'object'
+          ? extractContractData(res.data) || res.data
+          : null;
+
+      const respContNum =
+        savedContract?.contract_number ||
+        savedContract?.contractNumber ||
+        savedContract?.contract_no ||
+        res?.data?.contract_number ||
+        res?.data?.contractNumber ||
+        res?.contract_number ||
+        (typeof formDataPayload?.get === 'function' ? formDataPayload.get('contract_number') : null);
+
+      if (respContNum && typeof respContNum === 'string' && respContNum.trim()) {
+        setContractNumber(respContNum.trim());
+      }
+
       if (newId && !isInvalidPlaceholder(newId)) {
         setDraftId(newId);
         lastLoadedDocIdRef.current = newId;
         isFormInitializedRef.current = true;
         if (onSaveSuccess) {
-          onSaveSuccess(newId);
+          onSaveSuccess(newId, {
+            ...(savedContract || res?.data || res || {}),
+            ...(respContNum ? { contract_number: respContNum } : {}),
+          });
         }
-
-        // Synchronize fresh signature URLs from backend response if available
-        const savedContract =
-          res.data && typeof res.data === 'object'
-            ? extractContractData(res.data) || res.data
-            : null;
         if (savedContract) {
           const sSellerSig = savedContract.seller_signature || savedContract.exporter_signature;
           if (hasUserClearedExporterSigRef.current || !exporterSignature) {

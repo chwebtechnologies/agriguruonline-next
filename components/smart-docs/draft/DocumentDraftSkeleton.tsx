@@ -367,18 +367,16 @@ export default function DocumentDraftSkeleton({
           </div>
 
           {/* Mobile Stepper Header Banner (< lg only) */}
-          <div className="lg:hidden shrink-0 bg-card border border-border rounded-xl p-2.5 sm:p-3 shadow-xs mb-2.5 animate-pulse">
+          <div className="lg:hidden shrink-0 bg-card border border-border rounded-xl p-2 sm:p-2.5 shadow-xs mb-2.5 animate-pulse">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-6.5 h-6.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary/40">
-                  1
-                </div>
-                <div className="flex flex-col gap-1">
-                  <div className="h-2.5 w-24 bg-muted/40 rounded" />
-                  <div className="h-3.5 w-32 bg-muted/60 rounded" />
+                <div className="w-5 h-5 rounded-full bg-muted/60 flex items-center justify-center shrink-0" />
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="h-3 w-28 bg-muted/50 rounded" />
+                  <div className="h-2 w-16 bg-muted/30 rounded" />
                 </div>
               </div>
-              <div className="w-24 h-7 rounded-md bg-muted/30 border border-border" />
+              <div className="w-20 h-6 rounded-md bg-muted/30 border border-border shrink-0" />
             </div>
           </div>
 
@@ -389,45 +387,39 @@ export default function DocumentDraftSkeleton({
               {formCardContent}
             </div>
 
-            {/* Right Side: Stepper Card Skeleton (Desktop only) */}
-            <div className="hidden lg:flex w-[260px] xl:w-[280px] 2xl:w-[300px] shrink-0 h-full min-h-0 bg-card border border-border rounded-xl shadow-xs overflow-hidden flex-col animate-pulse">
-              {/* Stepper Header */}
-              <div className="p-3.5 border-b border-border shrink-0 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="h-3 w-32 bg-muted/50 rounded" />
-                  <div className="h-4 w-16 bg-muted/30 rounded-full" />
+            {/* Right Side: Stepper Card Skeleton (Desktop only - matches DocumentStatusStepper 100%) */}
+            <div className="hidden lg:flex w-[260px] xl:w-[280px] 2xl:w-[300px] shrink-0 h-full min-h-0 bg-card border border-border rounded-xl shadow-xs overflow-hidden flex-col p-2.5 sm:p-3 animate-pulse">
+              {/* Stepper Header Skeleton */}
+              <div className="shrink-0 pb-2 mb-1 border-b border-border flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="w-5 h-5 rounded bg-muted/60 shrink-0" />
+                  <div className="h-3.5 w-24 bg-muted/50 rounded" />
                 </div>
-                <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
-                  <div className="h-full w-1/3 bg-primary/40 rounded-full" />
-                </div>
+                <div className="h-4 w-10 rounded-full bg-muted/40 shrink-0" />
               </div>
 
-              {/* Workflow Steps Skeleton List */}
-              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
-                {Array.from({ length: 6 }).map((_, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                    <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold border ${
-                        idx === 0
-                          ? 'bg-primary/20 border-primary text-primary'
-                          : 'bg-muted/30 border-border text-muted-foreground/40'
-                      }`}
-                    >
-                      {idx + 1}
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+              {/* Workflow Steps Skeleton List matching Stepper rows */}
+              <div className="flex-1 overflow-y-auto pr-0.5 space-y-0.5 custom-scrollbar">
+                {Array.from({ length: 11 }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="relative flex items-center gap-2 px-2 py-1 rounded-md border border-transparent"
+                  >
+                    {/* Circle Node */}
+                    <div className="w-5 h-5 rounded-full bg-muted/60 shrink-0" />
+
+                    {/* Title + Status Badge */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
                       <div
                         className={`h-3 rounded ${
-                          idx === 0 ? 'w-28 bg-foreground/30' : 'w-24 bg-muted/40'
+                          idx === 0 ? 'w-28 bg-muted/60' : 'w-24 bg-muted/40'
                         }`}
                       />
-                      <div className="h-2 w-14 bg-muted/20 rounded" />
+                      <div className="h-2.5 w-12 rounded bg-muted/30" />
                     </div>
-                    {idx === 0 ? (
-                      <div className="h-4 w-12 rounded-full bg-amber-500/20 border border-amber-500/30 shrink-0" />
-                    ) : (
-                      <div className="h-3.5 w-10 rounded-full bg-muted/20 shrink-0" />
-                    )}
+
+                    {/* PDF Icon Box */}
+                    <div className="w-7 h-7 rounded-md bg-muted/20 border border-border/30 shrink-0" />
                   </div>
                 ))}
               </div>

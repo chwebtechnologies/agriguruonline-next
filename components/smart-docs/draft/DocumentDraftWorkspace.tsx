@@ -20,7 +20,7 @@ import {
   sanitizeDocId,
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
 } from '@/lib/api/smart-docs.service';
-import DocumentStatusStepper from './DocumentStatusStepper';
+import DocumentStatusStepper, { cleanDocNumber } from './DocumentStatusStepper';
 import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
 import ContractDocumentForm from './form/ContractDocumentForm';
 import DocumentDraftSkeleton from './DocumentDraftSkeleton';
@@ -275,6 +275,46 @@ export function DocumentDraftWorkspace({
     return clean && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(clean) ? clean : '';
   }, [steps, selectedStep, isProforma, draftId]);
 
+  // Resolved Confirmation Number:
+  // "Jab tak confirmation save as draft nahi hota tab tak kucch nahi aayega save as draft karoge to Confirmation ki api response me confirmation_number me null ki jagah value mile to usko stepper ke uper me confirmation number dikhana hai"
+  const resolvedConfirmationNumber = useMemo(() => {
+    return cleanDocNumber(
+      confirmationData?.confirmation_number ||
+      confirmationData?.confirmationNumber ||
+      confirmationData?.confirmation?.confirmation_number ||
+      initialData?.confirmation_number ||
+      initialData?.confirmationNumber ||
+      initialData?.confirmation?.confirmation_number ||
+      contractData?.confirmation_number ||
+      contractData?.confirmationNumber ||
+      contractData?.confirmation?.confirmation_number ||
+      initialContractData?.confirmation_number ||
+      initialContractData?.confirmationNumber ||
+      initialContractData?.confirmation?.confirmation_number ||
+      steps[0]?.confirmation_number ||
+      steps.find((s, idx) => isConfirmationStep(s, idx))?.confirmation_number
+    );
+  }, [confirmationData, initialData, contractData, initialContractData, steps]);
+
+  // Resolved Contract Number:
+  // "and if contract vale hai to usme jab tak contract_number contract ke response me null aaye to tab tak confirmation number and contract number dikhe to tab se vaha contract number dikhana hai"
+  const resolvedContractNumber = useMemo(() => {
+    return cleanDocNumber(
+      contractData?.contract_number ||
+      contractData?.contractNumber ||
+      contractData?.contract_no ||
+      contractData?.contract?.contract_number ||
+      contractData?.contract?.contract_no ||
+      initialContractData?.contract_number ||
+      initialContractData?.contractNumber ||
+      initialContractData?.contract_no ||
+      initialContractData?.contract?.contract_number ||
+      initialContractData?.contract?.contract_no ||
+      steps[1]?.contract_number ||
+      steps.find((s, idx) => isContractStep(s, idx))?.contract_number
+    );
+  }, [contractData, initialContractData, steps]);
+
   useEffect(() => {
     if (initialSteps && initialSteps.length > 0) {
       setSteps(initialSteps);
@@ -477,6 +517,13 @@ export function DocumentDraftWorkspace({
       ? 'Proforma Invoice'
       : dict?.smart_docs?.draft_title || 'Trade Confirmation');
 
+  // Once contract number is generated, it ALWAYS takes priority everywhere (even on confirmation step!)
+  const mobileActiveDocNumber = resolvedContractNumber || resolvedConfirmationNumber;
+
+  const mobileActiveDocLabel = resolvedContractNumber
+    ? (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.')
+    : (dict?.smart_docs?.confirmation_form?.confirmation_number || 'Confirmation No.');
+
   return (
     <div className="flex-1 min-h-fit lg:min-h-0 flex flex-col lg:overflow-hidden">
       {/* Header Bar with Dynamic Step Title */}
@@ -502,6 +549,14 @@ export function DocumentDraftWorkspace({
               {selectedStepIndex + 1}
             </span>
             <div className="flex flex-col min-w-0">
+              {mobileActiveDocNumber && (
+                <div className="flex items-center gap-1 min-w-0 text-[10px] text-foreground font-bold tracking-tight">
+                  <span className="text-muted-foreground font-semibold text-[9px] uppercase">
+                    {mobileActiveDocLabel}:
+                  </span>
+                  <span className="truncate font-mono">{mobileActiveDocNumber}</span>
+                </div>
+              )}
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 {dict?.smart_docs?.document_status || 'Document Step'}
                 {steps.length > 0 ? ` (${selectedStepIndex + 1}/${steps.length})` : ''}
@@ -534,6 +589,9 @@ export function DocumentDraftWorkspace({
               onUpdateSteps={setSteps}
               lang={lang}
               dict={dict}
+              confirmationNumber={resolvedConfirmationNumber}
+              contractNumber={resolvedContractNumber}
+              isContractStep={isContract}
             />
           </div>
         )}
@@ -572,10 +630,20 @@ export function DocumentDraftWorkspace({
                 setSteps(newSteps);
               }
             }}
-            onSaveSuccess={(savedId) => {
+            onSaveSuccess={(savedId, savedData) => {
               if (savedId) {
                 setDraftId(savedId);
-                setConfirmationData((prev: any) => ({ ...(prev || {}), id: savedId, _id: savedId }));
+                const confNum =
+                  savedData?.confirmation_number ||
+                  savedData?.confirmationNumber ||
+                  savedData?.confirmation?.confirmation_number;
+                setConfirmationData((prev: any) => ({
+                  ...(prev || {}),
+                  ...(savedData || {}),
+                  ...(confNum ? { confirmation_number: confNum } : {}),
+                  id: savedId,
+                  _id: savedId,
+                }));
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
                   url.searchParams.set('id', savedId);
@@ -585,6 +653,21 @@ export function DocumentDraftWorkspace({
             }}
             onSaveDraft={async (formData) => {
               const res = await saveConfirmationDraftAction(formData, lang);
+              if (res?.success) {
+                const confNum =
+                  res.data?.confirmation_number ||
+                  res.data?.confirmationNumber ||
+                  res.data?.confirmation?.confirmation_number ||
+                  (res as any)?.confirmation_number ||
+                  formData?.confirmation_number;
+                setConfirmationData((prev: any) => ({
+                  ...(prev || {}),
+                  ...(res.data || {}),
+                  ...(confNum ? { confirmation_number: confNum } : {}),
+                  id: res.id || prev?.id,
+                  _id: res.id || prev?._id,
+                }));
+              }
               return res;
             }}
             onSubmitContract={async (formData) => {
@@ -599,6 +682,17 @@ export function DocumentDraftWorkspace({
                   draftId;
                 if (newId) {
                   setDraftId(String(newId));
+                }
+                const confNum =
+                  res.data?.confirmation_number ||
+                  res.data?.confirmationNumber ||
+                  res.data?.confirmation?.confirmation_number ||
+                  formData?.confirmation_number;
+                if (confNum) {
+                  setConfirmationData((prev: any) => ({
+                    ...(prev || {}),
+                    confirmation_number: confNum,
+                  }));
                 }
                 if (res.data) {
                   const extracted = extractContractData(res.data) || res.data;
@@ -688,9 +782,21 @@ export function DocumentDraftWorkspace({
               currencies={initialCurrencies}
               shippingTerms={shippingTerms}
               documentsList={initialDocumentList}
-              onSaveSuccess={(savedId) => {
+              onSaveSuccess={(savedId: string, savedData?: any) => {
                 if (savedId) {
                   setDraftId(savedId);
+                  const contNum =
+                    savedData?.contract_number ||
+                    savedData?.contractNumber ||
+                    savedData?.contract_no ||
+                    savedData?.contract?.contract_number;
+                  setContractData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(savedData || {}),
+                    ...(contNum ? { contract_number: contNum } : {}),
+                    id: savedId,
+                    contract_id: savedId,
+                  }));
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
                     url.searchParams.set('id', savedId);
@@ -744,6 +850,13 @@ export function DocumentDraftWorkspace({
 
                   if (res.data) {
                     const extracted = extractContractData(res.data) || res.data;
+                    const contNum =
+                      extracted?.contract_number ||
+                      extracted?.contractNumber ||
+                      extracted?.contract_no ||
+                      res.data?.contract_number ||
+                      res.data?.contractNumber ||
+                      (typeof formData?.get === 'function' ? formData.get('contract_number') : null);
                     setContractData((prev: any) => {
                       const updated = { ...(prev || {}) };
                       if (extracted && typeof extracted === 'object') {
@@ -752,6 +865,9 @@ export function DocumentDraftWorkspace({
                             updated[k] = v;
                           }
                         }
+                      }
+                      if (contNum) {
+                        updated.contract_number = contNum;
                       }
                       const isFormData = typeof formData?.get === 'function';
                       if (isFormData && (formData.get('remove_seller_signature') === 'true' || formData.get('seller_signature') === '')) {
@@ -839,6 +955,13 @@ export function DocumentDraftWorkspace({
                   }
                   if (res.data) {
                     const extracted = extractContractData(res.data) || res.data;
+                    const contNum =
+                      extracted?.contract_number ||
+                      extracted?.contractNumber ||
+                      extracted?.contract_no ||
+                      res.data?.contract_number ||
+                      res.data?.contractNumber ||
+                      (typeof formData?.get === 'function' ? formData.get('contract_number') : null);
                     setContractData((prev: any) => {
                       const updated = { ...(prev || {}) };
                       if (extracted && typeof extracted === 'object') {
@@ -847,6 +970,9 @@ export function DocumentDraftWorkspace({
                             updated[k] = v;
                           }
                         }
+                      }
+                      if (contNum) {
+                        updated.contract_number = contNum;
                       }
                       const isFormData = typeof formData?.get === 'function';
                       if (isFormData && (formData.get('remove_seller_signature') === 'true' || formData.get('seller_signature') === '')) {
@@ -944,6 +1070,9 @@ export function DocumentDraftWorkspace({
             onUpdateSteps={setSteps}
             lang={lang}
             dict={dict}
+            confirmationNumber={resolvedConfirmationNumber}
+            contractNumber={resolvedContractNumber}
+            isContractStep={isContract}
           />
         </div>
       </aside>
