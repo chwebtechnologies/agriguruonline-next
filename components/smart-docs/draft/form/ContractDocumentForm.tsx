@@ -1847,6 +1847,8 @@ export function extractAndResolveContractDocuments(
     data.documentsList,
     data.contract_documents,
     data.contractDocuments,
+    data.default_documents,
+    data.defaultDocuments,
     data.document_ids,
     data.documentIds,
     data.docs,
@@ -2585,6 +2587,40 @@ export function ContractDocumentForm({
     return '';
   }, [isSalesBrokerAllowed, brokerCommission, brokerCommissionType, effectiveContractTotalValue, effectiveContractMt]);
 
+  // ROW: Country Required Documents (ECTN & COC)
+  const [ectnField, setEctnField] = useState<boolean | null>(() => {
+    const isEctn = parseNullableBoolean(
+      initialData?.ectn_field ??
+      initialData?.ectnField ??
+      initialData?.ectn
+    );
+    const isCoc = parseNullableBoolean(
+      initialData?.coc_fields ??
+      initialData?.cocFields ??
+      initialData?.coc_field ??
+      initialData?.cocField ??
+      initialData?.coc
+    );
+    if (isCoc === true) return false;
+    return isEctn;
+  });
+  const [cocFields, setCocFields] = useState<boolean | null>(() => {
+    const isEctn = parseNullableBoolean(
+      initialData?.ectn_field ??
+      initialData?.ectnField ??
+      initialData?.ectn
+    );
+    const isCoc = parseNullableBoolean(
+      initialData?.coc_fields ??
+      initialData?.cocFields ??
+      initialData?.coc_field ??
+      initialData?.cocField ??
+      initialData?.coc
+    );
+    if (isEctn === true) return false;
+    return isCoc;
+  });
+
   // ROW 25: Additional Details
   const [freeDays, setFreeDays] = useState<string>(() => {
     return toCleanLabel(initialData?.free_days || initialData?.freeDays) || '';
@@ -2631,16 +2667,7 @@ export function ContractDocumentForm({
     );
   });
 
-  // ROW 27: Documents (Default Documents & Documents Required Dropdown Selection)
-  const [defaultDocuments, setDefaultDocuments] = useState<string[]>(() => {
-    return parseDefaultDocuments(
-      initialData?.default_documents ||
-      initialData?.defaultDocuments ||
-      initialData?.default_document_list ||
-      initialData?.defaultDocumentList
-    );
-  });
-
+  // ROW 27: Documents (Documents Required - Unified List)
   const [internalDocumentList, setInternalDocumentList] = useState<SmartDocsSelectionDocumentOption[]>(() => {
     const baseList =
       documentsList && documentsList.length > 0
@@ -2660,17 +2687,161 @@ export function ContractDocumentForm({
         });
       }
     }
+    if (!existingNames.has('ECTN CERTIFICATE')) {
+      existingNames.add('ECTN CERTIFICATE');
+      baseList.push({
+        id: 'ECTN CERTIFICATE',
+        name: 'ECTN CERTIFICATE',
+        label: 'ECTN CERTIFICATE',
+        value: 'ECTN CERTIFICATE',
+        isCustom: true,
+      });
+    }
+    if (!existingNames.has('COC CERTIFICATE')) {
+      existingNames.add('COC CERTIFICATE');
+      baseList.push({
+        id: 'COC CERTIFICATE',
+        name: 'COC CERTIFICATE',
+        label: 'COC CERTIFICATE',
+        value: 'COC CERTIFICATE',
+        isCustom: true,
+      });
+    }
     return baseList;
   });
 
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>(() => {
-    return extractAndResolveContractDocuments(
+    const fromReq = extractAndResolveContractDocuments(
       initialData,
       documentsList && documentsList.length > 0
         ? documentsList
         : DEFAULT_DOCUMENT_SELECTION_OPTIONS
     );
+    const legacyDefaults = parseDefaultDocuments(
+      initialData?.default_documents ||
+      initialData?.defaultDocuments ||
+      initialData?.default_document_list ||
+      initialData?.defaultDocumentList
+    );
+    const combined = [...fromReq];
+    const seen = new Set(fromReq.map((d) => d.trim().toUpperCase()));
+    for (const d of legacyDefaults) {
+      if (d && !seen.has(d.trim().toUpperCase())) {
+        seen.add(d.trim().toUpperCase());
+        combined.push(d.trim().toUpperCase());
+      }
+    }
+    const isInitEctn = parseNullableBoolean(initialData?.ectn_field ?? initialData?.ectnField ?? initialData?.ectn) === true;
+    const isInitCoc = parseNullableBoolean(initialData?.coc_fields ?? initialData?.cocFields ?? initialData?.coc_field ?? initialData?.cocField ?? initialData?.coc) === true;
+    if (isInitEctn && !seen.has('ECTN CERTIFICATE')) {
+      seen.add('ECTN CERTIFICATE');
+      combined.push('ECTN CERTIFICATE');
+    } else if (isInitCoc && !isInitEctn && !seen.has('COC CERTIFICATE')) {
+      seen.add('COC CERTIFICATE');
+      combined.push('COC CERTIFICATE');
+    }
+    return combined;
   });
+
+  const ECTN_DOC_NAME = 'ECTN CERTIFICATE';
+  const COC_DOC_NAME = 'COC CERTIFICATE';
+
+  // Automatically manages ECTN & COC Certificate inclusion in selectedDocuments
+  const updateCertificateDocuments = useCallback((isEctnYes: boolean, isCocYes: boolean) => {
+    setSelectedDocuments((prev) => {
+      // Remove both ECTN CERTIFICATE and COC CERTIFICATE first
+      const next = prev.filter((doc) => {
+        const upper = doc.trim().toUpperCase();
+        return (
+          upper !== ECTN_DOC_NAME &&
+          upper !== 'ECTN' &&
+          upper !== COC_DOC_NAME &&
+          upper !== 'COC'
+        );
+      });
+
+      // Add appropriate certificate at the end
+      if (isEctnYes) {
+        next.push(ECTN_DOC_NAME);
+      } else if (isCocYes) {
+        next.push(COC_DOC_NAME);
+      }
+
+      return next;
+    });
+
+    // Ensure options exist in internalDocumentList
+    if (isEctnYes) {
+      setInternalDocumentList((prev) => {
+        if (prev.some((p) => p.name.toUpperCase() === ECTN_DOC_NAME)) return prev;
+        return [
+          ...prev,
+          {
+            id: ECTN_DOC_NAME,
+            name: ECTN_DOC_NAME,
+            label: ECTN_DOC_NAME,
+            value: ECTN_DOC_NAME,
+            isCustom: true,
+          },
+        ];
+      });
+    } else if (isCocYes) {
+      setInternalDocumentList((prev) => {
+        if (prev.some((p) => p.name.toUpperCase() === COC_DOC_NAME)) return prev;
+        return [
+          ...prev,
+          {
+            id: COC_DOC_NAME,
+            name: COC_DOC_NAME,
+            label: COC_DOC_NAME,
+            value: COC_DOC_NAME,
+            isCustom: true,
+          },
+        ];
+      });
+    }
+  }, []);
+
+  const handleEctnChange = useCallback((val: boolean | null) => {
+    markDirty();
+    setEctnField(val);
+
+    if (val === true) {
+      // ECTN is YES -> COC must be NO (false)
+      setCocFields(false);
+      updateCertificateDocuments(true, false);
+    } else {
+      updateCertificateDocuments(false, cocFields === true);
+    }
+  }, [cocFields, markDirty, updateCertificateDocuments]);
+
+  const handleCocChange = useCallback((val: boolean | null) => {
+    markDirty();
+    setCocFields(val);
+
+    if (val === true) {
+      // COC is YES -> ECTN must be NO (false)
+      setEctnField(false);
+      updateCertificateDocuments(false, true);
+    } else {
+      updateCertificateDocuments(ectnField === true, false);
+    }
+  }, [ectnField, markDirty, updateCertificateDocuments]);
+
+  // Component-scoped effective documents ensuring ECTN or COC Certificate is included if toggled YES
+  const effectiveDocs = useMemo(() => {
+    const docs = [...selectedDocuments];
+    if (ectnField === true) {
+      if (!docs.some((d) => d.trim().toUpperCase() === ECTN_DOC_NAME)) {
+        docs.push(ECTN_DOC_NAME);
+      }
+    } else if (cocFields === true) {
+      if (!docs.some((d) => d.trim().toUpperCase() === COC_DOC_NAME)) {
+        docs.push(COC_DOC_NAME);
+      }
+    }
+    return docs;
+  }, [selectedDocuments, ectnField, cocFields]);
 
   // ROW 28: Shipping Line
   const [shippingLine, setShippingLine] = useState<string>(() => {
@@ -3324,7 +3495,16 @@ export function ContractDocumentForm({
       internalDocumentList.length > 0 ? internalDocumentList : (documentsList || [])
     );
     if (resolved.length > 0) {
-      setSelectedDocuments(resolved);
+      setSelectedDocuments((prev) => {
+        // If the form has already been initialized and holds active documents,
+        // do not discard user additions when initialData is updated or passed post-save!
+        if (isFormInitializedRef.current && prev.length > 0) {
+          const prevSet = new Set(prev.map((d) => d.trim().toUpperCase()));
+          const toAdd = resolved.filter((d) => !prevSet.has(d.trim().toUpperCase()));
+          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+        }
+        return resolved;
+      });
       setInternalDocumentList((prev) => {
         const existingNames = new Set(prev.map((p) => p.name.toUpperCase()));
         const toAdd: SmartDocsSelectionDocumentOption[] = [];
@@ -3343,7 +3523,7 @@ export function ContractDocumentForm({
         return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
       });
     }
-  }, [initialData]);
+  }, [initialData, documentsList]);
 
   const handleAddNewSeller = () => {
     setEditingParty(null);
@@ -3904,6 +4084,33 @@ export function ContractDocumentForm({
     const bName = toCleanLabel(initialData.broker_name || initialData.sales_broker_name || initialData.brokerName);
     if (bName) setBrokerName(bName);
 
+    let ectnVal = parseNullableBoolean(
+      initialData.ectn_field ??
+      initialData.ectnField ??
+      initialData.ectn
+    );
+    let cocVal = parseNullableBoolean(
+      initialData.coc_fields ??
+      initialData.cocFields ??
+      initialData.coc_field ??
+      initialData.cocField ??
+      initialData.coc
+    );
+    // If ECTN is YES, COC is NO; if COC is YES, ECTN is NO
+    if (ectnVal === true) {
+      cocVal = false;
+    } else if (cocVal === true) {
+      ectnVal = false;
+    }
+    setEctnField(ectnVal);
+    setCocFields(cocVal);
+
+    if (ectnVal === true) {
+      updateCertificateDocuments(true, false);
+    } else if (cocVal === true) {
+      updateCertificateDocuments(false, true);
+    }
+
     const fDays = toCleanLabel(initialData.free_days || initialData.freeDays);
     if (fDays) setFreeDays(fDays);
 
@@ -3938,26 +4145,33 @@ export function ContractDocumentForm({
       initialData.otherTerms;
     if (oTerms) setOtherTermsPayment(oTerms);
 
-    const defDocs = parseDefaultDocuments(
+    const legacyDefDocs = parseDefaultDocuments(
       initialData.default_documents ||
       initialData.defaultDocuments ||
       initialData.default_document_list ||
       initialData.defaultDocumentList
     );
-    if (defDocs.length > 0) {
-      setDefaultDocuments(defDocs);
-    }
 
     const resolvedDocs = extractAndResolveContractDocuments(
       initialData,
       internalDocumentList.length > 0 ? internalDocumentList : (documentsList || [])
     );
-    if (resolvedDocs.length > 0) {
-      setSelectedDocuments(resolvedDocs);
+
+    const combinedDocs = [...resolvedDocs];
+    const seenDocs = new Set(resolvedDocs.map((d) => d.trim().toUpperCase()));
+    for (const d of legacyDefDocs) {
+      if (d && !seenDocs.has(d.trim().toUpperCase())) {
+        seenDocs.add(d.trim().toUpperCase());
+        combinedDocs.push(d.trim().toUpperCase());
+      }
+    }
+
+    if (combinedDocs.length > 0) {
+      setSelectedDocuments(combinedDocs);
       setInternalDocumentList((prev) => {
         const existingNames = new Set(prev.map((p) => p.name.toUpperCase()));
         const toAdd: SmartDocsSelectionDocumentOption[] = [];
-        for (const doc of resolvedDocs) {
+        for (const doc of combinedDocs) {
           if (!existingNames.has(doc.toUpperCase())) {
             existingNames.add(doc.toUpperCase());
             toAdd.push({
@@ -4418,8 +4632,16 @@ export function ContractDocumentForm({
     }
 
     // ECTN / COC fields
-    formData.append('ectn_field', String(Boolean(initialData?.ectn_field)));
-    formData.append('coc_fields', String(Boolean(initialData?.coc_fields)));
+    if (ectnField !== null) {
+      formData.append('ectn_field', String(ectnField));
+    } else {
+      formData.append('ectn_field', '');
+    }
+    if (cocFields !== null) {
+      formData.append('coc_fields', String(cocFields));
+    } else {
+      formData.append('coc_fields', '');
+    }
 
     // Other details
     formData.append('free_days', freeDays.trim());
@@ -4433,10 +4655,12 @@ export function ContractDocumentForm({
     formData.append('other_terms_1', otherTermsPayment.trim());
     formData.append('other_terms', otherTermsPayment.trim());
 
-    if (selectedDocuments && selectedDocuments.length > 0) {
-      for (const doc of selectedDocuments) {
+    if (effectiveDocs && effectiveDocs.length > 0) {
+      for (const doc of effectiveDocs) {
         if (doc && doc.trim()) {
           formData.append('documents_required[]', doc.trim());
+          formData.append('documents[]', doc.trim());
+          formData.append('required_documents[]', doc.trim());
         }
       }
     }
@@ -4608,6 +4832,8 @@ export function ContractDocumentForm({
       sales_broker_commission: isSalesBrokerAllowed && brokerCommission ? Number(brokerCommission) : undefined,
       sales_broker_amount: isSalesBrokerAllowed && (calculatedBrokerCommission || brokerCommissionAmt) ? Number(calculatedBrokerCommission || brokerCommissionAmt) : undefined,
       sales_broker_name: isSalesBrokerAllowed && brokerName.trim() ? brokerName.trim() : undefined,
+      ectn_field: ectnField,
+      coc_fields: cocFields,
       free_days: freeDays.trim(),
       empty_bags: emptyBags.trim(),
       comment: additionalComment.trim(),
@@ -4616,10 +4842,9 @@ export function ContractDocumentForm({
       comment_value: commentValue.trim(),
       other_terms: otherTermsPayment.trim(),
       other_terms_1: otherTermsPayment.trim(),
-      default_documents: defaultDocuments.length > 0 ? defaultDocuments : undefined,
-      documents_required: selectedDocuments,
-      required_documents: selectedDocuments,
-      documents: selectedDocuments,
+      documents_required: effectiveDocs,
+      required_documents: effectiveDocs,
+      documents: effectiveDocs,
       shipping_line: shippingLine.trim(),
       arbitration: arbitration.trim(),
       container_terms: containerStandards.trim(),
@@ -4944,6 +5169,9 @@ export function ContractDocumentForm({
           onSaveSuccess(newId, {
             ...(savedContract || res?.data || res || {}),
             ...(respContNum ? { contract_number: respContNum } : {}),
+            documents_required: effectiveDocs,
+            documents: effectiveDocs,
+            required_documents: effectiveDocs,
           });
         }
         if (savedContract) {
@@ -6415,6 +6643,48 @@ export function ContractDocumentForm({
             </div>
           </div>
 
+          {/* ROW: COUNTRY REQUIRED DOCUMENTS */}
+          <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="countryRequiredDocuments">
+            <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-center">
+              <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                COUNTRY REQUIRED DOCUMENTS
+              </label>
+            </div>
+            <div className="md:col-span-9 py-2 px-2.5 sm:px-3 flex flex-wrap items-center gap-3 sm:gap-6">
+              {/* ECTN Toggle */}
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap">
+                  ECTN
+                </span>
+                <DocSegmentedToggle
+                  id="toggle-ectn"
+                  value={ectnField}
+                  onChange={handleEctnChange}
+                  trueLabel="YES"
+                  falseLabel="NO"
+                  allowDeselect={true}
+                  disabled={readOnly}
+                />
+              </div>
+
+              {/* COC Toggle */}
+              <div className="flex items-center gap-2 sm:gap-2.5 pl-0 sm:pl-4 border-t sm:border-t-0 sm:border-l border-border/70 pt-2 sm:pt-0">
+                <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap">
+                  COC
+                </span>
+                <DocSegmentedToggle
+                  id="toggle-coc"
+                  value={cocFields}
+                  onChange={handleCocChange}
+                  trueLabel="YES"
+                  falseLabel="NO"
+                  allowDeselect={true}
+                  disabled={readOnly}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* ROW 25: ADDITIONAL DETAILS */}
           <div className="flex flex-col md:grid md:grid-cols-12 md:divide-x divide-border" data-field="additionalDetails">
             <div className="md:col-span-3 py-2 px-2.5 sm:px-3 flex items-start pt-2.5">
@@ -6535,9 +6805,8 @@ export function ContractDocumentForm({
                   setErrors((prev) => ({ ...prev, documentsRequired: '', documents: '' }));
                 }}
                 options={internalDocumentList}
-                defaultDocuments={defaultDocuments}
                 disabled={readOnly}
-                placeholder="SELECT DOCUMENTS"
+                placeholder="Enter Document"
                 lang={lang}
               />
               {(errors.documentsRequired || errors.documents) && (

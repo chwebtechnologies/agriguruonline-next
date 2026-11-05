@@ -43,14 +43,16 @@ const getMessagingInstance = async (): Promise<any | null> => {
   }
 };
 
-// Wait for a SW registration to become active
+// Wait for a SW registration to become active (with safe 2.5s fallback timeout)
 const waitForSWActive = (reg: ServiceWorkerRegistration): Promise<void> => {
   return new Promise((resolve) => {
     if (reg.active) { resolve(); return; }
+    const timeout = setTimeout(() => resolve(), 2500);
     const sw = reg.installing || reg.waiting;
-    if (!sw) { resolve(); return; }
+    if (!sw) { clearTimeout(timeout); resolve(); return; }
     sw.addEventListener('statechange', function handler() {
       if (sw.state === 'activated') {
+        clearTimeout(timeout);
         sw.removeEventListener('statechange', handler);
         resolve();
       }
@@ -76,6 +78,11 @@ const getFirebaseSWRegistration = async (): Promise<ServiceWorkerRegistration | 
       await waitForSWActive(existing);
       return existing;
     }
+    // If an active production SW (like /sw.js) is already ready, use it
+    if (navigator.serviceWorker.controller) {
+      const readyReg = await navigator.serviceWorker.ready;
+      if (readyReg) return readyReg;
+    }
     const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
       scope: '/',
       updateViaCache: 'none',
@@ -84,7 +91,11 @@ const getFirebaseSWRegistration = async (): Promise<ServiceWorkerRegistration | 
     return reg;
   } catch (err) {
     console.error('[FCM] Failed to register firebase-messaging-sw.js:', err);
-    return undefined;
+    try {
+      return await navigator.serviceWorker.ready;
+    } catch {
+      return undefined;
+    }
   }
 };
 
@@ -94,10 +105,15 @@ export const requestForToken = async (): Promise<string | null> => {
     if (!msg) return null;
     const swRegistration = await getFirebaseSWRegistration();
     const { getToken } = await import('firebase/messaging');
-    const currentToken = await getToken(msg, {
+    
+    // Add 4.5-second timeout so token generation never hangs the UI
+    const tokenPromise = getToken(msg, {
       vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
       serviceWorkerRegistration: swRegistration,
     });
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4500));
+    const currentToken = await Promise.race([tokenPromise, timeoutPromise]);
+
     if (currentToken) {
       console.log('[FCM] Token generated:', currentToken);
       return currentToken;

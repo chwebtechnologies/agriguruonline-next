@@ -563,6 +563,11 @@ export function ConfirmationsDataTable({
   const [rowToDelete, setRowToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Row action menu dropdown states
+  const [activeMenuKey, setActiveMenuKey] = useState<string | number | null>(null);
+  const [menuPlacement, setMenuPlacement] = useState<'top' | 'bottom'>('bottom');
+  const activeMenuRef = useRef<HTMLDivElement | null>(null);
+
   const lastSearchedQueryRef = useRef<string>(initialSearch || '');
   const searchDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -576,14 +581,17 @@ export function ConfirmationsDataTable({
       if (columnDropdownRef.current && !columnDropdownRef.current.contains(target)) {
         setIsColumnFilterOpen(false);
       }
+      if (activeMenuRef.current && !activeMenuRef.current.contains(target)) {
+        setActiveMenuKey(null);
+      }
     };
-    if (isFilterOpen || isColumnFilterOpen) {
+    if (isFilterOpen || isColumnFilterOpen || activeMenuKey !== null) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isFilterOpen, isColumnFilterOpen]);
+  }, [isFilterOpen, isColumnFilterOpen, activeMenuKey]);
 
   // Close dropdowns on Escape key
   useEffect(() => {
@@ -591,29 +599,31 @@ export function ConfirmationsDataTable({
       if (event.key === 'Escape') {
         setIsFilterOpen(false);
         setIsColumnFilterOpen(false);
+        setActiveMenuKey(null);
       }
     };
-    if (isFilterOpen || isColumnFilterOpen) {
+    if (isFilterOpen || isColumnFilterOpen || activeMenuKey !== null) {
       document.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isFilterOpen, isColumnFilterOpen]);
+  }, [isFilterOpen, isColumnFilterOpen, activeMenuKey]);
 
   // Close dropdowns on scroll
   useEffect(() => {
     const handleScroll = () => {
       if (isFilterOpen) setIsFilterOpen(false);
       if (isColumnFilterOpen) setIsColumnFilterOpen(false);
+      if (activeMenuKey !== null) setActiveMenuKey(null);
     };
-    if (isFilterOpen || isColumnFilterOpen) {
+    if (isFilterOpen || isColumnFilterOpen || activeMenuKey !== null) {
       window.addEventListener('scroll', handleScroll, true);
     }
     return () => {
       window.removeEventListener('scroll', handleScroll, true);
     };
-  }, [isFilterOpen, isColumnFilterOpen]);
+  }, [isFilterOpen, isColumnFilterOpen, activeMenuKey]);
 
   // Clean up debounce timer on unmount
   useEffect(() => {
@@ -1624,9 +1634,9 @@ export function ConfirmationsDataTable({
         title: dict?.smart_docs?.columns?.actions || dict?.smart_docs?.columns?.action || 'Actions',
         align: 'center',
         sticky: 'right',
-        minWidth: '78px',
-        className: 'w-[78px] max-w-[78px]',
-        render: (row: any) => {
+        minWidth: '88px',
+        className: 'w-[88px] min-w-[88px]',
+        render: (row: any, index?: number) => {
           const docType = getSmartDocType(row, selectedAction);
           const isConfirmation = docType === 'Confirmation';
           const isContract = docType === 'Contract';
@@ -1636,6 +1646,9 @@ export function ConfirmationsDataTable({
           const targetUrl = rowDocId
             ? `/${lang}/smart-docs/draft?id=${encodeURIComponent(rowDocId)}${isContract ? '&step=contract' : ''}`
             : `/${lang}/smart-docs/draft${isContract ? '?step=contract' : ''}`;
+
+          const rowKey = row.id || row.contract_no || row.confirmation_no || row.ref_no || index;
+          const isMenuOpen = activeMenuKey !== null && activeMenuKey === rowKey;
 
           return (
             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -1650,7 +1663,7 @@ export function ConfirmationsDataTable({
                       onCreateDoc(row);
                     }
                   }}
-                  className={`w-7 h-7 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs shrink-0 cursor-pointer active:scale-95`}
+                  className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs shrink-0 cursor-pointer active:scale-95`}
                   title={
                     dict?.smart_docs?.continue_to_contract ||
                     dict?.smart_docs?.draft_contract_title ||
@@ -1669,7 +1682,7 @@ export function ConfirmationsDataTable({
                       onCreateDoc(row);
                     }
                   }}
-                  className={`w-7 h-7 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs shrink-0 cursor-pointer active:scale-95`}
+                  className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs shrink-0 cursor-pointer active:scale-95`}
                   title={dict?.smart_docs?.continue_to_draft || 'Continue to Draft'}
                 >
                   <i className="fa-solid fa-file-circle-plus text-xs"></i>
@@ -1677,35 +1690,77 @@ export function ConfirmationsDataTable({
               ) : (
                 <button
                   type="button"
-                  className={`w-7 h-7 rounded-lg ${config.bg} text-white opacity-80 cursor-default shadow-2xs transition-all flex items-center justify-center text-xs shrink-0`}
+                  className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg ${config.bg} text-white opacity-80 cursor-default shadow-2xs transition-all flex items-center justify-center text-xs shrink-0`}
                   title={docType}
                 >
                   <i className="fa-solid fa-file-lines text-xs"></i>
                 </button>
               )}
 
-              {/* Button 2: Trash Delete Button (Works for all records) */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setRowToDelete(row);
-                  setIsDeleteModalOpen(true);
-                  if (onDeleteRow) {
-                    onDeleteRow(row);
-                  }
-                }}
-                className="w-7 h-7 rounded-lg border border-border bg-background hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 transition-all flex items-center justify-center text-xs shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                title={dict?.smart_docs?.delete || 'Delete'}
-              >
-                <i className="fa-solid fa-trash-can text-xs"></i>
-              </button>
+              {/* Button 2: Vertical Ellipsis Options Menu with Delete option */}
+              <div className="relative inline-flex items-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (activeMenuKey === rowKey) {
+                      setActiveMenuKey(null);
+                    } else {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const spaceBelow = window.innerHeight - rect.bottom;
+                      setMenuPlacement(spaceBelow < 140 ? 'top' : 'bottom');
+                      setActiveMenuKey(rowKey);
+                    }
+                  }}
+                  aria-expanded={isMenuOpen}
+                  aria-label={dict?.common?.more_options || 'More options'}
+                  title={dict?.common?.more_options || 'More options'}
+                  className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg border transition-all flex items-center justify-center text-xs shadow-2xs active:scale-95 cursor-pointer shrink-0 ${
+                    isMenuOpen
+                      ? 'border-brand-blue/50 bg-brand-blue/10 text-brand-blue dark:text-blue-400 ring-2 ring-brand-blue/20'
+                      : 'border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <i className="fa-solid fa-ellipsis-vertical text-[15px]"></i>
+                </button>
+
+                {isMenuOpen && (
+                  <div
+                    ref={activeMenuRef}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`absolute right-0 rtl:right-auto rtl:left-0 ${
+                      menuPlacement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+                    } z-50 min-w-[136px] rounded-xl border border-border/80 bg-card/95 backdrop-blur-md p-1 shadow-xl shadow-black/10 dark:shadow-black/40 ring-1 ring-black/5 dark:ring-white/5 animate-in fade-in zoom-in-95 duration-150 select-none`}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenuKey(null);
+                        setRowToDelete(row);
+                        setIsDeleteModalOpen(true);
+                        if (onDeleteRow) {
+                          onDeleteRow(row);
+                        }
+                      }}
+                      className="group w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-foreground/85 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 active:bg-rose-500/20 transition-all cursor-pointer text-left rtl:text-right"
+                    >
+                      <span className="w-6 h-6 rounded-md bg-rose-500/10 text-rose-500 group-hover:bg-rose-600 group-hover:text-white flex items-center justify-center shrink-0 transition-all shadow-2xs">
+                        <i className="fa-solid fa-trash-can text-[11px]"></i>
+                      </span>
+                      <span className="whitespace-nowrap font-medium text-[13px]">
+                        {dict?.smart_docs?.delete || dict?.common?.delete || 'Delete'}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           );
         },
       },
     ];
-  }, [customColumns, currentPage, pageSize, dict, selectedAction, lang, onCreateDoc, onDeleteRow, router]);
+  }, [customColumns, currentPage, pageSize, dict, selectedAction, lang, onCreateDoc, onDeleteRow, router, activeMenuKey, menuPlacement]);
 
   // Deep client-side search across current table data
   const filteredData = useMemo(() => {
@@ -2253,10 +2308,11 @@ export function ConfirmationsDataTable({
                 paginatedData.map((row, index) => {
                   const isEven = index % 2 === 0;
                   const rowBgClass = isEven ? 'bg-table-row-even' : 'bg-table-row-odd';
+                  const rowKey = row.id || row.contract_no || row.confirmation_no || row.ref_no || index;
 
                   return (
                     <tr
-                      key={row.id || row.contract_no || row.confirmation_no || row.ref_no || index}
+                      key={rowKey}
                       onClick={() => {
                         if (onRowClick) {
                           onRowClick(row);
@@ -2267,6 +2323,7 @@ export function ConfirmationsDataTable({
                       {activeColumns.map((col) => {
                         const isStickyLeft = col.sticky === 'left';
                         const isStickyRight = col.sticky === 'right';
+                        const isRowMenuOpen = isStickyRight && activeMenuKey !== null && activeMenuKey === rowKey;
                         return (
                           <td
                             key={col.key}
@@ -2275,7 +2332,7 @@ export function ConfirmationsDataTable({
                               isStickyLeft
                                 ? 'sticky left-0 rtl:left-auto rtl:right-0 z-10 border-r rtl:border-r-0 rtl:border-l border-border shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)]'
                                 : isStickyRight
-                                ? 'sticky right-0 rtl:right-auto rtl:left-0 z-10 border-l rtl:border-l-0 rtl:border-r border-border shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)]'
+                                ? `sticky right-0 rtl:right-auto rtl:left-0 ${isRowMenuOpen ? 'z-30' : 'z-10'} border-l rtl:border-l-0 rtl:border-r border-border shadow-[-3px_0_6px_-2px_rgba(0,0,0,0.12)] rtl:shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)]`
                                 : ''
                             } ${
                               col.align === 'right'

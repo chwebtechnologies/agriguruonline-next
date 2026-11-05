@@ -184,6 +184,11 @@ export async function customFetch(url: string, options: ApiFetchOptions = {}): P
     try {
       const res = await fetch(finalUrl, fetchInit);
       
+      // Successful response proves connectivity is alive
+      if (typeof window !== 'undefined' && res) {
+        window.dispatchEvent(new CustomEvent('app:online'));
+      }
+      
       // Retry for 5xx Server Errors (Temporary backend issues)
       if (res.status >= 500 && res.status <= 599 && attempt < maxRetries) {
         cleanupTimers();

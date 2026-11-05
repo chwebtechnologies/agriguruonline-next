@@ -4477,6 +4477,8 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
         key === 'sales_broker_allowed' ||
         key === 'broker_commission_type' ||
         key === 'sales_broker_type' ||
+        key === 'ectn_field' ||
+        key === 'coc_fields' ||
         key === 'seller_signature' ||
         key === 'seller_signature_url' ||
         key === 'exporter_signature' ||
@@ -4687,6 +4689,8 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
         key === 'sales_broker_allowed' ||
         key === 'broker_commission_type' ||
         key === 'sales_broker_type' ||
+        key === 'ectn_field' ||
+        key === 'coc_fields' ||
         key === 'seller_signature' ||
         key === 'seller_signature_url' ||
         key === 'exporter_signature' ||

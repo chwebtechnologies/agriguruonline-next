@@ -53,6 +53,18 @@ export default function GoogleLoginButton({ lang, onSuccess }: GoogleLoginButton
         if (onSuccess) {
           onSuccess(userEmail, nextStep);
         } else {
+          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+            try {
+              const { detectIncognito } = await import("detectincognitojs");
+              const res = await detectIncognito();
+              if (!res?.isPrivate) {
+                const perm = await Notification.requestPermission();
+                if (perm === "granted") {
+                  localStorage.setItem("ag_dismiss_notif_data", JSON.stringify({ count: 999, lastDismissed: Date.now() }));
+                }
+              }
+            } catch (e) {}
+          }
           try {
             const stored = getStoredPlanSelection();
             if (stored?.planId) {

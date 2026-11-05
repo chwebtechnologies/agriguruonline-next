@@ -84,7 +84,33 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     return redirectUrl || `/${lang}/dashboard`;
   };
 
-  const handleOtpVerify = (otp: string, nextStep: string | null) => {
+  const promptNotificationOnLoginGesture = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    try {
+      const { detectIncognito } = await import("detectincognitojs");
+      const res = await detectIncognito();
+      if (res?.isPrivate) return;
+    } catch (e) {}
+
+    if (Notification.permission === "default") {
+      try {
+        const permResult = await Notification.requestPermission();
+        if (permResult === "granted") {
+          try {
+            localStorage.setItem("ag_dismiss_notif_data", JSON.stringify({ count: 999, lastDismissed: Date.now() }));
+            const { requestForToken } = await import("@/lib/firebase");
+            const token = await requestForToken();
+            if (token) {
+              const { syncFcmTokenAction } = await import("@/app/actions/auth");
+              await syncFcmTokenAction(token);
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }
+  };
+
+  const handleOtpVerify = async (otp: string, nextStep: string | null) => {
     if (nextStep === "REQUIRE_REGISTRATION") {
       // Replace state so going back from REGISTER skips OTP
       window.history.replaceState({ step: "REGISTER" }, "");
@@ -94,16 +120,18 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
         window.dispatchEvent(new Event("auth-state-change"));
       }
+      await promptNotificationOnLoginGesture();
       const targetUrl = getPostAuthTargetUrl();
       window.location.href = targetUrl;
     }
   };
 
-  const handleRegisterComplete = () => {
+  const handleRegisterComplete = async () => {
     if (typeof window !== "undefined") {
       try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
       window.dispatchEvent(new Event("auth-state-change"));
     }
+    await promptNotificationOnLoginGesture();
     const targetUrl = getPostAuthTargetUrl();
     window.location.href = targetUrl;
   };
@@ -116,7 +144,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     }
   };
 
-  const handleSocialSuccess = (socialEmail: string, nextStep: string | null) => {
+  const handleSocialSuccess = async (socialEmail: string, nextStep: string | null) => {
     if (socialEmail) {
       setEmail(socialEmail);
     }
@@ -133,6 +161,7 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
         window.dispatchEvent(new Event("auth-state-change"));
       }
+      await promptNotificationOnLoginGesture();
       const targetUrl = getPostAuthTargetUrl();
       window.location.href = targetUrl;
     }

@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
   type SmartDocsSelectionDocumentOption,
   DEFAULT_DOCUMENT_SELECTION_OPTIONS,
 } from '@/lib/api/smart-docs.service';
-import { getSmartDocsDocumentListAction } from '@/app/actions/smart-docs';
 
 export const STANDARD_TRADE_DOCUMENTS: string[] = DEFAULT_DOCUMENT_SELECTION_OPTIONS.map(
   (doc) => doc.name
@@ -26,407 +25,188 @@ export interface DocDocumentMultiSelectProps {
 export function DocDocumentMultiSelect({
   value = [],
   onChange,
-  options,
   defaultDocuments = [],
-  isLoading: externalLoading = false,
   disabled = false,
-  placeholder = 'SELECT DOCUMENTS',
-  lang = 'en',
-  offsetIndex = 0,
+  placeholder = 'Enter Document',
 }: DocDocumentMultiSelectProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [internalOptions, setInternalOptions] = useState<SmartDocsSelectionDocumentOption[]>([]);
-  const [isInternalLoading, setIsInternalLoading] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [inputValue, setInputValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Normalize options into a uniform format
-  const normalizedOptions: SmartDocsSelectionDocumentOption[] = useMemo(() => {
-    const listToNormalize =
-      options && options.length > 0
-        ? options
-        : internalOptions.length > 0
-        ? internalOptions
-        : DEFAULT_DOCUMENT_SELECTION_OPTIONS;
-
+  // Unified list of all documents (merging any legacy defaultDocuments into value without duplicates)
+  const effectiveList: string[] = useMemo(() => {
+    const list: string[] = [];
     const seen = new Set<string>();
-    const result: SmartDocsSelectionDocumentOption[] = [];
 
-    for (let idx = 0; idx < listToNormalize.length; idx++) {
-      const item = listToNormalize[idx];
-      if (!item) continue;
-
-      if (typeof item === 'string') {
-        const trimmed = item.trim();
-        if (trimmed && !seen.has(trimmed.toUpperCase())) {
-          seen.add(trimmed.toUpperCase());
-          result.push({
-            id: trimmed,
-            name: trimmed,
-            label: trimmed,
-            value: trimmed,
-          });
-        }
-      } else if (typeof item === 'object') {
-        const name = String(
-          item.document_name ||
-          item.name ||
-          item.title ||
-          item.label ||
-          item.doc_name ||
-          ''
-        ).trim();
-
-        if (name && !seen.has(name.toUpperCase())) {
-          seen.add(name.toUpperCase());
-          result.push({
-            ...item,
-            id: String(item.id || item._id || item.document_id || name),
-            name,
-            label: name,
-            value: name,
-          });
-        }
-      }
-    }
-
-    // Seamlessly include any documents present in `value` (e.g. from contract API) that are not in master options
     if (Array.isArray(value)) {
-      for (const valItem of value) {
-        if (!valItem) continue;
-        const valStr = typeof valItem === 'string' ? valItem.trim() : String(valItem || '').trim();
-        if (valStr && !seen.has(valStr.toUpperCase())) {
-          seen.add(valStr.toUpperCase());
-          result.push({
-            id: valStr,
-            name: valStr,
-            label: valStr,
-            value: valStr,
-            isCustom: true,
-          });
+      for (const item of value) {
+        if (!item) continue;
+        const s = typeof item === 'string' ? item.trim() : String(item).trim();
+        if (s && !seen.has(s.toUpperCase())) {
+          seen.add(s.toUpperCase());
+          list.push(s.toUpperCase());
         }
       }
     }
 
-    const defaultSet = new Set(
-      (defaultDocuments || []).map((d) => String(d).trim().toUpperCase())
-    );
-
-    const isValSelected = (name: string) => {
-      const nLower = name.trim().toLowerCase();
-      return Array.isArray(value) && value.some((v) => String(v).trim().toLowerCase() === nLower);
-    };
-
-    return result.filter(
-      (opt) => !defaultSet.has(opt.name.trim().toUpperCase()) || isValSelected(opt.name)
-    );
-  }, [options, internalOptions, value, defaultDocuments]);
-
-  // Self-heal: Fetch document options from API if not provided via props
-  useEffect(() => {
-    if (!options || options.length === 0) {
-      setIsInternalLoading(true);
-      getSmartDocsDocumentListAction({ lang })
-        .then((res) => {
-          if (res?.success && res.documents && res.documents.length > 0) {
-            setInternalOptions(res.documents);
-          }
-        })
-        .catch((err) => {
-          console.error('[DocDocumentMultiSelect] Error fetching document list:', err);
-        })
-        .finally(() => {
-          setIsInternalLoading(false);
-        });
-    }
-  }, [options, lang]);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
+    if (Array.isArray(defaultDocuments)) {
+      for (const item of defaultDocuments) {
+        if (!item) continue;
+        const s = typeof item === 'string' ? item.trim() : String(item).trim();
+        if (s && !seen.has(s.toUpperCase())) {
+          seen.add(s.toUpperCase());
+          list.push(s.toUpperCase());
+        }
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    return list;
+  }, [value, defaultDocuments]);
+
+  /**
+   * Parses raw user text into clean document names:
+   * - Splits by comma (,), semicolon (;), or newline (\n)
+   * - Preserves multi-word names intact (e.g. "Proforma Invoice", "Bill Of Lading")
+   * - Strips leading bullets or numbers (e.g. "1. Proforma Invoice" -> "PROFORMA INVOICE")
+   */
+  const parseDocumentTokens = useCallback((text: string): string[] => {
+    if (!text || !text.trim()) return [];
+
+    const rawTokens = text.split(/[\n,;]+/);
+    const parsed: string[] = [];
+
+    for (const token of rawTokens) {
+      if (!token) continue;
+      const cleaned = token
+        .replace(/^\s*(?:\d+[\.\)]|[-•*])\s*/, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (cleaned.length > 0) {
+        parsed.push(cleaned.toUpperCase());
+      }
+    }
+
+    return parsed;
   }, []);
 
-  // Auto-focus search input when opening
-  useEffect(() => {
-    if (isOpen) {
-      setSearchTerm('');
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 50);
-    }
-  }, [isOpen]);
+  /**
+   * Adds parsed document tokens to the document list without duplicates
+   */
+  const addDocumentsFromText = useCallback(
+    (text: string) => {
+      if (disabled) return;
+      const tokens = parseDocumentTokens(text);
+      if (tokens.length === 0) return;
 
-  const isDocSelected = useCallback(
-    (opt: SmartDocsSelectionDocumentOption): boolean => {
-      if (!Array.isArray(value) || value.length === 0) return false;
-      const optName = String(opt.name || '').trim().toLowerCase();
-      const optLabel = String(opt.label || '').trim().toLowerCase();
-      const optId = String(opt.id || '').trim().toLowerCase();
-      const optVal = String(opt.value || '').trim().toLowerCase();
+      const existingSet = new Set(effectiveList.map((d) => d.toUpperCase()));
+      const toAdd: string[] = [];
 
-      return value.some((v) => {
-        if (!v) return false;
-        const vStr = String(v).trim().toLowerCase();
-        return (
-          (optName && vStr === optName) ||
-          (optLabel && vStr === optLabel) ||
-          (optId && vStr === optId) ||
-          (optVal && vStr === optVal)
-        );
-      });
+      for (const doc of tokens) {
+        if (!existingSet.has(doc.toUpperCase())) {
+          existingSet.add(doc.toUpperCase());
+          toAdd.push(doc);
+        }
+      }
+
+      if (toAdd.length > 0) {
+        onChange([...effectiveList, ...toAdd]);
+      }
+      setInputValue('');
+      inputRef.current?.focus();
     },
-    [value]
+    [disabled, parseDocumentTokens, effectiveList, onChange]
   );
 
-  const toggleDoc = (opt: SmartDocsSelectionDocumentOption) => {
+  /**
+   * Removes a document from the unified list
+   */
+  const removeDoc = useCallback(
+    (docName: string) => {
+      if (disabled) return;
+      const target = docName.trim().toUpperCase();
+      const updated = effectiveList.filter((d) => d.toUpperCase() !== target);
+      onChange(updated);
+    },
+    [disabled, effectiveList, onChange]
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (disabled) return;
-    const docName = String(opt.name || opt.label || opt.id || '').trim();
-    if (!docName) return;
 
-    const optNameLower = String(opt.name || '').trim().toLowerCase();
-    const optLabelLower = String(opt.label || '').trim().toLowerCase();
-    const optIdLower = String(opt.id || '').trim().toLowerCase();
-
-    const isSelected = value.some((v) => {
-      const vLower = String(v).trim().toLowerCase();
-      return (
-        (optNameLower && vLower === optNameLower) ||
-        (optLabelLower && vLower === optLabelLower) ||
-        (optIdLower && vLower === optIdLower)
-      );
-    });
-
-    if (isSelected) {
-      // Unselect: remove and keep sequence of remaining
-      onChange(
-        value.filter((v) => {
-          const vLower = String(v).trim().toLowerCase();
-          return (
-            (!optNameLower || vLower !== optNameLower) &&
-            (!optLabelLower || vLower !== optLabelLower) &&
-            (!optIdLower || vLower !== optIdLower)
-          );
-        })
-      );
-    } else {
-      // Select: append at end so newly selected appears in subsequent sequence
-      onChange([...value, docName]);
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (inputValue.trim()) {
+        addDocumentsFromText(inputValue);
+      }
+    } else if (e.key === ',' || e.key === ';') {
+      if (inputValue.trim()) {
+        e.preventDefault();
+        addDocumentsFromText(inputValue);
+      }
     }
   };
 
-  const removeDoc = (docName: string) => {
-    if (disabled) return;
-    const target = docName.trim().toLowerCase();
-    onChange(value.filter((d) => String(d).trim().toLowerCase() !== target));
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text');
+    if (pasted && (pasted.includes(',') || pasted.includes(';') || pasted.includes('\n'))) {
+      e.preventDefault();
+      const combined = (inputValue.trim() ? `${inputValue.trim()}, ` : '') + pasted;
+      addDocumentsFromText(combined);
+    }
   };
 
-  const filteredOptions = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return normalizedOptions;
-    return normalizedOptions.filter((opt) =>
-      opt.name.toLowerCase().includes(term) ||
-      (opt.label && opt.label.toLowerCase().includes(term))
-    );
-  }, [normalizedOptions, searchTerm]);
-
-  const isLoading = externalLoading || isInternalLoading;
+  const isAddEnabled = !disabled && Boolean(inputValue.trim());
 
   return (
-    <div ref={containerRef} className="w-full flex flex-col gap-2">
-      {/* Dropdown Trigger */}
-      <div className="relative">
+    <div className="w-full flex flex-col gap-2">
+      {/* Dotted Underline Input Matching Contract Form Inputs */}
+      <div
+        className={`w-full py-1 min-h-[32px] flex items-center justify-between gap-3 border-b-2 border-dotted transition-colors bg-transparent ${
+          disabled
+            ? 'border-muted-foreground/30 opacity-60 cursor-not-allowed'
+            : isFocused
+            ? 'border-primary'
+            : 'border-primary/70 dark:border-primary/80 hover:border-primary'
+        }`}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          disabled={disabled}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          placeholder={placeholder}
+          className="flex-1 bg-transparent border-none outline-none text-[14px] text-foreground font-medium placeholder:font-normal placeholder:text-muted-foreground/50 uppercase tracking-wide disabled:cursor-not-allowed"
+        />
+
         <button
           type="button"
-          disabled={disabled}
-          onClick={() => setIsOpen(!isOpen)}
-          className={`w-full text-left py-1 min-h-[30px] flex items-center justify-between border-b-2 border-dotted border-primary/70 dark:border-primary/80 hover:border-primary transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-transparent ${
-            isOpen ? 'border-primary' : ''
+          disabled={!isAddEnabled}
+          onClick={() => addDocumentsFromText(inputValue)}
+          className={`flex items-center gap-1 text-[13px] sm:text-[14px] font-semibold transition-colors shrink-0 select-none ${
+            isAddEnabled
+              ? 'text-primary hover:text-primary-hover cursor-pointer'
+              : 'text-muted-foreground/40 cursor-not-allowed'
           }`}
-          aria-expanded={isOpen}
-          aria-haspopup="listbox"
+          title="Add document"
         >
-          <span
-            className={`truncate flex-1 text-[14px] ${
-              value.length > 0 ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground/50 uppercase'
-            }`}
-          >
-            {placeholder}
-          </span>
-          <div className="flex items-center gap-2 shrink-0">
-            {value.length > 0 && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/15 text-primary">
-                {value.length} selected
-              </span>
-            )}
-            <i
-              className={`fa-solid fa-chevron-down text-primary dark:text-sky-400 text-xs transition-transform duration-200 ${
-                isOpen ? 'rotate-180' : ''
-              }`}
-            />
-          </div>
+          <i className="fa-solid fa-plus text-xs" />
+          <span>Add</span>
         </button>
-
-        {/* Dropdown Popup */}
-        {isOpen && (
-          <div
-            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
-            className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-2.5 flex flex-col gap-2 max-h-80 animate-in fade-in zoom-in-95 duration-150 transform-gpu"
-          >
-            {/* Search Input */}
-            <div className="relative">
-              <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search documents..."
-                className="w-full bg-muted/40 border border-border rounded-md pl-7 pr-7 py-1.5 text-[13px] sm:text-[14px] text-foreground placeholder:text-[13px] sm:placeholder:text-[14px] placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs cursor-pointer"
-                  title="Clear search"
-                >
-                  <i className="fa-solid fa-xmark" />
-                </button>
-              )}
-            </div>
-
-            {/* Document Checklist */}
-            <div
-              className="flex-1 overflow-y-scroll overscroll-contain flex flex-col gap-1 pr-1 custom-scrollbar min-h-[140px] max-h-52 text-xs"
-              role="listbox"
-              aria-multiselectable="true"
-            >
-              {isLoading ? (
-                <div className="flex flex-col gap-1 py-1" role="status" aria-label="Loading document checklist">
-                  {['w-36', 'w-44', 'w-28', 'w-40', 'w-32', 'w-48'].map((w, idx) => (
-                    <div key={idx} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md animate-pulse">
-                      <div className="w-4 h-4 rounded-xs bg-muted/80 shrink-0" />
-                      <div className={`h-3.5 ${w} rounded-md bg-muted/70`} />
-                    </div>
-                  ))}
-                </div>
-              ) : filteredOptions.length > 0 ? (
-                <>
-                  {filteredOptions.map((opt) => {
-                    const isSelected = isDocSelected(opt);
-                    return (
-                      <label
-                        key={opt.id || opt.name}
-                        className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors select-none ${
-                          isSelected
-                            ? 'bg-primary/15 text-primary font-bold'
-                            : 'hover:bg-muted/60 text-foreground font-medium'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleDoc(opt)}
-                          className="rounded border-border text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-                        />
-                        <span className="truncate flex-1 uppercase tracking-wide">
-                          {opt.name}
-                        </span>
-                        {opt.isCustom && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-semibold tracking-wider">
-                            CUSTOM
-                          </span>
-                        )}
-                        {isSelected && (
-                          <i className="fa-solid fa-check text-primary text-xs shrink-0" />
-                        )}
-                      </label>
-                    );
-                  })}
-                  {/* Option to add custom document if search term doesn't exactly match */}
-                  {searchTerm.trim() &&
-                    !filteredOptions.some(
-                      (o) => o.name.toLowerCase() === searchTerm.trim().toLowerCase()
-                    ) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newDoc = searchTerm.trim().toUpperCase();
-                          if (
-                            !value.some(
-                              (v) => String(v).trim().toUpperCase() === newDoc
-                            )
-                          ) {
-                            onChange([...value, newDoc]);
-                          }
-                          setSearchTerm('');
-                        }}
-                        className="w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-primary/10 text-primary font-semibold text-xs border border-dashed border-primary/40 cursor-pointer mt-1"
-                      >
-                        <i className="fa-solid fa-plus text-xs" />
-                        <span>Add &quot;{searchTerm.trim().toUpperCase()}&quot; to documents</span>
-                      </button>
-                    )}
-                </>
-              ) : (
-                <div className="py-4 flex flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground/80">
-                  <span>No documents found matching &quot;{searchTerm}&quot;</span>
-                  {searchTerm.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newDoc = searchTerm.trim().toUpperCase();
-                        if (
-                          !value.some(
-                            (v) => String(v).trim().toUpperCase() === newDoc
-                          )
-                        ) {
-                          onChange([...value, newDoc]);
-                        }
-                        setSearchTerm('');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs border border-primary/30 cursor-pointer"
-                    >
-                      <i className="fa-solid fa-plus text-xs" />
-                      <span>Add &quot;{searchTerm.trim().toUpperCase()}&quot; as document</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Dropdown Footer: Always show Done button at the bottom */}
-            <div className="pt-2 border-t border-border flex items-center justify-between gap-2 mt-auto">
-              <span className="text-[11px] text-muted-foreground font-medium px-1">
-                {value.length > 0 ? `${value.length} selected` : 'None selected'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="px-4 py-1.5 rounded-md bg-primary hover:bg-primary/90 text-white font-semibold text-xs tracking-wider uppercase transition-colors shadow-sm cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Unified Documents List Below Dropdown: 1 to 10 (Default) + 11 onwards (Selected) */}
-      {(defaultDocuments.length > 0 || value.length > 0) ? (
+      {/* Unified 2-Column Documents List */}
+      {effectiveList.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5 pt-1 text-[13px] sm:text-[14px] uppercase tracking-wide">
-          {/* Default Documents: 1 to 10 */}
-          {defaultDocuments.map((doc, idx) => (
+          {effectiveList.map((doc, idx) => (
             <div
-              key={`default-${doc}-${idx}`}
-              className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-muted/30 transition-colors border border-transparent"
+              key={`${doc}-${idx}`}
+              className="flex items-center justify-between py-1 px-1 transition-colors"
             >
               <div className="flex items-center gap-2.5 text-foreground font-semibold min-w-0">
                 <span className="text-muted-foreground/90 font-bold w-5 shrink-0 text-left">
@@ -434,28 +214,13 @@ export function DocDocumentMultiSelect({
                 </span>
                 <span className="truncate">{doc}</span>
               </div>
-            </div>
-          ))}
-
-          {/* User-Selected Documents: 11 onwards */}
-          {value.map((doc, idx) => (
-            <div
-              key={doc}
-              className="group flex items-center justify-between py-1 px-2 rounded-md hover:bg-muted/30 transition-colors border border-transparent hover:border-border/60"
-            >
-              <div className="flex items-center gap-2.5 text-foreground font-semibold min-w-0">
-                <span className="text-muted-foreground/90 font-bold w-5 shrink-0 text-left">
-                  {defaultDocuments.length + idx + 1}.
-                </span>
-                <span className="truncate">{doc}</span>
-              </div>
               {!disabled && (
                 <button
                   type="button"
                   onClick={() => removeDoc(doc)}
-                  title="Remove document"
+                  title={`Remove ${doc}`}
                   aria-label={`Remove ${doc}`}
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive text-[12px] px-1 py-0.5 cursor-pointer transition-opacity shrink-0"
+                  className="text-destructive hover:opacity-80 text-[12px] px-1 py-0.5 cursor-pointer transition-opacity shrink-0"
                 >
                   <i className="fa-solid fa-xmark" />
                 </button>
@@ -464,8 +229,8 @@ export function DocDocumentMultiSelect({
           ))}
         </div>
       ) : (
-        <div className="text-[11px] text-muted-foreground/70 italic py-1">
-          No documents selected. Click &quot;Select Documents&quot; to pick required documents.
+        <div className="text-[12px] text-muted-foreground/60 italic py-1 px-1">
+          No documents added yet.
         </div>
       )}
     </div>

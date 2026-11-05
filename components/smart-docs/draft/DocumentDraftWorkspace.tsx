@@ -913,6 +913,15 @@ export function DocumentDraftWorkspace({
                       if (contNum) {
                         updated.contract_number = contNum;
                       }
+                      const submittedDocs =
+                        typeof (formData as any)?.getAll === 'function'
+                          ? (formData as any).getAll('documents_required[]')
+                          : null;
+                      if (submittedDocs && submittedDocs.length > 0) {
+                        updated.documents_required = submittedDocs;
+                        updated.documents = submittedDocs;
+                        updated.required_documents = submittedDocs;
+                      }
                       const isFormData = typeof formData?.get === 'function';
                       if (isFormData && (formData.get('remove_seller_signature') === 'true' || formData.get('seller_signature') === '')) {
                         updated.seller_signature = null;
@@ -1017,6 +1026,15 @@ export function DocumentDraftWorkspace({
                       }
                       if (contNum) {
                         updated.contract_number = contNum;
+                      }
+                      const submittedDocs =
+                        typeof (formData as any)?.getAll === 'function'
+                          ? (formData as any).getAll('documents_required[]')
+                          : null;
+                      if (submittedDocs && submittedDocs.length > 0) {
+                        updated.documents_required = submittedDocs;
+                        updated.documents = submittedDocs;
+                        updated.required_documents = submittedDocs;
                       }
                       const isFormData = typeof formData?.get === 'function';
                       if (isFormData && (formData.get('remove_seller_signature') === 'true' || formData.get('seller_signature') === '')) {

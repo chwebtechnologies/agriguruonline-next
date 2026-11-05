@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function OfflineNotification() {
@@ -8,55 +8,55 @@ export default function OfflineNotification() {
   const router = useRouter()
   const timeoutRefs = useRef<NodeJS.Timeout[]>([])
 
+  const clearTimeouts = useCallback(() => {
+    timeoutRefs.current.forEach(clearTimeout)
+    timeoutRefs.current = []
+  }, [])
+
+  const handleOnline = useCallback(() => {
+    clearTimeouts()
+    setStatus('restored')
+
+    // Broadcast app:online custom event to notify all client components to silently refetch
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('app:online'))
+    }
+
+    // 1. Soft refresh to re-fetch missing server components/data without full page reload
+    router.refresh()
+
+    // 2. Retry broken images that failed to load while offline
+    const imgTimeout = setTimeout(() => {
+      const images = document.querySelectorAll('img')
+      images.forEach(img => {
+        if (!img.complete || img.naturalWidth === 0) {
+          const currentSrc = img.src
+          img.src = ''
+          img.src = currentSrc
+        }
+      })
+    }, 500)
+
+    // 3. Hide the "Back Online" message after 2.5 seconds
+    const hideTimeout = setTimeout(() => {
+      setStatus('online')
+    }, 2500)
+
+    timeoutRefs.current = [imgTimeout, hideTimeout]
+  }, [clearTimeouts, router])
+
+  const handleOffline = useCallback(() => {
+    clearTimeouts()
+    setStatus('offline')
+  }, [clearTimeouts])
+
   useEffect(() => {
-    // Initial check
-    if (!navigator.onLine) {
+    // 1. Initial mount check
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setStatus('offline')
     }
 
-    const clearTimeouts = () => {
-      timeoutRefs.current.forEach(clearTimeout)
-      timeoutRefs.current = []
-    }
-
-    const handleOnline = () => {
-      clearTimeouts()
-      setStatus('restored')
-      
-      // Broadcast app:online custom event to notify all client components to silently refetch
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('app:online'))
-      }
-
-      // 1. Soft refresh to re-fetch missing server components/data without full page reload
-      router.refresh()
-      
-      // 2. Retry broken images that failed to load while offline
-      const imgTimeout = setTimeout(() => {
-        const images = document.querySelectorAll('img')
-        images.forEach(img => {
-          if (!img.complete || img.naturalWidth === 0) {
-            const currentSrc = img.src
-            // Clear and reassign to force the browser to re-evaluate the image load
-            img.src = ''
-            img.src = currentSrc
-          }
-        })
-      }, 500)
-      
-      // 3. Hide the "Back Online" message after 3 seconds
-      const hideTimeout = setTimeout(() => {
-        setStatus('online')
-      }, 3000)
-
-      timeoutRefs.current = [imgTimeout, hideTimeout]
-    }
-
-    const handleOffline = () => {
-      clearTimeouts()
-      setStatus('offline')
-    }
-
+    // 2. Slow connection events from fetcher
     const handleSlowConnection = () => {
       setStatus(prev => {
         if (prev === 'online') {
@@ -74,19 +74,49 @@ export default function OfflineNotification() {
       setStatus(prev => (prev === 'slow' ? 'online' : prev))
     }
 
+    // 3. Auto-recovery on tab focus or interaction if network is back
+    const handleRecheckOnActivity = () => {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        setStatus(current => {
+          if (current === 'offline') {
+            handleOnline()
+            return 'restored'
+          }
+          return current
+        })
+      }
+    }
+
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
+    window.addEventListener('app:online', handleOnline)
     window.addEventListener('app:slow-connection', handleSlowConnection)
     window.addEventListener('app:slow-connection-resolved', handleSlowResolved)
+    window.addEventListener('focus', handleRecheckOnActivity)
 
     return () => {
       clearTimeouts()
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('app:online', handleOnline)
       window.removeEventListener('app:slow-connection', handleSlowConnection)
       window.removeEventListener('app:slow-connection-resolved', handleSlowResolved)
+      window.removeEventListener('focus', handleRecheckOnActivity)
     }
-  }, [router])
+  }, [clearTimeouts, handleOnline, handleOffline])
+
+  // Periodic active polling when offline to auto-recover immediately as soon as internet returns
+  useEffect(() => {
+    if (status !== 'offline') return
+
+    const interval = setInterval(() => {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        handleOnline()
+      }
+    }, 1500)
+
+    return () => clearInterval(interval)
+  }, [status, handleOnline])
 
   if (status === 'online') return null
 
