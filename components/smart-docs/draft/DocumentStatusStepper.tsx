@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useTransition, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useTransition, useRef, useCallback, useMemo } from 'react';
 import type { StepperDocumentItem } from '@/lib/api/smart-docs.service';
 import {
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
@@ -109,10 +109,20 @@ export function DocumentStatusStepper({
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [visibilityDocuments, setVisibilityDocuments] = useState<StepperDocConfigItem[]>([]);
   const [hiddenDocuments, setHiddenDocuments] = useState<string[]>([]);
+  const [initialHiddenDocuments, setInitialHiddenDocuments] = useState<string[] | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isLoadingVisibility, setIsLoadingVisibility] = useState<boolean>(false);
   const [visibilityError, setVisibilityError] = useState<string | null>(null);
   const [visibilitySuccess, setVisibilitySuccess] = useState<string | null>(null);
+
+  // User-made change tracking for Document List:
+  // Enabled only if user actually toggled any document visibility since loaded or saved
+  const isDirty = useMemo(() => {
+    if (initialHiddenDocuments === null) return false;
+    if (initialHiddenDocuments.length !== hiddenDocuments.length) return true;
+    const initialSet = new Set(initialHiddenDocuments);
+    return hiddenDocuments.some((id) => !initialSet.has(id));
+  }, [hiddenDocuments, initialHiddenDocuments]);
 
   // Load steps from API if initialSteps is empty or not provided
   useEffect(() => {
@@ -380,21 +390,28 @@ export function DocumentStatusStepper({
 
         if (res?.success && Array.isArray(res?.data)) {
           setVisibilityDocuments(res.data);
-          setHiddenDocuments(
-            res.data.filter((d) => d.is_hidden).map((d) => String(d.id))
-          );
+          const hidden = res.data.filter((d) => d.is_hidden).map((d) => String(d.id));
+          setHiddenDocuments(hidden);
+          setInitialHiddenDocuments(hidden);
           setVisibilityError(null);
         } else {
           setVisibilityDocuments([]);
           setHiddenDocuments([]);
+          setInitialHiddenDocuments([]);
           setVisibilityError(res?.error || 'Failed to load documents list');
         }
       } catch (err: any) {
         setVisibilityDocuments([]);
         setHiddenDocuments([]);
+        setInitialHiddenDocuments([]);
         setVisibilityError(err?.message || 'Failed to load documents list');
       } finally {
         setIsLoadingVisibility(false);
+      }
+    } else {
+      // Revert unsaved toggle state if closed without saving
+      if (initialHiddenDocuments !== null) {
+        setHiddenDocuments(initialHiddenDocuments);
       }
     }
   };
@@ -530,6 +547,7 @@ export function DocumentStatusStepper({
       });
 
       if (res?.success) {
+        setInitialHiddenDocuments(hiddenDocuments);
         setVisibilitySuccess(dict?.common?.saved_successfully || 'Saved successfully');
         setIsOpen(false);
         // Re-trigger the main Stepper steps API so the vertical steps immediately reflect the updated visible documents
@@ -678,13 +696,35 @@ export function DocumentStatusStepper({
       {isOpen ? (
         <div className="flex-1 min-h-0 flex flex-col bg-card animate-in fade-in duration-150">
           {/* Scrollable list of toggle items inside the card patta */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-1 pr-0.5 custom-scrollbar space-y-0.5">
+          <div className="flex-1 min-h-0 overflow-y-scroll overscroll-contain py-1 pr-1 custom-scrollbar space-y-0.5">
             {isLoadingVisibility ? (
-              <div className="py-8 flex flex-col items-center justify-center gap-2">
-                <i className="fa-solid fa-circle-notch fa-spin text-brand-blue text-sm" />
-                <span className="text-[11px] text-muted-foreground">
-                  {dict?.common?.loading || 'Loading documents...'}
-                </span>
+              <div className="flex flex-col space-y-1 py-1" role="status" aria-label="Loading documents">
+                {[
+                  { w: 'w-36', locked: true },
+                  { w: 'w-44', locked: false },
+                  { w: 'w-32', locked: false },
+                  { w: 'w-48', locked: false },
+                  { w: 'w-28', locked: false },
+                  { w: 'w-40', locked: false },
+                  { w: 'w-36', locked: false },
+                  { w: 'w-32', locked: false },
+                ].map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-lg animate-pulse"
+                  >
+                    <div className="min-w-0 flex-1 flex items-center">
+                      <div className={`h-3.5 ${item.w} max-w-[70%] rounded-md bg-muted/80`} />
+                    </div>
+                    <div className="shrink-0 flex items-center justify-end">
+                      {item.locked ? (
+                        <div className="w-7 h-7 rounded-md bg-muted/70" />
+                      ) : (
+                        <div className="h-5 w-9 rounded-full bg-muted/70" />
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : visibilityDocuments.length === 0 ? (
               <div className="py-8 flex flex-col items-center justify-center gap-2 px-3 text-center">
@@ -776,7 +816,12 @@ export function DocumentStatusStepper({
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  if (initialHiddenDocuments !== null) {
+                    setHiddenDocuments(initialHiddenDocuments);
+                  }
+                  setIsOpen(false);
+                }}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
               >
                 {dict?.common?.cancel || 'Cancel'}
@@ -784,8 +829,9 @@ export function DocumentStatusStepper({
               <button
                 type="button"
                 onClick={handleSubmitVisibility}
-                disabled={isSaving || isLoadingVisibility}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-brand-blue text-white hover:bg-brand-blue/90 disabled:opacity-50 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                disabled={isSaving || isLoadingVisibility || !isDirty}
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-brand-blue text-white hover:bg-brand-blue/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-[0.98]"
+                title={!isDirty ? 'No changes to save' : 'Save document list visibility'}
               >
                 {isSaving && <i className="fa-solid fa-circle-notch fa-spin text-[10px]" />}
                 <span>{dict?.common?.save || 'Save'}</span>
@@ -798,8 +844,8 @@ export function DocumentStatusStepper({
         <div
           className={
             isMobile
-              ? 'w-full pr-0.5'
-              : 'flex-1 min-h-0 overflow-y-auto overscroll-contain pr-0.5 custom-scrollbar'
+              ? 'w-full pr-1'
+              : 'flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 custom-scrollbar'
           }
         >
           {isLoading ? (

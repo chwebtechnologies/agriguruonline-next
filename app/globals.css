@@ -381,9 +381,99 @@ body {
   scrollbar-width: none; /* Firefox */
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
+/* Hide default scrollbars for general containers */
 ::-webkit-scrollbar {
   display: none;
+  width: 0;
+  height: 0;
+}
+
+/* ==========================================================================
+   Persistent, High-End Modern Custom Scrollbar (Always Visible & Sleek)
+   Guaranteed to stay permanently visible even after scrolling stops.
+   Sleek 8px capsule pill with dedicated rail track and rounded geometry.
+   ========================================================================== */
+.custom-scrollbar,
+.smart-docs-scrollbar {
+  scrollbar-gutter: stable;
+}
+
+/* Firefox specific support without triggering Chrome 121+ webkit-override */
+@supports (-moz-appearance: none) {
+  .custom-scrollbar,
+  .smart-docs-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 #f1f5f9;
+  }
+  .dark .custom-scrollbar,
+  .dark .smart-docs-scrollbar {
+    scrollbar-color: #64748b #1e293b;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar,
+.smart-docs-scrollbar::-webkit-scrollbar {
+  -webkit-appearance: none !important;
+  display: block !important;
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track,
+.smart-docs-scrollbar::-webkit-scrollbar-track {
+  display: block !important;
+  background-color: #f1f5f9 !important;
+  border-radius: 9999px !important;
+  border: none !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.smart-docs-scrollbar::-webkit-scrollbar-thumb {
+  display: block !important;
+  background-color: #94a3b8 !important;
+  border-radius: 9999px !important;
+  border: 2px solid #f1f5f9 !important;
+  background-clip: padding-box !important;
+  min-height: 44px !important;
+  transition: background-color 0.2s ease-in-out !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.smart-docs-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active,
+.smart-docs-scrollbar::-webkit-scrollbar-thumb:active {
+  background-color: #334155 !important;
+}
+
+/* Dark mode theme compliance: crisp frosted pill on soft dark track */
+.dark .custom-scrollbar::-webkit-scrollbar-track,
+.dark .smart-docs-scrollbar::-webkit-scrollbar-track {
+  display: block !important;
+  background-color: #1e293b !important;
+  border-radius: 9999px !important;
+  border: none !important;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+.dark .smart-docs-scrollbar::-webkit-scrollbar-thumb {
+  display: block !important;
+  background-color: #64748b !important;
+  border-radius: 9999px !important;
+  border: 2px solid #1e293b !important;
+  background-clip: padding-box !important;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark .smart-docs-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8 !important;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:active,
+.dark .smart-docs-scrollbar::-webkit-scrollbar-thumb:active {
+  background-color: #cbd5e1 !important;
 }
 
 /* Universal Focus States for Keypad & Accessibility Users */

@@ -526,6 +526,47 @@ export function DocumentDraftWorkspace({
 
   return (
     <div className="flex-1 min-h-fit lg:min-h-0 flex flex-col lg:overflow-hidden">
+      {/* Permanent, Always-Visible Modern Custom Scrollbars */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          -webkit-appearance: none !important;
+          display: block !important;
+          width: 8px !important;
+          height: 8px !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          display: block !important;
+          background-color: #f1f5f9 !important;
+          border-radius: 9999px !important;
+          border: none !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          display: block !important;
+          background-color: #94a3b8 !important;
+          border-radius: 9999px !important;
+          border: 2px solid #f1f5f9 !important;
+          background-clip: padding-box !important;
+          min-height: 44px !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: #64748b !important;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-track {
+          background-color: #1e293b !important;
+          border-radius: 9999px !important;
+          border: none !important;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: #64748b !important;
+          border-radius: 9999px !important;
+          border: 2px solid #1e293b !important;
+          background-clip: padding-box !important;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: #94a3b8 !important;
+        }
+      `}</style>
+
       {/* Header Bar with Dynamic Step Title */}
       <div className="shrink-0">
         <PageHeader
@@ -579,7 +620,7 @@ export function DocumentDraftWorkspace({
 
         {/* Collapsible Mobile Stepper List */}
         {isMobileStepperOpen && (
-          <div className="mt-2.5 pt-2 border-t border-border animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y">
+          <div className="mt-2.5 pt-2 border-t border-border animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar">
             <DocumentStatusStepper
               isMobile
               stepperType={isContract ? 'contract' : 'confirmation'}

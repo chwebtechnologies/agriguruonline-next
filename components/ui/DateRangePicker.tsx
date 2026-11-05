@@ -406,13 +406,26 @@ export function DateRangePicker({
     : '';
 
   // Underline variant border styles
-  let borderStyle = 'border-b-2 border-dotted border-primary/70 dark:border-primary/80 hover:border-primary';
+  let borderStyle =
+    variant === 'underline'
+      ? 'border-b-2 border-dotted border-primary/70 dark:border-primary/80 hover:border-primary bg-transparent'
+      : 'border-b-2 border-dotted border-primary/70 dark:border-primary/80 hover:border-primary';
+
   if (error) {
-    borderStyle = 'border-b-2 border-solid !border-brand-red text-brand-red bg-destructive/5';
+    borderStyle =
+      variant === 'underline'
+        ? 'border-b-2 border-solid !border-brand-red text-brand-red bg-transparent'
+        : 'border-b-2 border-solid !border-brand-red text-brand-red bg-destructive/5';
   } else if (disabled) {
-    borderStyle = 'border-b-2 border-dotted border-muted-foreground/30 opacity-60 cursor-not-allowed';
+    borderStyle =
+      variant === 'underline'
+        ? 'border-b-2 border-dotted border-muted-foreground/30 opacity-60 cursor-not-allowed bg-transparent'
+        : 'border-b-2 border-dotted border-muted-foreground/30 opacity-60 cursor-not-allowed';
   } else if (isOpen || isFocused) {
-    borderStyle = 'border-b-2 border-solid border-primary bg-primary/10 shadow-2xs';
+    borderStyle =
+      variant === 'underline'
+        ? 'border-b-2 border-solid border-primary bg-transparent shadow-2xs'
+        : 'border-b-2 border-solid border-primary bg-primary/10 shadow-2xs';
   }
 
   // Handle keyboard navigation on trigger
@@ -455,8 +468,8 @@ export function DateRangePicker({
             ? `w-full flex items-center justify-between gap-1.5 px-1.5 py-0.5 min-h-[30px] text-[14px] rounded-t-sm transition-all duration-150 text-left outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 border-t-0 border-x-0 ${borderStyle} ${
                 error
                   ? '!border-brand-red focus:!border-brand-red focus:border-solid text-brand-red'
-                  : 'focus:border-solid focus:border-primary focus:bg-primary/10'
-              } cursor-pointer print:border-none`
+                  : 'focus:border-solid focus:border-primary'
+              } bg-transparent cursor-pointer print:border-none`
             : `w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-between transition-colors ${
                 disabled
                   ? 'border-border pointer-events-none bg-muted text-muted-foreground'

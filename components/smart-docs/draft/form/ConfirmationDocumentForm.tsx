@@ -1133,6 +1133,26 @@ export function ConfirmationDocumentForm({
     return 'PENDING';
   });
 
+  // User-made change tracking:
+  // - hasDraftChanges: enabled only if user made edits since opening or since last successful draft save
+  // - hasSubmitChanges: enabled if user made edits, or if an unconfirmed draft is already available to submit
+  const [hasDraftChanges, setHasDraftChanges] = useState<boolean>(false);
+  const [hasSubmitChanges, setHasSubmitChanges] = useState<boolean>(() => {
+    const initialId = toCleanId(
+      initialData?.id ||
+      initialData?._id ||
+      initialData?.confirmation_id ||
+      initialData?.confirmationId
+    );
+    const fromData = extractDocumentStatus(initialData);
+    return Boolean(initialId) && fromData !== 'COMPLETED';
+  });
+
+  const markDirty = useCallback(() => {
+    setHasDraftChanges(true);
+    setHasSubmitChanges(true);
+  }, []);
+
   // Guard against blinking: if document ID exists but document status is still loading/unknown, wait with a smooth skeleton
   const [statusLoadTimedOut, setStatusLoadTimedOut] = useState<boolean>(false);
   useEffect(() => {
@@ -1226,6 +1246,7 @@ export function ConfirmationDocumentForm({
   const isFcl = isFclShipBy(shipBy);
 
   const handleShipByChange = (val: string) => {
+    markDirty();
     setShipBy(val);
     setErrors((prev) => ({ ...prev, shipBy: '', fclQty: '', fclCapacity: '', mtQty: '' }));
     if (!isFclShipBy(val)) {
@@ -1605,6 +1626,7 @@ export function ConfirmationDocumentForm({
   };
 
   const handleSaveInstruction = (savedData: { id: string; label: string; instructionText: string }) => {
+    markDirty();
     const formattedItem: FormOptionItem = {
       value: savedData.id,
       label: savedData.label,
@@ -1785,6 +1807,7 @@ export function ConfirmationDocumentForm({
     country: string;
     spec: string;
   }) => {
+    markDirty();
     const cleanCountry = normalizeCountryString(savedProd.country);
     const cleanHsn = normalizeHsnString(savedProd.hsn);
 
@@ -1894,6 +1917,7 @@ export function ConfirmationDocumentForm({
     days?: string;
     description?: string;
   }) => {
+    markDirty();
     const formattedItem: FormOptionItem = {
       value: savedTerm.id,
       label: savedTerm.label,
@@ -1993,6 +2017,7 @@ export function ConfirmationDocumentForm({
 
   // Handle Currency selection and resolve currency ID
   const handleCurrencyChange = (val: string) => {
+    markDirty();
     const norm = normalizeCurrencyOption(val, currenciesList);
     const codeVal = norm.value || val;
     setCurrency(codeVal);
@@ -2026,6 +2051,7 @@ export function ConfirmationDocumentForm({
 
   // Handle Seller selection and auto-fill "Enter Seller Instruction" input
   const handleSellerChange = (val: string) => {
+    markDirty();
     setSellerId(val);
     setErrors((prev) => ({ ...prev, sellerId: '' }));
 
@@ -2045,6 +2071,7 @@ export function ConfirmationDocumentForm({
 
   // Handle Buyer selection and auto-fill "Enter Buyer Instruction" input
   const handleBuyerChange = (val: string) => {
+    markDirty();
     setBuyerId(val);
     setErrors((prev) => ({ ...prev, buyerId: '' }));
 
@@ -2157,6 +2184,7 @@ export function ConfirmationDocumentForm({
 
   // Auto-fill HSN, Country & Specification when Product is selected, and trigger product details API
   const handleProductChange = (prodId: string) => {
+    markDirty();
     const isDifferent = String(prodId || '') !== String(productId || '');
     setProductId(prodId);
     currentProductIdRef.current = prodId;
@@ -2747,6 +2775,9 @@ export function ConfirmationDocumentForm({
       lastLoadedDocIdRef.current = incomingDocId;
     }
     populateConfirmationData(initialData);
+    setHasDraftChanges(false);
+    const statusFromDoc = extractDocumentStatus(initialData);
+    setHasSubmitChanges(Boolean(incomingDocId) && statusFromDoc !== 'COMPLETED');
   }, [initialData, populateConfirmationData]);
 
   // Real-time calculation for MT QTY, BAG QTY & TOTAL VALUE
@@ -2822,7 +2853,7 @@ export function ConfirmationDocumentForm({
       dict?.smart_docs?.confirmation_form?.confirmation_number_required ||
       'Confirmation number is required';
     if (!confirmationNumber.trim()) newErrors.confirmationNumber = confirmationNumberRequiredMsg;
-    if (!confirmationDate.trim()) newErrors.confirmationDate = 'Confirmation date is required';
+    if (!confirmationDate.trim()) newErrors.confirmationDate = 'Please select confirmation date';
     if (!sellerId) newErrors.sellerId = 'Please select a seller';
     if (!buyerId) newErrors.buyerId = 'Please select a buyer';
     if (!productId) newErrors.productId = 'Please select a product';
@@ -3217,6 +3248,8 @@ export function ConfirmationDocumentForm({
 
       // Backend returns the generated ID; preserve it in state so subsequent saves pass this id
       setErrors({});
+      setHasDraftChanges(false);
+      setHasSubmitChanges(true);
       const statusFromRes = extractDocumentStatus(result?.data) || extractDocumentStatus(result);
       if (statusFromRes) {
         setDocStatus(statusFromRes);
@@ -3344,6 +3377,8 @@ export function ConfirmationDocumentForm({
     setCommentLabel('');
     setCommentValue('');
     setErrors({});
+    setHasDraftChanges(false);
+    setHasSubmitChanges(false);
   }, []);
 
   // Submit to Contract Action
@@ -3391,6 +3426,8 @@ export function ConfirmationDocumentForm({
 
       // Success workflow:
       setDocStatus('COMPLETED');
+      setHasDraftChanges(false);
+      setHasSubmitChanges(false);
       const cleanId = toCleanId(
         result.id ||
         result.data?.id ||
@@ -3464,14 +3501,21 @@ export function ConfirmationDocumentForm({
   };
 
   return (
-    <div className="w-full h-auto lg:h-full flex flex-col min-h-fit lg:min-h-0 bg-card text-foreground rounded-xl">
+    <div
+      id="draft-form-card"
+      onInput={markDirty}
+      onChange={markDirty}
+      className="w-full h-auto lg:h-full flex flex-col min-h-fit lg:min-h-0 bg-card text-foreground rounded-xl relative"
+    >
 
       {/* 
         Scrollable Table Viewport:
         - Fluid on mobile (no trapped inner scroll)
         - Locked internal scrolling on desktop
       */}
-      <div className="w-full flex-none lg:flex-1 min-h-fit lg:min-h-0 overflow-visible lg:overflow-y-auto lg:overscroll-contain">
+      <div 
+        className="w-full flex-none lg:flex-1 min-h-fit lg:min-h-0 overflow-visible lg:overflow-y-scroll lg:overscroll-contain custom-scrollbar"
+      >
         {/* TOP BAR: Letterhead Toggle | CONFIRMATION Title | Watermark Toggle */}
         <div className="px-3 sm:px-4 py-2 border-b border-border flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
           {/* Desktop Left: Letterhead Toggle */}
@@ -3479,7 +3523,10 @@ export function ConfirmationDocumentForm({
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
               checked={letterhead}
-              onChange={setLetterhead}
+              onChange={(val) => {
+                markDirty();
+                setLetterhead(val);
+              }}
               disabled={readOnly}
             />
           </div>
@@ -3492,6 +3539,7 @@ export function ConfirmationDocumentForm({
                 type="text"
                 value={documentTitle}
                 onChange={(e) => {
+                  markDirty();
                   setDocumentTitle(e.target.value);
                   setErrors((prev) => ({ ...prev, documentTitle: '' }));
                 }}
@@ -3536,7 +3584,10 @@ export function ConfirmationDocumentForm({
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
               checked={watermark}
-              onChange={setWatermark}
+              onChange={(val) => {
+                markDirty();
+                setWatermark(val);
+              }}
               disabled={readOnly}
             />
           </div>
@@ -3546,13 +3597,19 @@ export function ConfirmationDocumentForm({
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
               checked={letterhead}
-              onChange={setLetterhead}
+              onChange={(val) => {
+                markDirty();
+                setLetterhead(val);
+              }}
               disabled={readOnly}
             />
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
               checked={watermark}
-              onChange={setWatermark}
+              onChange={(val) => {
+                markDirty();
+                setWatermark(val);
+              }}
               disabled={readOnly}
             />
           </div>
@@ -3897,6 +3954,7 @@ export function ConfirmationDocumentForm({
                 options={isProductSelected ? loadingPortsList : []}
                 value={isProductSelected ? loadingPort : ''}
                 onChange={(val) => {
+                  markDirty();
                   setLoadingPort(val);
                   setErrors((prev) => ({ ...prev, loadingPort: '' }));
                 }}
@@ -3931,6 +3989,7 @@ export function ConfirmationDocumentForm({
                 options={isProductSelected ? destinationPortsList : []}
                 value={isProductSelected ? destinationPort : ''}
                 onChange={(val) => {
+                  markDirty();
                   setDestinationPort(val);
                   setErrors((prev) => ({ ...prev, destinationPort: '' }));
                 }}
@@ -3964,6 +4023,7 @@ export function ConfirmationDocumentForm({
                 options={isProductSelected ? packingList : []}
                 value={isProductSelected ? packing : ''}
                 onChange={(val) => {
+                  markDirty();
                   setPacking(val);
                   setErrors((prev) => ({ ...prev, packing: '' }));
                 }}
@@ -3998,6 +4058,7 @@ export function ConfirmationDocumentForm({
                 options={shippingTermsList}
                 value={shippingTerm}
                 onChange={(val) => {
+                  markDirty();
                   setShippingTerm(val);
                   setErrors((prev) => ({ ...prev, shippingTerm: '' }));
                 }}
@@ -4282,6 +4343,7 @@ export function ConfirmationDocumentForm({
                 startDate={shipmentRange.start}
                 endDate={shipmentRange.end}
                 onChange={(start, end) => {
+                  markDirty();
                   setShipmentRange({ start, end });
                   setErrors((prev) => ({ ...prev, shipmentPeriod: '' }));
                   if (start && end) {
@@ -4316,6 +4378,7 @@ export function ConfirmationDocumentForm({
                 options={paymentTermsList}
                 value={paymentTerm}
                 onChange={(val) => {
+                  markDirty();
                   setPaymentTerm(val);
                   setErrors((prev) => ({ ...prev, paymentTerm: '' }));
                 }}
@@ -4361,6 +4424,7 @@ export function ConfirmationDocumentForm({
                 id="field-notes"
                 value={notes}
                 onChange={(val) => {
+                  markDirty();
                   setNotes(val);
                   setErrors((prev) => ({ ...prev, notes: '' }));
                 }}
@@ -4480,8 +4544,9 @@ export function ConfirmationDocumentForm({
           ) : docStatus !== 'COMPLETED' ? (
             <button
               type="button"
-              disabled={isSavingDraft || isSubmitting || readOnly}
+              disabled={isSavingDraft || isSubmitting || readOnly || !hasDraftChanges}
               onClick={handleSaveDraft}
+              title={!hasDraftChanges ? 'No changes to save as draft' : undefined}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-md text-xs font-semibold border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 animate-in fade-in"
             >
               {isSavingDraft ? (
@@ -4500,8 +4565,9 @@ export function ConfirmationDocumentForm({
           {/* Submit To Contract */}
           <button
             type="button"
-            disabled={isSubmitting || readOnly}
+            disabled={isSubmitting || isSavingDraft || readOnly || (docStatus === 'COMPLETED' && !hasSubmitChanges)}
             onClick={handleSubmitContract}
+            title={docStatus === 'COMPLETED' && !hasSubmitChanges ? 'Document already submitted' : undefined}
             className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30 group ${
               docStatus === 'COMPLETED' ? 'w-full sm:w-auto' : ''
             }`}

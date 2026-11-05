@@ -2043,6 +2043,36 @@ export function ContractDocumentForm({
     return 'PENDING';
   });
 
+  // User interaction & dirty state tracking:
+  // - hasDraftChanges: enabled only if user made edits since opening or since last successful draft save
+  // - hasSubmitChanges: enabled if user made edits, or if an unconfirmed contract draft is already available to submit
+  const [hasDraftChanges, setHasDraftChanges] = useState<boolean>(false);
+  const [hasSubmitChanges, setHasSubmitChanges] = useState<boolean>(() => {
+    const isExplicitContract = Boolean(
+      initialData?.contract_number ||
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      initialData?.contract ||
+      (initialData && !initialData.confirmation_number && !initialData.confirmation_id && initialData.status)
+    );
+    const statusFromData = isExplicitContract ? extractDocumentStatus(initialData) : 'PENDING';
+    const isCompleted =
+      statusFromData === 'COMPLETED' ||
+      (contractStepItem && normalizeStepStatus(contractStepItem.status || contractStepItem.document_status || contractStepItem.step_status) === 'completed');
+    const hasContractId = Boolean(
+      contractIdProp ||
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      (initialData?.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '')
+    );
+    return hasContractId && !isCompleted;
+  });
+
+  const markDirty = useCallback(() => {
+    setHasDraftChanges(true);
+    setHasSubmitChanges(true);
+  }, []);
+
   // Guard against blinking: if contract ID exists but data/status is still loading/unknown, wait with a smooth skeleton
   const [statusLoadTimedOut, setStatusLoadTimedOut] = useState<boolean>(false);
   useEffect(() => {
@@ -2217,6 +2247,7 @@ export function ContractDocumentForm({
   const isFcl = isFclType(fclType);
 
   const handleFclTypeChange = (val: string) => {
+    markDirty();
     setFclType(val);
     setErrors((prev) => ({ ...prev, fclType: '', fclQty: '', fclCapacity: '', mtQty: '' }));
     if (!isFclType(val)) {
@@ -2385,6 +2416,7 @@ export function ContractDocumentForm({
   );
 
   const handleSplitCountChange = (val: string) => {
+    markDirty();
     setSplitCount(val);
     setErrors((prev) => ({ ...prev, partialCount: '', partialTotal: '' }));
     const count = parseInt(val, 10);
@@ -2410,6 +2442,7 @@ export function ContractDocumentForm({
   };
 
   const handleSplitQtyChange = (index: number, val: string) => {
+    markDirty();
     setSplits((prev) => {
       const next = [...prev];
       if (next[index]) {
@@ -2821,31 +2854,34 @@ export function ContractDocumentForm({
   const hasUserClearedBrokerSigRef = useRef<boolean>(false);
 
   const handleExporterSignatureChange = useCallback((val: string) => {
+    markDirty();
     if (!val) {
       hasUserClearedExporterSigRef.current = true;
     } else {
       hasUserClearedExporterSigRef.current = false;
     }
     setExporterSignature(val);
-  }, []);
+  }, [markDirty]);
 
   const handleImporterSignatureChange = useCallback((val: string) => {
+    markDirty();
     if (!val) {
       hasUserClearedImporterSigRef.current = true;
     } else {
       hasUserClearedImporterSigRef.current = false;
     }
     setImporterSignature(val);
-  }, []);
+  }, [markDirty]);
 
   const handleBrokerSignatureChange = useCallback((val: string) => {
+    markDirty();
     if (!val) {
       hasUserClearedBrokerSigRef.current = true;
     } else {
       hasUserClearedBrokerSigRef.current = false;
     }
     setBrokerSignature(val);
-  }, []);
+  }, [markDirty]);
 
   // UI States
   const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
@@ -3340,6 +3376,7 @@ export function ContractDocumentForm({
   };
 
   const handleSaveInstruction = (savedData: { id: string; label: string; instructionText: string }) => {
+    markDirty();
     const formattedItem: FormOptionItem = {
       value: savedData.id,
       label: savedData.label,
@@ -3484,6 +3521,7 @@ export function ContractDocumentForm({
   );
 
   const handleProductChange = (val: string) => {
+    markDirty();
     const isDifferent = String(val || '') !== String(productId || '');
     setProductId(val);
     currentProductIdRef.current = val;
@@ -3524,6 +3562,7 @@ export function ContractDocumentForm({
   };
 
   const handleSellerChange = (val: string) => {
+    markDirty();
     setSellerId(val);
     setErrors((prev) => ({ ...prev, sellerId: '' }));
     const selected = internalSellers.find(
@@ -3539,6 +3578,7 @@ export function ContractDocumentForm({
   };
 
   const handleBuyerChange = (val: string) => {
+    markDirty();
     setBuyerId(val);
     setErrors((prev) => ({ ...prev, buyerId: '' }));
     const selected = internalBuyers.find(
@@ -3646,6 +3686,10 @@ export function ContractDocumentForm({
     }
 
     isFormInitializedRef.current = true;
+    setHasDraftChanges(false);
+    const isCompleted = statusFromDoc === 'COMPLETED';
+    const hasId = Boolean(contractIdCandidate);
+    setHasSubmitChanges(hasId && !isCompleted);
     if (contractIdCandidate && !isInvalidPlaceholder(contractIdCandidate) && contractIdCandidate !== confirmationId) {
       setDraftId(contractIdCandidate);
       lastLoadedDocIdRef.current = contractIdCandidate;
@@ -4691,6 +4735,8 @@ export function ContractDocumentForm({
           if (newId) {
             setDraftId(newId);
             effectiveId = newId;
+            setHasDraftChanges(false);
+            setHasSubmitChanges(true);
             if (onSaveSuccess) onSaveSuccess(newId);
           }
         }
@@ -4735,6 +4781,8 @@ export function ContractDocumentForm({
           if (newId) {
             setDraftId(newId);
             effectiveId = newId;
+            setHasDraftChanges(false);
+            setHasSubmitChanges(true);
             if (onSaveSuccess) onSaveSuccess(newId);
           }
         }
@@ -4850,6 +4898,8 @@ export function ContractDocumentForm({
         dict?.smart_docs?.contract_form?.saved_as_draft_success ||
         'Contract saved as draft successfully!';
       toast.success(successText);
+      setHasDraftChanges(false);
+      setHasSubmitChanges(true);
 
       const statusFromRes = extractDocumentStatus(res?.data) || extractDocumentStatus(res);
       if (statusFromRes) {
@@ -4972,6 +5022,8 @@ export function ContractDocumentForm({
 
         if (res?.success && !hasFieldErrors) {
           setDocStatus('COMPLETED');
+          setHasDraftChanges(false);
+          setHasSubmitChanges(false);
           if (hasUserClearedExporterSigRef.current || !exporterSignature) {
             setExporterSignature('');
           }
@@ -5033,13 +5085,20 @@ export function ContractDocumentForm({
   };
 
   return (
-    <div className="w-full h-auto lg:h-full flex flex-col min-h-fit lg:min-h-0 bg-card text-foreground rounded-xl">
+    <div
+      id="contract-form-card"
+      onInput={markDirty}
+      onChange={markDirty}
+      className="w-full h-auto lg:h-full flex flex-col min-h-fit lg:min-h-0 bg-card text-foreground rounded-xl relative"
+    >
       {/* 
         Scrollable Table Viewport:
         - Fluid on mobile (no trapped inner scroll)
         - Locked internal scrolling on desktop
       */}
-      <div className="w-full flex-none lg:flex-1 min-h-fit lg:min-h-0 overflow-visible lg:overflow-y-auto lg:overscroll-contain">
+      <div 
+        className="w-full flex-none lg:flex-1 min-h-fit lg:min-h-0 overflow-visible lg:overflow-y-scroll lg:overscroll-contain custom-scrollbar"
+      >
         {/* TOP BAR: Letterhead Toggle | CONTRACT Title | Watermark Toggle */}
         <div className="px-3 sm:px-4 py-2 border-b border-border flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
           {/* Desktop Left: Letterhead Toggle */}
@@ -5047,7 +5106,10 @@ export function ContractDocumentForm({
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
               checked={letterhead}
-              onChange={setLetterhead}
+              onChange={(val) => {
+                markDirty();
+                setLetterhead(val);
+              }}
               disabled={readOnly}
             />
           </div>
@@ -5060,6 +5122,7 @@ export function ContractDocumentForm({
                 type="text"
                 value={documentTitle}
                 onChange={(e) => {
+                  markDirty();
                   setDocumentTitle(e.target.value);
                   setErrors((prev) => ({ ...prev, documentTitle: '' }));
                 }}
@@ -5104,7 +5167,10 @@ export function ContractDocumentForm({
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
               checked={watermark}
-              onChange={setWatermark}
+              onChange={(val) => {
+                markDirty();
+                setWatermark(val);
+              }}
               disabled={readOnly}
             />
           </div>
@@ -5114,13 +5180,19 @@ export function ContractDocumentForm({
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
               checked={letterhead}
-              onChange={setLetterhead}
+              onChange={(val) => {
+                markDirty();
+                setLetterhead(val);
+              }}
               disabled={readOnly}
             />
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
               checked={watermark}
-              onChange={setWatermark}
+              onChange={(val) => {
+                markDirty();
+                setWatermark(val);
+              }}
               disabled={readOnly}
             />
           </div>
@@ -5167,7 +5239,7 @@ export function ContractDocumentForm({
                   icon="fa-regular fa-calendar"
                   disabled={readOnly}
                   placeholder={
-                    dict?.smart_docs?.confirmation_form?.select_date || 'SELECT DATE'
+                    dict?.smart_docs?.confirmation_form?.select_date || 'Select Date'
                   }
                 />
               </div>
@@ -5223,7 +5295,7 @@ export function ContractDocumentForm({
                   icon="fa-regular fa-calendar"
                   disabled={readOnly}
                   placeholder={
-                    dict?.smart_docs?.contract_form?.select_date || 'SELECT DATE'
+                    dict?.smart_docs?.contract_form?.select_date || 'Select Date'
                   }
                 />
               </div>
@@ -5433,6 +5505,7 @@ export function ContractDocumentForm({
                 startDate={shipmentRange.start}
                 endDate={shipmentRange.end}
                 onChange={(start, end) => {
+                  markDirty();
                   setShipmentRange({ start, end });
                   setErrors((prev) => ({ ...prev, shipmentPeriod: '', shipmentStartDate: '', shipmentEndDate: '' }));
                 }}
@@ -5457,6 +5530,7 @@ export function ContractDocumentForm({
                 options={paymentTermsList}
                 value={paymentTerm}
                 onChange={(val) => {
+                  markDirty();
                   setPaymentTerm(val);
                   setErrors((prev) => ({ ...prev, paymentTerm: '' }));
                 }}
@@ -5506,6 +5580,7 @@ export function ContractDocumentForm({
                 options={packingList.length > 0 ? packingList : DEFAULT_STATIC_PACKING_OPTIONS}
                 value={packing}
                 onChange={(val) => {
+                  markDirty();
                   setPacking(val);
                   setErrors((prev) => ({ ...prev, packing: '' }));
                 }}
@@ -5554,6 +5629,7 @@ export function ContractDocumentForm({
                 options={isProductSelected ? loadingPortsList : []}
                 value={isProductSelected ? loadingPort : ''}
                 onChange={(val) => {
+                  markDirty();
                   setLoadingPort(val);
                   setLoadingCondition('');
                   setErrors((prev) => ({ ...prev, loadingPort: '', loadingCondition: '' }));
@@ -5587,6 +5663,7 @@ export function ContractDocumentForm({
                 options={isPortSelected ? loadingConditionOptions : []}
                 value={isPortSelected ? loadingCondition : ''}
                 onChange={(val) => {
+                  markDirty();
                   setLoadingCondition(val);
                   setErrors((prev) => ({ ...prev, loadingCondition: '' }));
                 }}
@@ -5617,6 +5694,7 @@ export function ContractDocumentForm({
                 options={isProductSelected ? destinationPortsList : []}
                 value={isProductSelected ? destinationPort : ''}
                 onChange={(val) => {
+                  markDirty();
                   setDestinationPort(val);
                   setErrors((prev) => ({ ...prev, destinationPort: '' }));
                 }}
@@ -5898,6 +5976,7 @@ export function ContractDocumentForm({
                 options={shippingTerms || DEFAULT_SHIPPING_TERMS}
                 value={incoterm}
                 onChange={(val) => {
+                  markDirty();
                   handleIncotermChange(val);
                   setErrors((prev) => ({ ...prev, incoterm: '', shippingTerm: '' }));
                 }}
@@ -5936,6 +6015,7 @@ export function ContractDocumentForm({
                   id="toggle-partial"
                   value={isPartialAllowed}
                   onChange={(val) => {
+                    markDirty();
                     setIsPartialAllowed(val);
                     if (!val) {
                       setErrors((prev) => ({ ...prev, partialCount: '', partialTotal: '' }));
@@ -6082,7 +6162,10 @@ export function ContractDocumentForm({
               <DocSegmentedToggle
                 id="toggle-transhipment"
                 value={isTranshipmentAllowed}
-                onChange={setIsTranshipmentAllowed}
+                onChange={(val) => {
+                  markDirty();
+                  setIsTranshipmentAllowed(val);
+                }}
                 trueLabel="ALLOWED"
                 falseLabel="NOT ALLOWED"
                 disabled={readOnly}
@@ -6101,7 +6184,10 @@ export function ContractDocumentForm({
               <DocSegmentedToggle
                 id="toggle-transitClause"
                 value={isTransitClauseAllowed}
-                onChange={setIsTransitClauseAllowed}
+                onChange={(val) => {
+                  markDirty();
+                  setIsTransitClauseAllowed(val);
+                }}
                 trueLabel="ALLOWED"
                 falseLabel="NOT ALLOWED"
                 disabled={readOnly}
@@ -6121,6 +6207,7 @@ export function ContractDocumentForm({
                 id="toggle-advance"
                 value={hasAdvance}
                 onChange={(val) => {
+                  markDirty();
                   setHasAdvance(val);
                   if (val && !advanceType) {
                     setAdvanceType('amount');
@@ -6137,7 +6224,10 @@ export function ContractDocumentForm({
                     <DocSegmentedToggle
                       id="toggle-advance-type"
                       value={advanceType}
-                      onChange={(val: 'amount' | '%') => setAdvanceType(val)}
+                      onChange={(val: 'amount' | '%') => {
+                        markDirty();
+                        setAdvanceType(val);
+                      }}
                       options={DEFAULT_ADVANCE_TYPE_OPTIONS}
                       disabled={readOnly}
                     />
@@ -6229,6 +6319,7 @@ export function ContractDocumentForm({
                 id="toggle-salesBroker"
                 value={isSalesBrokerAllowed}
                 onChange={(val) => {
+                  markDirty();
                   userToggledBrokerRef.current = true;
                   setIsSalesBrokerAllowed(val);
                 }}
@@ -6245,7 +6336,10 @@ export function ContractDocumentForm({
                     <DocSegmentedToggle<'PERCENTAGE' | 'PMT'>
                       id="toggle-broker-commission-type"
                       value={brokerCommissionType}
-                      onChange={(val) => setBrokerCommissionType(val)}
+                      onChange={(val) => {
+                        markDirty();
+                        setBrokerCommissionType(val);
+                      }}
                       options={DEFAULT_BROKER_COMMISSION_TYPE_OPTIONS}
                       allowDeselect={true}
                       disabled={readOnly}
@@ -6436,6 +6530,7 @@ export function ContractDocumentForm({
               <DocDocumentMultiSelect
                 value={selectedDocuments}
                 onChange={(val) => {
+                  markDirty();
                   setSelectedDocuments(val);
                   setErrors((prev) => ({ ...prev, documentsRequired: '', documents: '' }));
                 }}
@@ -6512,6 +6607,7 @@ export function ContractDocumentForm({
                 id="field-containerStandards"
                 value={containerStandards}
                 onChange={(val) => {
+                  markDirty();
                   setContainerStandards(val);
                   setErrors((prev) => ({ ...prev, containerStandards: '', other_terms_2: '' }));
                 }}
@@ -6534,6 +6630,7 @@ export function ContractDocumentForm({
                 id="field-forceMajeur"
                 value={forceMajeur}
                 onChange={(val) => {
+                  markDirty();
                   setForceMajeur(val);
                   setErrors((prev) => ({ ...prev, forceMajeur: '' }));
                 }}
@@ -6556,6 +6653,7 @@ export function ContractDocumentForm({
                 id="field-confidentiality"
                 value={confidentiality}
                 onChange={(val) => {
+                  markDirty();
                   setConfidentiality(val);
                   setErrors((prev) => ({ ...prev, confidentiality: '' }));
                 }}
@@ -6578,6 +6676,7 @@ export function ContractDocumentForm({
                 id="field-contract-notes"
                 value={notes}
                 onChange={(val) => {
+                  markDirty();
                   setNotes(val);
                   setErrors((prev) => ({ ...prev, notes: '' }));
                 }}
@@ -6592,23 +6691,41 @@ export function ContractDocumentForm({
           <ContractSignatureSection
             isSalesBrokerAllowed={Boolean(isSalesBrokerAllowed)}
             exporterTitle={exporterTitle}
-            onExporterTitleChange={setExporterTitle}
+            onExporterTitleChange={(val) => {
+              markDirty();
+              setExporterTitle(val);
+            }}
             exporterSignature={exporterSignature}
             onExporterSignatureChange={handleExporterSignatureChange}
             exporterAuthorityTitle={exporterAuthorityTitle}
-            onExporterAuthorityTitleChange={setExporterAuthorityTitle}
+            onExporterAuthorityTitleChange={(val) => {
+              markDirty();
+              setExporterAuthorityTitle(val);
+            }}
             brokerTitle={brokerTitle}
-            onBrokerTitleChange={setBrokerTitle}
+            onBrokerTitleChange={(val) => {
+              markDirty();
+              setBrokerTitle(val);
+            }}
             brokerSignature={brokerSignature}
             onBrokerSignatureChange={handleBrokerSignatureChange}
             brokerAuthorityTitle={brokerAuthorityTitle}
-            onBrokerAuthorityTitleChange={setBrokerAuthorityTitle}
+            onBrokerAuthorityTitleChange={(val) => {
+              markDirty();
+              setBrokerAuthorityTitle(val);
+            }}
             importerTitle={importerTitle}
-            onImporterTitleChange={setImporterTitle}
+            onImporterTitleChange={(val) => {
+              markDirty();
+              setImporterTitle(val);
+            }}
             importerSignature={importerSignature}
             onImporterSignatureChange={handleImporterSignatureChange}
             importerAuthorityTitle={importerAuthorityTitle}
-            onImporterAuthorityTitleChange={setImporterAuthorityTitle}
+            onImporterAuthorityTitleChange={(val) => {
+              markDirty();
+              setImporterAuthorityTitle(val);
+            }}
             readOnly={readOnly}
             exporterError={errors.exporterSignature || errors.seller_signature}
             brokerError={errors.brokerSignature || errors.broker_signature}
@@ -6713,8 +6830,9 @@ export function ContractDocumentForm({
           ) : docStatus !== 'COMPLETED' ? (
             <button
               type="button"
-              disabled={isSavingDraft || isSubmitting || readOnly}
+              disabled={isSavingDraft || isSubmitting || readOnly || !hasDraftChanges}
               onClick={handleSaveDraft}
+              title={!hasDraftChanges ? 'No changes to save as draft' : undefined}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-md text-xs font-semibold border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 animate-in fade-in"
             >
               {isSavingDraft ? (
@@ -6733,8 +6851,9 @@ export function ContractDocumentForm({
           {/* Submit To Proforma */}
           <button
             type="button"
-            disabled={isSubmitting || readOnly}
+            disabled={isSubmitting || isSavingDraft || readOnly || (docStatus === 'COMPLETED' && !hasSubmitChanges)}
             onClick={handleSubmit}
+            title={docStatus === 'COMPLETED' && !hasSubmitChanges ? 'Contract already submitted' : undefined}
             className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30 group ${
               docStatus === 'COMPLETED' ? 'w-full sm:w-auto' : ''
             }`}
@@ -6758,6 +6877,7 @@ export function ContractDocumentForm({
         mode={productModalMode}
         product={editingProduct}
         onSave={(savedProd) => {
+          markDirty();
           const formattedItem: FormOptionItem = {
             value: savedProd.id,
             label: savedProd.label,
@@ -6793,6 +6913,7 @@ export function ContractDocumentForm({
         mode={paymentTermModalMode}
         paymentTerm={editingPaymentTerm}
         onSave={(savedTerm) => {
+          markDirty();
           const formattedItem: FormOptionItem = {
             value: savedTerm.id,
             label: savedTerm.label,

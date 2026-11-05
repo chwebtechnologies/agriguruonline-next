@@ -329,7 +329,7 @@ async function DraftPageDataLoader(props: {
       : (initialConfirmationData?.id || initialConfirmationData?._id || linkedConfId || draftId || '');
 
   return (
-    <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden">
+    <div className="bg-background text-foreground transition-theme flex-1 flex flex-col min-h-0 lg:h-full overflow-y-auto lg:overflow-hidden custom-scrollbar">
       <div className="w-full pad-for-badges flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
         <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
           {/* SaaS Single Page Workspace (Fluid on mobile, locked on desktop) */}

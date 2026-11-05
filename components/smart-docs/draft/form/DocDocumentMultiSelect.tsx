@@ -304,14 +304,18 @@ export function DocDocumentMultiSelect({
 
             {/* Document Checklist */}
             <div
-              className="flex-1 overflow-y-auto overscroll-contain flex flex-col gap-1 pr-1 custom-scrollbar min-h-[140px] max-h-52 text-xs"
+              className="flex-1 overflow-y-scroll overscroll-contain flex flex-col gap-1 pr-1 custom-scrollbar min-h-[140px] max-h-52 text-xs"
               role="listbox"
               aria-multiselectable="true"
             >
               {isLoading ? (
-                <div className="flex items-center justify-center py-8 text-xs text-muted-foreground gap-2">
-                  <i className="fa-solid fa-circle-notch fa-spin text-primary" />
-                  <span>Loading documents...</span>
+                <div className="flex flex-col gap-1 py-1" role="status" aria-label="Loading document checklist">
+                  {['w-36', 'w-44', 'w-28', 'w-40', 'w-32', 'w-48'].map((w, idx) => (
+                    <div key={idx} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md animate-pulse">
+                      <div className="w-4 h-4 rounded-xs bg-muted/80 shrink-0" />
+                      <div className={`h-3.5 ${w} rounded-md bg-muted/70`} />
+                    </div>
+                  ))}
                 </div>
               ) : filteredOptions.length > 0 ? (
                 <>

@@ -83,7 +83,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
       align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
     const hasValue = String(value ?? '').trim().length > 0;
-    const effectivePlaceholder = placeholder || (type === 'date' ? 'SELECT DATE' : '');
+    const effectivePlaceholder = placeholder || (type === 'date' ? 'Select Date' : '');
 
     const [isFocused, setIsFocused] = useState(false);
 
@@ -214,12 +214,10 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
           {!hasValue && effectivePlaceholder && (
             <span
               aria-hidden="true"
-              className={`absolute ${multiline ? 'top-1.5' : 'top-1/2 -translate-y-1/2'} pointer-events-none select-none text-[14px] font-normal ${
-                uppercase ? 'uppercase' : ''
-              } leading-normal truncate transition-opacity print:hidden ${
+              className={`absolute ${multiline ? 'top-1.5' : 'top-1/2 -translate-y-1/2'} pointer-events-none select-none text-[14px] leading-normal truncate transition-opacity print:hidden ${
                 error
-                  ? 'text-brand-red/50'
-                  : 'text-muted-foreground/50'
+                  ? 'font-semibold text-brand-red'
+                  : `font-normal text-muted-foreground/50 ${uppercase ? 'uppercase' : ''}`
               } ${alignClass} ${
                 icon && iconPosition === 'right'
                   ? 'left-1.5 right-6 rtl:left-6 rtl:right-1.5'
