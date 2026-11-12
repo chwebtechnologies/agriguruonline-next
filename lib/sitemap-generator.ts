@@ -265,6 +265,17 @@ export async function generateLanguageSitemapXml(targetLang: SupportedLanguage):
     })
   }
 
+  // 5.1 News Authors
+  const knownAuthorSlugs = ['mr-deepak-pareek']
+  for (const authorSlug of knownAuthorSlugs) {
+    entries.push({
+      path: `/author/${authorSlug}`,
+      lastModified: currentDate,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    })
+  }
+
   // 6. Market Updates
   for (const item of data.marketUpdates) {
     if (!item.slug) continue

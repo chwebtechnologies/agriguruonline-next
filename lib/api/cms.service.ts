@@ -13,6 +13,7 @@ import type {
 } from '@/types/participationGallery';
 import type { AssociatePartnersResponse } from '@/types/associatePartners';
 import type { CmsPageData, CmsContentResponse, FooterSections, FooterResponse } from '@/types/cms';
+import type { AuthorDetail, AuthorNewsData } from '@/types/author';
 
 export interface CollectionVideoData {
   category: {
@@ -55,6 +56,14 @@ export interface NewsDetail {
   source_url?: string;
   meta_keywords?: string;
   meta_description?: string;
+  author?: {
+    id: string;
+    name: string;
+    short_description?: string;
+    slug: string;
+    image?: string;
+    thumbnail?: string;
+  };
   categories?: Array<{
     id: string;
     name: string;
@@ -491,5 +500,54 @@ export const cmsService = {
       return null;
     }
   }),
+
+  /**
+   * Author Details (Public)
+   */
+  getAuthorDetail: cache(async (slug: string): Promise<AuthorDetail | null> => {
+    const cmsApiUrl = getCmsApiUrl();
+    const url = `${cmsApiUrl}/authors/public/${encodeURIComponent(slug)}`;
+    try {
+      const json = await customFetchJSON<{ success: number; data?: AuthorDetail }>(url);
+      if (json?.success === 1 && json.data) {
+        return json.data;
+      }
+      return null;
+    } catch (err) {
+      console.error(`[cmsService.getAuthorDetail] error for slug '${slug}':`, err);
+      return null;
+    }
+  }),
+
+  /**
+   * Author's Published News Articles (Public)
+   */
+  getAuthorNews: cache(
+    async (params: {
+      authorId: string;
+      page?: number;
+      limit?: number;
+    }): Promise<AuthorNewsData | null> => {
+      const { authorId, page = 1, limit = 6 } = params;
+      const cmsApiUrl = getCmsApiUrl();
+      const url = `${cmsApiUrl}/latestnews/public/`;
+      try {
+        const json = await customFetchJSON<{ success: number; data?: AuthorNewsData }>(url, {
+          params: {
+            author_id: authorId,
+            page,
+            limit,
+          },
+        });
+        if (json?.success === 1 && json.data) {
+          return json.data;
+        }
+        return null;
+      } catch (err) {
+        console.error(`[cmsService.getAuthorNews] error for authorId '${authorId}':`, err);
+        return null;
+      }
+    }
+  ),
 };
 

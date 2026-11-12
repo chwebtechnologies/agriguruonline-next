@@ -11,6 +11,7 @@ import ImageWithSkeleton from '@/components/ui/ImageWithSkeleton'
 import type { NewsArticle, NewsResponse } from '@/types/news'
 import { cache, Suspense } from 'react'
 import ArticleAudioPlayer from '@/components/news/ArticleAudioPlayer'
+import NewsAuthorCard, { AuthorAvatar, decodeHtmlEntities } from '@/components/news/NewsAuthorCard'
 
 export const revalidate = 60;
 
@@ -28,6 +29,14 @@ interface NewsDetail {
   slug: string
   meta_keywords?: string
   meta_description?: string
+  author?: {
+    id: string
+    name: string
+    short_description?: string
+    slug: string
+    image?: string
+    thumbnail?: string
+  }
   categories?: Array<{
     id: string
     name: string
@@ -119,22 +128,26 @@ export async function generateMetadata(
   const assetsUrl = getAssetsUrl()
   const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
   
+  const siteUrl = getSiteUrl()
   const sourceImage = article.thumbnail || article.image
   const imagePath = sourceImage?.startsWith('/') ? sourceImage.slice(1) : sourceImage
   const imageUrl = sourceImage?.startsWith('http') 
     ? sourceImage 
-    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${getSiteUrl()}/logo.png`)
+    : (sourceImage ? `${imageBaseUrl}${imagePath}` : `${siteUrl}/logo.png`)
   
   const fullTitle = `${title} | AgriGuru Online`
   const publishedTime = toIsoDate(article.posting_date || article.created_at)
   const modifiedTime = toIsoDate(article.updated_at || article.posting_date || article.created_at)
-  const authorName = article.source || 'AgriGuru Editorial Team'
+  const authorName = article.author?.name || article.source || 'AgriGuru Editorial Team'
+  const authorUrl = article.author?.slug
+    ? `${siteUrl}/${lang}/author/${article.author.slug}`
+    : article.source_url || alternates.canonical
 
   return {
     title, // Uses root layout template "%s | AgriGuru Online" for clean title
     description: cleanDescription,
     keywords: article.meta_keywords ? article.meta_keywords.split(',').map(k => k.trim()) : [title, 'AgriGuru', 'Agriculture News', 'Commodities'],
-    authors: [{ name: authorName, url: article.source_url || alternates.canonical }],
+    authors: [{ name: authorName, url: authorUrl }],
     creator: 'AgriGuru Online',
     publisher: 'AgriGuru Online',
     robots: {
@@ -242,8 +255,19 @@ function NewsDetailSkeleton() {
       <PageHeader title="Latest News" backText="Back" headingTag="div" />
       <div className="mt-1 sm:mt-1.5 w-full max-w-full overflow-hidden">
         <div className="responsive-layout-grid gap-y-0 md:gap-y-6 md:gap-x-6 lg:gap-x-8 items-start w-full max-w-full">
-          <div className="grid-area-image w-full max-w-full min-w-0 space-y-4">
+          <div className="grid-area-image w-full max-w-full min-w-0">
             <div className="w-full aspect-[3/2] bg-muted animate-pulse rounded-2xl border border-border"></div>
+          </div>
+          {/* Author Card Skeleton */}
+          <div className="grid-area-author w-full max-w-full min-w-0 mt-6 md:mt-0">
+            <div className="p-3.5 sm:p-4 rounded-2xl border border-border bg-card flex items-start gap-3 sm:gap-3.5">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-muted animate-pulse shrink-0"></div>
+              <div className="flex-1 space-y-2">
+                <div className="w-28 h-3.5 bg-muted animate-pulse rounded"></div>
+                <div className="w-full h-3 bg-muted animate-pulse rounded"></div>
+                <div className="w-3/4 h-3 bg-muted animate-pulse rounded"></div>
+              </div>
+            </div>
           </div>
           <div className="grid-area-other w-full max-w-full min-w-0 mt-6 md:mt-0 md:h-full md:min-h-[340px]">
              <div className="w-full h-80 bg-muted animate-pulse rounded-2xl border border-border"></div>
@@ -354,8 +378,33 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
   )
   const hasExternalSource = Boolean(article.source_url && !isSelfReferential && article.source_url.startsWith('http'))
 
-  // Check if authored by Deepak Pareek or editorial desk
-  const isDeepakPareek = /deepak\s+pareek/i.test(sourceName) || /deepak\s+pareek/i.test(title) || /deepak\s+pareek/i.test(plainText.substring(0, 500))
+  // Check if authored by Deepak Pareek or dedicated author
+  const isDeepakPareek = /deepak\s+pareek/i.test(sourceName) || /deepak\s+pareek/i.test(title) || /deepak\s+pareek/i.test(plainText.substring(0, 500)) || Boolean(article.author?.slug?.includes('deepak'))
+  const candidateAuthorSlug = article.author?.slug || (isDeepakPareek ? 'mr-deepak-pareek' : (article.author?.name ? article.author.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : null))
+
+  const authorDetail = candidateAuthorSlug
+    ? await withTimeout(cmsService.getAuthorDetail(candidateAuthorSlug).catch(() => null), 2000, null)
+    : null
+
+  const rawAuthorName = authorDetail?.name || article.author?.name || (isDeepakPareek ? 'Mr. Deepak Pareek' : null)
+  const authorName = decodeHtmlEntities(rawAuthorName)
+  const authorSlug = authorDetail?.slug || candidateAuthorSlug
+
+  const rawAuthorBio = authorDetail?.short_description || authorDetail?.long_description || article.author?.short_description || ''
+  const authorBio = decodeHtmlEntities(rawAuthorBio.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim() || (
+    isDeepakPareek
+      ? 'Agriculture Economist & Technology Strategist with extensive expertise in global agri-commodities, trade policy, and agricultural market intelligence.'
+      : authorName
+        ? `${authorName} is an agriculture market contributor and commodity analyst writing insights, price trends, and trade intelligence on AgriGuru Online.`
+        : ''
+  )
+
+  const rawAuthorImage = authorDetail?.image || authorDetail?.thumbnail || article.author?.image || article.author?.thumbnail || ''
+  const authorImage = rawAuthorImage
+    ? rawAuthorImage.startsWith('http')
+      ? rawAuthorImage
+      : `${imageBaseUrl}${rawAuthorImage}`
+    : null
 
   return (
     <>
@@ -429,6 +478,19 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                   </div>
                 </div>
               </div>
+
+              {/* AUTHOR CARD (Responsive: under content, above other news; Desktop: between image and other news) */}
+              {authorName && (
+                <div className="grid-area-author w-full max-w-full min-w-0 mt-6 md:mt-0">
+                  <NewsAuthorCard
+                    name={authorName}
+                    bio={authorBio}
+                    slug={authorSlug}
+                    image={authorImage}
+                    lang={lang}
+                  />
+                </div>
+              )}
 
               {/* OTHER NEWS (Mobile: Bottom, Desktop: Under Image, matched height with Content) */}
               {otherNewsList.length > 0 && (
@@ -550,8 +612,8 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
 
                 <style dangerouslySetInnerHTML={{ __html: ``}} />
 
-                {/* Bottom of Content: Source on the LEFT side with reduced spacing */}
-                <div className="mt-4 pt-3 border-t border-border flex justify-start items-center text-sm text-foreground/80">
+                {/* Bottom of Content: Source & Author with clean spacing */}
+                <div className="mt-4 pt-3 border-t border-border flex flex-wrap justify-between items-center gap-3 text-sm text-foreground/80">
                   <div className="flex items-center gap-2 font-medium">
                     <span className="text-foreground/80 font-semibold">Source:</span>
                     {hasExternalSource ? (
@@ -568,6 +630,26 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                       <span className="font-semibold text-foreground">{sourceName || "AgriGuru Research"}</span>
                     )}
                   </div>
+
+                  {authorName && (
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <span className="text-foreground/80 font-semibold">Author:</span>
+                      {authorSlug ? (
+                        <Link
+                          href={`/${lang}/author/${authorSlug}`}
+                          className="text-brand-blue hover:underline font-semibold flex items-center gap-1.5 group/bottomauthor"
+                        >
+                          <AuthorAvatar name={authorName} image={authorImage} size="sm" />
+                          <span>{authorName}</span>
+                        </Link>
+                      ) : (
+                        <div className="font-semibold text-foreground flex items-center gap-1.5">
+                          <AuthorAvatar name={authorName} image={authorImage} size="sm" />
+                          <span>{authorName}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -615,17 +697,17 @@ async function NewsDetailContent({ lang, slug }: { lang: string, slug: string })
                   "datePublished": publishedIso,
                   "dateModified": modifiedIso,
                   "author": [
-                    isDeepakPareek
+                    authorSlug
                       ? {
                           "@type": "Person",
-                          "name": "Deepak Pareek",
-                          "jobTitle": "Co-Founder & Technology Leader",
+                          "name": authorName || "Deepak Pareek",
+                          "jobTitle": "Agriculture Economist & Technology Strategist",
                           "worksFor": {
                             "@type": "Organization",
                             "name": "AgriGuru Online",
                             "url": siteUrl
                           },
-                          "url": `${siteUrl}/${lang}/about-us`
+                          "url": `${siteUrl}/${lang}/author/${authorSlug}`
                         }
                       : {
                           "@type": "Organization",
@@ -679,6 +761,7 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
               grid-template-areas: 
                 "image"
                 "content"
+                "author"
                 "other";
               width: 100%;
               max-width: 100%;
@@ -686,13 +769,15 @@ export default async function NewsDetailPage(props: { params: Promise<{ lang: st
             @media (min-width: 768px) {
               .responsive-layout-grid {
                 grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-                grid-template-rows: auto 1fr;
+                grid-template-rows: auto auto 1fr;
                 grid-template-areas: 
                   "image content"
+                  "author content"
                   "other content";
               }
             }
             .grid-area-image { grid-area: image; min-width: 0; max-width: 100%; }
+            .grid-area-author { grid-area: author; min-width: 0; max-width: 100%; }
             .grid-area-content { grid-area: content; min-width: 0; max-width: 100%; }
             .grid-area-other { grid-area: other; min-width: 0; max-width: 100%; }
 
