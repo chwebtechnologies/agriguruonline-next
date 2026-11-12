@@ -43,8 +43,8 @@ export default function EmailStep({
     }
   }, [initialEmail]);
 
-  // Check if we are currently in Apple verification flow
-  const isAppleActive = isAppleFlow || (typeof window !== "undefined" && Boolean(localStorage.getItem("apple_txn_id")));
+  // Check if we are currently in Apple verification flow (synced safely via parent state)
+  const isAppleActive = Boolean(isAppleFlow);
 
   const isFormatValid = EMAIL_REGEX.test(email.trim());
   const isButtonDisabled = !isFormatValid || isPending;

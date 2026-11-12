@@ -355,7 +355,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/api/proxy-smart-docs/:path*',
-        destination: `${smartDocsUrl.replace(/\/$/, '')}/:path*`,
+        destination: `${smartDocsUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')}/:path*`,
       }
     ]
   },

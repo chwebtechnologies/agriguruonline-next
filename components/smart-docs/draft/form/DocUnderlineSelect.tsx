@@ -152,9 +152,11 @@ export function DocUnderlineSelect({
   const selectedOption = normalizedOptions.find(
     (opt) =>
       String(opt.value) === String(value) ||
+      (!!value && String((opt as any).id || '') === String(value)) ||
+      (!!value && String((opt as any).bank_details_id || '') === String(value)) ||
+      (!!value && String((opt as any).bank_account_id || '') === String(value)) ||
       (isUsdInput && (String(opt.value).toUpperCase() === 'USD' || String((opt as any).code || '').toUpperCase() === 'USD')) ||
       (!!value && String((opt as any).code || '').toUpperCase() === String(value).toUpperCase()) ||
-      (!!value && String((opt as any).id || '') === String(value)) ||
       (!!value && String(opt.label).toLowerCase() === String(value).toLowerCase()) ||
       (!!value && (upperInputVal === '20_FT_FCL' || upperInputVal === 'FCL_20_FT') && (String(opt.value).toUpperCase().includes('20') || String(opt.label).toUpperCase().includes('20'))) ||
       (!!value && (upperInputVal === '40_FT_FCL' || upperInputVal === 'FCL_40_FT') && (String(opt.value).toUpperCase().includes('40') || String(opt.label).toUpperCase().includes('40'))) ||
@@ -173,9 +175,11 @@ export function DocUnderlineSelect({
     const curIndex = normalizedOptions.findIndex(
       (opt) =>
         String(opt.value) === String(value) ||
+        (!!value && String((opt as any).id || '') === String(value)) ||
+        (!!value && String((opt as any).bank_details_id || '') === String(value)) ||
+        (!!value && String((opt as any).bank_account_id || '') === String(value)) ||
         (isUsdInput && (String(opt.value).toUpperCase() === 'USD' || String((opt as any).code || '').toUpperCase() === 'USD')) ||
         (!!value && String((opt as any).code || '').toUpperCase() === String(value).toUpperCase()) ||
-        (!!value && String((opt as any).id || '') === String(value)) ||
         (!!value && String(opt.label).toLowerCase() === String(value).toLowerCase())
     );
     setHighlightedIndex(curIndex >= 0 ? curIndex : 0);

@@ -222,6 +222,6 @@ export async function getValidAuthToken(passedToken?: string): Promise<string | 
     return passedToken;
   }
 
-  // 6. Last resort: return whatever cookieToken exists or null
-  return cookieToken || passedToken || null;
+  // 6. If both tokens are expired/invalid and refresh failed, session is dead
+  return null;
 }

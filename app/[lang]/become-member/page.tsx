@@ -7,6 +7,7 @@ import { getDictionary } from '@/app/[lang]/dictionaries';
 import { userService } from '@/lib/api/user.service';
 import { withTimeout, getNormalizedUserType } from '@/lib/api-utils';
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
+import { getValidAuthToken } from '@/lib/auth-token';
 import { getOnboardingDropdownsAction } from '@/app/actions/membership';
 import BecomeMemberClient from '@/components/membership/BecomeMemberClient';
 import { BecomeMemberInnerSkeleton } from './loading';
@@ -37,8 +38,10 @@ export default async function BecomeMemberPage(props: {
 }) {
   const params = await props.params;
   const lang = params.lang || 'en';
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const [token, cookieStore] = await Promise.all([
+    getValidAuthToken(),
+    cookies(),
+  ]);
 
   // Guard: Must be authenticated
   if (!token) {

@@ -3237,11 +3237,10 @@ export function ConfirmationDocumentForm({
         if (Object.keys(fieldErrors).length > 0) {
           setErrors(fieldErrors);
           scrollToAndFocusField(fieldErrors);
-        }
-        if (generalError) {
+        } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
           toast.error(generalError);
-        } else if (Object.keys(fieldErrors).length === 0) {
-          toast.error(result.message || result.error || 'Failed to save draft. Please check the fields.');
+        } else {
+          toast.error(result.message || result.error || 'Failed to save draft. Please check highlighted fields.');
         }
         return;
       }
@@ -3330,10 +3329,9 @@ export function ConfirmationDocumentForm({
       if (Object.keys(fieldErrors).length > 0) {
         setErrors(fieldErrors);
         scrollToAndFocusField(fieldErrors);
-      }
-      if (generalError) {
+      } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
         toast.error(generalError);
-      } else if (Object.keys(fieldErrors).length === 0) {
+      } else {
         toast.error(err?.message || 'Failed to save draft. Please retry.');
       }
     } finally {
@@ -4634,6 +4632,13 @@ export function ConfirmationDocumentForm({
               initialData?.confirmationId
           )
         }
+        candidateIds={[
+          draftId,
+          toCleanId(initialData?.id),
+          toCleanId(initialData?._id),
+          toCleanId(initialData?.confirmation_id),
+          toCleanId(initialData?.confirmationId),
+        ].filter((x): x is string => Boolean(x))}
         docNumber={
           confirmationNumber ||
           toCleanLabel(initialData?.confirmationNumber || initialData?.confirmation_number) ||

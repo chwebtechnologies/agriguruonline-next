@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface LoginRequiredBannerProps {
   redirectUrl: string | undefined;
@@ -8,16 +8,11 @@ interface LoginRequiredBannerProps {
 }
 
 export default function LoginRequiredBanner({ redirectUrl, dict = {} }: LoginRequiredBannerProps) {
-  const [isVisible, setIsVisible] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    // Only show the banner if there is a redirectUrl
-    if (redirectUrl) {
-      setIsVisible(true);
-    }
-  }, [redirectUrl]);
-
-  if (!isVisible || !redirectUrl) return null;
+  // Do not render banner if dismissed or if no valid redirect destination
+  if (!redirectUrl || dismissed) return null;
+  if (redirectUrl.includes('/login') || redirectUrl.includes('/register')) return null;
 
   // Helper to format the URL into a friendly page name dynamically
   const getFriendlyPageName = (url: string) => {
@@ -63,8 +58,9 @@ export default function LoginRequiredBanner({ redirectUrl, dict = {} }: LoginReq
         </div>
         
         <button 
-          onClick={() => setIsVisible(false)}
-          className="flex-shrink-0 text-foreground opacity-40 hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-foreground/5"
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="flex-shrink-0 text-foreground opacity-40 hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-foreground/5 cursor-pointer"
           aria-label={dict?.dismiss_banner || 'Dismiss banner'}
         >
           <i className="fa-solid fa-xmark text-sm"></i>

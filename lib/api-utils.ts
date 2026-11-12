@@ -31,7 +31,7 @@ export function getSmartDocsApiUrl(): string {
     return '/api/proxy-smart-docs';
   }
   const url = process.env.NEXT_PUBLIC_SMART_DOCS_API_URL || process.env.SMART_DOCS_API_URL || "";
-  return url.replace(/\/$/, "");
+  return url.replace(/\/api\/?$/, "").replace(/\/$/, "");
 }
 
 export function getAssetsUrl(): string {

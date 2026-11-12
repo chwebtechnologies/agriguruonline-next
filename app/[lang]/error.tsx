@@ -22,7 +22,8 @@ export default function Error({
     errorMsg.includes('NEXT_NOT_FOUND') ||
     errorMsg.includes('aborted') ||
     errorMsg.includes('canceled') ||
-    error?.digest?.startsWith('NEXT_REDIRECT')
+    error?.digest?.startsWith('NEXT_REDIRECT') ||
+    error?.digest?.includes('NEXT_REDIRECT')
 
   // Auto-reload immediately and silently if this is a chunk load mismatch (e.g. new build/deployment)
   useEffect(() => {

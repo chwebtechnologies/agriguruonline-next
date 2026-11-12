@@ -1,0 +1,4969 @@
+'use client';
+
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
+import DocUnderlineInput from './DocUnderlineInput';
+import DocUnderlineSelect from './DocUnderlineSelect';
+import DocToggle from './DocToggle';
+import DocSignatureBox from './DocSignatureBox';
+import DocPrintPreviewModal from './DocPrintPreviewModal';
+import { dataUrlToFile } from './ContractDocumentForm';
+import { convertAmountToWords } from './number-to-words';
+import {
+  downloadDocPdfAction,
+  getSellerBankDetailsAction,
+  saveProformaDraftAction,
+  submitProformaAction,
+  getStepperListAction,
+} from '@/app/actions/smart-docs';
+import {
+  DEFAULT_CURRENCIES,
+  getCurrencySymbol,
+  normalizeCurrencyCode,
+  formatSignatureUrl,
+  normalizeSignaturePayload,
+  type StepperDocumentItem,
+  downloadPdfFromActionResponse,
+  sanitizeDocId,
+  extractProformaData,
+  getProformaStep,
+  normalizeStepStatus,
+  extractDocumentStatus,
+  extractProformaDocumentStatus,
+  extractStepId,
+  isProformaStep,
+  isValidCuidOrId,
+} from '@/lib/api/smart-docs.service';
+
+export interface FormOptionItem {
+  value: string;
+  label: string;
+  subLabel?: string;
+  [key: string]: any;
+}
+
+export interface ProformaDocumentFormProps {
+  initialData?: any;
+  proformaId?: string;
+  contractId?: string;
+  confirmationId?: string;
+  steps?: StepperDocumentItem[];
+  selectedStep?: StepperDocumentItem | null;
+  onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
+  sellers?: FormOptionItem[];
+  buyers?: FormOptionItem[];
+  products?: FormOptionItem[];
+  loadingPorts?: FormOptionItem[];
+  destinationPorts?: FormOptionItem[];
+  paymentTerms?: FormOptionItem[];
+  currencies?: FormOptionItem[];
+  shippingTerms?: FormOptionItem[];
+  onSaveDraft?: (payload: any) => Promise<any>;
+  onSaveSuccess?: (savedId: string, savedData?: any) => void;
+  onSubmitProforma?: (payload: any, id?: string) => Promise<any>;
+  lang?: string;
+  dict?: any;
+  readOnly?: boolean;
+}
+
+const DEFAULT_BANK_CHARGES_NOTE =
+  'PLEASE DO NOT DEDUCT BANK CHARGES FROM THE TOTAL AMOUNT OF THE PAYMENT INSTRUCTIONS. DETAILS OF CHARGES SHOULD BE MENTIONED AS "OUR"';
+
+// In-memory module cache for seller bank accounts to ensure instantaneous switches
+const sellerBankAccountsCache = new Map<string, any[]>();
+
+/**
+ * Universal fail-safe string converter to protect React from crashing when
+ * backend returns objects, numbers, arrays, or nulls instead of primitive strings.
+ */
+export function safeString(val: any, fallback = ''): string {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') {
+      return fallback;
+    }
+    return trimmed;
+  }
+  if (typeof val === 'number') {
+    return isNaN(val) ? fallback : String(val);
+  }
+  if (typeof val === 'boolean') {
+    return val ? 'YES' : 'NO';
+  }
+  if (Array.isArray(val)) {
+    const joined = val.map((x) => safeString(x)).filter(Boolean).join(', ');
+    return joined || fallback;
+  }
+  if (typeof val === 'object') {
+    if (val instanceof Date) {
+      return isNaN(val.getTime()) ? fallback : val.toISOString().slice(0, 10);
+    }
+    const candidate =
+      val.label ||
+      val.name ||
+      val.port_name ||
+      val.portName ||
+      val.company_name ||
+      val.companyName ||
+      val.title ||
+      val.value ||
+      val.code ||
+      val.instruction ||
+      val.address ||
+      val.number ||
+      val.text;
+    if (candidate && typeof candidate !== 'object') {
+      return safeString(candidate, fallback);
+    }
+    return fallback;
+  }
+  return fallback;
+}
+
+export function resolveGstString(val: any): string {
+  const str = safeString(val);
+  if (!str) return '';
+  if (str.includes('\n') || str.toLowerCase().includes('gst') || str.toLowerCase().includes('registration')) {
+    return str;
+  }
+  return `GST Number:\n${str}`;
+}
+
+/**
+ * Safely extracts seller company name, prioritizing seller_details.company_name as explicitly requested.
+ */
+export function extractSellerCompanyName(
+  data: any,
+  sellersList?: FormOptionItem[],
+  currentSellerId?: string
+): string {
+  if (!data && (!sellersList || sellersList.length === 0)) return '';
+
+  // 1. Direct seller_details object (as user requested: "seller_details me company_name jo ho vo dikhana hai")
+  if (data?.seller_details && typeof data.seller_details === 'object') {
+    const fromSellerDetails =
+      data.seller_details.company_name ||
+      data.seller_details.companyName ||
+      data.seller_details.name ||
+      data.seller_details.business_name ||
+      data.seller_details.businessName;
+    if (fromSellerDetails) return safeString(fromSellerDetails);
+  }
+
+  // 2. String seller_details (JSON or plain multiline string)
+  if (typeof data?.seller_details === 'string') {
+    const trimmed = data.seller_details.trim();
+    if (trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        const fromParsed =
+          parsed?.company_name || parsed?.companyName || parsed?.name || parsed?.business_name;
+        if (fromParsed) return safeString(fromParsed);
+      } catch {
+        // Not JSON
+      }
+    }
+    // In many contracts/confirmations, the first line of seller_details is the company name!
+    const firstLine = trimmed.split('\n')[0]?.trim();
+    if (
+      firstLine &&
+      !firstLine.toLowerCase().startsWith('gst') &&
+      !firstLine.toLowerCase().startsWith('pan') &&
+      !firstLine.toLowerCase().startsWith('address')
+    ) {
+      return safeString(firstLine);
+    }
+  }
+
+  // 3. Nested contract / confirmation / data / proforma layers
+  const nestedLayers = [data?.contract, data?.confirmation, data?.data, data?.proforma];
+  for (const layer of nestedLayers) {
+    if (!layer || typeof layer !== 'object') continue;
+    if (layer.seller_details && typeof layer.seller_details === 'object') {
+      const c =
+        layer.seller_details.company_name ||
+        layer.seller_details.companyName ||
+        layer.seller_details.name ||
+        layer.seller_details.business_name;
+      if (c) return safeString(c);
+    }
+    if (typeof layer.seller_details === 'string' && layer.seller_details.trim()) {
+      const firstLine = layer.seller_details.trim().split('\n')[0]?.trim();
+      if (firstLine && !firstLine.toLowerCase().startsWith('gst')) return safeString(firstLine);
+    }
+    if (layer.company_name) return safeString(layer.company_name);
+    if (layer.seller_name) return safeString(layer.seller_name);
+    if (layer.seller?.company_name) return safeString(layer.seller.company_name);
+    if (layer.seller?.name) return safeString(layer.seller.name);
+  }
+
+  // 4. Direct company_name / seller fields on root
+  if (data?.company_name) return safeString(data.company_name);
+  if (data?.seller_name) return safeString(data.seller_name);
+  if (data?.seller?.company_name) return safeString(data.seller.company_name);
+  if (data?.seller?.name) return safeString(data.seller.name);
+
+  // 5. Match from sellers list by sellerId
+  const effectiveSellerId = safeString(
+    currentSellerId ||
+      data?.seller_id ||
+      data?.sellerId ||
+      data?.seller_instruction_id ||
+      data?.sellerInstructionId ||
+      (typeof data?.seller === 'string' ? data.seller : data?.seller?.id || data?.seller?._id)
+  );
+
+  if (sellersList && sellersList.length > 0 && effectiveSellerId) {
+    const matched = sellersList.find(
+      (s) => String(s.value || s.id || s._id) === String(effectiveSellerId)
+    );
+    if (matched) {
+      const fromMatched = matched.companyName || matched.company_name || matched.label || matched.name;
+      if (fromMatched) return safeString(fromMatched);
+    }
+  }
+
+  // 6. seller_instruction string fallback (first line)
+  if (typeof data?.seller_instruction === 'string' && data.seller_instruction.trim()) {
+    const firstLine = data.seller_instruction.trim().split('\n')[0]?.trim();
+    if (firstLine && !firstLine.toLowerCase().startsWith('gst')) return safeString(firstLine);
+  }
+
+  return '';
+}
+
+/**
+ * Resolves the Seller / Exporter instruction_id from initialData or sellers list.
+ * User requirement: "is me seller_details ki instruction_id pass karni hai"
+ * Prioritizes seller_details.instruction_id (and synonyms), then seller_instruction_id,
+ * and matches against sellers list by company name.
+ */
+export function extractSellerInstructionId(data: any, sellersList?: FormOptionItem[]): string {
+  if (!data && (!sellersList || sellersList.length === 0)) return '';
+
+  const isValidId = (val: any): string => {
+    if (!val) return '';
+    const str = String(val).trim();
+    if (
+      str &&
+      str !== 'undefined' &&
+      str !== 'null' &&
+      str !== '[object Object]' &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(str)
+    ) {
+      return str;
+    }
+    return '';
+  };
+
+  const parseJsonSafe = (raw: any): any => {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          return JSON.parse(trimmed);
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  };
+
+  // 1. Direct seller_details object (highest priority as instructed)
+  const sellerDetailsObjs = [
+    data?.seller_details,
+    data?.proforma?.seller_details,
+    data?.proforma_invoice?.seller_details,
+    data?.contract?.seller_details,
+    data?.confirmation?.seller_details,
+    data?.data?.seller_details,
+    data?.data?.proforma?.seller_details,
+    data?.data?.proforma_invoice?.seller_details,
+    data?.seller,
+    data?.seller_instruction,
+  ];
+
+  for (const raw of sellerDetailsObjs) {
+    const obj = parseJsonSafe(raw);
+    if (obj) {
+      const id =
+        isValidId(obj.instruction_id) ||
+        isValidId(obj.instructionId) ||
+        isValidId(obj.seller_instruction_id) ||
+        isValidId(obj.sellerInstructionId) ||
+        (isValidId(obj.id) && isValidCuidOrId(obj.id) ? isValidId(obj.id) : '') ||
+        (isValidId(obj._id) && isValidCuidOrId(obj._id) ? isValidId(obj._id) : '');
+      if (id) return id;
+    }
+  }
+
+  // 2. Direct seller_instruction_id / instruction_id fields
+  const directFields = [
+    data?.seller_instruction_id,
+    data?.sellerInstructionId,
+    data?.instruction_id,
+    data?.instructionId,
+    data?.proforma?.seller_instruction_id,
+    data?.proforma_invoice?.seller_instruction_id,
+    data?.contract?.seller_instruction_id,
+    data?.confirmation?.seller_instruction_id,
+    data?.data?.seller_instruction_id,
+    data?.data?.instruction_id,
+  ];
+
+  for (const f of directFields) {
+    const id = isValidId(f);
+    if (id) return id;
+  }
+
+  // 3. Match from sellers list by company name or sellerId
+  const companyName = extractSellerCompanyName(data, sellersList);
+  if (sellersList && sellersList.length > 0) {
+    // A. Match by company name
+    if (companyName) {
+      const lowerCompany = companyName.trim().toLowerCase();
+      const matched = sellersList.find((s) => {
+        const sName = String(s.companyName || s.label || s.name || '').trim().toLowerCase();
+        return sName && (sName === lowerCompany || sName.includes(lowerCompany) || lowerCompany.includes(sName));
+      });
+      if (matched) {
+        const id =
+          isValidId((matched as any).instruction_id) ||
+          isValidId((matched as any).instructionId) ||
+          isValidId((matched as any).raw?.instruction_id) ||
+          isValidId((matched as any).raw?.instructionId) ||
+          isValidId(matched.id) ||
+          isValidId(matched.value);
+        if (id) return id;
+      }
+    }
+
+    // B. Match by candidate sellerId
+    const candSellerId = isValidId(data?.seller_id || data?.sellerId || data?.seller);
+    if (candSellerId) {
+      const matched = sellersList.find(
+        (s) =>
+          String(s.value) === candSellerId ||
+          String(s.id) === candSellerId ||
+          String((s as any).instruction_id) === candSellerId
+      );
+      if (matched) {
+        const id =
+          isValidId((matched as any).instruction_id) ||
+          isValidId((matched as any).instructionId) ||
+          isValidId((matched as any).raw?.instruction_id) ||
+          isValidId((matched as any).raw?.instructionId) ||
+          isValidId(matched.id) ||
+          isValidId(matched.value);
+        if (id) return id;
+      }
+    }
+  }
+
+  // 4. Fallback: if seller_details.id or seller_id itself is a CUID (c + alphanumeric)
+  const candidateCuid =
+    isValidId(data?.seller_details?.id) ||
+    isValidId(data?.seller_details?._id) ||
+    isValidId(data?.seller_id) ||
+    isValidId(data?.sellerId);
+  if (candidateCuid && isValidCuidOrId(candidateCuid)) {
+    return candidateCuid;
+  }
+
+  return '';
+}
+
+/**
+ * Safely extracts loading port country name: loading_port.country.name
+ */
+export function extractLoadingPortCountry(data: any, productsList?: FormOptionItem[]): string {
+  if (!data) return '';
+
+  const cleanCountryStr = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (
+        trimmed &&
+        trimmed !== 'undefined' &&
+        trimmed !== 'null' &&
+        trimmed !== '[object Object]' &&
+        trimmed !== 'N/A'
+      ) {
+        return trimmed;
+      }
+      return '';
+    }
+    if (typeof val === 'object') {
+      const name = val.name || val.title || val.label || val.country_name || val.countryName;
+      if (name && typeof name === 'string' && name.trim()) return name.trim();
+    }
+    return '';
+  };
+
+  const extractFromPort = (port: any): string => {
+    if (!port) return '';
+    if (typeof port === 'object') {
+      const c = cleanCountryStr(port.country) || cleanCountryStr(port.country_name) || cleanCountryStr(port.countryName);
+      if (c) return c;
+      const sub = cleanCountryStr(port.subLabel);
+      if (sub && !sub.includes(':')) return sub;
+      const portName = safeString(port.name || port.port_name || port.label || port.title);
+      if (portName && portName.includes(',')) {
+        const parts = portName.split(',').map((p) => p.trim()).filter(Boolean);
+        if (parts.length > 1) return parts[parts.length - 1];
+      }
+    } else if (typeof port === 'string') {
+      const trimmed = port.trim();
+      if (trimmed.includes(',')) {
+        const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
+        if (parts.length > 1) return parts[parts.length - 1];
+      }
+    }
+    return '';
+  };
+
+  // 1. Check loading_port (root level)
+  const fromPort = extractFromPort(data.loading_port || data.loadingPort || data.port_of_loading);
+  if (fromPort) return fromPort;
+
+  // 2. Direct country fields on root
+  const fromDirectCountry =
+    cleanCountryStr(data.loading_port_country) ||
+    cleanCountryStr(data.loading_port_country_name) ||
+    cleanCountryStr(data.country_of_origin) ||
+    cleanCountryStr(data.origin_country) ||
+    cleanCountryStr(data.product_country) ||
+    cleanCountryStr(data.country) ||
+    cleanCountryStr(data.place_of_receipt);
+  if (fromDirectCountry) return fromDirectCountry;
+
+  // 3. Product object country
+  if (data.product && typeof data.product === 'object') {
+    const pc =
+      cleanCountryStr(data.product.country) ||
+      cleanCountryStr(data.product.origin_country) ||
+      cleanCountryStr(data.product.country_name);
+    if (pc) return pc;
+  }
+
+  // 4. Nested layers (contract, confirmation, data, proforma)
+  const nestedLayers = [data?.contract, data?.confirmation, data?.data, data?.proforma];
+  for (const layer of nestedLayers) {
+    if (!layer || typeof layer !== 'object') continue;
+    const lp = extractFromPort(layer.loading_port || layer.loadingPort || layer.port_of_loading);
+    if (lp) return lp;
+    const lc =
+      cleanCountryStr(layer.loading_port_country) ||
+      cleanCountryStr(layer.country_of_origin) ||
+      cleanCountryStr(layer.origin_country) ||
+      cleanCountryStr(layer.product_country) ||
+      cleanCountryStr(layer.country) ||
+      cleanCountryStr(layer.place_of_receipt);
+    if (lc) return lc;
+    if (layer.product && typeof layer.product === 'object') {
+      const lpc = cleanCountryStr(layer.product.country) || cleanCountryStr(layer.product.origin_country);
+      if (lpc) return lpc;
+    }
+  }
+
+  // 5. Match from productsList if available
+  if (productsList && productsList.length > 0) {
+    const prodId = String(data.product_id || data.productId || (typeof data.product === 'string' ? data.product : data.product?.id || ''));
+    if (prodId) {
+      const matched = productsList.find((p) => String(p.value || p.id) === prodId);
+      if (matched) {
+        const mc = cleanCountryStr(matched.country) || cleanCountryStr(matched.origin_country) || cleanCountryStr(matched.country_name) || cleanCountryStr(matched.subLabel);
+        if (mc && !mc.includes(':')) return mc;
+      }
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Safely extracts destination port country name: destination_port.country.name
+ */
+export function extractDestinationPortCountry(data: any): string {
+  if (!data) return '';
+
+  const cleanCountryStr = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (
+        trimmed &&
+        trimmed !== 'undefined' &&
+        trimmed !== 'null' &&
+        trimmed !== '[object Object]' &&
+        trimmed !== 'N/A'
+      ) {
+        return trimmed;
+      }
+      return '';
+    }
+    if (typeof val === 'object') {
+      const name = val.name || val.title || val.label || val.country_name || val.countryName;
+      if (name && typeof name === 'string' && name.trim()) return name.trim();
+    }
+    return '';
+  };
+
+  const extractFromPort = (port: any): string => {
+    if (!port) return '';
+    if (typeof port === 'object') {
+      const c = cleanCountryStr(port.country) || cleanCountryStr(port.country_name) || cleanCountryStr(port.countryName);
+      if (c) return c;
+      const sub = cleanCountryStr(port.subLabel);
+      if (sub && !sub.includes(':')) return sub;
+      const portName = safeString(port.name || port.port_name || port.label || port.title);
+      if (portName && portName.includes(',')) {
+        const parts = portName.split(',').map((p) => p.trim()).filter(Boolean);
+        if (parts.length > 1) return parts[parts.length - 1];
+      }
+    } else if (typeof port === 'string') {
+      const trimmed = port.trim();
+      if (trimmed.includes(',')) {
+        const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
+        if (parts.length > 1) return parts[parts.length - 1];
+      }
+    }
+    return '';
+  };
+
+  // 1. Direct destination_port / port_of_destination / final_destination
+  const fromPort = extractFromPort(data.destination_port || data.destinationPort || data.port_of_destination || data.final_destination);
+  if (fromPort) return fromPort;
+
+  // 2. Direct destination country fields on root
+  const fromDirectCountry =
+    cleanCountryStr(data.country_of_destination) ||
+    cleanCountryStr(data.destination_country) ||
+    cleanCountryStr(data.destination_port_country) ||
+    cleanCountryStr(data.destination_port_country_name) ||
+    cleanCountryStr(data.destinationPortCountry) ||
+    cleanCountryStr(data.destinationPortCountryName);
+  if (fromDirectCountry) return fromDirectCountry;
+
+  // 3. Nested layers (contract, confirmation, data, proforma)
+  const nestedLayers = [data?.contract, data?.confirmation, data?.data, data?.proforma];
+  for (const layer of nestedLayers) {
+    if (!layer || typeof layer !== 'object') continue;
+    const dp = extractFromPort(layer.destination_port || layer.destinationPort || layer.port_of_destination || layer.final_destination);
+    if (dp) return dp;
+    const dc =
+      cleanCountryStr(layer.country_of_destination) ||
+      cleanCountryStr(layer.destination_country) ||
+      cleanCountryStr(layer.destination_port_country) ||
+      cleanCountryStr(layer.destination_port_country_name) ||
+      cleanCountryStr(layer.destinationPortCountry);
+    if (dc) return dc;
+  }
+
+  return '';
+}
+
+/**
+ * Normalizes Pre-Carriage By values, removing underscores and cleaning up spaces.
+ * E.g. "FCL_20_FT" -> "FCL 20 FT"
+ */
+export function formatPreCarriageBy(val: any, fallback = ''): string {
+  const str = safeString(val);
+  if (!str) return fallback;
+  const cleaned = str.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  return cleaned || fallback;
+}
+
+/**
+ * Robustly extracts buyer information from document payload (Contract, Confirmation, or Proforma)
+ * without ever falling back to a random first buyer from the database.
+ */
+export function extractBuyerInfo(data: any, buyersList?: FormOptionItem[]): {
+  id: string;
+  name: string;
+  details: string;
+} {
+  const result = { id: '', name: '', details: '' };
+  if (!data && (!buyersList || buyersList.length === 0)) return result;
+
+  const isValidId = (val: any): string => {
+    if (!val) return '';
+    const str = String(val).trim();
+    if (
+      str &&
+      str !== 'undefined' &&
+      str !== 'null' &&
+      str !== '[object Object]' &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(str)
+    ) {
+      return str;
+    }
+    return '';
+  };
+
+  const parseJsonSafe = (raw: any): any => {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          return JSON.parse(trimmed);
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  };
+
+  // 1. Direct buyer_details object (if any)
+  const candidateBuyerObjs = [
+    data?.buyer_details,
+    data?.proforma?.buyer_details,
+    data?.contract?.buyer_details,
+    data?.confirmation?.buyer_details,
+    data?.data?.buyer_details,
+    data?.buyer,
+  ];
+
+  for (const raw of candidateBuyerObjs) {
+    const obj = parseJsonSafe(raw);
+    if (obj) {
+      const bId =
+        isValidId(obj.instruction_id) ||
+        isValidId(obj.instructionId) ||
+        isValidId(obj.buyer_instruction_id) ||
+        isValidId(obj.buyerInstructionId) ||
+        (isValidId(obj.id) && isValidCuidOrId(obj.id) ? isValidId(obj.id) : '') ||
+        (isValidId(obj._id) && isValidCuidOrId(obj._id) ? isValidId(obj._id) : '');
+      if (bId && !result.id) result.id = bId;
+
+      const bName = obj.company_name || obj.companyName || obj.name || obj.business_name || obj.businessName;
+      if (bName && !result.name) result.name = String(bName).trim();
+
+      const addr = obj.address || obj.instruction || obj.details;
+      if (addr && !result.details) {
+        result.details = [bName, addr].filter(Boolean).join('\n');
+      }
+    }
+  }
+
+  // 2. Direct buyer_instruction_id / buyer_id fields
+  const candIds = [
+    data?.buyer_instruction_id,
+    data?.buyerInstructionId,
+    data?.buyer_id,
+    data?.buyerId,
+    data?.contract?.buyer_instruction_id,
+    data?.contract?.buyer_id,
+    data?.confirmation?.buyer_instruction_id,
+    data?.confirmation?.buyer_id,
+    data?.data?.buyer_instruction_id,
+    data?.data?.buyer_id,
+  ];
+  for (const f of candIds) {
+    const id = isValidId(f);
+    if (id && !result.id) {
+      result.id = id;
+      break;
+    }
+  }
+
+  // 3. Direct buyer_name / buyer_instruction strings
+  const candNames = [
+    data?.buyer_name,
+    data?.buyerName,
+    data?.importer_name,
+    data?.importerName,
+    data?.buyer?.name,
+    data?.buyer?.company_name,
+    data?.contract?.buyer_name,
+    data?.confirmation?.buyer_name,
+  ];
+  for (const n of candNames) {
+    if (n && typeof n === 'string' && n.trim() && !result.name) {
+      result.name = n.trim();
+      break;
+    }
+  }
+
+  // Multiline string in buyer_details or buyer_instruction
+  const buyerStrings = [
+    typeof data?.buyer_details === 'string' ? data.buyer_details.trim() : '',
+    typeof data?.buyer_instruction === 'string' ? data.buyer_instruction.trim() : '',
+    typeof data?.contract?.buyer_instruction === 'string' ? data.contract.buyer_instruction.trim() : '',
+    typeof data?.confirmation?.buyer_instruction === 'string' ? data.confirmation.buyer_instruction.trim() : '',
+  ].filter(Boolean);
+
+  for (const str of buyerStrings) {
+    if (!result.details) result.details = str;
+    if (!result.name) {
+      const firstLine = str.split('\n')[0].trim();
+      if (
+        firstLine &&
+        !firstLine.toLowerCase().startsWith('gst') &&
+        !firstLine.toLowerCase().startsWith('pan') &&
+        !firstLine.toLowerCase().startsWith('address')
+      ) {
+        result.name = firstLine;
+      }
+    }
+  }
+
+  // 4. Match against buyersList if provided
+  if (buyersList && buyersList.length > 0) {
+    let matched: FormOptionItem | undefined;
+    if (result.id) {
+      matched = buyersList.find(
+        (b) =>
+          String(b.value) === result.id ||
+          String(b.id) === result.id ||
+          String((b as any).instruction_id) === result.id
+      );
+    }
+    if (!matched && result.name) {
+      const lower = result.name.toLowerCase();
+      matched = buyersList.find((b) => {
+        const bLabel = String(b.companyName || b.label || b.name || '').toLowerCase();
+        return bLabel && (bLabel === lower || bLabel.includes(lower) || lower.includes(bLabel));
+      });
+    }
+
+    if (matched) {
+      if (!result.id) {
+        result.id = String((matched as any).instruction_id || matched.value || matched.id || '');
+      }
+      if (!result.name) {
+        result.name = String(matched.companyName || matched.label || matched.name || '');
+      }
+      if (!result.details && (matched.details || (matched as any).instructionText)) {
+        result.details = String(matched.details || (matched as any).instructionText || '');
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Extracts a human-readable port display name (e.g. "Mundra, India") from raw port objects or strings.
+ */
+export function extractPortDisplayName(rawPort: any, fallbackName = ''): string {
+  if (!rawPort) return fallbackName;
+  if (typeof rawPort === 'object') {
+    const name = rawPort.name || rawPort.port_name || rawPort.label || rawPort.title;
+    const country = rawPort.country || rawPort.country_name || rawPort.countryName;
+    const countryStr = typeof country === 'string' ? country.trim() : (country?.name || country?.title || '');
+    if (name && !isValidCuidOrId(name)) {
+      const cleanName = String(name).trim();
+      return countryStr && !cleanName.toLowerCase().includes(countryStr.toLowerCase())
+        ? `${cleanName}, ${countryStr}`
+        : cleanName;
+    }
+    if (countryStr) return countryStr;
+  }
+  if (typeof rawPort === 'string') {
+    const trimmed = rawPort.trim();
+    if (trimmed && !isValidCuidOrId(trimmed)) {
+      return trimmed;
+    }
+  }
+  return fallbackName;
+}
+
+/**
+ * Extracts goods description cleanly without appending static placeholder text.
+ */
+export function extractGoodsDescription(data: any): string {
+  if (data?.goods_description && typeof data.goods_description === 'string' && data.goods_description.trim()) {
+    return data.goods_description.trim();
+  }
+  if (data?.description_of_goods && typeof data.description_of_goods === 'string' && data.description_of_goods.trim()) {
+    return data.description_of_goods.trim();
+  }
+
+  const prodName = safeString(
+    data?.product_name ||
+      data?.product?.name ||
+      data?.product?.label ||
+      data?.product?.product_name ||
+      data?.contract?.product_name,
+    ''
+  );
+  if (!prodName) return '';
+
+  const spec = safeString(
+    data?.quality_specification ||
+      data?.specification ||
+      data?.product?.specification ||
+      data?.contract?.quality_specification,
+    ''
+  );
+  const pack = safeString(
+    data?.packing_type ||
+      data?.packing ||
+      data?.packing_type_id ||
+      data?.contract?.packing,
+    ''
+  );
+  const mark = safeString(
+    data?.marking ||
+      data?.marking_brand ||
+      data?.brand ||
+      data?.contract?.marking_brand,
+    ''
+  );
+
+  const lines = [`PRODUCT: ${prodName}`];
+  if (spec) lines.push(`SPECIFICATION: ${spec}`);
+  if (pack) lines.push(`PACKING TYPE: ${pack}`);
+  if (mark) lines.push(`MARKING: ${mark}`);
+  return lines.join('\n');
+}
+
+/**
+ * Extracts delivery terms (incoterm, shipping terms) without hardcoding "CNF".
+ */
+export function extractDeliveryTerms(data: any): string {
+  return safeString(
+    data?.terms_of_delivery_payment ||
+      data?.shipping_terms ||
+      data?.shipping_term ||
+      data?.incoterm ||
+      data?.delivery_terms ||
+      data?.contract?.terms_of_delivery_payment ||
+      data?.contract?.shipping_terms ||
+      '',
+    ''
+  );
+}
+
+/**
+ * Extracts vessel & voyage number without hardcoding "AS PER BL".
+ */
+export function extractVesselVoyageNo(data: any): string {
+  return safeString(
+    data?.vessel_voyage_no ||
+      data?.vesselVoyageNo ||
+      data?.vessel_name ||
+      data?.vessel ||
+      data?.shipping_line ||
+      data?.contract?.vessel_voyage_no ||
+      '',
+    ''
+  );
+}
+
+/**
+ * Extracts bank charges note without hardcoding defaults.
+ */
+export function extractBankChargesNote(data: any): string {
+  return safeString(
+    data?.bank_charges_note ||
+      data?.bank_charges ||
+      data?.charges_note ||
+      data?.proforma?.bank_charges_note ||
+      '',
+    ''
+  );
+}
+
+/**
+ * Thoroughly extracts the authority / seller signature URL from backend response data across all possible layers.
+ */
+export function resolveSignatureValue(
+  data: any,
+  sellersList?: FormOptionItem[] | any[],
+  currentSellerId?: string
+): string {
+  if (!data && (!sellersList || sellersList.length === 0)) return '';
+
+  const sigKeys = [
+    'authorised_signature',
+    'authorisedSignature',
+    'authority_signature',
+    'authoritySignature',
+    'stamp_image_url',
+    'stampImageUrl',
+    'stamp_url',
+    'stampUrl',
+    'seller_stamp_url',
+    'seller_stamp',
+    'sellerStamp',
+    'seller_signature',
+    'sellerSignature',
+    'seller_signature_url',
+    'exporter_signature',
+    'exporterSignature',
+    'exporter_signature_url',
+    'signature',
+    'signature_url',
+    'signatureUrl',
+    'stamp',
+  ];
+
+  const extractFromObject = (obj: any): string | null => {
+    if (!obj || typeof obj !== 'object') return null;
+    for (const k of sigKeys) {
+      const v = obj[k];
+      if (v && typeof v === 'string') {
+        const trimmed = v.trim();
+        if (
+          trimmed &&
+          trimmed !== 'null' &&
+          trimmed !== 'undefined' &&
+          trimmed !== '[object Object]' &&
+          trimmed !== '/brand/logo.png' &&
+          !trimmed.endsWith('/brand/logo.png')
+        ) {
+          return trimmed;
+        }
+      } else if (v && typeof v === 'object') {
+        const candidate = v.url || v.src || v.path || v.image;
+        if (candidate && typeof candidate === 'string') {
+          const trimmed = candidate.trim();
+          if (trimmed && trimmed !== 'null' && trimmed !== 'undefined' && !trimmed.endsWith('/brand/logo.png')) {
+            return trimmed;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const layers = [
+    data,
+    data?.proforma,
+    data?.proforma_invoice,
+    data?.contract,
+    data?.data,
+    data?.data?.proforma,
+    data?.data?.contract,
+    data?.signatures,
+    data?.seller,
+    data?.data?.seller,
+    data?.details,
+  ].filter(Boolean);
+
+  for (const layer of layers) {
+    const found = extractFromObject(layer);
+    if (found) return found;
+  }
+
+  // If not found in data layers, check matched seller in sellersList
+  if (Array.isArray(sellersList) && sellersList.length > 0) {
+    const targetId = safeString(currentSellerId || data?.seller_id || data?.sellerId);
+    let matchedSeller = targetId
+      ? sellersList.find((s) => String(s?.value || s?.id || s?._id) === targetId)
+      : null;
+    if (!matchedSeller && sellersList.length === 1) {
+      matchedSeller = sellersList[0];
+    }
+    if (matchedSeller) {
+      const fromSeller = extractFromObject(matchedSeller);
+      if (fromSeller) return fromSeller;
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Resolves seller logo from initial data or selected seller item.
+ * Supports seller_logo, seller_logo_url, company_logo, company_logo_url, and logo synonyms.
+ */
+export function resolveSellerLogoValue(
+  data: any,
+  sellersList?: FormOptionItem[] | any[],
+  currentSellerId?: string
+): string {
+  if (!data && (!sellersList || sellersList.length === 0)) return '';
+
+  const logoKeys = [
+    'seller_logo',
+    'seller_logo_url',
+    'sellerLogo',
+    'sellerLogoUrl',
+    'company_logo',
+    'company_logo_url',
+    'companyLogo',
+    'companyLogoUrl',
+    'logo_url',
+    'logoUrl',
+    'logo',
+  ];
+
+  const extractFromObject = (obj: any): string | null => {
+    if (!obj || typeof obj !== 'object') return null;
+    for (const k of logoKeys) {
+      const v = obj[k];
+      if (v && typeof v === 'string') {
+        const trimmed = v.trim();
+        if (
+          trimmed &&
+          trimmed !== 'null' &&
+          trimmed !== 'undefined' &&
+          trimmed !== '[object Object]' &&
+          trimmed !== '/brand/logo.png' &&
+          !trimmed.endsWith('/brand/logo.png')
+        ) {
+          return trimmed;
+        }
+      } else if (v && typeof v === 'object') {
+        const candidate =
+          v.seller_logo ||
+          v.seller_logo_url ||
+          v.company_logo ||
+          v.company_logo_url ||
+          v.url ||
+          v.src ||
+          v.path ||
+          v.image ||
+          v.endpoint ||
+          v.location ||
+          v.file ||
+          v.value;
+        if (candidate && typeof candidate === 'string') {
+          const trimmed = candidate.trim();
+          if (trimmed && trimmed !== 'null' && trimmed !== 'undefined' && !trimmed.endsWith('/brand/logo.png')) {
+            return trimmed;
+          }
+        }
+      }
+    }
+    // Also check seller_details object if present
+    if (obj.seller_details && typeof obj.seller_details === 'object') {
+      for (const k of logoKeys) {
+        const v = obj.seller_details[k];
+        if (v && typeof v === 'string') {
+          const trimmed = v.trim();
+          if (
+            trimmed &&
+            trimmed !== 'null' &&
+            trimmed !== 'undefined' &&
+            trimmed !== '[object Object]' &&
+            trimmed !== '/brand/logo.png' &&
+            !trimmed.endsWith('/brand/logo.png')
+          ) {
+            return trimmed;
+          }
+        } else if (v && typeof v === 'object') {
+          const candidate =
+            v.company_logo ||
+            v.seller_logo ||
+            v.url ||
+            v.src ||
+            v.path ||
+            v.image;
+          if (candidate && typeof candidate === 'string') {
+            const trimmed = candidate.trim();
+            if (trimmed && trimmed !== 'null' && trimmed !== 'undefined' && !trimmed.endsWith('/brand/logo.png')) {
+              return trimmed;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const layers = [
+    data,
+    data?.seller_details,
+    data?.proforma,
+    data?.proforma?.seller_details,
+    data?.proforma_invoice,
+    data?.proforma_invoice?.seller_details,
+    data?.contract,
+    data?.contract?.seller_details,
+    data?.data,
+    data?.data?.seller_details,
+    data?.data?.proforma,
+    data?.data?.proforma?.seller_details,
+    data?.data?.proforma_invoice,
+    data?.data?.proforma_invoice?.seller_details,
+    data?.data?.contract,
+    data?.data?.data,
+    data?.document,
+    data?.document?.seller_details,
+    data?.seller,
+    data?.seller?.seller_details,
+    data?.data?.seller,
+    data?.details,
+  ].filter(Boolean);
+
+  for (const layer of layers) {
+    const found = extractFromObject(layer);
+    if (found) return found;
+  }
+
+  // If not found in data layers, check matched seller in sellersList
+  if (Array.isArray(sellersList) && sellersList.length > 0) {
+    const targetId = safeString(currentSellerId || data?.seller_id || data?.sellerId);
+    let matchedSeller = targetId
+      ? sellersList.find((s) => String(s?.value || s?.id || s?._id) === targetId)
+      : null;
+    if (!matchedSeller && sellersList.length === 1) {
+      matchedSeller = sellersList[0];
+    }
+    if (matchedSeller) {
+      const fromSeller = extractFromObject(matchedSeller);
+      if (fromSeller) return fromSeller;
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Deduplicates repeated phrases or clauses within validation strings.
+ */
+export function deduplicateValidationMessage(msg: string): string {
+  if (!msg || typeof msg !== 'string') return '';
+  const trimmed = msg.trim();
+  if (!trimmed) return '';
+
+  const parts = trimmed
+    .split(/(?:,|\n|;|\.\s+)+/)
+    .map((p) => p.trim().replace(/^\.+|\.+$/g, ''))
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return trimmed;
+  }
+
+  const seen = new Set<string>();
+  const uniqueParts: string[] = [];
+
+  for (const part of parts) {
+    const normalized = part
+      .toLowerCase()
+      .replace(/[.,;:!?]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!normalized) continue;
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      uniqueParts.push(part);
+    }
+  }
+
+  if (uniqueParts.length === 0) return trimmed;
+  return uniqueParts.join(', ');
+}
+
+/**
+ * Transforms raw backend validator messages into clean, user-friendly labels.
+ */
+export function humanizeProformaValidationMessage(rawMsg: any, fieldKey?: string): string {
+  if (!rawMsg) return 'Invalid value. Please check the field.';
+  let msg = typeof rawMsg === 'string' ? rawMsg : (rawMsg?.message || rawMsg?.msg || JSON.stringify(rawMsg));
+  msg = String(msg).trim();
+
+  // Known specific technical validation errors
+  if (/invoice_number.*(?:is required|should not be empty|must be a string)/i.test(msg)) {
+    return 'Invoice number is required';
+  }
+  if (/invoice_date.*(?:is required|should not be empty|must be a date)/i.test(msg)) {
+    return 'Please select a valid invoice date';
+  }
+  if (/bank_account.*(?:is required|should not be empty|select)/i.test(msg)) {
+    return 'Please select a bank account';
+  }
+  if (/(?:stamp|signature).*(?:is required|should not be empty)/i.test(msg)) {
+    return 'Official signature / stamp is required';
+  }
+  if (/must be a date instance/i.test(msg)) {
+    msg = msg.replace(/must be a date instance/gi, 'must be a valid date');
+  }
+  if (/must be an? (?:isodate|iso8601|valid iso)/i.test(msg)) {
+    msg = msg.replace(/must be an? (?:isodate|iso8601|valid iso)[^,]*/gi, 'must be a valid date');
+  }
+  if (/(?:should not|must not|cannot|is not allowed to) be empty/i.test(msg)) {
+    msg = msg.replace(/(?:should not|must not|cannot|is not allowed to) be empty/gi, 'is required');
+  }
+  if (/must be a string/i.test(msg)) {
+    msg = msg.replace(/must be a string/gi, 'is required');
+  }
+  if (/must be a number/i.test(msg)) {
+    msg = msg.replace(/must be a number/gi, 'must be a valid number');
+  }
+  if (/must be an integer/i.test(msg)) {
+    msg = msg.replace(/must be an integer/gi, 'must be a whole number');
+  }
+
+  // Replace technical field identifiers with clean, user-friendly names
+  const fieldLabelReplacements: [RegExp, string][] = [
+    [/\binvoice_number\b/gi, 'Invoice number'],
+    [/\binvoice_date\b/gi, 'Invoice date'],
+    [/\bgst_number\b/gi, 'Registration / GST number'],
+    [/\bregistration_number\b/gi, 'Registration number'],
+    [/\bbuyer_order_no_date\b/gi, "Buyer's order no & date"],
+    [/\bbuyer_order_no\b/gi, "Buyer's order no"],
+    [/\bother_references\b/gi, 'Other references'],
+    [/\bbank_details_id\b/gi, 'Bank account'],
+    [/\bbank_account_id\b/gi, 'Bank account'],
+    [/\bbank_details\b/gi, 'Bank account details'],
+    [/\bstamp_image_url\b/gi, 'Official signature / stamp'],
+    [/\bauthorised_signature\b/gi, 'Official signature / stamp'],
+    [/\bauthority_signature\b/gi, 'Official signature / stamp'],
+    [/\bsignature\b/gi, 'Signature'],
+    [/\bstamp\b/gi, 'Stamp'],
+    [/\bauthority_signature_title\b/gi, 'Authority title'],
+    [/\bbank_charges_note\b/gi, 'Bank charges note'],
+    [/\bcomment_label\b/gi, 'Comment title'],
+    [/\bcomment_value\b/gi, 'Comment value'],
+    [/\bdocument_title\b/gi, 'Document title'],
+    [/\bcompany_name\b/gi, 'Company name'],
+    [/\bseller_id\b/gi, 'Exporter (Seller)'],
+    [/\bbuyer_id\b/gi, 'Importer (Buyer)'],
+    [/\bquantity_mt\b/gi, 'Quantity in MT'],
+    [/\brate_price\b/gi, 'Rate / price'],
+    [/\btotal_amount\b/gi, 'Total amount'],
+    [/\badvance_payment\b/gi, 'Advance payment'],
+  ];
+
+  for (const [pattern, label] of fieldLabelReplacements) {
+    msg = msg.replace(pattern, label);
+  }
+
+  msg = msg.replace(/\b[a-z]+(_[a-z0-9]+)+\b/gi, (match: string) => {
+    return match
+      .replace(/_id$/i, '')
+      .replace(/_/g, ' ')
+      .trim();
+  });
+
+  const formatted = msg.charAt(0).toUpperCase() + msg.slice(1);
+  return deduplicateValidationMessage(formatted);
+}
+
+/**
+ * Detects which form field an error message or identifier belongs to.
+ */
+export function detectProformaFieldInSentence(text: string): { key: string; rawField: string } | null {
+  if (!text || typeof text !== 'string') return null;
+  const lower = text.toLowerCase();
+  const normalized = lower.replace(/[-_.]/g, ' ');
+
+  if (
+    normalized.includes('invoice number') ||
+    normalized.includes('invoice no') ||
+    lower.includes('invoicenumber') ||
+    lower.includes('invoiceno')
+  ) {
+    return { key: 'invoiceNumber', rawField: 'invoice_number' };
+  }
+  if (normalized.includes('invoice date') || lower.includes('invoicedate')) {
+    return { key: 'invoiceDate', rawField: 'invoice_date' };
+  }
+  if (
+    normalized.includes('gst') ||
+    normalized.includes('registration no') ||
+    normalized.includes('registration number') ||
+    lower.includes('gstnumber') ||
+    lower.includes('registrationnumber')
+  ) {
+    return { key: 'gstNumber', rawField: 'gst_number' };
+  }
+  if (
+    normalized.includes('buyer order') ||
+    normalized.includes('order no') ||
+    lower.includes('buyerorder')
+  ) {
+    return { key: 'buyerOrderNoDate', rawField: 'buyer_order_no_date' };
+  }
+  if (normalized.includes('other reference') || lower.includes('otherreference') || lower.includes('other_reference')) {
+    return { key: 'other_reference', rawField: 'other_reference' };
+  }
+  if (
+    normalized.includes('bank account') ||
+    normalized.includes('bank detail') ||
+    lower.includes('bankaccount') ||
+    lower.includes('bankdetails') ||
+    lower.includes('bank_details_id') ||
+    lower.includes('bankdetailsid')
+  ) {
+    return { key: 'selectedBankId', rawField: 'bank_details_id' };
+  }
+  if (
+    normalized.includes('signature label') ||
+    normalized.includes('authority label') ||
+    normalized.includes('authority title') ||
+    lower.includes('signaturelabel') ||
+    lower.includes('sellersignaturelabel')
+  ) {
+    return { key: 'seller_signature_label', rawField: 'seller_signature_label' };
+  }
+  if (
+    normalized.includes('signature') ||
+    normalized.includes('stamp') ||
+    lower.includes('stampimage') ||
+    lower.includes('sellersignature') ||
+    lower.includes('authorisedsignature')
+  ) {
+    return { key: 'seller_signature', rawField: 'seller_signature' };
+  }
+  if (
+    normalized.includes('bank charge') ||
+    normalized.includes('charges note') ||
+    lower.includes('bankcharges')
+  ) {
+    return { key: 'bankChargesNote', rawField: 'bank_charges_note' };
+  }
+  if (
+    normalized.includes('comment label') ||
+    normalized.includes('comment title') ||
+    lower.includes('commentlabel')
+  ) {
+    return { key: 'commentLabel', rawField: 'comment_label' };
+  }
+  if (
+    normalized.includes('comment value') ||
+    normalized.includes('comment text') ||
+    lower.includes('commentvalue')
+  ) {
+    return { key: 'commentValue', rawField: 'comment_value' };
+  }
+  if (
+    normalized.includes('document title') ||
+    normalized.includes('pdf title') ||
+    lower.includes('documenttitle')
+  ) {
+    return { key: 'documentTitle', rawField: 'document_title' };
+  }
+  if (normalized.includes('seller') || normalized.includes('exporter')) {
+    return { key: 'sellerId', rawField: 'seller_id' };
+  }
+  if (normalized.includes('buyer') || normalized.includes('consignee') || normalized.includes('importer')) {
+    return { key: 'buyerId', rawField: 'buyer_id' };
+  }
+  return null;
+}
+
+export const PROFORMA_FORM_FIELD_VISUAL_ORDER: string[] = [
+  'documentTitle',
+  'invoiceNumber',
+  'invoiceDate',
+  'gstNumber',
+  'buyerOrderNoDate',
+  'other_reference',
+  'otherReferences',
+  'otherReference',
+  'sellerId',
+  'buyerId',
+  'selectedBankId',
+  'seller_signature',
+  'stampImageUrl',
+  'seller_signature_label',
+  'authoritySignatureTitle',
+  'bankChargesNote',
+  'commentLabel',
+  'commentValue',
+  'goodsDescription',
+  'quantityMt',
+  'ratePrice',
+];
+
+export function scrollToAndFocusProformaField(fieldErrorsOrKey: string | Record<string, string>): void {
+  if (typeof window === 'undefined') return;
+
+  let targetKey = '';
+  if (typeof fieldErrorsOrKey === 'string') {
+    targetKey = fieldErrorsOrKey;
+  } else if (fieldErrorsOrKey && typeof fieldErrorsOrKey === 'object') {
+    for (const key of PROFORMA_FORM_FIELD_VISUAL_ORDER) {
+      if (fieldErrorsOrKey[key]) {
+        targetKey = key;
+        break;
+      }
+    }
+    if (!targetKey) {
+      const keys = Object.keys(fieldErrorsOrKey);
+      if (keys.length > 0) targetKey = keys[0];
+    }
+  }
+
+  if (!targetKey) return;
+
+  const selectors = [
+    `#field-${targetKey}`,
+    `[data-field="${targetKey}"]`,
+    `#${targetKey}`,
+    `[name="${targetKey}"]`,
+  ];
+
+  if (targetKey === 'invoiceNumber') {
+    selectors.unshift('#field-invoiceNumber', '#invoice-number-input');
+  } else if (targetKey === 'selectedBankId' || targetKey === 'bankAccountId') {
+    selectors.unshift('#field-selectedBankId', '#field-bankAccount', '[data-field="bankAccount"]');
+  } else if (targetKey === 'seller_signature' || targetKey === 'stampImageUrl' || targetKey === 'signature') {
+    selectors.unshift(
+      '#field-seller_signature',
+      '#field-stampImageUrl',
+      '#field-signature',
+      '[data-field="seller_signature"]',
+      '[data-field="stampImageUrl"]',
+      '[data-field="signature"]',
+      '[name="seller_signature"]'
+    );
+  } else if (targetKey === 'seller_signature_label' || targetKey === 'authoritySignatureTitle') {
+    selectors.unshift(
+      '#field-seller_signature_label',
+      '#field-authoritySignatureTitle',
+      '[name="seller_signature_label"]'
+    );
+  } else if (targetKey === 'other_reference' || targetKey === 'otherReferences' || targetKey === 'otherReference') {
+    selectors.unshift(
+      '#field-other_reference',
+      '#field-otherReferences',
+      '#field-otherReferences-input',
+      '[name="other_reference"]',
+      '[data-field="otherReferences"]',
+      '[data-field="other_reference"]'
+    );
+  }
+
+  let el: HTMLElement | null = null;
+  for (const sel of selectors) {
+    const found = document.querySelector<HTMLElement>(sel);
+    if (found) {
+      el = found;
+      break;
+    }
+  }
+
+  if (!el) {
+    const cleanKey = targetKey.toLowerCase().replace(/[-_.]/g, '');
+    const allFieldEls = document.querySelectorAll<HTMLElement>('[data-field], [id^="field-"]');
+    for (let i = 0; i < allFieldEls.length; i++) {
+      const item = allFieldEls[i];
+      const attr = (item.getAttribute('data-field') || item.id || '').toLowerCase().replace(/[-_.]/g, '');
+      if (attr.includes(cleanKey) || cleanKey.includes(attr)) {
+        el = item;
+        break;
+      }
+    }
+  }
+
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    setTimeout(() => {
+      const focusable =
+        el!.matches('input, select, textarea, button, [tabindex="0"]')
+          ? el
+          : el!.querySelector<HTMLElement>('input, select, textarea, button, [tabindex="0"]');
+
+      if (focusable) {
+        focusable.focus();
+        if (typeof (focusable as HTMLInputElement).select === 'function' && focusable.tagName !== 'BUTTON') {
+          (focusable as HTMLInputElement).select();
+        }
+      }
+
+      el!.classList.add('ring-2', 'ring-brand-red', 'ring-offset-2', 'rounded-sm', 'transition-all', 'duration-300');
+      setTimeout(() => {
+        el!.classList.remove('ring-2', 'ring-brand-red', 'ring-offset-2', 'rounded-sm', 'transition-all', 'duration-300');
+      }, 2500);
+    }, 120);
+  }
+}
+
+/**
+ * Robust helper to extract field-wise validation errors and general error from backend API response for proforma invoices.
+ * NEVER leaks generic error messages like "Form Validation Error" as the generalError or field error.
+ */
+export function parseProformaBackendErrors(
+  result: any
+): { fieldErrors: Record<string, string>; generalError: string | null } {
+  const fieldErrors: Record<string, string> = {};
+  let generalError: string | null = null;
+
+  if (!result) return { fieldErrors, generalError: 'Failed to save draft' };
+
+  const mapFieldNameToErrorKey = (field: string): string => {
+    const f = String(field || '').trim();
+    const clean = f.toLowerCase().replace(/[-_.]/g, '');
+
+    switch (clean) {
+      case 'invoicenumber':
+      case 'invoiceno':
+      case 'number':
+      case 'invoice':
+        return 'invoiceNumber';
+      case 'invoicedate':
+      case 'date':
+        return 'invoiceDate';
+      case 'gstnumber':
+      case 'registrationnumber':
+      case 'gst':
+      case 'registration':
+      case 'gstno':
+      case 'registrationno':
+        return 'gstNumber';
+      case 'buyerordernodate':
+      case 'buyerorderno':
+      case 'buyerorderdate':
+      case 'orderdate':
+      case 'orderno':
+        return 'buyerOrderNoDate';
+      case 'otherreferences':
+      case 'otherreference':
+      case 'other_reference':
+      case 'reference':
+      case 'references':
+        return 'other_reference';
+      case 'bankdetailsid':
+      case 'bank_details_id':
+      case 'bankaccountid':
+      case 'bank_account_id':
+      case 'bankaccount':
+      case 'bankdetails':
+      case 'bankid':
+      case 'bank':
+      case 'selectedbankid':
+        return 'selectedBankId';
+      case 'stampimageurl':
+      case 'signature':
+      case 'stamp':
+      case 'authoritysignature':
+      case 'sellersignature':
+      case 'seller_signature':
+      case 'authorisedsignature':
+      case 'authorsignature':
+        return 'seller_signature';
+      case 'authoritysignaturetitle':
+      case 'authorisedsignaturetitle':
+      case 'signaturetitle':
+      case 'sellersignaturelabel':
+      case 'seller_signature_label':
+      case 'sellersignaturetitle':
+      case 'sellerlabel':
+        return 'seller_signature_label';
+      case 'bankchargesnote':
+      case 'bankcharges':
+      case 'chargesnote':
+      case 'note':
+        return 'bankChargesNote';
+      case 'commentlabel':
+      case 'commenttitle':
+        return 'commentLabel';
+      case 'commentvalue':
+      case 'commenttext':
+        return 'commentValue';
+      case 'documenttitle':
+      case 'pdftitle':
+      case 'title':
+        return 'documentTitle';
+      case 'companyname':
+      case 'sellername':
+      case 'sellerdetails':
+      case 'sellerid':
+      case 'seller':
+      case 'exporter':
+        return 'sellerId';
+      case 'buyername':
+      case 'buyerdetails':
+      case 'buyerid':
+      case 'buyer':
+      case 'consignee':
+      case 'importer':
+        return 'buyerId';
+      case 'purchaseorderno':
+      case 'purchaseorder':
+        return 'purchaseOrderNo';
+      case 'contractdate':
+        return 'contractDate';
+      case 'goodsdescription':
+      case 'description':
+        return 'goodsDescription';
+      case 'quantitymt':
+      case 'quantity':
+        return 'quantityMt';
+      case 'rateprice':
+      case 'price':
+      case 'rate':
+        return 'ratePrice';
+      case 'totalamount':
+      case 'total':
+        return 'totalAmount';
+      case 'advancepayment':
+      case 'advance':
+        return 'advancePayment';
+      default: {
+        const detected = detectProformaFieldInSentence(f);
+        return detected ? detected.key : f;
+      }
+    }
+  };
+
+  const isGenericValidationString = (str: string): boolean => {
+    return /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(
+      String(str || '').trim()
+    );
+  };
+
+  const ingestErrorItem = (fieldHint: string | undefined, msgVal: any): void => {
+    if (!msgVal) return;
+
+    if (Array.isArray(msgVal)) {
+      for (const sub of msgVal) {
+        ingestErrorItem(fieldHint, sub);
+      }
+      return;
+    }
+
+    if (typeof msgVal === 'object') {
+      const fieldFromObj =
+        msgVal.field ||
+        msgVal.field_name ||
+        msgVal.fieldName ||
+        msgVal.param ||
+        msgVal.name ||
+        msgVal.column ||
+        msgVal.property ||
+        msgVal.key ||
+        (Array.isArray(msgVal.path) ? msgVal.path.join('.') : msgVal.path);
+
+      if (msgVal.constraints && typeof msgVal.constraints === 'object') {
+        for (const constraintMsg of Object.values(msgVal.constraints)) {
+          ingestErrorItem(fieldFromObj || fieldHint, constraintMsg);
+        }
+      }
+
+      if (msgVal.children && Array.isArray(msgVal.children)) {
+        for (const child of msgVal.children) {
+          ingestErrorItem(undefined, child);
+        }
+      }
+
+      const text = msgVal.message || msgVal.msg || msgVal.error || msgVal.text || msgVal.description;
+      if (text) {
+        ingestErrorItem(fieldFromObj || fieldHint, text);
+      }
+      return;
+    }
+
+    const rawStr = String(msgVal).trim();
+    if (!rawStr) return;
+
+    const clauses = rawStr
+      .split(/(?:,|\n|;)+/)
+      .map((c) => c.trim())
+      .filter(Boolean);
+
+    for (const clause of clauses) {
+      if (isGenericValidationString(clause)) continue;
+
+      let targetKey: string | null = null;
+      if (fieldHint) {
+        targetKey = mapFieldNameToErrorKey(fieldHint);
+      }
+
+      const detected = detectProformaFieldInSentence(clause);
+      if (detected) {
+        targetKey = detected.key;
+      } else if (!targetKey) {
+        const keyFromClause = mapFieldNameToErrorKey(clause);
+        if (keyFromClause && keyFromClause !== clause) {
+          targetKey = keyFromClause;
+        }
+      }
+
+      const cleanMsg = humanizeProformaValidationMessage(clause, targetKey || undefined);
+      if (!cleanMsg || isGenericValidationString(cleanMsg)) continue;
+
+      if (targetKey) {
+        if (!fieldErrors[targetKey]) {
+          fieldErrors[targetKey] = cleanMsg;
+        } else if (!fieldErrors[targetKey].includes(cleanMsg)) {
+          fieldErrors[targetKey] = `${fieldErrors[targetKey]}, ${cleanMsg}`;
+        }
+        if (targetKey === 'seller_signature' || targetKey === 'stampImageUrl') {
+          fieldErrors['seller_signature'] = fieldErrors[targetKey];
+          fieldErrors['stampImageUrl'] = fieldErrors[targetKey];
+        }
+        if (targetKey === 'seller_signature_label' || targetKey === 'authoritySignatureTitle') {
+          fieldErrors['seller_signature_label'] = fieldErrors[targetKey];
+          fieldErrors['authoritySignatureTitle'] = fieldErrors[targetKey];
+        }
+        if (targetKey === 'other_reference' || targetKey === 'otherReferences') {
+          fieldErrors['other_reference'] = fieldErrors[targetKey];
+          fieldErrors['otherReferences'] = fieldErrors[targetKey];
+        }
+      } else {
+        if (!generalError && !isGenericValidationString(cleanMsg)) {
+          generalError = cleanMsg;
+        }
+      }
+    }
+  };
+
+  const candidates = [
+    result.error_fields,
+    result.data?.error_fields,
+    result.raw?.error_fields,
+    result.errors,
+    result.data?.errors,
+    result.raw?.errors,
+    result.raw?.data?.error_fields,
+    result.raw?.data?.errors,
+    result.message,
+    result.raw?.message,
+    result.validation?.body,
+    result.details,
+    result.data,
+    result.raw,
+  ];
+
+  for (const src of candidates) {
+    if (!src) continue;
+
+    if (Array.isArray(src)) {
+      for (const item of src) {
+        ingestErrorItem(undefined, item);
+      }
+      continue;
+    }
+
+    if (typeof src === 'object') {
+      for (const [k, v] of Object.entries(src)) {
+        const lowerKey = k.toLowerCase();
+        if (['status', 'statuscode', 'status_code', 'success', 'code', 'stack', 'raw', 'path', 'timestamp', 'method', 'errorcode', 'error_code', 'ok'].includes(lowerKey)) {
+          continue;
+        }
+        if (['message', 'error', 'id', '_id', 'proforma_id', 'proformaid', 'proforma_invoice_id', 'contract_id', 'confirmation_id'].includes(lowerKey)) {
+          ingestErrorItem(undefined, v);
+          continue;
+        }
+        ingestErrorItem(k, v);
+      }
+    }
+  }
+
+  const rawMsg = result.error || result.message;
+  if (rawMsg) {
+    ingestErrorItem(undefined, rawMsg);
+  }
+
+  if (generalError && isGenericValidationString(generalError)) {
+    generalError = null;
+  }
+
+  if (!generalError && Object.keys(fieldErrors).length > 0) {
+    generalError = Object.values(fieldErrors)[0];
+  }
+
+  return { fieldErrors, generalError };
+}
+
+export function ProformaDocumentForm({
+  initialData,
+  proformaId,
+  contractId,
+  confirmationId,
+  steps = [],
+  selectedStep,
+  onUpdateSteps,
+  sellers = [],
+  buyers = [],
+  products = [],
+  loadingPorts = [],
+  destinationPorts = [],
+  paymentTerms = [],
+  currencies = DEFAULT_CURRENCIES,
+  shippingTerms = [],
+  onSaveDraft,
+  onSaveSuccess,
+  onSubmitProforma,
+  lang = 'en',
+  dict,
+  readOnly = false,
+}: ProformaDocumentFormProps) {
+  // Refs
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const gstInputRef = useRef<any>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const isFormInitializedRef = useRef<boolean>(false);
+  const isSavingOrSubmittingRef = useRef<boolean>(false);
+  const lastLoadedDocIdRef = useRef<string>(
+    sanitizeDocId(
+      initialData?.id ||
+      initialData?._id ||
+      initialData?.proforma_id ||
+      initialData?.proformaId ||
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      proformaId ||
+      contractId ||
+      confirmationId ||
+      ''
+    )
+  );
+
+  // Document Status: 'PENDING' shows Save As Draft; 'COMPLETED' strictly hides Save As Draft
+  const proformaStepItem = getProformaStep(steps, selectedStep);
+  const [docStatus, setDocStatus] = useState<string>(() => {
+    return extractProformaDocumentStatus(initialData, proformaStepItem);
+  });
+
+  // User interaction & dirty state tracking:
+  // - hasDraftChanges: enabled only if user made edits since opening or since last successful draft save
+  // - hasSubmitChanges: enabled if user made edits, or if an unconfirmed proforma draft is already available to submit
+  const [hasDraftChanges, setHasDraftChanges] = useState<boolean>(false);
+  const [hasSubmitChanges, setHasSubmitChanges] = useState<boolean>(() => {
+    const statusFromData = extractProformaDocumentStatus(initialData, proformaStepItem);
+    const isCompleted = statusFromData === 'COMPLETED';
+    return !isCompleted;
+  });
+
+  // Dirty State Tracking & User edit protection
+  const isUserDirtyRef = useRef<boolean>(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const markDirty = useCallback(() => {
+    isUserDirtyRef.current = true;
+    setIsDirty(true);
+    setHasDraftChanges(true);
+    setHasSubmitChanges(true);
+  }, []);
+
+  // Operation States & Draft ID
+  const [draftId, setDraftId] = useState<string>(() => sanitizeDocId(proformaId) || '');
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Guard against blinking: if proforma ID exists but data/status is still loading, wait with a smooth skeleton
+  const [statusLoadTimedOut, setStatusLoadTimedOut] = useState<boolean>(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setStatusLoadTimedOut(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const isStatusLoading = !statusLoadTimedOut && Boolean(
+    (proformaId || draftId) &&
+    !initialData &&
+    !steps?.some((s, idx) => isProformaStep(s, idx) && (s.status || s.document_status || s.step_status))
+  );
+
+  // Sync docStatus when steps or initialData updates
+  useEffect(() => {
+    const currentStep = getProformaStep(steps, selectedStep);
+    const resolvedStatus = extractProformaDocumentStatus(initialData, currentStep);
+    if (resolvedStatus) {
+      setDocStatus(resolvedStatus);
+    }
+  }, [initialData, steps, selectedStep]);
+
+  // Form Header State
+  const [documentTitle, setDocumentTitle] = useState<string>(() =>
+    safeString(
+      initialData?.pdf_title ||
+        initialData?.pdfTitle ||
+        initialData?.document_title ||
+        initialData?.documentTitle ||
+        initialData?.title,
+      'PROFORMA INVOICE'
+    )
+  );
+  const [letterhead, setLetterhead] = useState<boolean>(() => {
+    if (initialData?.header_enabled !== undefined) return Boolean(initialData.header_enabled);
+    if (initialData?.letterhead !== undefined) return Boolean(initialData.letterhead);
+    if (initialData?.letterhead_space !== undefined) return Boolean(initialData.letterhead_space);
+    return true;
+  });
+  const [watermark, setWatermark] = useState<boolean>(() => {
+    if (initialData?.is_watermark_enabled !== undefined) return Boolean(initialData.is_watermark_enabled);
+    if (initialData?.watermark !== undefined) return Boolean(initialData.watermark);
+    return true;
+  });
+
+
+  // Parties: Seller / Exporter Instruction ID (strictly passed to /dms-fields/bank-details/:sellerId)
+  const [sellerInstructionId, setSellerInstructionId] = useState<string>(() => {
+    return extractSellerInstructionId(initialData, sellers);
+  });
+
+  const [sellerId, setSellerId] = useState<string>(() => {
+    return (
+      extractSellerInstructionId(initialData, sellers) ||
+      safeString(
+        initialData?.seller_instruction_id ||
+          initialData?.sellerInstructionId ||
+          initialData?.seller_id ||
+          initialData?.sellerId ||
+          (typeof initialData?.seller === 'string' ? initialData.seller : initialData?.seller?.id || initialData?.seller?._id),
+        ''
+      )
+    );
+  });
+
+  // Company Logo (seller_logo) State & Removal Ref
+  const hasUserClearedLogoRef = useRef<boolean>(false);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string>(() => {
+    const rawLogo = resolveSellerLogoValue(
+      initialData,
+      sellers,
+      extractSellerInstructionId(initialData, sellers) ||
+      safeString(
+        initialData?.seller_instruction_id ||
+          initialData?.sellerInstructionId ||
+          initialData?.seller_id ||
+          initialData?.sellerId,
+        ''
+      )
+    );
+    return rawLogo ? (formatSignatureUrl(rawLogo) || rawLogo) : '';
+  });
+
+  // Keep sellerInstructionId & sellerId updated when initialData or sellers prop updates, but do not overwrite user edits
+  useEffect(() => {
+    const resolvedInstId = extractSellerInstructionId(initialData, sellers);
+    if (resolvedInstId) {
+      if (resolvedInstId !== sellerInstructionId) {
+        setSellerInstructionId(resolvedInstId);
+      }
+      if (!isUserDirtyRef.current || !sellerId || sellerId !== resolvedInstId) {
+        setSellerId(resolvedInstId);
+      }
+    }
+  }, [initialData, sellers, sellerInstructionId, sellerId]);
+
+  // Company / Exporter Name (strictly avoiding static first-seller fallback)
+  const [companyName, setCompanyName] = useState<string>(() => {
+    const sId = safeString(
+      initialData?.seller_id ||
+        initialData?.sellerId ||
+        initialData?.seller_instruction_id ||
+        initialData?.sellerInstructionId ||
+        (typeof initialData?.seller === 'string' ? initialData.seller : initialData?.seller?.id || initialData?.seller?._id),
+      ''
+    );
+    return extractSellerCompanyName(initialData, sellers, sId);
+  });
+
+  const [sellerDetails, setSellerDetails] = useState<string>(() => {
+    if (initialData?.seller_details && typeof initialData.seller_details === 'object') {
+      const addr = initialData.seller_details.address || initialData.seller_details.instruction || initialData.seller_details.details;
+      const cName = initialData.seller_details.company_name || initialData.seller_details.name;
+      const combined = [cName, addr].filter(Boolean).join('\n');
+      if (combined) return safeString(combined);
+    }
+    return safeString(
+      initialData?.seller_details ||
+        initialData?.seller_instruction ||
+        initialData?.seller?.address ||
+        initialData?.seller?.instruction,
+      ''
+    );
+  });
+
+  // Parties: Buyer / Consignee (strictly extracted from document data, never defaulting to buyers[0])
+  const [buyerId, setBuyerId] = useState<string>(() => {
+    const info = extractBuyerInfo(initialData, buyers);
+    return info.id;
+  });
+
+  const [buyerName, setBuyerName] = useState<string>(() => {
+    const info = extractBuyerInfo(initialData, buyers);
+    return info.name;
+  });
+
+  const [buyerDetails, setBuyerDetails] = useState<string>(() => {
+    const info = extractBuyerInfo(initialData, buyers);
+    return info.details;
+  });
+
+  // Invoicing Details: Box 1 Right (Editable Inputs)
+  const [invoiceNumber, setInvoiceNumber] = useState<string>(() =>
+    safeString(initialData?.invoice_number || initialData?.invoice_no, '')
+  );
+  const [gstNumber, setGstNumber] = useState<string>(() =>
+    resolveGstString(
+      initialData?.registration_number ||
+        initialData?.gst_number ||
+        initialData?.seller?.gst ||
+        initialData?.seller?.registration_number
+    )
+  );
+  const [invoiceDate, setInvoiceDate] = useState<string>(() => {
+    if (initialData?.invoice_date) return safeString(initialData.invoice_date).slice(0, 10);
+    return '';
+  });
+  const [buyerOrderNoDate, setBuyerOrderNoDate] = useState<string>(() =>
+    safeString(initialData?.buyer_order_no_date || initialData?.buyer_order_no, '')
+  );
+
+  // Reference Details: Box 2 Right (Purchase Order & Contract Date)
+  const [purchaseOrderNo, setPurchaseOrderNo] = useState<string>(() => {
+    return safeString(
+      initialData?.purchase_order_no ||
+        initialData?.purchaseOrderNo ||
+        initialData?.po_number ||
+        initialData?.poNumber ||
+        initialData?.buyer_order_no ||
+        initialData?.buyerOrderNo ||
+        initialData?.contract_number ||
+        initialData?.contractNumber ||
+        initialData?.contract_no ||
+        initialData?.confirmation_number ||
+        initialData?.confirmationNumber,
+      ''
+    );
+  });
+  const [contractDate, setContractDate] = useState<string>(() => {
+    const raw =
+      initialData?.contract_date ||
+      initialData?.contractDate ||
+      initialData?.confirmation_date ||
+      initialData?.confirmationDate;
+    if (raw) return safeString(raw).slice(0, 10);
+    return '';
+  });
+  const [otherReferences, setOtherReferences] = useState<string>(() => {
+    const raw =
+      initialData?.other_reference ??
+      initialData?.other_references ??
+      initialData?.otherReference ??
+      initialData?.otherReferences ??
+      initialData?.proforma?.other_reference ??
+      initialData?.proforma?.other_references ??
+      initialData?.contract?.other_reference ??
+      initialData?.contract?.other_references ??
+      initialData?.data?.other_reference ??
+      initialData?.data?.other_references;
+    return safeString(raw, '');
+  });
+
+  // 4-Column Shipping Info Row (NON-INPUT display values) - Clean extraction without forced defaults
+  const [preCarriageBy, setPreCarriageBy] = useState<string>(() => {
+    const raw =
+      initialData?.pre_carriage_by ||
+      initialData?.pre_carriage ||
+      initialData?.preCarriageBy ||
+      initialData?.container_type ||
+      initialData?.fcl_type ||
+      (initialData?.ship_by ? `BY ${safeString(initialData.ship_by)}` : '');
+    return formatPreCarriageBy(raw, '');
+  });
+  // 17. Place of Receipt (Loading Port Country: loading_port.country.name)
+  const [placeOfReceipt, setPlaceOfReceipt] = useState<string>(() => {
+    return (
+      extractLoadingPortCountry(initialData, products) ||
+      safeString(
+        initialData?.place_of_receipt ||
+          initialData?.loading_port_country ||
+          initialData?.origin_country ||
+          initialData?.country_of_origin,
+        ''
+      )
+    );
+  });
+
+  // 18. Country of Origin of Goods (Loading Port Country: loading_port.country.name)
+  const [countryOfOrigin, setCountryOfOrigin] = useState<string>(() => {
+    return (
+      extractLoadingPortCountry(initialData, products) ||
+      safeString(
+        initialData?.country_of_origin ||
+          initialData?.origin_country ||
+          initialData?.product_country,
+        ''
+      )
+    );
+  });
+
+  // 19. Country of Final Destination (Destination Port Country: destination_port.country.name)
+  const [countryOfDestination, setCountryOfDestination] = useState<string>(() => {
+    return (
+      extractDestinationPortCountry(initialData) ||
+      safeString(
+        initialData?.country_of_destination ||
+          initialData?.destination_country ||
+          initialData?.destination_port_country,
+        ''
+      )
+    );
+  });
+
+  // 3-Column Vessel Info Row (NON-INPUT display values)
+  const [vesselVoyageNo, setVesselVoyageNo] = useState<string>(() => {
+    return extractVesselVoyageNo(initialData);
+  });
+  const [portOfLoading, setPortOfLoading] = useState<string>(() => {
+    return extractPortDisplayName(
+      initialData?.port_of_loading || initialData?.loading_port,
+      safeString(initialData?.loading_port_name, '')
+    );
+  });
+  const [termsDeliveryPayment, setTermsDeliveryPayment] = useState<string>(() => {
+    return extractDeliveryTerms(initialData);
+  });
+
+  // 2-Column Destination Ports Row (NON-INPUT display values)
+  const [portOfDestination, setPortOfDestination] = useState<string>(() => {
+    return extractPortDisplayName(
+      initialData?.port_of_destination || initialData?.destination_port,
+      safeString(initialData?.destination_port_name, '')
+    );
+  });
+  const [finalDestination, setFinalDestination] = useState<string>(() => {
+    return extractPortDisplayName(
+      initialData?.final_destination || initialData?.destination_port,
+      safeString(initialData?.destination_port_name || initialData?.port_of_destination, '')
+    );
+  });
+
+  // Goods Table (NON-INPUT display values)
+  const [countVessel, setCountVessel] = useState<string>(() => {
+    if (initialData?.count_vessel) return safeString(initialData.count_vessel);
+    if (initialData?.fcl_quantity) {
+      const typeStr = initialData?.fcl_type ? ` ${safeString(initialData.fcl_type)}` : '';
+      return `${safeString(initialData.fcl_quantity)}${typeStr} FCLS`;
+    }
+    if (initialData?.quantity_mt || initialData?.mt_quantity) {
+      return `${safeString(initialData.quantity_mt || initialData.mt_quantity)} MT`;
+    }
+    return '';
+  });
+  const [goodsDescription, setGoodsDescription] = useState<string>(() => {
+    return extractGoodsDescription(initialData);
+  });
+  const [quantityMt, setQuantityMt] = useState<number | string>(() => {
+    return initialData?.quantity_mt || initialData?.mt_quantity || initialData?.quantity || '';
+  });
+  const [currency, setCurrency] = useState<string>(() => {
+    return normalizeCurrencyCode(initialData?.currency || 'USD');
+  });
+  const currencySymbol = useMemo(() => getCurrencySymbol(currency), [currency]);
+  const [ratePrice, setRatePrice] = useState<string>(() => {
+    const rawR = initialData?.rate_price ?? initialData?.price ?? initialData?.rate;
+    if (rawR !== undefined && rawR !== null && String(rawR).trim() !== '') {
+      return String(rawR).trim().replace(/,/g, '');
+    }
+    return '';
+  });
+  const [advancePayment, setAdvancePayment] = useState<string>(() => {
+    const rawAdv =
+      initialData?.advance_payment_amt ??
+      initialData?.advance_payment ??
+      initialData?.advance_amount ??
+      initialData?.advancePaymentAmt ??
+      initialData?.advancePayment ??
+      initialData?.advanceAmount ??
+      initialData?.proforma?.advance_payment_amt ??
+      initialData?.proforma?.advance_payment ??
+      initialData?.proforma?.advance_amount ??
+      initialData?.contract?.advance_payment_amt ??
+      initialData?.contract?.advance_payment ??
+      initialData?.contract?.advance_amount ??
+      initialData?.data?.advance_payment_amt ??
+      initialData?.data?.advance_payment ??
+      initialData?.data?.advance_amount;
+    if (rawAdv !== undefined && rawAdv !== null && String(rawAdv).trim() !== '') {
+      return String(rawAdv).trim().replace(/,/g, '');
+    }
+    return '';
+  });
+
+  // Helper: displays backend amounts cleanly without commas (matching API response) and without adding artificial .00 zeros
+  const formatAmountWithoutExtraZeros = useCallback((val: number | string): string => {
+    if (val === undefined || val === null || val === '') return '';
+    const cleanStr = String(val).replace(/,/g, '').trim();
+    if (!cleanStr) return '';
+    const num = parseFloat(cleanStr);
+    if (isNaN(num)) return cleanStr;
+    return num.toLocaleString('en-US', {
+      useGrouping: false,
+      maximumFractionDigits: 2,
+    });
+  }, []);
+
+  // Computed Item Amount & Total (Accounting Precision)
+  const computedItemAmount = useMemo(() => {
+    const q = parseFloat(String(quantityMt || 0).replace(/,/g, '')) || 0;
+    const r = parseFloat(String(ratePrice || 0).replace(/,/g, '')) || 0;
+    return q * r;
+  }, [quantityMt, ratePrice]);
+
+  // Proforma rule: Total is computed from quantity and rate. Advance payment is purely informational and not deducted from total.
+  const computedTotal = useMemo(() => {
+    return computedItemAmount;
+  }, [computedItemAmount]);
+
+  // Amount in Words (Standard Trade Banking Accounting Rule - NON-INPUT display)
+  const effectiveAmountInWords = useMemo(() => {
+    return convertAmountToWords(computedTotal, currency);
+  }, [computedTotal, currency]);
+
+  // Bank Accounts Management (Fetched via /dms-fields/bank-details/:sellerId)
+  const [sellerBankAccounts, setSellerBankAccounts] = useState<any[]>(() => {
+    const cleanSellerInstId =
+      extractSellerInstructionId(initialData, sellers) ||
+      safeString(initialData?.seller_instruction_id || initialData?.sellerInstructionId || '', '');
+    return cleanSellerInstId && sellerBankAccountsCache.has(cleanSellerInstId)
+      ? sellerBankAccountsCache.get(cleanSellerInstId)!
+      : [];
+  });
+  const [isLoadingBankAccounts, setIsLoadingBankAccounts] = useState<boolean>(false);
+  const [selectedBankId, setSelectedBankId] = useState<string>(() =>
+    safeString(
+      initialData?.bank_details_id ??
+        initialData?.bankDetailsId ??
+        initialData?.bank_account_id ??
+        initialData?.bankAccountId ??
+        initialData?.bank_id ??
+        initialData?.bankId ??
+        initialData?.proforma?.bank_details_id ??
+        initialData?.proforma?.bank_account_id ??
+        initialData?.data?.bank_details_id ??
+        initialData?.data?.bank_account_id,
+      ''
+    )
+  );
+  const [bankAccountDetails, setBankAccountDetails] = useState<string>(() =>
+    safeString(
+      initialData?.bank_details ??
+        initialData?.bankAccountDetails ??
+        initialData?.bank_account_details ??
+        initialData?.account_details ??
+        initialData?.proforma?.bank_details ??
+        initialData?.data?.bank_details,
+      ''
+    )
+  );
+
+  const formatBankDetails = useCallback((item: any): string => {
+    if (!item) return '';
+    if (item.account_details && typeof item.account_details === 'string' && item.account_details.trim()) {
+      return item.account_details.trim();
+    }
+    const lines: string[] = [];
+    if (item.name || item.account_name) {
+      lines.push(`A/C HOLDER NAME: ${safeString(item.name || item.account_name)}`);
+    }
+    if (item.account_number || item.account_no) {
+      lines.push(`A/C NUMBER: ${safeString(item.account_number || item.account_no)}`);
+    }
+    if (item.bank_name || item.bankName) {
+      lines.push(`BANK NAME: ${safeString(item.bank_name || item.bankName)}`);
+    }
+    if (item.branch || item.branch_name) {
+      lines.push(`BRANCH: ${safeString(item.branch || item.branch_name)}`);
+    }
+    if (item.swift_code || item.swift) {
+      lines.push(`SWIFT CODE: ${safeString(item.swift_code || item.swift)}`);
+    }
+    if (item.ifsc_code || item.ifsc) {
+      lines.push(`IFSC CODE: ${safeString(item.ifsc_code || item.ifsc)}`);
+    }
+    if (item.iban) {
+      lines.push(`IBAN: ${safeString(item.iban)}`);
+    }
+    if (item.address || item.bank_address) {
+      lines.push(`BANK ADDRESS: ${safeString(item.address || item.bank_address)}`);
+    }
+    return lines.length > 0 ? lines.join('\n') : safeString(item?.name, '');
+  }, []);
+
+  // Fetch seller bank accounts from /dms-fields/bank-details/:sellerId
+  // User Requirement: "is me seller_details ki instruction_id pass karni hai make sure properly karna isko.."
+  useEffect(() => {
+    const effectiveInstructionId =
+      sellerInstructionId ||
+      extractSellerInstructionId(initialData, sellers) ||
+      sellerId;
+
+    if (!effectiveInstructionId) {
+      setSellerBankAccounts([]);
+      return;
+    }
+
+    // Immediate cached return for zero latency only if cached bank list is non-empty
+    if (sellerBankAccountsCache.has(effectiveInstructionId) && (sellerBankAccountsCache.get(effectiveInstructionId)?.length || 0) > 0) {
+      const cached = sellerBankAccountsCache.get(effectiveInstructionId)!;
+      setSellerBankAccounts(cached);
+      if (selectedBankId) {
+        const matched = cached.find(
+          (b: any) =>
+            String(b.bank_details_id || b.id || b._id) === String(selectedBankId) ||
+            String(b.id) === String(selectedBankId) ||
+            String(b.bank_details_id) === String(selectedBankId) ||
+            String(b.bank_account_id) === String(selectedBankId)
+        );
+        if (matched) {
+          const effectiveBankId = String(matched.bank_details_id || matched.id || selectedBankId);
+          if (effectiveBankId && effectiveBankId !== selectedBankId) {
+            setSelectedBankId(effectiveBankId);
+          }
+          setBankAccountDetails((prev) => prev || formatBankDetails(matched));
+        }
+      } else if (bankAccountDetails) {
+        const matchedByText = cached.find((b: any) => {
+          const formatted = formatBankDetails(b);
+          return (
+            (formatted && formatted.trim() === bankAccountDetails.trim()) ||
+            (b.account_details && b.account_details.trim() === bankAccountDetails.trim())
+          );
+        });
+        if (matchedByText) {
+          setSelectedBankId(String(matchedByText.bank_details_id || matchedByText.id));
+        }
+      } else if (cached.length === 1) {
+        const single = cached[0];
+        setSelectedBankId(String(single.bank_details_id || single.id));
+        setBankAccountDetails(formatBankDetails(single));
+      }
+      return;
+    }
+
+    let isSubscribed = true;
+    setIsLoadingBankAccounts(true);
+
+    getSellerBankDetailsAction(effectiveInstructionId, { lang, source: 'web' })
+      .then((res) => {
+        if (!isSubscribed) return;
+        const items = res?.data?.items || [];
+        if (res?.success && Array.isArray(items)) {
+          sellerBankAccountsCache.set(effectiveInstructionId, items);
+          setSellerBankAccounts(items);
+
+          // If a bank account was already chosen, ensure its details are formatted
+          if (selectedBankId) {
+            const matched = items.find(
+              (b: any) =>
+                String(b.bank_details_id || b.id || b._id) === String(selectedBankId) ||
+                String(b.id) === String(selectedBankId) ||
+                String(b.bank_details_id) === String(selectedBankId) ||
+                String(b.bank_account_id) === String(selectedBankId)
+            );
+            if (matched) {
+              const effectiveBankId = String((matched as any).bank_details_id || matched.id || selectedBankId);
+              if (effectiveBankId && effectiveBankId !== selectedBankId) {
+                setSelectedBankId(effectiveBankId);
+              }
+              setBankAccountDetails((prev) => prev || formatBankDetails(matched));
+            }
+          } else if (bankAccountDetails) {
+            const matchedByText = items.find((b: any) => {
+              const formatted = formatBankDetails(b);
+              return (
+                (formatted && formatted.trim() === bankAccountDetails.trim()) ||
+                (b.account_details && b.account_details.trim() === bankAccountDetails.trim())
+              );
+            });
+            if (matchedByText) {
+              setSelectedBankId(String((matchedByText as any).bank_details_id || matchedByText.id));
+            }
+          } else if (items.length === 1) {
+            // Auto-select if seller has exactly 1 bank account
+            const single = items[0];
+            const effectiveBankId = String((single as any).bank_details_id || single.id);
+            setSelectedBankId(effectiveBankId);
+            setBankAccountDetails(formatBankDetails(single));
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('[ProformaDocumentForm] Failed to load seller bank details:', err);
+      })
+      .finally(() => {
+        if (isSubscribed) {
+          setIsLoadingBankAccounts(false);
+        }
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [sellerInstructionId, sellerId, initialData, sellers, lang, formatBankDetails, selectedBankId, bankAccountDetails]);
+
+  // Track if user explicitly cleared authority signature in current session
+  const hasUserClearedSignatureRef = useRef<boolean>(false);
+
+  // Authority Signature & Stamp
+  const [stampImageUrl, setStampImageUrl] = useState<string>(() => {
+    const rawSig = resolveSignatureValue(initialData, sellers, sellerId);
+    return rawSig ? formatSignatureUrl(rawSig) : '';
+  });
+  const [authoritySignatureTitle, setAuthoritySignatureTitle] = useState<string>(() =>
+    safeString(
+      initialData?.seller_signature_label ||
+        initialData?.authority_signature_title ||
+        initialData?.authorised_signature_title ||
+        initialData?.authority_title,
+      'AUTHORISED SIGNATURE'
+    )
+  );
+
+  // Synchronize signature when seller changes if not already set
+  useEffect(() => {
+    if (!sellerId) return;
+    if (!stampImageUrl && !hasUserClearedSignatureRef.current) {
+      const sellerSig = resolveSignatureValue(null, sellers, sellerId);
+      if (sellerSig) {
+        setStampImageUrl(formatSignatureUrl(sellerSig));
+      }
+    }
+    if (!companyLogoUrl && !hasUserClearedLogoRef.current) {
+      const sellerLogo = resolveSellerLogoValue(null, sellers, sellerId);
+      if (sellerLogo) {
+        setCompanyLogoUrl(sellerLogo);
+      }
+    }
+  }, [sellerId, sellers, stampImageUrl, companyLogoUrl]);
+
+  // Bank Charges Disclaimer Note
+  const [bankChargesNote, setBankChargesNote] = useState<string>(() =>
+    extractBankChargesNote(initialData)
+  );
+
+  // Additional Comment Row (Matching Confirmation & Contract pattern)
+  const [commentLabel, setCommentLabel] = useState<string>(() => {
+    return safeString(
+      initialData?.comment_label ||
+        initialData?.commentLabel ||
+        initialData?.comment_title ||
+        initialData?.commentTitle,
+      ''
+    );
+  });
+  const [commentValue, setCommentValue] = useState<string>(() => {
+    return safeString(
+      initialData?.comment_value ||
+        initialData?.commentValue ||
+        initialData?.comment_text ||
+        initialData?.commentText,
+      ''
+    );
+  });
+
+  // Synchronize state when initialData loads asynchronously or updates on refresh
+  useEffect(() => {
+    if (!initialData) return;
+
+    const currentIncomingDocId = sanitizeDocId(
+      initialData?.proforma_id ||
+      initialData?.proformaId ||
+      initialData?.proforma_invoice_id ||
+      initialData?.id ||
+      initialData?._id ||
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      initialData?.confirmation_id ||
+      initialData?.confirmationId
+    );
+
+    const hasDocChanged = Boolean(
+      currentIncomingDocId &&
+      lastLoadedDocIdRef.current &&
+      currentIncomingDocId !== lastLoadedDocIdRef.current
+    );
+
+    // Protect user edits and prevent redundant overwrites once initialized
+    if (
+      isUserDirtyRef.current ||
+      isSavingOrSubmittingRef.current ||
+      (isFormInitializedRef.current && !hasDocChanged)
+    ) {
+      // Still update fresh signature / logo from backend if available and not cleared by user
+      const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
+      if (resolvedSig && !hasUserClearedSignatureRef.current && !stampImageUrl) {
+        setStampImageUrl(formatSignatureUrl(resolvedSig));
+      }
+      if (!hasUserClearedLogoRef.current) {
+        const resolvedLogo = resolveSellerLogoValue(initialData, sellers, sellerId);
+        if (resolvedLogo) {
+          const formatted = formatSignatureUrl(resolvedLogo) || resolvedLogo;
+          if (formatted && formatted !== companyLogoUrl && !companyLogoUrl.startsWith('blob:')) {
+            setCompanyLogoUrl(formatted);
+          } else if (!companyLogoUrl && formatted) {
+            setCompanyLogoUrl(formatted);
+          }
+        }
+      }
+      return;
+    }
+
+    isFormInitializedRef.current = true;
+    lastLoadedDocIdRef.current = currentIncomingDocId || sanitizeDocId(draftId || proformaId) || '';
+
+    // Header & Watermark toggles sync
+    if (initialData.header_enabled !== undefined) {
+      setLetterhead(Boolean(initialData.header_enabled));
+    } else if (initialData.letterhead !== undefined) {
+      setLetterhead(Boolean(initialData.letterhead));
+    } else if (initialData.letterhead_space !== undefined) {
+      setLetterhead(Boolean(initialData.letterhead_space));
+    }
+
+    if (initialData.is_watermark_enabled !== undefined) {
+      setWatermark(Boolean(initialData.is_watermark_enabled));
+    } else if (initialData.watermark !== undefined) {
+      setWatermark(Boolean(initialData.watermark));
+    }
+
+    if (initialData.invoice_number || initialData.invoice_no) {
+      setInvoiceNumber(safeString(initialData.invoice_number || initialData.invoice_no));
+    }
+    if (initialData.invoice_date) {
+      setInvoiceDate(safeString(initialData.invoice_date).slice(0, 10));
+    }
+    if (
+      initialData.registration_number ||
+      initialData.gst_number ||
+      initialData?.seller?.gst ||
+      initialData?.seller?.registration_number
+    ) {
+      setGstNumber(
+        resolveGstString(
+          initialData.registration_number ||
+            initialData.gst_number ||
+            initialData?.seller?.gst ||
+            initialData?.seller?.registration_number
+        )
+      );
+    }
+    if (initialData.buyer_order_no_date || initialData.buyer_order_no) {
+      setBuyerOrderNoDate(safeString(initialData.buyer_order_no_date || initialData.buyer_order_no));
+    }
+    const rawOtherRef =
+      initialData?.other_reference ??
+      initialData?.other_references ??
+      initialData?.otherReference ??
+      initialData?.otherReferences ??
+      initialData?.proforma?.other_reference ??
+      initialData?.proforma?.other_references ??
+      initialData?.contract?.other_reference ??
+      initialData?.contract?.other_references ??
+      initialData?.data?.other_reference ??
+      initialData?.data?.other_references;
+    if (rawOtherRef !== undefined && rawOtherRef !== null && String(rawOtherRef).trim() !== '') {
+      setOtherReferences(safeString(rawOtherRef));
+    }
+    if (
+      initialData.purchase_order_no ||
+      initialData.po_number ||
+      initialData.contract_number ||
+      initialData.contract_no ||
+      initialData.confirmation_number
+    ) {
+      setPurchaseOrderNo(
+        safeString(
+          initialData.purchase_order_no ||
+            initialData.po_number ||
+            initialData.contract_number ||
+            initialData.contract_no ||
+            initialData.confirmation_number,
+          ''
+        )
+      );
+    }
+    if (initialData.contract_date || initialData.confirmation_date) {
+      const d = initialData.contract_date || initialData.confirmation_date;
+      setContractDate(safeString(d).slice(0, 10));
+    }
+
+    // Seller / Exporter
+    const resolvedInstId = extractSellerInstructionId(initialData, sellers);
+    if (resolvedInstId) {
+      setSellerInstructionId(resolvedInstId);
+      setSellerId(resolvedInstId);
+    }
+    const resolvedCompanyName = extractSellerCompanyName(initialData, sellers, resolvedInstId || sellerId);
+    if (resolvedCompanyName) {
+      setCompanyName(resolvedCompanyName);
+    }
+
+    if (initialData.seller_details || initialData.seller_instruction) {
+      if (typeof initialData.seller_details === 'object') {
+        const addr = initialData.seller_details.address || initialData.seller_details.instruction || initialData.seller_details.details;
+        const cName = initialData.seller_details.company_name || initialData.seller_details.name;
+        const combined = [cName, addr].filter(Boolean).join('\n');
+        setSellerDetails(safeString(combined || addr || cName));
+      } else {
+        setSellerDetails(safeString(initialData.seller_details || initialData.seller_instruction));
+      }
+    }
+
+    // Buyer / Consignee (strictly extracted, never defaulting to buyers[0])
+    const buyerInfo = extractBuyerInfo(initialData, buyers);
+    if (buyerInfo.id) setBuyerId(buyerInfo.id);
+    if (buyerInfo.name) setBuyerName(buyerInfo.name);
+    if (buyerInfo.details) setBuyerDetails(buyerInfo.details);
+
+    // Delivery & Shipping Terms
+    const delTerms = extractDeliveryTerms(initialData);
+    if (delTerms) setTermsDeliveryPayment(delTerms);
+
+    const portLoad = extractPortDisplayName(
+      initialData.port_of_loading || initialData.loading_port,
+      safeString(initialData.loading_port_name, '')
+    );
+    if (portLoad) setPortOfLoading(portLoad);
+
+    const portDest = extractPortDisplayName(
+      initialData.port_of_destination || initialData.destination_port,
+      safeString(initialData.destination_port_name, '')
+    );
+    if (portDest) {
+      setPortOfDestination(portDest);
+      const finDest = extractPortDisplayName(
+        initialData.final_destination || initialData.destination_port,
+        safeString(initialData.destination_port_name || initialData.port_of_destination, portDest)
+      );
+      setFinalDestination(finDest);
+    }
+
+    // Loading Port Country for Place of Receipt and Country of Origin: loading_port.country.name
+    const resolvedLoadingCountry = extractLoadingPortCountry(initialData, products);
+    if (resolvedLoadingCountry) {
+      setPlaceOfReceipt(resolvedLoadingCountry);
+      setCountryOfOrigin(resolvedLoadingCountry);
+    } else {
+      const rec = safeString(initialData.place_of_receipt);
+      const orig = safeString(initialData.country_of_origin || initialData.origin_country || initialData.product_country);
+      if (rec) setPlaceOfReceipt(rec);
+      if (orig) setCountryOfOrigin(orig);
+    }
+
+    // Destination Port Country for Country of Final Destination: destination_port.country.name
+    const resolvedDestCountry = extractDestinationPortCountry(initialData);
+    if (resolvedDestCountry) {
+      setCountryOfDestination(resolvedDestCountry);
+    } else if (initialData.country_of_destination || initialData.destination_country || initialData.destination_port_country) {
+      setCountryOfDestination(safeString(initialData.country_of_destination || initialData.destination_country || initialData.destination_port_country));
+    }
+
+    // Vessel / Voyage No
+    const vNo = extractVesselVoyageNo(initialData);
+    if (vNo) setVesselVoyageNo(vNo);
+
+    // Pre-Carriage By
+    const preCarriage =
+      initialData.pre_carriage_by ||
+      initialData.pre_carriage ||
+      initialData.preCarriageBy ||
+      initialData.container_type ||
+      initialData.ship_by;
+    if (preCarriage) {
+      const raw =
+        initialData.pre_carriage_by ||
+        initialData.pre_carriage ||
+        initialData.preCarriageBy ||
+        initialData.container_type ||
+        (initialData.ship_by ? `BY ${safeString(initialData.ship_by)}` : '');
+      if (raw) setPreCarriageBy(formatPreCarriageBy(raw, ''));
+    }
+
+    // Quantity, Price, Currency
+    if (initialData.quantity_mt || initialData.mt_quantity || initialData.quantity) {
+      setQuantityMt(initialData.quantity_mt || initialData.mt_quantity || initialData.quantity || '');
+    }
+    if (initialData.currency) {
+      setCurrency(normalizeCurrencyCode(initialData.currency));
+    }
+    if (initialData.rate_price !== undefined || initialData.price !== undefined || initialData.rate !== undefined) {
+      const rawR = initialData.rate_price ?? initialData.price ?? initialData.rate;
+      if (rawR !== undefined && rawR !== null && String(rawR).trim() !== '') {
+        setRatePrice(String(rawR).trim().replace(/,/g, ''));
+      }
+    }
+    if (initialData.fcl_quantity) {
+      const typeStr = initialData.fcl_type ? ` ${safeString(initialData.fcl_type)}` : '';
+      setCountVessel(`${safeString(initialData.fcl_quantity)}${typeStr} FCLS`);
+    } else if (initialData.count_vessel) {
+      setCountVessel(safeString(initialData.count_vessel));
+    }
+    const rawAdv =
+      initialData?.advance_payment_amt ??
+      initialData?.advance_payment ??
+      initialData?.advance_amount ??
+      initialData?.advancePaymentAmt ??
+      initialData?.advancePayment ??
+      initialData?.advanceAmount ??
+      initialData?.proforma?.advance_payment_amt ??
+      initialData?.proforma?.advance_payment ??
+      initialData?.proforma?.advance_amount ??
+      initialData?.contract?.advance_payment_amt ??
+      initialData?.contract?.advance_payment ??
+      initialData?.contract?.advance_amount ??
+      initialData?.data?.advance_payment_amt ??
+      initialData?.data?.advance_payment ??
+      initialData?.data?.advance_amount;
+    if (rawAdv !== undefined && rawAdv !== null && String(rawAdv).trim() !== '') {
+      setAdvancePayment(String(rawAdv).trim().replace(/,/g, ''));
+    }
+
+    // Bank charges note
+    const bNote = extractBankChargesNote(initialData);
+    if (bNote) setBankChargesNote(bNote);
+
+    // Goods description (clean without static text)
+    const gDesc = extractGoodsDescription(initialData);
+    if (gDesc) setGoodsDescription(gDesc);
+
+    const incomingBankId = safeString(
+      initialData?.bank_details_id ??
+        initialData?.bankDetailsId ??
+        initialData?.proforma?.bank_details_id ??
+        initialData?.data?.bank_details_id ??
+        initialData?.bank_account_id ??
+        initialData?.bankAccountId ??
+        initialData?.bank_id ??
+        initialData?.bankId
+    );
+    if (incomingBankId) {
+      setSelectedBankId((prev) => prev || incomingBankId);
+    }
+    const incomingBankDetails = safeString(
+      initialData?.bank_details ??
+        initialData?.bankAccountDetails ??
+        initialData?.bank_account_details ??
+        initialData?.account_details ??
+        initialData?.proforma?.bank_details ??
+        initialData?.data?.bank_details
+    );
+    if (incomingBankDetails) {
+      setBankAccountDetails((prev) => prev || incomingBankDetails);
+    }
+    const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
+    if (resolvedSig && !hasUserClearedSignatureRef.current) {
+      const formatted = formatSignatureUrl(resolvedSig);
+      setStampImageUrl((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+    }
+    const initialLabel =
+      initialData.seller_signature_label ||
+      initialData.authority_signature_title ||
+      initialData.authorised_signature_title ||
+      initialData.authority_title;
+    if (initialLabel) {
+      setAuthoritySignatureTitle(safeString(initialLabel));
+    }
+    if (!hasUserClearedLogoRef.current) {
+      const resolvedInitLogo = resolveSellerLogoValue(initialData, sellers, sellerId);
+      if (resolvedInitLogo) {
+        setCompanyLogoUrl(formatSignatureUrl(resolvedInitLogo) || resolvedInitLogo);
+      }
+    }
+    if (initialData.comment_label || initialData.comment_title) {
+      setCommentLabel(safeString(initialData.comment_label || initialData.comment_title));
+    }
+    if (initialData.comment_value || initialData.comment_text) {
+      setCommentValue(safeString(initialData.comment_value || initialData.comment_text));
+    }
+    const titleFromInit =
+      initialData.pdf_title ||
+      initialData.pdfTitle ||
+      initialData.document_title ||
+      initialData.documentTitle ||
+      initialData.title;
+    if (titleFromInit) {
+      setDocumentTitle(safeString(titleFromInit, 'PROFORMA INVOICE'));
+    }
+  }, [initialData, sellers, buyers, sellerId, products]);
+
+  // Handle Logo Upload & Removal
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      hasUserClearedLogoRef.current = false;
+      setLogoFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setCompanyLogoUrl(previewUrl);
+      markDirty();
+    }
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveLogo = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    hasUserClearedLogoRef.current = true;
+    setLogoFile(null);
+    setCompanyLogoUrl('');
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
+    markDirty();
+    toast.info('Company logo removed');
+  };
+
+  const getEffectiveProformaId = useCallback(() => {
+    // 1. Direct explicit proforma draft ID or prop
+    const cleanDraft = sanitizeDocId(draftId);
+    if (
+      cleanDraft &&
+      cleanDraft !== sanitizeDocId(contractId) &&
+      cleanDraft !== sanitizeDocId(confirmationId) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanDraft)
+    ) {
+      return cleanDraft;
+    }
+
+    const cleanProp = sanitizeDocId(proformaId);
+    if (
+      cleanProp &&
+      cleanProp !== sanitizeDocId(contractId) &&
+      cleanProp !== sanitizeDocId(confirmationId) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanProp)
+    ) {
+      return cleanProp;
+    }
+
+    // 2. Stepper proforma step (strictly extract explicit proforma IDs, never template _id/id/document_id)
+    const proformaStep = getProformaStep(steps, selectedStep);
+    if (proformaStep) {
+      const stepId = sanitizeDocId(extractStepId(proformaStep));
+      if (
+        stepId &&
+        stepId !== sanitizeDocId(contractId) &&
+        stepId !== sanitizeDocId(confirmationId) &&
+        !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(stepId)
+      ) {
+        return stepId;
+      }
+    }
+
+    // 3. Explicit proforma keys on initialData
+    const pId = sanitizeDocId(
+      initialData?.proforma_id ||
+      initialData?.proformaId ||
+      initialData?.proforma_invoice_id ||
+      initialData?.proformaInvoiceId ||
+      initialData?.proforma?.id ||
+      initialData?.proforma?._id
+    );
+    if (
+      pId &&
+      pId !== sanitizeDocId(contractId) &&
+      pId !== sanitizeDocId(confirmationId) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(pId)
+    ) {
+      return pId;
+    }
+
+    // 4. InitialData id/_id (strictly ensuring it is not the parent contract or confirmation ID)
+    const cleanContractId = sanitizeDocId(contractId);
+    const cleanConfId = sanitizeDocId(confirmationId);
+    const dataId = sanitizeDocId(initialData?.id || initialData?._id);
+    if (
+      dataId &&
+      dataId !== cleanContractId &&
+      dataId !== cleanConfId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(dataId)
+    ) {
+      return dataId;
+    }
+
+    // 5. Fallback candidate from contract or confirmation for linked workflow backend submission
+    if (cleanContractId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanContractId)) {
+      return cleanContractId;
+    }
+
+    if (cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanConfId)) {
+      return cleanConfId;
+    }
+
+    return '';
+  }, [draftId, proformaId, steps, selectedStep, initialData, contractId, confirmationId]);
+
+  /**
+   * Constructs the complete multipart/form-data payload for Proforma Save As Draft / Submit API,
+   * matching ContractDocumentForm.
+   * Signatures are converted to binary files (seller_signature, signature, authorised_signature)
+   * and keys (including other_reference) are explicitly included.
+   */
+  const getProformaFormData = useCallback((): FormData => {
+    const formData = new FormData();
+    const activeDocId = getEffectiveProformaId();
+    const cleanContractId = sanitizeDocId(contractId);
+    const cleanConfId = sanitizeDocId(confirmationId);
+
+    const isRealProformaId = Boolean(
+      activeDocId &&
+      activeDocId !== cleanContractId &&
+      activeDocId !== cleanConfId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(activeDocId)
+    );
+
+    if (isRealProformaId) {
+      formData.append('id', activeDocId);
+      formData.append('proforma_id', activeDocId);
+      formData.append('proforma_invoice_id', activeDocId);
+    }
+
+    if (cleanContractId) {
+      formData.append('contract_id', cleanContractId);
+    }
+    if (cleanConfId) {
+      formData.append('confirmation_id', cleanConfId);
+    }
+
+    const titleVal = safeString(documentTitle).trim() || 'PROFORMA INVOICE';
+    formData.append('pdf_title', titleVal);
+    formData.append('pdfTitle', titleVal);
+    formData.append('document_title', titleVal);
+    formData.append('documentTitle', titleVal);
+    formData.append('title', titleVal);
+
+    formData.append('letterhead_space', String(Boolean(letterhead)));
+    formData.append('header_enabled', String(Boolean(letterhead)));
+    formData.append('letterhead', String(Boolean(letterhead)));
+
+    formData.append('is_watermark_enabled', String(Boolean(watermark)));
+    formData.append('watermark', String(Boolean(watermark)));
+
+    formData.append('company_name', safeString(companyName));
+    formData.append('seller_name', safeString(companyName));
+    formData.append('seller_id', safeString(sellerId));
+    formData.append('seller_details', safeString(sellerDetails));
+
+    const effectiveSellerInstId = sellerInstructionId || sellerId || '';
+    if (effectiveSellerInstId) {
+      formData.append('seller_instruction_id', effectiveSellerInstId);
+      formData.append('instruction_id', effectiveSellerInstId);
+    }
+
+    formData.append('buyer_id', safeString(buyerId));
+    formData.append('buyer_name', safeString(buyerName));
+    formData.append('buyer_details', safeString(buyerDetails));
+    if (buyerId) {
+      formData.append('buyer_instruction_id', safeString(buyerId));
+    }
+
+    formData.append('invoice_number', safeString(invoiceNumber));
+    formData.append('invoice_no', safeString(invoiceNumber));
+
+    formData.append('gst_number', safeString(gstNumber));
+    formData.append('registration_number', safeString(gstNumber));
+    formData.append('gst_label', safeString(gstNumber).includes('\n') ? safeString(gstNumber).split('\n')[0] : 'GST Number:');
+    formData.append('registration_label', safeString(gstNumber).includes('\n') ? safeString(gstNumber).split('\n')[0] : 'Registration Number:');
+
+    formData.append('invoice_date', safeString(invoiceDate));
+    formData.append('buyer_order_no_date', safeString(buyerOrderNoDate));
+    formData.append('buyer_order_no', safeString(buyerOrderNoDate));
+
+    formData.append('purchase_order_no', safeString(purchaseOrderNo));
+    formData.append('po_number', safeString(purchaseOrderNo));
+    formData.append('contract_date', safeString(contractDate));
+
+    // OTHER REFERENCE: Strictly support other_reference and other_references
+    const cleanOtherRef = safeString(otherReferences);
+    formData.append('other_reference', cleanOtherRef);
+    formData.append('other_references', cleanOtherRef);
+    formData.append('otherReference', cleanOtherRef);
+    formData.append('otherReferences', cleanOtherRef);
+
+    formData.append('pre_carriage_by', formatPreCarriageBy(preCarriageBy, 'BY SEA'));
+    formData.append('place_of_receipt', safeString(placeOfReceipt));
+    formData.append('country_of_origin', safeString(countryOfOrigin));
+    formData.append('country_of_destination', safeString(countryOfDestination));
+    formData.append('vessel_voyage_no', safeString(vesselVoyageNo, ''));
+    formData.append('port_of_loading', safeString(portOfLoading));
+    formData.append('terms_of_delivery_payment', safeString(termsDeliveryPayment));
+    formData.append('port_of_destination', safeString(portOfDestination));
+    formData.append('final_destination', safeString(finalDestination));
+    formData.append('count_vessel', safeString(countVessel));
+    formData.append('goods_description', safeString(goodsDescription));
+
+    const numQty = parseFloat(String(quantityMt || 0).replace(/,/g, '')) || 0;
+    formData.append('quantity_mt', String(numQty));
+    formData.append('quantity', String(numQty));
+    formData.append('mt_quantity', String(numQty));
+
+    const cleanCurr = safeString(currency, 'USD');
+    formData.append('currency', cleanCurr);
+
+    const numRate = parseFloat(String(ratePrice || 0).replace(/,/g, '')) || 0;
+    formData.append('rate_price', String(numRate));
+    formData.append('rate', String(numRate));
+    formData.append('price', String(numRate));
+
+    formData.append('item_amount', String(computedItemAmount));
+
+    const numAdv = parseFloat(String(advancePayment || 0).replace(/,/g, '')) || 0;
+    formData.append('advance_payment', String(numAdv));
+    formData.append('advance_payment_amt', String(numAdv));
+    formData.append('advance_amount', String(numAdv));
+
+    formData.append('total_amount', String(computedTotal));
+    formData.append('amount_in_words', safeString(effectiveAmountInWords));
+
+    formData.append('bank_details_id', safeString(selectedBankId));
+    formData.append('bank_account_id', safeString(selectedBankId));
+    formData.append('bank_details', safeString(bankAccountDetails));
+
+    formData.append('bank_charges_note', safeString(bankChargesNote));
+    formData.append('comment_label', safeString(commentLabel));
+    formData.append('comment_value', safeString(commentValue));
+    formData.append('comment_title', safeString(commentLabel));
+    formData.append('comment_text', safeString(commentValue));
+
+    // Seller Logo (seller_logo ONLY - NEVER send company_logo in FormData to prevent multer unexpected field error):
+    if (logoFile) {
+      formData.append('seller_logo', logoFile);
+      formData.append('remove_seller_logo', 'false');
+    } else if (companyLogoUrl && !hasUserClearedLogoRef.current && !companyLogoUrl.startsWith('blob:')) {
+      const cleanLogo = normalizeSignaturePayload(companyLogoUrl) || safeString(companyLogoUrl);
+      formData.append('seller_logo', cleanLogo);
+      formData.append('seller_logo_url', cleanLogo);
+      formData.append('remove_seller_logo', 'false');
+    } else if (hasUserClearedLogoRef.current || !companyLogoUrl) {
+      formData.append('remove_seller_logo', 'true');
+      formData.append('seller_logo', '');
+      formData.append('seller_logo_url', '');
+    }
+
+    // SIGNATURE IMPLEMENTATION - 100% IDENTICAL TO CONTRACT:
+    formData.append('authority_signature_title', safeString(authoritySignatureTitle));
+    formData.append('authorised_signature_title', safeString(authoritySignatureTitle));
+    formData.append('seller_signature_label', safeString(authoritySignatureTitle));
+    formData.append('seller_signature_field', safeString(companyName));
+
+    if (stampImageUrl && !hasUserClearedSignatureRef.current) {
+      if (stampImageUrl.startsWith('data:') || stampImageUrl.startsWith('blob:')) {
+        const file = dataUrlToFile(stampImageUrl, 'seller_signature.png');
+        if (file) {
+          formData.append('seller_signature', file);
+        }
+      } else {
+        const relUrl = normalizeSignaturePayload(stampImageUrl);
+        if (relUrl) {
+          formData.append('seller_signature_url', relUrl);
+        }
+      }
+      formData.append('remove_seller_signature', 'false');
+    } else {
+      formData.append('remove_seller_signature', 'true');
+      formData.append('remove_exporter_signature', 'true');
+      formData.append('seller_signature', '');
+      formData.append('seller_signature_url', '');
+    }
+
+    return formData;
+  }, [
+    getEffectiveProformaId,
+    draftId,
+    proformaId,
+    contractId,
+    confirmationId,
+    documentTitle,
+    letterhead,
+    watermark,
+    companyName,
+    companyLogoUrl,
+    logoFile,
+    sellerId,
+    sellerDetails,
+    buyerId,
+    buyerName,
+    buyerDetails,
+    invoiceNumber,
+    gstNumber,
+    invoiceDate,
+    buyerOrderNoDate,
+    purchaseOrderNo,
+    contractDate,
+    otherReferences,
+    preCarriageBy,
+    placeOfReceipt,
+    countryOfOrigin,
+    countryOfDestination,
+    vesselVoyageNo,
+    portOfLoading,
+    termsDeliveryPayment,
+    portOfDestination,
+    finalDestination,
+    countVessel,
+    goodsDescription,
+    quantityMt,
+    currency,
+    ratePrice,
+    computedItemAmount,
+    advancePayment,
+    computedTotal,
+    effectiveAmountInWords,
+    selectedBankId,
+    bankAccountDetails,
+    stampImageUrl,
+    authoritySignatureTitle,
+    bankChargesNote,
+    commentLabel,
+    commentValue,
+  ]);
+
+  // Construct Plain Object Payload
+  const buildPayload = useCallback(() => {
+    const activeDocId = getEffectiveProformaId();
+    const cleanContractId = sanitizeDocId(contractId);
+    const cleanConfId = sanitizeDocId(confirmationId);
+    const isRealProformaId = Boolean(
+      activeDocId &&
+      activeDocId !== cleanContractId &&
+      activeDocId !== cleanConfId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(activeDocId)
+    );
+    const titleVal = safeString(documentTitle).trim() || 'PROFORMA INVOICE';
+    const effectiveSellerInstId = sellerInstructionId || sellerId || '';
+    return {
+      id: isRealProformaId ? activeDocId : undefined,
+      proforma_id: isRealProformaId ? activeDocId : undefined,
+      proforma_invoice_id: isRealProformaId ? activeDocId : undefined,
+      contract_id: cleanContractId || undefined,
+      confirmation_id: cleanConfId || undefined,
+      seller_instruction_id: effectiveSellerInstId || undefined,
+      instruction_id: effectiveSellerInstId || undefined,
+      buyer_instruction_id: safeString(buyerId) || undefined,
+      pdf_title: titleVal,
+      pdfTitle: titleVal,
+      document_title: titleVal,
+      documentTitle: titleVal,
+      title: titleVal,
+      letterhead_space: Boolean(letterhead),
+      header_enabled: Boolean(letterhead),
+      letterhead: Boolean(letterhead),
+      is_watermark_enabled: Boolean(watermark),
+      watermark: Boolean(watermark),
+      company_name: safeString(companyName),
+      seller_logo: (!hasUserClearedLogoRef.current && companyLogoUrl && !companyLogoUrl.startsWith('blob:'))
+        ? (normalizeSignaturePayload(companyLogoUrl) || safeString(companyLogoUrl))
+        : '',
+      seller_logo_url: (!hasUserClearedLogoRef.current && companyLogoUrl && !companyLogoUrl.startsWith('blob:'))
+        ? (normalizeSignaturePayload(companyLogoUrl) || safeString(companyLogoUrl))
+        : '',
+      remove_seller_logo: hasUserClearedLogoRef.current || !companyLogoUrl,
+      seller_id: safeString(sellerId),
+      seller_name: safeString(companyName),
+      seller_details: safeString(sellerDetails),
+      buyer_id: safeString(buyerId),
+      buyer_name: safeString(buyerName),
+      buyer_details: safeString(buyerDetails),
+      invoice_number: safeString(invoiceNumber),
+      gst_number: safeString(gstNumber),
+      registration_number: safeString(gstNumber),
+      gst_label: safeString(gstNumber).includes('\n') ? safeString(gstNumber).split('\n')[0] : 'GST Number:',
+      registration_label: safeString(gstNumber).includes('\n') ? safeString(gstNumber).split('\n')[0] : 'Registration Number:',
+      invoice_date: safeString(invoiceDate),
+      buyer_order_no_date: safeString(buyerOrderNoDate),
+      buyer_order_no: safeString(buyerOrderNoDate),
+      purchase_order_no: safeString(purchaseOrderNo),
+      contract_date: safeString(contractDate),
+      other_reference: safeString(otherReferences),
+      other_references: safeString(otherReferences),
+      otherReference: safeString(otherReferences),
+      otherReferences: safeString(otherReferences),
+      pre_carriage_by: formatPreCarriageBy(preCarriageBy, 'BY SEA'),
+      place_of_receipt: safeString(placeOfReceipt),
+      country_of_origin: safeString(countryOfOrigin),
+      country_of_destination: safeString(countryOfDestination),
+      vessel_voyage_no: safeString(vesselVoyageNo, ''),
+      port_of_loading: safeString(portOfLoading),
+      terms_of_delivery_payment: safeString(termsDeliveryPayment),
+      port_of_destination: safeString(portOfDestination),
+      final_destination: safeString(finalDestination),
+      count_vessel: safeString(countVessel),
+      goods_description: safeString(goodsDescription),
+      quantity_mt: parseFloat(String(quantityMt || 0).replace(/,/g, '')) || 0,
+      currency: safeString(currency, 'USD'),
+      rate_price: parseFloat(String(ratePrice || 0).replace(/,/g, '')) || 0,
+      item_amount: computedItemAmount,
+      advance_payment: parseFloat(String(advancePayment || 0).replace(/,/g, '')) || 0,
+      advance_payment_amt: parseFloat(String(advancePayment || 0).replace(/,/g, '')) || 0,
+      advance_amount: parseFloat(String(advancePayment || 0).replace(/,/g, '')) || 0,
+      total_amount: computedTotal,
+      amount_in_words: effectiveAmountInWords,
+      bank_details_id: safeString(selectedBankId),
+      bank_account_id: safeString(selectedBankId),
+      bank_details: safeString(bankAccountDetails),
+      seller_signature_field: safeString(companyName),
+      seller_signature_label: safeString(authoritySignatureTitle),
+      authority_signature_title: safeString(authoritySignatureTitle),
+      authorised_signature_title: safeString(authoritySignatureTitle),
+      remove_seller_signature: !stampImageUrl || hasUserClearedSignatureRef.current,
+      remove_signature: !stampImageUrl || hasUserClearedSignatureRef.current,
+      stamp_image_url: safeString(stampImageUrl),
+      authorised_signature: normalizeSignaturePayload(stampImageUrl) || safeString(stampImageUrl),
+      authority_signature: normalizeSignaturePayload(stampImageUrl) || safeString(stampImageUrl),
+      signature: normalizeSignaturePayload(stampImageUrl) || safeString(stampImageUrl),
+      seller_signature: normalizeSignaturePayload(stampImageUrl) || safeString(stampImageUrl),
+      stamp: normalizeSignaturePayload(stampImageUrl) || safeString(stampImageUrl),
+      bank_charges_note: safeString(bankChargesNote),
+      comment_label: safeString(commentLabel),
+      comment_value: safeString(commentValue),
+      comment_title: safeString(commentLabel),
+      comment_text: safeString(commentValue),
+    };
+  }, [
+    getEffectiveProformaId,
+    draftId,
+    proformaId,
+    contractId,
+    confirmationId,
+    documentTitle,
+    letterhead,
+    watermark,
+    companyName,
+    companyLogoUrl,
+    sellerId,
+    sellerDetails,
+    buyerId,
+    buyerName,
+    buyerDetails,
+    invoiceNumber,
+    gstNumber,
+    invoiceDate,
+    buyerOrderNoDate,
+    purchaseOrderNo,
+    contractDate,
+    otherReferences,
+    preCarriageBy,
+    placeOfReceipt,
+    countryOfOrigin,
+    countryOfDestination,
+    vesselVoyageNo,
+    portOfLoading,
+    termsDeliveryPayment,
+    portOfDestination,
+    finalDestination,
+    countVessel,
+    goodsDescription,
+    quantityMt,
+    currency,
+    ratePrice,
+    computedItemAmount,
+    advancePayment,
+    computedTotal,
+    effectiveAmountInWords,
+    selectedBankId,
+    bankAccountDetails,
+    stampImageUrl,
+    authoritySignatureTitle,
+    bankChargesNote,
+    commentLabel,
+    commentValue,
+  ]);
+
+  // Client-side validation function for Proforma Invoice
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!invoiceNumber || !invoiceNumber.trim()) {
+      newErrors.invoiceNumber = 'Invoice number is required';
+    }
+    if (!invoiceDate || !invoiceDate.trim()) {
+      newErrors.invoiceDate = 'Please select a valid invoice date';
+    }
+    if (!selectedBankId) {
+      newErrors.selectedBankId = 'Please select a bank account';
+    }
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      scrollToAndFocusProformaField(newErrors);
+      const firstErrorMessage = Object.values(newErrors)[0];
+      toast.error(firstErrorMessage || 'Please fill in all required fields');
+      return false;
+    }
+    return true;
+  };
+
+  // Handle Save As Draft
+  const handleSaveDraft = async () => {
+    if (isSavingDraft || isSubmitting) return;
+    isSavingOrSubmittingRef.current = true;
+    setIsSavingDraft(true);
+    setErrors({});
+    try {
+      const formDataPayload = getProformaFormData();
+      const plainPayload = buildPayload();
+      let res: any;
+      if (onSaveDraft) {
+        res = await onSaveDraft(formDataPayload);
+      } else {
+        res = await saveProformaDraftAction(formDataPayload, lang, getEffectiveProformaId() || draftId || proformaId);
+      }
+
+      if (!res) {
+        toast.error('No response received while saving draft. Please retry.');
+        return;
+      }
+
+      const hasFieldErrors = Boolean(
+        (Array.isArray(res?.error_fields) && res.error_fields.length > 0) ||
+        (Array.isArray(res?.errors) && res.errors.length > 0) ||
+        (res?.errors && typeof res.errors === 'object' && Object.keys(res.errors).length > 0) ||
+        (res?.error_fields && typeof res.error_fields === 'object' && Object.keys(res.error_fields).length > 0)
+      );
+
+      const isFailed = res?.success === false || res?.success === 0 || hasFieldErrors;
+
+      if (isFailed) {
+        const { fieldErrors, generalError } = parseProformaBackendErrors(res);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors(fieldErrors);
+          scrollToAndFocusProformaField(fieldErrors);
+        }
+        const firstFieldErr = Object.values(fieldErrors)[0];
+        const toastMsg =
+          (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
+          firstFieldErr ||
+          res?.message ||
+          res?.error ||
+          'Failed to save draft. Please check highlighted fields.';
+        toast.error(toastMsg);
+        return;
+      }
+
+      const savedId = String(
+        res?.id ||
+        res?.data?.id ||
+        res?.data?.proforma_id ||
+        res?.data?.proforma_invoice_id ||
+        draftId ||
+        proformaId ||
+        ''
+      );
+      if (savedId) {
+        lastLoadedDocIdRef.current = savedId;
+        setDraftId(savedId);
+      }
+      isFormInitializedRef.current = true;
+      isUserDirtyRef.current = false;
+      isDraftSavedToBackendRef.current = true;
+      setIsDirty(false);
+      setHasDraftChanges(false);
+      setHasSubmitChanges(true);
+      const statusFromRes = extractDocumentStatus(res?.data) || extractDocumentStatus(res);
+      if (statusFromRes) {
+        setDocStatus(statusFromRes);
+      }
+      setErrors({});
+      toast.success(res?.message || 'Proforma Invoice saved as draft!');
+      if (savedId) {
+        const extracted =
+          extractProformaData(res?.data) ||
+          (typeof res?.data === 'object' && res?.data !== null ? res.data : {});
+        // Synchronize fresh signature URL from backend response if available (exactly like in Contract)
+        const sSellerSig =
+          extracted?.seller_signature ||
+          extracted?.seller_signature_url ||
+          extracted?.signature ||
+          extracted?.authorised_signature ||
+          extracted?.stamp_image_url ||
+          res?.data?.seller_signature ||
+          res?.data?.seller_signature_url ||
+          res?.data?.signature ||
+          res?.data?.authorised_signature ||
+          res?.data?.stamp_image_url;
+
+        if (hasUserClearedSignatureRef.current || !stampImageUrl) {
+          setStampImageUrl('');
+        } else if (sSellerSig) {
+          setStampImageUrl(formatSignatureUrl(sSellerSig));
+        }
+
+        // Synchronize fresh seller logo URL from backend response if available
+        const sSellerLogo =
+          resolveSellerLogoValue(res?.data?.seller_details, sellers, sellerId) ||
+          resolveSellerLogoValue(res?.seller_details, sellers, sellerId) ||
+          resolveSellerLogoValue(extracted?.seller_details, sellers, sellerId) ||
+          resolveSellerLogoValue(res?.data, sellers, sellerId) ||
+          resolveSellerLogoValue(extracted, sellers, sellerId) ||
+          resolveSellerLogoValue(res, sellers, sellerId) ||
+          res?.data?.seller_details?.company_logo ||
+          res?.seller_details?.company_logo ||
+          extracted?.seller_details?.company_logo ||
+          extracted?.seller_logo ||
+          extracted?.seller_logo_url ||
+          res?.data?.seller_logo ||
+          res?.data?.seller_logo_url ||
+          res?.data?.proforma?.seller_logo ||
+          res?.data?.proforma?.seller_logo_url ||
+          res?.data?.proforma_invoice?.seller_logo ||
+          res?.data?.proforma_invoice?.seller_logo_url ||
+          res?.data?.data?.seller_logo ||
+          res?.data?.data?.seller_logo_url ||
+          res?.seller_logo ||
+          res?.seller_logo_url;
+
+        let effectiveFinalLogo = companyLogoUrl || '';
+        if (hasUserClearedLogoRef.current) {
+          effectiveFinalLogo = '';
+          setCompanyLogoUrl('');
+          setLogoFile(null);
+        } else if (sSellerLogo) {
+          const formattedLogo = formatSignatureUrl(sSellerLogo) || sSellerLogo;
+          if (formattedLogo) {
+            effectiveFinalLogo = formattedLogo;
+            setCompanyLogoUrl(formattedLogo);
+            setLogoFile(null);
+          }
+        }
+
+        const mergedSavedData = {
+          ...plainPayload,
+          ...extracted,
+          seller_logo: effectiveFinalLogo,
+          seller_logo_url: effectiveFinalLogo,
+          id: savedId,
+          proforma_id: savedId,
+        };
+        if (onSaveSuccess) {
+          onSaveSuccess(savedId, mergedSavedData);
+        }
+      }
+      return res;
+    } catch (err: any) {
+      console.error('[ProformaDocumentForm] Save draft error:', err);
+      const { fieldErrors, generalError } = parseProformaBackendErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setErrors(fieldErrors);
+        scrollToAndFocusProformaField(fieldErrors);
+      }
+      const firstFieldErr = Object.values(fieldErrors)[0];
+      const toastMsg =
+        (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
+        firstFieldErr ||
+        err?.message ||
+        'Error occurred while saving draft';
+      toast.error(toastMsg);
+    } finally {
+      isSavingOrSubmittingRef.current = false;
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Handle Submit Proforma
+  const handleSubmit = async () => {
+    if (isSubmitting || isSavingDraft) return;
+
+    if (!validateForm()) {
+      return;
+    }
+
+    isSavingOrSubmittingRef.current = true;
+    setIsSubmitting(true);
+    setErrors({});
+    try {
+      const formDataPayload = getProformaFormData();
+      const plainPayload = buildPayload();
+      let res: any;
+      if (onSubmitProforma) {
+        res = await onSubmitProforma(formDataPayload, getEffectiveProformaId() || draftId || proformaId);
+      } else {
+        res = await submitProformaAction(formDataPayload, lang, getEffectiveProformaId() || draftId || proformaId);
+      }
+
+      if (!res) {
+        toast.error('No response received while submitting proforma. Please retry.');
+        return;
+      }
+
+      const hasFieldErrors = Boolean(
+        (Array.isArray(res?.error_fields) && res.error_fields.length > 0) ||
+        (Array.isArray(res?.errors) && res.errors.length > 0) ||
+        (res?.errors && typeof res.errors === 'object' && Object.keys(res.errors).length > 0) ||
+        (res?.error_fields && typeof res.error_fields === 'object' && Object.keys(res.error_fields).length > 0)
+      );
+
+      const isFailed = res?.success === false || res?.success === 0 || hasFieldErrors;
+
+      if (isFailed) {
+        const { fieldErrors, generalError } = parseProformaBackendErrors(res);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors(fieldErrors);
+          scrollToAndFocusProformaField(fieldErrors);
+        }
+        const firstFieldErr = Object.values(fieldErrors)[0];
+        const toastMsg =
+          (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
+          firstFieldErr ||
+          res?.message ||
+          res?.error ||
+          'Failed to submit Proforma Invoice';
+        toast.error(toastMsg);
+        return;
+      }
+
+      const savedId = String(
+        res?.id ||
+        res?.data?.id ||
+        res?.data?.proforma_id ||
+        res?.data?.proforma_invoice_id ||
+        draftId ||
+        proformaId ||
+        ''
+      );
+      if (savedId) {
+        lastLoadedDocIdRef.current = savedId;
+        setDraftId(savedId);
+      }
+      isFormInitializedRef.current = true;
+      isUserDirtyRef.current = false;
+      isDraftSavedToBackendRef.current = true;
+      setIsDirty(false);
+      setHasDraftChanges(false);
+      setHasSubmitChanges(false);
+      setDocStatus('COMPLETED');
+      setErrors({});
+      toast.success(res?.message || 'Proforma Invoice submitted successfully!');
+      if (savedId) {
+        const extracted =
+          extractProformaData(res?.data) ||
+          (typeof res?.data === 'object' && res?.data !== null ? res.data : {});
+        // Synchronize fresh signature URL from backend response if available (exactly like in Contract)
+        const sSellerSig =
+          extracted?.seller_signature ||
+          extracted?.seller_signature_url ||
+          extracted?.signature ||
+          extracted?.authorised_signature ||
+          extracted?.stamp_image_url ||
+          res?.data?.seller_signature ||
+          res?.data?.seller_signature_url ||
+          res?.data?.signature ||
+          res?.data?.authorised_signature ||
+          res?.data?.stamp_image_url;
+
+        if (hasUserClearedSignatureRef.current || !stampImageUrl) {
+          setStampImageUrl('');
+        } else if (sSellerSig) {
+          setStampImageUrl(formatSignatureUrl(sSellerSig));
+        }
+
+        // Synchronize fresh seller logo URL from backend response if available
+        const sSellerLogo =
+          resolveSellerLogoValue(res?.data?.seller_details, sellers, sellerId) ||
+          resolveSellerLogoValue(res?.seller_details, sellers, sellerId) ||
+          resolveSellerLogoValue(extracted?.seller_details, sellers, sellerId) ||
+          resolveSellerLogoValue(res?.data, sellers, sellerId) ||
+          resolveSellerLogoValue(extracted, sellers, sellerId) ||
+          resolveSellerLogoValue(res, sellers, sellerId) ||
+          res?.data?.seller_details?.company_logo ||
+          res?.seller_details?.company_logo ||
+          extracted?.seller_details?.company_logo ||
+          extracted?.seller_logo ||
+          extracted?.seller_logo_url ||
+          res?.data?.seller_logo ||
+          res?.data?.seller_logo_url ||
+          res?.data?.proforma?.seller_logo ||
+          res?.data?.proforma?.seller_logo_url ||
+          res?.data?.proforma_invoice?.seller_logo ||
+          res?.data?.proforma_invoice?.seller_logo_url ||
+          res?.data?.data?.seller_logo ||
+          res?.data?.data?.seller_logo_url ||
+          res?.seller_logo ||
+          res?.seller_logo_url;
+
+        let effectiveFinalLogo = companyLogoUrl || '';
+        if (hasUserClearedLogoRef.current) {
+          effectiveFinalLogo = '';
+          setCompanyLogoUrl('');
+          setLogoFile(null);
+        } else if (sSellerLogo) {
+          const formattedLogo = formatSignatureUrl(sSellerLogo) || sSellerLogo;
+          if (formattedLogo) {
+            effectiveFinalLogo = formattedLogo;
+            setCompanyLogoUrl(formattedLogo);
+            setLogoFile(null);
+          }
+        }
+
+        const mergedSavedData = {
+          ...plainPayload,
+          ...extracted,
+          seller_logo: effectiveFinalLogo,
+          seller_logo_url: effectiveFinalLogo,
+          id: savedId,
+          proforma_id: savedId,
+        };
+        if (onSaveSuccess) {
+          onSaveSuccess(savedId, mergedSavedData);
+        }
+      }
+      return res;
+    } catch (err: any) {
+      console.error('[ProformaDocumentForm] Submit error:', err);
+      const { fieldErrors, generalError } = parseProformaBackendErrors(err);
+      if (Object.keys(fieldErrors).length > 0) {
+        setErrors(fieldErrors);
+        scrollToAndFocusProformaField(fieldErrors);
+      }
+      const firstFieldErr = Object.values(fieldErrors)[0];
+      const toastMsg =
+        (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
+        firstFieldErr ||
+        err?.message ||
+        'Error occurred while submitting invoice';
+      toast.error(toastMsg);
+    } finally {
+      isSavingOrSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  // Track whether proforma has been explicitly saved to the backend at least once
+  const isDraftSavedToBackendRef = useRef<boolean>(
+    Boolean(
+      initialData?.proforma_id ||
+      initialData?.proforma_invoice_id ||
+      initialData?.invoice_number ||
+      initialData?.invoice_no
+    )
+  );
+
+  // Handle Print Preview
+  const handleOpenPrintPreview = async () => {
+    let effectiveId = getEffectiveProformaId();
+
+    // Auto-save draft if no ID exists, user made unsaved changes, or document not yet persisted
+    if (!effectiveId || hasDraftChanges || !isDraftSavedToBackendRef.current) {
+      setIsSavingDraft(true);
+      try {
+        const formDataPayload = getProformaFormData();
+        let res: any;
+        if (onSaveDraft) {
+          res = await onSaveDraft(formDataPayload);
+        } else {
+          res = await saveProformaDraftAction(formDataPayload, lang, effectiveId || undefined);
+        }
+        if (res?.success) {
+          const newId = String(
+            res.id ||
+            res.data?.id ||
+            res.data?._id ||
+            res.data?.proforma_id ||
+            res.data?.proforma_invoice_id ||
+            res.proforma_id ||
+            ''
+          );
+          if (newId) {
+            setDraftId(newId);
+            effectiveId = newId;
+            isDraftSavedToBackendRef.current = true;
+            setHasDraftChanges(false);
+            setHasSubmitChanges(true);
+            setIsDirty(false);
+            if (onSaveSuccess) onSaveSuccess(newId, res.data);
+          }
+        }
+      } catch (saveErr) {
+        console.error('[ProformaDocumentForm] Auto-save before preview failed:', saveErr);
+      } finally {
+        setIsSavingDraft(false);
+      }
+    }
+
+    if (!effectiveId) {
+      toast.error(
+        dict?.smart_docs?.contract_form?.save_draft_first_preview ||
+        dict?.smart_docs?.confirmation_form?.save_draft_first_preview ||
+        'Please save the draft first to preview the document.'
+      );
+      return;
+    }
+
+    setIsPrintPreviewOpen(true);
+  };
+
+  // Handle PDF Download
+  const handleDownloadPdf = async () => {
+    let effectiveId = getEffectiveProformaId();
+
+    // Auto-save draft if no ID exists, user made unsaved changes, or document not yet persisted
+    if (!effectiveId || hasDraftChanges || !isDraftSavedToBackendRef.current) {
+      setIsSavingDraft(true);
+      try {
+        const formDataPayload = getProformaFormData();
+        let res: any;
+        if (onSaveDraft) {
+          res = await onSaveDraft(formDataPayload);
+        } else {
+          res = await saveProformaDraftAction(formDataPayload, lang, effectiveId || undefined);
+        }
+        if (res?.success) {
+          const newId = String(
+            res.id ||
+            res.data?.id ||
+            res.data?._id ||
+            res.data?.proforma_id ||
+            res.data?.proforma_invoice_id ||
+            res.proforma_id ||
+            ''
+          );
+          if (newId) {
+            setDraftId(newId);
+            effectiveId = newId;
+            isDraftSavedToBackendRef.current = true;
+            setHasDraftChanges(false);
+            setHasSubmitChanges(true);
+            setIsDirty(false);
+            if (onSaveSuccess) onSaveSuccess(newId, res.data);
+          }
+        }
+      } catch (saveErr) {
+        console.error('[ProformaDocumentForm] Auto-save before download failed:', saveErr);
+      } finally {
+        setIsSavingDraft(false);
+      }
+    }
+
+    if (!effectiveId) {
+      toast.error(
+        dict?.smart_docs?.contract_form?.save_draft_first_download ||
+        dict?.smart_docs?.confirmation_form?.save_draft_first_download ||
+        'Please save as draft first before downloading PDF.'
+      );
+      return;
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      const res = await downloadDocPdfAction({
+        prefix: 'proforma',
+        id: effectiveId,
+        candidateIds: [
+          effectiveId,
+          draftId,
+          proformaId,
+          contractId,
+          confirmationId,
+        ].filter((x): x is string => Boolean(x)),
+        contractId,
+        confirmationId,
+        lang,
+      });
+
+      if (res?.success) {
+        const numCandidate =
+          invoiceNumber ||
+          purchaseOrderNo ||
+          initialData?.invoice_number ||
+          initialData?.invoice_no ||
+          effectiveId;
+
+        const cleanNumber = String(numCandidate)
+          .replace(/^#+/, '')
+          .replace(/[/\\?%*:|"<>]/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+
+        const downloadName = `PROFORMA-INVOICE-${cleanNumber}.pdf`;
+
+        const downloaded = downloadPdfFromActionResponse(res, downloadName);
+        if (downloaded) {
+          toast.success(
+            dict?.smart_docs?.pdf_download_success || 'Proforma Invoice PDF downloaded!'
+          );
+        } else {
+          toast.error(res?.message || 'No PDF data received from server');
+        }
+      } else {
+        toast.error(res?.message || res?.error || 'Failed to download PDF');
+      }
+    } catch (err: any) {
+      console.error('[ProformaDocumentForm] Download PDF error:', err);
+      toast.error(err?.message || 'Failed to download PDF');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const deliveryTermsDisplay = safeString(termsDeliveryPayment, 'CNF');
+  const shortTermsDisplay = deliveryTermsDisplay.split(' ')[0] || 'CNF';
+
+  return (
+    <div
+      id="proforma-form-card"
+      onInput={markDirty}
+      onChange={markDirty}
+      className="w-full h-auto lg:h-full flex flex-col min-h-fit lg:min-h-0 bg-card text-foreground rounded-xl relative border border-border shadow-xs"
+    >
+      {/* Scrollable Viewport */}
+      <div className="w-full flex-none lg:flex-1 min-h-fit lg:min-h-0 overflow-visible lg:overflow-y-scroll lg:overscroll-contain custom-scrollbar">
+        {/* 
+          TOP HEADER BAR:
+          - Left: Round Company Logo (seller_logo) with Change & Remove
+          - Center: Seller Name + PROFORMA INVOICE Title (Centered Properly)
+          - Right: Letterhead on top, and Watermark underneath in proper vertical alignment
+        */}
+        <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-border flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-4 bg-card">
+          {/* Left: Round Company Logo (seller_logo) */}
+          <div className="flex items-center shrink-0 min-w-[50px] sm:w-[140px]">
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLogoUpload}
+            />
+            {companyLogoUrl ? (
+              <div className="relative group/logo shrink-0">
+                {/* Round Avatar Container */}
+                <div
+                  onClick={() => !readOnly && logoInputRef.current?.click()}
+                  title={readOnly ? 'Company Logo' : 'Click to change logo'}
+                  className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-full border-2 border-border/80 hover:border-primary/80 bg-background/90 hover:bg-background shadow-xs transition-all flex items-center justify-center overflow-hidden cursor-pointer group"
+                >
+                  <img
+                    src={formatSignatureUrl(companyLogoUrl) || companyLogoUrl}
+                    alt="Company Logo"
+                    className="w-full h-full object-contain p-1.5 rounded-full filter drop-shadow-2xs"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (companyLogoUrl && target.src !== companyLogoUrl && !companyLogoUrl.startsWith('blob:')) {
+                        target.src = companyLogoUrl;
+                      }
+                    }}
+                  />
+                  {!readOnly && (
+                    <div className="absolute inset-0 bg-black/45 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full backdrop-blur-[0.5px]">
+                      <i className="fa-solid fa-camera text-[10px]" />
+                      <span className="text-[7.5px] font-medium leading-none mt-0.5">Edit</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Corner Badges: Top-Right (Remove) & Bottom-Right (Edit) */}
+                {!readOnly && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleRemoveLogo}
+                      title="Remove logo"
+                      aria-label="Remove logo"
+                      className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-destructive text-white flex items-center justify-center shadow-xs text-[8px] hover:bg-destructive/90 hover:scale-110 transition-all cursor-pointer z-10"
+                    >
+                      <i className="fa-solid fa-xmark" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      title="Change logo"
+                      aria-label="Change logo"
+                      className="absolute -bottom-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xs text-[7.5px] hover:bg-primary-hover hover:scale-110 transition-all cursor-pointer z-10"
+                    >
+                      <i className="fa-solid fa-camera" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div
+                onClick={() => !readOnly && logoInputRef.current?.click()}
+                className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-full border-2 border-dashed border-border/90 hover:border-primary/80 bg-muted/20 hover:bg-muted/40 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-all shadow-2xs cursor-pointer group/avatar shrink-0"
+                title={readOnly ? 'Company Logo' : 'Click to upload logo'}
+              >
+                <div className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover/avatar:scale-110 transition-transform">
+                  <i className="fa-regular fa-image text-[11px]" />
+                </div>
+                <span className="text-[7.5px] sm:text-[8px] font-bold text-muted-foreground group-hover/avatar:text-primary mt-0.5 tracking-wider uppercase leading-none">
+                  LOGO
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Center: Seller Name & PROFORMA INVOICE Title (Centered Properly) */}
+          <div className="flex flex-col items-center justify-center flex-1 max-w-md mx-auto order-last sm:order-none w-full sm:w-auto text-center" id="field-documentTitle" data-field="documentTitle">
+            {companyName && (
+              <div className="text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground text-center">
+                {companyName}
+              </div>
+            )}
+
+            {/* Document Title with Pencil */}
+            <div className="inline-flex items-center justify-center gap-1.5 max-w-full mt-0.5">
+              <input
+                ref={titleInputRef}
+                type="text"
+                value={documentTitle}
+                onChange={(e) => {
+                  markDirty();
+                  setDocumentTitle(e.target.value);
+                  if (e.target.value.trim()) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      documentTitle: '',
+                      document_title: '',
+                      pdf_title: '',
+                      pdfTitle: '',
+                      title: '',
+                    }));
+                  }
+                }}
+                disabled={readOnly}
+                placeholder="PROFORMA INVOICE"
+                aria-label="Document Title"
+                className={`text-xs sm:text-sm md:text-[14px] font-extrabold uppercase tracking-widest text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:bg-transparent rounded-sm px-1.5 py-0.5 w-auto min-w-[150px] max-w-[240px] sm:max-w-xs cursor-text transition-all ${
+                  (errors.documentTitle || errors.document_title || errors.pdf_title || errors.pdfTitle || errors.title)
+                    ? '!text-brand-red font-bold'
+                    : 'text-foreground'
+                }`}
+              />
+              {!readOnly && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => titleInputRef.current?.focus()}
+                  title="Edit document title"
+                  aria-label="Edit document title"
+                  className="w-5 h-5 flex items-center justify-center rounded-full text-primary hover:text-primary-hover hover:bg-primary/10 text-[11px] transition-colors cursor-pointer shrink-0 outline-none focus:outline-none"
+                >
+                  <i className="fa-solid fa-pen" />
+                </button>
+              )}
+            </div>
+            {/* Dotted Accent Underline */}
+            <div
+              className={`w-36 sm:w-56 md:w-60 border-b-2 ${
+                (errors.documentTitle || errors.document_title || errors.pdf_title || errors.pdfTitle || errors.title)
+                  ? 'border-solid !border-brand-red'
+                  : 'border-dotted border-primary/70'
+              } mt-0.5 transition-all`}
+            />
+            {(errors.documentTitle || errors.document_title || errors.pdf_title || errors.pdfTitle || errors.title) && (
+              <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center justify-center gap-1.5">
+                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                <span className="text-brand-red">
+                  {errors.documentTitle || errors.document_title || errors.pdf_title || errors.pdfTitle || errors.title}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {/* Desktop Right: Letterhead on top, Watermark underneath in proper alignment */}
+          <div className="hidden sm:flex flex-col items-end justify-center gap-1.5 shrink-0 min-w-[120px] sm:w-[140px]">
+            <DocToggle
+              label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
+              checked={letterhead}
+              onChange={(val) => {
+                markDirty();
+                setLetterhead(val);
+              }}
+              disabled={readOnly}
+            />
+            <DocToggle
+              label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
+              checked={watermark}
+              onChange={(val) => {
+                markDirty();
+                setWatermark(val);
+              }}
+              disabled={readOnly}
+            />
+          </div>
+
+          {/* Mobile Right: Letterhead on top, Watermark underneath */}
+          <div className="flex sm:hidden flex-col items-end gap-1.5 shrink-0">
+            <DocToggle
+              label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
+              checked={letterhead}
+              onChange={(val) => {
+                markDirty();
+                setLetterhead(val);
+              }}
+              disabled={readOnly}
+            />
+            <DocToggle
+              label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
+              checked={watermark}
+              onChange={(val) => {
+                markDirty();
+                setWatermark(val);
+              }}
+              disabled={readOnly}
+            />
+          </div>
+        </div>
+
+        {/* 
+          DOCUMENT GRID / TABLE:
+          Strict Theme & Font-Size Compliance:
+          - Every label: font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider
+          - Fields without input (Purchase Order No, Contract Date, Ports, Origin, Vessel, Count, Goods, etc.):
+            Clean select-all text display with span/div, NO raw inputs that can be deleted!
+        */}
+        <div className="w-full flex flex-col text-xs divide-y divide-border border-b border-border bg-card">
+          {/* 
+            ROW 1 & 2: 
+            Left Side (37%): EXPORTER / SELLER (Top) & CONSIGNEE / BUYER (Bottom)
+            Right Side (63%): Invoicing & Reference Info
+          */}
+          <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
+            {/* LEFT COLUMN: Exporter (Top) & Importer (Bottom) */}
+            <div className="w-full md:w-[37%] shrink-0 flex flex-col divide-y divide-border">
+              {/* EXPORTER / SELLER: NON-INPUT TEXT DISPLAY ONLY */}
+              <div className="p-2.5 sm:p-3 flex flex-col gap-1.5 min-h-[145px] justify-start bg-card" id="field-sellerId" data-field="sellerId">
+                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                  EXPORTER / SELLER:
+                </label>
+
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                  {sellerDetails || companyName}
+                </div>
+                {(errors.sellerId || errors.seller_id) && (
+                  <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                    <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                    <span className="text-brand-red">{errors.sellerId || errors.seller_id}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* IMPORTER (BUYER): NON-INPUT TEXT DISPLAY ONLY */}
+              <div className="p-2.5 sm:p-3 flex flex-col gap-1.5 min-h-[145px] justify-start bg-card" id="field-buyerId" data-field="buyerId">
+                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                  CONSIGNEE / BUYER:
+                </label>                
+
+                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                  {buyerDetails}
+                </div>
+                {(errors.buyerId || errors.buyer_id) && (
+                  <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                    <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                    <span className="text-brand-red">{errors.buyerId || errors.buyer_id}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: Invoicing & Reference Mini-Grids */}
+            <div className="w-full md:w-[63%] min-w-0 flex-1 flex flex-col divide-y divide-border">
+              {/* TOP BLOCK: INVOICE NO / DATE & GST, BUYER'S ORDER NO */}
+              <div className="flex flex-col divide-y divide-border min-h-[145px] justify-between">
+                {/* 2-Column Split: Left (INVOICE NO & DATE) | Right (GST Number) */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 divide-y sm:divide-y-0 sm:divide-x divide-border">
+                  {/* Left Sub-Column (INVOICE NO & INVOICE DATE) */}
+                  <div className="sm:col-span-7 flex flex-col divide-y divide-border">
+                    {/* INVOICE NO: */}
+                    <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-invoiceNumber" data-field="invoiceNumber">
+                      <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
+                        INVOICE NO:
+                      </label>
+                      <div className="flex-1 min-w-0 w-full sm:w-auto">
+                        <DocUnderlineInput
+                          id="invoice-number-input"
+                          value={invoiceNumber}
+                          onChange={(v) => {
+                            markDirty();
+                            setInvoiceNumber(v);
+                            if (v.trim()) {
+                              setErrors((prev) => ({ ...prev, invoiceNumber: '', invoice_number: '' }));
+                            }
+                          }}
+                          error={errors.invoiceNumber || errors.invoice_number}
+                          disabled={readOnly}
+                          placeholder="Enter Invoice No"
+                          icon="fa-solid fa-pen"
+                          inputClassName="text-[14px] font-bold"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+
+                    {/* INVOICE DATE: */}
+                    <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-invoiceDate" data-field="invoiceDate">
+                      <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
+                        INVOICE DATE:
+                      </label>
+                      <div className="flex-1 min-w-0 w-full sm:w-auto">
+                        <DocUnderlineInput
+                          id="field-invoiceDate-input"
+                          type="date"
+                          value={invoiceDate}
+                          onChange={(v) => {
+                            markDirty();
+                            setInvoiceDate(v);
+                            if (v.trim()) {
+                              setErrors((prev) => ({ ...prev, invoiceDate: '', invoice_date: '' }));
+                            }
+                          }}
+                          error={errors.invoiceDate || errors.invoice_date}
+                          disabled={readOnly}
+                          placeholder="Select Invoice Date"
+                          icon="fa-regular fa-calendar"
+                          inputClassName="text-[14px] font-bold"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Sub-Column (Registration / GST Number) */}
+                  <div className="sm:col-span-5 p-2 sm:p-2.5 flex flex-col justify-between min-h-[76px] h-full" id="field-gstNumber" data-field="gstNumber">
+                    <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                      REGISTRATION NO / GST:
+                    </label>
+                    <DocUnderlineInput
+                      ref={gstInputRef}
+                      id="field-gstNumber-input"
+                      multiline
+                      rows={2}
+                      value={gstNumber}
+                      onChange={(v) => {
+                        markDirty();
+                        setGstNumber(v);
+                        if (v.trim()) {
+                          setErrors((prev) => ({ ...prev, gstNumber: '', gst_number: '', registration_number: '' }));
+                        }
+                      }}
+                      error={errors.gstNumber || errors.gst_number || errors.registration_number}
+                      disabled={readOnly}
+                      placeholder="Enter Registration / GST Number"
+                      icon="fa-solid fa-pen"
+                      uppercase={false}
+                      inputClassName="text-[14px] font-bold text-foreground resize-none leading-relaxed"
+                      className="w-full h-full justify-between mt-1"
+                    />
+                  </div>
+                </div>
+
+                {/* BUYER'S ORDER NO & DATE: */}
+                <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-buyerOrderNoDate" data-field="buyerOrderNoDate">
+                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
+                    BUYER&apos;S ORDER NO & DATE:
+                  </label>
+                  <div className="flex-1 min-w-0 w-full sm:w-auto">
+                    <DocUnderlineInput
+                      id="field-buyerOrderNoDate-input"
+                      value={buyerOrderNoDate}
+                      onChange={(v) => {
+                        markDirty();
+                        setBuyerOrderNoDate(v);
+                        if (v.trim()) {
+                          setErrors((prev) => ({ ...prev, buyerOrderNoDate: '', buyer_order_no_date: '', buyer_order_no: '' }));
+                        }
+                      }}
+                      error={errors.buyerOrderNoDate || errors.buyer_order_no_date || errors.buyer_order_no}
+                      disabled={readOnly}
+                      placeholder="Enter Order No & Date"
+                      icon="fa-solid fa-pen"
+                      inputClassName="text-[14px] font-bold"
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* BOTTOM BLOCK: PURCHASE ORDER NO, CONTRACT DATE, OTHER REFERENCE */}
+              <div className="flex flex-col divide-y divide-border min-h-[145px] justify-between">
+                {/* 
+                  PURCHASE ORDER NO: 
+                  NON-INPUT DISPLAY VALUE: Rendered as clean text (no <input>).
+                  Cannot be deleted or removed by typing!
+                */}
+                <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-purchaseOrderNo" data-field="purchaseOrderNo">
+                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
+                    PURCHASE ORDER NO:
+                  </label>
+                  <div className="flex-1 min-w-0 w-full sm:w-auto flex flex-col justify-center min-h-[30px] px-1">
+                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
+                      {safeString(purchaseOrderNo, 'N/A')}
+                    </span>
+                    {(errors.purchaseOrderNo || errors.purchase_order_no) && (
+                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                        <span className="text-brand-red">{errors.purchaseOrderNo || errors.purchase_order_no}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 
+                  CONTRACT DATE: 
+                  NON-INPUT DISPLAY VALUE: Rendered as clean text (no <input>).
+                  Cannot be deleted or removed by typing!
+                */}
+                <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-contractDate" data-field="contractDate">
+                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
+                    CONTRACT DATE:
+                  </label>
+                  <div className="flex-1 min-w-0 w-full sm:w-auto flex flex-col justify-center min-h-[30px] px-1">
+                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
+                      {safeString(contractDate, 'N/A')}
+                    </span>
+                    {(errors.contractDate || errors.contract_date) && (
+                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                        <span className="text-brand-red">{errors.contractDate || errors.contract_date}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* OTHER REFERENCE (S): Editable Input */}
+                <div
+                  className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]"
+                  id="field-other_reference"
+                  data-field="other_reference"
+                >
+                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
+                    OTHER REFERENCE (S):
+                  </label>
+                  <div className="flex-1 min-w-0 w-full sm:w-auto">
+                    <DocUnderlineInput
+                      id="field-otherReferences-input"
+                      name="other_reference"
+                      value={otherReferences}
+                      onChange={(v) => {
+                        markDirty();
+                        setOtherReferences(v);
+                        if (v.trim()) {
+                          setErrors((prev) => ({
+                            ...prev,
+                            other_reference: '',
+                            otherReferences: '',
+                            other_references: '',
+                            otherReference: '',
+                          }));
+                        }
+                      }}
+                      error={errors.other_reference || errors.otherReferences || errors.other_references || errors.otherReference}
+                      disabled={readOnly}
+                      placeholder="Enter Other References"
+                      icon="fa-solid fa-pen"
+                      inputClassName="text-[14px] font-bold"
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 
+            ROW 3: 4-COLUMN SHIPPING & ORIGIN ROW:
+            Headers: font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider
+            Values: NON-INPUT DISPLAY VALUES (clean text, no <input> tags to remove)
+          */}
+          <div className="flex flex-col divide-y divide-border">
+            {/* Header Row */}
+            <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border bg-muted/20">
+              {/* Left 37% Headers */}
+              <div className="w-full md:w-[37%] shrink-0 grid grid-cols-2 divide-x divide-border">
+                <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider leading-tight flex items-center justify-center min-h-[38px]">
+                  PRE-CARRIAGE BY
+                </div>
+                <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider leading-tight flex items-center justify-center min-h-[38px]">
+                  PLACE OF RECEIPT<br className="hidden sm:inline" /> BY PRE-CARRIER
+                </div>
+              </div>
+
+              {/* Right 63% Headers */}
+              <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
+                <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider leading-tight flex items-center justify-center min-h-[38px]">
+                  COUNTRY OF ORIGIN
+                </div>
+                <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider leading-tight flex items-center justify-center min-h-[38px]">
+                  COUNTRY OF DESTINATION
+                </div>
+              </div>
+            </div>
+
+            {/* Values Row (NON-INPUT Text Display) */}
+            <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
+              {/* Left 37% Values */}
+              <div className="w-full md:w-[37%] shrink-0 grid grid-cols-2 divide-x divide-border">
+                <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    {formatPreCarriageBy(preCarriageBy, '') || '-'}
+                  </span>
+                </div>
+                <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    {safeString(placeOfReceipt || countryOfOrigin, '') || '-'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right 63% Values */}
+              <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
+                <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    {safeString(countryOfOrigin || placeOfReceipt, '') || '-'}
+                  </span>
+                </div>
+                <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    {safeString(countryOfDestination, '') || '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 
+            ROW 4: 3-COLUMN VESSEL & LOADING ROW:
+            Headers: font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider
+            Values: NON-INPUT DISPLAY VALUES (clean text, no <input> tags to remove)
+          */}
+          <div className="flex flex-col divide-y divide-border">
+            {/* Header Row */}
+            <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border bg-muted/20">
+              {/* Left 37% Header */}
+              <div className="w-full md:w-[37%] shrink-0 p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider leading-tight flex items-center justify-center min-h-[38px]">
+                VESSEL / VOYAGE NO.
+              </div>
+
+              {/* Right 63% Headers */}
+              <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
+                <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider leading-tight flex items-center justify-center min-h-[38px]">
+                  PORT OF LOADING
+                </div>
+                <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider leading-tight flex items-center justify-center min-h-[38px]">
+                  TERMS OF DELIVERY & PAYMENT
+                </div>
+              </div>
+            </div>
+
+            {/* Values Row (NON-INPUT Text Display) */}
+            <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
+              {/* Left 37% Value: Vessel / Flight No */}
+              <div className="w-full md:w-[37%] shrink-0 p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                  {safeString(vesselVoyageNo, '') || '-'}
+                </span>
+              </div>
+
+              {/* Right 63% Values */}
+              <div className="w-full md:w-[63%] min-w-0 flex-1 grid grid-cols-2 divide-x divide-border">
+                <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    {safeString(portOfLoading, '') || '-'}
+                  </span>
+                </div>
+                <div className="p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                    {deliveryTermsDisplay || '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 
+            ROW 5: 2-COLUMN DESTINATION PORTS ROW:
+            Headers: font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider
+            Values: NON-INPUT DISPLAY VALUES (clean text, no <input> tags to remove)
+          */}
+          <div className="flex flex-col divide-y divide-border">
+            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border bg-muted/20">
+              <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
+                PORT OF DESTINATION
+              </div>
+              <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
+                FINAL DESTINATION
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+              <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase whitespace-pre-line leading-relaxed">
+                  {safeString(portOfDestination, '') || '-'}
+                </span>
+              </div>
+              <div className="p-2.5 sm:p-3 text-center min-h-[44px] flex items-center justify-center">
+                <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase whitespace-pre-line leading-relaxed">
+                  {safeString(finalDestination, '') || '-'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 
+            ROW 6: GOODS & SERVICES TABLE:
+            Headers: font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider
+            Values: NON-INPUT DISPLAY VALUES (clean text, no <input> tags to remove)
+            Accounting Standard: All numerical amounts, rates, and quantities are strictly RIGHT ALIGNED (text-right)
+            and vertically maintained at the TOP (align-top).
+          */}
+          <div className="w-full overflow-x-auto custom-scrollbar">
+            <table className="w-full border-collapse text-left min-w-[700px]">
+              <thead>
+                <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
+                  <th className="py-2.5 px-3 border-r border-border w-[15%] text-left">
+                    COUNT / VESSEL
+                  </th>
+                  <th className="py-2.5 px-3 border-r border-border w-[43%] text-left">
+                    DESCRIPTIONS OF GOODS AND SERVICES
+                  </th>
+                  <th className="py-2.5 px-3 border-r border-border w-[14%] text-right">
+                    QUANTITY IN MT
+                  </th>
+                  <th className="py-2.5 px-3 border-r border-border w-[14%] text-right">
+                    {currency} {shortTermsDisplay}
+                  </th>
+                  <th className="py-2.5 px-3 w-[14%] text-right">
+                    AMOUNT IN {currency} ({currencySymbol})
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {/* Main Product Item Row: Quantity MT, USD CNF, and Amount are all maintained at the TOP (align-top) and RIGHT ALIGNED (text-right) */}
+                <tr className="divide-x divide-border">
+                  {/* COUNT / VESSEL (NON-INPUT Text) */}
+                  <td className="py-3 px-3 align-top text-left">
+                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
+                      {safeString(countVessel, '')}
+                    </span>
+                  </td>
+
+                  {/* DESCRIPTIONS OF GOODS AND SERVICES (NON-INPUT Text) */}
+                  <td className="py-3 px-3 align-top text-left" id="field-goodsDescription" data-field="goodsDescription">
+                    <div className="font-semibold text-[14px] text-foreground uppercase leading-relaxed whitespace-pre-line select-all">
+                      {safeString(goodsDescription, '')}
+                    </div>
+                    {(errors.goodsDescription || errors.goods_description) && (
+                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                        <span className="text-brand-red">{errors.goodsDescription || errors.goods_description}</span>
+                      </span>
+                    )}
+                  </td>
+
+                  {/* QUANTITY IN MT (NON-INPUT Text - Accounting Right Align) */}
+                  <td className="py-3 px-3 align-top text-right" id="field-quantityMt" data-field="quantityMt">
+                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all tabular-nums">
+                      {quantityMt ? `${safeString(quantityMt).replace(/,/g, '')} MT` : ''}
+                    </span>
+                    {(errors.quantityMt || errors.quantity_mt) && (
+                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center justify-end gap-1.5">
+                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                        <span className="text-brand-red">{errors.quantityMt || errors.quantity_mt}</span>
+                      </span>
+                    )}
+                  </td>
+
+                  {/* RATE (NON-INPUT Text - Accounting Right Align) */}
+                  <td className="py-3 px-3 align-top text-right" id="field-ratePrice" data-field="ratePrice">
+                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all tabular-nums">
+                      {ratePrice ? `${currencySymbol} ${formatAmountWithoutExtraZeros(ratePrice)}` : ''}
+                    </span>
+                    {(errors.ratePrice || errors.rate_price || errors.price) && (
+                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center justify-end gap-1.5">
+                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                        <span className="text-brand-red">{errors.ratePrice || errors.rate_price || errors.price}</span>
+                      </span>
+                    )}
+                  </td>
+
+                  {/* AMOUNT (NON-INPUT Text - Accounting Right Align & Top Align) */}
+                  <td className="py-3 px-3 align-top text-right">
+                    <span className="font-bold text-[14px] text-foreground tracking-wide select-all tabular-nums">
+                      {computedItemAmount > 0
+                        ? `${currencySymbol} ${formatAmountWithoutExtraZeros(computedItemAmount)}`
+                        : ''}
+                    </span>
+                  </td>
+                </tr>
+
+                {/* Advance Payment Row (NON-EDITABLE Text Display, Backend Value Only, No Deduction From Total) */}
+                <tr className="divide-x divide-border bg-card">
+                  <td colSpan={2} className="py-2.5 px-3" />
+                  <td
+                    colSpan={2}
+                    className="py-2.5 px-3 text-right font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider pr-4"
+                  >
+                    ADVANCE PAYMENT
+                  </td>
+                  <td className="py-2.5 px-3 align-top text-right">
+                    <span className="font-bold text-[14px] text-foreground tracking-wide select-all tabular-nums">
+                      {parseFloat(String(advancePayment || 0)) > 0
+                        ? `${currencySymbol} ${formatAmountWithoutExtraZeros(advancePayment)}`
+                        : `${currencySymbol} 0`}
+                    </span>
+                  </td>
+                </tr>
+
+                {/* Total & Amount in Words Row */}
+                <tr className="divide-x divide-border bg-muted/20">
+                  <td colSpan={2} className="py-2.5 px-3 align-top">
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                      <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 leading-normal">
+                        AMOUNT IN WORDS:
+                      </span>
+                      <span className="font-bold text-[14px] text-foreground uppercase tracking-wide select-all leading-normal">
+                        {effectiveAmountInWords}
+                      </span>
+                    </div>
+                  </td>
+                  <td
+                    colSpan={2}
+                    className="py-2.5 px-3 text-right font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider pr-4"
+                  >
+                    TOTAL
+                  </td>
+                  <td className="py-2.5 px-3 align-top text-right">
+                    <span className="font-bold text-[14px] text-foreground tracking-wide select-all tabular-nums">
+                      {currencySymbol}{' '}
+                      {formatAmountWithoutExtraZeros(computedTotal)}
+                    </span>
+                  </td>
+                </tr>
+
+                {/* 
+                  ROW 7: BANK ACCOUNT & AUTHORITY SIGNATURE / STAMP
+                  Placed directly inside the table as a <tr> so the vertical border between
+                  colSpan={2} (Bank Account) and colSpan={3} (Authority Signature) is
+                  THE EXACT SAME VERTICAL LINE as between AMOUNT IN WORDS (colSpan={2}) and TOTAL (colSpan={2})!
+                */}
+                <tr className="divide-x divide-border bg-card">
+                  {/* Left Column (colSpan 2): Bank Account Details */}
+                  <td colSpan={2} className="p-2.5 sm:p-3 align-top" id="field-selectedBankId" data-field="selectedBankId">
+                    <input type="hidden" name="bank_details_id" value={selectedBankId} />
+                    <input type="hidden" name="bank_account_id" value={selectedBankId} />
+                    <div className="flex flex-col justify-start gap-2 h-full">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-h-[30px] sm:min-h-[32px]">
+                        <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 leading-normal">
+                          SELECT BANK ACCOUNT:
+                        </label>
+                        <div className="flex-1 min-w-0 w-full sm:w-auto">
+                          <DocUnderlineSelect
+                            id="field-selectedBankId-select"
+                            loading={isLoadingBankAccounts}
+                            options={(() => {
+                              if (sellerBankAccounts.length > 0) {
+                                const opts = [
+                                  {
+                                    value: '',
+                                    label: 'Select Bank Account',
+                                    subLabel: '',
+                                  },
+                                  ...sellerBankAccounts.map((b) => {
+                                    const bankTitle = safeString(
+                                      b.name || b.bank_name || b.bankName || b.account_name,
+                                      'Bank Account'
+                                    );
+                                    let bankSub = '';
+                                    if (b.account_number || b.account_no) {
+                                      bankSub = `A/C: ${b.account_number || b.account_no}`;
+                                    } else if (b.branch || b.branch_name) {
+                                      bankSub = `Branch: ${b.branch || b.branch_name}`;
+                                    } else if (b.account_details && typeof b.account_details === 'string') {
+                                      const firstLine = b.account_details.split('\n')[0]?.trim();
+                                      if (firstLine && firstLine !== bankTitle) {
+                                        bankSub = firstLine;
+                                      }
+                                    }
+                                    const primaryId = safeString(b.bank_details_id || b.id || b._id);
+                                    return {
+                                      value: primaryId,
+                                      id: safeString(b.id || b.bank_details_id || b._id),
+                                      bank_details_id: primaryId,
+                                      bank_account_id: primaryId,
+                                      label: bankTitle,
+                                      subLabel: bankSub,
+                                    };
+                                  }),
+                                ];
+
+                                if (
+                                  selectedBankId &&
+                                  !opts.some(
+                                    (o) =>
+                                      String(o.value) === String(selectedBankId) ||
+                                      String((o as any).id) === String(selectedBankId) ||
+                                      String((o as any).bank_details_id) === String(selectedBankId) ||
+                                      String((o as any).bank_account_id) === String(selectedBankId)
+                                  )
+                                ) {
+                                  let fallbackLabel = 'Selected Bank Account';
+                                  if (bankAccountDetails) {
+                                    const matchLine = bankAccountDetails
+                                      .split('\n')
+                                      .find((l) => /bank name/i.test(l) || /a\/c holder/i.test(l));
+                                    if (matchLine) {
+                                      fallbackLabel = matchLine.replace(/^[^:]+:\s*/, '').trim();
+                                    }
+                                  }
+                                  opts.push({
+                                    value: selectedBankId,
+                                    id: selectedBankId,
+                                    bank_details_id: selectedBankId,
+                                    bank_account_id: selectedBankId,
+                                    label: fallbackLabel,
+                                    subLabel: '',
+                                  });
+                                }
+
+                                return opts;
+                              }
+
+                              if (selectedBankId) {
+                                let fallbackLabel = isLoadingBankAccounts ? 'Loading bank accounts...' : 'Selected Bank Account';
+                                if (bankAccountDetails) {
+                                  const matchLine = bankAccountDetails
+                                    .split('\n')
+                                    .find((l) => /bank name/i.test(l) || /a\/c holder/i.test(l));
+                                  if (matchLine) {
+                                    fallbackLabel = matchLine.replace(/^[^:]+:\s*/, '').trim();
+                                  }
+                                }
+                                return [
+                                  {
+                                    value: '',
+                                    label: 'Select Bank Account',
+                                    subLabel: '',
+                                  },
+                                  {
+                                    value: selectedBankId,
+                                    id: selectedBankId,
+                                    bank_details_id: selectedBankId,
+                                    bank_account_id: selectedBankId,
+                                    label: fallbackLabel,
+                                    subLabel: '',
+                                  },
+                                ];
+                              }
+
+                              return [
+                                {
+                                  value: '',
+                                  label: isLoadingBankAccounts ? 'Loading bank accounts...' : 'Select Bank Account',
+                                  subLabel: '',
+                                },
+                              ];
+                            })()}
+                            value={selectedBankId}
+                            onChange={(val) => {
+                              markDirty();
+                              setSelectedBankId(val);
+                              setErrors((prev) => ({
+                                ...prev,
+                                selectedBankId: '',
+                                bank_details_id: '',
+                                bank_account_id: '',
+                                bankDetails: '',
+                                bank_details: '',
+                              }));
+                              const matched = sellerBankAccounts.find(
+                                (b) =>
+                                  String(b.bank_details_id || b.id || b._id) === String(val) ||
+                                  String(b.id) === String(val) ||
+                                  String(b.bank_details_id) === String(val) ||
+                                  String(b.bank_account_id) === String(val)
+                              );
+                              if (matched) {
+                                setBankAccountDetails(formatBankDetails(matched));
+                              } else {
+                                setBankAccountDetails('');
+                              }
+                            }}
+                            error={errors.selectedBankId || errors.bank_details_id || errors.bank_account_id || errors.bankDetails || errors.bank_details}
+                            placeholder="Select Bank Account"
+                            className="w-full font-bold text-foreground text-[14px]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Formatted Bank Account Details: NON-INPUT normal text display only */}
+                      <div className="flex-1 flex flex-col mt-1.5 min-h-[90px] justify-start px-0.5">
+                        {bankAccountDetails ? (
+                          <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                            {bankAccountDetails}
+                          </div>
+                        ) : (
+                          <div className="text-[13px] text-muted-foreground/60 italic pt-1">
+                            {selectedBankId ? 'No details available for selected bank account' : 'Select a bank account from above to view details'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Right Column (colSpan 3): Official Seller Stamp & Signature Box */}
+                  <td colSpan={3} className="p-2.5 sm:p-3 align-top bg-card" id="field-seller_signature" data-field="seller_signature">
+                    <div className="flex flex-col justify-start h-full">
+                      <DocSignatureBox
+                        partyType="exporter"
+                        title={companyName}
+                        titleAsText={true}
+                        onTitleChange={(val) => {
+                          markDirty();
+                          setCompanyName(val);
+                          setErrors((prev) => ({ ...prev, companyName: '', seller_name: '' }));
+                        }}
+                        signatureUrl={stampImageUrl}
+                        onSignatureChange={(url) => {
+                          markDirty();
+                          if (!url) {
+                            hasUserClearedSignatureRef.current = true;
+                          } else {
+                            hasUserClearedSignatureRef.current = false;
+                          }
+                          setStampImageUrl(url);
+                          setErrors((prev) => ({
+                            ...prev,
+                            seller_signature: '',
+                            sellerSignature: '',
+                            stampImageUrl: '',
+                            signature: '',
+                            stamp: '',
+                            authorised_signature: '',
+                            authority_signature: '',
+                          }));
+                        }}
+                        authorityTitle={authoritySignatureTitle}
+                        onAuthorityTitleChange={(val) => {
+                          markDirty();
+                          setAuthoritySignatureTitle(val);
+                          setErrors((prev) => ({
+                            ...prev,
+                            seller_signature_label: '',
+                            sellerSignatureLabel: '',
+                            authoritySignatureTitle: '',
+                            authority_signature_title: '',
+                          }));
+                        }}
+                        titlePlaceholder="SELLER / EXPORTER"
+                        authorityPlaceholder="AUTHORISED SIGNATURE"
+                        error={
+                          errors.seller_signature ||
+                          errors.sellerSignature ||
+                          errors.stampImageUrl ||
+                          errors.signature ||
+                          errors.stamp ||
+                          errors.authorised_signature ||
+                          errors.authority_signature
+                        }
+                        authorityError={
+                          errors.seller_signature_label ||
+                          errors.sellerSignatureLabel ||
+                          errors.authoritySignatureTitle ||
+                          errors.authority_signature_title
+                        }
+                        readOnly={readOnly}
+                        uploadButtonLabel="Upload Stamp / Signature"
+                        clearButtonLabel="Clear"
+                        className="w-full"
+                      />
+                    </div>
+                  </td>
+                </tr>
+
+                {/* 
+                  ROW 8: BANK CHARGES DISCLAIMER NOTE
+                  Editable Textarea
+                */}
+                <tr className="border-t border-border bg-card">
+                  <td colSpan={5} className="p-3 sm:p-4 align-top" id="field-bankChargesNote" data-field="bankChargesNote">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+                        NOTE / BANK CHARGES:
+                      </label>
+                      <div className="w-full">
+                        <DocUnderlineInput
+                          id="field-bankChargesNote-input"
+                          multiline
+                          rows={2}
+                          value={bankChargesNote}
+                          onChange={(val) => {
+                            markDirty();
+                            setBankChargesNote(val);
+                            setErrors((prev) => ({ ...prev, bankChargesNote: '', bank_charges_note: '' }));
+                          }}
+                          error={errors.bankChargesNote || errors.bank_charges_note}
+                          disabled={readOnly}
+                          placeholder="PLEASE DO NOT DEDUCT BANK CHARGES FROM THE TOTAL AMOUNT..."
+                          icon="fa-solid fa-pen"
+                          uppercase={false}
+                          inputClassName="text-[13px] sm:text-[14px] font-semibold !text-amber-600 dark:!text-amber-400 leading-relaxed resize-none"
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* 
+            ROW 9: COMMENTS (comment_label & comment_value - 100% identical to Confirmation & Contract)
+          */}
+          <div
+            className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border"
+            data-field="commentSection"
+          >
+            <div className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0" data-field="commentLabel" id="field-commentLabel">
+              <DocUnderlineInput
+                id="field-commentLabel-input"
+                value={commentLabel}
+                onChange={(val) => {
+                  markDirty();
+                  setCommentLabel(val);
+                  setErrors((prev) => ({ ...prev, commentLabel: '', comment_label: '', comment_title: '' }));
+                }}
+                error={errors.commentLabel || errors.comment_label || errors.comment_title}
+                icon="fa-solid fa-pen"
+                disabled={readOnly}
+                placeholder={
+                  dict?.smart_docs?.confirmation_form?.enter_title ||
+                  dict?.smart_docs?.contract_form?.enter_title ||
+                  'Enter Title'
+                }
+                uppercase={false}
+                inputClassName="text-[14px] font-bold"
+              />
+            </div>
+            <div
+              className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 md:col-span-2"
+              data-field="commentValue"
+              id="field-commentValue"
+            >
+              <DocUnderlineInput
+                id="field-commentValue-input"
+                value={commentValue}
+                onChange={(val) => {
+                  markDirty();
+                  setCommentValue(val);
+                  setErrors((prev) => ({ ...prev, commentValue: '', comment_value: '', comment_text: '' }));
+                }}
+                error={errors.commentValue || errors.comment_value || errors.comment_text}
+                icon="fa-solid fa-pen"
+                disabled={readOnly}
+                placeholder={
+                  dict?.smart_docs?.confirmation_form?.enter_comment ||
+                  dict?.smart_docs?.contract_form?.enter_comment ||
+                  'Enter Comment'
+                }
+                uppercase={false}
+                inputClassName="text-[14px] font-bold"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 
+        BOTTOM ACTION BAR:
+        Theme-compliant buttons matching AgriGuru brand system (exact match with Confirmation & Contract).
+        Sticky on mobile docked at viewport bottom, static on desktop at bottom of card.
+      */}
+      <div
+        style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+        className="shrink-0 sticky bottom-0 lg:static border-t border-border bg-card px-3 sm:px-4 py-2 sm:py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-2.5 print:hidden z-30 shadow-md lg:shadow-none rounded-b-xl transform-gpu"
+      >
+        {/* Left Action Buttons: Print Preview & Download PDF (Red themed like Confirmation & Contract) */}
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
+          {/* Print Preview Button */}
+          <button
+            type="button"
+            onClick={handleOpenPrintPreview}
+            title={dict?.smart_docs?.contract_form?.print_preview || dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview'}
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 text-destructive active:scale-[0.98] transition-all duration-150 shadow-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-destructive/20"
+          >
+            <i className="fa-solid fa-print text-xs" />
+            <span>{dict?.smart_docs?.contract_form?.print_preview || dict?.smart_docs?.confirmation_form?.print_preview || 'Print Preview'}</span>
+          </button>
+
+          {/* Download PDF Button */}
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            title={dict?.smart_docs?.contract_form?.download_pdf || dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-md text-xs font-semibold border border-destructive/30 bg-destructive/10 hover:bg-destructive/20 text-destructive active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-destructive/20"
+          >
+            {isDownloadingPdf ? (
+              <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+            ) : (
+              <i className="fa-solid fa-file-pdf text-xs" />
+            )}
+            <span>
+              {isDownloadingPdf
+                ? dict?.smart_docs?.downloading || 'Downloading...'
+                : dict?.smart_docs?.contract_form?.download_pdf || dict?.smart_docs?.confirmation_form?.download_pdf || 'Download PDF'}
+            </span>
+          </button>
+        </div>
+
+        {/* Right Action Buttons: Save As Draft & Submit */}
+        <div className={`grid ${docStatus === 'COMPLETED' ? 'grid-cols-1' : 'grid-cols-2'} sm:flex sm:items-center gap-2 sm:gap-2.5 transition-all duration-200`}>
+          {/* Save As Draft: Shown only while status is PENDING; hidden when COMPLETED */}
+          {isStatusLoading ? (
+            <div className="h-7 w-28 rounded-md bg-muted/60 animate-pulse border border-border" />
+          ) : docStatus !== 'COMPLETED' ? (
+            <button
+              type="button"
+              disabled={isSavingDraft || isSubmitting || readOnly || !hasDraftChanges}
+              onClick={handleSaveDraft}
+              title={!hasDraftChanges ? 'No changes to save as draft' : undefined}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-md text-xs font-semibold border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 animate-in fade-in"
+            >
+              {isSavingDraft ? (
+                <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+              ) : (
+                <i className="fa-regular fa-floppy-disk text-xs" />
+              )}
+              <span className="truncate">
+                {isSavingDraft
+                  ? 'Saving...'
+                  : dict?.smart_docs?.confirmation_form?.save_as_draft || 'Save As Draft'}
+              </span>
+            </button>
+          ) : null}
+
+          {/* Submit */}
+          <button
+            type="button"
+            disabled={isSubmitting || isSavingDraft || readOnly || (docStatus === 'COMPLETED' && !hasSubmitChanges)}
+            onClick={handleSubmit}
+            title={docStatus === 'COMPLETED' && !hasSubmitChanges ? 'Proforma Invoice already submitted' : undefined}
+            className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30 group ${
+              docStatus === 'COMPLETED' ? 'w-full sm:w-auto' : ''
+            }`}
+          >
+            <span className="truncate">
+              {isSubmitting
+                ? dict?.smart_docs?.submitting || 'Submitting...'
+                : dict?.smart_docs?.proforma_form?.submit || dict?.smart_docs?.submit || 'Submit'}
+            </span>
+            {isSubmitting ? (
+              <i className="fa-solid fa-circle-notch fa-spin text-xs" />
+            ) : (
+              <i className="fa-solid fa-arrow-right text-xs transition-transform group-hover:translate-x-0.5" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Print Preview Modal */}
+      <DocPrintPreviewModal
+        isOpen={isPrintPreviewOpen}
+        onClose={() => setIsPrintPreviewOpen(false)}
+        prefix="proforma"
+        docId={getEffectiveProformaId()}
+        candidateIds={[
+          getEffectiveProformaId(),
+          draftId,
+          proformaId,
+          contractId,
+          confirmationId,
+        ].filter((x): x is string => Boolean(x))}
+        contractId={contractId}
+        confirmationId={confirmationId}
+        docNumber={safeString(invoiceNumber || purchaseOrderNo, '')}
+        lang={lang}
+        dict={dict}
+      />
+    </div>
+  );
+}
+
+export default ProformaDocumentForm;

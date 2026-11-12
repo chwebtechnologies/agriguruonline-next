@@ -8,10 +8,12 @@ export interface DocSignatureBoxProps {
   partyType?: 'importer' | 'exporter' | 'broker' | string;
   title?: string;
   onTitleChange?: (val: string) => void;
+  titleAsText?: boolean;
   signatureUrl: string;
   onSignatureChange: (url: string) => void;
   authorityTitle?: string;
   onAuthorityTitleChange?: (val: string) => void;
+  authorityError?: string | null;
   titlePlaceholder?: string;
   authorityPlaceholder?: string;
   readOnly?: boolean;
@@ -98,10 +100,12 @@ export function DocSignatureBox({
   partyType = 'exporter',
   title = '',
   onTitleChange = () => {},
+  titleAsText = false,
   signatureUrl,
   onSignatureChange,
   authorityTitle = '',
   onAuthorityTitleChange = () => {},
+  authorityError = null,
   titlePlaceholder,
   authorityPlaceholder,
   readOnly = false,
@@ -254,6 +258,23 @@ export function DocSignatureBox({
         if (onLoaded) onLoaded();
       };
       img.onerror = (err) => {
+        // If crossOrigin='anonymous' caused CORS failure on remote asset, retry directly without crossOrigin
+        if (img.crossOrigin) {
+          const fallbackImg = new Image();
+          fallbackImg.onload = () => {
+            baseImageObjRef.current = fallbackImg;
+            redrawCanvas();
+            if (onLoaded) onLoaded();
+          };
+          fallbackImg.onerror = (fallbackErr) => {
+            console.warn('[DocSignatureBox] Base image fallback load error:', src, fallbackErr);
+            baseImageObjRef.current = null;
+            redrawCanvas();
+            if (onLoaded) onLoaded();
+          };
+          fallbackImg.src = src;
+          return;
+        }
         console.warn('[DocSignatureBox] Base image load error:', src, err);
         baseImageObjRef.current = null;
         redrawCanvas();
@@ -522,40 +543,54 @@ export function DocSignatureBox({
   };
 
   // Determine if there is any visible content (either base stamp or drawn strokes)
-  const hasBaseImage = Boolean(uploadedStampSrc || serverImageUrl || baseImageObjRef.current);
+  const hasBaseImage = Boolean(uploadedStampSrc || baseImageObjRef.current || (serverImageUrl && isLoadingBaseImage));
   const hasAnyContent = Boolean(hasBaseImage || hasDrawnSignature || strokesRef.current.length > 0);
 
   return (
     <div className={`p-3 sm:p-4 flex flex-col items-center w-full ${className}`}>
-      {/* Top Header: Title with dotted underline & edit pencil */}
+      {/* Top Header: Title with dotted underline & edit pencil or plain text */}
       {!hideTitleFields && (
         <div className="flex items-center justify-center gap-1.5 w-full">
-          <input
-            ref={titleInputRef}
-            type="text"
-            value={title}
-            onChange={(e) => onTitleChange(e.target.value.toUpperCase())}
-            disabled={readOnly}
-            aria-label={`${partyType} title`}
-            placeholder={
-              titlePlaceholder ||
-              (partyType === 'exporter'
-                ? 'SELLER / EXPORTER'
-                : partyType === 'broker'
-                ? 'BROKER'
-                : 'BUYER / IMPORTER')
-            }
-            className="font-bold text-center tracking-wider text-[14px] uppercase bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:uppercase placeholder:text-muted-foreground/50"
-          />
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={() => titleInputRef.current?.focus()}
-              title="Edit title"
-              className="text-primary hover:text-primary-hover transition-colors p-0.5 cursor-pointer disabled:opacity-40"
-            >
-              <i className="fa-solid fa-pen text-xs" />
-            </button>
+          {titleAsText ? (
+            <div className="font-bold text-center tracking-wider text-[14px] uppercase text-foreground py-0.5 px-2 select-all">
+              {title ||
+                titlePlaceholder ||
+                (partyType === 'exporter'
+                  ? 'SELLER / EXPORTER'
+                  : partyType === 'broker'
+                  ? 'BROKER'
+                  : 'BUYER / IMPORTER')}
+            </div>
+          ) : (
+            <>
+              <input
+                ref={titleInputRef}
+                type="text"
+                value={title}
+                onChange={(e) => onTitleChange(e.target.value.toUpperCase())}
+                disabled={readOnly}
+                aria-label={`${partyType} title`}
+                placeholder={
+                  titlePlaceholder ||
+                  (partyType === 'exporter'
+                    ? 'SELLER / EXPORTER'
+                    : partyType === 'broker'
+                    ? 'BROKER'
+                    : 'BUYER / IMPORTER')
+                }
+                className="font-bold text-center tracking-wider text-[14px] uppercase bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:uppercase placeholder:text-muted-foreground/50"
+              />
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => titleInputRef.current?.focus()}
+                  title="Edit title"
+                  className="text-primary hover:text-primary-hover transition-colors p-0.5 cursor-pointer disabled:opacity-40"
+                >
+                  <i className="fa-solid fa-pen text-xs" />
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -722,26 +757,39 @@ export function DocSignatureBox({
 
       {/* Bottom Label: Authority Signature title with expanded width & edit pencil */}
       {!hideTitleFields && (
-        <div className="flex items-center justify-center gap-1.5 w-full mt-3">
-          <input
-            ref={authTitleInputRef}
-            type="text"
-            value={authorityTitle}
-            onChange={(e) => onAuthorityTitleChange(e.target.value.toUpperCase())}
-            disabled={readOnly}
-            aria-label={`${partyType} authority title`}
-            placeholder={authorityPlaceholder || 'AUTHORISED SIGNATURE'}
-            className="font-bold text-center tracking-wider text-[14px] uppercase bg-transparent border-b-2 border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:uppercase placeholder:text-muted-foreground/50"
-          />
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={() => authTitleInputRef.current?.focus()}
-              title="Edit label"
-              className="text-primary hover:text-primary-hover transition-colors p-0.5 cursor-pointer disabled:opacity-40"
-            >
-              <i className="fa-solid fa-pen text-xs" />
-            </button>
+        <div className="flex flex-col items-center justify-center w-full mt-3">
+          <div className="flex items-center justify-center gap-1.5 w-full">
+            <input
+              ref={authTitleInputRef}
+              type="text"
+              name="seller_signature_label"
+              value={authorityTitle}
+              onChange={(e) => onAuthorityTitleChange(e.target.value.toUpperCase())}
+              disabled={readOnly}
+              aria-label={`${partyType} authority title`}
+              placeholder={authorityPlaceholder || 'AUTHORISED SIGNATURE'}
+              className={`font-bold text-center tracking-wider text-[14px] uppercase bg-transparent border-b-2 ${
+                authorityError
+                  ? 'border-solid border-brand-red text-brand-red'
+                  : 'border-dotted border-primary/60 hover:border-primary focus:border-solid focus:border-primary'
+              } focus:outline-none text-foreground py-0.5 px-2 w-full max-w-[280px] sm:max-w-[340px] transition-colors placeholder:text-[14px] placeholder:font-normal placeholder:uppercase placeholder:text-muted-foreground/50`}
+            />
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => authTitleInputRef.current?.focus()}
+                title="Edit label"
+                className="text-primary hover:text-primary-hover transition-colors p-0.5 cursor-pointer disabled:opacity-40"
+              >
+                <i className="fa-solid fa-pen text-xs" />
+              </button>
+            )}
+          </div>
+          {authorityError && (
+            <div className="w-full text-[11px] text-brand-red font-semibold px-2 py-1 tracking-tight flex items-center justify-center gap-1.5 mt-1 select-none animate-in fade-in duration-200">
+              <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+              <span className="text-brand-red">{authorityError}</span>
+            </div>
           )}
         </div>
       )}

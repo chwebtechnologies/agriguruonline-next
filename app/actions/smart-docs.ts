@@ -4,6 +4,27 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { getSafeLang, getAssetsUrl } from "@/lib/api-utils";
 import { refreshTokensAction } from "@/app/actions/auth";
+import { getValidAuthToken } from "@/lib/auth-token";
+
+/**
+ * Robust helper to obtain a guaranteed non-expired auth token for server actions.
+ */
+async function getActionToken(): Promise<string | null> {
+  const token = await getValidAuthToken();
+  if (token) return token;
+  try {
+    const cookieStore = await cookies();
+    return (
+      cookieStore.get("auth_token")?.value ||
+      cookieStore.get("__Secure-uid")?.value ||
+      cookieStore.get("access_token")?.value ||
+      cookieStore.get("token")?.value ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
 import {
   smartDocsService,
   extractSmartDocsArray,
@@ -710,7 +731,7 @@ export async function getSmartDocsProductDetailsAction(
     }
 
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -1634,6 +1655,402 @@ export async function submitContractAction(
   }
 }
 
+export interface GetProformaActionResult {
+  success: boolean;
+  data: any | null;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Server Action to fetch Proforma details by ID with secure Bearer authentication:
+ * GET /proforma-invoice/:id?lang_code=en&source=web
+ */
+export async function getProformaAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetProformaActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Proforma ID is required",
+        data: null,
+      };
+    }
+
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getProforma(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch proforma invoice details",
+        data: null,
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error)
+    );
+
+    if (isSuccess) {
+      return {
+        success: true,
+        data: rawRes.data || rawRes,
+        message: rawRes.message || "Proforma details loaded successfully",
+      };
+    }
+
+    return {
+      success: false,
+      error: rawRes.message || "Proforma invoice not found",
+      data: rawRes.data || null,
+    };
+  } catch (error: any) {
+    console.error("[getProformaAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch proforma details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveProformaDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+/**
+ * Server Action to save or update Proforma Invoice draft with secure Bearer authentication:
+ * PATCH /proforma-invoice/save/:id?lang_code=en&source=web
+ */
+export async function saveProformaDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveProformaDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    const isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("proforma_id") || payload.get("proforma_invoice_id") || payload.get("id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.proforma_id || payload?.proforma_invoice_id || payload?.id || payload?.contract_id || payload?.confirmation_id || "").trim());
+
+    const effectiveId =
+      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(rawEffectiveId)
+        ? rawEffectiveId
+        : undefined;
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveProformaDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+        id: effectiveId,
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.saveProformaDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+              id: effectiveId,
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveProformaDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save proforma draft",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false)
+    );
+
+    const generatedId =
+      rawRes?.data?.proforma_id ||
+      rawRes?.proforma_id ||
+      rawRes?.data?.proforma_invoice_id ||
+      rawRes?.proforma_invoice_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      effectiveId;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs/draft`);
+      } catch (revErr) {
+        console.warn("[saveProformaDraftAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message: rawRes.message || "Proforma draft saved successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : effectiveId,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    const errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    return {
+      success: false,
+      message: rawRes?.message || "Failed to save proforma draft",
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : effectiveId,
+      error: rawRes?.message || "Failed to save proforma draft",
+    };
+  } catch (error: any) {
+    console.error("[saveProformaDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving proforma draft",
+      message: error?.message || "Internal error occurred while saving proforma draft",
+    };
+  }
+}
+
+export interface SubmitProformaActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+/**
+ * Server Action to submit Proforma Invoice with secure Bearer authentication:
+ * PATCH /proforma-invoice/submit/:id?lang_code=en&source=web
+ */
+export async function submitProformaAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SubmitProformaActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    const isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("proforma_id") || payload.get("proforma_invoice_id") || payload.get("id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.proforma_id || payload?.proforma_invoice_id || payload?.id || payload?.contract_id || payload?.confirmation_id || "").trim());
+
+    const effectiveId =
+      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(rawEffectiveId)
+        ? rawEffectiveId
+        : undefined;
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitProforma(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+        id: effectiveId,
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitProforma(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+              id: effectiveId,
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitProformaAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit proforma invoice",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false)
+    );
+
+    const generatedId =
+      rawRes?.data?.proforma_id ||
+      rawRes?.proforma_id ||
+      rawRes?.data?.proforma_invoice_id ||
+      rawRes?.proforma_invoice_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      effectiveId;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs/draft`);
+      } catch (revErr) {
+        console.warn("[submitProformaAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message: rawRes.message || "Proforma Invoice submitted successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : effectiveId,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    const errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    return {
+      success: false,
+      message: rawRes?.message || "Failed to submit proforma invoice",
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : effectiveId,
+      error: rawRes?.message || "Failed to submit proforma invoice",
+    };
+  } catch (error: any) {
+    console.error("[submitProformaAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while submitting proforma invoice",
+      message: error?.message || "Internal error occurred while submitting proforma invoice",
+    };
+  }
+}
+
 export interface SubmitConfirmationActionResult {
   success: boolean;
   message?: string;
@@ -1792,6 +2209,10 @@ export interface GetDocPreviewActionParams {
   prefix?: string;
   id: string;
   lang?: string;
+  candidateIds?: string[];
+  contractId?: string;
+  confirmationId?: string;
+  proformaId?: string;
 }
 
 export interface GetDocPreviewActionResult {
@@ -1810,7 +2231,19 @@ export async function getDocPreviewAction(
 ): Promise<GetDocPreviewActionResult> {
   try {
     const cleanId = String(params.id || "").trim();
-    if (!cleanId) {
+    const candidateIds = Array.from(
+      new Set(
+        [
+          cleanId,
+          ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+          String(params.proformaId || "").trim(),
+          String(params.contractId || "").trim(),
+          String(params.confirmationId || "").trim(),
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(id)))
+      )
+    );
+
+    if (candidateIds.length === 0) {
       return {
         success: false,
         error: "Document ID is required to generate preview",
@@ -1818,21 +2251,7 @@ export async function getDocPreviewAction(
       };
     }
 
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[getDocPreviewAction] Initial token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -1848,7 +2267,8 @@ export async function getDocPreviewAction(
     let res = await smartDocsService.getDocPreviewHtml(
       {
         prefix,
-        id: cleanId,
+        id: candidateIds[0] || cleanId,
+        candidateIds,
         lang: safeLang,
         source: "web",
       },
@@ -1869,7 +2289,8 @@ export async function getDocPreviewAction(
           res = await smartDocsService.getDocPreviewHtml(
             {
               prefix,
-              id: cleanId,
+              id: candidateIds[0] || cleanId,
+              candidateIds,
               lang: safeLang,
               source: "web",
             },
@@ -1896,6 +2317,10 @@ export interface DownloadDocPdfActionParams {
   prefix?: string;
   id: string;
   lang?: string;
+  candidateIds?: string[];
+  contractId?: string;
+  confirmationId?: string;
+  proformaId?: string;
 }
 
 export interface DownloadDocPdfActionResult {
@@ -1919,7 +2344,19 @@ export async function downloadDocPdfAction(
 ): Promise<DownloadDocPdfActionResult> {
   try {
     const cleanId = String(params.id || "").trim();
-    if (!cleanId) {
+    const candidateIds = Array.from(
+      new Set(
+        [
+          cleanId,
+          ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+          String(params.proformaId || "").trim(),
+          String(params.contractId || "").trim(),
+          String(params.confirmationId || "").trim(),
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(id)))
+      )
+    );
+
+    if (candidateIds.length === 0) {
       return {
         success: false,
         error: "Document ID is required to download PDF",
@@ -1927,21 +2364,7 @@ export async function downloadDocPdfAction(
       };
     }
 
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[downloadDocPdfAction] Initial token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -1957,7 +2380,8 @@ export async function downloadDocPdfAction(
     let res = await smartDocsService.downloadDocPdf(
       {
         prefix,
-        id: cleanId,
+        id: candidateIds[0] || cleanId,
+        candidateIds,
         lang: safeLang,
         source: "web",
       },
@@ -1978,7 +2402,8 @@ export async function downloadDocPdfAction(
           res = await smartDocsService.downloadDocPdf(
             {
               prefix,
-              id: cleanId,
+              id: candidateIds[0] || cleanId,
+              candidateIds,
               lang: safeLang,
               source: "web",
             },
@@ -2015,7 +2440,9 @@ export async function fetchSignatureAsDataUrlAction(
     !trimmed ||
     trimmed === "null" ||
     trimmed === "undefined" ||
-    trimmed === "[object Object]"
+    trimmed === "[object Object]" ||
+    trimmed === "/brand/logo.png" ||
+    trimmed.endsWith("/brand/logo.png")
   ) {
     return null;
   }
@@ -2026,14 +2453,19 @@ export async function fetchSignatureAsDataUrlAction(
   }
 
   try {
-    let targetUrl = trimmed;
-    if (!/^https?:\/\//i.test(targetUrl)) {
+    let targetUrl = trimmed.replace("assets.agriguruonline.cloud", "assets.agriguruonline.com");
+    if (targetUrl.startsWith("//")) {
+      targetUrl = `https:${targetUrl}`;
+    } else if (!/^https?:\/\//i.test(targetUrl)) {
+      if (/^assets\.agriguruonline\.(com|cloud)\/?/i.test(targetUrl)) {
+        targetUrl = targetUrl.replace(/^assets\.agriguruonline\.(com|cloud)\/?/i, "");
+      }
       const assetsUrl = getAssetsUrl();
       targetUrl = `${assetsUrl}/${targetUrl.replace(/^\/+/, "")}`;
     }
 
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2090,7 +2522,7 @@ export async function getProductListingAction(
 ): Promise<GetProductListingResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2162,7 +2594,7 @@ export async function deleteProductAction(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2187,7 +2619,7 @@ export async function saveProductAction(
 ): Promise<{ success: boolean; message: string; data?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2216,7 +2648,7 @@ export async function getProductByIdAction(
 ): Promise<GetProductByIdResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2281,7 +2713,7 @@ export async function updateProductAction(
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[] }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2413,7 +2845,7 @@ export async function deletePaymentTermAction(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2438,7 +2870,7 @@ export async function savePaymentTermAction(
 ): Promise<{ success: boolean; message: string; data?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2467,7 +2899,7 @@ export async function getPaymentTermByIdAction(
 ): Promise<GetPaymentTermByIdResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2532,7 +2964,7 @@ export async function updatePaymentTermAction(
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[] }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2577,7 +3009,7 @@ export async function togglePaymentTermStatusAction(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2643,7 +3075,7 @@ export async function getSellerListingAction(
 ): Promise<GetSellerListingResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2714,7 +3146,7 @@ export async function getSellerByIdAction(
 ): Promise<GetSellerByIdResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2964,7 +3396,7 @@ export async function saveSellerAction(
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -2989,7 +3421,7 @@ export async function updateSellerAction(
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3030,7 +3462,7 @@ export async function deleteSellerAction(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3064,6 +3496,9 @@ export interface GetSellerBankDetailsActionResult {
       id: string;
       name: string;
       account_details: string;
+      bank_details_id?: string;
+      bank_account_id?: string;
+      [key: string]: any;
     }>;
     total: number;
   } | null;
@@ -3072,17 +3507,14 @@ export interface GetSellerBankDetailsActionResult {
 
 /**
  * Fetches bank details for a seller/instruction with authentication:
- * GET /instructions/bank-details/:sellerId?lang_code=en&source=web
+ * GET /dms-fields/bank-details/:sellerId?lang_code=en&source=web
  */
 export async function getSellerBankDetailsAction(
   sellerId: string,
   params: { lang?: string; source?: string } = {}
 ): Promise<GetSellerBankDetailsActionResult> {
   try {
-    const cookieStore = await cookies();
-    const token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -3121,28 +3553,62 @@ export async function getSellerBankDetailsAction(
       };
     }
 
-    const rawItems = Array.isArray(rawRes.data?.items)
-      ? rawRes.data.items
-      : Array.isArray(rawRes.data)
-      ? rawRes.data
-      : Array.isArray(rawRes.items)
-      ? rawRes.items
-      : [];
+    let rawItems: any[] = [];
+    if (Array.isArray(rawRes.data?.items)) {
+      rawItems = rawRes.data.items;
+    } else if (Array.isArray(rawRes.data?.bank_details)) {
+      rawItems = rawRes.data.bank_details;
+    } else if (Array.isArray(rawRes.data?.bank_accounts)) {
+      rawItems = rawRes.data.bank_accounts;
+    } else if (Array.isArray(rawRes.data?.banks)) {
+      rawItems = rawRes.data.banks;
+    } else if (Array.isArray(rawRes.data)) {
+      rawItems = rawRes.data;
+    } else if (Array.isArray(rawRes.items)) {
+      rawItems = rawRes.items;
+    } else if (Array.isArray(rawRes.bank_details)) {
+      rawItems = rawRes.bank_details;
+    } else if (
+      rawRes.data &&
+      typeof rawRes.data === "object" &&
+      (rawRes.data.id ||
+        rawRes.data._id ||
+        rawRes.data.name ||
+        rawRes.data.bank_name ||
+        rawRes.data.account_details ||
+        rawRes.data.bank_details)
+    ) {
+      rawItems = [rawRes.data];
+    }
 
-    const items = rawItems.map((it: any) => ({
-      id: isValidCuidOrId(it.id || it._id)
-        ? String(it.id || it._id).trim()
-        : generateSmartDocsCuid(),
-      name: String(it.name || it.bank_name || it.bankName || "").trim(),
-      account_details: String(
-        it.account_details ??
-          it.accountDetails ??
-          it.bank_details ??
-          it.bankDetails ??
-          it.details ??
-          ""
-      ).trim(),
-    }));
+    const items = rawItems.map((it: any) => {
+      const rawBankId =
+        it.bank_details_id ??
+        it.bankDetailsId ??
+        it.bank_account_id ??
+        it.bankAccountId ??
+        it.id ??
+        it._id ??
+        it.bank_id ??
+        it.bankDetailId ??
+        "";
+      const bankId = String(rawBankId).trim();
+      return {
+        ...it,
+        id: bankId || generateSmartDocsCuid(),
+        bank_details_id: bankId,
+        bank_account_id: bankId,
+        name: String(it.name || it.bank_name || it.bankName || it.account_name || "").trim(),
+        account_details: String(
+          it.account_details ??
+            it.accountDetails ??
+            it.bank_details ??
+            it.bankDetails ??
+            it.details ??
+            ""
+        ).trim(),
+      };
+    });
 
     return {
       success: Boolean(rawRes.success || rawRes.status || items.length > 0),
@@ -3164,7 +3630,7 @@ export async function getSellerBankDetailsAction(
 
 /**
  * Saves/updates bank details for a seller/instruction with authentication:
- * PATCH /instructions/bank-details/:sellerId?lang_code=en&source=web
+ * PATCH /dms-fields/bank-details/:sellerId?lang_code=en&source=web
  */
 export async function updateSellerBankDetailsAction(
   sellerId: string,
@@ -3172,10 +3638,7 @@ export async function updateSellerBankDetailsAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
-    const cookieStore = await cookies();
-    const token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -3213,7 +3676,7 @@ export async function updateSellerBankDetailsAction(
 
 /**
  * Deletes a bank detail item with authentication:
- * DELETE /instructions/bank-details/:bankDetailId?lang_code=en&source=web
+ * DELETE /dms-fields/bank-details/:bankDetailId?lang_code=en&source=web
  */
 export async function deleteSellerBankDetailAction(
   bankDetailId: string,
@@ -3221,9 +3684,22 @@ export async function deleteSellerBankDetailAction(
 ): Promise<{ success: boolean; message: string; data?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+      cookieStore.get("__Secure-uid")?.value ||
+      cookieStore.get("access_token")?.value ||
+      cookieStore.get("token")?.value;
+
+    if (!token && cookieStore.get("refresh_token")?.value) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes?.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+        }
+      } catch (refErr) {
+        console.warn("[deleteSellerBankDetailAction] Token refresh failed:", refErr);
+      }
+    }
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -3282,7 +3758,7 @@ export async function getBuyerListingAction(
 ): Promise<GetBuyerListingResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3353,7 +3829,7 @@ export async function getBuyerByIdAction(
 ): Promise<GetBuyerByIdResult> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3549,7 +4025,7 @@ export async function saveBuyerAction(
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3574,7 +4050,7 @@ export async function updateBuyerAction(
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3615,7 +4091,7 @@ export async function deleteBuyerAction(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3651,7 +4127,7 @@ export async function getBuyerConsigneesAction(
 ): Promise<{ success: boolean; data?: any[]; message?: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3694,7 +4170,7 @@ export async function saveBuyerConsigneesAction(
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3725,7 +4201,7 @@ export async function deleteBuyerConsigneeAction(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3758,7 +4234,7 @@ export async function getBuyerNotifyPartiesAction(
 ): Promise<{ success: boolean; data?: any[]; message?: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3792,7 +4268,7 @@ export async function saveBuyerNotifyPartiesAction(
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 
@@ -3823,7 +4299,7 @@ export async function deleteBuyerNotifyPartyAction(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const cookieStore = await cookies();
-    const token =
+    let token =
       cookieStore.get("auth_token")?.value ||
       cookieStore.get("__Secure-uid")?.value;
 

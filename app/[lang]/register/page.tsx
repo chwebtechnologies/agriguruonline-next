@@ -1,11 +1,12 @@
 import AuthFlow from "@/components/auth/AuthFlow";
 import { Metadata } from "next";
-
-export async function generateStaticParams() {
-  return [{ lang: 'en' }, { lang: 'ar' }, { lang: 'zh' }, { lang: 'fr' }]
-}
-
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { getDictionary } from "@/app/[lang]/dictionaries";
 import { getStandardMetadata, getSafeLanguage } from "@/lib/seo";
+import { getValidAuthToken } from "@/lib/auth-token";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(
   props: { params: Promise<{ lang: string }> }
@@ -14,14 +15,12 @@ export async function generateMetadata(
   const lang = getSafeLanguage(params?.lang);
 
   return getStandardMetadata({
-    pageKey: 'register',
-    pathname: 'register',
+    pageKey: "register",
+    pathname: "register",
     lang,
     noIndex: true,
   });
 }
-
-import { getDictionary } from '@/app/[lang]/dictionaries'
 
 interface RegisterPageProps {
   params: Promise<{
@@ -30,8 +29,21 @@ interface RegisterPageProps {
 }
 
 export default async function RegisterPage(props: RegisterPageProps) {
-  const params = await props.params;
-  const lang = params.lang || 'en'
+  const [{ lang }, cookieStore, validToken] = await Promise.all([
+    props.params,
+    cookies(),
+    getValidAuthToken(),
+  ]);
+
+  if (validToken) {
+    const hasStoredPlan = cookieStore.get("selected-plan")?.value;
+    if (hasStoredPlan) {
+      redirect(`/${lang}/become-member`);
+    } else {
+      redirect(`/${lang}/dashboard`);
+    }
+  }
+
   const dict = await getDictionary(lang);
 
   return (

@@ -2494,7 +2494,11 @@ export function ContractDocumentForm({
     return (initialData?.advance_type || initialData?.advanceType || 'amount') as 'amount' | '%';
   });
   const [advanceAmount, setAdvanceAmount] = useState<string | number>(
-    initialData?.advance_amount ?? initialData?.advanceAmount ?? ''
+    initialData?.advance_payment_amt ??
+      initialData?.advance_payment ??
+      initialData?.advance_amount ??
+      initialData?.advanceAmount ??
+      ''
   );
   const [advancePercentage, setAdvancePercentage] = useState<string | number>(
     initialData?.advance_percentage ?? initialData?.advancePercentage ?? ''
@@ -4051,7 +4055,11 @@ export function ContractDocumentForm({
 
     if (initialData.advance_type || initialData.advanceType) setAdvanceType(initialData.advance_type || initialData.advanceType);
 
-    const advAmt = initialData.advance_amount ?? initialData.advanceAmount;
+    const advAmt =
+      initialData.advance_payment_amt ??
+      initialData.advance_payment ??
+      initialData.advance_amount ??
+      initialData.advanceAmount;
     if (advAmt !== undefined && advAmt !== null && advAmt !== '') setAdvanceAmount(advAmt);
 
     const advPct = initialData.advance_percentage ?? initialData.advancePercentage;
@@ -7223,6 +7231,13 @@ export function ContractDocumentForm({
         onClose={() => setIsPreviewOpen(false)}
         prefix="contract"
         docId={getEffectiveContractId()}
+        candidateIds={[
+          getEffectiveContractId(),
+          draftId,
+          confirmationId,
+        ].filter((x): x is string => Boolean(x))}
+        contractId={getEffectiveContractId()}
+        confirmationId={confirmationId}
         docNumber={
           contractNumber ||
           toCleanLabel(

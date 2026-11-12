@@ -12,6 +12,9 @@ export interface DocPrintPreviewModalProps {
   docNumber?: string;
   lang?: string;
   dict?: any;
+  candidateIds?: string[];
+  contractId?: string;
+  confirmationId?: string;
 }
 
 /**
@@ -141,6 +144,9 @@ export default function DocPrintPreviewModal({
   docNumber,
   lang = 'en',
   dict,
+  candidateIds,
+  contractId,
+  confirmationId,
 }: DocPrintPreviewModalProps) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -166,7 +172,18 @@ export default function DocPrintPreviewModal({
 
   const fetchPreview = useCallback(async () => {
     const cleanId = String(docId || '').trim();
-    if (!cleanId) {
+    const allCandidateIds = Array.from(
+      new Set(
+        [
+          cleanId,
+          ...(candidateIds || []).map((id) => String(id || '').trim()),
+          String(contractId || '').trim(),
+          String(confirmationId || '').trim(),
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(id)))
+      )
+    );
+
+    if (allCandidateIds.length === 0) {
       setError('Document ID is missing. Please save the document first.');
       return;
     }
@@ -177,7 +194,10 @@ export default function DocPrintPreviewModal({
     try {
       const res = await getDocPreviewAction({
         prefix,
-        id: cleanId,
+        id: cleanId || allCandidateIds[0],
+        candidateIds: allCandidateIds,
+        contractId,
+        confirmationId,
         lang,
       });
 
@@ -194,7 +214,7 @@ export default function DocPrintPreviewModal({
     } finally {
       setLoading(false);
     }
-  }, [prefix, docId, lang]);
+  }, [prefix, docId, candidateIds, contractId, confirmationId, lang]);
 
   useEffect(() => {
     if (!isOpen) {

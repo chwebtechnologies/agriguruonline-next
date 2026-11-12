@@ -9,6 +9,7 @@ import SettingsLoading from './loading';
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 import { userService } from '@/lib/api/user.service';
 import { getUserProfile } from '@/lib/user-data';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -28,8 +29,10 @@ export async function generateMetadata(
 }
 
 export default async function SettingsPage(props: { params: Promise<{ lang: string }> }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const [token, cookieStore] = await Promise.all([
+    getValidAuthToken(),
+    cookies(),
+  ]);
 
   const params = await props.params;
   const lang = params.lang || 'en';

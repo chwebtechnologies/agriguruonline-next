@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import PaymentHistoryClient from '@/components/profile/PaymentHistoryClient';
 import { getStandardMetadata, getSafeLanguage } from '@/lib/seo';
 import { userService } from '@/lib/api/user.service';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,8 +24,7 @@ export async function generateMetadata(
 }
 
 export default async function PaymentHistoryPage(props: { params: Promise<{ lang: string }> }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
   
   const params = await props.params;
   const lang = params.lang || 'en';

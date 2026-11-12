@@ -375,6 +375,47 @@ export function extractLinkedContractId(data: any): string {
 }
 
 /**
+ * Extracts the linked Proforma Invoice ID from any document record (searching all candidate levels).
+ */
+export function extractLinkedProformaId(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  const clean = (val: any) => sanitizeDocId(val);
+
+  const candidates = [
+    data.proforma_id,
+    data.proformaId,
+    data.proforma_invoice_id,
+    data.proformaInvoiceId,
+    typeof data.proforma === 'string' ? data.proforma : '',
+    data.proforma?.id,
+    data.proforma?._id,
+    data.proforma?.proforma_id,
+    typeof data.proforma_invoice === 'string' ? data.proforma_invoice : '',
+    data.proforma_invoice?.id,
+    data.proforma_invoice?._id,
+    data.proforma_invoice?.proforma_id,
+    data.contract?.proforma_id,
+    data.contract?.proformaId,
+    data.contract?.proforma?.id,
+    data.data?.proforma_id,
+    data.data?.proformaId,
+    typeof data.data?.proforma === 'string' ? data.data.proforma : '',
+    data.data?.proforma?.id,
+    data.data?.proforma?._id,
+    data.data?.proforma_invoice_id,
+  ];
+
+  for (const c of candidates) {
+    const id = clean(c);
+    if (id && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(id)) {
+      return id;
+    }
+  }
+
+  return '';
+}
+
+/**
  * Extracts list array from multiple possible backend shapes (Express / Mongo / AgriGuru DMS responses).
  */
 export function extractSmartDocsArray(data: any): any[] {
@@ -1799,7 +1840,7 @@ export const smartDocsService = {
 
   /**
    * Fetches bank details for a seller/instruction with authentication:
-   * GET /instructions/bank-details/:sellerId?lang_code=en&source=web
+   * GET /dms-fields/bank-details/:sellerId?lang_code=en&source=web
    */
   getSellerBankDetails: async (
     sellerId: string,
@@ -1813,7 +1854,7 @@ export const smartDocsService = {
     const cleanId = sanitizeDocId(sellerId);
     if (!cleanId) return null;
 
-    const url = `${baseUrl}/instructions/bank-details/${encodeURIComponent(cleanId)}`;
+    const url = `${baseUrl}/dms-fields/bank-details/${encodeURIComponent(cleanId)}`;
 
     try {
       const response = await customFetchJSON<any>(url, {
@@ -1824,16 +1865,33 @@ export const smartDocsService = {
         },
         cache: 'no-store',
       });
-      return response;
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
     } catch (error) {
-      console.error('[smartDocsService.getSellerBankDetails] error:', error);
+      console.warn('[smartDocsService.getSellerBankDetails] /dms-fields/bank-details error, trying fallback:', error);
+    }
+
+    // Fallback to /instructions/bank-details/:sellerId if needed
+    try {
+      const fallbackUrl = `${baseUrl}/instructions/bank-details/${encodeURIComponent(cleanId)}`;
+      return await customFetchJSON<any>(fallbackUrl, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+    } catch (fallbackError) {
+      console.error('[smartDocsService.getSellerBankDetails] fallback error:', fallbackError);
       return null;
     }
   },
 
   /**
    * Updates bank details for a seller/instruction with authentication:
-   * PATCH /instructions/bank-details/:sellerId?lang_code=en&source=web
+   * PATCH /dms-fields/bank-details/:sellerId?lang_code=en&source=web
    * Request body format: { items: [ { id?, name, account_details } ] }
    */
   updateSellerBankDetails: async (
@@ -1851,7 +1909,7 @@ export const smartDocsService = {
     const safeLang = getSafeLang(params.lang || 'en');
     const source = params.source || 'web';
 
-    const url = `${baseUrl}/instructions/bank-details/${encodeURIComponent(cleanId)}`;
+    const url = `${baseUrl}/dms-fields/bank-details/${encodeURIComponent(cleanId)}`;
 
     // Normalize items array
     let rawItems: any[] = [];
@@ -2021,7 +2079,7 @@ export const smartDocsService = {
 
   /**
    * Deletes a bank detail item by bankDetailId with authentication:
-   * DELETE /instructions/bank-details/:bankDetailId?lang_code=en&source=web
+   * DELETE /dms-fields/bank-details/:bankDetailId?lang_code=en&source=web
    */
   deleteSellerBankDetail: async (
     bankDetailId: string,
@@ -2040,7 +2098,7 @@ export const smartDocsService = {
 
     const safeLang = getSafeLang(params.lang || 'en');
     const source = params.source || 'web';
-    const url = `${baseUrl}/instructions/bank-details/${encodeURIComponent(cleanId)}`;
+    const url = `${baseUrl}/dms-fields/bank-details/${encodeURIComponent(cleanId)}`;
 
     try {
       const response = await customFetch(url, {
@@ -3697,13 +3755,42 @@ export const smartDocsService = {
       let body: any;
 
       if (isFormData) {
+        if (typeof payload.delete === 'function') {
+          payload.delete('signature');
+          payload.delete('authorised_signature');
+          payload.delete('authority_signature');
+          payload.delete('stamp');
+          if (payload.has('logo')) {
+            const logoVal = payload.get('logo');
+            if (!payload.has('seller_logo') && logoVal) {
+              payload.append('seller_logo', logoVal);
+            }
+            payload.delete('logo');
+          }
+          if (payload.has('company_logo')) {
+            const clVal = payload.get('company_logo');
+            if (!payload.has('seller_logo') && clVal) {
+              payload.append('seller_logo', clVal);
+            }
+            payload.delete('company_logo');
+          }
+          if (payload.has('company_logo_url')) {
+            const cluVal = payload.get('company_logo_url');
+            if (!payload.has('seller_logo_url') && cluVal) {
+              payload.append('seller_logo_url', cluVal);
+            }
+            payload.delete('company_logo_url');
+          }
+          payload.delete('logo_url');
+          payload.delete('remove_company_logo');
+        }
         body = payload;
       } else {
         headers['Content-Type'] = 'application/json';
         body = JSON.stringify(cleanContractPayload(payload));
       }
 
-      let response = await customFetch(url, {
+      const response = await customFetch(url, {
         method: 'PATCH',
         token,
         headers,
@@ -3715,7 +3802,7 @@ export const smartDocsService = {
         cache: 'no-store',
       });
 
-      let json = await response.json().catch(() => null);
+      const json = await response.json().catch(() => null);
 
       if (!response.ok) {
         return {
@@ -3791,6 +3878,35 @@ export const smartDocsService = {
       let body: any;
 
       if (isFormData) {
+        if (typeof payload.delete === 'function') {
+          payload.delete('signature');
+          payload.delete('authorised_signature');
+          payload.delete('authority_signature');
+          payload.delete('stamp');
+          if (payload.has('logo')) {
+            const logoVal = payload.get('logo');
+            if (!payload.has('seller_logo') && logoVal) {
+              payload.append('seller_logo', logoVal);
+            }
+            payload.delete('logo');
+          }
+          if (payload.has('company_logo')) {
+            const clVal = payload.get('company_logo');
+            if (!payload.has('seller_logo') && clVal) {
+              payload.append('seller_logo', clVal);
+            }
+            payload.delete('company_logo');
+          }
+          if (payload.has('company_logo_url')) {
+            const cluVal = payload.get('company_logo_url');
+            if (!payload.has('seller_logo_url') && cluVal) {
+              payload.append('seller_logo_url', cluVal);
+            }
+            payload.delete('company_logo_url');
+          }
+          payload.delete('logo_url');
+          payload.delete('remove_company_logo');
+        }
         body = payload;
       } else {
         headers['Content-Type'] = 'application/json';
@@ -3850,8 +3966,325 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches the Proforma Invoice details by ID with authentication:
+   * GET /proforma-invoice/:id?lang_code=en&source=web
+   */
+  getProforma: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !id) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/proforma-invoice/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+      return response;
+    } catch (error) {
+      console.warn('[smartDocsService.getProforma] /proforma-invoice error, attempting fallback /proforma:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/proforma/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackError) {
+        console.error('[smartDocsService.getProforma] fallback error:', fallbackError);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves or updates a Proforma Invoice draft with authentication:
+   * PATCH /proforma-invoice/save/{id}?lang_code=en&source=web
+   * Supports FormData and JSON payload.
+   */
+  saveProformaDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string; id?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    // Proforma ID should strictly be the proforma ID, not the contract or confirmation ID
+    const rawCandidate =
+      params.id ||
+      (isFormData
+        ? (payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id') || payload.get('contract_id') || payload.get('confirmation_id'))
+        : (payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || payload?.contract_id || payload?.confirmation_id));
+
+    const cleanCandidate = sanitizeDocId(rawCandidate);
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(cleanCandidate);
+    const cleanId = isPlaceholder ? '' : cleanCandidate;
+
+    if (!cleanId) {
+      return {
+        success: false,
+        status: 400,
+        message: 'Document ID is missing. Please save Confirmation or Contract first.',
+      };
+    }
+
+    const url = `${baseUrl}/proforma-invoice/save/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const headers: Record<string, string> = {};
+      let body: any;
+
+      if (isFormData) {
+        if (typeof payload.delete === 'function') {
+          payload.delete('signature');
+          payload.delete('authorised_signature');
+          payload.delete('authority_signature');
+          payload.delete('stamp');
+          if (payload.has('logo')) {
+            const logoVal = payload.get('logo');
+            if (!payload.has('seller_logo') && logoVal) {
+              payload.append('seller_logo', logoVal);
+            }
+            payload.delete('logo');
+          }
+          if (payload.has('company_logo')) {
+            const clVal = payload.get('company_logo');
+            if (!payload.has('seller_logo') && clVal) {
+              payload.append('seller_logo', clVal);
+            }
+            payload.delete('company_logo');
+          }
+          if (payload.has('company_logo_url')) {
+            const cluVal = payload.get('company_logo_url');
+            if (!payload.has('seller_logo_url') && cluVal) {
+              payload.append('seller_logo_url', cluVal);
+            }
+            payload.delete('company_logo_url');
+          }
+          payload.delete('logo_url');
+          payload.delete('remove_company_logo');
+        }
+        body = payload;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(cleanProformaPayload(payload));
+      }
+
+      const response = await customFetch(url, {
+        method: 'PATCH',
+        token,
+        headers,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        body,
+        cache: 'no-store',
+      });
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        return {
+          ...(typeof json === 'object' && json !== null ? json : {}),
+          success: false,
+          status: response.status,
+          message: json?.message || json?.error || `Request failed with status ${response.status}`,
+          data: json?.data !== undefined ? json.data : json,
+          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+          error_fields: json?.error_fields || json?.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      if (json && typeof json === 'object') {
+        return {
+          ...json,
+          success:
+            json.success === 1 ||
+            json.success === true ||
+            json.status === true ||
+            json.status === 200 ||
+            json.status === 201 ||
+            json.status === 'success',
+          error_fields: json.error_fields || json.data?.error_fields || null,
+          errors: json.errors || json.data?.errors || null,
+          raw: json,
+        };
+      }
+
+      return json;
+    } catch (error: any) {
+      console.error('[smartDocsService.saveProformaDraft] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Network error occurred while saving proforma invoice',
+      };
+    }
+  },
+
+  /**
+   * Submits a Proforma Invoice with authentication:
+   * PATCH /proforma-invoice/submit/:id?lang_code=en&source=web
+   */
+  submitProforma: async (
+    payload: any,
+    params: { lang?: string; source?: string; id?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    // Proforma ID should strictly be the proforma ID, not the contract or confirmation ID
+    const rawCandidate =
+      params.id ||
+      (isFormData
+        ? (payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id') || payload.get('contract_id') || payload.get('confirmation_id'))
+        : (payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || payload?.contract_id || payload?.confirmation_id));
+
+    const cleanCandidate = sanitizeDocId(rawCandidate);
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(cleanCandidate);
+    const cleanId = isPlaceholder ? '' : cleanCandidate;
+
+    if (!cleanId) {
+      return {
+        success: false,
+        status: 400,
+        message: 'Document ID is missing. Please save Confirmation or Contract first.',
+      };
+    }
+
+    const url = `${baseUrl}/proforma-invoice/submit/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const headers: Record<string, string> = {};
+      let body: any;
+
+      if (isFormData) {
+        if (typeof payload.delete === 'function') {
+          payload.delete('signature');
+          payload.delete('authorised_signature');
+          payload.delete('authority_signature');
+          payload.delete('stamp');
+          if (payload.has('logo')) {
+            const logoVal = payload.get('logo');
+            if (!payload.has('seller_logo') && logoVal) {
+              payload.append('seller_logo', logoVal);
+            }
+            payload.delete('logo');
+          }
+          if (payload.has('company_logo')) {
+            const clVal = payload.get('company_logo');
+            if (!payload.has('seller_logo') && clVal) {
+              payload.append('seller_logo', clVal);
+            }
+            payload.delete('company_logo');
+          }
+          if (payload.has('company_logo_url')) {
+            const cluVal = payload.get('company_logo_url');
+            if (!payload.has('seller_logo_url') && cluVal) {
+              payload.append('seller_logo_url', cluVal);
+            }
+            payload.delete('company_logo_url');
+          }
+          payload.delete('logo_url');
+          payload.delete('remove_company_logo');
+        }
+        body = payload;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(cleanProformaPayload(payload));
+      }
+
+      const response = await customFetch(url, {
+        method: 'PATCH',
+        token,
+        headers,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        body,
+        cache: 'no-store',
+      });
+
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        return {
+          ...(typeof json === 'object' && json !== null ? json : {}),
+          success: false,
+          status: response.status,
+          message: json?.message || json?.error || `Request failed with status ${response.status}`,
+          data: json?.data !== undefined ? json.data : json,
+          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+          error_fields: json?.error_fields || json?.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      if (json && typeof json === 'object') {
+        return {
+          ...json,
+          success:
+            json.success === 1 ||
+            json.success === true ||
+            json.status === true ||
+            json.status === 200 ||
+            json.status === 201 ||
+            json.status === 'success',
+          error_fields: json.error_fields || json.data?.error_fields || null,
+          errors: json.errors || json.data?.errors || null,
+          raw: json,
+        };
+      }
+
+      return json;
+    } catch (error: any) {
+      console.error('[smartDocsService.submitProforma] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Network error occurred while submitting proforma invoice',
+      };
+    }
+  },
+
+  /**
    * GET /dms-templates/preview-pdf?prefix=:prefix&id=:id&lang_code=:lang&source=web
-   * Fetches the rendered HTML preview for a document (e.g. confirmation).
+   * Fetches the rendered HTML preview for a document (e.g. proforma, contract, confirmation).
+   * Robust multi-prefix & multi-candidate-id fallback guarantees previews load smoothly without
+   * failing with "Smart docs record not found".
    */
   getDocPreviewHtml: async (
     params: {
@@ -3859,111 +4292,189 @@ export const smartDocsService = {
       id: string;
       lang?: string;
       source?: string;
+      candidateIds?: string[];
+      candidatePrefixes?: string[];
     },
     token: string
   ): Promise<{ success: boolean; html?: string; message?: string; error?: string }> => {
     const baseUrl = getSmartDocsApiUrl();
     const safeLang = getSafeLang(params.lang || 'en');
     const safeId = sanitizeDocId(params.id);
-    const prefix = params.prefix || 'confirmation';
+    const rawPrefix = params.prefix || 'confirmation';
     const source = params.source || 'web';
 
-    const url = `${baseUrl}/dms-templates/preview-pdf`;
+    // Candidate document IDs in priority order
+    const candidateIds = Array.from(
+      new Set(
+        [
+          safeId,
+          ...(params.candidateIds || []).map((id) => sanitizeDocId(id)),
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(id)))
+      )
+    );
 
-    try {
-      const response = await customFetch(url, {
-        method: 'GET',
-        token,
-        params: {
-          prefix,
-          id: safeId,
-          lang_code: safeLang,
-          source,
-        },
-        headers: {
-          Accept: 'text/html, application/xhtml+xml, application/json, */*',
-        },
-        cache: 'no-store',
-      });
+    if (candidateIds.length === 0) {
+      return {
+        success: false,
+        error: 'Document ID is missing. Please save the document first.',
+        message: 'Document ID is missing. Please save the document first.',
+      };
+    }
 
-      if (!response.ok) {
-        let errorMsg = `Preview request failed with status: ${response.status}`;
+    // Determine candidate prefixes based on document type
+    const isProforma = /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isProforma && /contract|sales/i.test(rawPrefix);
+
+    const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
+      ? params.candidatePrefixes
+      : isProforma
+      ? ['proforma', 'proforma_invoice', 'proforma-invoice', 'proformaInvoice', 'invoice', 'pi']
+      : isContract
+      ? ['contract', 'sales-contract', 'sales_contract', 'salesContract', 'document']
+      : ['confirmation', 'trade-confirmation', 'trade_confirmation', 'tradeConfirmation', 'document'];
+
+    let lastErrorMsg = 'Failed to generate preview';
+
+    // Attempt preview via /dms-templates/preview-pdf across prefixes & candidate IDs
+    for (const curId of candidateIds) {
+      for (const curPrefix of candidatePrefixes) {
+        const url = `${baseUrl}/dms-templates/preview-pdf`;
         try {
-          const rawText = await response.text();
-          try {
-            const errData = JSON.parse(rawText);
-            errorMsg = errData.message || errData.error || errorMsg;
-          } catch {
-            if (rawText) errorMsg = rawText.slice(0, 300);
+          const response = await customFetch(url, {
+            method: 'GET',
+            token,
+            params: {
+              prefix: curPrefix,
+              id: curId,
+              lang_code: safeLang,
+              source,
+            },
+            headers: {
+              Accept: 'text/html, application/xhtml+xml, application/json, */*',
+            },
+            cache: 'no-store',
+          });
+
+          if (!response.ok) {
+            try {
+              const rawText = await response.text();
+              try {
+                const errData = JSON.parse(rawText);
+                lastErrorMsg = errData.message || errData.error || lastErrorMsg;
+              } catch {
+                if (rawText) lastErrorMsg = rawText.slice(0, 300);
+              }
+            } catch {
+              // ignore
+            }
+            continue;
+          }
+
+          const contentType = response.headers.get('content-type') || '';
+          const text = await response.text();
+
+          // Check if response is JSON containing HTML or error
+          if (
+            contentType.includes('application/json') ||
+            (text.trim().startsWith('{') && text.trim().endsWith('}'))
+          ) {
+            try {
+              const parsed = JSON.parse(text);
+              if (parsed && typeof parsed === 'object') {
+                if (parsed.success === false || parsed.status === false) {
+                  lastErrorMsg = parsed.message || parsed.error || lastErrorMsg;
+                  continue;
+                }
+                const htmlContent =
+                  parsed.data?.html ||
+                  parsed.data?.template ||
+                  parsed.data?.content ||
+                  parsed.data?.template_html ||
+                  parsed.data?.preview_html ||
+                  parsed.data?.print_html ||
+                  parsed.data?.html_content ||
+                  parsed.data?.rendered_html ||
+                  parsed.data?.preview ||
+                  parsed.html ||
+                  parsed.template ||
+                  parsed.content ||
+                  parsed.template_html ||
+                  parsed.preview_html ||
+                  parsed.print_html ||
+                  parsed.html_content ||
+                  parsed.rendered_html ||
+                  parsed.preview ||
+                  (typeof parsed.data === 'string' ? parsed.data : '');
+                if (htmlContent) {
+                  return { success: true, html: htmlContent };
+                }
+              }
+            } catch {
+              // If JSON parse fails, fall through to treating text as raw HTML
+            }
+          }
+
+          // Raw HTML response
+          if (text && text.trim() && !text.trim().startsWith('{"status":false')) {
+            return { success: true, html: text };
+          }
+        } catch (fetchErr: any) {
+          lastErrorMsg = fetchErr?.message || lastErrorMsg;
+        }
+      }
+    }
+
+    // Direct endpoint fallbacks if /dms-templates/preview-pdf was not found
+    for (const curId of candidateIds) {
+      const directEndpoints = isProforma
+        ? [
+            `${baseUrl}/proforma-invoice/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/proforma-invoice/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/proforma/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/proforma/preview/${encodeURIComponent(curId)}`,
+          ]
+        : isContract
+        ? [
+            `${baseUrl}/contract/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/contract/preview/${encodeURIComponent(curId)}`,
+          ]
+        : [
+            `${baseUrl}/confirmation/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/confirmation/preview/${encodeURIComponent(curId)}`,
+          ];
+
+      for (const directUrl of directEndpoints) {
+        try {
+          const directRes = await customFetch(directUrl, {
+            method: 'GET',
+            token,
+            params: { lang_code: safeLang, source },
+            headers: { Accept: 'text/html, application/xhtml+xml, application/json, */*' },
+            cache: 'no-store',
+          });
+          if (directRes.ok) {
+            const directText = await directRes.text();
+            if (directText && !directText.trim().startsWith('{"status":false')) {
+              return { success: true, html: directText };
+            }
           }
         } catch {
           // ignore
         }
-        return { success: false, error: errorMsg, message: errorMsg };
       }
-
-      const contentType = response.headers.get('content-type') || '';
-      const text = await response.text();
-
-      // Check if response is JSON containing HTML or error
-      if (
-        contentType.includes('application/json') ||
-        (text.trim().startsWith('{') && text.trim().endsWith('}'))
-      ) {
-        try {
-          const parsed = JSON.parse(text);
-          if (parsed && typeof parsed === 'object') {
-            if (parsed.success === false || parsed.status === false) {
-              return {
-                success: false,
-                error: parsed.message || parsed.error || 'Failed to generate preview',
-                message: parsed.message || parsed.error || 'Failed to generate preview',
-              };
-            }
-            const htmlContent =
-              parsed.data?.html ||
-              parsed.data?.template ||
-              parsed.data?.content ||
-              parsed.data?.template_html ||
-              parsed.data?.preview_html ||
-              parsed.data?.print_html ||
-              parsed.data?.html_content ||
-              parsed.data?.rendered_html ||
-              parsed.data?.preview ||
-              parsed.html ||
-              parsed.template ||
-              parsed.content ||
-              parsed.template_html ||
-              parsed.preview_html ||
-              parsed.print_html ||
-              parsed.html_content ||
-              parsed.rendered_html ||
-              parsed.preview ||
-              (typeof parsed.data === 'string' ? parsed.data : '');
-            if (htmlContent) {
-              return { success: true, html: htmlContent };
-            }
-          }
-        } catch {
-          // If JSON parse fails, fall through to treating text as raw HTML
-        }
-      }
-
-      // Raw HTML response
-      return { success: true, html: text };
-    } catch (error: any) {
-      console.error('[smartDocsService.getDocPreviewHtml] error:', error);
-      return {
-        success: false,
-        error: error?.message || 'Network error fetching preview',
-        message: error?.message || 'Network error fetching preview',
-      };
     }
+
+    return {
+      success: false,
+      error: lastErrorMsg,
+      message: lastErrorMsg,
+    };
   },
 
   /**
    * GET /dms-templates/download-pdf?prefix=:prefix&id=:id&lang_code=:lang&source=web
-   * Downloads the PDF file for a document (e.g. confirmation).
+   * Downloads the PDF file for a document (e.g. proforma, contract, confirmation).
+   * Robust multi-prefix & multi-candidate-id fallback guarantees downloads succeed.
    */
   downloadDocPdf: async (
     params: {
@@ -3971,6 +4482,8 @@ export const smartDocsService = {
       id: string;
       lang?: string;
       source?: string;
+      candidateIds?: string[];
+      candidatePrefixes?: string[];
     },
     token: string
   ): Promise<{
@@ -3987,168 +4500,191 @@ export const smartDocsService = {
     const baseUrl = getSmartDocsApiUrl();
     const safeLang = getSafeLang(params.lang || 'en');
     const safeId = sanitizeDocId(params.id);
-    const prefix = params.prefix || 'confirmation';
+    const rawPrefix = params.prefix || 'confirmation';
     const source = params.source || 'web';
 
-    const url = `${baseUrl}/dms-templates/download-pdf`;
+    const candidateIds = Array.from(
+      new Set(
+        [
+          safeId,
+          ...(params.candidateIds || []).map((id) => sanitizeDocId(id)),
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(id)))
+      )
+    );
 
-    try {
-      const response = await customFetch(url, {
-        method: 'GET',
-        token,
-        params: {
-          prefix,
-          id: safeId,
-          lang_code: safeLang,
-          source,
-        },
-        headers: {
-          Accept: 'application/pdf, application/octet-stream, application/json, */*',
-        },
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        let errorMsg = `Download failed with status: ${response.status}`;
-        try {
-          const rawText = await response.text();
-          try {
-            const errData = JSON.parse(rawText);
-            errorMsg = errData.message || errData.error || errorMsg;
-          } catch {
-            if (rawText) errorMsg = rawText.slice(0, 300);
-          }
-        } catch {
-          // ignore
-        }
-        return { success: false, error: errorMsg, message: errorMsg };
-      }
-
-      const contentType = response.headers.get('content-type') || '';
-      const contentDisposition = response.headers.get('content-disposition') || '';
-      let filename = `${prefix}-${safeId}.pdf`;
-      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (filenameMatch && filenameMatch[1]) {
-        filename = filenameMatch[1].replace(/['"]/g, '').trim();
-      }
-
-      // Read response body ONCE as ArrayBuffer
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Check if response is JSON (e.g. download URL, pdf_buffer, or error object)
-      const isJson = contentType.includes('application/json') || (buffer.length > 0 && buffer[0] === 123);
-      if (isJson) {
-        try {
-          const jsonStr = buffer.toString('utf-8');
-          const json = JSON.parse(jsonStr);
-          if (json && typeof json === 'object') {
-            if (
-              json.success === false ||
-              json.status === false ||
-              (typeof json.status === 'number' && json.status >= 400)
-            ) {
-              return {
-                success: false,
-                error: json.message || json.error || 'Failed to download PDF',
-                message: json.message || json.error || 'Failed to download PDF',
-              };
-            }
-
-            // Custom filename if returned in response data
-            const serverFileName =
-              json.data?.file_name ||
-              json.data?.filename ||
-              json.data?.fileName ||
-              json.file_name ||
-              json.filename ||
-              json.fileName;
-            if (serverFileName && typeof serverFileName === 'string') {
-              filename = serverFileName.trim();
-            }
-
-            // Direct URL
-            const directUrl =
-              json.data?.url ||
-              json.url ||
-              json.data?.download_url ||
-              json.download_url ||
-              json.data?.pdf_url ||
-              json.pdf_url;
-            if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('http')) {
-              return {
-                success: true,
-                url: directUrl,
-                filename,
-              };
-            }
-
-            // Check pdf_buffer / base64 in data or root
-            const rawBuffer =
-              json.data?.pdf_buffer ??
-              json.data?.pdfBuffer ??
-              json.data?.buffer ??
-              json.data?.file_buffer ??
-              json.data?.fileBuffer ??
-              json.data?.base64 ??
-              json.data?.pdf ??
-              json.pdf_buffer ??
-              json.pdfBuffer ??
-              json.buffer ??
-              json.file_buffer ??
-              json.base64 ??
-              json.data;
-
-            const extractedBase64 = extractPdfBase64(rawBuffer);
-            if (extractedBase64) {
-              return {
-                success: true,
-                base64: extractedBase64,
-                pdf_buffer: extractedBase64,
-                data: {
-                  pdf_buffer: extractedBase64,
-                  file_name: filename,
-                },
-                contentType: 'application/pdf',
-                filename,
-              };
-            }
-
-            // If it was valid JSON but did not contain any valid PDF payload
-            return {
-              success: false,
-              error: json.message || json.error || 'No PDF data received from server',
-              message: json.message || json.error || 'No PDF data received from server',
-            };
-          }
-        } catch (jsonErr: any) {
-          // If JSON parsing failed unexpectedly, fall through to treating as binary PDF
-          console.warn('[smartDocsService.downloadDocPdf] JSON parse error, treating as binary:', jsonErr);
-        }
-      }
-
-      // Direct binary buffer (PDF)
-      const base64 = buffer.toString('base64');
-
-      return {
-        success: true,
-        base64,
-        pdf_buffer: base64,
-        data: {
-          pdf_buffer: base64,
-          file_name: filename,
-        },
-        contentType: contentType || 'application/pdf',
-        filename,
-      };
-    } catch (error: any) {
-      console.error('[smartDocsService.downloadDocPdf] error:', error);
+    if (candidateIds.length === 0) {
       return {
         success: false,
-        error: error?.message || 'Network error downloading PDF',
-        message: error?.message || 'Network error downloading PDF',
+        error: 'Document ID is missing. Please save the document first.',
+        message: 'Document ID is missing. Please save the document first.',
       };
     }
+
+    const isProforma = /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isProforma && /contract|sales/i.test(rawPrefix);
+
+    const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
+      ? params.candidatePrefixes
+      : isProforma
+      ? ['proforma', 'proforma_invoice', 'proforma-invoice', 'proformaInvoice', 'invoice', 'pi']
+      : isContract
+      ? ['contract', 'sales-contract', 'sales_contract', 'salesContract', 'document']
+      : ['confirmation', 'trade-confirmation', 'trade_confirmation', 'tradeConfirmation', 'document'];
+
+    let lastErrorMsg = 'Failed to download PDF';
+
+    for (const curId of candidateIds) {
+      for (const curPrefix of candidatePrefixes) {
+        const url = `${baseUrl}/dms-templates/download-pdf`;
+        try {
+          const response = await customFetch(url, {
+            method: 'GET',
+            token,
+            params: {
+              prefix: curPrefix,
+              id: curId,
+              lang_code: safeLang,
+              source,
+            },
+            headers: {
+              Accept: 'application/pdf, application/octet-stream, application/json, */*',
+            },
+            cache: 'no-store',
+          });
+
+          if (!response.ok) {
+            try {
+              const rawText = await response.text();
+              try {
+                const errData = JSON.parse(rawText);
+                lastErrorMsg = errData.message || errData.error || lastErrorMsg;
+              } catch {
+                if (rawText) lastErrorMsg = rawText.slice(0, 300);
+              }
+            } catch {
+              // ignore
+            }
+            continue;
+          }
+
+          const contentType = response.headers.get('content-type') || '';
+          const contentDisposition = response.headers.get('content-disposition') || '';
+          let filename = `${curPrefix}-${curId}.pdf`;
+          const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = filenameMatch[1].replace(/['"]/g, '').trim();
+          }
+
+          // Read response body ONCE as ArrayBuffer
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          // Check if response is JSON (e.g. download URL, pdf_buffer, or error object)
+          const isJson = contentType.includes('application/json') || (buffer.length > 0 && buffer[0] === 123);
+          if (isJson) {
+            try {
+              const jsonStr = buffer.toString('utf-8');
+              const json = JSON.parse(jsonStr);
+              if (json && typeof json === 'object') {
+                if (
+                  json.success === false ||
+                  json.status === false ||
+                  (typeof json.status === 'number' && json.status >= 400)
+                ) {
+                  lastErrorMsg = json.message || json.error || lastErrorMsg;
+                  continue;
+                }
+
+                // Custom filename if returned in response data
+                const serverFileName =
+                  json.data?.file_name ||
+                  json.data?.filename ||
+                  json.data?.fileName ||
+                  json.file_name ||
+                  json.filename ||
+                  json.fileName;
+                if (serverFileName && typeof serverFileName === 'string') {
+                  filename = serverFileName.trim();
+                }
+
+                // Direct URL
+                const directUrl =
+                  json.data?.url ||
+                  json.url ||
+                  json.data?.download_url ||
+                  json.download_url ||
+                  json.data?.pdf_url ||
+                  json.pdf_url;
+                if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('http')) {
+                  return {
+                    success: true,
+                    url: directUrl,
+                    filename,
+                  };
+                }
+
+                // Check pdf_buffer / base64 in data or root
+                const rawBuffer =
+                  json.data?.pdf_buffer ??
+                  json.data?.pdfBuffer ??
+                  json.data?.buffer ??
+                  json.data?.file_buffer ??
+                  json.data?.fileBuffer ??
+                  json.data?.base64 ??
+                  json.data?.pdf ??
+                  json.pdf_buffer ??
+                  json.pdfBuffer ??
+                  json.buffer ??
+                  json.file_buffer ??
+                  json.base64 ??
+                  json.data;
+
+                const extractedBase64 = extractPdfBase64(rawBuffer);
+                if (extractedBase64) {
+                  return {
+                    success: true,
+                    base64: extractedBase64,
+                    pdf_buffer: extractedBase64,
+                    data: {
+                      pdf_buffer: extractedBase64,
+                      file_name: filename,
+                    },
+                    contentType: 'application/pdf',
+                    filename,
+                  };
+                }
+              }
+            } catch {
+              // Not valid JSON, fall through to treating as binary PDF
+            }
+          }
+
+          // Direct binary buffer (PDF)
+          const base64 = buffer.toString('base64');
+          if (base64) {
+            return {
+              success: true,
+              base64,
+              pdf_buffer: base64,
+              data: {
+                pdf_buffer: base64,
+                file_name: filename,
+              },
+              contentType: contentType || 'application/pdf',
+              filename,
+            };
+          }
+        } catch (downloadErr: any) {
+          lastErrorMsg = downloadErr?.message || lastErrorMsg;
+        }
+      }
+    }
+
+    return {
+      success: false,
+      error: lastErrorMsg,
+      message: lastErrorMsg,
+    };
   },
 };
 
@@ -4553,6 +5089,339 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
     delete cleaned.fcl_capacity;
   }
 
+  if (cleaned.other_reference && !cleaned.other_references) {
+    cleaned.other_references = cleaned.other_reference;
+  }
+  if (cleaned.other_references && !cleaned.other_reference) {
+    cleaned.other_reference = cleaned.other_references;
+  }
+
+  if (cleaned.seller_signature_label && !cleaned.authority_signature_title) {
+    cleaned.authority_signature_title = cleaned.seller_signature_label;
+  }
+  if (cleaned.authority_signature_title && !cleaned.seller_signature_label) {
+    cleaned.seller_signature_label = cleaned.authority_signature_title;
+  }
+  if (cleaned.seller_signature_label && !cleaned.authorised_signature_title) {
+    cleaned.authorised_signature_title = cleaned.seller_signature_label;
+  }
+
+  // Normalize signature to seller_signature / seller_signature_url only
+  const sigCandidate =
+    cleaned.seller_signature ||
+    cleaned.seller_signature_url ||
+    cleaned.authorised_signature ||
+    cleaned.authority_signature ||
+    cleaned.signature ||
+    cleaned.stamp_image_url ||
+    cleaned.stamp;
+  if (sigCandidate) {
+    if (!cleaned.seller_signature) cleaned.seller_signature = sigCandidate;
+    if (!cleaned.seller_signature_url) cleaned.seller_signature_url = sigCandidate;
+  }
+  delete cleaned.signature;
+  delete cleaned.authorised_signature;
+  delete cleaned.authority_signature;
+  delete cleaned.stamp;
+  delete cleaned.stamp_image_url;
+
+  // Normalize logo to seller_logo / seller_logo_url only
+  const logoCandidate =
+    cleaned.seller_logo ||
+    cleaned.seller_logo_url ||
+    cleaned.company_logo ||
+    cleaned.company_logo_url ||
+    cleaned.logo_url ||
+    cleaned.logo ||
+    cleaned.seller_details?.company_logo ||
+    cleaned.seller_details?.seller_logo;
+  if (logoCandidate) {
+    if (!cleaned.seller_logo) cleaned.seller_logo = logoCandidate;
+    if (!cleaned.seller_logo_url) cleaned.seller_logo_url = logoCandidate;
+  }
+  delete cleaned.company_logo;
+  delete cleaned.company_logo_url;
+  delete cleaned.logo;
+  delete cleaned.logo_url;
+  delete cleaned.remove_company_logo;
+
+  // Sync bank_details_id and bank_account_id
+  if (cleaned.bank_details_id && !cleaned.bank_account_id) {
+    cleaned.bank_account_id = cleaned.bank_details_id;
+  }
+  if (cleaned.bank_account_id && !cleaned.bank_details_id) {
+    cleaned.bank_details_id = cleaned.bank_account_id;
+  }
+
+  // Sync seller_instruction_id and instruction_id
+  if (cleaned.seller_instruction_id && !cleaned.instruction_id) {
+    cleaned.instruction_id = cleaned.seller_instruction_id;
+  }
+  if (cleaned.instruction_id && !cleaned.seller_instruction_id) {
+    cleaned.seller_instruction_id = cleaned.instruction_id;
+  }
+
+  // If proforma_id was set to contract_id, strip proforma_id so backend doesn't fail lookup
+  if (cleaned.proforma_id && cleaned.contract_id && String(cleaned.proforma_id).trim() === String(cleaned.contract_id).trim()) {
+    delete cleaned.proforma_id;
+    delete cleaned.proforma_invoice_id;
+  }
+  if (cleaned.id && cleaned.contract_id && String(cleaned.id).trim() === String(cleaned.contract_id).trim()) {
+    delete cleaned.id;
+  }
+
+  return cleaned;
+}
+
+/**
+ * Extracts and normalizes Proforma Invoice data from backend responses.
+ */
+export function extractProformaData(data: any): any {
+  if (!data) return null;
+  if (data?.success === false && !data?.data) return null;
+  if (data?.status === 404 || data?.status === 400 || data?.statusCode === 404) return null;
+  if (data?.message && typeof data.message === 'string' && /not found/i.test(data.message) && !data?.data) return null;
+
+  const root = data;
+  const dataLevel = data?.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : null;
+  const nestedDataLevel = dataLevel?.data && typeof dataLevel.data === 'object' && !Array.isArray(dataLevel.data) ? dataLevel.data : null;
+  let proformaLevel = (nestedDataLevel?.proforma || dataLevel?.proforma || root?.proforma || nestedDataLevel?.proforma_invoice || dataLevel?.proforma_invoice || root?.proforma_invoice);
+  if (proformaLevel && typeof proformaLevel !== 'object') proformaLevel = null;
+
+  const merged: Record<string, any> = {};
+  const layers = [proformaLevel, nestedDataLevel, dataLevel, root].filter(Boolean);
+
+  for (const layer of layers) {
+    for (const [k, v] of Object.entries(layer)) {
+      if (k === 'proforma' || k === 'proforma_invoice' || k === 'data') continue;
+      if (!(k in merged)) {
+        merged[k] = v;
+      } else if ((merged[k] === undefined || merged[k] === null || merged[k] === '') && v !== undefined && v !== null && v !== '') {
+        merged[k] = v;
+      }
+    }
+  }
+
+  const keys = Object.keys(merged);
+  if (keys.length === 0 || (keys.length <= 2 && keys.every(k => ['message', 'error', 'success', 'status', 'statusCode'].includes(k)))) {
+    return null;
+  }
+
+  // Normalize other_reference / other_references synonyms
+  if (merged.other_reference && !merged.other_references) {
+    merged.other_references = merged.other_reference;
+  }
+  if (merged.other_references && !merged.other_reference) {
+    merged.other_reference = merged.other_references;
+  }
+
+  // Normalize signature synonyms
+  const sigCandidate =
+    merged.seller_signature ||
+    merged.seller_signature_url ||
+    merged.authorised_signature ||
+    merged.authority_signature ||
+    merged.signature ||
+    merged.stamp_image_url ||
+    merged.stamp;
+  if (sigCandidate && !merged.seller_signature) {
+    merged.seller_signature = sigCandidate;
+  }
+  if (sigCandidate && !merged.stamp_image_url) {
+    merged.stamp_image_url = sigCandidate;
+  }
+
+  // Normalize logo synonyms to seller_logo / seller_logo_url
+  const logoCandidate =
+    merged.seller_logo ||
+    merged.seller_logo_url ||
+    merged.company_logo ||
+    merged.company_logo_url ||
+    merged.logo_url ||
+    merged.logo ||
+    merged.seller_details?.company_logo ||
+    merged.seller_details?.company_logo_url ||
+    merged.seller_details?.seller_logo ||
+    merged.seller_details?.seller_logo_url ||
+    merged.seller_details?.logo_url ||
+    merged.seller_details?.logo ||
+    root?.seller_details?.company_logo ||
+    dataLevel?.seller_details?.company_logo ||
+    proformaLevel?.seller_details?.company_logo ||
+    merged.seller?.seller_logo ||
+    merged.seller?.seller_logo_url ||
+    merged.seller?.company_logo ||
+    merged.seller?.company_logo_url ||
+    merged.seller?.logo_url ||
+    merged.seller?.logo;
+  if (logoCandidate) {
+    if (!merged.seller_logo) merged.seller_logo = logoCandidate;
+    if (!merged.seller_logo_url) merged.seller_logo_url = logoCandidate;
+    if (!merged.company_logo) merged.company_logo = logoCandidate;
+    if (!merged.company_logo_url) merged.company_logo_url = logoCandidate;
+    if (merged.seller_details && typeof merged.seller_details === 'object') {
+      if (!merged.seller_details.company_logo) merged.seller_details.company_logo = logoCandidate;
+      if (!merged.seller_details.seller_logo) merged.seller_details.seller_logo = logoCandidate;
+    }
+  }
+
+  // Normalize authority label synonyms
+  const labelCandidate =
+    merged.seller_signature_label ||
+    merged.authority_signature_title ||
+    merged.authorised_signature_title ||
+    merged.authority_title;
+  if (labelCandidate) {
+    if (!merged.seller_signature_label) merged.seller_signature_label = labelCandidate;
+    if (!merged.authority_signature_title) merged.authority_signature_title = labelCandidate;
+    if (!merged.authorised_signature_title) merged.authorised_signature_title = labelCandidate;
+  }
+
+  // Normalize bank_details_id / bank_account_id synonyms
+  const bankIdCandidate =
+    merged.bank_details_id ??
+    merged.bankDetailsId ??
+    merged.bank_account_id ??
+    merged.bankAccountId ??
+    merged.bank_id ??
+    merged.bankId ??
+    (typeof merged.bank === 'object' && merged.bank !== null
+      ? merged.bank.bank_details_id ?? merged.bank.id ?? merged.bank._id
+      : null) ??
+    (typeof merged.bank_details === 'object' && merged.bank_details !== null
+      ? merged.bank_details.bank_details_id ?? merged.bank_details.id ?? merged.bank_details._id
+      : null);
+  if (bankIdCandidate !== undefined && bankIdCandidate !== null && String(bankIdCandidate).trim() !== '') {
+    const cleanBankId = String(bankIdCandidate).trim();
+    if (!merged.bank_details_id) merged.bank_details_id = cleanBankId;
+    if (!merged.bank_account_id) merged.bank_account_id = cleanBankId;
+  }
+
+  if (typeof merged.bank_details === 'object' && merged.bank_details !== null) {
+    merged.bank_details =
+      merged.bank_details.account_details ||
+      merged.bank_details.details ||
+      merged.bank_details.bank_details ||
+      '';
+  }
+
+  return merged;
+}
+
+/**
+ * Sanitizes proforma invoice payload before sending to backend.
+ */
+export function cleanProformaPayload(payload: Record<string, any>): Record<string, any> {
+  if (!payload || typeof payload !== 'object') return {};
+  const cleaned: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined) continue;
+    if (value === null) {
+      cleaned[key] = null;
+      continue;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '' || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') {
+        continue;
+      }
+      cleaned[key] = trimmed;
+    } else if (typeof value === 'number') {
+      if (isNaN(value)) continue;
+      cleaned[key] = value;
+    } else if (typeof value === 'boolean') {
+      cleaned[key] = value;
+    } else if (Array.isArray(value)) {
+      if (value.length > 0) cleaned[key] = value;
+    } else if (typeof value === 'object') {
+      const nested = cleanProformaPayload(value);
+      if (Object.keys(nested).length > 0) cleaned[key] = nested;
+    }
+  }
+
+  if (cleaned.other_reference && !cleaned.other_references) {
+    cleaned.other_references = cleaned.other_reference;
+  }
+  if (cleaned.other_references && !cleaned.other_reference) {
+    cleaned.other_reference = cleaned.other_references;
+  }
+
+  if (cleaned.seller_signature_label && !cleaned.authority_signature_title) {
+    cleaned.authority_signature_title = cleaned.seller_signature_label;
+  }
+  if (cleaned.authority_signature_title && !cleaned.seller_signature_label) {
+    cleaned.seller_signature_label = cleaned.authority_signature_title;
+  }
+  if (cleaned.seller_signature_label && !cleaned.authorised_signature_title) {
+    cleaned.authorised_signature_title = cleaned.seller_signature_label;
+  }
+
+  // Normalize signature to seller_signature / seller_signature_url only
+  const sigCandidate =
+    cleaned.seller_signature ||
+    cleaned.seller_signature_url ||
+    cleaned.authorised_signature ||
+    cleaned.authority_signature ||
+    cleaned.signature ||
+    cleaned.stamp_image_url ||
+    cleaned.stamp;
+  if (sigCandidate) {
+    if (!cleaned.seller_signature) cleaned.seller_signature = sigCandidate;
+    if (!cleaned.seller_signature_url) cleaned.seller_signature_url = sigCandidate;
+  }
+  delete cleaned.signature;
+  delete cleaned.authorised_signature;
+  delete cleaned.authority_signature;
+  delete cleaned.stamp;
+  delete cleaned.stamp_image_url;
+
+  // Normalize logo to seller_logo / seller_logo_url only
+  const logoCandidate =
+    cleaned.seller_logo ||
+    cleaned.seller_logo_url ||
+    cleaned.company_logo ||
+    cleaned.company_logo_url ||
+    cleaned.logo_url ||
+    cleaned.logo ||
+    cleaned.seller_details?.company_logo ||
+    cleaned.seller_details?.seller_logo;
+  if (logoCandidate) {
+    if (!cleaned.seller_logo) cleaned.seller_logo = logoCandidate;
+    if (!cleaned.seller_logo_url) cleaned.seller_logo_url = logoCandidate;
+  }
+  delete cleaned.company_logo;
+  delete cleaned.company_logo_url;
+  delete cleaned.logo;
+  delete cleaned.logo_url;
+  delete cleaned.remove_company_logo;
+
+  // Sync bank_details_id and bank_account_id
+  if (cleaned.bank_details_id && !cleaned.bank_account_id) {
+    cleaned.bank_account_id = cleaned.bank_details_id;
+  }
+  if (cleaned.bank_account_id && !cleaned.bank_details_id) {
+    cleaned.bank_details_id = cleaned.bank_account_id;
+  }
+
+  // Sync seller_instruction_id and instruction_id
+  if (cleaned.seller_instruction_id && !cleaned.instruction_id) {
+    cleaned.instruction_id = cleaned.seller_instruction_id;
+  }
+  if (cleaned.instruction_id && !cleaned.seller_instruction_id) {
+    cleaned.seller_instruction_id = cleaned.instruction_id;
+  }
+
+  // If proforma_id was set to contract_id, strip proforma_id so backend doesn't fail lookup
+  if (cleaned.proforma_id && cleaned.contract_id && String(cleaned.proforma_id).trim() === String(cleaned.contract_id).trim()) {
+    delete cleaned.proforma_id;
+    delete cleaned.proforma_invoice_id;
+  }
+  if (cleaned.id && cleaned.contract_id && String(cleaned.id).trim() === String(cleaned.contract_id).trim()) {
+    delete cleaned.id;
+  }
+
   return cleaned;
 }
 
@@ -4567,12 +5436,51 @@ export function formatSignatureUrl(raw?: any): string {
   if (typeof raw === 'string') {
     str = raw.trim();
   } else if (typeof raw === 'object') {
-    const possibleKeys = ['url', 'path', 'src', 'image', 'file', 'endpoint', 'location'];
+    const possibleKeys = [
+      'url',
+      'path',
+      'src',
+      'image',
+      'file',
+      'endpoint',
+      'location',
+      'seller_logo',
+      'seller_logo_url',
+      'sellerLogo',
+      'sellerLogoUrl',
+      'company_logo',
+      'company_logo_url',
+      'companyLogo',
+      'companyLogoUrl',
+      'logo',
+      'logo_url',
+      'logoUrl',
+      'signature',
+      'signature_url',
+      'authorised_signature',
+      'authority_signature',
+      'seller_signature',
+      'stamp_image_url',
+      'stamp_url',
+      'value',
+    ];
     for (const pk of possibleKeys) {
       if (raw[pk] && typeof raw[pk] === 'string') {
         str = raw[pk].trim();
         break;
+      } else if (raw[pk] && typeof raw[pk] === 'object') {
+        const nested = formatSignatureUrl(raw[pk]);
+        if (nested) {
+          str = nested;
+          break;
+        }
       }
+    }
+    if (!str && raw.seller_details) {
+      str = formatSignatureUrl(raw.seller_details);
+    }
+    if (!str && raw.data) {
+      str = formatSignatureUrl(raw.data);
     }
   }
 
@@ -4580,14 +5488,31 @@ export function formatSignatureUrl(raw?: any): string {
     !str ||
     str === 'null' ||
     str === 'undefined' ||
-    str === '[object Object]'
+    str === '[object Object]' ||
+    str === '/brand/logo.png' ||
+    str.endsWith('/brand/logo.png')
   ) {
     return '';
   }
 
-  // If already a base64 data URL, blob URL, or full HTTP/HTTPS URL
-  if (str.startsWith('data:') || str.startsWith('blob:') || /^https?:\/\//i.test(str)) {
+  // If already a base64 data URL or blob URL
+  if (str.startsWith('data:') || str.startsWith('blob:')) {
+    return str;
+  }
+
+  // If protocol-relative URL (e.g. //assets.agriguruonline.com/...)
+  if (str.startsWith('//')) {
+    return `https:${str}`.replace('assets.agriguruonline.cloud', 'assets.agriguruonline.com');
+  }
+
+  // If full HTTP/HTTPS URL
+  if (/^https?:\/\//i.test(str)) {
     return str.replace('assets.agriguruonline.cloud', 'assets.agriguruonline.com');
+  }
+
+  // Strip leading domain if raw was e.g. "assets.agriguruonline.com/..." without protocol
+  if (/^assets\.agriguruonline\.(com|cloud)\/?/i.test(str)) {
+    str = str.replace(/^assets\.agriguruonline\.(com|cloud)\/?/i, '');
   }
 
   const assetsUrl = getAssetsUrl();
@@ -4626,9 +5551,9 @@ export function extractContractData(data: any): any {
   if (data?.status === 404 || data?.status === 400 || data?.statusCode === 404) return null;
   if (data?.message && typeof data.message === 'string' && /not found/i.test(data.message) && !data?.data) return null;
 
-  let root = data;
-  let dataLevel = data?.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : null;
-  let nestedDataLevel = dataLevel?.data && typeof dataLevel.data === 'object' && !Array.isArray(dataLevel.data) ? dataLevel.data : null;
+  const root = data;
+  const dataLevel = data?.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : null;
+  const nestedDataLevel = dataLevel?.data && typeof dataLevel.data === 'object' && !Array.isArray(dataLevel.data) ? dataLevel.data : null;
   let contractLevel = (nestedDataLevel?.contract || dataLevel?.contract || root?.contract);
   if (contractLevel && typeof contractLevel !== 'object') contractLevel = null;
 
@@ -4662,6 +5587,104 @@ export function extractContractData(data: any): any {
   const keys = Object.keys(merged);
   if (keys.length === 0 || (keys.length <= 2 && keys.every(k => ['message', 'error', 'success', 'status', 'statusCode'].includes(k)))) {
     return null;
+  }
+
+  // Normalize other_reference / other_references synonyms
+  if (merged.other_reference && !merged.other_references) {
+    merged.other_references = merged.other_reference;
+  }
+  if (merged.other_references && !merged.other_reference) {
+    merged.other_reference = merged.other_references;
+  }
+
+  // Normalize signature synonyms
+  const sigCandidate =
+    merged.seller_signature ||
+    merged.seller_signature_url ||
+    merged.authorised_signature ||
+    merged.authority_signature ||
+    merged.signature ||
+    merged.stamp_image_url ||
+    merged.stamp;
+  if (sigCandidate && !merged.seller_signature) {
+    merged.seller_signature = sigCandidate;
+  }
+  if (sigCandidate && !merged.stamp_image_url) {
+    merged.stamp_image_url = sigCandidate;
+  }
+
+  // Normalize logo synonyms to seller_logo / seller_logo_url
+  const logoCandidate =
+    merged.seller_logo ||
+    merged.seller_logo_url ||
+    merged.company_logo ||
+    merged.company_logo_url ||
+    merged.logo_url ||
+    merged.logo ||
+    merged.seller_details?.company_logo ||
+    merged.seller_details?.company_logo_url ||
+    merged.seller_details?.seller_logo ||
+    merged.seller_details?.seller_logo_url ||
+    merged.seller_details?.logo_url ||
+    merged.seller_details?.logo ||
+    root?.seller_details?.company_logo ||
+    dataLevel?.seller_details?.company_logo ||
+    contractLevel?.seller_details?.company_logo ||
+    merged.seller?.seller_logo ||
+    merged.seller?.seller_logo_url ||
+    merged.seller?.company_logo ||
+    merged.seller?.company_logo_url ||
+    merged.seller?.logo_url ||
+    merged.seller?.logo;
+  if (logoCandidate) {
+    if (!merged.seller_logo) merged.seller_logo = logoCandidate;
+    if (!merged.seller_logo_url) merged.seller_logo_url = logoCandidate;
+    if (!merged.company_logo) merged.company_logo = logoCandidate;
+    if (!merged.company_logo_url) merged.company_logo_url = logoCandidate;
+    if (merged.seller_details && typeof merged.seller_details === 'object') {
+      if (!merged.seller_details.company_logo) merged.seller_details.company_logo = logoCandidate;
+      if (!merged.seller_details.seller_logo) merged.seller_details.seller_logo = logoCandidate;
+    }
+  }
+
+  // Normalize authority label synonyms
+  const labelCandidate =
+    merged.seller_signature_label ||
+    merged.authority_signature_title ||
+    merged.authorised_signature_title ||
+    merged.authority_title;
+  if (labelCandidate) {
+    if (!merged.seller_signature_label) merged.seller_signature_label = labelCandidate;
+    if (!merged.authority_signature_title) merged.authority_signature_title = labelCandidate;
+    if (!merged.authorised_signature_title) merged.authorised_signature_title = labelCandidate;
+  }
+
+  // Normalize bank_details_id / bank_account_id synonyms
+  const bankIdCandidate =
+    merged.bank_details_id ??
+    merged.bankDetailsId ??
+    merged.bank_account_id ??
+    merged.bankAccountId ??
+    merged.bank_id ??
+    merged.bankId ??
+    (typeof merged.bank === 'object' && merged.bank !== null
+      ? merged.bank.bank_details_id ?? merged.bank.id ?? merged.bank._id
+      : null) ??
+    (typeof merged.bank_details === 'object' && merged.bank_details !== null
+      ? merged.bank_details.bank_details_id ?? merged.bank_details.id ?? merged.bank_details._id
+      : null);
+  if (bankIdCandidate !== undefined && bankIdCandidate !== null && String(bankIdCandidate).trim() !== '') {
+    const cleanBankId = String(bankIdCandidate).trim();
+    if (!merged.bank_details_id) merged.bank_details_id = cleanBankId;
+    if (!merged.bank_account_id) merged.bank_account_id = cleanBankId;
+  }
+
+  if (typeof merged.bank_details === 'object' && merged.bank_details !== null) {
+    merged.bank_details =
+      merged.bank_details.account_details ||
+      merged.bank_details.details ||
+      merged.bank_details.bank_details ||
+      '';
   }
 
   return merged;
@@ -4757,6 +5780,87 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
       const nested = cleanContractPayload(value);
       if (Object.keys(nested).length > 0) cleaned[key] = nested;
     }
+  }
+
+  if (cleaned.other_reference && !cleaned.other_references) {
+    cleaned.other_references = cleaned.other_reference;
+  }
+  if (cleaned.other_references && !cleaned.other_reference) {
+    cleaned.other_reference = cleaned.other_references;
+  }
+
+  if (cleaned.seller_signature_label && !cleaned.authority_signature_title) {
+    cleaned.authority_signature_title = cleaned.seller_signature_label;
+  }
+  if (cleaned.authority_signature_title && !cleaned.seller_signature_label) {
+    cleaned.seller_signature_label = cleaned.authority_signature_title;
+  }
+  if (cleaned.seller_signature_label && !cleaned.authorised_signature_title) {
+    cleaned.authorised_signature_title = cleaned.seller_signature_label;
+  }
+
+  // Normalize signature to seller_signature / seller_signature_url only
+  const sigCandidate =
+    cleaned.seller_signature ||
+    cleaned.seller_signature_url ||
+    cleaned.authorised_signature ||
+    cleaned.authority_signature ||
+    cleaned.signature ||
+    cleaned.stamp_image_url ||
+    cleaned.stamp;
+  if (sigCandidate) {
+    if (!cleaned.seller_signature) cleaned.seller_signature = sigCandidate;
+    if (!cleaned.seller_signature_url) cleaned.seller_signature_url = sigCandidate;
+  }
+  delete cleaned.signature;
+  delete cleaned.authorised_signature;
+  delete cleaned.authority_signature;
+  delete cleaned.stamp;
+  delete cleaned.stamp_image_url;
+
+  // Normalize logo to seller_logo / seller_logo_url only
+  const logoCandidate =
+    cleaned.seller_logo ||
+    cleaned.seller_logo_url ||
+    cleaned.company_logo ||
+    cleaned.company_logo_url ||
+    cleaned.logo_url ||
+    cleaned.logo ||
+    cleaned.seller_details?.company_logo ||
+    cleaned.seller_details?.seller_logo;
+  if (logoCandidate) {
+    if (!cleaned.seller_logo) cleaned.seller_logo = logoCandidate;
+    if (!cleaned.seller_logo_url) cleaned.seller_logo_url = logoCandidate;
+  }
+  delete cleaned.company_logo;
+  delete cleaned.company_logo_url;
+  delete cleaned.logo;
+  delete cleaned.logo_url;
+  delete cleaned.remove_company_logo;
+
+  // Sync bank_details_id and bank_account_id
+  if (cleaned.bank_details_id && !cleaned.bank_account_id) {
+    cleaned.bank_account_id = cleaned.bank_details_id;
+  }
+  if (cleaned.bank_account_id && !cleaned.bank_details_id) {
+    cleaned.bank_details_id = cleaned.bank_account_id;
+  }
+
+  // Sync seller_instruction_id and instruction_id
+  if (cleaned.seller_instruction_id && !cleaned.instruction_id) {
+    cleaned.instruction_id = cleaned.seller_instruction_id;
+  }
+  if (cleaned.instruction_id && !cleaned.seller_instruction_id) {
+    cleaned.seller_instruction_id = cleaned.instruction_id;
+  }
+
+  // If proforma_id was set to contract_id, strip proforma_id so backend doesn't fail lookup
+  if (cleaned.proforma_id && cleaned.contract_id && String(cleaned.proforma_id).trim() === String(cleaned.contract_id).trim()) {
+    delete cleaned.proforma_id;
+    delete cleaned.proforma_invoice_id;
+  }
+  if (cleaned.id && cleaned.contract_id && String(cleaned.id).trim() === String(cleaned.contract_id).trim()) {
+    delete cleaned.id;
   }
 
   return cleaned;
@@ -4917,6 +6021,78 @@ export function normalizeStepStatus(rawStatus?: string): NormalizedStepStatus {
   return 'pending';
 }
 
+export function isConfirmationStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (index === 0) return true;
+  if (index === 1 || index === 2) return false;
+  if (!step) return false;
+
+  const stepNum = Number(step.step ?? step.step_number ?? step.order);
+  if (stepNum === 1) return true;
+  if (stepNum === 2 || stepNum === 3) return false;
+
+  const id = String(step.id || step._id || '').toLowerCase();
+  const name = String(
+    step.document_name ||
+    step.name ||
+    step.title ||
+    step.doc_name ||
+    step.step_name ||
+    step.label ||
+    ''
+  ).toLowerCase();
+  return id.includes('confirmation') || name.includes('confirmation');
+}
+
+export function isContractStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (index === 0 || index === 2) return false;
+  if (index === 1) return true;
+  if (!step) return false;
+
+  const stepNum = Number(step.step ?? step.step_number ?? step.order);
+  if (stepNum === 1 || stepNum === 3) return false;
+  if (stepNum === 2) return true;
+
+  const id = String(step.id || step._id || '').toLowerCase();
+  const name = String(
+    step.document_name ||
+    step.name ||
+    step.title ||
+    step.doc_name ||
+    step.step_name ||
+    step.label ||
+    ''
+  ).toLowerCase();
+
+  if (id.includes('confirmation') || name.includes('confirmation')) return false;
+  if (id.includes('proforma') || name.includes('proforma')) return false;
+  return id.includes('contract') || name.includes('contract');
+}
+
+export function isProformaStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (index === 0 || index === 1) return false;
+  if (index === 2) return true;
+  if (!step) return false;
+
+  const stepNum = Number(step.step ?? step.step_number ?? step.order);
+  if (stepNum === 1 || stepNum === 2) return false;
+  if (stepNum === 3) return true;
+
+  const id = String(step.id || step._id || '').toLowerCase();
+  const name = String(
+    step.document_name ||
+    step.name ||
+    step.title ||
+    step.doc_name ||
+    step.step_name ||
+    step.label ||
+    ''
+  ).toLowerCase();
+
+  if (id.includes('confirmation') || name.includes('confirmation')) return false;
+  if (id.includes('contract') || name.includes('contract')) return false;
+  return id.includes('proforma') || name.includes('proforma');
+}
+
 /**
  * Extracts a clean document/step ID from a StepperDocumentItem.
  * Filters out dummy placeholder names like "contract", "sales-contract", etc.
@@ -4930,14 +6106,68 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
       val.trim()
     );
 
-  // Explicit document ID fields from backend
+  // If this is specifically a Proforma step, prioritize proforma-specific IDs ONLY
+  if (isProformaStep(step)) {
+    const proformaCandidates = [
+      step.proforma_id,
+      step.proformaId,
+      step.proforma?.id,
+      step.proforma?._id,
+      step.proforma?.proforma_id,
+      step.proformaInvoiceId,
+      step.proforma_invoice_id,
+    ];
+    for (const raw of proformaCandidates) {
+      if (raw !== undefined && raw !== null) {
+        const clean = String(raw).trim();
+        if (clean && !isInvalidPlaceholder(clean)) return clean;
+      }
+    }
+    return '';
+  }
+
+  // If this is specifically a Contract step, prioritize contract-specific IDs ONLY
+  if (isContractStep(step)) {
+    const contractCandidates = [
+      step.contract_id,
+      step.contractId,
+      step.contract?.id,
+      step.contract?._id,
+      step.contract?.contract_id,
+      step.sales_contract_id,
+      step.salesContractId,
+    ];
+    for (const raw of contractCandidates) {
+      if (raw !== undefined && raw !== null) {
+        const clean = String(raw).trim();
+        if (clean && !isInvalidPlaceholder(clean)) return clean;
+      }
+    }
+    return '';
+  }
+
+  // If this is specifically a Confirmation step, prioritize confirmation-specific IDs ONLY
+  if (isConfirmationStep(step)) {
+    const confCandidates = [
+      step.confirmation_id,
+      step.confirmationId,
+      step.confirmation?.id,
+      step.confirmation?._id,
+      step.confirmation?.confirmation_id,
+      step.trade_confirmation_id,
+      step.tradeConfirmationId,
+    ];
+    for (const raw of confCandidates) {
+      if (raw !== undefined && raw !== null) {
+        const clean = String(raw).trim();
+        if (clean && !isInvalidPlaceholder(clean)) return clean;
+      }
+    }
+    return '';
+  }
+
+  // Explicit document ID fields from backend for other steps
   const explicitCandidates = [
-    step.proforma_id,
-    step.proformaId,
-    step.contract_id,
-    step.contractId,
-    step.confirmation_id,
-    step.confirmationId,
     step.document_id,
     step.documentId,
     step.doc_id,
@@ -5014,6 +6244,12 @@ export function extractStepRedirectId(step?: StepperDocumentItem | null): string
   };
 
   // 1. Direct scalar ID candidates from step object
+  const stepSpecificCandidates = isProformaStep(step)
+    ? [step.proforma_id, step.proformaId, step.proformaInvoiceId, step.proforma_invoice_id]
+    : isContractStep(step)
+    ? [step.contract_id, step.contractId, step.sales_contract_id, step.salesContractId]
+    : [step.confirmation_id, step.confirmationId, step.trade_confirmation_id, step.tradeConfirmationId];
+
   const scalarCandidates = [
     step.redirect_id,
     step.redirectId,
@@ -5021,16 +6257,11 @@ export function extractStepRedirectId(step?: StepperDocumentItem | null): string
     step.redirectDocumentId,
     step.redirect_doc_id,
     step.redirectDocId,
+    ...stepSpecificCandidates,
     step.document_id,
     step.documentId,
     step.doc_id,
     step.docId,
-    step.confirmation_id,
-    step.confirmationId,
-    step.contract_id,
-    step.contractId,
-    step.proforma_id,
-    step.proformaId,
     step.smart_doc_id,
     step.smartDocId,
     step.record_id,
@@ -5059,78 +6290,6 @@ export function extractStepRedirectId(step?: StepperDocumentItem | null): string
   }
 
   return '';
-}
-
-export function isConfirmationStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0) return true;
-  if (index === 1 || index === 2) return false;
-  if (!step) return false;
-
-  const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1) return true;
-  if (stepNum === 2 || stepNum === 3) return false;
-
-  const id = String(step.id || step._id || '').toLowerCase();
-  const name = String(
-    step.document_name ||
-    step.name ||
-    step.title ||
-    step.doc_name ||
-    step.step_name ||
-    step.label ||
-    ''
-  ).toLowerCase();
-  return id.includes('confirmation') || name.includes('confirmation');
-}
-
-export function isContractStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0 || index === 2) return false;
-  if (index === 1) return true;
-  if (!step) return false;
-
-  const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1 || stepNum === 3) return false;
-  if (stepNum === 2) return true;
-
-  const id = String(step.id || step._id || '').toLowerCase();
-  const name = String(
-    step.document_name ||
-    step.name ||
-    step.title ||
-    step.doc_name ||
-    step.step_name ||
-    step.label ||
-    ''
-  ).toLowerCase();
-
-  if (id.includes('confirmation') || name.includes('confirmation')) return false;
-  if (id.includes('proforma') || name.includes('proforma')) return false;
-  return id.includes('contract') || name.includes('contract');
-}
-
-export function isProformaStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0 || index === 1) return false;
-  if (index === 2) return true;
-  if (!step) return false;
-
-  const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1 || stepNum === 2) return false;
-  if (stepNum === 3) return true;
-
-  const id = String(step.id || step._id || '').toLowerCase();
-  const name = String(
-    step.document_name ||
-    step.name ||
-    step.title ||
-    step.doc_name ||
-    step.step_name ||
-    step.label ||
-    ''
-  ).toLowerCase();
-
-  if (id.includes('confirmation') || name.includes('confirmation')) return false;
-  if (id.includes('contract') || name.includes('contract')) return false;
-  return id.includes('proforma') || name.includes('proforma');
 }
 
 export function getProformaStep(
@@ -5189,6 +6348,49 @@ export function extractDocumentStatus(data?: any): string {
     (typeof data.data === 'object' && data.data?.status) ||
     '';
   return String(raw).trim().toUpperCase();
+}
+
+/**
+ * Safely extracts status key specifically for a Proforma Invoice document.
+ * Strictly avoids picking up an inherited Contract's or Confirmation's status.
+ */
+export function extractProformaDocumentStatus(data?: any, stepItem?: StepperDocumentItem | null): string {
+  if (stepItem) {
+    const norm = normalizeStepStatus(stepItem.status || stepItem.document_status || stepItem.step_status);
+    if (norm === 'completed') return 'COMPLETED';
+    return 'PENDING';
+  }
+  if (!data) return 'PENDING';
+
+  // 1. Explicit proforma_status property
+  const pStatus =
+    data.proforma_status ||
+    data.proformaStatus ||
+    data.proforma?.status ||
+    data.proforma?.proforma_status ||
+    data.proforma_invoice?.status ||
+    data.proforma_invoice?.proforma_status;
+  if (pStatus) {
+    const norm = normalizeStepStatus(pStatus);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  // 2. Pure proforma data object (not inheriting contract / confirmation status)
+  const isPureProforma = Boolean(
+    (data.invoice_number || data.invoice_no || data.proforma_id || data.proforma_invoice_id) &&
+    !data.contract_number &&
+    !data.contract_id &&
+    !data.contractId &&
+    !data.confirmation_number &&
+    !data.confirmation_id &&
+    !data.confirmationId
+  );
+  if (isPureProforma && data.status) {
+    const norm = normalizeStepStatus(data.status);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  return 'PENDING';
 }
 
 /**
@@ -5384,6 +6586,8 @@ export function extractInstructionsData(data: any): ExtractedInstructions {
       : '';
 
     const label = companyName || instructionText.slice(0, 40) || `Instruction ${index + 1}`;
+    const rawItemId = item.id || item._id;
+    const resolvedInstId = item.instruction_id ? String(item.instruction_id).trim() : (rawItemId ? String(rawItemId).trim() : undefined);
 
     return {
       value,
@@ -5393,6 +6597,9 @@ export function extractInstructionsData(data: any): ExtractedInstructions {
       companyName: label,
       details: detailsText,
       ...item,
+      id: resolvedInstId,
+      instruction_id: resolvedInstId,
+      raw: item,
     };
   };
 
