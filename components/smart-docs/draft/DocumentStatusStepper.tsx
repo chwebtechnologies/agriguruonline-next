@@ -4,11 +4,13 @@ import React, { useState, useEffect, useTransition, useRef, useCallback, useMemo
 import type { StepperDocumentItem } from '@/lib/api/smart-docs.service';
 import {
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
+  isRealStepperList,
   downloadPdfFromActionResponse,
   isConfirmationStep,
   isContractStep,
   extractStepRedirectId,
   extractStepId,
+  getStepSelfId,
 } from '@/lib/api/smart-docs.service';
 import {
   getStepperListAction,
@@ -124,23 +126,44 @@ export function DocumentStatusStepper({
     return hiddenDocuments.some((id) => !initialSet.has(id));
   }, [hiddenDocuments, initialHiddenDocuments]);
 
-  // Load steps from API if initialSteps is empty or not provided
+  const lastFetchedIdRef = useRef<string>('');
+
+  // Load steps from API if initialSteps is empty or when target workflow ID changes
   useEffect(() => {
-    if (initialSteps && initialSteps.length > 0) {
+    const { stepperId, stepperType } = getStepperContext();
+    const targetStep = propConfirmationId || stepperId || stepId || '';
+
+    // If initialSteps already provided and targetStep hasn't changed to a new valid ID, skip initial fetch
+    if (initialSteps && initialSteps.length > 0 && (!targetStep || targetStep === lastFetchedIdRef.current || targetStep === 'new-confirmation')) {
       setSteps(initialSteps);
       setIsLoading(false);
       return;
     }
 
+    if (!targetStep || targetStep === 'new-confirmation') {
+      if (initialSteps && initialSteps.length > 0) {
+        setSteps(initialSteps);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // Avoid refetching identical targetStep
+    if (targetStep && targetStep === lastFetchedIdRef.current) {
+      return;
+    }
+
+    lastFetchedIdRef.current = targetStep;
     let isMounted = true;
+
     const fetchSteps = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const targetStep = stepId || 'new-confirmation';
-        let res = await getStepperListAction({
-          action: 'confirmation',
-          step: targetStep,
+        const actionToUse = (stepperType as any) || 'confirmation';
+        const res = await getStepperListAction({
+          action: actionToUse,
+          step: targetStep || 'new-confirmation',
           lang,
         });
 
@@ -148,8 +171,8 @@ export function DocumentStatusStepper({
 
         let stepsData = res?.success && res?.data && res.data.length > 0 ? res.data : [];
 
-        // If specific step ID returned empty, try fallback to new-confirmation template
-        if (stepsData.length === 0 && targetStep !== 'new-confirmation') {
+        // If specific step ID returned empty, try fallback to new-confirmation template only if initialSteps is empty
+        if (stepsData.length === 0 && (!initialSteps || initialSteps.length === 0) && targetStep && targetStep !== 'new-confirmation') {
           try {
             const fallbackRes = await getStepperListAction({
               action: 'confirmation',
@@ -164,17 +187,23 @@ export function DocumentStatusStepper({
           }
         }
 
-        // Final fallback to standard workflow items so stepper is NEVER empty!
-        if (stepsData.length === 0) {
-          stepsData = DEFAULT_WORKFLOW_STEPPER_ITEMS;
+        if (stepsData.length > 0) {
+          setSteps(stepsData);
+          if (isRealStepperList(stepsData)) {
+            onUpdateSteps?.(stepsData);
+          }
+        } else if (initialSteps && initialSteps.length > 0) {
+          setSteps(initialSteps);
+        } else {
+          setSteps(DEFAULT_WORKFLOW_STEPPER_ITEMS);
         }
-
-        setSteps(stepsData);
-        onUpdateSteps?.(stepsData);
       } catch (err: any) {
         if (!isMounted) return;
-        setSteps(DEFAULT_WORKFLOW_STEPPER_ITEMS);
-        onUpdateSteps?.(DEFAULT_WORKFLOW_STEPPER_ITEMS);
+        if (initialSteps && initialSteps.length > 0) {
+          setSteps(initialSteps);
+        } else {
+          setSteps(DEFAULT_WORKFLOW_STEPPER_ITEMS);
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -185,7 +214,7 @@ export function DocumentStatusStepper({
     return () => {
       isMounted = false;
     };
-  }, [initialSteps, stepId, lang, onUpdateSteps]);
+  }, [stepId, propConfirmationId, propStepperId, propStepperType, lang]);
 
   // Keep internal steps synced if parent provides fresh steps
   useEffect(() => {
@@ -273,46 +302,34 @@ export function DocumentStatusStepper({
     (safeSteps.length > selectedIndex && isContractStep(safeSteps[selectedIndex], selectedIndex));
 
   const getStepperContext = useCallback(() => {
-    const isContract =
-      Boolean(propIsContractStep) ||
-      selectedIndex === 1 ||
-      (safeSteps.length > selectedIndex && isContractStep(safeSteps[selectedIndex], selectedIndex));
-
+    // 1. Resolve stepper action/type
     let sType = propStepperType;
-    if (!sType || sType === 'document') {
-      sType = isContract ? 'contract' : 'confirmation';
-    }
-
-    let sId = propStepperId;
-
-    if (isContract && (!sId || sId === 'new-confirmation')) {
-      const contractStep = safeSteps.find((s, idx) => isContractStep(s, idx)) || safeSteps[1];
-      const cId = extractStepRedirectId(contractStep) || extractStepId(contractStep);
-      if (cId && cId !== 'new-confirmation') {
-        sId = cId;
+    if (!sType) {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const stepParam = urlParams.get('step')?.toLowerCase();
+        if (stepParam === 'shipment' || stepParam === 'document' || stepParam === 'instruction' || stepParam === 'shipment_instruction') {
+          sType = 'document';
+        } else if (stepParam === 'contract') {
+          sType = 'contract';
+        } else {
+          sType = propIsContractStep ? 'contract' : 'confirmation';
+        }
+      } else {
+        sType = propIsContractStep ? 'contract' : 'confirmation';
       }
     }
 
-    if (!sId || sId === 'new-confirmation') {
-      sId = propConfirmationId || propStepId;
-    }
+    // 2. The document ID passed from the button / URL is the primary document ID:
+    // (SI id, Contract id, Confirmation id)
+    let sId = propStepId || propStepperId;
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && (!sId || sId === 'new-confirmation')) {
       try {
-        const histState = (window.history?.state || {}) as any;
-        const usrState = histState?.usr || {};
         const urlParams = new URLSearchParams(window.location.search);
-
-        if (!sId || sId === 'new-confirmation') {
-          sId =
-            (isContract ? (usrState?.contractId || histState?.contractId) : null) ||
-            usrState?.stepperId ||
-            usrState?.confirmationId ||
-            histState?.stepperId ||
-            histState?.confirmationId ||
-            urlParams.get('stepperId') ||
-            urlParams.get('confirmationId') ||
-            urlParams.get('id');
+        const urlId = urlParams.get('id');
+        if (urlId && urlId !== 'new-confirmation') {
+          sId = urlId.trim();
         }
       } catch {
         // ignore
@@ -320,19 +337,19 @@ export function DocumentStatusStepper({
     }
 
     if (!sId || sId === 'new-confirmation') {
-      const activeId = getActiveStepRedirectId();
-      if (activeId && activeId !== 'new-confirmation') {
-        sId = activeId;
-      }
+      sId = propConfirmationId;
     }
 
+    // 3. Fallback to active step redirect_id if still not resolved
     if (!sId || sId === 'new-confirmation') {
-      if (propConfirmationId && propConfirmationId !== 'new-confirmation') {
-        sId = propConfirmationId;
+      const activeStep = safeSteps[selectedIndex] || safeSteps[0];
+      const activeRedirect = getStepSelfId(activeStep);
+      if (activeRedirect && String(activeRedirect) !== 'new-confirmation') {
+        sId = String(activeRedirect);
       }
     }
 
-    const finalType = String(sType || (isContract ? 'contract' : 'confirmation')).trim().toLowerCase();
+    const finalType = String(sType || 'confirmation').trim().toLowerCase();
     const cleanId = String(sId || '').trim();
     const finalId =
       cleanId &&
@@ -346,12 +363,11 @@ export function DocumentStatusStepper({
   }, [
     propStepperType,
     propStepperId,
-    propConfirmationId,
     propStepId,
+    propConfirmationId,
     propIsContractStep,
-    selectedIndex,
     safeSteps,
-    getActiveStepRedirectId,
+    selectedIndex,
   ]);
 
   const { stepperType: resolvedStepperType, stepperId: resolvedStepperId } = getStepperContext();
@@ -442,16 +458,17 @@ export function DocumentStatusStepper({
       return;
     }
 
-    const cleanId = String(step.id || step._id || stepId || '').trim();
+    const cleanId = String(getStepSelfId(step) || step.id || step._id || stepId || '').trim();
     if (!cleanId) return;
 
     try {
       const stepName = String(
         step.document_name || step.name || step.title || step.id || ''
       ).toLowerCase();
-      const isContract = stepName.includes('contract') || step.step === 2;
-      const isProforma = stepName.includes('proforma') || step.step === 3;
-      const prefix = isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
+      const isShipment = stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4;
+      const isContract = !isShipment && (stepName.includes('contract') || step.step === 2);
+      const isProforma = !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
+      const prefix = isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
 
       const res = await downloadDocPdfAction({
         prefix,
@@ -473,10 +490,11 @@ export function DocumentStatusStepper({
       setIsLoading(true);
       setError(null);
       try {
-        const { stepperId } = getStepperContext();
+        const { stepperId, stepperType } = getStepperContext();
         const targetStep = propConfirmationId || stepperId || stepId || 'new-confirmation';
+        const actionToUse = (stepperType as any) || 'confirmation';
         let res = await getStepperListAction({
-          action: 'confirmation',
+          action: actionToUse,
           step: targetStep,
           lang,
         });
@@ -493,10 +511,11 @@ export function DocumentStatusStepper({
         }
         if (stepsData.length > 0) {
           setSteps(stepsData);
-          onUpdateSteps?.(stepsData);
+          if (isRealStepperList(stepsData)) {
+            onUpdateSteps?.(stepsData);
+          }
         } else {
-          setSteps(DEFAULT_WORKFLOW_STEPPER_ITEMS);
-          onUpdateSteps?.(DEFAULT_WORKFLOW_STEPPER_ITEMS);
+          setSteps(initialSteps && initialSteps.length > 0 ? initialSteps : DEFAULT_WORKFLOW_STEPPER_ITEMS);
         }
       } catch (err: any) {
         setError(err?.message || 'Failed to refresh steps');
@@ -891,19 +910,22 @@ export function DocumentStatusStepper({
 
                 const isStepLocked = (() => {
                   if (index === 0) return false;
+                  if (index === selectedIndex) return false;
+                  if (index < selectedIndex) return false;
+                  if (normalized === 'completed') return false;
+
+                  const selfId = getStepSelfId(step);
+                  if (selfId) return false;
+
                   if (Boolean(step.is_locked || step.locked || normalized === 'locked')) {
                     return true;
                   }
-                  if (normalized === 'completed') return false;
-                  if (index <= selectedIndex) return false;
 
-                  for (let i = 0; i < index; i++) {
-                    const prevStatus = normalizeStepStatus(
-                      steps[i]?.status || steps[i]?.document_status || steps[i]?.step_status
-                    );
-                    if (prevStatus !== 'completed' && i >= selectedIndex) {
-                      return true;
-                    }
+                  const prevStep = steps[index - 1];
+                  const prevStatus = normalizeStepStatus(prevStep?.status || prevStep?.document_status || prevStep?.step_status);
+                  const prevHasId = Boolean(getStepSelfId(prevStep));
+                  if (prevStatus !== 'completed' && !prevHasId) {
+                    return true;
                   }
                   return false;
                 })();
@@ -976,7 +998,11 @@ export function DocumentStatusStepper({
                         {docName}
                       </span>
                       <div className="mt-0.5 flex items-center">
-                        <StatusBadge status={normalized} rawStatus={rawStatus} dict={dict} />
+                        <StatusBadge
+                          status={isSelected && normalized !== 'completed' ? 'in_progress' : normalized}
+                          rawStatus={isSelected && normalized !== 'completed' ? 'in_progress' : rawStatus}
+                          dict={dict}
+                        />
                       </div>
                     </div>
 

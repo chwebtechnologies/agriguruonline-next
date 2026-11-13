@@ -21,8 +21,23 @@ interface AuthFlowProps {
 
 export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFlowProps) {
   const router = useRouter();
-  const [step, setStep] = useState<AuthStep>("EMAIL");
-  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<AuthStep>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = sessionStorage.getItem("ag_auth_step");
+        if (saved === "OTP" || saved === "REGISTER") return saved as AuthStep;
+      } catch (e) {}
+    }
+    return "EMAIL";
+  });
+  const [email, setEmail] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return sessionStorage.getItem("ag_auth_email") || "";
+      } catch (e) {}
+    }
+    return "";
+  });
   const [isAppleFlow, setIsAppleFlow] = useState(false);
 
   useEffect(() => {
@@ -58,19 +73,12 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     }
   }, []);
 
-  useEffect(() => {
-    const handlePopState = () => {
-      // If user presses browser back button, always take them to EMAIL step
-      setStep("EMAIL");
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
   const handleEmailNext = (submittedEmail: string) => {
     setEmail(submittedEmail);
-    // Push a state so browser back button works
-    window.history.pushState({ step: "OTP" }, "");
+    try {
+      sessionStorage.setItem("ag_auth_step", "OTP");
+      sessionStorage.setItem("ag_auth_email", submittedEmail);
+    } catch (e) {}
     setStep("OTP");
   };
 
@@ -112,10 +120,15 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
 
   const handleOtpVerify = async (otp: string, nextStep: string | null) => {
     if (nextStep === "REQUIRE_REGISTRATION") {
-      // Replace state so going back from REGISTER skips OTP
-      window.history.replaceState({ step: "REGISTER" }, "");
+      try {
+        sessionStorage.setItem("ag_auth_step", "REGISTER");
+      } catch (e) {}
       setStep("REGISTER");
     } else {
+      try {
+        sessionStorage.removeItem("ag_auth_step");
+        sessionStorage.removeItem("ag_auth_email");
+      } catch (e) {}
       if (typeof window !== "undefined") {
         try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
         window.dispatchEvent(new Event("auth-state-change"));
@@ -127,6 +140,10 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
   };
 
   const handleRegisterComplete = async () => {
+    try {
+      sessionStorage.removeItem("ag_auth_step");
+      sessionStorage.removeItem("ag_auth_email");
+    } catch (e) {}
     if (typeof window !== "undefined") {
       try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
       window.dispatchEvent(new Event("auth-state-change"));
@@ -138,8 +155,15 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
 
   const handlePageHeaderBack = () => {
     if (step === "EMAIL") {
+      try {
+        sessionStorage.removeItem("ag_auth_step");
+        sessionStorage.removeItem("ag_auth_email");
+      } catch (e) {}
       router.push(`/${lang}`);
     } else if (step === "OTP") {
+      try {
+        sessionStorage.removeItem("ag_auth_step");
+      } catch (e) {}
       setStep("EMAIL");
     }
   };
@@ -147,16 +171,28 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
   const handleSocialSuccess = async (socialEmail: string, nextStep: string | null) => {
     if (socialEmail) {
       setEmail(socialEmail);
+      try {
+        sessionStorage.setItem("ag_auth_email", socialEmail);
+      } catch (e) {}
     }
     if (nextStep === "REQUIRE_REGISTRATION") {
       setIsAppleFlow(false);
-      window.history.replaceState({ step: "REGISTER" }, "");
+      try {
+        sessionStorage.setItem("ag_auth_step", "REGISTER");
+      } catch (e) {}
       setStep("REGISTER");
     } else if (nextStep === "REQUIRE_EMAIL") {
       setIsAppleFlow(true);
+      try {
+        sessionStorage.removeItem("ag_auth_step");
+      } catch (e) {}
       setStep("EMAIL");
     } else {
       setIsAppleFlow(false);
+      try {
+        sessionStorage.removeItem("ag_auth_step");
+        sessionStorage.removeItem("ag_auth_email");
+      } catch (e) {}
       if (typeof window !== "undefined") {
         try { sessionStorage.setItem("ag_just_logged_in", "1"); } catch (e) {}
         window.dispatchEvent(new Event("auth-state-change"));
@@ -171,6 +207,8 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
     setIsAppleFlow(false);
     setEmail("");
     try {
+      sessionStorage.removeItem("ag_auth_step");
+      sessionStorage.removeItem("ag_auth_email");
       localStorage.removeItem("apple_txn_id");
       localStorage.removeItem("apple_email");
       localStorage.removeItem("apple_first_name");
@@ -209,7 +247,12 @@ export default function AuthFlow({ lang, redirectUrl, dict, commonDict }: AuthFl
         {step === "OTP" && (
           <OtpStep
             email={email}
-            onBack={() => setStep("EMAIL")}
+            onBack={() => {
+              try {
+                sessionStorage.removeItem("ag_auth_step");
+              } catch (e) {}
+              setStep("EMAIL");
+            }}
             onVerify={handleOtpVerify}
             lang={lang}
             dict={dict}

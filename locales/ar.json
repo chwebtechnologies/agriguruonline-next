@@ -639,6 +639,8 @@
     "add_new_contract": "إضافة عقد جديد",
     "continue_to_draft": "متابعة المسودة",
     "continue_to_contract": "متابعة نموذج العقد",
+    "continue_to_shipment_instruction": "متابعة تعليمات الشحن",
+    "continue_to_document": "متابعة تعليمات الشحن",
     "draft_title": "مسودة التأكيد",
     "draft_contract_title": "مسودة العقد",
     "draft_description": "إنشاء وتكوين مسودة التأكيد والمستندات الذكية.",

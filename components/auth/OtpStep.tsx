@@ -21,16 +21,20 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const lastSentStr = localStorage.getItem(`otp_sent_${email}`);
     let initialCountdown = 120;
-    if (lastSentStr) {
-      const lastSent = parseInt(lastSentStr, 10);
-      const passedSeconds = Math.floor((Date.now() - lastSent) / 1000);
-      if (passedSeconds < 120) {
-        initialCountdown = 120 - passedSeconds;
-      } else {
-        initialCountdown = 0;
+    try {
+      const lastSentStr = localStorage.getItem(`otp_sent_${email}`);
+      if (lastSentStr) {
+        const lastSent = parseInt(lastSentStr, 10);
+        const passedSeconds = Math.floor((Date.now() - lastSent) / 1000);
+        if (passedSeconds < 120) {
+          initialCountdown = 120 - passedSeconds;
+        } else {
+          initialCountdown = 0;
+        }
       }
+    } catch (e) {
+      // Safely ignore localStorage access errors (e.g. Safari private browsing)
     }
     setCountdown(initialCountdown);
   }, [email]);
@@ -51,7 +55,11 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     }
     startTransition(async () => {
       try {
-        const appleTxnId = localStorage.getItem("apple_txn_id");
+        let appleTxnId: string | null = null;
+        try {
+          appleTxnId = localStorage.getItem("apple_txn_id");
+        } catch (e) {}
+
         let response;
         if (appleTxnId) {
           response = await authService.sendOtpApple(email, appleTxnId, lang);
@@ -70,7 +78,9 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
           return;
         }
 
-        localStorage.setItem(`otp_sent_${email}`, Date.now().toString());
+        try {
+          localStorage.setItem(`otp_sent_${email}`, Date.now().toString());
+        } catch (e) {}
         setCountdown(120);
         toast.success("OTP resent successfully!");
       } catch (err) {
@@ -87,7 +97,11 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
     setError("");
     startTransition(async () => {
       try {
-        const appleTxnId = localStorage.getItem("apple_txn_id");
+        let appleTxnId: string | null = null;
+        try {
+          appleTxnId = localStorage.getItem("apple_txn_id");
+        } catch (e) {}
+
         let result;
         if (appleTxnId) {
           result = await serverVerifyAppleOtp(email, otpString, appleTxnId, lang);

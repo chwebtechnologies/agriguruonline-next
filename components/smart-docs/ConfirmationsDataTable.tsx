@@ -10,6 +10,9 @@ import {
   sanitizeDocId,
   extractAllSmartDocIds,
   extractContractDocId,
+  extractDocumentRowSelfId,
+  extractLinkedConfirmationId,
+  extractLinkedContractId,
   getCurrencySymbol,
 } from '@/lib/api/smart-docs.service';
 import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
@@ -433,16 +436,17 @@ export function getSmartDocType(row: any, activeAction?: string): SmartDocType {
   ).toLowerCase().trim();
 
   if (val.includes('contract')) return 'Contract';
-  if (val.includes('doc')) return 'Document';
+  if (val.includes('doc') || val.includes('shipment') || val.includes('instruction') || val === 'si') return 'Document';
   if (val.includes('confirm') || val.includes('quotation') || val.includes('quote')) return 'Confirmation';
 
   if (row?.contract && typeof row.contract === 'object' && !row?.confirmation) return 'Contract';
   if (row?.contract_id && !row?.confirmation_id && !row?.confirmation_no) return 'Contract';
+  if (row?.shipment_instruction || row?.shipment_instruction_id || row?.instruction_id) return 'Document';
 
   if (activeAction) {
     const act = activeAction.toLowerCase().trim();
     if (act === 'contract') return 'Contract';
-    if (act === 'document') return 'Document';
+    if (act === 'document' || act === 'shipment' || act === 'instruction') return 'Document';
     if (act === 'confirmation') return 'Confirmation';
   }
 
@@ -537,10 +541,15 @@ export function ConfirmationsDataTable({
   const columnDropdownRef = useRef<HTMLDivElement>(null);
 
   const isSelectedActionContract = selectedAction.toLowerCase() === 'contract';
+  const isSelectedActionDocument = selectedAction.toLowerCase() === 'document';
   const effectiveAddButtonLabel =
     addButtonLabel ||
     (isSelectedActionContract
       ? (dict?.smart_docs?.add_new_contract || 'Add New Contract')
+      : isSelectedActionDocument
+      ? (dict?.smart_docs?.add_new_shipment_instruction ||
+         dict?.smart_docs?.add_new_document ||
+         'Add New Shipment Instruction')
       : (dict?.smart_docs?.add_new_confirmation ||
          dict?.smart_docs?.add_confirmation ||
          'Add New Confirmation'));
@@ -548,9 +557,13 @@ export function ConfirmationsDataTable({
     addHref !== undefined
       ? (isSelectedActionContract && !addHref.includes('step=contract')
           ? `${addHref}${addHref.includes('?') ? '&' : '?'}step=contract`
+          : isSelectedActionDocument && !addHref.includes('step=shipment')
+          ? `${addHref}${addHref.includes('?') ? '&' : '?'}step=shipment`
           : addHref)
       : (isSelectedActionContract
           ? `/${lang}/smart-docs/draft?step=contract`
+          : isSelectedActionDocument
+          ? `/${lang}/smart-docs/draft?step=shipment`
           : `/${lang}/smart-docs/draft`);
   const effectiveEmptyTitle = emptyTitle || dict?.smart_docs?.no_confirmations_found || 'No Confirmations Found';
   const effectiveEmptyDescription =
@@ -1640,19 +1653,38 @@ export function ConfirmationsDataTable({
           const docType = getSmartDocType(row, selectedAction);
           const isConfirmation = docType === 'Confirmation';
           const isContract = docType === 'Contract';
+          const isDocument = docType === 'Document';
           const config = getDocTypeColorConfig(docType);
 
-          const rowDocId = isContract ? extractContractDocId(row) : extractSmartDocId(row);
-          const targetUrl = rowDocId
-            ? `/${lang}/smart-docs/draft?id=${encodeURIComponent(rowDocId)}${isContract ? '&step=contract' : ''}`
-            : `/${lang}/smart-docs/draft${isContract ? '?step=contract' : ''}`;
+          const rowDocId = sanitizeDocId(
+            row.id ||
+            row._id ||
+            row.document_id ||
+            row.shipment_instruction_id ||
+            row.contract_id ||
+            row.confirmation_id ||
+            extractDocumentRowSelfId(row) ||
+            extractSmartDocId(row)
+          );
+
+          const targetUrl = isContract
+            ? (rowDocId
+                ? `/${lang}/smart-docs/draft?id=${encodeURIComponent(rowDocId)}&step=contract`
+                : `/${lang}/smart-docs/draft?step=contract`)
+            : isDocument
+            ? (rowDocId
+                ? `/${lang}/smart-docs/draft?id=${encodeURIComponent(rowDocId)}&step=shipment`
+                : `/${lang}/smart-docs/draft?step=shipment`)
+            : (rowDocId
+                ? `/${lang}/smart-docs/draft?id=${encodeURIComponent(rowDocId)}&step=confirmation`
+                : `/${lang}/smart-docs/draft`);
 
           const rowKey = row.id || row.contract_no || row.confirmation_no || row.ref_no || index;
           const isMenuOpen = activeMenuKey !== null && activeMenuKey === rowKey;
 
           return (
             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              {/* Button 1: Draft / Form Action Link Button (Implemented for Confirmation and Contract) */}
+              {/* Button 1: Draft / Form Action Link Button (Blue = Confirmation, Red = Contract, Green = Shipment Instruction) */}
               {isContract ? (
                 <Link
                   href={targetUrl}
@@ -1672,6 +1704,27 @@ export function ConfirmationsDataTable({
                 >
                   <i className="fa-solid fa-file-contract text-xs"></i>
                 </Link>
+              ) : isDocument ? (
+                <Link
+                  href={targetUrl}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onCreateDoc) {
+                      e.preventDefault();
+                      onCreateDoc(row);
+                    }
+                  }}
+                  className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs shrink-0 cursor-pointer active:scale-95`}
+                  title={
+                    dict?.smart_docs?.continue_to_shipment_instruction ||
+                    dict?.smart_docs?.continue_to_document ||
+                    dict?.smart_docs?.draft_shipment_instruction_title ||
+                    dict?.smart_docs?.draft_document_title ||
+                    'Continue to Shipment Instruction'
+                  }
+                >
+                  <i className="fa-solid fa-file-lines text-xs"></i>
+                </Link>
               ) : isConfirmation ? (
                 <Link
                   href={targetUrl}
@@ -1688,13 +1741,20 @@ export function ConfirmationsDataTable({
                   <i className="fa-solid fa-file-circle-plus text-xs"></i>
                 </Link>
               ) : (
-                <button
-                  type="button"
-                  className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg ${config.bg} text-white opacity-80 cursor-default shadow-2xs transition-all flex items-center justify-center text-xs shrink-0`}
+                <Link
+                  href={targetUrl}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onCreateDoc) {
+                      e.preventDefault();
+                      onCreateDoc(row);
+                    }
+                  }}
+                  className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs shrink-0 cursor-pointer active:scale-95`}
                   title={docType}
                 >
                   <i className="fa-solid fa-file-lines text-xs"></i>
-                </button>
+                </Link>
               )}
 
               {/* Button 2: Vertical Ellipsis Options Menu with Delete option */}

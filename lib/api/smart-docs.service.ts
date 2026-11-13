@@ -841,9 +841,50 @@ export const smartDocsService = {
         cache: 'no-store',
       });
 
+      const data = response?.data;
+      if (
+        (!response || !data || (Array.isArray(data) && data.length === 0)) &&
+        step !== 'new-confirmation'
+      ) {
+        const altAction = action === 'confirmation' ? 'document' : 'confirmation';
+        const altUrl = `${baseUrl}/dms/stepper-list/${encodeURIComponent(altAction)}/${encodeURIComponent(step)}`;
+        const altResponse = await customFetchJSON<any>(altUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        }).catch(() => null);
+
+        if (altResponse?.data && (!Array.isArray(altResponse.data) || altResponse.data.length > 0)) {
+          return altResponse;
+        }
+      }
+
       return response;
     } catch (error) {
       console.error('[smartDocsService.getStepperList] error:', error);
+      if (step !== 'new-confirmation') {
+        try {
+          const altAction = action === 'confirmation' ? 'document' : 'confirmation';
+          const altUrl = `${baseUrl}/dms/stepper-list/${encodeURIComponent(altAction)}/${encodeURIComponent(step)}`;
+          const altResponse = await customFetchJSON<any>(altUrl, {
+            token,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            cache: 'no-store',
+          }).catch(() => null);
+
+          if (altResponse?.data && (!Array.isArray(altResponse.data) || altResponse.data.length > 0)) {
+            return altResponse;
+          }
+        } catch {
+          // ignore
+        }
+      }
       return null;
     }
   },
@@ -3791,15 +3832,23 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('contract_id') || payload.get('id') || payload.get('confirmation_id'))
-        : (payload?.contract_id || payload?.id || payload?.confirmation_id));
+    const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
+    const directIdInPayload = isFormData
+      ? payload.get('contract_id') || payload.get('id')
+      : payload?.contract_id || payload?.id;
 
+    const isInheritedConfId =
+      directIdInPayload && directIdInPayload === confIdInPayload;
+
+    const safeDirectId = isInheritedConfId
+      ? (isFormData ? payload.get('contract_id') : payload?.contract_id)
+      : directIdInPayload;
+
+    const rawCandidate = params.id || safeDirectId;
     const cleanCandidate = sanitizeDocId(rawCandidate);
     const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const isMatchingConf = cleanCandidate && cleanCandidate === sanitizeDocId(confIdInPayload);
+    const cleanId = isPlaceholder || isMatchingConf ? '' : cleanCandidate;
 
     const url = cleanId ? `${baseUrl}/contract/save/${encodeURIComponent(cleanId)}` : `${baseUrl}/contract/save`;
 
@@ -3914,15 +3963,23 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('contract_id') || payload.get('id') || payload.get('confirmation_id'))
-        : (payload?.contract_id || payload?.id || payload?.confirmation_id));
+    const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
+    const directIdInPayload = isFormData
+      ? payload.get('contract_id') || payload.get('id')
+      : payload?.contract_id || payload?.id;
 
+    const isInheritedConfId =
+      directIdInPayload && directIdInPayload === confIdInPayload;
+
+    const safeDirectId = isInheritedConfId
+      ? (isFormData ? payload.get('contract_id') : payload?.contract_id)
+      : directIdInPayload;
+
+    const rawCandidate = params.id || safeDirectId;
     const cleanCandidate = sanitizeDocId(rawCandidate);
     const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const isMatchingConf = cleanCandidate && cleanCandidate === sanitizeDocId(confIdInPayload);
+    const cleanId = isPlaceholder || isMatchingConf ? '' : cleanCandidate;
 
     const url = cleanId ? `${baseUrl}/contract/submit/${encodeURIComponent(cleanId)}` : `${baseUrl}/contract/submit`;
 
@@ -4100,26 +4157,35 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    // Proforma ID should strictly be the proforma ID, not the contract or confirmation ID
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id') || payload.get('contract_id') || payload.get('confirmation_id'))
-        : (payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || payload?.contract_id || payload?.confirmation_id));
+    const contractIdInPayload = isFormData ? payload.get('contract_id') : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
 
+    const directIdInPayload = isFormData
+      ? payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id')
+      : payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id;
+
+    const isInheritedParentId =
+      directIdInPayload &&
+      (directIdInPayload === contractIdInPayload || directIdInPayload === confIdInPayload);
+
+    const safeDirectId = isInheritedParentId
+      ? (isFormData
+          ? payload.get('proforma_id') || payload.get('proforma_invoice_id')
+          : payload?.proforma_id || payload?.proforma_invoice_id)
+      : directIdInPayload;
+
+    const rawCandidate = params.id || safeDirectId;
     const cleanCandidate = sanitizeDocId(rawCandidate);
     const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const isMatchingParent =
+      cleanCandidate &&
+      (cleanCandidate === sanitizeDocId(contractIdInPayload) ||
+        cleanCandidate === sanitizeDocId(confIdInPayload));
+    const cleanId = isPlaceholder || isMatchingParent ? '' : cleanCandidate;
 
-    if (!cleanId) {
-      return {
-        success: false,
-        status: 400,
-        message: 'Document ID is missing. Please save Confirmation or Contract first.',
-      };
-    }
-
-    const url = `${baseUrl}/proforma-invoice/save/${encodeURIComponent(cleanId)}`;
+    const url = cleanId
+      ? `${baseUrl}/proforma-invoice/save/${encodeURIComponent(cleanId)}`
+      : `${baseUrl}/proforma-invoice/save`;
 
     try {
       const headers: Record<string, string> = {};
@@ -4232,26 +4298,35 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    // Proforma ID should strictly be the proforma ID, not the contract or confirmation ID
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id') || payload.get('contract_id') || payload.get('confirmation_id'))
-        : (payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || payload?.contract_id || payload?.confirmation_id));
+    const contractIdInPayload = isFormData ? payload.get('contract_id') : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
 
+    const directIdInPayload = isFormData
+      ? payload.get('proforma_id') || payload.get('proforma_invoice_id') || payload.get('proformaId') || payload.get('id')
+      : payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id;
+
+    const isInheritedParentId =
+      directIdInPayload &&
+      (directIdInPayload === contractIdInPayload || directIdInPayload === confIdInPayload);
+
+    const safeDirectId = isInheritedParentId
+      ? (isFormData
+          ? payload.get('proforma_id') || payload.get('proforma_invoice_id')
+          : payload?.proforma_id || payload?.proforma_invoice_id)
+      : directIdInPayload;
+
+    const rawCandidate = params.id || safeDirectId;
     const cleanCandidate = sanitizeDocId(rawCandidate);
     const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const isMatchingParent =
+      cleanCandidate &&
+      (cleanCandidate === sanitizeDocId(contractIdInPayload) ||
+        cleanCandidate === sanitizeDocId(confIdInPayload));
+    const cleanId = isPlaceholder || isMatchingParent ? '' : cleanCandidate;
 
-    if (!cleanId) {
-      return {
-        success: false,
-        status: 400,
-        message: 'Document ID is missing. Please save Confirmation or Contract first.',
-      };
-    }
-
-    const url = `${baseUrl}/proforma-invoice/submit/${encodeURIComponent(cleanId)}`;
+    const url = cleanId
+      ? `${baseUrl}/proforma-invoice/submit/${encodeURIComponent(cleanId)}`
+      : `${baseUrl}/proforma-invoice/submit`;
 
     try {
       const headers: Record<string, string> = {};
@@ -4426,15 +4501,36 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id') || payload.get('proforma_id') || payload.get('contract_id') || payload.get('confirmation_id'))
-        : (payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id));
+    const contractIdInPayload = isFormData ? payload.get('contract_id') : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
+    const proformaIdInPayload = isFormData ? payload.get('proforma_id') : payload?.proforma_id;
+
+    const directIdInPayload = isFormData
+      ? payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id')
+      : payload?.shipment_instruction_id || payload?.instruction_id || payload?.id;
+
+    const isInheritedParentId =
+      directIdInPayload &&
+      (directIdInPayload === contractIdInPayload ||
+        directIdInPayload === confIdInPayload ||
+        directIdInPayload === proformaIdInPayload);
+
+    const safeDirectId = isInheritedParentId
+      ? (isFormData
+          ? payload.get('shipment_instruction_id') || payload.get('instruction_id')
+          : payload?.shipment_instruction_id || payload?.instruction_id)
+      : directIdInPayload;
+
+    const rawCandidate = params.id || safeDirectId;
 
     const cleanCandidate = sanitizeDocId(rawCandidate);
     const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const isMatchingParent =
+      cleanCandidate &&
+      (cleanCandidate === sanitizeDocId(contractIdInPayload) ||
+        cleanCandidate === sanitizeDocId(confIdInPayload) ||
+        cleanCandidate === sanitizeDocId(proformaIdInPayload));
+    const cleanId = isPlaceholder || isMatchingParent ? '' : cleanCandidate;
 
     const url = cleanId 
       ? `${baseUrl}/shipment-instruction/save/${encodeURIComponent(cleanId)}`
@@ -4572,15 +4668,36 @@ export const smartDocsService = {
       (typeof FormData !== 'undefined' && payload instanceof FormData) ||
       (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
 
-    const rawCandidate =
-      params.id ||
-      (isFormData
-        ? (payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id') || payload.get('proforma_id') || payload.get('contract_id') || payload.get('confirmation_id'))
-        : (payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id));
+    const contractIdInPayload = isFormData ? payload.get('contract_id') : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get('confirmation_id') : payload?.confirmation_id;
+    const proformaIdInPayload = isFormData ? payload.get('proforma_id') : payload?.proforma_id;
+
+    const directIdInPayload = isFormData
+      ? payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id')
+      : payload?.shipment_instruction_id || payload?.instruction_id || payload?.id;
+
+    const isInheritedParentId =
+      directIdInPayload &&
+      (directIdInPayload === contractIdInPayload ||
+        directIdInPayload === confIdInPayload ||
+        directIdInPayload === proformaIdInPayload);
+
+    const safeDirectId = isInheritedParentId
+      ? (isFormData
+          ? payload.get('shipment_instruction_id') || payload.get('instruction_id')
+          : payload?.shipment_instruction_id || payload?.instruction_id)
+      : directIdInPayload;
+
+    const rawCandidate = params.id || safeDirectId;
 
     const cleanCandidate = sanitizeDocId(rawCandidate);
     const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanCandidate);
-    const cleanId = isPlaceholder ? '' : cleanCandidate;
+    const isMatchingParent =
+      cleanCandidate &&
+      (cleanCandidate === sanitizeDocId(contractIdInPayload) ||
+        cleanCandidate === sanitizeDocId(confIdInPayload) ||
+        cleanCandidate === sanitizeDocId(proformaIdInPayload));
+    const cleanId = isPlaceholder || isMatchingParent ? '' : cleanCandidate;
 
     const url = cleanId 
       ? `${baseUrl}/shipment-instruction/submit/${encodeURIComponent(cleanId)}`
@@ -6638,6 +6755,36 @@ export const DEFAULT_WORKFLOW_STEPPER_ITEMS: StepperDocumentItem[] = [
 ];
 
 /**
+ * Checks whether a given stepper list contains genuine records with real redirect_ids or document IDs.
+ * Used to distinguish live backend stepper data from placeholder DEFAULT_WORKFLOW_STEPPER_ITEMS.
+ */
+export function isRealStepperList(steps: StepperDocumentItem[]): boolean {
+  if (!Array.isArray(steps) || steps.length === 0) return false;
+  return steps.some((s) => {
+    const rid = s?.redirect_id || s?.redirectId || s?.document_id || s?.doc_id;
+    if (rid) {
+      const str = String(rid).trim();
+      if (str.length > 0 && !/^(step-\d+|new-confirmation|new-contract|null|undefined|\d+)$/i.test(str)) {
+        return true;
+      }
+    }
+    const id = s?.id || s?._id;
+    if (id) {
+      const str = String(id).trim();
+      // Must be a real ObjectId (24 hex) or UUID, NOT a step sequence index "1", "2", etc.!
+      if (
+        str.length >= 8 &&
+        !/^(step-\d+|new-confirmation|new-contract|null|undefined|\d+)$/i.test(str) &&
+        (/^[0-9a-fA-F]{24}$/.test(str) || /^[0-9a-fA-F-]{36}$/.test(str) || str.includes('/'))
+      ) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
+/**
  * Robustly extracts the stepper documents array from backend API response.
  */
 export function extractStepperList(data: any): StepperDocumentItem[] {
@@ -6815,7 +6962,7 @@ export function getShipmentInstructionIdFromStepper(
 ): string {
   const step = getShipmentInstructionStep(steps, selectedStep);
   if (!step) return '';
-  return extractStepId(step) || extractStepRedirectId(step) || '';
+  return getStepSelfId(step);
 }
 
 /**
@@ -6993,21 +7140,20 @@ export function extractStepRedirectId(step?: StepperDocumentItem | null): string
 
   const isInvalidPlaceholder = (val: string) =>
     !val ||
-    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+|null|undefined|nan|\[object object\]|draft|edit|view|new|smart-docs)$/i.test(
+    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+|null|undefined|nan|\[object object\]|draft|edit|view|new|smart-docs)$/i.test(
       val.trim()
     );
 
   const cleanScalarId = (raw: any): string => {
-    if (!raw) return '';
+    if (raw === null || raw === undefined) return '';
     const str = String(raw).trim();
     if (!str || isInvalidPlaceholder(str)) return '';
     // Must be a pure ID without URL characters or spaces
     if (str.includes('/') || str.includes('?') || str.includes('=') || str.includes('&') || str.includes(' ')) {
       return '';
     }
-    // Must not be a pure integer step index like "1", "2"
-    if (/^\d+$/.test(str)) return '';
-    if (str.length < 6) return '';
+    // Reject pure small integer step indices like "1", "2", "3", "4"
+    if (/^\d+$/.test(str) && Number(str) <= 20) return '';
     return str;
   };
 
@@ -7021,52 +7167,41 @@ export function extractStepRedirectId(step?: StepperDocumentItem | null): string
       const match = str.match(/[?&]id=([^&]+)/);
       if (match && match[1]) {
         const extracted = decodeURIComponent(match[1]).trim();
-        if (cleanScalarId(extracted)) return extracted;
+        const cleaned = cleanScalarId(extracted);
+        if (cleaned) return cleaned;
       }
     }
 
-    // Check path segments for CUID/UUID (length >= 10 alphanumeric)
+    // Check path segments for ID (length >= 6 alphanumeric)
     if (str.includes('/')) {
       const parts = str.split('?')[0].split('/').filter(Boolean);
       const last = parts[parts.length - 1];
-      if (last && cleanScalarId(last) && last.length >= 10) {
-        return last.trim();
+      if (last) {
+        const cleaned = cleanScalarId(last);
+        if (cleaned && cleaned.length >= 6) {
+          return cleaned;
+        }
       }
     }
 
     return '';
   };
 
-  // 1. Direct scalar ID candidates from step object
-  const stepSpecificCandidates = isProformaStep(step)
-    ? [step.proforma_id, step.proformaId, step.proformaInvoiceId, step.proforma_invoice_id]
-    : isContractStep(step)
-    ? [step.contract_id, step.contractId, step.sales_contract_id, step.salesContractId]
-    : [step.confirmation_id, step.confirmationId, step.trade_confirmation_id, step.tradeConfirmationId];
-
-  const scalarCandidates = [
+  // 1. Direct explicit redirect_id / redirectId from backend stepper list (Highest Priority!)
+  const directRedirectCandidates = [
     step.redirect_id,
     step.redirectId,
     step.redirect_document_id,
     step.redirectDocumentId,
     step.redirect_doc_id,
     step.redirectDocId,
-    ...stepSpecificCandidates,
-    step.document_id,
-    step.documentId,
-    step.doc_id,
-    step.docId,
-    step.smart_doc_id,
-    step.smartDocId,
-    step.record_id,
-    step.recordId,
-    step.id,
-    step._id,
   ];
 
-  for (const cand of scalarCandidates) {
-    const val = cleanScalarId(cand);
-    if (val) return val;
+  for (const cand of directRedirectCandidates) {
+    if (cand) {
+      const val = cleanScalarId(cand) || cleanUrlId(cand);
+      if (val) return val;
+    }
   }
 
   // 2. Extract from URL fields
@@ -7079,11 +7214,81 @@ export function extractStepRedirectId(step?: StepperDocumentItem | null): string
   ];
 
   for (const cand of urlCandidates) {
-    const val = cleanUrlId(cand);
+    const val = cleanUrlId(cand) || cleanScalarId(cand);
     if (val) return val;
   }
 
+  // 3. Step-specific document ID candidates (strictly matching the step type)
+  const stepSpecificCandidates = isShipmentInstructionStep(step)
+    ? [
+        step.shipment_instruction_id,
+        step.shipmentInstructionId,
+        step.instruction_id,
+        step.instructionId,
+        step.shipment_id,
+        step.shipmentId,
+      ]
+    : isProformaStep(step)
+    ? [
+        step.proforma_id,
+        step.proformaId,
+        step.proformaInvoiceId,
+        step.proforma_invoice_id,
+      ]
+    : isContractStep(step)
+    ? [
+        step.contract_id,
+        step.contractId,
+        step.sales_contract_id,
+        step.salesContractId,
+      ]
+    : isConfirmationStep(step)
+    ? [
+        step.confirmation_id,
+        step.confirmationId,
+        step.trade_confirmation_id,
+        step.tradeConfirmationId,
+      ]
+    : [];
+
+  for (const cand of stepSpecificCandidates) {
+    const val = cleanScalarId(cand);
+    if (val) return val;
+  }
+
+  // 4. Generic explicit document ID fields
+  const genericCandidates = [
+    step.document_id,
+    step.documentId,
+    step.doc_id,
+    step.docId,
+    step.smart_doc_id,
+    step.smartDocId,
+    step.record_id,
+    step.recordId,
+  ];
+
+  for (const cand of genericCandidates) {
+    const val = cleanScalarId(cand);
+    if (val) return val;
+  }
+
+  // 5. Final fallback to step.id or step._id ONLY if not a pure step index
+  const fallbackId = cleanScalarId(step.id) || cleanScalarId(step._id);
+  if (fallbackId && fallbackId.length >= 6) {
+    return fallbackId;
+  }
+
   return '';
+}
+
+/**
+ * Resolves the genuine self ID of ANY step in the stepper.
+ * Prioritizes redirect_id / redirectId from stepper-list.
+ */
+export function getStepSelfId(step?: StepperDocumentItem | null): string {
+  if (!step) return '';
+  return extractStepRedirectId(step) || extractStepId(step) || '';
 }
 
 export function getProformaStep(
@@ -7108,11 +7313,7 @@ export function getProformaIdFromStepper(
 ): string {
   const step = getProformaStep(steps, selectedStep);
   if (!step) return '';
-  const fromStepId = extractStepId(step);
-  if (fromStepId) return fromStepId;
-  const fromRedirect = extractStepRedirectId(step);
-  if (fromRedirect) return fromRedirect;
-  return '';
+  return getStepSelfId(step);
 }
 
 export function getConfirmationStep(
@@ -7128,6 +7329,15 @@ export function getConfirmationStep(
     return steps[0];
   }
   return null;
+}
+
+export function getConfirmationIdFromStepper(
+  steps: StepperDocumentItem[] = [],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getConfirmationStep(steps, selectedStep);
+  if (!step) return '';
+  return getStepSelfId(step);
 }
 
 /**
@@ -7231,7 +7441,40 @@ export function getContractIdFromStepper(
   selectedStep?: StepperDocumentItem | null
 ): string {
   const step = getContractStep(steps, selectedStep);
-  return extractStepId(step);
+  if (!step) return '';
+  return getStepSelfId(step);
+}
+
+/**
+ * Extracts a unique Document identifier specifically for document rows in ConfirmationsDataTable.
+ * Prioritizes redirect_id and document-specific self IDs.
+ */
+export function extractDocumentRowSelfId(row: any): string {
+  if (!row) return '';
+  const clean = (val: any) => sanitizeDocId(val);
+  const candidates = [
+    row.redirect_id,
+    row.redirectId,
+    row.shipment_instruction_id,
+    row.shipmentInstructionId,
+    row.instruction_id,
+    row.instructionId,
+    row.shipment_id,
+    row.shipmentId,
+    row.document_id,
+    row.documentId,
+    row.doc_id,
+    row.docId,
+    row.id,
+    row._id,
+  ];
+  for (const c of candidates) {
+    const val = clean(c);
+    if (val && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(val)) {
+      return val;
+    }
+  }
+  return '';
 }
 
 export interface SmartDocsInstructionsParams {

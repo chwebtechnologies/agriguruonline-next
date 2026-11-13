@@ -6,6 +6,7 @@ import DocUnderlineInput from './DocUnderlineInput';
 import DocUnderlineSelect, { DocSelectOption, isRawDbId } from './DocUnderlineSelect';
 import DocPrintPreviewModal from './DocPrintPreviewModal';
 import { dataUrlToFile } from './ContractDocumentForm';
+import { dedupePartyDetails, formatPartyDetails as formatPartyDetailsWithCompany } from './ProformaDocumentForm';
 import { toast } from 'sonner';
 import {
   downloadDocPdfAction,
@@ -750,10 +751,32 @@ export function ShipmentInstructionDocumentForm({
     setHasSubmitChanges(true);
   }, []);
 
-  // Canonical Draft ID
-  const effectiveInstructionId = sanitizeDocId(
-    instructionId || shipmentInstructionId || initialData?.id || initialData?._id || initialData?.shipment_instruction_id
+  // Canonical Draft ID: strictly the Shipment Instruction's self ID, NEVER contractId or confirmationId
+  const candidateSelfId = sanitizeDocId(
+    instructionId ||
+    shipmentInstructionId ||
+    initialData?.shipment_instruction_id ||
+    initialData?.instruction_id ||
+    initialData?.shipment_id ||
+    (initialData?.id &&
+     initialData.id !== contractId &&
+     initialData.id !== confirmationId &&
+     initialData.id !== proformaId
+      ? initialData.id
+      : '') ||
+    (initialData?._id &&
+     initialData._id !== contractId &&
+     initialData._id !== confirmationId &&
+     initialData._id !== proformaId
+      ? initialData._id
+      : '')
   );
+  const isInvalidSelfId =
+    !candidateSelfId ||
+    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(
+      candidateSelfId
+    );
+  const effectiveInstructionId = isInvalidSelfId ? '' : candidateSelfId;
   const [draftId, setDraftId] = useState<string>(() => effectiveInstructionId || '');
 
   // Validation Errors
@@ -799,30 +822,30 @@ export function ShipmentInstructionDocumentForm({
         initialData?.seller?.company_name ||
         initialData?.contract?.seller_name ||
         initialData?.confirmation?.seller_name,
-      'ARDHENDU'
+      ''
     );
   }, [initialData]);
 
   const shipperDetails = useMemo(() => {
     let detailsFromObj = '';
     if (typeof initialData?.seller_details === 'object' && initialData?.seller_details) {
-      const parts = [
-        initialData.seller_details.company_name,
-        initialData.seller_details.address || initialData.seller_details.instruction || initialData.seller_details.details,
-      ].filter(Boolean);
-      detailsFromObj = parts.join('\n');
+      const cName = initialData.seller_details.company_name;
+      const addr = initialData.seller_details.address || initialData.seller_details.instruction || initialData.seller_details.details;
+      detailsFromObj = formatPartyDetailsWithCompany(cName, addr);
     }
-    return safeString(
+    const rawVal =
       initialData?.shipper_details ||
-        detailsFromObj ||
-        (typeof initialData?.seller_details === 'string' ? initialData.seller_details : '') ||
-        initialData?.seller_instruction ||
-        initialData?.seller?.address ||
-        initialData?.contract?.seller_instruction ||
-        initialData?.confirmation?.seller_instruction,
-      'ABC ADDRESS, NEAR XYZ AREA, AHMEDABAD, GUJARAT, INDIA, 380015, EMAIL: TEST@EXAMPLE.COM, CONTACT: +971-9898673214'
+      detailsFromObj ||
+      (typeof initialData?.seller_details === 'string' ? initialData.seller_details : '') ||
+      initialData?.seller_instruction ||
+      initialData?.seller?.address ||
+      initialData?.contract?.seller_instruction ||
+      initialData?.confirmation?.seller_instruction;
+    return formatPartyDetailsWithCompany(
+      shipperName,
+      rawVal || 'ABC ADDRESS, NEAR XYZ AREA, AHMEDABAD, GUJARAT, INDIA, 380015, EMAIL: TEST@EXAMPLE.COM, CONTACT: +971-9898673214'
     );
-  }, [initialData]);
+  }, [initialData, shipperName]);
 
   const blType = useMemo(() => {
     return safeString(initialData?.bl_type || initialData?.type_of_bl || initialData?.type_ob_bl, 'ORIGINAL B/L');
@@ -1949,12 +1972,29 @@ export function ShipmentInstructionDocumentForm({
       else if (initialData.watermark !== undefined) setWatermark(Boolean(initialData.watermark));
     }
 
-    // Draft ID
-    const newId = sanitizeDocId(
-      instructionId || shipmentInstructionId || initialData.id || initialData._id || initialData.shipment_instruction_id
-    );
-    if (newId && (!draftId || !isDirty)) {
-      setDraftId(newId);
+    // Draft ID: strictly the Shipment Instruction's self ID
+    const rawCandidate =
+      instructionId ||
+      shipmentInstructionId ||
+      initialData.shipment_instruction_id ||
+      initialData.instruction_id ||
+      initialData.shipment_id ||
+      (initialData.id &&
+       initialData.id !== contractId &&
+       initialData.id !== confirmationId &&
+       initialData.id !== proformaId
+        ? initialData.id
+        : '') ||
+      (initialData._id &&
+       initialData._id !== contractId &&
+       initialData._id !== confirmationId &&
+       initialData._id !== proformaId
+        ? initialData._id
+        : '');
+    const cleanId = sanitizeDocId(rawCandidate);
+    const isValid = cleanId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanId);
+    if (isValid && (!draftId || !isDirty)) {
+      setDraftId(cleanId);
     }
   }, [
     initialData,
@@ -2021,7 +2061,16 @@ export function ShipmentInstructionDocumentForm({
   // Build Payload
   const getFormDataPayload = useCallback((): FormData => {
     const fd = new FormData();
-    if (draftId) fd.append('id', draftId);
+    const isSelfIdValid =
+      draftId &&
+      draftId !== contractId &&
+      draftId !== confirmationId &&
+      draftId !== proformaId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(draftId);
+    if (isSelfIdValid) {
+      fd.append('id', draftId);
+      fd.append('shipment_instruction_id', draftId);
+    }
     if (proformaId) fd.append('proforma_id', proformaId);
     if (contractId) fd.append('contract_id', contractId);
     if (confirmationId) fd.append('confirmation_id', confirmationId);
@@ -2704,12 +2753,9 @@ export function ShipmentInstructionDocumentForm({
                 SHIPPER :
               </label>
 
-              <div className="flex flex-col gap-1 px-0.5">
-                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide">
-                  {shipperName}
-                </div>
+              <div className="flex flex-col gap-1 px-0.5">                
                 <div className="text-[13px] font-medium text-foreground uppercase whitespace-pre-line leading-relaxed">
-                  {shipperDetails}
+                  {formatPartyDetailsWithCompany(shipperName, shipperDetails)}
                 </div>
               </div>
             </div>

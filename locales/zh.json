@@ -638,6 +638,8 @@
     "add_new_contract": "添加新合同",
     "continue_to_draft": "继续草稿",
     "continue_to_contract": "前往合同表单",
+    "continue_to_shipment_instruction": "前往装运指示表单",
+    "continue_to_document": "前往装运指示表单",
     "draft_title": "确认书草稿",
     "draft_contract_title": "合同草稿",
     "draft_description": "创建并配置智能贸易确认书和文档草稿。",

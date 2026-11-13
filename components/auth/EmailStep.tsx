@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { validateEmailDomain } from "@/app/actions/auth";
 import { toast } from "sonner";
 import { authService } from "@/lib/api";
 import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -10,6 +9,22 @@ import GoogleLoginButton from "./GoogleLoginButton";
 import AppleLoginButton from "./AppleLoginButton";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function checkEmailDomain(email: string): Promise<{ isValid: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/auth/validate-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    // If validation endpoint is temporarily unreachable, fallback to allow
+  }
+  return { isValid: true };
+}
 
 interface EmailStepProps {
   initialEmail?: string;
@@ -34,7 +49,7 @@ export default function EmailStep({
 }: EmailStepProps) {
   const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
   // Synchronize email state if initialEmail prop changes
   useEffect(() => {
@@ -71,7 +86,7 @@ export default function EmailStep({
     toast.info("Switched back to standard email login.");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -91,58 +106,68 @@ export default function EmailStep({
 
     if (isPending) return;
 
-    startTransition(async () => {
+    setIsPending(true);
+
+    try {
+      const { isValid, error: serverError } = await checkEmailDomain(trimmedEmail);
+      
+      if (!isValid) {
+        const errMsg = serverError || "Invalid email domain.";
+        setError(errMsg);
+        toast.error(errMsg);
+        setIsPending(false);
+        return;
+      }
+
+      let appleTxnId: string | null = null;
       try {
-        const { isValid, error: serverError } = await validateEmailDomain(trimmedEmail);
-        
-        if (!isValid) {
-          const errMsg = serverError || "Invalid email domain.";
-          setError(errMsg);
-          toast.error(errMsg);
-          return;
-        }
+        appleTxnId = isAppleActive ? localStorage.getItem("apple_txn_id") : null;
+      } catch (e) {}
+      let response: Response;
 
-        const appleTxnId = isAppleActive ? localStorage.getItem("apple_txn_id") : null;
-        let response: Response;
+      if (appleTxnId) {
+        response = await authService.sendOtpApple(trimmedEmail, appleTxnId, lang);
+      } else {
+        response = await authService.sendOtp(trimmedEmail, lang);
+      }
 
-        if (appleTxnId) {
-          response = await authService.sendOtpApple(trimmedEmail, appleTxnId, lang);
-        } else {
-          response = await authService.sendOtp(trimmedEmail, lang);
-        }
-
-        if (!response.ok) {
-          let errorMessage = "Failed to send OTP. Please try again.";
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorData.error || errorMessage;
-            
-            // If the Apple transaction is expired or invalid, clear it so user isn't permanently stuck
-            if (appleTxnId && (response.status === 400 || response.status === 401 || response.status === 404)) {
+      if (!response.ok) {
+        let errorMessage = "Failed to send OTP. Please try again.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          
+          // If the Apple transaction is expired or invalid, clear it so user isn't permanently stuck
+          if (appleTxnId && (response.status === 400 || response.status === 401 || response.status === 404)) {
+            try {
               localStorage.removeItem("apple_txn_id");
               localStorage.removeItem("apple_email");
-              if (onCancelAppleFlow) onCancelAppleFlow();
-            }
-          } catch (e) {}
-          setError(errorMessage);
-          toast.error(errorMessage);
-          return;
-        }
+            } catch (e) {}
+            if (onCancelAppleFlow) onCancelAppleFlow();
+          }
+        } catch (e) {}
+        setError(errorMessage);
+        toast.error(errorMessage);
+        setIsPending(false);
+        return;
+      }
 
-        // On success
+      // On success
+      try {
         if (appleTxnId) {
           localStorage.setItem("apple_email", trimmedEmail);
         }
-        
         localStorage.setItem(`otp_sent_${trimmedEmail}`, Date.now().toString());
-        toast.success("OTP sent successfully!");
-        onNext(trimmedEmail);
-      } catch (err) {
-        const errMsg = "Something went wrong sending OTP.";
-        setError(errMsg);
-        toast.error(errMsg);
-      }
-    });
+      } catch (e) {}
+      toast.success("OTP sent successfully!");
+      setIsPending(false);
+      onNext(trimmedEmail);
+    } catch (err) {
+      const errMsg = "Something went wrong sending OTP.";
+      setError(errMsg);
+      toast.error(errMsg);
+      setIsPending(false);
+    }
   };
 
   return (

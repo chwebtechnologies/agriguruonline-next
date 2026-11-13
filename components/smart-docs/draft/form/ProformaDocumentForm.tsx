@@ -31,6 +31,8 @@ import {
   extractDocumentStatus,
   extractProformaDocumentStatus,
   extractStepId,
+  getStepSelfId,
+  extractStepRedirectId,
   isProformaStep,
   isValidCuidOrId,
 } from '@/lib/api/smart-docs.service';
@@ -134,6 +136,90 @@ export function resolveGstString(val: any): string {
     return str;
   }
   return `GST Number:\n${str}`;
+}
+
+/**
+ * Safely deduplicates lines in party details (seller/buyer) to prevent duplicate
+ * company names or repeated consecutive lines.
+ */
+export function dedupePartyDetails(val: any): string {
+  if (!val) return '';
+  const text = typeof val === 'object'
+    ? (val.details || val.address || val.instruction || val.text || '')
+    : String(val);
+  const trimmed = text.trim();
+  if (!trimmed || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') {
+    return '';
+  }
+  const rawLines = trimmed.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
+  if (rawLines.length <= 1) return trimmed;
+
+  const deduped: string[] = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    const cur = rawLines[i];
+    const prev = deduped[deduped.length - 1];
+
+    // 1. Skip exact or case-insensitive consecutive duplicate lines
+    if (prev && cur.toLowerCase() === prev.toLowerCase()) {
+      continue;
+    }
+
+    // 2. If line 1 repeats the company name from line 0 (e.g., "ARDHENDU" followed by "ARDHENDU, ABC AREA")
+    if (deduped.length === 1 && cur.toLowerCase().startsWith(deduped[0].toLowerCase())) {
+      const remainder = cur.slice(deduped[0].length).replace(/^[\s,:-]+/, '').trim();
+      if (!remainder) {
+        continue;
+      }
+      deduped.push(remainder);
+      continue;
+    }
+
+    // 3. Normalized alphanumeric equality for consecutive lines (handles punctuation differences)
+    if (prev) {
+      const pClean = prev.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cClean = cur.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (pClean && cClean && pClean === cClean) {
+        continue;
+      }
+    }
+
+    deduped.push(cur);
+  }
+  return deduped.join('\n');
+}
+
+/**
+ * Combines company name and address without duplicating the company name
+ * if the address already begins with or contains the company name.
+ */
+export function formatPartyDetails(cName?: string, address?: string): string {
+  const cleanName = String(cName || '').trim();
+  const cleanAddr = String(address || '').trim();
+
+  if (!cleanName && !cleanAddr) return '';
+  if (!cleanName) return dedupePartyDetails(cleanAddr);
+  if (!cleanAddr) return cleanName;
+
+  const dedupedAddr = dedupePartyDetails(cleanAddr);
+  const addrLines = dedupedAddr.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+  if (addrLines.length > 0) {
+    const firstLineLower = addrLines[0].toLowerCase();
+    const nameLower = cleanName.toLowerCase();
+    if (
+      firstLineLower === nameLower ||
+      firstLineLower.startsWith(nameLower) ||
+      nameLower.startsWith(firstLineLower)
+    ) {
+      if (nameLower.length > firstLineLower.length && firstLineLower.length >= 3) {
+        addrLines[0] = cleanName;
+        return addrLines.join('\n');
+      }
+      return dedupedAddr;
+    }
+  }
+
+  return `${cleanName}\n${dedupedAddr}`;
 }
 
 /**
@@ -655,7 +741,7 @@ export function extractBuyerInfo(data: any, buyersList?: FormOptionItem[]): {
 
       const addr = obj.address || obj.instruction || obj.details;
       if (addr && !result.details) {
-        result.details = [bName, addr].filter(Boolean).join('\n');
+        result.details = formatPartyDetails(bName, addr);
       }
     }
   }
@@ -708,7 +794,7 @@ export function extractBuyerInfo(data: any, buyersList?: FormOptionItem[]): {
   ].filter(Boolean);
 
   for (const str of buyerStrings) {
-    if (!result.details) result.details = str;
+    if (!result.details) result.details = dedupePartyDetails(str);
     if (!result.name) {
       const firstLine = str.split('\n')[0].trim();
       if (
@@ -749,11 +835,12 @@ export function extractBuyerInfo(data: any, buyersList?: FormOptionItem[]): {
         result.name = String(matched.companyName || matched.label || matched.name || '');
       }
       if (!result.details && (matched.details || (matched as any).instructionText)) {
-        result.details = String(matched.details || (matched as any).instructionText || '');
+        result.details = dedupePartyDetails(String(matched.details || (matched as any).instructionText || ''));
       }
     }
   }
 
+  result.details = dedupePartyDetails(result.details);
   return result;
 }
 
@@ -2026,6 +2113,15 @@ export function ProformaDocumentForm({
 
   // Operation States & Draft ID
   const [draftId, setDraftId] = useState<string>(() => sanitizeDocId(proformaId) || '');
+
+  useEffect(() => {
+    if (proformaId) {
+      const clean = sanitizeDocId(proformaId);
+      if (clean && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(clean)) {
+        setDraftId(clean);
+      }
+    }
+  }, [proformaId]);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -2145,16 +2241,15 @@ export function ProformaDocumentForm({
     if (initialData?.seller_details && typeof initialData.seller_details === 'object') {
       const addr = initialData.seller_details.address || initialData.seller_details.instruction || initialData.seller_details.details;
       const cName = initialData.seller_details.company_name || initialData.seller_details.name;
-      const combined = [cName, addr].filter(Boolean).join('\n');
+      const combined = formatPartyDetails(cName, addr);
       if (combined) return safeString(combined);
     }
-    return safeString(
+    const raw =
       initialData?.seller_details ||
-        initialData?.seller_instruction ||
-        initialData?.seller?.address ||
-        initialData?.seller?.instruction,
-      ''
-    );
+      initialData?.seller_instruction ||
+      initialData?.seller?.address ||
+      initialData?.seller?.instruction;
+    return dedupePartyDetails(safeString(raw, ''));
   });
 
   // Parties: Buyer / Consignee (strictly extracted from document data, never defaulting to buyers[0])
@@ -2719,6 +2814,9 @@ export function ProformaDocumentForm({
     if (isIncomingRealProforma) {
       hasLoadedRealProformaRef.current = true;
     }
+    if (currentIncomingDocId && isIncomingRealProforma) {
+      setDraftId(currentIncomingDocId);
+    }
     isFormInitializedRef.current = true;
     lastLoadedDocIdRef.current = currentIncomingDocId || sanitizeDocId(draftId || proformaId) || '';
 
@@ -2812,11 +2910,12 @@ export function ProformaDocumentForm({
     if (initialData.seller_details || initialData.seller_instruction) {
       if (typeof initialData.seller_details === 'object') {
         const addr = initialData.seller_details.address || initialData.seller_details.instruction || initialData.seller_details.details;
-        const cName = initialData.seller_details.company_name || initialData.seller_details.name;
-        const combined = [cName, addr].filter(Boolean).join('\n');
-        setSellerDetails(safeString(combined || addr || cName));
+        const cName = initialData.seller_details.company_name || initialData.seller_details.name || resolvedCompanyName;
+        const combined = formatPartyDetails(cName, addr);
+        setSellerDetails(combined);
       } else {
-        setSellerDetails(safeString(initialData.seller_details || initialData.seller_instruction));
+        const raw = initialData.seller_details || initialData.seller_instruction;
+        setSellerDetails(dedupePartyDetails(raw));
       }
     }
 
@@ -2952,7 +3051,7 @@ export function ProformaDocumentForm({
         initialData?.bankId
     );
     if (incomingBankId) {
-      setSelectedBankId((prev) => prev || incomingBankId);
+      setSelectedBankId(incomingBankId);
     }
     const incomingBankDetails = safeString(
       initialData?.bank_details ??
@@ -2963,7 +3062,7 @@ export function ProformaDocumentForm({
         initialData?.data?.bank_details
     );
     if (incomingBankDetails) {
-      setBankAccountDetails((prev) => prev || incomingBankDetails);
+      setBankAccountDetails(incomingBankDetails);
     }
     const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
     if (resolvedSig && !hasUserClearedSignatureRef.current) {
@@ -3057,7 +3156,11 @@ export function ProformaDocumentForm({
     // 2. Stepper proforma step (strictly extract explicit proforma IDs, never template _id/id/document_id)
     const proformaStep = getProformaStep(steps, selectedStep);
     if (proformaStep) {
-      const stepId = sanitizeDocId(extractStepId(proformaStep));
+      const stepId = sanitizeDocId(
+        getStepSelfId(proformaStep) ||
+        extractStepRedirectId(proformaStep) ||
+        extractStepId(proformaStep)
+      );
       if (
         stepId &&
         stepId !== sanitizeDocId(contractId) &&
@@ -3089,23 +3192,22 @@ export function ProformaDocumentForm({
     // 4. InitialData id/_id (strictly ensuring it is not the parent contract or confirmation ID)
     const cleanContractId = sanitizeDocId(contractId);
     const cleanConfId = sanitizeDocId(confirmationId);
-    const dataId = sanitizeDocId(initialData?.id || initialData?._id);
-    if (
-      dataId &&
-      dataId !== cleanContractId &&
-      dataId !== cleanConfId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(dataId)
-    ) {
-      return dataId;
-    }
-
-    // 5. Fallback candidate from contract or confirmation for linked workflow backend submission
-    if (cleanContractId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanContractId)) {
-      return cleanContractId;
-    }
-
-    if (cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanConfId)) {
-      return cleanConfId;
+    const isConfOrContractRecord = Boolean(
+      initialData?.confirmation_number ||
+      initialData?.confirmation_date ||
+      initialData?.contract_number ||
+      initialData?.contract_no
+    );
+    if (!isConfOrContractRecord) {
+      const dataId = sanitizeDocId(initialData?.id || initialData?._id);
+      if (
+        dataId &&
+        dataId !== cleanContractId &&
+        dataId !== cleanConfId &&
+        !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(dataId)
+      ) {
+        return dataId;
+      }
     }
 
     return '';
@@ -3160,7 +3262,7 @@ export function ProformaDocumentForm({
     formData.append('company_name', safeString(companyName));
     formData.append('seller_name', safeString(companyName));
     formData.append('seller_id', safeString(sellerId));
-    formData.append('seller_details', safeString(sellerDetails));
+    formData.append('seller_details', safeString(formatPartyDetails(companyName, sellerDetails)));
 
     const effectiveSellerInstId = sellerInstructionId || sellerId || '';
     if (effectiveSellerInstId) {
@@ -3170,7 +3272,7 @@ export function ProformaDocumentForm({
 
     formData.append('buyer_id', safeString(buyerId));
     formData.append('buyer_name', safeString(buyerName));
-    formData.append('buyer_details', safeString(buyerDetails));
+    formData.append('buyer_details', safeString(formatPartyDetails(buyerName, buyerDetails)));
     if (buyerId) {
       formData.append('buyer_instruction_id', safeString(buyerId));
     }
@@ -3384,10 +3486,10 @@ export function ProformaDocumentForm({
       remove_seller_logo: hasUserClearedLogoRef.current || !companyLogoUrl,
       seller_id: safeString(sellerId),
       seller_name: safeString(companyName),
-      seller_details: safeString(sellerDetails),
+      seller_details: safeString(formatPartyDetails(companyName, sellerDetails)),
       buyer_id: safeString(buyerId),
       buyer_name: safeString(buyerName),
-      buyer_details: safeString(buyerDetails),
+      buyer_details: safeString(formatPartyDetails(buyerName, buyerDetails)),
       invoice_number: safeString(invoiceNumber),
       gst_number: safeString(gstNumber),
       registration_number: safeString(gstNumber),
@@ -4254,7 +4356,7 @@ export function ProformaDocumentForm({
                 </label>
 
                 <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
-                  {sellerDetails || companyName}
+                  {formatPartyDetails(companyName, sellerDetails)}
                 </div>
                 {(errors.sellerId || errors.seller_id) && (
                   <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
@@ -4271,7 +4373,7 @@ export function ProformaDocumentForm({
                 </label>                
 
                 <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
-                  {buyerDetails}
+                  {formatPartyDetails(buyerName, buyerDetails)}
                 </div>
                 {(errors.buyerId || errors.buyer_id) && (
                   <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">

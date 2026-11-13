@@ -638,6 +638,8 @@
     "add_new_contract": "Ajouter un nouveau contrat",
     "continue_to_draft": "Continuer le brouillon",
     "continue_to_contract": "Continuer vers le formulaire de contrat",
+    "continue_to_shipment_instruction": "Continuer vers les instructions d'expédition",
+    "continue_to_document": "Continuer vers les instructions d'expédition",
     "draft_title": "Brouillon de confirmation",
     "draft_contract_title": "Brouillon de contrat",
     "draft_description": "Créez et configurez des brouillons de confirmation et documents commerciaux intelligents.",

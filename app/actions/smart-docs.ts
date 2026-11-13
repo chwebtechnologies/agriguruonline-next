@@ -1443,11 +1443,13 @@ export async function saveContractDraftAction(
       }
     }
 
-    const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (isFormData
-        ? String(payload.get("contract_id") || payload.get("id") || payload.get("confirmation_id") || "").trim()
-        : String(payload?.contract_id || payload?.id || payload?.confirmation_id || "").trim());
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const directContractId = isFormData
+      ? payload.get("contract_id") || (payload.get("id") !== confIdInPayload ? payload.get("id") : "")
+      : payload?.contract_id || (payload?.id !== confIdInPayload ? payload?.id : "");
+    const rawEffectiveId = (id && String(id).trim() !== String(confIdInPayload || "").trim())
+      ? String(id).trim()
+      : String(directContractId || "").trim();
 
     // Filter out invalid placeholder words like "contract", "confirmation", etc.
     const effectiveId =
@@ -1659,11 +1661,13 @@ export async function submitContractAction(
       }
     }
 
-    const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (isFormData
-        ? String(payload.get("contract_id") || payload.get("id") || payload.get("confirmation_id") || "").trim()
-        : String(payload?.contract_id || payload?.id || payload?.confirmation_id || "").trim());
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const directContractId = isFormData
+      ? payload.get("contract_id") || (payload.get("id") !== confIdInPayload ? payload.get("id") : "")
+      : payload?.contract_id || (payload?.id !== confIdInPayload ? payload?.id : "");
+    const rawEffectiveId = (id && String(id).trim() !== String(confIdInPayload || "").trim())
+      ? String(id).trim()
+      : String(directContractId || "").trim();
 
     // Filter out invalid placeholder words like "contract", "confirmation", etc.
     const effectiveId =
@@ -1945,11 +1949,14 @@ export async function saveProformaDraftAction(
       }
     }
 
-    const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (isFormData
-        ? String(payload.get("proforma_id") || payload.get("proforma_invoice_id") || payload.get("id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
-        : String(payload?.proforma_id || payload?.proforma_invoice_id || payload?.id || payload?.contract_id || payload?.confirmation_id || "").trim());
+    const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const directProformaId = isFormData
+      ? payload.get("proforma_id") || payload.get("proforma_invoice_id") || (payload.get("id") !== contractIdInPayload && payload.get("id") !== confIdInPayload ? payload.get("id") : "")
+      : payload?.proforma_id || payload?.proforma_invoice_id || (payload?.id !== contractIdInPayload && payload?.id !== confIdInPayload ? payload?.id : "");
+    const rawEffectiveId = (id && String(id).trim() !== String(contractIdInPayload || "").trim() && String(id).trim() !== String(confIdInPayload || "").trim())
+      ? String(id).trim()
+      : String(directProformaId || "").trim();
 
     const effectiveId =
       rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(rawEffectiveId)
@@ -2145,11 +2152,14 @@ export async function submitProformaAction(
       }
     }
 
-    const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (isFormData
-        ? String(payload.get("proforma_id") || payload.get("proforma_invoice_id") || payload.get("id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
-        : String(payload?.proforma_id || payload?.proforma_invoice_id || payload?.id || payload?.contract_id || payload?.confirmation_id || "").trim());
+    const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const directProformaId = isFormData
+      ? payload.get("proforma_id") || payload.get("proforma_invoice_id") || (payload.get("id") !== contractIdInPayload && payload.get("id") !== confIdInPayload ? payload.get("id") : "")
+      : payload?.proforma_id || payload?.proforma_invoice_id || (payload?.id !== contractIdInPayload && payload?.id !== confIdInPayload ? payload?.id : "");
+    const rawEffectiveId = (id && String(id).trim() !== String(contractIdInPayload || "").trim() && String(id).trim() !== String(confIdInPayload || "").trim())
+      ? String(id).trim()
+      : String(directProformaId || "").trim();
 
     const effectiveId =
       rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(rawEffectiveId)
@@ -2429,14 +2439,38 @@ export async function saveShipmentInstructionDraftAction(
       }
     }
 
-    const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (isFormData
-        ? String(payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id") || payload.get("proforma_id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
-        : String(payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id || "").trim());
+    const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
+
+    const directIdInPayload = isFormData
+      ? payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id")
+      : payload?.shipment_instruction_id || payload?.instruction_id || payload?.id;
+
+    const isInheritedParentId =
+      directIdInPayload &&
+      (directIdInPayload === contractIdInPayload ||
+        directIdInPayload === confIdInPayload ||
+        directIdInPayload === proformaIdInPayload);
+
+    const safeDirectId = isInheritedParentId
+      ? (isFormData
+          ? payload.get("shipment_instruction_id") || payload.get("instruction_id")
+          : payload?.shipment_instruction_id || payload?.instruction_id)
+      : directIdInPayload;
+
+    const rawEffectiveId = (id && String(id).trim()) || (safeDirectId && String(safeDirectId).trim());
+
+    const isMatchingParent =
+      rawEffectiveId &&
+      (rawEffectiveId === String(contractIdInPayload || "").trim() ||
+        rawEffectiveId === String(confIdInPayload || "").trim() ||
+        rawEffectiveId === String(proformaIdInPayload || "").trim());
 
     const effectiveId =
-      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(rawEffectiveId)
+      rawEffectiveId &&
+      !isMatchingParent &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(rawEffectiveId)
         ? rawEffectiveId
         : undefined;
 
@@ -2629,14 +2663,38 @@ export async function submitShipmentInstructionAction(
       }
     }
 
-    const rawEffectiveId =
-      (id && String(id).trim()) ||
-      (isFormData
-        ? String(payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id") || payload.get("proforma_id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
-        : String(payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id || "").trim());
+    const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
+
+    const directIdInPayload = isFormData
+      ? payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id")
+      : payload?.shipment_instruction_id || payload?.instruction_id || payload?.id;
+
+    const isInheritedParentId =
+      directIdInPayload &&
+      (directIdInPayload === contractIdInPayload ||
+        directIdInPayload === confIdInPayload ||
+        directIdInPayload === proformaIdInPayload);
+
+    const safeDirectId = isInheritedParentId
+      ? (isFormData
+          ? payload.get("shipment_instruction_id") || payload.get("instruction_id")
+          : payload?.shipment_instruction_id || payload?.instruction_id)
+      : directIdInPayload;
+
+    const rawEffectiveId = (id && String(id).trim()) || (safeDirectId && String(safeDirectId).trim());
+
+    const isMatchingParent =
+      rawEffectiveId &&
+      (rawEffectiveId === String(contractIdInPayload || "").trim() ||
+        rawEffectiveId === String(confIdInPayload || "").trim() ||
+        rawEffectiveId === String(proformaIdInPayload || "").trim());
 
     const effectiveId =
-      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(rawEffectiveId)
+      rawEffectiveId &&
+      !isMatchingParent &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(rawEffectiveId)
         ? rawEffectiveId
         : undefined;
 

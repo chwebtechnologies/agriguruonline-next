@@ -44,6 +44,7 @@ import {
   getContractStep,
   extractStepId,
   downloadPdfFromActionResponse,
+  sanitizeDocId,
 } from '@/lib/api/smart-docs.service';
 import type { FormOptionItem } from './ConfirmationDocumentForm';
 import { normalizeCountryString, normalizeHsnString, deduplicateValidationMessage } from './ConfirmationDocumentForm';
@@ -4912,18 +4913,20 @@ export function ContractDocumentForm({
   };
 
   const getEffectiveContractId = useCallback((): string => {
+    const cleanConfId = sanitizeDocId(confirmationId);
+
     // 1. Explicit contractId prop
-    if (contractIdProp && !isInvalidPlaceholder(contractIdProp)) {
+    if (contractIdProp && !isInvalidPlaceholder(contractIdProp) && contractIdProp !== cleanConfId) {
       return contractIdProp.trim();
     }
     // 2. Saved Draft ID from current session
-    if (draftId && !isInvalidPlaceholder(draftId)) {
+    if (draftId && !isInvalidPlaceholder(draftId) && draftId !== cleanConfId) {
       return draftId.trim();
     }
     // 3. Extracted directly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
     const stepContract = getContractStep(steps, selectedStep);
     const stepperId = extractStepId(stepContract);
-    if (stepperId && !isInvalidPlaceholder(stepperId)) {
+    if (stepperId && !isInvalidPlaceholder(stepperId) && stepperId !== cleanConfId) {
       return stepperId.trim();
     }
     // 4. Initial contract data fields
@@ -4932,26 +4935,18 @@ export function ContractDocumentForm({
       initialData?.contractId ||
       (initialData?.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '')
     );
-    if (cid && !isInvalidPlaceholder(cid)) {
+    if (cid && !isInvalidPlaceholder(cid) && cid !== cleanConfId) {
       return cid.trim();
     }
-    // 5. Initial data id
-    if (initialData?.id && !isInvalidPlaceholder(initialData.id)) {
-      return toCleanId(initialData.id);
-    }
-    if (initialData?._id && !isInvalidPlaceholder(initialData._id)) {
-      return toCleanId(initialData._id);
-    }
-    // 6. URL query param fallback
-    if (typeof window !== 'undefined') {
-      const urlId = new URL(window.location.href).searchParams.get('id');
-      if (urlId && !isInvalidPlaceholder(urlId)) {
-        return urlId.trim();
+    // 5. Initial data id (only if not a confirmation record)
+    const isConfRecord = Boolean(initialData?.confirmation_number || initialData?.confirmation_date);
+    if (!isConfRecord) {
+      if (initialData?.id && !isInvalidPlaceholder(initialData.id) && toCleanId(initialData.id) !== cleanConfId) {
+        return toCleanId(initialData.id);
       }
-    }
-    // 7. Confirmation ID fallback (the workflow document ID)
-    if (confirmationId && !isInvalidPlaceholder(confirmationId)) {
-      return confirmationId.trim();
+      if (initialData?._id && !isInvalidPlaceholder(initialData._id) && toCleanId(initialData._id) !== cleanConfId) {
+        return toCleanId(initialData._id);
+      }
     }
     return '';
   }, [contractIdProp, steps, selectedStep, draftId, confirmationId, initialData, isInvalidPlaceholder]);

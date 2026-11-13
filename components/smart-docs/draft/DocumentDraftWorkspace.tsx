@@ -12,7 +12,11 @@ import {
   normalizeStepStatus,
   extractStepId,
   extractStepRedirectId,
+  getStepSelfId,
+  extractLinkedConfirmationId,
+  extractLinkedContractId,
   extractLinkedProformaId,
+  extractLinkedShipmentInstructionId,
   isConfirmationStep,
   isContractStep,
   isProformaStep,
@@ -22,9 +26,11 @@ import {
   getShipmentInstructionStep,
   getContractIdFromStepper,
   getProformaIdFromStepper,
+  getConfirmationIdFromStepper,
   getShipmentInstructionIdFromStepper,
   extractShipmentInstructionData,
   sanitizeDocId,
+  isRealStepperList,
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
 } from '@/lib/api/smart-docs.service';
 import DocumentStatusStepper, { cleanDocNumber } from './DocumentStatusStepper';
@@ -100,6 +106,90 @@ export function getSafeInstructionString(val: any): string {
   return '';
 }
 
+export function isCompleteProformaData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const substantiveKeys = Object.keys(data).filter(
+    (k) => !['id', '_id', 'proforma_id', 'proformaId', 'status', 'success', 'message', 'statusCode', 'redirect_id', 'redirectId'].includes(k)
+  );
+  if (substantiveKeys.length === 0) return false;
+  return Boolean(
+    data.invoice_number ||
+    data.invoice_no ||
+    data.goods_description ||
+    data.seller_details ||
+    data.buyer_details ||
+    data.seller_id ||
+    data.buyer_id ||
+    data.seller ||
+    data.buyer ||
+    data.company_name ||
+    data.seller_name ||
+    data.quantity_mt ||
+    data.rate_price ||
+    data.contract_number ||
+    data.proforma ||
+    substantiveKeys.length >= 3
+  );
+}
+
+export function isCompleteContractData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const substantiveKeys = Object.keys(data).filter(
+    (k) => !['id', '_id', 'contract_id', 'contractId', 'status', 'success', 'message', 'statusCode', 'redirect_id', 'redirectId'].includes(k)
+  );
+  if (substantiveKeys.length === 0) return false;
+  return Boolean(
+    data.contract_number ||
+    data.contract_no ||
+    data.seller_details ||
+    data.buyer_details ||
+    data.seller_id ||
+    data.buyer_id ||
+    data.goods_description ||
+    data.quantity_mt ||
+    data.rate_price ||
+    data.contract ||
+    substantiveKeys.length >= 3
+  );
+}
+
+export function isCompleteConfirmationData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const substantiveKeys = Object.keys(data).filter(
+    (k) => !['id', '_id', 'confirmation_id', 'confirmationId', 'status', 'success', 'message', 'statusCode', 'redirect_id', 'redirectId'].includes(k)
+  );
+  if (substantiveKeys.length === 0) return false;
+  return Boolean(
+    data.confirmation_number ||
+    data.contract_number ||
+    data.seller_details ||
+    data.buyer_details ||
+    data.seller_id ||
+    data.buyer_id ||
+    data.goods_description ||
+    data.quantity_mt ||
+    data.rate_price ||
+    substantiveKeys.length >= 3
+  );
+}
+
+export function isCompleteShipmentInstructionData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const substantiveKeys = Object.keys(data).filter(
+    (k) => !['id', '_id', 'shipment_id', 'shipmentId', 'shipment_instruction_id', 'status', 'success', 'message', 'statusCode', 'redirect_id', 'redirectId'].includes(k)
+  );
+  if (substantiveKeys.length === 0) return false;
+  return Boolean(
+    data.booking_no ||
+    data.bl_number ||
+    data.shipper_details ||
+    data.consignee_details ||
+    data.vessel_name ||
+    data.port_of_loading ||
+    substantiveKeys.length >= 3
+  );
+}
+
 export interface DocumentDraftWorkspaceProps {
   lang?: string;
   dict?: any;
@@ -160,7 +250,7 @@ export function resolveInitialStepIndex(
       const proformaIdx = stepList.findIndex((s, idx) => isProformaStep(s, idx));
       return proformaIdx >= 0 ? proformaIdx : (stepList.length > 2 ? 2 : 2);
     }
-    if (clean === 'shipment' || clean === 'shipment_instruction' || clean === 'shipment-instruction' || clean === 'instruction' || clean === '4') {
+    if (clean === 'shipment' || clean === 'shipment_instruction' || clean === 'shipment-instruction' || clean === 'instruction' || clean === 'document' || clean === '4') {
       if (!stepList || stepList.length === 0) return 3;
       const shipmentIdx = stepList.findIndex((s, idx) => isShipmentInstructionStep(s, idx));
       return shipmentIdx >= 0 ? shipmentIdx : (stepList.length > 3 ? 3 : 3);
@@ -246,46 +336,93 @@ export function DocumentDraftWorkspace({
     return getContractIdFromStepper(steps, selectedStep);
   }, [steps, selectedStep]);
 
-  // Confirmation ID for Stepper workflow operations (strictly confirmation, NEVER contract ID)
+  // Confirmation ID for Stepper workflow operations (strictly confirmation, NEVER contract ID or SI/PI ID)
   const effectiveConfirmationId = useMemo(() => {
-    const raw =
-      initialData?.id ||
-      initialData?._id ||
-      initialData?.confirmation_id ||
-      initialData?.confirmationId ||
+    // 1. Direct confirmation data
+    const directConfId = sanitizeDocId(
       confirmationData?.id ||
       confirmationData?._id ||
       confirmationData?.confirmation_id ||
       confirmationData?.confirmationId ||
-      contractData?.confirmation_id ||
-      contractData?.confirmationId ||
-      contractData?.confirmation?.id ||
-      contractData?.confirmation?._id ||
-      initialContractData?.confirmation_id ||
-      initialContractData?.confirmationId ||
-      initialContractData?.confirmation?.id ||
-      initialContractData?.confirmation?._id ||
-      proformaData?.confirmation_id ||
-      proformaData?.confirmationId ||
-      initialProformaData?.confirmation_id ||
-      initialProformaData?.confirmationId ||
-      shipmentInstructionData?.confirmation_id ||
-      shipmentInstructionData?.confirmationId ||
-      initialShipmentInstructionData?.confirmation_id ||
-      initialShipmentInstructionData?.confirmationId ||
-      (typeof contractData?.confirmation === 'string' ? contractData.confirmation : '') ||
-      (typeof initialContractData?.confirmation === 'string' ? initialContractData.confirmation : '') ||
-      initialId ||
-      draftId ||
-      '';
-    const clean = sanitizeDocId(raw);
-    return clean && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(clean) ? clean : '';
-  }, [initialData, confirmationData, contractData, initialContractData, proformaData, initialProformaData, shipmentInstructionData, initialShipmentInstructionData, initialId, draftId]);
+      initialData?.id ||
+      initialData?._id ||
+      initialData?.confirmation_id ||
+      initialData?.confirmationId
+    );
+    if (directConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(directConfId)) {
+      return directConfId;
+    }
+
+    // 2. Stepper list Step 0 (Trade Confirmation) redirect_id
+    const stepperConfStep = steps.find((s, idx) => isConfirmationStep(s, idx)) || steps[0];
+    const stepperConfId = sanitizeDocId(
+      getConfirmationIdFromStepper(steps) ||
+      getStepSelfId(stepperConfStep) ||
+      stepperConfStep?.redirect_id ||
+      stepperConfStep?.redirectId
+    );
+    if (stepperConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(stepperConfId)) {
+      return stepperConfId;
+    }
+
+    // 3. Linked confirmation IDs from other documents (contract, proforma, shipment instruction)
+    const linked = sanitizeDocId(
+      extractLinkedConfirmationId(contractData) ||
+      extractLinkedConfirmationId(initialContractData) ||
+      extractLinkedConfirmationId(proformaData) ||
+      extractLinkedConfirmationId(initialProformaData) ||
+      extractLinkedConfirmationId(shipmentInstructionData) ||
+      extractLinkedConfirmationId(initialShipmentInstructionData)
+    );
+    if (linked && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(linked)) {
+      return linked;
+    }
+
+    // 4. Fallback to initialId or draftId ONLY if not in contract/proforma/shipment mode
+    const cleanInitial = sanitizeDocId(initialId);
+    if (
+      cleanInitial &&
+      !isContract &&
+      !isProforma &&
+      !isShipmentInstruction &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanInitial)
+    ) {
+      return cleanInitial;
+    }
+
+    const cleanDraft = sanitizeDocId(draftId);
+    if (
+      cleanDraft &&
+      !isContract &&
+      !isProforma &&
+      !isShipmentInstruction &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanDraft)
+    ) {
+      return cleanDraft;
+    }
+
+    return '';
+  }, [
+    confirmationData,
+    initialData,
+    steps,
+    contractData,
+    initialContractData,
+    proformaData,
+    initialProformaData,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    initialId,
+    draftId,
+    isContract,
+    isProforma,
+    isShipmentInstruction,
+  ]);
 
   // Canonical Contract Document ID (strictly contract)
   const canonicalContractId = useMemo(() => {
-    const raw =
-      contractIdFromStepper ||
+    // 1. Direct contract data
+    const directContractId = sanitizeDocId(
       contractData?.id ||
       contractData?._id ||
       contractData?.contract_id ||
@@ -293,51 +430,81 @@ export function DocumentDraftWorkspace({
       initialContractData?.id ||
       initialContractData?._id ||
       initialContractData?.contract_id ||
-      initialContractData?.contractId ||
-      proformaData?.contract_id ||
-      proformaData?.contractId ||
-      initialProformaData?.contract_id ||
-      initialProformaData?.contractId ||
-      initialData?.contract_id ||
-      initialData?.contractId ||
-      (isContract ? draftId : '') ||
-      '';
-    const clean = sanitizeDocId(raw);
-    return clean && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(clean) ? clean : '';
-  }, [contractIdFromStepper, contractData, initialContractData, proformaData, initialProformaData, initialData, isContract, draftId]);
+      initialContractData?.contractId
+    );
+    if (
+      directContractId &&
+      directContractId !== effectiveConfirmationId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(directContractId)
+    ) {
+      return directContractId;
+    }
+
+    // 2. Stepper list Step 1 (Sales Contract) redirect_id
+    const stepperContractStep = steps.find((s, idx) => isContractStep(s, idx)) || steps[1];
+    const stepperContractId = sanitizeDocId(
+      contractIdFromStepper ||
+      getStepSelfId(stepperContractStep) ||
+      stepperContractStep?.redirect_id ||
+      stepperContractStep?.redirectId
+    );
+    if (
+      stepperContractId &&
+      stepperContractId !== effectiveConfirmationId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(stepperContractId)
+    ) {
+      return stepperContractId;
+    }
+
+    // 3. Linked contract ID from other documents (confirmation, proforma, shipment instruction)
+    const linked = sanitizeDocId(
+      extractLinkedContractId(initialData) ||
+      extractLinkedContractId(confirmationData) ||
+      extractLinkedContractId(proformaData) ||
+      extractLinkedContractId(initialProformaData) ||
+      extractLinkedContractId(shipmentInstructionData) ||
+      extractLinkedContractId(initialShipmentInstructionData)
+    );
+    if (
+      linked &&
+      linked !== effectiveConfirmationId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(linked)
+    ) {
+      return linked;
+    }
+
+    // 4. Fallback to draftId ONLY if isContract is true
+    const cleanDraft = sanitizeDocId(draftId);
+    if (
+      isContract &&
+      cleanDraft &&
+      cleanDraft !== effectiveConfirmationId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanDraft)
+    ) {
+      return cleanDraft;
+    }
+
+    return '';
+  }, [
+    contractData,
+    initialContractData,
+    steps,
+    contractIdFromStepper,
+    effectiveConfirmationId,
+    initialData,
+    confirmationData,
+    proformaData,
+    initialProformaData,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    isContract,
+    draftId,
+  ]);
 
   // Canonical Proforma Document ID (strictly proforma, NEVER contract or confirmation ID)
   const canonicalProformaId = useMemo(() => {
-    // 1. From Stepper step (current selection or proforma step)
-    const proformaStep = getProformaStep(steps, selectedStep);
-    const fromStepper =
-      getProformaIdFromStepper(steps, selectedStep) ||
-      extractStepId(proformaStep) ||
-      extractStepRedirectId(proformaStep) ||
-      proformaStep?.redirect_id ||
-      proformaStep?.document_id ||
-      '';
-    const cleanFromStepper = sanitizeDocId(fromStepper);
-    if (
-      cleanFromStepper &&
-      cleanFromStepper !== effectiveConfirmationId &&
-      cleanFromStepper !== canonicalContractId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanFromStepper)
-    ) {
-      return cleanFromStepper;
-    }
-
-    // 2. From candidate proforma data or linked proforma IDs
-    const linkedCandidate =
-      extractLinkedProformaId(proformaData) ||
-      extractLinkedProformaId(initialProformaData) ||
-      extractLinkedProformaId(contractData) ||
-      extractLinkedProformaId(initialContractData) ||
-      extractLinkedProformaId(confirmationData) ||
-      extractLinkedProformaId(initialData);
-
-    const candidateDataId = sanitizeDocId(
-      linkedCandidate ||
+    // 1. Direct proforma data
+    const directProformaId = sanitizeDocId(
       proformaData?.id ||
       proformaData?._id ||
       proformaData?.proforma_id ||
@@ -345,26 +512,53 @@ export function DocumentDraftWorkspace({
       initialProformaData?.id ||
       initialProformaData?._id ||
       initialProformaData?.proforma_id ||
-      initialProformaData?.proformaId ||
-      contractData?.proforma_id ||
-      contractData?.proformaId ||
-      contractData?.proforma?.id ||
-      initialContractData?.proforma_id ||
-      initialContractData?.proformaId ||
-      initialContractData?.proforma?.id ||
-      initialData?.proforma_id ||
-      initialData?.proformaId
+      initialProformaData?.proformaId
     );
     if (
-      candidateDataId &&
-      candidateDataId !== effectiveConfirmationId &&
-      candidateDataId !== canonicalContractId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(candidateDataId)
+      directProformaId &&
+      directProformaId !== effectiveConfirmationId &&
+      directProformaId !== canonicalContractId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(directProformaId)
     ) {
-      return candidateDataId;
+      return directProformaId;
     }
 
-    // 3. Fallback to cleanDraftId ONLY if draftId is genuine proforma ID and NOT the root confirmation ID
+    // 2. From Stepper step (current selection or proforma step)
+    const proformaStep = getProformaStep(steps, selectedStep);
+    const fromStepper = sanitizeDocId(
+      getStepSelfId(proformaStep) ||
+      getProformaIdFromStepper(steps, selectedStep) ||
+      proformaStep?.redirect_id ||
+      proformaStep?.redirectId
+    );
+    if (
+      fromStepper &&
+      fromStepper !== effectiveConfirmationId &&
+      fromStepper !== canonicalContractId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(fromStepper)
+    ) {
+      return fromStepper;
+    }
+
+    // 3. Linked proforma IDs from other documents
+    const linkedCandidate = sanitizeDocId(
+      extractLinkedProformaId(shipmentInstructionData) ||
+      extractLinkedProformaId(initialShipmentInstructionData) ||
+      extractLinkedProformaId(contractData) ||
+      extractLinkedProformaId(initialContractData) ||
+      extractLinkedProformaId(confirmationData) ||
+      extractLinkedProformaId(initialData)
+    );
+    if (
+      linkedCandidate &&
+      linkedCandidate !== effectiveConfirmationId &&
+      linkedCandidate !== canonicalContractId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(linkedCandidate)
+    ) {
+      return linkedCandidate;
+    }
+
+    // 4. Fallback to cleanDraftId ONLY if draftId is genuine proforma ID
     const cleanDraftId = sanitizeDocId(draftId);
     if (
       isProforma &&
@@ -375,31 +569,29 @@ export function DocumentDraftWorkspace({
     ) {
       return cleanDraftId;
     }
+
     return '';
-  }, [steps, selectedStep, effectiveConfirmationId, canonicalContractId, proformaData, initialProformaData, contractData, initialContractData, confirmationData, initialData, isProforma, draftId]);
+  }, [
+    proformaData,
+    initialProformaData,
+    steps,
+    selectedStep,
+    effectiveConfirmationId,
+    canonicalContractId,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    contractData,
+    initialContractData,
+    confirmationData,
+    initialData,
+    isProforma,
+    draftId,
+  ]);
 
   // Canonical Shipment Instruction Document ID
   const canonicalShipmentInstructionId = useMemo(() => {
-    const shipmentStep = getShipmentInstructionStep(steps, selectedStep);
-    const fromStepper =
-      getShipmentInstructionIdFromStepper(steps, selectedStep) ||
-      extractStepId(shipmentStep) ||
-      extractStepRedirectId(shipmentStep) ||
-      shipmentStep?.redirect_id ||
-      shipmentStep?.document_id ||
-      '';
-    const cleanFromStepper = sanitizeDocId(fromStepper);
-    if (
-      cleanFromStepper &&
-      cleanFromStepper !== effectiveConfirmationId &&
-      cleanFromStepper !== canonicalContractId &&
-      cleanFromStepper !== canonicalProformaId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|shipment|step-\d+)$/i.test(cleanFromStepper)
-    ) {
-      return cleanFromStepper;
-    }
-
-    const candidateDataId = sanitizeDocId(
+    // 1. Direct shipment instruction data
+    const directShipmentId = sanitizeDocId(
       shipmentInstructionData?.id ||
       shipmentInstructionData?._id ||
       shipmentInstructionData?.shipment_instruction_id ||
@@ -410,15 +602,53 @@ export function DocumentDraftWorkspace({
       initialShipmentInstructionData?.instruction_id
     );
     if (
-      candidateDataId &&
-      candidateDataId !== effectiveConfirmationId &&
-      candidateDataId !== canonicalContractId &&
-      candidateDataId !== canonicalProformaId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|shipment|step-\d+)$/i.test(candidateDataId)
+      directShipmentId &&
+      directShipmentId !== effectiveConfirmationId &&
+      directShipmentId !== canonicalContractId &&
+      directShipmentId !== canonicalProformaId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|shipment|step-\d+)$/i.test(directShipmentId)
     ) {
-      return candidateDataId;
+      return directShipmentId;
     }
 
+    // 2. From Stepper step (current selection or shipment step)
+    const shipmentStep = getShipmentInstructionStep(steps, selectedStep);
+    const fromStepper = sanitizeDocId(
+      getStepSelfId(shipmentStep) ||
+      getShipmentInstructionIdFromStepper(steps, selectedStep) ||
+      shipmentStep?.redirect_id ||
+      shipmentStep?.redirectId
+    );
+    if (
+      fromStepper &&
+      fromStepper !== effectiveConfirmationId &&
+      fromStepper !== canonicalContractId &&
+      fromStepper !== canonicalProformaId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|shipment|step-\d+)$/i.test(fromStepper)
+    ) {
+      return fromStepper;
+    }
+
+    // 3. Linked shipment IDs from other documents
+    const linkedCandidate = sanitizeDocId(
+      extractLinkedShipmentInstructionId(proformaData) ||
+      extractLinkedShipmentInstructionId(initialProformaData) ||
+      extractLinkedShipmentInstructionId(contractData) ||
+      extractLinkedShipmentInstructionId(initialContractData) ||
+      extractLinkedShipmentInstructionId(confirmationData) ||
+      extractLinkedShipmentInstructionId(initialData)
+    );
+    if (
+      linkedCandidate &&
+      linkedCandidate !== effectiveConfirmationId &&
+      linkedCandidate !== canonicalContractId &&
+      linkedCandidate !== canonicalProformaId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|shipment|step-\d+)$/i.test(linkedCandidate)
+    ) {
+      return linkedCandidate;
+    }
+
+    // 4. Fallback to cleanDraftId ONLY if draftId is genuine shipment instruction ID
     const cleanDraftId = sanitizeDocId(draftId);
     if (
       isShipmentInstruction &&
@@ -430,8 +660,25 @@ export function DocumentDraftWorkspace({
     ) {
       return cleanDraftId;
     }
+
     return '';
-  }, [steps, selectedStep, effectiveConfirmationId, canonicalContractId, canonicalProformaId, shipmentInstructionData, initialShipmentInstructionData, isShipmentInstruction, draftId]);
+  }, [
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    steps,
+    selectedStep,
+    effectiveConfirmationId,
+    canonicalContractId,
+    canonicalProformaId,
+    proformaData,
+    initialProformaData,
+    contractData,
+    initialContractData,
+    confirmationData,
+    initialData,
+    isShipmentInstruction,
+    draftId,
+  ]);
 
   // Buyer Instruction ID for Shipment Instruction (passed to consignee and notify party APIs)
   const buyerInstructionIdForShipment = useMemo(() => {
@@ -500,43 +747,44 @@ export function DocumentDraftWorkspace({
     );
   }, [contractData, initialContractData, steps]);
 
-  // The root workflow / confirmation ID. This ID anchors the entire 3-step process.
-  // The URL parameter ?id= MUST ALWAYS be this ID and must NEVER change to a contract or proforma ID.
-  const rootWorkflowId = useMemo(() => {
-    const raw =
-      effectiveConfirmationId ||
-      initialData?.id ||
-      initialData?._id ||
-      initialData?.confirmation_id ||
-      initialData?.confirmationId ||
-      confirmationData?.id ||
-      confirmationData?._id ||
-      confirmationData?.confirmation_id ||
-      confirmationData?.confirmationId ||
-      contractData?.confirmation_id ||
-      contractData?.confirmationId ||
-      initialContractData?.confirmation_id ||
-      initialContractData?.confirmationId ||
-      proformaData?.confirmation_id ||
-      proformaData?.confirmationId ||
-      initialProformaData?.confirmation_id ||
-      initialProformaData?.confirmationId ||
-      initialId ||
-      draftId ||
-      '';
-    const clean = sanitizeDocId(raw);
-    return clean && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(clean) ? clean : '';
+  // Active document ID and type for stepper:
+  // "document id hi stepper me pass karo jis step se aaye hai form me button se si ki id contract ki id ya confirmation ki id vo hi stepper ki api me same pass karni hai"
+  const activeStepperId = useMemo(() => {
+    if (isShipmentInstruction) {
+      return canonicalShipmentInstructionId || initialId || draftId || '';
+    }
+    if (isContract) {
+      return canonicalContractId || initialId || draftId || '';
+    }
+    if (isProforma) {
+      return canonicalProformaId || initialId || draftId || '';
+    }
+    return effectiveConfirmationId || initialId || draftId || '';
   }, [
+    isShipmentInstruction,
+    isContract,
+    isProforma,
+    canonicalShipmentInstructionId,
+    canonicalContractId,
+    canonicalProformaId,
     effectiveConfirmationId,
-    initialData,
-    confirmationData,
-    contractData,
-    initialContractData,
-    proformaData,
-    initialProformaData,
     initialId,
     draftId,
   ]);
+
+  const activeStepperType = useMemo(() => {
+    if (isShipmentInstruction) return 'document';
+    if (isContract) return 'contract';
+    if (isProforma) return 'document';
+    return 'confirmation';
+  }, [isShipmentInstruction, isContract, isProforma]);
+
+  const rootWorkflowId = useMemo(() => {
+    return activeStepperId || effectiveConfirmationId || canonicalContractId || initialId || '';
+  }, [activeStepperId, effectiveConfirmationId, canonicalContractId, initialId]);
+
+  const workflowAnchorType = activeStepperType;
+  const workflowAnchorId = activeStepperId || rootWorkflowId || initialId || '';
 
   useEffect(() => {
     if (initialSteps && initialSteps.length > 0) {
@@ -557,19 +805,174 @@ export function DocumentDraftWorkspace({
     }
   }, [steps, selectedStepIndex]);
 
-  // Ensure the browser URL query parameter 'id' is ALWAYS the rootWorkflowId (confirmation ID)
-  // and 'step' parameter strictly mirrors the active step ('confirmation', 'contract', 'proforma')
+  // Synchronize step status and redirect IDs in stepper based on loaded/completed document data
+  useEffect(() => {
+    setSteps((prevSteps) => {
+      let changed = false;
+      const updated = prevSteps.map((step, idx) => {
+        let newStep = { ...step };
+
+        // Step 0: Confirmation
+        if (isConfirmationStep(step, idx)) {
+          const confId = sanitizeDocId(
+            confirmationData?.id ||
+            confirmationData?._id ||
+            confirmationData?.confirmation_id ||
+            initialData?.id ||
+            initialData?._id
+          );
+          const isComplete = isCompleteConfirmationData(confirmationData) || isCompleteConfirmationData(initialData);
+          if (confId && (!step.redirect_id || step.redirect_id === 'new-confirmation' || step.redirect_id.startsWith('step-'))) {
+            newStep.redirect_id = confId;
+            newStep.redirectId = confId;
+            changed = true;
+          }
+          if (isComplete && normalizeStepStatus(step.status) !== 'completed') {
+            newStep.status = 'completed';
+            changed = true;
+          }
+        }
+
+        // Step 1: Contract
+        if (isContractStep(step, idx)) {
+          const contractId = sanitizeDocId(
+            contractData?.id ||
+            contractData?._id ||
+            contractData?.contract_id ||
+            initialContractData?.id ||
+            initialContractData?._id
+          );
+          const isComplete = isCompleteContractData(contractData) || isCompleteContractData(initialContractData);
+          if (contractId && (!step.redirect_id || step.redirect_id === 'new-confirmation' || step.redirect_id.startsWith('step-'))) {
+            newStep.redirect_id = contractId;
+            newStep.redirectId = contractId;
+            changed = true;
+          }
+          if (isComplete && normalizeStepStatus(step.status) !== 'completed') {
+            newStep.status = 'completed';
+            changed = true;
+          }
+        }
+
+        // Step 2: Proforma
+        if (isProformaStep(step, idx)) {
+          const proformaId = sanitizeDocId(
+            proformaData?.id ||
+            proformaData?._id ||
+            proformaData?.proforma_id ||
+            initialProformaData?.id ||
+            initialProformaData?._id
+          );
+          const isComplete = isCompleteProformaData(proformaData) || isCompleteProformaData(initialProformaData);
+          if (proformaId && (!step.redirect_id || step.redirect_id === 'new-confirmation' || step.redirect_id.startsWith('step-'))) {
+            newStep.redirect_id = proformaId;
+            newStep.redirectId = proformaId;
+            changed = true;
+          }
+          if (isComplete && normalizeStepStatus(step.status) !== 'completed') {
+            newStep.status = 'completed';
+            changed = true;
+          }
+        }
+
+        // Step 3: Shipment Instruction
+        if (isShipmentInstructionStep(step, idx)) {
+          const shipmentId = sanitizeDocId(
+            shipmentInstructionData?.id ||
+            shipmentInstructionData?._id ||
+            shipmentInstructionData?.shipment_instruction_id ||
+            shipmentInstructionData?.shipment_id ||
+            initialShipmentInstructionData?.id ||
+            initialShipmentInstructionData?._id ||
+            initialShipmentInstructionData?.shipment_instruction_id
+          );
+          const isComplete = isCompleteShipmentInstructionData(shipmentInstructionData) || isCompleteShipmentInstructionData(initialShipmentInstructionData);
+          if (shipmentId && (!step.redirect_id || step.redirect_id === 'new-confirmation' || step.redirect_id.startsWith('step-'))) {
+            newStep.redirect_id = shipmentId;
+            newStep.redirectId = shipmentId;
+            changed = true;
+          }
+          if (isComplete && normalizeStepStatus(step.status) !== 'completed') {
+            newStep.status = 'completed';
+            changed = true;
+          }
+        }
+
+        return newStep;
+      });
+
+      return changed ? updated : prevSteps;
+    });
+  }, [
+    confirmationData,
+    initialData,
+    contractData,
+    initialContractData,
+    proformaData,
+    initialProformaData,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+  ]);
+
+  // Active Step Self ID: strictly the current active step's own ID from redirect_id / stepper
+  const activeStepSelfId = useMemo(() => {
+    const fromSelected = getStepSelfId(selectedStep);
+    if (fromSelected) return fromSelected;
+
+    if (isConfirmation) {
+      return (
+        effectiveConfirmationId ||
+        confirmationData?.id ||
+        confirmationData?._id ||
+        ''
+      );
+    }
+    if (isContract) {
+      return (
+        canonicalContractId ||
+        contractData?.id ||
+        contractData?._id ||
+        ''
+      );
+    }
+    if (isProforma) {
+      return (
+        canonicalProformaId ||
+        proformaData?.id ||
+        proformaData?._id ||
+        ''
+      );
+    }
+    if (isShipmentInstruction) {
+      return (
+        canonicalShipmentInstructionId ||
+        shipmentInstructionData?.id ||
+        shipmentInstructionData?._id ||
+        ''
+      );
+    }
+    return '';
+  }, [
+    selectedStep,
+    isConfirmation,
+    isContract,
+    isProforma,
+    isShipmentInstruction,
+    effectiveConfirmationId,
+    confirmationData,
+    canonicalContractId,
+    contractData,
+    canonicalProformaId,
+    proformaData,
+    canonicalShipmentInstructionId,
+    shipmentInstructionData,
+  ]);
+
+  // Ensure the browser URL query parameter 'step' mirrors the current view
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     let shouldUpdate = false;
-
-    const currentUrlId = url.searchParams.get('id');
-    const targetId = rootWorkflowId || effectiveConfirmationId;
-    if (targetId && currentUrlId !== targetId) {
-      url.searchParams.set('id', targetId);
-      shouldUpdate = true;
-    }
 
     const currentUrlStep = url.searchParams.get('step');
     const targetStep = isConfirmation
@@ -590,46 +993,391 @@ export function DocumentDraftWorkspace({
     if (shouldUpdate) {
       window.history.replaceState(null, '', url.toString());
     }
-  }, [rootWorkflowId, effectiveConfirmationId, isConfirmation, isContract, isProforma, isShipmentInstruction, selectedStep, selectedStepIndex]);
+  }, [
+    isConfirmation,
+    isContract,
+    isProforma,
+    isShipmentInstruction,
+    selectedStep,
+    selectedStepIndex,
+  ]);
+
+  const attemptedContractFetchRef = useRef<string | null>(null);
+  const attemptedProformaFetchRef = useRef<string | null>(null);
+  const attemptedShipmentFetchRef = useRef<string | null>(null);
+  const activeFetchSeqRef = useRef<number>(0);
+
+  // Centralized step data fetcher: fetches the latest document data and refreshes stepper metadata
+  const fetchLatestStepData = useCallback(
+    async (targetStep: StepperDocumentItem | null | undefined, targetIndex: number, currentSeq: number) => {
+      const isTargetConfirmation = targetIndex === 0 || isConfirmationStep(targetStep, targetIndex);
+      const isTargetContract = !isTargetConfirmation && (targetIndex === 1 || isContractStep(targetStep, targetIndex));
+      const isTargetProforma = !isTargetConfirmation && !isTargetContract && (targetIndex === 2 || isProformaStep(targetStep, targetIndex));
+      const isTargetShipment = !isTargetConfirmation && !isTargetContract && !isTargetProforma && (targetIndex === 3 || isShipmentInstructionStep(targetStep, targetIndex));
+
+      const stepSelfId = getStepSelfId(targetStep);
+
+      // PROFORMA INVOICE (Index 2)
+      if (isTargetProforma) {
+        let candidateId = sanitizeDocId(
+          stepSelfId ||
+          targetStep?.redirect_id ||
+          (targetStep as any)?.redirectId ||
+          getProformaIdFromStepper(steps, targetStep) ||
+          canonicalProformaId ||
+          extractLinkedProformaId(shipmentInstructionData) ||
+          extractLinkedProformaId(contractData) ||
+          extractLinkedProformaId(confirmationData) ||
+          (proformaData?.id || proformaData?.proforma_id)
+        );
+
+        if (/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(candidateId)) {
+          candidateId = '';
+        }
+
+        if (!isCompleteProformaData(proformaData)) {
+          setIsLoadingProforma(true);
+        }
+
+        // Concurrently refresh stepper list from backend so we have the absolute latest redirect_id & status
+        const stepperParam = effectiveConfirmationId || canonicalContractId || initialId || 'new-confirmation';
+        getStepperListAction({
+          action: 'confirmation',
+          step: String(stepperParam),
+          lang,
+        })
+          .then((sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps(sRes.data);
+              const freshProformaStep = getProformaStep(sRes.data);
+              const freshProformaId = sanitizeDocId(getStepSelfId(freshProformaStep) || freshProformaStep?.redirect_id);
+              if (
+                freshProformaId &&
+                !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(freshProformaId) &&
+                freshProformaId !== candidateId
+              ) {
+                getProformaAction(freshProformaId, lang)
+                  .then((freshRes) => {
+                    if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
+                      const extracted = extractProformaData(freshRes.data);
+                      if (extracted && isCompleteProformaData(extracted)) {
+                        setProformaData(extracted);
+                      } else if (freshRes.data) {
+                        setProformaData(freshRes.data);
+                      }
+                      setIsLoadingProforma(false);
+                    }
+                  })
+                  .catch(() => {});
+              }
+            }
+          })
+          .catch((err) => {
+            console.warn('[DocumentDraftWorkspace] Stepper list refresh error in proforma fetch:', err);
+          });
+
+        if (candidateId) {
+          try {
+            const res = await getProformaAction(candidateId, lang);
+            if (activeFetchSeqRef.current === currentSeq) {
+              if (res?.success && res.data) {
+                const extracted = extractProformaData(res.data);
+                if (extracted && isCompleteProformaData(extracted)) {
+                  setProformaData(extracted);
+                } else if (res.data && typeof res.data === 'object') {
+                  setProformaData(res.data);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest proforma:', err);
+          } finally {
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingProforma(false);
+            }
+          }
+        } else {
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingProforma(false);
+          }
+        }
+        return;
+      }
+
+      // SALES CONTRACT (Index 1)
+      if (isTargetContract) {
+        let candidateId = sanitizeDocId(
+          stepSelfId ||
+          targetStep?.redirect_id ||
+          (targetStep as any)?.redirectId ||
+          getContractIdFromStepper(steps, targetStep) ||
+          canonicalContractId ||
+          draftId ||
+          extractLinkedContractId(confirmationData) ||
+          (contractData?.id || contractData?.contract_id)
+        );
+
+        if (/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(candidateId)) {
+          candidateId = '';
+        }
+
+        if (!isCompleteContractData(contractData)) {
+          setIsLoadingContract(true);
+        }
+
+        const stepperParam = candidateId || effectiveConfirmationId || 'new-contract';
+        getStepperListAction({
+          action: 'contract',
+          step: String(stepperParam),
+          lang,
+        })
+          .then((sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps(sRes.data);
+            }
+          })
+          .catch(() => {});
+
+        if (candidateId) {
+          try {
+            const res = await getContractAction(candidateId, lang);
+            if (activeFetchSeqRef.current === currentSeq) {
+              if (res?.success && res.data) {
+                const extracted = extractContractData(res.data);
+                if (extracted && isCompleteContractData(extracted)) {
+                  setContractData(extracted);
+                } else if (res.data && typeof res.data === 'object') {
+                  setContractData(res.data);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest contract:', err);
+          } finally {
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingContract(false);
+            }
+          }
+        } else {
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingContract(false);
+          }
+        }
+        return;
+      }
+
+      // TRADE CONFIRMATION (Index 0)
+      if (isTargetConfirmation) {
+        let candidateId = sanitizeDocId(
+          stepSelfId ||
+          targetStep?.redirect_id ||
+          (targetStep as any)?.redirectId ||
+          getConfirmationIdFromStepper(steps, targetStep) ||
+          effectiveConfirmationId ||
+          rootWorkflowId ||
+          initialId ||
+          (confirmationData?.id || confirmationData?.confirmation_id)
+        );
+
+        if (/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(candidateId)) {
+          candidateId = '';
+        }
+
+        if (!isCompleteConfirmationData(confirmationData)) {
+          setIsLoadingConfirmation(true);
+        }
+
+        const stepperParam = candidateId || 'new-confirmation';
+        getStepperListAction({
+          action: 'confirmation',
+          step: String(stepperParam),
+          lang,
+        })
+          .then((sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps(sRes.data);
+            }
+          })
+          .catch(() => {});
+
+        if (candidateId) {
+          try {
+            const res = await getConfirmationAction(candidateId, lang);
+            if (activeFetchSeqRef.current === currentSeq) {
+              if (res?.success && res.data) {
+                const extracted = extractConfirmationData(res.data);
+                if (extracted && isCompleteConfirmationData(extracted)) {
+                  setConfirmationData(extracted);
+                } else if (res.data && typeof res.data === 'object') {
+                  setConfirmationData(res.data);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest confirmation:', err);
+          } finally {
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingConfirmation(false);
+            }
+          }
+        } else {
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingConfirmation(false);
+          }
+        }
+        return;
+      }
+
+      // SHIPMENT INSTRUCTION (Index 3)
+      if (isTargetShipment) {
+        let candidateId = sanitizeDocId(
+          stepSelfId ||
+          targetStep?.redirect_id ||
+          (targetStep as any)?.redirectId ||
+          getShipmentInstructionIdFromStepper(steps, targetStep) ||
+          canonicalShipmentInstructionId ||
+          (isShipmentInstruction ? draftId || initialId : '') ||
+          extractLinkedShipmentInstructionId(proformaData) ||
+          extractLinkedShipmentInstructionId(contractData) ||
+          (shipmentInstructionData?.id || shipmentInstructionData?.shipment_id || shipmentInstructionData?.shipment_instruction_id)
+        );
+
+        if (/^(contract|confirmation|new-confirmation|sales-contract|proforma|shipment|step-\d+)$/i.test(candidateId)) {
+          candidateId = '';
+        }
+
+        if (!isCompleteShipmentInstructionData(shipmentInstructionData)) {
+          setIsLoadingShipmentInstruction(true);
+        }
+
+        const stepperParam = workflowAnchorId || 'new-confirmation';
+        getStepperListAction({
+          action: workflowAnchorType,
+          step: String(stepperParam),
+          lang,
+        })
+          .then((sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps(sRes.data);
+            }
+          })
+          .catch(() => {});
+
+        if (candidateId) {
+          try {
+            const res = await getShipmentInstructionAction(candidateId, lang);
+            if (activeFetchSeqRef.current === currentSeq) {
+              if (res?.success && res.data) {
+                const extracted = extractShipmentInstructionData(res.data);
+                if (extracted && isCompleteShipmentInstructionData(extracted)) {
+                  setShipmentInstructionData(extracted);
+                } else if (res.data && typeof res.data === 'object') {
+                  setShipmentInstructionData(res.data);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest shipment instruction:', err);
+          } finally {
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingShipmentInstruction(false);
+            }
+          }
+        } else {
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingShipmentInstruction(false);
+          }
+        }
+        return;
+      }
+    },
+    [
+      steps,
+      confirmationData,
+      contractData,
+      proformaData,
+      shipmentInstructionData,
+      canonicalContractId,
+      canonicalProformaId,
+      canonicalShipmentInstructionId,
+      effectiveConfirmationId,
+      rootWorkflowId,
+      initialId,
+      draftId,
+      lang,
+    ]
+  );
 
   // Handle step selection with URL shallow synchronization for proper linking
-  // Deep link navigation: update URL query parameters without full page reload
-  // CRITICAL: URL 'id' must ALWAYS remain the root workflow confirmation ID! Only 'step' changes.
+  // Deep link navigation: update URL query parameters without full page reload.
+  // Stepper root ID remains constant; step slug indicates current view.
   const handleSelectStep = useCallback(
     (step: StepperDocumentItem, index: number) => {
       setSelectedStepIndex(index);
       setSelectedStep(step);
       setIsMobileStepperOpen(false);
 
-      const isSelectingContract = index === 1 || isContractStep(step, index);
-      const isSelectingProforma = index === 2 || isProformaStep(step, index);
-      const isSelectingShipment = index === 3 || isShipmentInstructionStep(step, index);
+      // Reset attempted fetch refs so future or re-clicked fetches are never blocked
+      attemptedContractFetchRef.current = null;
+      attemptedProformaFetchRef.current = null;
+      attemptedShipmentFetchRef.current = null;
 
-      if (isSelectingContract && !contractData && !initialContractData) {
-        const cId = getContractIdFromStepper(steps, step);
-        if (cId) setIsLoadingContract(true);
+      const isSelectingConfirmation = index === 0 || isConfirmationStep(step, index);
+      const isSelectingContract = !isSelectingConfirmation && (index === 1 || isContractStep(step, index));
+      const isSelectingProforma = !isSelectingConfirmation && !isSelectingContract && (index === 2 || isProformaStep(step, index));
+      const isSelectingShipment = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && (index === 3 || isShipmentInstructionStep(step, index));
+
+      const stepSelfId = getStepSelfId(step);
+
+      if (isSelectingConfirmation && !isCompleteConfirmationData(confirmationData) && !isCompleteConfirmationData(initialData) && (stepSelfId || getConfirmationIdFromStepper(steps, step) || effectiveConfirmationId)) {
+        setIsLoadingConfirmation(true);
       }
-      if (isSelectingProforma && !proformaData && !initialProformaData) {
-        const pId = getProformaIdFromStepper(steps, step);
-        if (pId) setIsLoadingProforma(true);
+      if (isSelectingContract && !isCompleteContractData(contractData) && !isCompleteContractData(initialContractData) && (stepSelfId || getContractIdFromStepper(steps, step) || canonicalContractId)) {
+        setIsLoadingContract(true);
       }
-      if (isSelectingShipment && !shipmentInstructionData && !initialShipmentInstructionData) {
-        const sId = getShipmentInstructionIdFromStepper(steps, step);
-        if (sId) setIsLoadingShipmentInstruction(true);
+      if (isSelectingProforma && !isCompleteProformaData(proformaData) && !isCompleteProformaData(initialProformaData) && (stepSelfId || getProformaIdFromStepper(steps, step) || canonicalProformaId)) {
+        setIsLoadingProforma(true);
+      }
+      if (isSelectingShipment && !isCompleteShipmentInstructionData(shipmentInstructionData) && !isCompleteShipmentInstructionData(initialShipmentInstructionData) && (stepSelfId || getShipmentInstructionIdFromStepper(steps, step) || canonicalShipmentInstructionId)) {
+        setIsLoadingShipmentInstruction(true);
       }
 
       const slug = getStepSlug(step, index);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        const targetId = rootWorkflowId || effectiveConfirmationId;
-        if (targetId) {
-          url.searchParams.set('id', targetId);
+        const targetStepDocId =
+          stepSelfId ||
+          (isSelectingShipment ? canonicalShipmentInstructionId : isSelectingContract ? canonicalContractId : isSelectingProforma ? canonicalProformaId : effectiveConfirmationId) ||
+          draftId;
+
+        if (targetStepDocId) {
+          url.searchParams.set('id', targetStepDocId);
         }
         url.searchParams.set('step', slug);
         window.history.replaceState(null, '', url.toString());
       }
+
+      const currentSeq = ++activeFetchSeqRef.current;
+      fetchLatestStepData(step, index, currentSeq);
     },
-    [rootWorkflowId, effectiveConfirmationId, contractData, initialContractData, proformaData, initialProformaData, shipmentInstructionData, initialShipmentInstructionData, steps]
+    [
+      steps,
+      confirmationData,
+      initialData,
+      effectiveConfirmationId,
+      contractData,
+      initialContractData,
+      canonicalContractId,
+      proformaData,
+      initialProformaData,
+      canonicalProformaId,
+      shipmentInstructionData,
+      initialShipmentInstructionData,
+      canonicalShipmentInstructionId,
+      rootWorkflowId,
+      initialId,
+      fetchLatestStepData,
+    ]
   );
 
   const pageTitle = isContract
@@ -674,15 +1422,16 @@ export function DocumentDraftWorkspace({
     }
   }, [initialShipmentInstructionData]);
 
-  const attemptedContractFetchRef = useRef<string | null>(null);
-  const attemptedProformaFetchRef = useRef<string | null>(null);
-  const attemptedShipmentFetchRef = useRef<string | null>(null);
-
   // Fetch confirmation data dynamically if confirmation step is active and data not yet loaded
   useEffect(() => {
-    if (!isConfirmation || confirmationData || initialData) return;
-    const cleanConfId = sanitizeDocId(effectiveConfirmationId);
-    if (cleanConfId) {
+    if (!isConfirmation || isCompleteConfirmationData(confirmationData) || isCompleteConfirmationData(initialData)) return;
+    const cleanConfId = sanitizeDocId(
+      effectiveConfirmationId ||
+      getConfirmationIdFromStepper(steps) ||
+      getStepSelfId(steps[0]) ||
+      steps[0]?.redirect_id
+    );
+    if (cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanConfId)) {
       setIsLoadingConfirmation(true);
       getConfirmationAction(cleanConfId, lang)
         .then((res) => {
@@ -696,33 +1445,29 @@ export function DocumentDraftWorkspace({
         .finally(() => {
           setIsLoadingConfirmation(false);
         });
+    } else {
+      setIsLoadingConfirmation(false);
     }
-  }, [isConfirmation, confirmationData, initialData, effectiveConfirmationId, lang]);
+  }, [isConfirmation, confirmationData, initialData, effectiveConfirmationId, steps, lang]);
 
   // Fetch contract data dynamically if contract step is active and contract data not yet loaded
   useEffect(() => {
-    if (!isContract || contractData || initialContractData) {
+    if (!isContract || isCompleteContractData(contractData) || isCompleteContractData(initialContractData)) {
       return;
     }
 
-    const confId =
-      initialData?.id ||
-      initialData?._id ||
-      initialData?.confirmation_id ||
-      initialData?.confirmationId;
-
-    const candidateContractId =
+    const effectiveContractId = sanitizeDocId(
+      canonicalContractId ||
       contractIdFromStepper ||
-      (draftId && draftId !== confId ? draftId : '') ||
-      initialData?.contract_id ||
-      initialData?.contractId;
+      getStepSelfId(steps[1]) ||
+      steps[1]?.redirect_id
+    );
 
-    const effectiveContractId =
-      candidateContractId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(candidateContractId)
-        ? candidateContractId
-        : '';
-
-    if (effectiveContractId && attemptedContractFetchRef.current !== effectiveContractId) {
+    if (
+      effectiveContractId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(effectiveContractId) &&
+      attemptedContractFetchRef.current !== effectiveContractId
+    ) {
       attemptedContractFetchRef.current = effectiveContractId;
       setIsLoadingContract(true);
       getContractAction(effectiveContractId, lang)
@@ -740,11 +1485,11 @@ export function DocumentDraftWorkspace({
     } else if (!effectiveContractId) {
       setIsLoadingContract(false);
     }
-  }, [isContract, contractIdFromStepper, draftId, initialData, contractData, initialContractData, lang]);
+  }, [isContract, canonicalContractId, contractIdFromStepper, steps, contractData, initialContractData, lang]);
 
   // Fetch proforma data dynamically only if proforma step is active, proforma data not loaded, and a REAL proforma ID exists
   useEffect(() => {
-    if (!isProforma || proformaData || initialProformaData) {
+    if (!isProforma || isCompleteProformaData(proformaData) || isCompleteProformaData(initialProformaData)) {
       return;
     }
 
@@ -776,12 +1521,17 @@ export function DocumentDraftWorkspace({
 
   // Fetch shipment instruction data dynamically only if shipment instruction step is active and not loaded
   useEffect(() => {
-    if (!isShipmentInstruction || shipmentInstructionData || initialShipmentInstructionData) {
+    if (!isShipmentInstruction || isCompleteShipmentInstructionData(shipmentInstructionData) || isCompleteShipmentInstructionData(initialShipmentInstructionData)) {
       return;
     }
 
     const effectiveId = canonicalShipmentInstructionId;
-    if (effectiveId && attemptedShipmentFetchRef.current !== effectiveId) {
+    if (!effectiveId) {
+      setIsLoadingShipmentInstruction(false);
+      return;
+    }
+
+    if (attemptedShipmentFetchRef.current !== effectiveId) {
       attemptedShipmentFetchRef.current = effectiveId;
       setIsLoadingShipmentInstruction(true);
       getShipmentInstructionAction(effectiveId, lang)
@@ -799,8 +1549,6 @@ export function DocumentDraftWorkspace({
         .finally(() => {
           setIsLoadingShipmentInstruction(false);
         });
-    } else if (!effectiveId) {
-      setIsLoadingShipmentInstruction(false);
     }
   }, [isShipmentInstruction, canonicalShipmentInstructionId, shipmentInstructionData, initialShipmentInstructionData, lang]);
 
@@ -923,10 +1671,10 @@ export function DocumentDraftWorkspace({
           <div className="mt-2.5 pt-2 border-t border-border animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar">
             <DocumentStatusStepper
               isMobile
-              stepperType={isContract ? 'contract' : 'confirmation'}
-              stepperId={isContract ? (canonicalContractId || rootWorkflowId || effectiveConfirmationId) : (rootWorkflowId || effectiveConfirmationId)}
-              stepId={rootWorkflowId || effectiveConfirmationId || 'new-confirmation'}
-              confirmationId={rootWorkflowId || effectiveConfirmationId}
+              stepperType={activeStepperType}
+              stepperId={activeStepperId || initialId || draftId || 'new-confirmation'}
+              stepId={activeStepperId || initialId || draftId || 'new-confirmation'}
+              confirmationId={effectiveConfirmationId || activeStepperId || draftId}
               initialSteps={steps}
               currentStepIndex={selectedStepIndex}
               onSelectStep={handleSelectStep}
@@ -935,7 +1683,7 @@ export function DocumentDraftWorkspace({
               dict={dict}
               confirmationNumber={resolvedConfirmationNumber}
               contractNumber={resolvedContractNumber}
-              isContractStep={isContract}
+              isContractStep={activeStepperType === 'contract'}
             />
           </div>
         )}
@@ -954,11 +1702,17 @@ export function DocumentDraftWorkspace({
       >
         {/* Confirmation Document Form: Visible when Confirmation Step is active */}
         <div className={`w-full h-full flex flex-col ${isConfirmation ? 'flex' : 'hidden'}`}>
-          {isConfirmation && isLoadingConfirmation ? (
+          {isConfirmation && isLoadingConfirmation && !isCompleteConfirmationData(confirmationData) ? (
             <DocumentDraftSkeleton mode="confirmation" isFormCardOnly />
           ) : (
             <ConfirmationDocumentForm
-              initialData={confirmationData || initialData}
+              initialData={
+                isCompleteConfirmationData(confirmationData)
+                  ? confirmationData
+                  : isCompleteConfirmationData(initialData)
+                  ? initialData
+                  : confirmationData || initialData
+              }
             steps={steps}
             selectedStep={selectedStep}
             lang={lang}
@@ -1063,19 +1817,28 @@ export function DocumentDraftWorkspace({
                     const newContractId = extractStepId(newContractStep);
                     if (newContractId) {
                       setDraftId(newContractId);
+                      setIsLoadingContract(true);
                       getContractAction(newContractId, lang).then((cRes) => {
                         if (cRes?.success && cRes.data) {
-                          setContractData(cRes.data);
+                          const extracted = extractContractData(cRes.data);
+                          if (extracted) {
+                            setContractData(extracted);
+                          }
                         }
+                      }).finally(() => {
+                        setIsLoadingContract(false);
                       });
                     } else if (newId) {
                       setDraftId(String(newId));
+                      fetchLatestStepData(newContractStep, targetIdx, ++activeFetchSeqRef.current);
+                    } else {
+                      fetchLatestStepData(newContractStep, targetIdx, ++activeFetchSeqRef.current);
                     }
 
                     // Update URL to contract step (preserving rootWorkflowId in ?id=)
                     if (typeof window !== 'undefined') {
                       const url = new URL(window.location.href);
-                      const targetId = String(newId) || rootWorkflowId || effectiveConfirmationId;
+                      const targetId = rootWorkflowId || effectiveConfirmationId || String(newId);
                       if (targetId) {
                         url.searchParams.set('id', targetId);
                       }
@@ -1085,6 +1848,7 @@ export function DocumentDraftWorkspace({
                   } else if (steps.length > 1) {
                     setSelectedStepIndex(1);
                     setSelectedStep(steps[1]);
+                    fetchLatestStepData(steps[1], 1, ++activeFetchSeqRef.current);
                     if (typeof window !== 'undefined') {
                       const url = new URL(window.location.href);
                       url.searchParams.set('step', 'contract');
@@ -1107,11 +1871,17 @@ export function DocumentDraftWorkspace({
 
         {/* Contract Document Form: Visible when Contract Step is active */}
         <div className={`w-full h-full flex flex-col ${isContract ? 'flex' : 'hidden'}`}>
-          {isContract && isLoadingContract ? (
+          {isContract && isLoadingContract && !isCompleteContractData(contractData) ? (
             <DocumentDraftSkeleton mode="contract" isFormCardOnly />
           ) : (
             <ContractDocumentForm
-              initialData={contractData || initialContractData || initialData}
+              initialData={
+                isCompleteContractData(contractData)
+                  ? contractData
+                  : isCompleteContractData(initialContractData)
+                  ? initialContractData
+                  : (isCompleteConfirmationData(confirmationData) ? confirmationData : initialData)
+              }
               contractId={contractIdFromStepper || canonicalContractId}
               steps={steps}
               selectedStep={selectedStep}
@@ -1131,7 +1901,9 @@ export function DocumentDraftWorkspace({
               documentsList={initialDocumentList}
               onSaveSuccess={(savedId: string, savedData?: any) => {
                 if (savedId) {
-                  setDraftId(savedId);
+                  if (!effectiveConfirmationId) {
+                    setDraftId(savedId);
+                  }
                   const contNum =
                     savedData?.contract_number ||
                     savedData?.contractNumber ||
@@ -1144,11 +1916,19 @@ export function DocumentDraftWorkspace({
                     id: savedId,
                     contract_id: savedId,
                   }));
+                  // Update stepper item for contract so checkmark and redirect_id reflect the saved contract
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s, idx) =>
+                      isContractStep(s, idx)
+                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                        : s
+                    )
+                  );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const targetId = rootWorkflowId || effectiveConfirmationId;
-                    if (targetId) {
-                      url.searchParams.set('id', targetId);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || savedId;
+                    if (targetWorkflowId) {
+                      url.searchParams.set('id', targetWorkflowId);
                     }
                     if (url.searchParams.get('step') !== 'proforma') {
                       url.searchParams.set('step', 'contract');
@@ -1159,20 +1939,13 @@ export function DocumentDraftWorkspace({
               }}
               onSaveDraft={async (formData) => {
                 const activeDocId =
-                  sanitizeDocId(
-                    (contractData?.contract_id || contractData?.id) ||
-                    (initialContractData?.contract_id || initialContractData?.id) ||
-                    contractIdFromStepper ||
-                    draftId ||
-                    initialId ||
-                    initialData?.id ||
-                    initialData?._id ||
-                    initialData?.confirmation_id ||
-                    initialData?.confirmationId
-                  );
+                  canonicalContractId ||
+                  contractIdFromStepper ||
+                  sanitizeDocId(contractData?.contract_id || contractData?.id || initialContractData?.contract_id || initialContractData?.id);
 
                 const validEffectiveId =
                   activeDocId &&
+                  activeDocId !== effectiveConfirmationId &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
@@ -1183,9 +1956,9 @@ export function DocumentDraftWorkspace({
                 }
 
                 const confId = sanitizeDocId(
+                  effectiveConfirmationId ||
                   initialData?.confirmation_id ||
-                  initialData?.confirmationId ||
-                  validEffectiveId
+                  initialData?.confirmationId
                 );
                 if (confId && typeof formData?.set === 'function' && !formData.get('confirmation_id')) {
                   formData.set('confirmation_id', confId);
@@ -1194,7 +1967,7 @@ export function DocumentDraftWorkspace({
                 const res = await saveContractDraftAction(formData, lang, validEffectiveId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.contract_id || (res as any)?.contract_id;
-                  if (newId) {
+                  if (newId && !effectiveConfirmationId) {
                     setDraftId(String(newId));
                   }
 
@@ -1259,7 +2032,7 @@ export function DocumentDraftWorkspace({
                       step: String(stepperParam),
                       lang,
                     });
-                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
                       setSteps(stepperRes.data);
                     }
                   } catch (stepErr) {
@@ -1270,24 +2043,14 @@ export function DocumentDraftWorkspace({
               }}
               onSubmitContract={async (formData, passedId) => {
                 const activeDocId =
-                  sanitizeDocId(
-                    passedId ||
-                    (contractData?.contract_id || contractData?.id) ||
-                    (initialContractData?.contract_id || initialContractData?.id) ||
-                    contractIdFromStepper ||
-                    canonicalContractId ||
-                    draftId ||
-                    initialId ||
-                    initialData?.contract_id ||
-                    initialData?.contractId ||
-                    initialData?.id ||
-                    initialData?._id ||
-                    initialData?.confirmation_id ||
-                    initialData?.confirmationId
-                  );
+                  passedId ||
+                  canonicalContractId ||
+                  contractIdFromStepper ||
+                  sanitizeDocId(contractData?.contract_id || contractData?.id || initialContractData?.contract_id || initialContractData?.id);
 
                 const validEffectiveId =
                   activeDocId &&
+                  activeDocId !== effectiveConfirmationId &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
@@ -1298,9 +2061,9 @@ export function DocumentDraftWorkspace({
                 }
 
                 const confId = sanitizeDocId(
+                  effectiveConfirmationId ||
                   initialData?.confirmation_id ||
-                  initialData?.confirmationId ||
-                  validEffectiveId
+                  initialData?.confirmationId
                 );
                 if (confId && typeof formData?.set === 'function' && !formData.get('confirmation_id')) {
                   formData.set('confirmation_id', confId);
@@ -1308,8 +2071,8 @@ export function DocumentDraftWorkspace({
 
                 const res = await submitContractAction(formData, lang, validEffectiveId);
                 if (res?.success) {
-                  const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id;
-                  if (newId) {
+                  const newId = res.id || res.data?.id || res.data?.contract_id || (res as any)?.contract_id;
+                  if (newId && !effectiveConfirmationId) {
                     setDraftId(String(newId));
                   }
                   if (res.data) {
@@ -1384,7 +2147,26 @@ export function DocumentDraftWorkspace({
 
                       const newProformaId = extractStepId(newProformaStep) || res.data?.proforma_id;
                       if (newProformaId) {
-                        setDraftId(String(newProformaId));
+                        setIsLoadingProforma(true);
+                        getProformaAction(String(newProformaId), lang)
+                          .then((pRes) => {
+                            if (pRes?.success && pRes.data) {
+                              const extracted = extractProformaData(pRes.data);
+                              if (extracted && isCompleteProformaData(extracted)) {
+                                setProformaData(extracted);
+                              } else if (pRes.data) {
+                                setProformaData(pRes.data);
+                              }
+                            }
+                          })
+                          .catch((pErr) => {
+                            console.warn('[DocumentDraftWorkspace] Post-submit contract proforma fetch error:', pErr);
+                          })
+                          .finally(() => {
+                            setIsLoadingProforma(false);
+                          });
+                      } else {
+                        fetchLatestStepData(newProformaStep, targetIdx, ++activeFetchSeqRef.current);
                       }
 
                       // Update URL to proforma step (preserving rootWorkflowId in ?id=)
@@ -1402,6 +2184,7 @@ export function DocumentDraftWorkspace({
                       const targetIdx = proformaIndex >= 0 ? proformaIndex : 2;
                       setSelectedStepIndex(targetIdx);
                       setSelectedStep(steps[targetIdx]);
+                      fetchLatestStepData(steps[targetIdx], targetIdx, ++activeFetchSeqRef.current);
                       if (typeof window !== 'undefined') {
                         const url = new URL(window.location.href);
                         const targetId = rootWorkflowId || effectiveConfirmationId;
@@ -1424,14 +2207,16 @@ export function DocumentDraftWorkspace({
 
         {/* Proforma Invoice Document Form: Visible when Proforma Step is active */}
         <div className={`w-full h-full flex flex-col ${isProforma ? 'flex' : 'hidden'}`}>
-          {isProforma && isLoadingProforma && !proformaData ? (
+          {isProforma && isLoadingProforma && !isCompleteProformaData(proformaData) ? (
             <DocumentDraftSkeleton mode="contract" isFormCardOnly />
           ) : (
             <ProformaDocumentForm
               initialData={
-                proformaData ||
-                initialProformaData ||
-                (isProforma ? (contractData || initialContractData || confirmationData || initialData) : undefined)
+                isCompleteProformaData(proformaData)
+                  ? proformaData
+                  : isCompleteProformaData(initialProformaData)
+                  ? initialProformaData
+                  : (isProforma ? (contractData || initialContractData || confirmationData || initialData) : undefined)
               }
               proformaId={canonicalProformaId}
               contractId={canonicalContractId}
@@ -1453,18 +2238,25 @@ export function DocumentDraftWorkspace({
               shippingTerms={shippingTerms}
               onSaveSuccess={(savedId: string, savedData?: any) => {
                 if (savedId) {
-                  setDraftId(savedId);
                   setProformaData((prev: any) => ({
                     ...(prev || {}),
                     ...(savedData || {}),
                     id: savedId,
                     proforma_id: savedId,
                   }));
+                  // Update stepper item for proforma so checkmark and redirect_id reflect the saved proforma
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s, idx) =>
+                      isProformaStep(s, idx)
+                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                        : s
+                    )
+                  );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const targetId = rootWorkflowId || effectiveConfirmationId;
-                    if (targetId) {
-                      url.searchParams.set('id', targetId);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
+                    if (targetWorkflowId) {
+                      url.searchParams.set('id', targetWorkflowId);
                     }
                     url.searchParams.set('step', 'proforma');
                     window.history.replaceState(null, '', url.toString());
@@ -1473,17 +2265,13 @@ export function DocumentDraftWorkspace({
               }}
               onSaveDraft={async (formData) => {
                 const activeDocId =
-                  sanitizeDocId(
-                    canonicalProformaId ||
-                    (proformaData?.proforma_id || proformaData?.proforma_invoice_id || (proformaData?.invoice_number ? proformaData?.id : '')) ||
-                    canonicalContractId ||
-                    effectiveConfirmationId ||
-                    rootWorkflowId ||
-                    draftId ||
-                    initialId
-                  );
+                  canonicalProformaId ||
+                  sanitizeDocId(proformaData?.proforma_id || proformaData?.proforma_invoice_id || (proformaData?.invoice_number ? proformaData?.id : ''));
                 const validEffectiveId =
                   activeDocId &&
+                  activeDocId !== canonicalContractId &&
+                  activeDocId !== effectiveConfirmationId &&
+                  activeDocId !== canonicalShipmentInstructionId &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
@@ -1506,7 +2294,15 @@ export function DocumentDraftWorkspace({
                 const res = await saveProformaDraftAction(formData, lang, validEffectiveId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.proforma_invoice_id;
-                  if (newId) setDraftId(String(newId));
+                  if (newId) {
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s, idx) =>
+                        isProformaStep(s, idx)
+                          ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: s.status || 'draft' }
+                          : s
+                      )
+                    );
+                  }
                   const extracted = extractProformaData(res.data) || (typeof res.data === 'object' && res.data !== null ? res.data : {});
                   const isFormDataObj = typeof (formData as any)?.get === 'function';
                   const formValues = isFormDataObj ? {} : (typeof formData === 'object' ? formData : {});
@@ -1587,7 +2383,7 @@ export function DocumentDraftWorkspace({
                       step: String(stepperParam),
                       lang,
                     });
-                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
                       setSteps(stepperRes.data);
                     }
                   } catch (stepErr) {
@@ -1598,19 +2394,18 @@ export function DocumentDraftWorkspace({
               }}
               onSubmitProforma={async (formData, passedId) => {
                 const activeDocId =
+                  canonicalProformaId ||
                   sanitizeDocId(
-                    canonicalProformaId ||
-                    (proformaData?.proforma_id || proformaData?.proforma_invoice_id) ||
+                    proformaData?.proforma_id ||
+                    proformaData?.proforma_invoice_id ||
                     passedId ||
-                    proformaData?.id ||
-                    canonicalContractId ||
-                    effectiveConfirmationId ||
-                    rootWorkflowId ||
-                    draftId ||
-                    initialId
+                    (proformaData?.invoice_number ? proformaData?.id : '')
                   );
                 const validEffectiveId =
                   activeDocId &&
+                  activeDocId !== canonicalContractId &&
+                  activeDocId !== effectiveConfirmationId &&
+                  activeDocId !== canonicalShipmentInstructionId &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
@@ -1633,7 +2428,15 @@ export function DocumentDraftWorkspace({
                 const res = await submitProformaAction(formData, lang, validEffectiveId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.proforma_invoice_id;
-                  if (newId) setDraftId(String(newId));
+                  if (newId) {
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s, idx) =>
+                        isProformaStep(s, idx)
+                          ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: 'completed' }
+                          : s
+                      )
+                    );
+                  }
                   const extracted = extractProformaData(res.data) || (typeof res.data === 'object' && res.data !== null ? res.data : {});
                   const isFormDataObj = typeof (formData as any)?.get === 'function';
                   const formValues = isFormDataObj ? {} : (typeof formData === 'object' ? formData : {});
@@ -1716,7 +2519,7 @@ export function DocumentDraftWorkspace({
                       step: String(stepperParam),
                       lang,
                     });
-                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
                       setSteps(stepperRes.data);
                     }
                   } catch (stepErr) {
@@ -1731,16 +2534,18 @@ export function DocumentDraftWorkspace({
 
         {/* Shipment Instruction Document Form: Visible when Shipment Instruction Step is active */}
         <div className={`w-full h-full flex flex-col ${isShipmentInstruction ? 'flex' : 'hidden'}`}>
-          {isShipmentInstruction && isLoadingShipmentInstruction && !shipmentInstructionData ? (
+          {isShipmentInstruction && isLoadingShipmentInstruction && !isCompleteShipmentInstructionData(shipmentInstructionData) ? (
             <DocumentDraftSkeleton mode="contract" isFormCardOnly />
           ) : (
             <ShipmentInstructionDocumentForm
               initialData={
-                shipmentInstructionData ||
-                initialShipmentInstructionData ||
-                (isShipmentInstruction
-                  ? (proformaData || initialProformaData || contractData || initialContractData || confirmationData || initialData)
-                  : undefined)
+                isCompleteShipmentInstructionData(shipmentInstructionData)
+                  ? shipmentInstructionData
+                  : isCompleteShipmentInstructionData(initialShipmentInstructionData)
+                  ? initialShipmentInstructionData
+                  : (isShipmentInstruction
+                    ? (isCompleteProformaData(proformaData) ? proformaData : isCompleteContractData(contractData) ? contractData : confirmationData || initialData)
+                    : undefined)
               }
               buyerInstructionId={buyerInstructionIdForShipment}
               instructionId={canonicalShipmentInstructionId}
@@ -1764,18 +2569,25 @@ export function DocumentDraftWorkspace({
               shippingTerms={shippingTerms}
               onSaveSuccess={(savedId: string, savedData?: any) => {
                 if (savedId) {
-                  setDraftId(savedId);
                   setShipmentInstructionData((prev: any) => ({
                     ...(prev || {}),
                     ...(savedData || {}),
                     id: savedId,
                     shipment_instruction_id: savedId,
                   }));
+                  // Update stepper item for shipment instruction so checkmark and redirect_id reflect the saved document
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s, idx) =>
+                      isShipmentInstructionStep(s, idx)
+                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                        : s
+                    )
+                  );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const targetId = rootWorkflowId || effectiveConfirmationId;
-                    if (targetId) {
-                      url.searchParams.set('id', targetId);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
+                    if (targetWorkflowId) {
+                      url.searchParams.set('id', targetWorkflowId);
                     }
                     url.searchParams.set('step', 'shipment');
                     window.history.replaceState(null, '', url.toString());
@@ -1784,18 +2596,13 @@ export function DocumentDraftWorkspace({
               }}
               onSaveDraft={async (formData) => {
                 const activeDocId =
-                  sanitizeDocId(
-                    canonicalShipmentInstructionId ||
-                    (shipmentInstructionData?.shipment_instruction_id || shipmentInstructionData?.id) ||
-                    canonicalProformaId ||
-                    canonicalContractId ||
-                    effectiveConfirmationId ||
-                    rootWorkflowId ||
-                    draftId ||
-                    initialId
-                  );
+                  canonicalShipmentInstructionId ||
+                  sanitizeDocId(shipmentInstructionData?.shipment_instruction_id || shipmentInstructionData?.id);
                 const validEffectiveId =
                   activeDocId &&
+                  activeDocId !== canonicalContractId &&
+                  activeDocId !== effectiveConfirmationId &&
+                  activeDocId !== canonicalProformaId &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
@@ -1830,7 +2637,13 @@ export function DocumentDraftWorkspace({
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.shipment_instruction_id;
                   if (newId) {
-                    setDraftId(String(newId));
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s, idx) =>
+                        isShipmentInstructionStep(s, idx)
+                          ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: s.status || 'draft' }
+                          : s
+                      )
+                    );
                     let freshData = res.data;
                     try {
                       const freshRes = await getShipmentInstructionAction(String(newId), lang);
@@ -1852,18 +2665,13 @@ export function DocumentDraftWorkspace({
               }}
               onSubmitInstruction={async (formData) => {
                 const activeDocId =
-                  sanitizeDocId(
-                    canonicalShipmentInstructionId ||
-                    (shipmentInstructionData?.shipment_instruction_id || shipmentInstructionData?.id) ||
-                    canonicalProformaId ||
-                    canonicalContractId ||
-                    effectiveConfirmationId ||
-                    rootWorkflowId ||
-                    draftId ||
-                    initialId
-                  );
+                  canonicalShipmentInstructionId ||
+                  sanitizeDocId(shipmentInstructionData?.shipment_instruction_id || shipmentInstructionData?.id);
                 const validEffectiveId =
                   activeDocId &&
+                  activeDocId !== canonicalContractId &&
+                  activeDocId !== effectiveConfirmationId &&
+                  activeDocId !== canonicalProformaId &&
                   !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(activeDocId)
                     ? activeDocId
                     : undefined;
@@ -1897,7 +2705,15 @@ export function DocumentDraftWorkspace({
                 const res = await submitShipmentInstructionAction(formData, lang, validEffectiveId);
                 if (res?.success) {
                   const newId = res.id || res.data?.id || res.data?.shipment_instruction_id;
-                  if (newId) setDraftId(String(newId));
+                  if (newId) {
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s, idx) =>
+                        isShipmentInstructionStep(s, idx)
+                          ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: 'completed' }
+                          : s
+                      )
+                    );
+                  }
                   let freshData = res.data;
                   try {
                     if (newId) {
@@ -1924,7 +2740,7 @@ export function DocumentDraftWorkspace({
                       step: String(stepperParam),
                       lang,
                     });
-                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
                       setSteps(stepperRes.data);
                     }
                   } catch (stepErr) {
@@ -1952,10 +2768,10 @@ export function DocumentDraftWorkspace({
         {/* Stepper Viewport (pinned header with internal scrollable list) */}
         <div className="w-full h-full flex flex-col p-2.5 sm:p-3 min-h-0">
           <DocumentStatusStepper
-            stepperType={isContract ? 'contract' : 'confirmation'}
-            stepperId={isContract ? (canonicalContractId || rootWorkflowId || effectiveConfirmationId) : (rootWorkflowId || effectiveConfirmationId)}
-            stepId={rootWorkflowId || effectiveConfirmationId || 'new-confirmation'}
-            confirmationId={rootWorkflowId || effectiveConfirmationId}
+            stepperType={activeStepperType}
+            stepperId={activeStepperId || initialId || draftId || 'new-confirmation'}
+            stepId={activeStepperId || initialId || draftId || 'new-confirmation'}
+            confirmationId={effectiveConfirmationId || activeStepperId || draftId}
             initialSteps={steps}
             currentStepIndex={selectedStepIndex}
             onSelectStep={handleSelectStep}
@@ -1964,7 +2780,7 @@ export function DocumentDraftWorkspace({
             dict={dict}
             confirmationNumber={resolvedConfirmationNumber}
             contractNumber={resolvedContractNumber}
-            isContractStep={isContract}
+            isContractStep={activeStepperType === 'contract'}
           />
         </div>
       </aside>
