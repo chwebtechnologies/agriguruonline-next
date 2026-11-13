@@ -3825,48 +3825,58 @@ export function ContractDocumentForm({
       (!initialData.confirmation_number && !initialData.confirmation_date && initialData.id !== confirmationId ? initialData.id : '')
     );
 
-    // Once the form has been initialized, NEVER overwrite the user's active in-progress edits!
+    const isExplicitContract = Boolean(
+      initialData?.contract_number ||
+      initialData?.contract_id ||
+      initialData?.contractId ||
+      initialData?.contract ||
+      (initialData && !initialData.confirmation_number && !initialData.confirmation_id && initialData.status)
+    );
+
+    // Once the form has been initialized, protect user edits while allowing upgrade when real contract data arrives
     if (isFormInitializedRef.current) {
-      // Still update fresh signature URLs from backend if available and not cleared by user
-      const sSig = resolveSigValue(initialData, [
-        'seller_signature',
-        'sellerSignature',
-        'exporter_signature',
-        'exporterSignature',
-      ]);
-      if (hasUserClearedExporterSigRef.current || !exporterSignature) {
-        setExporterSignature('');
-      } else if (sSig) {
-        const formatted = formatSignatureUrl(sSig);
-        setExporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
-      }
+      if (hasDraftChanges || !isExplicitContract) {
+        // Still update fresh signature URLs from backend if available and not cleared by user
+        const sSig = resolveSigValue(initialData, [
+          'seller_signature',
+          'sellerSignature',
+          'exporter_signature',
+          'exporterSignature',
+        ]);
+        if (hasUserClearedExporterSigRef.current || !exporterSignature) {
+          setExporterSignature('');
+        } else if (sSig) {
+          const formatted = formatSignatureUrl(sSig);
+          setExporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+        }
 
-      const bSig = resolveSigValue(initialData, [
-        'buyer_signature',
-        'buyerSignature',
-        'importer_signature',
-        'importerSignature',
-      ]);
-      if (hasUserClearedImporterSigRef.current || !importerSignature) {
-        setImporterSignature('');
-      } else if (bSig) {
-        const formatted = formatSignatureUrl(bSig);
-        setImporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
-      }
+        const bSig = resolveSigValue(initialData, [
+          'buyer_signature',
+          'buyerSignature',
+          'importer_signature',
+          'importerSignature',
+        ]);
+        if (hasUserClearedImporterSigRef.current || !importerSignature) {
+          setImporterSignature('');
+        } else if (bSig) {
+          const formatted = formatSignatureUrl(bSig);
+          setImporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+        }
 
-      const brSig = resolveSigValue(initialData, [
-        'broker_signature',
-        'brokerSignature',
-        'sales_broker_signature',
-        'salesBrokerSignature',
-      ]);
-      if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
-        setBrokerSignature('');
-      } else if (brSig) {
-        const formatted = formatSignatureUrl(brSig);
-        setBrokerSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+        const brSig = resolveSigValue(initialData, [
+          'broker_signature',
+          'brokerSignature',
+          'sales_broker_signature',
+          'salesBrokerSignature',
+        ]);
+        if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
+          setBrokerSignature('');
+        } else if (brSig) {
+          const formatted = formatSignatureUrl(brSig);
+          setBrokerSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+        }
+        return;
       }
-      return;
     }
 
     isFormInitializedRef.current = true;
@@ -5117,10 +5127,18 @@ export function ContractDocumentForm({
         if (Object.keys(fieldErrors).length > 0) {
           setErrors(fieldErrors);
           scrollToAndFocusContractField(fieldErrors);
+          const firstErr = Object.values(fieldErrors)[0];
+          toast.error(firstErr || 'Please check highlighted fields.');
         } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
           toast.error(generalError);
         } else {
-          toast.error(res.message || res.error || 'Failed to save draft. Please check highlighted fields.');
+          const fallbackMsg =
+            res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message)
+              ? res.message
+              : res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error)
+              ? res.error
+              : 'Failed to save draft. Please check highlighted fields.';
+          toast.error(fallbackMsg);
         }
         return;
       }
@@ -5227,10 +5245,16 @@ export function ContractDocumentForm({
       if (Object.keys(fieldErrors).length > 0) {
         setErrors(fieldErrors);
         scrollToAndFocusContractField(fieldErrors);
+        const firstErr = Object.values(fieldErrors)[0];
+        toast.error(firstErr || 'Please check highlighted fields.');
       } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
         toast.error(generalError);
       } else {
-        toast.error(err?.message || 'Failed to save draft. Please retry.');
+        const fallbackMsg =
+          err?.message && !/^(form validation error|validation error|bad request)$/i.test(err.message)
+            ? err.message
+            : 'Failed to save draft. Please check highlighted fields.';
+        toast.error(fallbackMsg);
       }
     } finally {
       setIsSavingDraft(false);
@@ -5297,10 +5321,18 @@ export function ContractDocumentForm({
           if (Object.keys(fieldErrors).length > 0) {
             setErrors(fieldErrors);
             scrollToAndFocusContractField(fieldErrors);
+            const firstErr = Object.values(fieldErrors)[0];
+            toast.error(firstErr || 'Please check highlighted fields.');
           } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
             toast.error(generalError);
           } else {
-            toast.error(res?.message || 'Failed to submit contract to Proforma');
+            const fallbackMsg =
+              res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message)
+                ? res.message
+                : res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error)
+                ? res.error
+                : 'Failed to submit contract to Proforma. Please check highlighted fields.';
+            toast.error(fallbackMsg);
           }
         }
       }
@@ -5310,10 +5342,16 @@ export function ContractDocumentForm({
       if (Object.keys(fieldErrors).length > 0) {
         setErrors(fieldErrors);
         scrollToAndFocusContractField(fieldErrors);
+        const firstErr = Object.values(fieldErrors)[0];
+        toast.error(firstErr || 'Please check highlighted fields.');
       } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
         toast.error(generalError);
       } else {
-        toast.error(err?.message || 'Network error while submitting contract');
+        const fallbackMsg =
+          err?.message && !/^(form validation error|validation error|bad request)$/i.test(err.message)
+            ? err.message
+            : 'Network error while submitting contract. Please check highlighted fields.';
+        toast.error(fallbackMsg);
       }
     } finally {
       setIsSubmitting(false);

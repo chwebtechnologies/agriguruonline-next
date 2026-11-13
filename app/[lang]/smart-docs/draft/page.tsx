@@ -16,14 +16,18 @@ import {
   extractConfirmationData,
   extractContractData,
   extractProformaData,
+  extractShipmentInstructionData,
   extractDocumentListData,
   isContractStep,
   isProformaStep,
+  isShipmentInstructionStep,
   extractStepId,
+  getShipmentInstructionIdFromStepper,
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
   extractLinkedConfirmationId,
   extractLinkedContractId,
   extractLinkedProformaId,
+  extractLinkedShipmentInstructionId,
   DEFAULT_CURRENCIES,
 } from '@/lib/api/smart-docs.service';
 
@@ -40,12 +44,20 @@ export async function generateMetadata(props: {
     const siteUrl = getSiteUrl();
     const isContractRequested = searchParams?.step === 'contract' || searchParams?.step === '2';
     const isProformaRequested = searchParams?.step === 'proforma' || searchParams?.step === '3';
+    const isShipmentRequested =
+      searchParams?.step === 'shipment' ||
+      searchParams?.step === 'shipment_instruction' ||
+      searchParams?.step === 'shipment-instruction' ||
+      searchParams?.step === 'instruction' ||
+      searchParams?.step === '4';
     const queryParts = [];
     if (searchParams?.id) queryParts.push(`id=${encodeURIComponent(String(searchParams.id))}`);
     if (searchParams?.step) queryParts.push(`step=${encodeURIComponent(String(searchParams.step))}`);
     const idQuery = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
-    const pageTitle = isProformaRequested
+    const pageTitle = isShipmentRequested
+      ? 'Shipment Instruction'
+      : isProformaRequested
       ? 'Proforma Invoice'
       : isContractRequested
       ? 'Draft Contract'
@@ -78,6 +90,13 @@ export default async function SmartDocsDraftPage(props: {
   const lang = getSafeLanguage(params?.lang);
   const draftId = searchParams?.id ? String(searchParams.id).trim() : '';
   const initialStepParam = searchParams?.step ? String(searchParams.step).trim() : '';
+  const isProformaRequested = initialStepParam === 'proforma' || initialStepParam === '3';
+  const isShipmentRequested =
+    initialStepParam === 'shipment' ||
+    initialStepParam === 'shipment_instruction' ||
+    initialStepParam === 'shipment-instruction' ||
+    initialStepParam === 'instruction' ||
+    initialStepParam === '4';
   const isContractRequested = initialStepParam === 'contract' || initialStepParam === '2';
 
   // Secure token verification at top page level BEFORE Suspense boundary
@@ -92,7 +111,13 @@ export default async function SmartDocsDraftPage(props: {
   }
 
   return (
-    <Suspense fallback={<DocumentDraftSkeleton mode={isContractRequested ? 'contract' : 'confirmation'} />}>
+    <Suspense
+      fallback={
+        <DocumentDraftSkeleton
+          mode={isShipmentRequested || isProformaRequested || isContractRequested ? 'contract' : 'confirmation'}
+        />
+      }
+    >
       <DraftPageDataLoader
         lang={lang}
         token={token}
@@ -118,9 +143,15 @@ async function DraftPageDataLoader({
 }: DraftPageDataLoaderProps) {
   const isContractRequested = initialStepParam === 'contract' || initialStepParam === '2';
   const isProformaRequested = initialStepParam === 'proforma' || initialStepParam === '3';
+  const isShipmentRequested =
+    initialStepParam === 'shipment' ||
+    initialStepParam === 'shipment_instruction' ||
+    initialStepParam === 'shipment-instruction' ||
+    initialStepParam === 'instruction' ||
+    initialStepParam === '4';
 
   try {
-    // Fetch dictionary, stepper list, instructions, products, payment terms, currencies, documents & confirmation in parallel
+    // Phase 1: Fetch common dictionary, stepper, master datasets, and probe all document types concurrently in parallel
     const [
       rawDict,
       stepperRes,
@@ -132,6 +163,7 @@ async function DraftPageDataLoader({
       confirmationRes,
       contractRes,
       proformaRes,
+      shipmentRes,
     ] = await Promise.all([
       getDictionary(lang).catch(() => ({})),
       smartDocsService
@@ -148,89 +180,37 @@ async function DraftPageDataLoader({
           console.error('[SmartDocsDraftPage] Stepper fetch error:', err);
           return null;
         }),
-      smartDocsService
-        .getInstructions(
-          {
-            lang,
-            source: 'web',
-          },
-          token
-        )
-        .catch((err) => {
-          console.error('[SmartDocsDraftPage] Instructions fetch error:', err);
-          return null;
-        }),
-      smartDocsService
-        .getProducts(
-          {
-            lang,
-            source: 'web',
-          },
-          token
-        )
-        .catch((err) => {
-          console.error('[SmartDocsDraftPage] Products fetch error:', err);
-          return null;
-        }),
-      smartDocsService
-        .getPaymentTerms(
-          {
-            lang,
-            source: 'web',
-          },
-          token
-        )
-        .catch((err) => {
-          console.error('[SmartDocsDraftPage] Payment terms fetch error:', err);
-          return null;
-        }),
-      smartDocsService
-        .getCurrencies(
-          {
-            lang,
-            source: 'web',
-          },
-          token
-        )
-        .catch((err) => {
-          console.error('[SmartDocsDraftPage] Currencies fetch error:', err);
-          return null;
-        }),
-      smartDocsService
-        .getDocumentListForSelection(
-          {
-            lang,
-            source: 'web',
-          },
-          token
-        )
-        .catch((err) => {
-          console.error('[SmartDocsDraftPage] Document list fetch error:', err);
-          return null;
-        }),
+      smartDocsService.getInstructions({ lang, source: 'web' }, token).catch((err) => {
+        console.error('[SmartDocsDraftPage] Instructions fetch error:', err);
+        return null;
+      }),
+      smartDocsService.getProducts({ lang, source: 'web' }, token).catch((err) => {
+        console.error('[SmartDocsDraftPage] Products fetch error:', err);
+        return null;
+      }),
+      smartDocsService.getPaymentTerms({ lang, source: 'web' }, token).catch((err) => {
+        console.error('[SmartDocsDraftPage] Payment terms fetch error:', err);
+        return null;
+      }),
+      smartDocsService.getCurrencies({ lang, source: 'web' }, token).catch((err) => {
+        console.error('[SmartDocsDraftPage] Currencies fetch error:', err);
+        return null;
+      }),
+      smartDocsService.getDocumentListForSelection({ lang, source: 'web' }, token).catch((err) => {
+        console.error('[SmartDocsDraftPage] Document list fetch error:', err);
+        return null;
+      }),
       draftId
-        ? smartDocsService
-            .getConfirmation(draftId, { lang, source: 'web' }, token)
-            .catch((err) => {
-              console.error('[SmartDocsDraftPage] Confirmation details fetch error:', err);
-              return null;
-            })
+        ? smartDocsService.getConfirmation(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
       draftId
-        ? smartDocsService
-            .getContract(draftId, { lang, source: 'web' }, token)
-            .catch((err) => {
-              console.error('[SmartDocsDraftPage] Contract details fetch error:', err);
-              return null;
-            })
+        ? smartDocsService.getContract(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      draftId && isProformaRequested
-        ? smartDocsService
-            .getProforma(draftId, { lang, source: 'web' }, token)
-            .catch((err) => {
-              console.warn('[SmartDocsDraftPage] Proforma details fetch error:', err);
-              return null;
-            })
+      draftId
+        ? smartDocsService.getProforma(draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      draftId
+        ? smartDocsService.getShipmentInstruction(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
     ]);
 
@@ -242,128 +222,97 @@ async function DraftPageDataLoader({
     const initialCurrencies = extractCurrenciesData(currenciesRes);
     const initialDocumentList = extractDocumentListData(documentListRes);
     let initialConfirmationData = extractConfirmationData(confirmationRes);
-    let initialContractData = extractContractData(contractRes);
-    let initialProformaData = extractProformaData(proformaRes);
+    let initialContractData: any = extractContractData(contractRes);
+    let initialProformaData: any = extractProformaData(proformaRes);
+    let initialShipmentInstructionData: any = extractShipmentInstructionData(shipmentRes);
 
-    // SCENARIO 0: If draftId was in URL but neither confirmation nor contract succeeded,
-    // draftId might be a direct proforma ID. Attempt to fetch proforma data to discover linkedConfId.
-    if (draftId && !initialConfirmationData && !initialContractData && !initialProformaData) {
-      try {
-        const directProformaRes = await smartDocsService.getProforma(draftId, { lang, source: 'web' }, token);
-        if (directProformaRes) {
-          const extracted = extractProformaData(directProformaRes);
-          if (extracted) {
-            initialProformaData = extracted;
-          }
-        }
-      } catch {
-        // non-blocking
-      }
-    }
-
-    // SCENARIO 1: draftId in URL was a Contract ID or Proforma ID
-    const linkedConfId =
+    // Linked ID Discovery
+    const discoveredConfId =
       extractLinkedConfirmationId(initialContractData) ||
-      extractLinkedConfirmationId(initialProformaData);
+      extractLinkedConfirmationId(initialProformaData) ||
+      extractLinkedConfirmationId(initialShipmentInstructionData);
 
-    if (linkedConfId && String(linkedConfId) !== draftId) {
-      if (!initialConfirmationData) {
-        try {
-          const confRes = await smartDocsService.getConfirmation(
-            String(linkedConfId),
-            { lang, source: 'web' },
-            token
-          );
-          if (confRes) {
-            const extracted = extractConfirmationData(confRes);
-            if (extracted) {
-              initialConfirmationData = extracted;
-            }
-          }
-        } catch (err) {
-          console.error('[SmartDocsDraftPage] Linked confirmation fetch error:', err);
-        }
-      }
-
-      if (initialSteps.length <= 1) {
-        try {
-          const confStepperRes = await smartDocsService.getStepperList(
+    // If confirmation data is not yet loaded and a linked confirmation ID was discovered, fetch stepper if needed
+    if (!initialConfirmationData && discoveredConfId && initialSteps.length <= 1) {
+      try {
+        const discoveredStepperRes = await smartDocsService
+          .getStepperList(
             {
               action: 'confirmation',
-              step: String(linkedConfId),
+              step: discoveredConfId,
               lang,
               source: 'web',
             },
             token
-          );
-          const fetchedSteps = extractStepperList(confStepperRes);
-          if (fetchedSteps.length > 0) {
-            initialSteps = fetchedSteps;
-          }
-        } catch (err) {
-          console.error('[SmartDocsDraftPage] Linked stepper fetch error:', err);
-        }
+          )
+          .catch(() => null);
+        const steps = extractStepperList(discoveredStepperRes);
+        if (steps.length > 0) initialSteps = steps;
+      } catch {
+        // non-blocking
       }
     }
 
-    // SCENARIO 2: Contract data not loaded, but linked contract ID is discoverable
+    // Step discovery from Stepper and Document data
     const stepperContractStep = initialSteps.find((s, idx) => isContractStep(s, idx));
-    const stepperContractId =
+    const contractId =
       extractStepId(stepperContractStep) ||
       extractLinkedContractId(initialConfirmationData) ||
-      extractLinkedContractId(initialProformaData);
+      extractLinkedContractId(initialProformaData) ||
+      extractLinkedContractId(initialShipmentInstructionData) ||
+      initialContractData?.id;
 
-    if (!initialContractData && stepperContractId && stepperContractId !== draftId) {
-      try {
-        const contractDetailsRes = await smartDocsService.getContract(
-          stepperContractId,
-          { lang, source: 'web' },
-          token
-        );
-        if (contractDetailsRes) {
-          const extracted = extractContractData(contractDetailsRes);
-          if (extracted) {
-            initialContractData = extracted;
-          }
-        }
-      } catch {
-        // non-blocking
-      }
-    }
-
-    // SCENARIO 3: Proforma Step requested and proforma data not yet loaded
     const stepperProformaStep = initialSteps.find((s, idx) => isProformaStep(s, idx));
-    const stepperProformaId =
+    const proformaId =
       extractStepId(stepperProformaStep) ||
       extractLinkedProformaId(initialContractData) ||
-      extractLinkedProformaId(initialConfirmationData);
+      extractLinkedProformaId(initialConfirmationData) ||
+      extractLinkedProformaId(initialShipmentInstructionData) ||
+      initialProformaData?.id;
 
-    if (
-      isProformaRequested &&
-      !initialProformaData &&
-      stepperProformaId &&
-      stepperProformaId !== draftId &&
-      stepperProformaId !== stepperContractId &&
-      stepperProformaId !== linkedConfId
-    ) {
-      try {
-        const proformaDetailsRes = await smartDocsService.getProforma(
-          stepperProformaId,
-          { lang, source: 'web' },
-          token
-        );
-        if (proformaDetailsRes) {
-          const extracted = extractProformaData(proformaDetailsRes);
-          if (extracted) {
-            initialProformaData = extracted;
-          }
-        }
-      } catch {
-        // non-blocking
-      }
+    const stepperShipmentStep = initialSteps.find((s, idx) => isShipmentInstructionStep(s, idx));
+    const shipmentId =
+      getShipmentInstructionIdFromStepper(initialSteps) ||
+      extractStepId(stepperShipmentStep) ||
+      extractLinkedShipmentInstructionId(initialProformaData) ||
+      extractLinkedShipmentInstructionId(initialContractData) ||
+      extractLinkedShipmentInstructionId(initialConfirmationData) ||
+      initialShipmentInstructionData?.id;
+
+    // Phase 2: Fetch any missing documents in ONE clean parallel round trip!
+    const [missingConfRes, missingContractRes, missingProformaRes, missingShipmentRes] = await Promise.all([
+      !initialConfirmationData && discoveredConfId && discoveredConfId !== draftId
+        ? smartDocsService.getConfirmation(discoveredConfId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      !initialContractData && contractId && contractId !== draftId
+        ? smartDocsService.getContract(contractId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      !initialProformaData && proformaId && proformaId !== draftId
+        ? smartDocsService.getProforma(proformaId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      !initialShipmentInstructionData && shipmentId && shipmentId !== draftId
+        ? smartDocsService.getShipmentInstruction(shipmentId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    if (missingConfRes) {
+      const ext = extractConfirmationData(missingConfRes);
+      if (ext) initialConfirmationData = ext;
+    }
+    if (missingContractRes) {
+      const ext = extractContractData(missingContractRes);
+      if (ext) initialContractData = ext;
+    }
+    if (missingProformaRes) {
+      const ext = extractProformaData(missingProformaRes);
+      if (ext) initialProformaData = ext;
+    }
+    if (missingShipmentRes) {
+      const ext = extractShipmentInstructionData(missingShipmentRes);
+      if (ext) initialShipmentInstructionData = ext;
     }
 
-    // SCENARIO 4: Stepper list is still empty (new contract/confirmation draft, or API glitch)
+    // Ultimate fallback if stepper list is empty
     if (initialSteps.length === 0) {
       try {
         const templateStepperRes = await smartDocsService.getStepperList(
@@ -384,15 +333,16 @@ async function DraftPageDataLoader({
       }
     }
 
-    // Ultimate fallback to guarantee stepper is never empty on hard refresh
     if (initialSteps.length === 0) {
       initialSteps = DEFAULT_WORKFLOW_STEPPER_ITEMS;
     }
 
-    // If this ID is a Contract or Proforma (or step requested), ensure initialStepParam defaults accordingly
+    // If this ID is a Contract or Proforma or Shipment (or step requested), ensure initialStepParam defaults accordingly
     const effectiveStepParam =
       initialStepParam ||
-      (isProformaRequested
+      (isShipmentRequested
+        ? 'shipment'
+        : isProformaRequested
         ? 'proforma'
         : isContractRequested
         ? 'contract'
@@ -400,13 +350,18 @@ async function DraftPageDataLoader({
         ? 'contract'
         : undefined);
 
+    const linkedConfId =
+      extractLinkedConfirmationId(initialContractData) ||
+      extractLinkedConfirmationId(initialProformaData) ||
+      extractLinkedConfirmationId(initialShipmentInstructionData);
+
     // The workspace root ID must ALWAYS be the Confirmation ID anchoring this entire workflow.
-    // Never pass stepperContractId or stepperProformaId as initialId.
+    // Never pass stepperContractId, stepperProformaId, or stepperShipmentId as initialId.
     const effectiveDraftId =
       initialConfirmationData?.id ||
       initialConfirmationData?._id ||
       linkedConfId ||
-      (!isContractRequested && !isProformaRequested ? draftId : '') ||
+      (!isContractRequested && !isProformaRequested && !isShipmentRequested ? draftId : '') ||
       draftId ||
       '';
 
@@ -428,6 +383,7 @@ async function DraftPageDataLoader({
               initialData={initialConfirmationData}
               initialContractData={initialContractData}
               initialProformaData={initialProformaData}
+              initialShipmentInstructionData={initialShipmentInstructionData}
               initialId={effectiveDraftId}
               initialStepParam={effectiveStepParam}
             />
@@ -456,6 +412,7 @@ async function DraftPageDataLoader({
               initialData={null}
               initialContractData={null}
               initialProformaData={null}
+              initialShipmentInstructionData={null}
               initialId={draftId}
               initialStepParam={initialStepParam}
             />

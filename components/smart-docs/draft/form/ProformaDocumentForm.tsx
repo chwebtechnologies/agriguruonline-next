@@ -799,7 +799,12 @@ export function extractGoodsDescription(data: any): string {
       data?.product?.name ||
       data?.product?.label ||
       data?.product?.product_name ||
-      data?.contract?.product_name,
+      data?.commodity ||
+      data?.commodity_name ||
+      data?.product_title ||
+      data?.contract?.product_name ||
+      data?.contract?.commodity ||
+      data?.confirmation?.commodity,
     ''
   );
   if (!prodName) return '';
@@ -807,22 +812,32 @@ export function extractGoodsDescription(data: any): string {
   const spec = safeString(
     data?.quality_specification ||
       data?.specification ||
+      data?.product_specification ||
       data?.product?.specification ||
-      data?.contract?.quality_specification,
+      data?.product?.quality_specification ||
+      data?.contract?.quality_specification ||
+      data?.contract?.specification ||
+      data?.confirmation?.quality_specification ||
+      data?.confirmation?.specification,
     ''
   );
   const pack = safeString(
     data?.packing_type ||
       data?.packing ||
+      data?.packing_description ||
       data?.packing_type_id ||
-      data?.contract?.packing,
+      data?.contract?.packing_type ||
+      data?.contract?.packing ||
+      data?.confirmation?.packing_type ||
+      data?.confirmation?.packing,
     ''
   );
   const mark = safeString(
     data?.marking ||
       data?.marking_brand ||
       data?.brand ||
-      data?.contract?.marking_brand,
+      data?.contract?.marking_brand ||
+      data?.confirmation?.marking_brand,
     ''
   );
 
@@ -2680,12 +2695,8 @@ export function ProformaDocumentForm({
 
     const needsProformaUpgrade = isIncomingRealProforma && !hasLoadedRealProformaRef.current;
 
-    // Protect user edits and prevent redundant overwrites once initialized
-    if (
-      isUserDirtyRef.current ||
-      isSavingOrSubmittingRef.current ||
-      (isFormInitializedRef.current && !hasDocChanged && !needsProformaUpgrade)
-    ) {
+    // Protect user edits and prevent overwriting active entries when user has typed in the form
+    if (isUserDirtyRef.current || isSavingOrSubmittingRef.current) {
       // Still update fresh signature / logo from backend if available and not cleared by user
       const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
       if (resolvedSig && !hasUserClearedSignatureRef.current && !stampImageUrl) {
@@ -3551,8 +3562,8 @@ export function ProformaDocumentForm({
         const toastMsg =
           (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
           firstFieldErr ||
-          res?.message ||
-          res?.error ||
+          (res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message) ? res.message : null) ||
+          (res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error) ? res.error : null) ||
           'Failed to save draft. Please check highlighted fields.';
         toast.error(toastMsg);
         return;
@@ -3668,8 +3679,8 @@ export function ProformaDocumentForm({
       const toastMsg =
         (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
         firstFieldErr ||
-        err?.message ||
-        'Error occurred while saving draft';
+        (err?.message && !/^(form validation error|validation error|bad request)$/i.test(err.message) ? err.message : null) ||
+        'Error occurred while saving draft. Please check highlighted fields.';
       toast.error(toastMsg);
     } finally {
       isSavingOrSubmittingRef.current = false;
@@ -3722,9 +3733,9 @@ export function ProformaDocumentForm({
         const toastMsg =
           (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
           firstFieldErr ||
-          res?.message ||
-          res?.error ||
-          'Failed to submit Proforma Invoice';
+          (res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message) ? res.message : null) ||
+          (res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error) ? res.error : null) ||
+          'Failed to submit Proforma Invoice. Please check highlighted fields.';
         toast.error(toastMsg);
         return;
       }
@@ -3836,8 +3847,8 @@ export function ProformaDocumentForm({
       const toastMsg =
         (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
         firstFieldErr ||
-        err?.message ||
-        'Error occurred while submitting invoice';
+        (err?.message && !/^(form validation error|validation error|bad request)$/i.test(err.message) ? err.message : null) ||
+        'Error occurred while submitting invoice. Please check highlighted fields.';
       toast.error(toastMsg);
     } finally {
       isSavingOrSubmittingRef.current = false;

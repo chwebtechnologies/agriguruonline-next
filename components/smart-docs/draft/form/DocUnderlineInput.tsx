@@ -32,6 +32,8 @@ export interface DocUnderlineInputProps {
   onFocus?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   ariaLabel?: string;
   uppercase?: boolean;
+  flush?: boolean;
+  underlineClassName?: string;
 }
 
 export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaElement, DocUnderlineInputProps>(
@@ -66,6 +68,8 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
       onFocus,
       ariaLabel,
       uppercase = true,
+      flush = false,
+      underlineClassName = '',
     },
     ref
   ) => {
@@ -93,6 +97,8 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
 
     if (error) {
       borderStyle = 'border-b-2 border-solid !border-brand-red text-brand-red bg-transparent';
+    } else if (underlineClassName) {
+      borderStyle = underlineClassName;
     } else if (disabled) {
       borderStyle = 'border-b-2 border-dotted border-muted-foreground/30 opacity-60 cursor-not-allowed bg-transparent';
     } else if (isFocused) {
@@ -185,7 +191,9 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               }
             }
           }}
-          className={`relative flex ${multiline ? 'items-start pt-1' : 'items-center'} w-full px-1.5 py-0.5 min-h-[30px] rounded-t-sm transition-all duration-150 ${borderStyle} ${
+          className={`relative flex ${multiline ? 'items-start pt-1' : 'items-center'} w-full ${
+            flush ? 'px-0' : 'px-1.5'
+          } py-0.5 min-h-[30px] rounded-t-sm transition-all duration-150 ${borderStyle} ${
             error
               ? '!border-brand-red focus-within:!border-brand-red focus-within:border-solid'
               : 'focus-within:border-solid focus-within:border-primary'
@@ -220,10 +228,10 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
                   : `font-normal text-muted-foreground/50 ${uppercase ? 'uppercase' : ''}`
               } ${alignClass} ${
                 icon && iconPosition === 'right'
-                  ? 'left-1.5 right-6 rtl:left-6 rtl:right-1.5'
+                  ? `${flush ? 'left-0' : 'left-1.5'} right-6 rtl:left-6 rtl:right-1.5`
                   : icon && iconPosition === 'left'
-                  ? 'left-6 right-1.5 rtl:left-1.5 rtl:right-6'
-                  : 'left-1.5 right-1.5'
+                  ? `left-6 ${flush ? 'right-0' : 'right-1.5'} rtl:left-1.5 rtl:right-6`
+                  : `${flush ? 'left-0 right-0' : 'left-1.5 right-1.5'}`
               }`}
             >
               {effectivePlaceholder}

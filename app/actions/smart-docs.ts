@@ -56,7 +56,46 @@ import {
   sanitizeDocId,
   generateSmartDocsCuid,
   isValidCuidOrId,
+  extractApiValidationErrors,
 } from "@/lib/api/smart-docs.service";
+
+/**
+ * Helper to ensure error messages returned from server actions NEVER leak generic strings
+ * like "Form Validation Error", "Validation Error", "Bad Request", etc.
+ * Extracts the first specific human-readable field error message from backend error sources when available.
+ */
+function sanitizeActionErrorMessage(
+  rawMsg?: any,
+  errorSource?: any,
+  fallback: string = "Validation error occurred. Please check highlighted fields."
+): string {
+  const isGeneric = (str?: any) =>
+    !str ||
+    typeof str !== "string" ||
+    /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(
+      str.trim()
+    );
+
+  if (!isGeneric(rawMsg)) {
+    return String(rawMsg).trim();
+  }
+
+  if (errorSource) {
+    try {
+      const apiErrors = extractApiValidationErrors(errorSource);
+      if (apiErrors && apiErrors.length > 0 && apiErrors[0].message) {
+        const msg = apiErrors[0].message.trim();
+        if (!isGeneric(msg)) {
+          return msg;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return fallback;
+}
 
 export interface GetSmartDocsListActionParams {
   page?: number;
@@ -1078,14 +1117,20 @@ export async function saveConfirmationDraftAction(
       rawRes.raw?.errors ||
       null;
 
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to save confirmation draft. Please check highlighted fields."
+    );
+
     return {
       success: false,
-      message: rawRes?.message || "Failed to save confirmation draft",
+      message: sanitizedError,
       errors: errorFields,
       error_fields: errorFields,
       raw: rawRes.raw || rawRes,
       id: generatedId ? String(generatedId) : payload.id,
-      error: rawRes?.message || "Failed to save draft",
+      error: sanitizedError,
     };
   } catch (error: any) {
     console.error("[saveConfirmationDraftAction] Error:", error);
@@ -1360,6 +1405,44 @@ export async function saveContractDraftAction(
       (typeof FormData !== "undefined" && payload instanceof FormData) ||
       (payload && typeof payload.get === "function" && typeof payload.append === "function");
 
+    // Sync marks & numbers / marking_brand / container_marks to guarantee backend string validation
+    if (isFormData) {
+      const marksVal =
+        payload.get("marking_brand") ||
+        payload.get("marks_and_numbers") ||
+        payload.get("container_marks") ||
+        payload.get("marks_numbers") ||
+        payload.get("markingBrand") ||
+        payload.get("brand") ||
+        payload.get("container_marks_numbers");
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.get("marking_brand")) payload.append("marking_brand", strMarks);
+          if (!payload.get("marks_and_numbers")) payload.append("marks_and_numbers", strMarks);
+          if (!payload.get("container_marks")) payload.append("container_marks", strMarks);
+          if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
+        }
+      }
+    } else if (payload && typeof payload === "object") {
+      const marksVal =
+        payload.marking_brand ||
+        payload.marks_and_numbers ||
+        payload.container_marks ||
+        payload.marks_numbers ||
+        payload.markingBrand ||
+        payload.brand;
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.marking_brand) payload.marking_brand = strMarks;
+          if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
+          if (!payload.container_marks) payload.container_marks = strMarks;
+          if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+    }
+
     const rawEffectiveId =
       (id && String(id).trim()) ||
       (isFormData
@@ -1464,14 +1547,20 @@ export async function saveContractDraftAction(
       rawRes.raw?.errors ||
       null;
 
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to save contract draft. Please check highlighted fields."
+    );
+
     return {
       success: false,
-      message: rawRes?.message || "Failed to save contract draft",
+      message: sanitizedError,
       errors: errorFields,
       error_fields: errorFields,
       raw: rawRes.raw || rawRes,
       id: generatedId ? String(generatedId) : effectiveId,
-      error: rawRes?.message || "Failed to save contract draft",
+      error: sanitizedError,
     };
   } catch (error: any) {
     console.error("[saveContractDraftAction] Error:", error);
@@ -1531,6 +1620,44 @@ export async function submitContractAction(
     const isFormData =
       (typeof FormData !== "undefined" && payload instanceof FormData) ||
       (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    // Sync marks & numbers / marking_brand / container_marks to guarantee backend string validation
+    if (isFormData) {
+      const marksVal =
+        payload.get("marking_brand") ||
+        payload.get("marks_and_numbers") ||
+        payload.get("container_marks") ||
+        payload.get("marks_numbers") ||
+        payload.get("markingBrand") ||
+        payload.get("brand") ||
+        payload.get("container_marks_numbers");
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.get("marking_brand")) payload.append("marking_brand", strMarks);
+          if (!payload.get("marks_and_numbers")) payload.append("marks_and_numbers", strMarks);
+          if (!payload.get("container_marks")) payload.append("container_marks", strMarks);
+          if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
+        }
+      }
+    } else if (payload && typeof payload === "object") {
+      const marksVal =
+        payload.marking_brand ||
+        payload.marks_and_numbers ||
+        payload.container_marks ||
+        payload.marks_numbers ||
+        payload.markingBrand ||
+        payload.brand;
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.marking_brand) payload.marking_brand = strMarks;
+          if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
+          if (!payload.container_marks) payload.container_marks = strMarks;
+          if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+    }
 
     const rawEffectiveId =
       (id && String(id).trim()) ||
@@ -1636,14 +1763,20 @@ export async function submitContractAction(
       rawRes.raw?.errors ||
       null;
 
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to submit contract. Please check highlighted fields."
+    );
+
     return {
       success: false,
-      message: rawRes?.message || "Failed to submit contract",
+      message: sanitizedError,
       errors: errorFields,
       error_fields: errorFields,
       raw: rawRes.raw || rawRes,
       id: generatedId ? String(generatedId) : effectiveId,
-      error: rawRes?.message || "Failed to submit contract",
+      error: sanitizedError,
     };
   } catch (error: any) {
     console.error("[submitContractAction] Error:", error);
@@ -1679,7 +1812,7 @@ export async function getProformaAction(
       };
     }
 
-    let token = await getActionToken();
+    const token = await getActionToken();
 
     if (!token) {
       return {
@@ -1773,6 +1906,44 @@ export async function saveProformaDraftAction(
     const isFormData =
       (typeof FormData !== "undefined" && payload instanceof FormData) ||
       (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    // Sync marks & numbers / marking_brand / container_marks to guarantee backend string validation
+    if (isFormData) {
+      const marksVal =
+        payload.get("marking_brand") ||
+        payload.get("marks_and_numbers") ||
+        payload.get("container_marks") ||
+        payload.get("marks_numbers") ||
+        payload.get("markingBrand") ||
+        payload.get("brand") ||
+        payload.get("container_marks_numbers");
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.get("marking_brand")) payload.append("marking_brand", strMarks);
+          if (!payload.get("marks_and_numbers")) payload.append("marks_and_numbers", strMarks);
+          if (!payload.get("container_marks")) payload.append("container_marks", strMarks);
+          if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
+        }
+      }
+    } else if (payload && typeof payload === "object") {
+      const marksVal =
+        payload.marking_brand ||
+        payload.marks_and_numbers ||
+        payload.container_marks ||
+        payload.marks_numbers ||
+        payload.markingBrand ||
+        payload.brand;
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.marking_brand) payload.marking_brand = strMarks;
+          if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
+          if (!payload.container_marks) payload.container_marks = strMarks;
+          if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+    }
 
     const rawEffectiveId =
       (id && String(id).trim()) ||
@@ -1876,14 +2047,20 @@ export async function saveProformaDraftAction(
       rawRes.raw?.errors ||
       null;
 
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to save proforma draft. Please check highlighted fields."
+    );
+
     return {
       success: false,
-      message: rawRes?.message || "Failed to save proforma draft",
+      message: sanitizedError,
       errors: errorFields,
       error_fields: errorFields,
       raw: rawRes.raw || rawRes,
       id: generatedId ? String(generatedId) : effectiveId,
-      error: rawRes?.message || "Failed to save proforma draft",
+      error: sanitizedError,
     };
   } catch (error: any) {
     console.error("[saveProformaDraftAction] Error:", error);
@@ -1929,6 +2106,44 @@ export async function submitProformaAction(
     const isFormData =
       (typeof FormData !== "undefined" && payload instanceof FormData) ||
       (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    // Sync marks & numbers / marking_brand / container_marks to guarantee backend string validation
+    if (isFormData) {
+      const marksVal =
+        payload.get("marking_brand") ||
+        payload.get("marks_and_numbers") ||
+        payload.get("container_marks") ||
+        payload.get("marks_numbers") ||
+        payload.get("markingBrand") ||
+        payload.get("brand") ||
+        payload.get("container_marks_numbers");
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.get("marking_brand")) payload.append("marking_brand", strMarks);
+          if (!payload.get("marks_and_numbers")) payload.append("marks_and_numbers", strMarks);
+          if (!payload.get("container_marks")) payload.append("container_marks", strMarks);
+          if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
+        }
+      }
+    } else if (payload && typeof payload === "object") {
+      const marksVal =
+        payload.marking_brand ||
+        payload.marks_and_numbers ||
+        payload.container_marks ||
+        payload.marks_numbers ||
+        payload.markingBrand ||
+        payload.brand;
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.marking_brand) payload.marking_brand = strMarks;
+          if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
+          if (!payload.container_marks) payload.container_marks = strMarks;
+          if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+    }
 
     const rawEffectiveId =
       (id && String(id).trim()) ||
@@ -2032,14 +2247,20 @@ export async function submitProformaAction(
       rawRes.raw?.errors ||
       null;
 
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to submit proforma invoice. Please check highlighted fields."
+    );
+
     return {
       success: false,
-      message: rawRes?.message || "Failed to submit proforma invoice",
+      message: sanitizedError,
       errors: errorFields,
       error_fields: errorFields,
       raw: rawRes.raw || rawRes,
       id: generatedId ? String(generatedId) : effectiveId,
-      error: rawRes?.message || "Failed to submit proforma invoice",
+      error: sanitizedError,
     };
   } catch (error: any) {
     console.error("[submitProformaAction] Error:", error);
@@ -2047,6 +2268,490 @@ export async function submitProformaAction(
       success: false,
       error: error?.message || "Internal error occurred while submitting proforma invoice",
       message: error?.message || "Internal error occurred while submitting proforma invoice",
+    };
+  }
+}
+
+export interface GetShipmentInstructionActionResult {
+  success: boolean;
+  data: any | null;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Server Action to fetch Shipment Instruction details by ID with secure Bearer authentication:
+ * GET /shipment-instruction/:id?lang_code=en&source=web
+ */
+export async function getShipmentInstructionAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetShipmentInstructionActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Shipment Instruction ID is required",
+        data: null,
+      };
+    }
+
+    const token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getShipmentInstruction(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch shipment instruction details",
+        data: null,
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error)
+    );
+
+    if (isSuccess) {
+      return {
+        success: true,
+        data: rawRes.data || rawRes,
+        message: rawRes.message || "Shipment instruction details loaded successfully",
+      };
+    }
+
+    return {
+      success: false,
+      error: rawRes.message || "Shipment instruction not found",
+      data: rawRes.data || null,
+    };
+  } catch (error: any) {
+    console.error("[getShipmentInstructionAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch shipment instruction details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveShipmentInstructionDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+/**
+ * Server Action to save or update Shipment Instruction draft with secure Bearer authentication:
+ * PATCH /shipment-instruction/save/:id?lang_code=en&source=web
+ */
+export async function saveShipmentInstructionDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveShipmentInstructionDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    const isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    // Sync marks & numbers / marking_brand / container_marks to guarantee backend string validation
+    if (isFormData) {
+      const marksVal =
+        payload.get("marking_brand") ||
+        payload.get("marks_and_numbers") ||
+        payload.get("container_marks") ||
+        payload.get("marks_numbers") ||
+        payload.get("markingBrand") ||
+        payload.get("brand") ||
+        payload.get("container_marks_numbers");
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.get("marking_brand")) payload.append("marking_brand", strMarks);
+          if (!payload.get("marks_and_numbers")) payload.append("marks_and_numbers", strMarks);
+          if (!payload.get("container_marks")) payload.append("container_marks", strMarks);
+          if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
+        }
+      }
+    } else if (payload && typeof payload === "object") {
+      const marksVal =
+        payload.marking_brand ||
+        payload.marks_and_numbers ||
+        payload.container_marks ||
+        payload.marks_numbers ||
+        payload.markingBrand ||
+        payload.brand;
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.marking_brand) payload.marking_brand = strMarks;
+          if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
+          if (!payload.container_marks) payload.container_marks = strMarks;
+          if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+    }
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id") || payload.get("proforma_id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id || "").trim());
+
+    const effectiveId =
+      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(rawEffectiveId)
+        ? rawEffectiveId
+        : undefined;
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveShipmentInstructionDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+        id: effectiveId,
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.saveShipmentInstructionDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+              id: effectiveId,
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveShipmentInstructionDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save shipment instruction draft",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false)
+    );
+
+    const generatedId =
+      rawRes?.data?.shipment_instruction_id ||
+      rawRes?.shipment_instruction_id ||
+      rawRes?.data?.instruction_id ||
+      rawRes?.instruction_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      effectiveId;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs/draft`);
+      } catch (revErr) {
+        console.warn("[saveShipmentInstructionDraftAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message: rawRes.message || "Shipment instruction draft saved successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : effectiveId,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    const errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to save shipment instruction draft. Please check highlighted fields."
+    );
+
+    return {
+      success: false,
+      message: sanitizedError,
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : effectiveId,
+      error: sanitizedError,
+    };
+  } catch (error: any) {
+    console.error("[saveShipmentInstructionDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving shipment instruction draft",
+      message: error?.message || "Internal error occurred while saving shipment instruction draft",
+    };
+  }
+}
+
+export interface SubmitShipmentInstructionActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+/**
+ * Server Action to submit Shipment Instruction with secure Bearer authentication:
+ * PATCH /shipment-instruction/submit/:id?lang_code=en&source=web
+ */
+export async function submitShipmentInstructionAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SubmitShipmentInstructionActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    const isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    // Sync marks & numbers / marking_brand / container_marks to guarantee backend string validation
+    if (isFormData) {
+      const marksVal =
+        payload.get("marking_brand") ||
+        payload.get("marks_and_numbers") ||
+        payload.get("container_marks") ||
+        payload.get("marks_numbers") ||
+        payload.get("markingBrand") ||
+        payload.get("brand") ||
+        payload.get("container_marks_numbers");
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.get("marking_brand")) payload.append("marking_brand", strMarks);
+          if (!payload.get("marks_and_numbers")) payload.append("marks_and_numbers", strMarks);
+          if (!payload.get("container_marks")) payload.append("container_marks", strMarks);
+          if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
+        }
+      }
+    } else if (payload && typeof payload === "object") {
+      const marksVal =
+        payload.marking_brand ||
+        payload.marks_and_numbers ||
+        payload.container_marks ||
+        payload.marks_numbers ||
+        payload.markingBrand ||
+        payload.brand;
+      if (marksVal) {
+        const strMarks = String(marksVal).trim();
+        if (strMarks && strMarks !== "[object Object]" && strMarks !== "undefined" && strMarks !== "null") {
+          if (!payload.marking_brand) payload.marking_brand = strMarks;
+          if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
+          if (!payload.container_marks) payload.container_marks = strMarks;
+          if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+    }
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id") || payload.get("proforma_id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id || "").trim());
+
+    const effectiveId =
+      rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(rawEffectiveId)
+        ? rawEffectiveId
+        : undefined;
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitShipmentInstruction(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+        id: effectiveId,
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitShipmentInstruction(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+              id: effectiveId,
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitShipmentInstructionAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit shipment instruction",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false)
+    );
+
+    const generatedId =
+      rawRes?.data?.shipment_instruction_id ||
+      rawRes?.shipment_instruction_id ||
+      rawRes?.data?.instruction_id ||
+      rawRes?.instruction_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      effectiveId;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs/draft`);
+      } catch (revErr) {
+        console.warn("[submitShipmentInstructionAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message: rawRes.message || "Shipment Instruction submitted successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : effectiveId,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    const errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to submit shipment instruction. Please check highlighted fields."
+    );
+
+    return {
+      success: false,
+      message: sanitizedError,
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : effectiveId,
+      error: sanitizedError,
+    };
+  } catch (error: any) {
+    console.error("[submitShipmentInstructionAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while submitting shipment instruction",
+      message: error?.message || "Internal error occurred while submitting shipment instruction",
     };
   }
 }
@@ -2186,14 +2891,20 @@ export async function submitConfirmationAction(
       rawRes.raw?.errors ||
       null;
 
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to submit confirmation to contract. Please check highlighted fields."
+    );
+
     return {
       success: false,
-      message: rawRes?.message || "Failed to submit confirmation to contract",
+      message: sanitizedError,
       errors: errorFields,
       error_fields: errorFields,
       raw: rawRes.raw || rawRes,
       id: generatedId ? String(generatedId) : payload.id,
-      error: rawRes?.message || "Failed to submit confirmation",
+      error: sanitizedError,
     };
   } catch (error: any) {
     console.error("[submitConfirmationAction] Error:", error);
@@ -3638,7 +4349,7 @@ export async function updateSellerBankDetailsAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
-    let token = await getActionToken();
+    const token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -4126,10 +4837,16 @@ export async function getBuyerConsigneesAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; data?: any[]; message?: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
+    if (!token) {
+      const cookieStore = await cookies();
+      token =
+        cookieStore.get("auth_token")?.value ||
+        cookieStore.get("__Secure-uid")?.value ||
+        cookieStore.get("access_token")?.value ||
+        cookieStore.get("token")?.value ||
+        null;
+    }
 
     if (!token) return { success: false, message: "Unauthorized", data: [] };
     const cleanId = sanitizeDocId(buyerId);
@@ -4156,6 +4873,8 @@ export async function getBuyerConsigneesAction(
       ? res.consignee
       : Array.isArray(res)
       ? res
+      : typeof dataObj === 'object' && dataObj !== null && (dataObj.company_name || dataObj.name || dataObj.address)
+      ? [dataObj]
       : [];
     return { success: true, data: rawItems };
   } catch (err: any) {
@@ -4233,10 +4952,16 @@ export async function getBuyerNotifyPartiesAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; data?: any[]; message?: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
+    if (!token) {
+      const cookieStore = await cookies();
+      token =
+        cookieStore.get("auth_token")?.value ||
+        cookieStore.get("__Secure-uid")?.value ||
+        cookieStore.get("access_token")?.value ||
+        cookieStore.get("token")?.value ||
+        null;
+    }
 
     if (!token) return { success: false, message: "Unauthorized", data: [] };
     const cleanId = sanitizeDocId(buyerId);
@@ -4244,16 +4969,29 @@ export async function getBuyerNotifyPartiesAction(
 
     const safeLang = getSafeLang(params.lang || "en");
     const res = await smartDocsService.getBuyerNotifyParties(cleanId, { lang: safeLang, source: params.source || "web" }, token);
-    const rawItems = Array.isArray(res?.data?.items)
-      ? res.data.items
-      : Array.isArray(res?.data?.notify_parties)
-      ? res.data.notify_parties
-      : Array.isArray(res?.data?.notify_party)
-      ? res.data.notify_party
-      : Array.isArray(res?.data)
-      ? res.data
+    const dataObj = res?.data || res;
+    const rawItems = Array.isArray(dataObj?.items)
+      ? dataObj.items
+      : Array.isArray(dataObj?.notify_parties)
+      ? dataObj.notify_parties
+      : Array.isArray(dataObj?.notify_party)
+      ? dataObj.notify_party
+      : Array.isArray(dataObj?.notify_party_details)
+      ? dataObj.notify_party_details
+      : Array.isArray(dataObj?.notifies)
+      ? dataObj.notifies
+      : Array.isArray(dataObj)
+      ? dataObj
       : Array.isArray(res?.items)
       ? res.items
+      : Array.isArray(res?.notify_parties)
+      ? res.notify_parties
+      : Array.isArray(res?.notify_party)
+      ? res.notify_party
+      : Array.isArray(res)
+      ? res
+      : typeof dataObj === 'object' && dataObj !== null && (dataObj.company_name || dataObj.name || dataObj.address)
+      ? [dataObj]
       : [];
     return { success: true, data: rawItems };
   } catch (err: any) {

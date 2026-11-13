@@ -416,6 +416,49 @@ export function extractLinkedProformaId(data: any): string {
 }
 
 /**
+ * Extracts the linked Shipment Instruction ID from any document record (searching all candidate levels).
+ */
+export function extractLinkedShipmentInstructionId(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  const clean = (val: any) => sanitizeDocId(val);
+
+  const candidates = [
+    data.shipment_instruction_id,
+    data.shipmentInstructionId,
+    data.instruction_id,
+    data.instructionId,
+    data.shipment_id,
+    data.shipmentId,
+    typeof data.shipment_instruction === 'string' ? data.shipment_instruction : '',
+    data.shipment_instruction?.id,
+    data.shipment_instruction?._id,
+    data.shipment_instruction?.shipment_instruction_id,
+    data.shipment_instruction?.instruction_id,
+    data.shipment?.id,
+    data.shipment?._id,
+    data.shipment?.instruction_id,
+    data.proforma?.shipment_instruction_id,
+    data.proforma?.instruction_id,
+    data.contract?.shipment_instruction_id,
+    data.contract?.instruction_id,
+    data.confirmation?.shipment_instruction_id,
+    data.confirmation?.instruction_id,
+    data.data?.shipment_instruction_id,
+    data.data?.instruction_id,
+    data.data?.shipment_id,
+  ];
+
+  for (const c of candidates) {
+    const id = clean(c);
+    if (id && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|shipment|shipment-instruction|step-\d+)$/i.test(id)) {
+      return id;
+    }
+  }
+
+  return '';
+}
+
+/**
  * Extracts list array from multiple possible backend shapes (Express / Mongo / AgriGuru DMS responses).
  */
 export function extractSmartDocsArray(data: any): any[] {
@@ -2919,6 +2962,7 @@ export const smartDocsService = {
     const endpoints = [
       `${baseUrl}/instructions/buyer-instruction/consignee/${encodeURIComponent(cleanId)}`,
       `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/dms-fields/buyer-instruction/consignee/${encodeURIComponent(cleanId)}`,
       `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=B`,
     ];
 
@@ -2944,8 +2988,12 @@ export const smartDocsService = {
             (Array.isArray(res.items) && res.items) ||
             (Array.isArray(res.consignees) && res.consignees) ||
             (Array.isArray(res.consignee) && res.consignee) ||
-            (Array.isArray(res.consignee_details) && res.consignee_details);
+            (Array.isArray(res.consignee_details) && res.consignee_details) ||
+            (typeof root === 'object' && root !== null && !Array.isArray(root) && (root.company_name || root.name || root.address) ? [root] : null);
           if (Array.isArray(rawItems) && rawItems.length > 0) {
+            return { success: true, data: rawItems };
+          }
+          if (res?.success && Array.isArray(rawItems)) {
             return { success: true, data: rawItems };
           }
         }
@@ -3181,6 +3229,7 @@ export const smartDocsService = {
     const endpoints = [
       `${baseUrl}/instructions/buyer-instruction/notify/${encodeURIComponent(cleanId)}`,
       `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/dms-fields/buyer-instruction/notify/${encodeURIComponent(cleanId)}`,
       `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=B`,
     ];
 
@@ -3208,8 +3257,12 @@ export const smartDocsService = {
             (Array.isArray(res.items) && res.items) ||
             (Array.isArray(res.notify_parties) && res.notify_parties) ||
             (Array.isArray(res.notify_party) && res.notify_party) ||
-            (Array.isArray(res.notify_party_details) && res.notify_party_details);
+            (Array.isArray(res.notify_party_details) && res.notify_party_details) ||
+            (typeof root === 'object' && root !== null && !Array.isArray(root) && (root.company_name || root.name || root.address) ? [root] : null);
           if (Array.isArray(rawItems) && rawItems.length > 0) {
+            return { success: true, data: rawItems };
+          }
+          if (res?.success && Array.isArray(rawItems)) {
             return { success: true, data: rawItems };
           }
         }
@@ -3996,6 +4049,18 @@ export const smartDocsService = {
       if (response && (response.success || response.status || response.data)) {
         return response;
       }
+      if (!response) {
+        const fallbackUrl = `${baseUrl}/proforma/${encodeURIComponent(cleanId)}`;
+        const fallbackRes = await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+        if (fallbackRes) return fallbackRes;
+      }
       return response;
     } catch (error) {
       console.warn('[smartDocsService.getProforma] /proforma-invoice error, attempting fallback /proforma:', error);
@@ -4281,6 +4346,361 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches Shipment Instruction details by ID with authentication:
+   * GET /shipment-instruction/:id?lang_code=en&source=web
+   */
+  getShipmentInstruction: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/shipment-instruction/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+      if (!response) {
+        const fallbackUrl = `${baseUrl}/shipment-instructions/${encodeURIComponent(cleanId)}`;
+        const fallbackRes = await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+        if (fallbackRes) return fallbackRes;
+      }
+      return response;
+    } catch (error) {
+      console.warn('[smartDocsService.getShipmentInstruction] /shipment-instruction error, attempting fallback:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/shipment-instructions/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackError) {
+        console.error('[smartDocsService.getShipmentInstruction] fallback error:', fallbackError);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves or updates a Shipment Instruction draft with authentication:
+   * PATCH /shipment-instruction/save/{id}?lang_code=en&source=web
+   */
+  saveShipmentInstructionDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string; id?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const rawCandidate =
+      params.id ||
+      (isFormData
+        ? (payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id') || payload.get('proforma_id') || payload.get('contract_id') || payload.get('confirmation_id'))
+        : (payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id));
+
+    const cleanCandidate = sanitizeDocId(rawCandidate);
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanCandidate);
+    const cleanId = isPlaceholder ? '' : cleanCandidate;
+
+    const url = cleanId 
+      ? `${baseUrl}/shipment-instruction/save/${encodeURIComponent(cleanId)}`
+      : `${baseUrl}/shipment-instruction/save`;
+
+    try {
+      const headers: Record<string, string> = {};
+      let body: any;
+
+      if (isFormData) {
+        if (typeof payload.get === 'function' && typeof payload.append === 'function') {
+          // Rule: consignee_details_id and consignee_details
+          const cId = payload.get('consignee_details_id') || payload.get('consignee_id');
+          const cDet = payload.get('consignee_details') || payload.get('consignee_name');
+          if (cId && !payload.get('consignee_details_id')) payload.append('consignee_details_id', String(cId));
+          if (cId && !payload.get('consignee_id')) payload.append('consignee_id', String(cId));
+          if (cDet && !payload.get('consignee_details')) payload.append('consignee_details', String(cDet));
+
+          // Rule: notify_party_1 and its ID must either both be provided or both be omitted
+          const np1Id = payload.get('notify_party_1_id');
+          const np1 = payload.get('notify_party_1') || payload.get('notify_party_1_details');
+          if (np1Id && !payload.get('notify_party_1')) {
+            payload.append('notify_party_1', String(np1 || np1Id));
+          } else if (!np1Id && np1) {
+            payload.append('notify_party_1_id', 'custom');
+          }
+
+          // Rule: notify_party_2 and its ID must either both be provided or both be omitted
+          const np2Id = payload.get('notify_party_2_id');
+          const np2 = payload.get('notify_party_2') || payload.get('notify_party_2_details');
+          if (np2Id && !payload.get('notify_party_2')) {
+            payload.append('notify_party_2', String(np2 || np2Id));
+          } else if (!np2Id && np2) {
+            payload.append('notify_party_2_id', 'custom');
+          }
+
+          // Rule: sync marking_brand, marks_and_numbers, and container_marks (must always be string)
+          const marksVal =
+            payload.get('marking_brand') ||
+            payload.get('marks_and_numbers') ||
+            payload.get('container_marks') ||
+            payload.get('marks_numbers') ||
+            payload.get('markingBrand') ||
+            payload.get('brand') ||
+            payload.get('marking') ||
+            payload.get('container_marks_numbers') ||
+            payload.get('container_marks_and_numbers');
+          if (marksVal) {
+            const strMarks = String(marksVal).trim();
+            if (strMarks && strMarks !== '[object Object]' && strMarks !== 'undefined' && strMarks !== 'null') {
+              if (!payload.get('marking_brand')) payload.append('marking_brand', strMarks);
+              if (!payload.get('marks_and_numbers')) payload.append('marks_and_numbers', strMarks);
+              if (!payload.get('container_marks')) payload.append('container_marks', strMarks);
+              if (!payload.get('markingBrand')) payload.append('markingBrand', strMarks);
+              if (!payload.get('marks_numbers')) payload.append('marks_numbers', strMarks);
+              if (!payload.get('brand')) payload.append('brand', strMarks);
+              if (!payload.get('container_marks_numbers')) payload.append('container_marks_numbers', strMarks);
+            }
+          }
+        }
+        body = payload;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(cleanShipmentInstructionPayload(payload));
+      }
+
+      const response = await customFetch(url, {
+        method: 'PATCH',
+        token,
+        headers,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        body,
+        cache: 'no-store',
+      });
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        return {
+          ...(typeof json === 'object' && json !== null ? json : {}),
+          success: false,
+          status: response.status,
+          message: json?.message || json?.error || `Request failed with status ${response.status}`,
+          data: json?.data !== undefined ? json.data : json,
+          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+          error_fields: json?.error_fields || json?.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      if (json && typeof json === 'object') {
+        return {
+          ...json,
+          success:
+            json.success === 1 ||
+            json.success === true ||
+            json.status === true ||
+            json.status === 200 ||
+            json.status === 201 ||
+            json.status === 'success',
+          error_fields: json.error_fields || json.data?.error_fields || null,
+          errors: json.errors || json.data?.errors || null,
+          raw: json,
+        };
+      }
+
+      return json;
+    } catch (error: any) {
+      console.error('[smartDocsService.saveShipmentInstructionDraft] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Network error occurred while saving shipment instruction',
+      };
+    }
+  },
+
+  /**
+   * Submits a Shipment Instruction with authentication:
+   * PATCH /shipment-instruction/submit/:id?lang_code=en&source=web
+   */
+  submitShipmentInstruction: async (
+    payload: any,
+    params: { lang?: string; source?: string; id?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const rawCandidate =
+      params.id ||
+      (isFormData
+        ? (payload.get('shipment_instruction_id') || payload.get('instruction_id') || payload.get('id') || payload.get('proforma_id') || payload.get('contract_id') || payload.get('confirmation_id'))
+        : (payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id));
+
+    const cleanCandidate = sanitizeDocId(rawCandidate);
+    const isPlaceholder = /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanCandidate);
+    const cleanId = isPlaceholder ? '' : cleanCandidate;
+
+    const url = cleanId 
+      ? `${baseUrl}/shipment-instruction/submit/${encodeURIComponent(cleanId)}`
+      : `${baseUrl}/shipment-instruction/submit`;
+
+    try {
+      const headers: Record<string, string> = {};
+      let body: any;
+
+      if (isFormData) {
+        if (typeof payload.get === 'function' && typeof payload.append === 'function') {
+          // Rule: consignee_details_id and consignee_details
+          const cId = payload.get('consignee_details_id') || payload.get('consignee_id');
+          const cDet = payload.get('consignee_details') || payload.get('consignee_name');
+          if (cId && !payload.get('consignee_details_id')) payload.append('consignee_details_id', String(cId));
+          if (cId && !payload.get('consignee_id')) payload.append('consignee_id', String(cId));
+          if (cDet && !payload.get('consignee_details')) payload.append('consignee_details', String(cDet));
+
+          // Rule: notify_party_1 and its ID must either both be provided or both be omitted
+          const np1Id = payload.get('notify_party_1_id');
+          const np1 = payload.get('notify_party_1') || payload.get('notify_party_1_details');
+          if (np1Id && !payload.get('notify_party_1')) {
+            payload.append('notify_party_1', String(np1 || np1Id));
+          } else if (!np1Id && np1) {
+            payload.append('notify_party_1_id', 'custom');
+          }
+
+          // Rule: notify_party_2 and its ID must either both be provided or both be omitted
+          const np2Id = payload.get('notify_party_2_id');
+          const np2 = payload.get('notify_party_2') || payload.get('notify_party_2_details');
+          if (np2Id && !payload.get('notify_party_2')) {
+            payload.append('notify_party_2', String(np2 || np2Id));
+          } else if (!np2Id && np2) {
+            payload.append('notify_party_2_id', 'custom');
+          }
+
+          // Rule: sync marking_brand, marks_and_numbers, and container_marks (must always be string)
+          const marksVal =
+            payload.get('marking_brand') ||
+            payload.get('marks_and_numbers') ||
+            payload.get('container_marks') ||
+            payload.get('marks_numbers') ||
+            payload.get('markingBrand') ||
+            payload.get('brand') ||
+            payload.get('marking') ||
+            payload.get('container_marks_numbers') ||
+            payload.get('container_marks_and_numbers');
+          if (marksVal) {
+            const strMarks = String(marksVal).trim();
+            if (strMarks && strMarks !== '[object Object]' && strMarks !== 'undefined' && strMarks !== 'null') {
+              if (!payload.get('marking_brand')) payload.append('marking_brand', strMarks);
+              if (!payload.get('marks_and_numbers')) payload.append('marks_and_numbers', strMarks);
+              if (!payload.get('container_marks')) payload.append('container_marks', strMarks);
+              if (!payload.get('markingBrand')) payload.append('markingBrand', strMarks);
+              if (!payload.get('marks_numbers')) payload.append('marks_numbers', strMarks);
+              if (!payload.get('brand')) payload.append('brand', strMarks);
+              if (!payload.get('container_marks_numbers')) payload.append('container_marks_numbers', strMarks);
+            }
+          }
+        }
+        body = payload;
+      } else {
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(cleanShipmentInstructionPayload(payload));
+      }
+
+      const response = await customFetch(url, {
+        method: 'PATCH',
+        token,
+        headers,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        body,
+        cache: 'no-store',
+      });
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        return {
+          ...(typeof json === 'object' && json !== null ? json : {}),
+          success: false,
+          status: response.status,
+          message: json?.message || json?.error || `Request failed with status ${response.status}`,
+          data: json?.data !== undefined ? json.data : json,
+          errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+          error_fields: json?.error_fields || json?.data?.error_fields || null,
+          raw: json,
+        };
+      }
+
+      if (json && typeof json === 'object') {
+        return {
+          ...json,
+          success:
+            json.success === 1 ||
+            json.success === true ||
+            json.status === true ||
+            json.status === 200 ||
+            json.status === 201 ||
+            json.status === 'success',
+          error_fields: json.error_fields || json.data?.error_fields || null,
+          errors: json.errors || json.data?.errors || null,
+          raw: json,
+        };
+      }
+
+      return json;
+    } catch (error: any) {
+      console.error('[smartDocsService.submitShipmentInstruction] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Network error occurred while submitting shipment instruction',
+      };
+    }
+  },
+
+  /**
    * GET /dms-templates/preview-pdf?prefix=:prefix&id=:id&lang_code=:lang&source=web
    * Fetches the rendered HTML preview for a document (e.g. proforma, contract, confirmation).
    * Robust multi-prefix & multi-candidate-id fallback guarantees previews load smoothly without
@@ -4322,11 +4742,14 @@ export const smartDocsService = {
     }
 
     // Determine candidate prefixes based on document type
-    const isProforma = /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isProforma && /contract|sales/i.test(rawPrefix);
+    const isShipmentInstruction = /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
+      : isShipmentInstruction
+      ? ['shipment_instruction', 'shipment-instruction', 'shipmentInstruction', 'shipment', 'instruction', 'si']
       : isProforma
       ? ['proforma', 'proforma_invoice', 'proforma-invoice', 'proformaInvoice', 'invoice', 'pi']
       : isContract
@@ -4520,11 +4943,14 @@ export const smartDocsService = {
       };
     }
 
-    const isProforma = /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isProforma && /contract|sales/i.test(rawPrefix);
+    const isShipmentInstruction = /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
+      : isShipmentInstruction
+      ? ['shipment_instruction', 'shipment-instruction', 'shipmentInstruction', 'shipment', 'instruction', 'si']
       : isProforma
       ? ['proforma', 'proforma_invoice', 'proforma-invoice', 'proformaInvoice', 'invoice', 'pi']
       : isContract
@@ -5466,6 +5892,195 @@ export function cleanProformaPayload(payload: Record<string, any>): Record<strin
     delete cleaned.id;
   }
 
+  // Sync consignee_details_id and consignee_id
+  const cId = cleaned.consignee_details_id || cleaned.consignee_id;
+  const cDet = cleaned.consignee_details || cleaned.consignee_name;
+  if (cId) {
+    cleaned.consignee_details_id = cId;
+    cleaned.consignee_id = cId;
+  }
+  if (cDet) {
+    cleaned.consignee_details = cDet;
+  }
+
+  // Ensure notify_party_1 and its ID: must both be provided or both be omitted
+  const np1Id = cleaned.notify_party_1_id;
+  const np1 = cleaned.notify_party_1 || cleaned.notify_party_1_details;
+  if (np1Id && !cleaned.notify_party_1) {
+    cleaned.notify_party_1 = np1 || np1Id;
+  } else if (!np1Id && np1) {
+    cleaned.notify_party_1_id = 'custom';
+  }
+
+  // Ensure notify_party_2 and its ID: must both be provided or both be omitted
+  const np2Id = cleaned.notify_party_2_id;
+  const np2 = cleaned.notify_party_2 || cleaned.notify_party_2_details;
+  if (np2Id && !cleaned.notify_party_2) {
+    cleaned.notify_party_2 = np2 || np2Id;
+  } else if (!np2Id && np2) {
+    cleaned.notify_party_2_id = 'custom';
+  }
+
+  return cleaned;
+}
+
+/**
+ * Extracts and normalizes Shipment Instruction data from backend API response.
+ */
+export function extractShipmentInstructionData(data: any): any {
+  if (!data) return null;
+  const d = data.data !== undefined ? data.data : data;
+  if (!d) return null;
+
+  const raw =
+    d.shipment_instruction ||
+    d.shipmentInstruction ||
+    d.instruction ||
+    d.document ||
+    d.details ||
+    d;
+
+  const merged: any = {
+    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  };
+
+  // Extract canonical ID
+  merged.id = merged.id || merged._id || merged.shipment_instruction_id || merged.instruction_id;
+  if (merged.id) merged.id = String(merged.id);
+
+  // Normalize status
+  if (!merged.status) {
+    merged.status = merged.shipment_status || merged.document_status || merged.step_status || 'PENDING';
+  }
+
+  // Normalize bag_photo_url
+  if (merged.BAG_PHOTO_URL && !merged.bag_photo_url) {
+    merged.bag_photo_url = merged.BAG_PHOTO_URL;
+  }
+
+  // Normalize marks & numbers / marking_brand / container_marks
+  const marksVal =
+    merged.marking_brand ||
+    merged.marks_and_numbers ||
+    merged.container_marks ||
+    merged.marks_numbers ||
+    merged.markingBrand ||
+    merged.containerMarks ||
+    merged.brand ||
+    merged.marking ||
+    merged.contract?.marking_brand ||
+    merged.contract?.brand ||
+    merged.confirmation?.marking_brand ||
+    merged.proforma?.marking_brand;
+  if (marksVal !== undefined && marksVal !== null) {
+    const cleanMarks = String(marksVal).trim();
+    if (cleanMarks && cleanMarks !== '[object Object]' && cleanMarks !== 'undefined' && cleanMarks !== 'null') {
+      if (!merged.marking_brand) merged.marking_brand = cleanMarks;
+      if (!merged.marks_and_numbers) merged.marks_and_numbers = cleanMarks;
+      if (!merged.container_marks) merged.container_marks = cleanMarks;
+      if (!merged.markingBrand) merged.markingBrand = cleanMarks;
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Sanitizes shipment instruction payload before sending to backend.
+ */
+export function cleanShipmentInstructionPayload(payload: Record<string, any>): Record<string, any> {
+  if (!payload || typeof payload !== 'object') return {};
+  const cleaned: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined) continue;
+    if (value === null) {
+      cleaned[key] = null;
+      continue;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '' || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') {
+        continue;
+      }
+      cleaned[key] = trimmed;
+    } else if (typeof value === 'number') {
+      if (isNaN(value)) continue;
+      cleaned[key] = value;
+    } else if (typeof value === 'boolean') {
+      cleaned[key] = value;
+    } else if (Array.isArray(value)) {
+      if (value.length > 0) cleaned[key] = value;
+    } else if (typeof value === 'object') {
+      const nested = cleanShipmentInstructionPayload(value);
+      if (Object.keys(nested).length > 0) cleaned[key] = nested;
+    }
+  }
+
+  // Sync consignee_details_id and consignee_id
+  const cId = cleaned.consignee_details_id || cleaned.consignee_id;
+  const cDet = cleaned.consignee_details || cleaned.consignee_name;
+  if (cId) {
+    cleaned.consignee_details_id = cId;
+    cleaned.consignee_id = cId;
+  }
+  if (cDet) {
+    cleaned.consignee_details = cDet;
+  }
+
+  // Ensure notify_party_1 and its ID: must both be provided or both be omitted
+  const np1Id = cleaned.notify_party_1_id;
+  const np1 = cleaned.notify_party_1 || cleaned.notify_party_1_details;
+  if (np1Id && !cleaned.notify_party_1) {
+    cleaned.notify_party_1 = np1 || np1Id;
+  } else if (!np1Id && np1) {
+    cleaned.notify_party_1_id = 'custom';
+  }
+
+  // Ensure notify_party_2 and its ID: must both be provided or both be omitted
+  const np2Id = cleaned.notify_party_2_id;
+  const np2 = cleaned.notify_party_2 || cleaned.notify_party_2_details;
+  if (np2Id && !cleaned.notify_party_2) {
+    cleaned.notify_party_2 = np2 || np2Id;
+  } else if (!np2Id && np2) {
+    cleaned.notify_party_2_id = 'custom';
+  }
+
+  // Sync marks_and_numbers, marking_brand, and container_marks (must always be string)
+  const marksSyncVal =
+    cleaned.marking_brand ||
+    cleaned.marks_and_numbers ||
+    cleaned.container_marks ||
+    cleaned.marks_numbers ||
+    cleaned.markingBrand ||
+    cleaned.containerMarks ||
+    cleaned.brand ||
+    cleaned.marking ||
+    payload?.marking_brand ||
+    payload?.marks_and_numbers ||
+    payload?.container_marks ||
+    payload?.marks_numbers ||
+    payload?.markingBrand ||
+    payload?.containerMarks ||
+    payload?.brand ||
+    payload?.marking;
+
+  if (marksSyncVal !== undefined && marksSyncVal !== null) {
+    const cleanMarks = String(marksSyncVal).trim();
+    if (cleanMarks && cleanMarks !== '[object Object]' && cleanMarks !== 'undefined' && cleanMarks !== 'null') {
+      cleaned.marking_brand = cleanMarks;
+      cleaned.marks_and_numbers = cleanMarks;
+      cleaned.container_marks = cleanMarks;
+      cleaned.markingBrand = cleanMarks;
+      cleaned.marks_numbers = cleanMarks;
+      cleaned.brand = cleanMarks;
+      cleaned.container_marks_numbers = cleanMarks;
+      cleaned.container_marks_and_numbers = cleanMarks;
+    }
+  }
+
   return cleaned;
 }
 
@@ -5501,6 +6116,11 @@ export function formatSignatureUrl(raw?: any): string {
       'logoUrl',
       'signature',
       'signature_url',
+      'bag_photo_url',
+      'bag_photo',
+      'bagPhotoUrl',
+      'container_marks_image',
+      'marks_image',
       'authorised_signature',
       'authority_signature',
       'seller_signature',
@@ -6151,6 +6771,53 @@ export function isProformaStep(step?: StepperDocumentItem | null, index?: number
   return id.includes('proforma') || name.includes('proforma');
 }
 
+export function isShipmentInstructionStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (index === 0 || index === 1 || index === 2) return false;
+  if (index === 3) return true;
+  if (!step) return false;
+
+  const stepNum = Number(step.step ?? step.step_number ?? step.order);
+  if (stepNum === 1 || stepNum === 2 || stepNum === 3) return false;
+  if (stepNum === 4) return true;
+
+  const id = String(step.id || step._id || '').toLowerCase();
+  const name = String(
+    step.document_name ||
+    step.name ||
+    step.title ||
+    step.doc_name ||
+    step.step_name ||
+    step.label ||
+    ''
+  ).toLowerCase();
+
+  if (id.includes('confirmation') || name.includes('confirmation')) return false;
+  if (id.includes('contract') || name.includes('contract')) return false;
+  if (id.includes('proforma') || name.includes('proforma')) return false;
+  return id.includes('shipment') || name.includes('shipment') || id.includes('instruction') || name.includes('instruction');
+}
+
+export function getShipmentInstructionStep(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isShipmentInstructionStep(selectedStep)) return selectedStep;
+  if (steps && steps.length > 0) {
+    const found = steps.find((s, idx) => isShipmentInstructionStep(s, idx));
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getShipmentInstructionIdFromStepper(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getShipmentInstructionStep(steps, selectedStep);
+  if (!step) return '';
+  return extractStepId(step) || extractStepRedirectId(step) || '';
+}
+
 /**
  * Extracts a clean document/step ID from a StepperDocumentItem.
  * Filters out dummy placeholder names like "contract", "sales-contract", etc.
@@ -6160,9 +6827,42 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
   if (!step) return '';
   const isInvalidPlaceholder = (val: string) =>
     !val ||
-    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|step-\d+|null|undefined|nan|\[object object\])$/i.test(
       val.trim()
     );
+
+  // If this is specifically a Shipment Instruction step, prioritize shipment-specific IDs ONLY
+  if (isShipmentInstructionStep(step)) {
+    const shipmentCandidates = [
+      step.shipment_instruction_id,
+      step.shipmentInstructionId,
+      step.instruction_id,
+      step.instructionId,
+      step.shipment_id,
+      step.shipmentId,
+      step.shipment?.id,
+      step.shipment?._id,
+      step.redirect_id,
+      step.redirectId,
+      step.redirect_document_id,
+      step.redirectDocumentId,
+      step.document_id,
+      step.documentId,
+      step.doc_id,
+      step.docId,
+    ];
+    for (const raw of shipmentCandidates) {
+      if (raw !== undefined && raw !== null) {
+        const clean = String(raw).trim();
+        if (clean && !isInvalidPlaceholder(clean)) return clean;
+      }
+    }
+    const directId = String(step.id || step._id || '').trim();
+    if (directId && !isInvalidPlaceholder(directId)) {
+      return directId;
+    }
+    return '';
+  }
 
   // If this is specifically a Proforma step, prioritize proforma-specific IDs ONLY
   if (isProformaStep(step)) {
@@ -6206,12 +6906,24 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
       step.contract?.contract_id,
       step.sales_contract_id,
       step.salesContractId,
+      step.redirect_id,
+      step.redirectId,
+      step.redirect_document_id,
+      step.redirectDocumentId,
+      step.document_id,
+      step.documentId,
+      step.doc_id,
+      step.docId,
     ];
     for (const raw of contractCandidates) {
       if (raw !== undefined && raw !== null) {
         const clean = String(raw).trim();
         if (clean && !isInvalidPlaceholder(clean)) return clean;
       }
+    }
+    const directId = String(step.id || step._id || '').trim();
+    if (directId && !isInvalidPlaceholder(directId)) {
+      return directId;
     }
     return '';
   }
@@ -6226,12 +6938,24 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
       step.confirmation?.confirmation_id,
       step.trade_confirmation_id,
       step.tradeConfirmationId,
+      step.redirect_id,
+      step.redirectId,
+      step.redirect_document_id,
+      step.redirectDocumentId,
+      step.document_id,
+      step.documentId,
+      step.doc_id,
+      step.docId,
     ];
     for (const raw of confCandidates) {
       if (raw !== undefined && raw !== null) {
         const clean = String(raw).trim();
         if (clean && !isInvalidPlaceholder(clean)) return clean;
       }
+    }
+    const directId = String(step.id || step._id || '').trim();
+    if (directId && !isInvalidPlaceholder(directId)) {
+      return directId;
     }
     return '';
   }

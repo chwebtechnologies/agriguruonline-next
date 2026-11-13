@@ -2766,7 +2766,9 @@ export function ConfirmationDocumentForm({
 
     // Once the form was already initialized, NEVER overwrite the user's active in-progress edits!
     if (isFormInitializedRef.current) {
-      return;
+      if (hasDraftChanges) {
+        return;
+      }
     }
 
     // New document or initial async load
@@ -3237,10 +3239,18 @@ export function ConfirmationDocumentForm({
         if (Object.keys(fieldErrors).length > 0) {
           setErrors(fieldErrors);
           scrollToAndFocusField(fieldErrors);
+          const firstErr = Object.values(fieldErrors)[0];
+          toast.error(firstErr || 'Please check highlighted fields.');
         } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
           toast.error(generalError);
         } else {
-          toast.error(result.message || result.error || 'Failed to save draft. Please check highlighted fields.');
+          const fallbackMsg =
+            result?.message && !/^(form validation error|validation error|bad request)$/i.test(result.message)
+              ? result.message
+              : result?.error && !/^(form validation error|validation error|bad request)$/i.test(result.error)
+              ? result.error
+              : 'Failed to save draft. Please check highlighted fields.';
+          toast.error(fallbackMsg);
         }
         return;
       }
@@ -3329,10 +3339,16 @@ export function ConfirmationDocumentForm({
       if (Object.keys(fieldErrors).length > 0) {
         setErrors(fieldErrors);
         scrollToAndFocusField(fieldErrors);
+        const firstErr = Object.values(fieldErrors)[0];
+        toast.error(firstErr || 'Please check highlighted fields.');
       } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
         toast.error(generalError);
       } else {
-        toast.error(err?.message || 'Failed to save draft. Please retry.');
+        const fallbackMsg =
+          err?.message && !/^(form validation error|validation error|bad request)$/i.test(err.message)
+            ? err.message
+            : 'Failed to save draft. Please check highlighted fields.';
+        toast.error(fallbackMsg);
       }
     } finally {
       setIsSavingDraft(false);
@@ -3416,8 +3432,18 @@ export function ConfirmationDocumentForm({
         if (Object.keys(fieldErrors).length > 0) {
           setErrors(fieldErrors);
           scrollToAndFocusField(fieldErrors);
+          const firstErr = Object.values(fieldErrors)[0];
+          toast.error(firstErr || 'Please check highlighted fields.');
+        } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
+          toast.error(generalError);
         } else {
-          toast.error(generalError || result?.message || 'Failed to submit confirmation. Please retry.');
+          const fallbackMsg =
+            result?.message && !/^(form validation error|validation error|bad request)$/i.test(result.message)
+              ? result.message
+              : result?.error && !/^(form validation error|validation error|bad request)$/i.test(result.error)
+              ? result.error
+              : 'Failed to submit confirmation. Please check highlighted fields.';
+          toast.error(fallbackMsg);
         }
         return;
       }
@@ -3490,8 +3516,16 @@ export function ConfirmationDocumentForm({
       if (Object.keys(fieldErrors).length > 0) {
         setErrors(fieldErrors);
         scrollToAndFocusField(fieldErrors);
+        const firstErr = Object.values(fieldErrors)[0];
+        toast.error(firstErr || 'Please check highlighted fields.');
+      } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
+        toast.error(generalError);
       } else {
-        toast.error(generalError || err?.message || 'Failed to submit confirmation. Please retry.');
+        const fallbackMsg =
+          err?.message && !/^(form validation error|validation error|bad request)$/i.test(err.message)
+            ? err.message
+            : 'Failed to submit confirmation. Please retry.';
+        toast.error(fallbackMsg);
       }
     } finally {
       setIsSubmitting(false);

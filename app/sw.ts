@@ -77,7 +77,18 @@ const serwist = new Serwist({
     // 2. Next.js RSC payloads
     // NetworkFirst guarantees fresh chunk hashes from server when online, falling back to cache if offline
     {
-      matcher: ({ url }) => url.searchParams.has('_rsc'),
+      matcher: ({ url }) => {
+        if (!url.searchParams.has('_rsc')) return false;
+        // Never cache dynamic authenticated documents like smart-docs, profile, dashboard
+        if (
+          url.pathname.includes('/smart-docs') ||
+          url.pathname.includes('/profile') ||
+          url.pathname.includes('/dashboard')
+        ) {
+          return false;
+        }
+        return true;
+      },
       handler: new NetworkFirst({
         cacheName: 'rsc-payloads',
         networkTimeoutSeconds: 3,
@@ -92,7 +103,18 @@ const serwist = new Serwist({
     // 3. Page navigations
     // NetworkFirst guarantees the latest HTML referencing valid chunks is fetched online, avoiding 404 chunk errors
     {
-      matcher: ({ request }) => request.mode === 'navigate',
+      matcher: ({ request, url }) => {
+        if (request.mode !== 'navigate') return false;
+        // Never cache private authenticated workspaces like smart-docs/draft or profile
+        if (
+          url.pathname.includes('/smart-docs') ||
+          url.pathname.includes('/profile') ||
+          url.pathname.includes('/dashboard')
+        ) {
+          return false;
+        }
+        return true;
+      },
       handler: new NetworkFirst({
         cacheName: 'pages',
         networkTimeoutSeconds: 3,
