@@ -96,9 +96,10 @@ export default async function middleware(request: NextRequest) {
     request.headers.get('accept')?.includes('text/x-component');
 
   // 2. Auth Guards - Support both auth_token and __Secure-uid cookies
-  let token =
+  const rawToken =
     request.cookies.get('auth_token')?.value ||
     request.cookies.get('__Secure-uid')?.value;
+  let token = (rawToken && rawToken !== 'deleted' && rawToken.trim().length > 10) ? rawToken.trim() : null;
   let isTokenValid = false;
 
   if (token) {
@@ -223,8 +224,8 @@ export default async function middleware(request: NextRequest) {
           isTokenValid = true;
         }
       } else {
-        // Non-JWT token format, assume valid
-        isTokenValid = true;
+        // Non-JWT token format, cannot be verified safely
+        isTokenValid = false;
       }
     } catch (e) {
       console.error('Error decoding JWT token in middleware:', e);
@@ -301,7 +302,11 @@ export default async function middleware(request: NextRequest) {
     if (storedPlan) {
       return NextResponse.redirect(new URL(`/${locale}/become-member`, request.url));
     }
-    return NextResponse.redirect(new URL(`/${locale}`, request.url));
+    const redirectUrl = request.nextUrl.searchParams.get('redirectUrl');
+    if (redirectUrl && redirectUrl.startsWith('/') && !redirectUrl.includes('/login') && !redirectUrl.includes('/register')) {
+      return NextResponse.redirect(new URL(redirectUrl, request.url));
+    }
+    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
   }
 
   // 3. Locale Redirect Logic

@@ -18,11 +18,8 @@ export interface RefreshResult {
   message?: string;
 }
 
-// Single-flight in-flight promise to prevent concurrent refresh calls from racing
-let ongoingRefreshPromise: Promise<RefreshResult> | null = null;
-
-// Request-scoped or short-lived memory cache for the latest refreshed token
-let lastRefreshedToken: { token: string; exp: number } | null = null;
+// Single-flight mutex map by refresh_token to prevent concurrent duplicate refresh requests for the same session
+const ongoingRefreshPromises = new Map<string, Promise<RefreshResult>>();
 
 /**
  * Executes a token refresh against the backend User API with mutex locking.
@@ -30,22 +27,24 @@ let lastRefreshedToken: { token: string; exp: number } | null = null;
  * omitting the expired Authorization header that causes 401 rejections.
  */
 export async function executeRefreshToken(refreshTokenVal?: string): Promise<RefreshResult> {
-  if (ongoingRefreshPromise) {
-    return ongoingRefreshPromise;
+  const cookieStore = await getCookieStore();
+  const refreshToken =
+    refreshTokenVal ||
+    cookieStore?.get('refresh_token')?.value ||
+    cookieStore?.get('web_refresh_token')?.value;
+
+  if (!refreshToken || refreshToken === 'deleted' || refreshToken.trim().length < 10) {
+    return { success: false, message: 'No valid refresh token available' };
   }
 
-  ongoingRefreshPromise = (async (): Promise<RefreshResult> => {
+  // Deduplicate concurrent refreshes for the exact same refresh token
+  const existingPromise = ongoingRefreshPromises.get(refreshToken);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const refreshPromise = (async (): Promise<RefreshResult> => {
     try {
-      const cookieStore = await getCookieStore();
-      const refreshToken =
-        refreshTokenVal ||
-        cookieStore?.get('refresh_token')?.value ||
-        cookieStore?.get('web_refresh_token')?.value;
-
-      if (!refreshToken) {
-        return { success: false, message: 'No refresh token available' };
-      }
-
       const apiUrl = getUserApiUrl();
       const url = `${apiUrl}/auth/refresh-token?lang_code=en&source=web`;
 
@@ -103,21 +102,6 @@ export async function executeRefreshToken(refreshTokenVal?: string): Promise<Ref
         data?.data?.refreshToken ||
         refreshToken;
 
-      // Cache token in memory for immediate use within this process
-      try {
-        const parts = newAccessToken.split('.');
-        if (parts.length === 3) {
-          const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-          const pad = payloadBase64.length % 4;
-          const padded = pad ? payloadBase64 + '='.repeat(4 - pad) : payloadBase64;
-          const decoded = atob(padded);
-          const parsed = JSON.parse(decoded);
-          if (parsed.exp) {
-            lastRefreshedToken = { token: newAccessToken, exp: parsed.exp * 1000 };
-          }
-        }
-      } catch (e) {}
-
       // Update cookie store (succeeds in Server Actions & Route Handlers; safely caught in RSC)
       const isSecure = await getIsSecureCookie();
       try {
@@ -165,51 +149,53 @@ export async function executeRefreshToken(refreshTokenVal?: string): Promise<Ref
     } finally {
       // Clear single-flight promise after a short cooldown
       setTimeout(() => {
-        ongoingRefreshPromise = null;
+        ongoingRefreshPromises.delete(refreshToken);
       }, 300);
     }
   })();
 
-  return ongoingRefreshPromise;
+  ongoingRefreshPromises.set(refreshToken, refreshPromise);
+  return refreshPromise;
 }
 
 /**
  * Universal Server-Side helper to obtain a guaranteed valid (non-expired) auth token.
  * 
  * 1. Checks passedToken (if valid, returns immediately).
- * 2. Checks cached in-memory fresh token.
- * 3. Checks cookies (auth_token). If valid (with 5s buffer), returns it.
- * 4. If expired or missing, triggers executeRefreshToken() using refresh_token.
- * 5. Returns the fresh access token, or null if completely unauthenticated.
+ * 2. Checks cookies (auth_token). If valid (with 5s buffer), returns it.
+ * 3. If expired or missing, triggers executeRefreshToken() using refresh_token.
+ * 4. Returns the fresh access token, or null if completely unauthenticated.
  */
 export async function getValidAuthToken(passedToken?: string): Promise<string | null> {
   // 1. If passedToken is provided and still fresh, return it
-  if (passedToken && !isJwtExpired(passedToken, 5)) {
+  if (passedToken && passedToken !== 'deleted' && !isJwtExpired(passedToken, 5)) {
     return passedToken;
   }
 
-  // 2. If we just refreshed a token in memory recently and it is still alive
-  if (lastRefreshedToken && lastRefreshedToken.exp - Date.now() > 5000) {
-    return lastRefreshedToken.token;
-  }
-
-  // 3. Read cookieStore
+  // 2. Read cookieStore for the current request
   let cookieToken: string | null = null;
   let cookieRefreshToken: string | null = null;
   try {
     const cookieStore = await getCookieStore();
-    cookieToken = cookieStore?.get('auth_token')?.value || cookieStore?.get('__Secure-uid')?.value || null;
-    cookieRefreshToken = cookieStore?.get('refresh_token')?.value || cookieStore?.get('web_refresh_token')?.value || null;
+    const rawToken = cookieStore?.get('auth_token')?.value || cookieStore?.get('__Secure-uid')?.value || null;
+    const rawRefresh = cookieStore?.get('refresh_token')?.value || cookieStore?.get('web_refresh_token')?.value || null;
+
+    if (rawToken && rawToken !== 'deleted' && rawToken.trim().length > 10) {
+      cookieToken = rawToken.trim();
+    }
+    if (rawRefresh && rawRefresh !== 'deleted' && rawRefresh.trim().length > 10) {
+      cookieRefreshToken = rawRefresh.trim();
+    }
   } catch (e) {
     // cookies() unavailable outside request context
   }
 
-  // If cookieToken is alive and not expired (buffer: 5s), return it
+  // 3. If cookieToken is alive and not expired (buffer: 5s), return it
   if (cookieToken && !isJwtExpired(cookieToken, 5)) {
     return cookieToken;
   }
 
-  // 4. Token expired or missing, attempt refresh if refresh token exists
+  // 4. Token expired or missing, attempt refresh ONLY if refresh token exists in cookies
   if (cookieRefreshToken) {
     const refreshResult = await executeRefreshToken(cookieRefreshToken);
     if (refreshResult.success && refreshResult.access_token) {
@@ -218,10 +204,10 @@ export async function getValidAuthToken(passedToken?: string): Promise<string | 
   }
 
   // 5. Fallback: if passedToken is technically alive right now (0s buffer), use it
-  if (passedToken && !isJwtExpired(passedToken, 0)) {
+  if (passedToken && passedToken !== 'deleted' && !isJwtExpired(passedToken, 0)) {
     return passedToken;
   }
 
-  // 6. If both tokens are expired/invalid and refresh failed, session is dead
+  // 6. Completely unauthenticated guest - return null (NEVER leak another session!)
   return null;
 }
