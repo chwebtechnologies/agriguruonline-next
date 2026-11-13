@@ -11,6 +11,8 @@ import {
   extractProformaData,
   normalizeStepStatus,
   extractStepId,
+  extractStepRedirectId,
+  extractLinkedProformaId,
   isConfirmationStep,
   isContractStep,
   isProformaStep,
@@ -282,16 +284,36 @@ export function DocumentDraftWorkspace({
 
   // Canonical Proforma Document ID (strictly proforma, NEVER contract or confirmation ID)
   const canonicalProformaId = useMemo(() => {
-    const fromStepper = getProformaIdFromStepper(steps, selectedStep);
+    // 1. From Stepper step (current selection or proforma step)
+    const proformaStep = getProformaStep(steps, selectedStep);
+    const fromStepper =
+      getProformaIdFromStepper(steps, selectedStep) ||
+      extractStepId(proformaStep) ||
+      extractStepRedirectId(proformaStep) ||
+      proformaStep?.redirect_id ||
+      proformaStep?.document_id ||
+      '';
+    const cleanFromStepper = sanitizeDocId(fromStepper);
     if (
-      fromStepper &&
-      fromStepper !== effectiveConfirmationId &&
-      fromStepper !== canonicalContractId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(fromStepper)
+      cleanFromStepper &&
+      cleanFromStepper !== effectiveConfirmationId &&
+      cleanFromStepper !== canonicalContractId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanFromStepper)
     ) {
-      return sanitizeDocId(fromStepper);
+      return cleanFromStepper;
     }
+
+    // 2. From candidate proforma data or linked proforma IDs
+    const linkedCandidate =
+      extractLinkedProformaId(proformaData) ||
+      extractLinkedProformaId(initialProformaData) ||
+      extractLinkedProformaId(contractData) ||
+      extractLinkedProformaId(initialContractData) ||
+      extractLinkedProformaId(confirmationData) ||
+      extractLinkedProformaId(initialData);
+
     const candidateDataId = sanitizeDocId(
+      linkedCandidate ||
       proformaData?.id ||
       proformaData?._id ||
       proformaData?.proforma_id ||
@@ -317,6 +339,8 @@ export function DocumentDraftWorkspace({
     ) {
       return candidateDataId;
     }
+
+    // 3. Fallback to cleanDraftId if in proforma step
     const cleanDraftId = sanitizeDocId(draftId);
     if (
       isProforma &&
@@ -328,7 +352,7 @@ export function DocumentDraftWorkspace({
       return cleanDraftId;
     }
     return '';
-  }, [steps, selectedStep, effectiveConfirmationId, canonicalContractId, proformaData, initialProformaData, contractData, initialContractData, initialData, isProforma, draftId]);
+  }, [steps, selectedStep, effectiveConfirmationId, canonicalContractId, proformaData, initialProformaData, contractData, initialContractData, confirmationData, initialData, isProforma, draftId]);
 
   // Resolved Confirmation Number:
   // "Jab tak confirmation save as draft nahi hota tab tak kucch nahi aayega save as draft karoge to Confirmation ki api response me confirmation_number me null ki jagah value mile to usko stepper ke uper me confirmation number dikhana hai"
@@ -601,14 +625,14 @@ export function DocumentDraftWorkspace({
 
     // Only fetch if there is a distinct, genuine proforma ID
     if (effectiveProformaId) {
-      // Only show full skeleton if there is NO fallback data at all to display
-      if (!hasInitialFallback) {
-        setIsLoadingProforma(true);
-      }
+      setIsLoadingProforma(true);
       getProformaAction(effectiveProformaId, lang)
         .then((res) => {
           if (res?.success && res.data) {
-            setProformaData(extractProformaData(res.data));
+            const extracted = extractProformaData(res.data);
+            if (extracted) {
+              setProformaData(extracted);
+            }
           }
         })
         .catch((err) => {
@@ -620,7 +644,7 @@ export function DocumentDraftWorkspace({
     } else {
       setIsLoadingProforma(false);
     }
-  }, [isProforma, canonicalProformaId, proformaData, initialProformaData, contractData, initialContractData, initialData, lang]);
+  }, [isProforma, canonicalProformaId, proformaData, initialProformaData, lang]);
 
   const activeDocName =
     selectedStep?.document_name ||
@@ -1240,11 +1264,11 @@ export function DocumentDraftWorkspace({
 
         {/* Proforma Invoice Document Form: Visible when Proforma Step is active */}
         <div className={`w-full h-full flex flex-col ${isProforma ? 'flex' : 'hidden'}`}>
-          {isProforma && isLoadingProforma && !proformaData && !contractData && !initialContractData && !initialData ? (
+          {isProforma && isLoadingProforma && !proformaData ? (
             <DocumentDraftSkeleton mode="contract" isFormCardOnly />
           ) : (
             <ProformaDocumentForm
-              initialData={proformaData || contractData || initialContractData || initialData}
+              initialData={proformaData || (isProforma ? (contractData || initialContractData || initialData) : undefined)}
               proformaId={canonicalProformaId}
               contractId={canonicalContractId}
               confirmationId={effectiveConfirmationId}

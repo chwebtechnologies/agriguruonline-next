@@ -5305,6 +5305,50 @@ export function extractProformaData(data: any): any {
       '';
   }
 
+  // Normalize disclaimer / bank_charges_note synonyms
+  const disclaimerCandidate =
+    merged.disclaimer ??
+    merged.bank_charges_note ??
+    merged.bank_charges ??
+    merged.charges_note ??
+    proformaLevel?.disclaimer ??
+    proformaLevel?.bank_charges_note ??
+    dataLevel?.disclaimer ??
+    dataLevel?.bank_charges_note;
+  if (disclaimerCandidate !== undefined && disclaimerCandidate !== null) {
+    if (!merged.disclaimer) merged.disclaimer = disclaimerCandidate;
+    if (!merged.bank_charges_note) merged.bank_charges_note = disclaimerCandidate;
+  }
+
+  // Normalize proforma_id / id
+  const proformaIdCandidate =
+    merged.id ??
+    merged._id ??
+    merged.proforma_id ??
+    merged.proformaId ??
+    merged.proforma_invoice_id ??
+    proformaLevel?.id ??
+    proformaLevel?._id ??
+    proformaLevel?.proforma_id;
+  if (proformaIdCandidate) {
+    if (!merged.proforma_id) merged.proforma_id = proformaIdCandidate;
+    if (!merged.id) merged.id = proformaIdCandidate;
+  }
+
+  // Normalize payment_term / terms_of_delivery_payment
+  const ptCandidate =
+    merged.payment_term?.title ||
+    merged.payment_term?.name ||
+    merged.payment_terms?.title ||
+    merged.payment_term_title ||
+    proformaLevel?.payment_term?.title ||
+    dataLevel?.payment_term?.title;
+  if (ptCandidate && typeof ptCandidate === 'string' && ptCandidate.trim()) {
+    if (!merged.terms_of_delivery_payment) {
+      merged.terms_of_delivery_payment = ptCandidate.trim();
+    }
+  }
+
   return merged;
 }
 
@@ -5685,6 +5729,20 @@ export function extractContractData(data: any): any {
       merged.bank_details.details ||
       merged.bank_details.bank_details ||
       '';
+  }
+
+  // Normalize payment_term / terms_of_delivery_payment
+  const ptCandidate =
+    merged.payment_term?.title ||
+    merged.payment_term?.name ||
+    merged.payment_terms?.title ||
+    merged.payment_term_title ||
+    contractLevel?.payment_term?.title ||
+    dataLevel?.payment_term?.title;
+  if (ptCandidate && typeof ptCandidate === 'string' && ptCandidate.trim()) {
+    if (!merged.terms_of_delivery_payment) {
+      merged.terms_of_delivery_payment = ptCandidate.trim();
+    }
   }
 
   return merged;
@@ -6116,12 +6174,24 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
       step.proforma?.proforma_id,
       step.proformaInvoiceId,
       step.proforma_invoice_id,
+      step.redirect_id,
+      step.redirectId,
+      step.redirect_document_id,
+      step.redirectDocumentId,
+      step.document_id,
+      step.documentId,
+      step.doc_id,
+      step.docId,
     ];
     for (const raw of proformaCandidates) {
       if (raw !== undefined && raw !== null) {
         const clean = String(raw).trim();
         if (clean && !isInvalidPlaceholder(clean)) return clean;
       }
+    }
+    const directId = String(step.id || step._id || '').trim();
+    if (directId && !isInvalidPlaceholder(directId)) {
+      return directId;
     }
     return '';
   }
@@ -6313,7 +6383,12 @@ export function getProformaIdFromStepper(
   selectedStep?: StepperDocumentItem | null
 ): string {
   const step = getProformaStep(steps, selectedStep);
-  return extractStepId(step);
+  if (!step) return '';
+  const fromStepId = extractStepId(step);
+  if (fromStepId) return fromStepId;
+  const fromRedirect = extractStepRedirectId(step);
+  if (fromRedirect) return fromRedirect;
+  return '';
 }
 
 export function getConfirmationStep(

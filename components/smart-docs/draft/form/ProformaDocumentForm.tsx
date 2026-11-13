@@ -69,6 +69,12 @@ export interface ProformaDocumentFormProps {
 const DEFAULT_BANK_CHARGES_NOTE =
   'PLEASE DO NOT DEDUCT BANK CHARGES FROM THE TOTAL AMOUNT OF THE PAYMENT INSTRUCTIONS. DETAILS OF CHARGES SHOULD BE MENTIONED AS "OUR"';
 
+export const DEFAULT_SHIPPING_TERMS: FormOptionItem[] = [
+  { value: 'FOB', label: 'FOB (Free On Board)' },
+  { value: 'CNF', label: 'CNF (Cost & Freight)' },
+  { value: 'CIF', label: 'CIF (Cost, Insurance & Freight)' },
+];
+
 // In-memory module cache for seller bank accounts to ensure instantaneous switches
 const sellerBankAccountsCache = new Map<string, any[]>();
 
@@ -828,9 +834,49 @@ export function extractGoodsDescription(data: any): string {
 }
 
 /**
- * Extracts delivery terms (incoterm, shipping terms) without hardcoding "CNF".
+ * Extracts delivery terms (incoterm, shipping terms, or payment_term.title) without hardcoding "CNF".
+ * Prioritizes payment_term object title from API data as requested by user.
  */
-export function extractDeliveryTerms(data: any): string {
+export function extractDeliveryTerms(data: any, paymentTermsList?: FormOptionItem[] | any[]): string {
+  if (!data || typeof data !== 'object') return '';
+
+  // 1. Primary: payment_term object title from API data ("payment_term key ke andar me title key")
+  const ptObj =
+    (data?.payment_term && typeof data.payment_term === 'object' ? data.payment_term : null) ||
+    (data?.proforma?.payment_term && typeof data.proforma.payment_term === 'object' ? data.proforma.payment_term : null) ||
+    (data?.contract?.payment_term && typeof data.contract.payment_term === 'object' ? data.contract.payment_term : null) ||
+    (data?.data?.payment_term && typeof data.data.payment_term === 'object' ? data.data.payment_term : null) ||
+    (data?.payment_terms && typeof data.payment_terms === 'object' ? data.payment_terms : null) ||
+    (data?.paymentTerm && typeof data.paymentTerm === 'object' ? data.paymentTerm : null);
+
+  const titleFromObj = ptObj?.title || ptObj?.name || ptObj?.label;
+  if (titleFromObj && typeof titleFromObj === 'string' && titleFromObj.trim()) {
+    return titleFromObj.trim();
+  }
+
+  // 2. Direct string titles if available
+  const directTitle =
+    data?.payment_term_title ||
+    data?.payment_term_name ||
+    data?.paymentTermTitle ||
+    data?.paymentTermName;
+  if (directTitle && typeof directTitle === 'string' && directTitle.trim()) {
+    return directTitle.trim();
+  }
+
+  // 3. Match payment_term_id from paymentTermsList if provided
+  const ptId = data?.payment_term_id || data?.payment_term || data?.paymentTermId || data?.contract?.payment_term_id;
+  if (ptId && paymentTermsList && Array.isArray(paymentTermsList)) {
+    const matched = paymentTermsList.find(
+      (item) => String(item.value || item.id || item._id) === String(ptId)
+    );
+    const matchedTitle = matched?.title || matched?.label || matched?.name;
+    if (matchedTitle && typeof matchedTitle === 'string' && matchedTitle.trim()) {
+      return matchedTitle.trim();
+    }
+  }
+
+  // 4. Fallback to delivery/shipping terms from backend
   return safeString(
     data?.terms_of_delivery_payment ||
       data?.shipping_terms ||
@@ -842,6 +888,113 @@ export function extractDeliveryTerms(data: any): string {
       '',
     ''
   );
+}
+
+/**
+ * Safely extracts shipping term (incoterm) from data across all possible backend structures.
+ * Supports shipping_term object, string code, id matching from shippingTerms list, and fallbacks.
+ */
+export function extractShippingTerm(data: any, shippingTermsList?: FormOptionItem[]): string {
+  if (!data) return '';
+
+  // 1. Check nested shipping_term / incoterm object
+  const stObj =
+    (data?.shipping_term && typeof data.shipping_term === 'object' ? data.shipping_term : null) ||
+    (data?.shippingTerm && typeof data.shippingTerm === 'object' ? data.shippingTerm : null) ||
+    (data?.shipping_terms && typeof data.shipping_terms === 'object' ? data.shipping_terms : null) ||
+    (data?.incoterm && typeof data.incoterm === 'object' ? data.incoterm : null) ||
+    (data?.proforma?.shipping_term && typeof data.proforma.shipping_term === 'object' ? data.proforma.shipping_term : null) ||
+    (data?.proforma?.shippingTerm && typeof data.proforma.shippingTerm === 'object' ? data.proforma.shippingTerm : null) ||
+    (data?.proforma?.shipping_terms && typeof data.proforma.shipping_terms === 'object' ? data.proforma.shipping_terms : null) ||
+    (data?.proforma?.incoterm && typeof data.proforma.incoterm === 'object' ? data.proforma.incoterm : null) ||
+    (data?.contract?.shipping_term && typeof data.contract.shipping_term === 'object' ? data.contract.shipping_term : null) ||
+    (data?.contract?.shippingTerm && typeof data.contract.shippingTerm === 'object' ? data.contract.shippingTerm : null) ||
+    (data?.contract?.shipping_terms && typeof data.contract.shipping_terms === 'object' ? data.contract.shipping_terms : null) ||
+    (data?.contract?.incoterm && typeof data.contract.incoterm === 'object' ? data.contract.incoterm : null) ||
+    (data?.confirmation?.shipping_term && typeof data.confirmation.shipping_term === 'object' ? data.confirmation.shipping_term : null) ||
+    (data?.confirmation?.shippingTerm && typeof data.confirmation.shippingTerm === 'object' ? data.confirmation.shippingTerm : null) ||
+    (data?.confirmation?.shipping_terms && typeof data.confirmation.shipping_terms === 'object' ? data.confirmation.shipping_terms : null) ||
+    (data?.confirmation?.incoterm && typeof data.confirmation.incoterm === 'object' ? data.confirmation.incoterm : null) ||
+    (data?.data?.shipping_term && typeof data.data.shipping_term === 'object' ? data.data.shipping_term : null) ||
+    (data?.data?.shippingTerm && typeof data.data.shippingTerm === 'object' ? data.data.shippingTerm : null) ||
+    (data?.data?.shipping_terms && typeof data.data.shipping_terms === 'object' ? data.data.shipping_terms : null) ||
+    (data?.data?.incoterm && typeof data.data.incoterm === 'object' ? data.data.incoterm : null);
+
+  if (stObj) {
+    const candidate = stObj.value || stObj.code || stObj.term || stObj.title || stObj.name || stObj.label;
+    if (candidate && typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  // 2. Direct string / id candidates
+  const raw =
+    data?.shipping_term ||
+    data?.shippingTerm ||
+    data?.shipping_terms ||
+    data?.shippingTerms ||
+    data?.shipping_term_id ||
+    data?.shippingTermId ||
+    data?.incoterm ||
+    data?.incoterms ||
+    data?.delivery_term ||
+    data?.delivery_terms ||
+    data?.proforma?.shipping_term ||
+    data?.proforma?.shippingTerm ||
+    data?.proforma?.shipping_terms ||
+    data?.proforma?.shipping_term_id ||
+    data?.proforma?.incoterm ||
+    data?.contract?.shipping_term ||
+    data?.contract?.shippingTerm ||
+    data?.contract?.shipping_terms ||
+    data?.contract?.shipping_term_id ||
+    data?.contract?.incoterm ||
+    data?.confirmation?.shipping_term ||
+    data?.confirmation?.shippingTerm ||
+    data?.confirmation?.shipping_terms ||
+    data?.confirmation?.shipping_term_id ||
+    data?.confirmation?.incoterm ||
+    data?.data?.shipping_term ||
+    data?.data?.shippingTerm ||
+    data?.data?.shipping_terms ||
+    data?.data?.shipping_term_id ||
+    data?.data?.incoterm;
+
+  if (raw && typeof raw === 'string' && raw.trim()) {
+    const rawTrimmed = raw.trim();
+    const listToMatch = (shippingTermsList && shippingTermsList.length > 0) ? shippingTermsList : DEFAULT_SHIPPING_TERMS;
+    if (Array.isArray(listToMatch)) {
+      const matched = listToMatch.find(
+        (item) =>
+          String(item.value || item.id || item._id).toLowerCase() === rawTrimmed.toLowerCase() ||
+          String(item.label || item.name || item.title).toLowerCase() === rawTrimmed.toLowerCase()
+      );
+      if (matched) {
+        const val = matched.value || matched.title || matched.label || matched.name;
+        if (val && typeof val === 'string' && val.trim()) {
+          return val.trim();
+        }
+      }
+    }
+    return rawTrimmed;
+  }
+
+  return '';
+}
+
+/**
+ * Formats shipping term into a clean uppercase token for the table rate column header (e.g. "CIF", "FOB", "CNF").
+ */
+export function formatShippingTermHeader(term: string): string {
+  if (!term || typeof term !== 'string') return '';
+  const trimmed = term.trim();
+  if (!trimmed) return '';
+
+  const match = trimmed.match(/^([A-Za-z0-9_-]+)/);
+  if (match && match[1]) {
+    return match[1].toUpperCase();
+  }
+  return trimmed.split(' ')[0].toUpperCase();
 }
 
 /**
@@ -862,13 +1015,20 @@ export function extractVesselVoyageNo(data: any): string {
 
 /**
  * Extracts bank charges note without hardcoding defaults.
+ * Supports both disclaimer and bank_charges_note keys from backend.
  */
 export function extractBankChargesNote(data: any): string {
   return safeString(
-    data?.bank_charges_note ||
-      data?.bank_charges ||
-      data?.charges_note ||
-      data?.proforma?.bank_charges_note ||
+    data?.disclaimer ??
+      data?.bank_charges_note ??
+      data?.bank_charges ??
+      data?.charges_note ??
+      data?.proforma?.disclaimer ??
+      data?.proforma?.bank_charges_note ??
+      data?.contract?.disclaimer ??
+      data?.contract?.bank_charges_note ??
+      data?.data?.disclaimer ??
+      data?.data?.bank_charges_note ??
       '',
     ''
   );
@@ -1313,9 +1473,11 @@ export function detectProformaFieldInSentence(text: string): { key: string; rawF
   if (
     normalized.includes('bank charge') ||
     normalized.includes('charges note') ||
-    lower.includes('bankcharges')
+    normalized.includes('disclaimer') ||
+    lower.includes('bankcharges') ||
+    lower.includes('disclaimer')
   ) {
-    return { key: 'bankChargesNote', rawField: 'bank_charges_note' };
+    return { key: 'bankChargesNote', rawField: 'disclaimer' };
   }
   if (
     normalized.includes('comment label') ||
@@ -1550,6 +1712,8 @@ export function parseProformaBackendErrors(
       case 'bankchargesnote':
       case 'bankcharges':
       case 'chargesnote':
+      case 'disclaimer':
+      case 'disclaimernote':
       case 'note':
         return 'bankChargesNote';
       case 'commentlabel':
@@ -1791,7 +1955,18 @@ export function ProformaDocumentForm({
   const titleInputRef = useRef<HTMLInputElement>(null);
   const gstInputRef = useRef<any>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const isFormInitializedRef = useRef<boolean>(false);
+  const isInitialDataRealProforma = Boolean(
+    initialData?.invoice_number ||
+    initialData?.invoice_no ||
+    initialData?.invoice_date ||
+    initialData?.disclaimer ||
+    initialData?.bank_charges_note ||
+    initialData?.goods_description ||
+    (initialData?.proforma && typeof initialData.proforma === 'object') ||
+    initialData?._is_proforma_loaded
+  );
+  const hasLoadedRealProformaRef = useRef<boolean>(isInitialDataRealProforma);
+  const isFormInitializedRef = useRef<boolean>(isInitialDataRealProforma);
   const isSavingOrSubmittingRef = useRef<boolean>(false);
   const lastLoadedDocIdRef = useRef<string>(
     sanitizeDocId(
@@ -2106,8 +2281,31 @@ export function ProformaDocumentForm({
     );
   });
   const [termsDeliveryPayment, setTermsDeliveryPayment] = useState<string>(() => {
-    return extractDeliveryTerms(initialData);
+    return extractDeliveryTerms(initialData, paymentTerms);
   });
+
+  // Synchronize termsDeliveryPayment when paymentTerms list loads asynchronously
+  useEffect(() => {
+    if (paymentTerms && paymentTerms.length > 0) {
+      const resolved = extractDeliveryTerms(initialData, paymentTerms);
+      if (resolved && resolved !== termsDeliveryPayment) {
+        setTermsDeliveryPayment(resolved);
+      }
+    }
+  }, [paymentTerms, initialData]);
+
+  // Shipping Term for Proforma (e.g. FOB, CNF, CIF)
+  const [shippingTerm, setShippingTerm] = useState<string>(() => {
+    return extractShippingTerm(initialData, shippingTerms);
+  });
+
+  // Synchronize shippingTerm when shippingTerms list loads asynchronously or initialData changes
+  useEffect(() => {
+    const resolved = extractShippingTerm(initialData, shippingTerms);
+    if (resolved && resolved !== shippingTerm) {
+      setShippingTerm(resolved);
+    }
+  }, [shippingTerms, initialData]);
 
   // 2-Column Destination Ports Row (NON-INPUT display values)
   const [portOfDestination, setPortOfDestination] = useState<string>(() => {
@@ -2463,17 +2661,30 @@ export function ProformaDocumentForm({
       initialData?.confirmationId
     );
 
+    const isIncomingRealProforma = Boolean(
+      initialData?.invoice_number ||
+      initialData?.invoice_no ||
+      initialData?.invoice_date ||
+      initialData?.disclaimer ||
+      initialData?.bank_charges_note ||
+      initialData?.goods_description ||
+      (initialData?.proforma && typeof initialData.proforma === 'object') ||
+      initialData?._is_proforma_loaded
+    );
+
     const hasDocChanged = Boolean(
       currentIncomingDocId &&
       lastLoadedDocIdRef.current &&
       currentIncomingDocId !== lastLoadedDocIdRef.current
     );
 
+    const needsProformaUpgrade = isIncomingRealProforma && !hasLoadedRealProformaRef.current;
+
     // Protect user edits and prevent redundant overwrites once initialized
     if (
       isUserDirtyRef.current ||
       isSavingOrSubmittingRef.current ||
-      (isFormInitializedRef.current && !hasDocChanged)
+      (isFormInitializedRef.current && !hasDocChanged && !needsProformaUpgrade)
     ) {
       // Still update fresh signature / logo from backend if available and not cleared by user
       const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
@@ -2494,6 +2705,9 @@ export function ProformaDocumentForm({
       return;
     }
 
+    if (isIncomingRealProforma) {
+      hasLoadedRealProformaRef.current = true;
+    }
     isFormInitializedRef.current = true;
     lastLoadedDocIdRef.current = currentIncomingDocId || sanitizeDocId(draftId || proformaId) || '';
 
@@ -2602,7 +2816,7 @@ export function ProformaDocumentForm({
     if (buyerInfo.details) setBuyerDetails(buyerInfo.details);
 
     // Delivery & Shipping Terms
-    const delTerms = extractDeliveryTerms(initialData);
+    const delTerms = extractDeliveryTerms(initialData, paymentTerms);
     if (delTerms) setTermsDeliveryPayment(delTerms);
 
     const portLoad = extractPortDisplayName(
@@ -2707,6 +2921,10 @@ export function ProformaDocumentForm({
     // Bank charges note
     const bNote = extractBankChargesNote(initialData);
     if (bNote) setBankChargesNote(bNote);
+
+    // Shipping term
+    const sTerm = extractShippingTerm(initialData, shippingTerms);
+    if (sTerm) setShippingTerm(sTerm);
 
     // Goods description (clean without static text)
     const gDesc = extractGoodsDescription(initialData);
@@ -2976,6 +3194,8 @@ export function ProformaDocumentForm({
     formData.append('vessel_voyage_no', safeString(vesselVoyageNo, ''));
     formData.append('port_of_loading', safeString(portOfLoading));
     formData.append('terms_of_delivery_payment', safeString(termsDeliveryPayment));
+    formData.append('shipping_term', safeString(shippingTerm));
+    formData.append('shipping_terms', safeString(shippingTerm));
     formData.append('port_of_destination', safeString(portOfDestination));
     formData.append('final_destination', safeString(finalDestination));
     formData.append('count_vessel', safeString(countVessel));
@@ -3008,7 +3228,10 @@ export function ProformaDocumentForm({
     formData.append('bank_account_id', safeString(selectedBankId));
     formData.append('bank_details', safeString(bankAccountDetails));
 
-    formData.append('bank_charges_note', safeString(bankChargesNote));
+    const cleanDisclaimer = safeString(bankChargesNote);
+    formData.append('disclaimer', cleanDisclaimer);
+    formData.append('bank_charges_note', cleanDisclaimer);
+    formData.append('bank_charges', cleanDisclaimer);
     formData.append('comment_label', safeString(commentLabel));
     formData.append('comment_value', safeString(commentValue));
     formData.append('comment_title', safeString(commentLabel));
@@ -3087,6 +3310,7 @@ export function ProformaDocumentForm({
     vesselVoyageNo,
     portOfLoading,
     termsDeliveryPayment,
+    shippingTerm,
     portOfDestination,
     finalDestination,
     countVessel,
@@ -3174,6 +3398,8 @@ export function ProformaDocumentForm({
       vessel_voyage_no: safeString(vesselVoyageNo, ''),
       port_of_loading: safeString(portOfLoading),
       terms_of_delivery_payment: safeString(termsDeliveryPayment),
+      shipping_term: safeString(shippingTerm),
+      shipping_terms: safeString(shippingTerm),
       port_of_destination: safeString(portOfDestination),
       final_destination: safeString(finalDestination),
       count_vessel: safeString(countVessel),
@@ -3202,7 +3428,9 @@ export function ProformaDocumentForm({
       signature: normalizeSignaturePayload(stampImageUrl) || safeString(stampImageUrl),
       seller_signature: normalizeSignaturePayload(stampImageUrl) || safeString(stampImageUrl),
       stamp: normalizeSignaturePayload(stampImageUrl) || safeString(stampImageUrl),
+      disclaimer: safeString(bankChargesNote),
       bank_charges_note: safeString(bankChargesNote),
+      bank_charges: safeString(bankChargesNote),
       comment_label: safeString(commentLabel),
       comment_value: safeString(commentValue),
       comment_title: safeString(commentLabel),
@@ -3238,6 +3466,7 @@ export function ProformaDocumentForm({
     vesselVoyageNo,
     portOfLoading,
     termsDeliveryPayment,
+    shippingTerm,
     portOfDestination,
     finalDestination,
     countVessel,
@@ -3783,8 +4012,8 @@ export function ProformaDocumentForm({
     }
   };
 
-  const deliveryTermsDisplay = safeString(termsDeliveryPayment, 'CNF');
-  const shortTermsDisplay = deliveryTermsDisplay.split(' ')[0] || 'CNF';
+  const deliveryTermsDisplay = safeString(termsDeliveryPayment, '');
+  const shippingTermHeader = formatShippingTermHeader(shippingTerm);
 
   return (
     <div
@@ -4336,7 +4565,7 @@ export function ProformaDocumentForm({
               {/* Left 37% Value: Vessel / Flight No */}
               <div className="w-full md:w-[37%] shrink-0 p-2 sm:p-2.5 text-center min-h-[36px] flex items-center justify-center">
                 <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
-                  {safeString(vesselVoyageNo, '') || '-'}
+                  {safeString(vesselVoyageNo, '') || 'AS PER BL'}
                 </span>
               </div>
 
@@ -4406,7 +4635,7 @@ export function ProformaDocumentForm({
                     QUANTITY IN MT
                   </th>
                   <th className="py-2.5 px-3 border-r border-border w-[14%] text-right">
-                    {currency} {shortTermsDisplay}
+                    {currency} {shippingTermHeader || 'RATE'}
                   </th>
                   <th className="py-2.5 px-3 w-[14%] text-right">
                     AMOUNT IN {currency} ({currencySymbol})
@@ -4416,16 +4645,16 @@ export function ProformaDocumentForm({
               <tbody className="divide-y divide-border">
                 {/* Main Product Item Row: Quantity MT, USD CNF, and Amount are all maintained at the TOP (align-top) and RIGHT ALIGNED (text-right) */}
                 <tr className="divide-x divide-border">
-                  {/* COUNT / VESSEL (NON-INPUT Text) */}
-                  <td className="py-3 px-3 align-top text-left">
+                  {/* COUNT / VESSEL (NON-INPUT Text) - Vertically merged across row 1 & row 2 */}
+                  <td rowSpan={2} className="py-3 px-3 align-top text-left">
                     <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
                       {safeString(countVessel, '')}
                     </span>
                   </td>
 
                   {/* DESCRIPTIONS OF GOODS AND SERVICES (NON-INPUT Text) */}
-                  <td className="py-3 px-3 align-top text-left" id="field-goodsDescription" data-field="goodsDescription">
-                    <div className="font-semibold text-[14px] text-foreground uppercase leading-relaxed whitespace-pre-line select-all">
+                  <td className="py-3 px-3 align-top text-left pb-6" id="field-goodsDescription" data-field="goodsDescription">
+                    <div className="font-semibold text-[14px] text-foreground uppercase leading-relaxed whitespace-pre-line select-all pb-2">
                       {safeString(goodsDescription, '')}
                     </div>
                     {(errors.goodsDescription || errors.goods_description) && (
@@ -4472,9 +4701,13 @@ export function ProformaDocumentForm({
                   </td>
                 </tr>
 
-                {/* Advance Payment Row (NON-EDITABLE Text Display, Backend Value Only, No Deduction From Total) */}
+                {/* Advance Payment Row: Count/Vessel vertically merged from above; Description contains [5% MORE OR LESS AT CONTRACT QUANTITY] aligned with ADVANCE PAYMENT */}
                 <tr className="divide-x divide-border bg-card">
-                  <td colSpan={2} className="py-2.5 px-3" />
+                  <td className="py-2.5 px-3 align-middle text-left">
+                    <span className="font-semibold text-[13px] sm:text-[14px] text-foreground tracking-wide select-all uppercase">
+                      [5% MORE OR LESS AT CONTRACT QUANTITY]
+                    </span>
+                  </td>
                   <td
                     colSpan={2}
                     className="py-2.5 px-3 text-right font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider pr-4"
@@ -4504,7 +4737,7 @@ export function ProformaDocumentForm({
                   </td>
                   <td
                     colSpan={2}
-                    className="py-2.5 px-3 text-right font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider pr-4"
+                    className="py-2.5 px-3 align-top text-right font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider pr-4"
                   >
                     TOTAL
                   </td>
@@ -4755,42 +4988,42 @@ export function ProformaDocumentForm({
                     </div>
                   </td>
                 </tr>
-
-                {/* 
-                  ROW 8: BANK CHARGES DISCLAIMER NOTE
-                  Editable Textarea
-                */}
-                <tr className="border-t border-border bg-card">
-                  <td colSpan={5} className="p-3 sm:p-4 align-top" id="field-bankChargesNote" data-field="bankChargesNote">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
-                        NOTE / BANK CHARGES:
-                      </label>
-                      <div className="w-full">
-                        <DocUnderlineInput
-                          id="field-bankChargesNote-input"
-                          multiline
-                          rows={2}
-                          value={bankChargesNote}
-                          onChange={(val) => {
-                            markDirty();
-                            setBankChargesNote(val);
-                            setErrors((prev) => ({ ...prev, bankChargesNote: '', bank_charges_note: '' }));
-                          }}
-                          error={errors.bankChargesNote || errors.bank_charges_note}
-                          disabled={readOnly}
-                          placeholder="PLEASE DO NOT DEDUCT BANK CHARGES FROM THE TOTAL AMOUNT..."
-                          icon="fa-solid fa-pen"
-                          uppercase={false}
-                          inputClassName="text-[13px] sm:text-[14px] font-semibold !text-amber-600 dark:!text-amber-400 leading-relaxed resize-none"
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </td>
-                </tr>
               </tbody>
             </table>
+          </div>
+
+          {/* 
+            ROW 8: BANK CHARGES DISCLAIMER NOTE
+            Full-width document block aligned perfectly with ROW 9 (COMMENTS)
+          */}
+          <div
+            className="w-full py-2.5 px-2.5 sm:px-3 flex flex-col gap-1.5 justify-start bg-card"
+            id="field-bankChargesNote"
+            data-field="bankChargesNote"
+          >
+            <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
+              NOTE / BANK CHARGES:
+            </label>
+            <div className="w-full">
+              <DocUnderlineInput
+                id="field-bankChargesNote-input"
+                multiline
+                rows={2}
+                value={bankChargesNote}
+                onChange={(val) => {
+                  markDirty();
+                  setBankChargesNote(val);
+                  setErrors((prev) => ({ ...prev, bankChargesNote: '', bank_charges_note: '', disclaimer: '' }));
+                }}
+                error={errors.bankChargesNote || errors.bank_charges_note || errors.disclaimer}
+                disabled={readOnly}
+                placeholder="PLEASE DO NOT DEDUCT BANK CHARGES FROM THE TOTAL AMOUNT..."
+                icon="fa-solid fa-pen"
+                uppercase={false}
+                inputClassName="text-[13px] sm:text-[14px] font-semibold !text-amber-600 dark:!text-amber-400 leading-relaxed resize-none"
+                className="w-full"
+              />
+            </div>
           </div>
 
           {/* 
