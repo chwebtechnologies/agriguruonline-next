@@ -51,6 +51,7 @@ import { normalizeCountryString, normalizeHsnString, deduplicateValidationMessag
 
 export interface ContractDocumentFormProps {
   initialData?: any;
+  dataVersion?: number;
   contractId?: string;
   steps?: StepperDocumentItem[];
   selectedStep?: StepperDocumentItem | null;
@@ -1095,8 +1096,13 @@ export function parseContractBackendErrors(
   };
 
   const isGenericValidationString = (str: string): boolean => {
-    return /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(
-      String(str || '').trim()
+    const s = String(str || '').trim();
+    return (
+      /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s) ||
+      /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
+      /<(!DOCTYPE|html)/i.test(s) ||
+      /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
+      /^(not found|bad gateway|service unavailable)$/i.test(s)
     );
   };
 
@@ -1445,6 +1451,33 @@ export function isRawDbId(str?: string | null): boolean {
   return false;
 }
 
+export function toCleanText(val: any): string {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'string') {
+    const t = val.trim();
+    if (!t || t === '[object Object]' || t === 'undefined' || t === 'null') return '';
+    return val;
+  }
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    const candidate =
+      val.text ||
+      val.instructionText ||
+      val.instruction ||
+      val.details ||
+      val.comment ||
+      val.notes ||
+      val.description ||
+      val.label ||
+      val.name ||
+      '';
+    if (candidate && typeof candidate === 'string' && candidate !== '[object Object]') {
+      return candidate;
+    }
+  }
+  return '';
+}
+
 function toCleanLabel(val: any): string {
   if (val === null || val === undefined) return '';
   if (typeof val === 'string') {
@@ -1480,13 +1513,12 @@ function cleanShippingInstruction(val: any): string {
   if (typeof val === 'string') {
     const trimmed = val.trim();
     if (!trimmed || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') return '';
-    if (isRawDbId(trimmed)) return '';
     if (/<[a-z][\s\S]*>/i.test(trimmed)) {
       return trimmed.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
     }
     return trimmed;
   }
-  return toCleanLabel(val);
+  return toCleanText(val);
 }
 
 function parseAnyLoadingPort(data: any): boolean | null {
@@ -1948,6 +1980,7 @@ export function extractAndResolveContractDocuments(
 
 export function ContractDocumentForm({
   initialData,
+  dataVersion,
   contractId: contractIdProp,
   steps = [],
   selectedStep = null,
@@ -2186,13 +2219,13 @@ export function ContractDocumentForm({
     toCleanId(initialData?.seller_instruction_id || initialData?.sellerId || initialData?.seller_id || initialData?.seller)
   );
   const [sellerInstruction, setSellerInstruction] = useState<string>(() =>
-    toCleanLabel(initialData?.seller_instruction || initialData?.sellerInstruction || (typeof initialData?.seller === 'object' ? initialData.seller.instructionText || initialData.seller.details : ''))
+    toCleanText(initialData?.seller_instruction || initialData?.sellerInstruction || (typeof initialData?.seller === 'object' ? initialData.seller.instructionText || initialData.seller.details : ''))
   );
   const [buyerId, setBuyerId] = useState<string>(() =>
     toCleanId(initialData?.buyer_instruction_id || initialData?.buyerId || initialData?.buyer_id || initialData?.buyer)
   );
   const [buyerInstruction, setBuyerInstruction] = useState<string>(() =>
-    toCleanLabel(initialData?.buyer_instruction || initialData?.buyerInstruction || (typeof initialData?.buyer === 'object' ? initialData.buyer.instructionText || initialData.buyer.details : ''))
+    toCleanText(initialData?.buyer_instruction || initialData?.buyerInstruction || (typeof initialData?.buyer === 'object' ? initialData.buyer.instructionText || initialData.buyer.details : ''))
   );
 
   // ROW 5: Shipping Instruction (Mapped from terms_and_condition from API response)
@@ -2223,7 +2256,7 @@ export function ContractDocumentForm({
 
   // ROW 7: Specification
   const [specification, setSpecification] = useState<string>(() =>
-    toCleanLabel(initialData?.quality_specification || initialData?.specification || (typeof initialData?.product === 'object' ? initialData.product.specification || initialData.product.quality_specification : ''))
+    toCleanText(initialData?.quality_specification || initialData?.specification || (typeof initialData?.product === 'object' ? initialData.product.specification || initialData.product.quality_specification : ''))
   );
 
   // ROW 8: Shipment Period
@@ -3751,7 +3784,7 @@ export function ContractDocumentForm({
     setSellerId(val);
     setErrors((prev) => ({ ...prev, sellerId: '' }));
     const selected = internalSellers.find(
-      (s) => String(s.value) === String(val) || String(s.id) === String(val)
+      (s) => String(s.value) === String(val) || String(s.id) === String(val) || String(s.label) === String(val)
     );
     if (selected) {
       const addressParts = [
@@ -3767,7 +3800,7 @@ export function ContractDocumentForm({
     setBuyerId(val);
     setErrors((prev) => ({ ...prev, buyerId: '' }));
     const selected = internalBuyers.find(
-      (b) => String(b.value) === String(val) || String(b.id) === String(val)
+      (b) => String(b.value) === String(val) || String(b.id) === String(val) || String(b.label) === String(val)
     );
     if (selected) {
       const addressParts = [
@@ -3834,9 +3867,12 @@ export function ContractDocumentForm({
       (initialData && !initialData.confirmation_number && !initialData.confirmation_id && initialData.status)
     );
 
-    // Once the form has been initialized, protect user edits while allowing upgrade when real contract data arrives
-    if (isFormInitializedRef.current) {
-      if (hasDraftChanges || !isExplicitContract) {
+    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
+    const hasDocIdChanged = Boolean(contractIdCandidate && contractIdCandidate !== lastLoadedDocIdRef.current);
+
+    // Once the form has been initialized, protect user edits UNLESS stepper navigation / explicit version trigger or doc ID change occurred
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
+      if (hasDraftChanges) {
         // Still update fresh signature URLs from backend if available and not cleared by user
         const sSig = resolveSigValue(initialData, [
           'seller_signature',
@@ -3896,34 +3932,46 @@ export function ContractDocumentForm({
     if (initialData.is_watermark_enabled !== undefined) setWatermark(Boolean(initialData.is_watermark_enabled));
     else if (initialData.watermark !== undefined) setWatermark(Boolean(initialData.watermark));
 
-    const title = toCleanLabel(initialData.pdf_title || initialData.pdfTitle || initialData.documentTitle || initialData.title);
+    const title = toCleanText(initialData.pdf_title || initialData.pdfTitle || initialData.documentTitle || initialData.title);
     if (title) setDocumentTitle(title);
 
-    const confNum = toCleanLabel(initialData.confirmation_number || initialData.confirmationNumber);
+    const confNum = toCleanText(initialData.confirmation_number || initialData.confirmationNumber);
     if (confNum) setConfirmationNumber(confNum);
 
-    const confDate = toCleanLabel(initialData.confirmation_date || initialData.confirmationDate);
+    const confDate = toCleanText(initialData.confirmation_date || initialData.confirmationDate);
     if (confDate) setConfirmationDate(confDate.includes('T') ? confDate.split('T')[0] : confDate);
 
-    const contNum = toCleanLabel(initialData.contract_number || initialData.contractNumber);
+    const contNum = toCleanText(initialData.contract_number || initialData.contractNumber);
     if (contNum) setContractNumber(contNum);
 
-    const contDate = toCleanLabel(initialData.contract_date || initialData.contractDate);
+    const contDate = toCleanText(initialData.contract_date || initialData.contractDate);
     if (contDate) setContractDate(contDate.includes('T') ? contDate.split('T')[0] : contDate);
 
-    const pHeader = toCleanLabel(initialData.parties_header || initialData.partiesHeader);
+    const pHeader = toCleanText(initialData.parties_header || initialData.partiesHeader);
     if (pHeader) setPartiesHeader(pHeader);
 
     const sId = toCleanId(initialData.seller_instruction_id || initialData.sellerId || initialData.seller_id || initialData.seller);
     if (sId) setSellerId(sId);
 
-    const sInst = toCleanLabel(initialData.seller_instruction || initialData.sellerInstruction || (typeof initialData.seller === 'object' ? initialData.seller.instructionText || initialData.seller.details : ''));
+    const sInst = toCleanText(
+      initialData.seller_instruction ||
+      initialData.sellerInstruction ||
+      initialData.seller_details ||
+      initialData.sellerDetails ||
+      (typeof initialData.seller === 'object' ? initialData.seller.instructionText || initialData.seller.details : '')
+    );
     if (sInst) setSellerInstruction(sInst);
 
     const bId = toCleanId(initialData.buyer_instruction_id || initialData.buyerId || initialData.buyer_id || initialData.buyer);
     if (bId) setBuyerId(bId);
 
-    const bInst = toCleanLabel(initialData.buyer_instruction || initialData.buyerInstruction || (typeof initialData.buyer === 'object' ? initialData.buyer.instructionText || initialData.buyer.details : ''));
+    const bInst = toCleanText(
+      initialData.buyer_instruction ||
+      initialData.buyerInstruction ||
+      initialData.buyer_details ||
+      initialData.buyerDetails ||
+      (typeof initialData.buyer === 'object' ? initialData.buyer.instructionText || initialData.buyer.instruction || initialData.buyer.details : '')
+    );
     if (bInst) setBuyerInstruction(bInst);
 
     const shipInst = cleanShippingInstruction(
@@ -3951,7 +3999,7 @@ export function ContractDocumentForm({
     const ctry = normalizeCountryString(initialData.country || initialData.productCountry || initialData.product_country || (typeof initialData.product === 'object' ? initialData.product.country || initialData.product.origin_country : ''));
     if (ctry) setProductCountry(ctry);
 
-    const spec = toCleanLabel(initialData.quality_specification || initialData.specification || (typeof initialData.product === 'object' ? initialData.product.specification || initialData.product.quality_specification : ''));
+    const spec = toCleanText(initialData.quality_specification || initialData.specification || (typeof initialData.product === 'object' ? initialData.product.specification || initialData.product.quality_specification : ''));
     if (spec) setSpecification(spec);
 
     const start = initialData.shipment_start_date || initialData.shipmentStartDate;
@@ -3972,7 +4020,7 @@ export function ContractDocumentForm({
     const pck = toCleanId(initialData.packing_type_id || initialData.packingTypeId || initialData.packing_type || initialData.packing) || toCleanLabel(initialData.packing_type || initialData.packing);
     if (pck) setPacking(pck);
 
-    const brand = toCleanLabel(initialData.marking_brand || initialData.markingBrand || initialData.brand);
+    const brand = toCleanText(initialData.marking_brand || initialData.markingBrand || initialData.brand);
     if (brand) setMarkingBrand(brand);
 
     const lPort = toCleanId(initialData.loading_port_id || initialData.loadingPortId || initialData.loadingPort || initialData.loading_port) || toCleanLabel(initialData.loading_port || initialData.loadingPort);
@@ -3989,7 +4037,7 @@ export function ContractDocumentForm({
         setLoadingCondition(portName);
       }
     } else {
-      const lCond = toCleanLabel(initialData.loading_condition || initialData.loadingCondition);
+      const lCond = toCleanText(initialData.loading_condition || initialData.loadingCondition);
       if (lCond && lCond !== 'Select Loading Condition') setLoadingCondition(lCond);
     }
 
@@ -4030,7 +4078,7 @@ export function ContractDocumentForm({
     const tot = initialData.total_value ?? initialData.totalValue;
     if (tot !== undefined && tot !== null && tot !== '') setTotalValue(tot);
 
-    const insp = toCleanLabel(initialData.inspection);
+    const insp = toCleanText(initialData.inspection);
     if (insp) setInspection(insp);
 
     const inco = toCleanId(initialData.incoterm || initialData.shipping_term || initialData.shippingTerm) || toCleanLabel(initialData.incoterm || initialData.shipping_term || initialData.shippingTerm);
@@ -4130,38 +4178,39 @@ export function ContractDocumentForm({
       updateCertificateDocuments(false, true);
     }
 
-    const fDays = toCleanLabel(initialData.free_days || initialData.freeDays);
+    const fDays = toCleanText(initialData.free_days || initialData.freeDays);
     if (fDays) setFreeDays(fDays);
 
-    const eBags = toCleanLabel(initialData.empty_bags || initialData.emptyBags);
+    const eBags = toCleanText(initialData.empty_bags || initialData.emptyBags);
     if (eBags) setEmptyBags(eBags);
 
-    const aComment = toCleanLabel(initialData.additional_comment || initialData.additionalComment || initialData.comment);
+    const aComment = toCleanText(initialData.additional_comment || initialData.additionalComment || initialData.comment || initialData.comments);
     if (aComment) setAdditionalComment(aComment);
 
-    const cLabel = toCleanLabel(
+    const cLabel = toCleanText(
       initialData.comment_label ??
       initialData.commentLabel ??
       initialData.contract_comment_label ??
       initialData.comment_title
     );
-    if (cLabel !== undefined && cLabel !== null) setCommentLabel(cLabel);
+    if (cLabel) setCommentLabel(cLabel);
 
-    const cValue = toCleanLabel(
+    const cValue = toCleanText(
       initialData.comment_value ??
       initialData.commentValue ??
       initialData.contract_comment_value ??
       initialData.comment_text
     );
-    if (cValue !== undefined && cValue !== null) setCommentValue(cValue);
+    if (cValue) setCommentValue(cValue);
 
-    const oTerms =
+    const oTerms = toCleanText(
       initialData.other_terms_1 ||
       initialData.other_terms1 ||
       initialData.otherTerms1 ||
       initialData.other_terms ||
       initialData.other_terms_payment ||
-      initialData.otherTerms;
+      initialData.otherTerms
+    );
     if (oTerms) setOtherTermsPayment(oTerms);
 
     const legacyDefDocs = parseDefaultDocuments(
@@ -4206,28 +4255,29 @@ export function ContractDocumentForm({
       });
     }
 
-    const sLine = initialData.shipping_line || initialData.shippingLine;
+    const sLine = toCleanText(initialData.shipping_line || initialData.shippingLine);
     if (sLine) setShippingLine(sLine);
 
-    const arbit = toCleanLabel(initialData.arbitration);
+    const arbit = toCleanText(initialData.arbitration);
     if (arbit) setArbitration(arbit);
 
-    const cTerms =
+    const cTerms = toCleanText(
       initialData.other_terms_2 ||
       initialData.other_terms2 ||
       initialData.otherTerms2 ||
       initialData.container_terms ||
       initialData.container_standards ||
-      initialData.containerStandards;
+      initialData.containerStandards
+    );
     if (cTerms) setContainerStandards(cTerms);
 
-    const fMajeur = initialData.force_majeur || initialData.forceMajeur;
+    const fMajeur = toCleanText(initialData.force_majeur || initialData.forceMajeur);
     if (fMajeur) setForceMajeur(fMajeur);
 
-    const conf = initialData.confidentiality;
+    const conf = toCleanText(initialData.confidentiality);
     if (conf) setConfidentiality(conf);
 
-    const nts = initialData.notes;
+    const nts = toCleanText(initialData.notes ?? initialData.special_notes ?? initialData.terms_notes);
     if (nts) setNotes(nts);
 
     // Importer / Buyer Signature Fields
@@ -4336,7 +4386,7 @@ export function ContractDocumentForm({
       'exporterAuthorityTitle',
     ]);
     if (sLabel) setExporterAuthorityTitle(sLabel);
-  }, [initialData, shippingTerms, fetchAndApplyProductDetails]);
+  }, [initialData, dataVersion, shippingTerms, fetchAndApplyProductDetails]);
 
   // Ensure product details (ports, packing) are fetched on mount if productId is present and options are not yet loaded
   useEffect(() => {
@@ -4468,15 +4518,19 @@ export function ContractDocumentForm({
    */
   const getContractFormData = (): FormData => {
     const formData = new FormData();
-    const effectiveContractId = getEffectiveContractId() || draftId || confirmationId;
+    const cleanConfId = sanitizeDocId(confirmationId);
+    const cleanEffectiveId = getEffectiveContractId();
+    const effectiveContractId = (cleanEffectiveId && cleanEffectiveId !== cleanConfId)
+      ? cleanEffectiveId
+      : (draftId && draftId !== cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : '');
+
     if (effectiveContractId) {
       formData.append('id', effectiveContractId);
       formData.append('contract_id', effectiveContractId);
     }
 
-    const confId = confirmationId || effectiveContractId;
-    if (confId) {
-      formData.append('confirmation_id', confId);
+    if (cleanConfId) {
+      formData.append('confirmation_id', cleanConfId);
     }
 
     // Letterhead & Watermark
@@ -4948,6 +5002,11 @@ export function ContractDocumentForm({
         return toCleanId(initialData._id);
       }
     }
+
+    // 6. Confirmation ID fallback (the workflow document ID)
+    if (confirmationId && !isInvalidPlaceholder(confirmationId)) {
+      return confirmationId.trim();
+    }
     return '';
   }, [contractIdProp, steps, selectedStep, draftId, confirmationId, initialData, isInvalidPlaceholder]);
 
@@ -5095,7 +5154,11 @@ export function ContractDocumentForm({
     setErrors({});
     try {
       const formDataPayload = getContractFormData();
-      const effectiveId = getEffectiveContractId() || draftId || confirmationId;
+      const cleanConfId = sanitizeDocId(confirmationId);
+      const cleanEffectiveId = getEffectiveContractId();
+      const effectiveId = (cleanEffectiveId && cleanEffectiveId !== cleanConfId)
+        ? cleanEffectiveId
+        : (draftId && draftId !== cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
       let res: any = null;
       if (onSaveDraft) {
         res = await onSaveDraft(formDataPayload);
@@ -5265,7 +5328,11 @@ export function ContractDocumentForm({
     setErrors({});
     try {
       const payload = getContractFormData();
-      const effectiveId = getEffectiveContractId() || draftId || confirmationId;
+      const cleanConfId = sanitizeDocId(confirmationId);
+      const cleanEffectiveId = getEffectiveContractId();
+      const effectiveId = (cleanEffectiveId && cleanEffectiveId !== cleanConfId)
+        ? cleanEffectiveId
+        : (draftId && draftId !== cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
       if (onSubmitContract) {
         const res = await onSubmitContract(payload, effectiveId);
         const hasFieldErrors = Boolean(
@@ -5321,12 +5388,18 @@ export function ContractDocumentForm({
           } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
             toast.error(generalError);
           } else {
+            const isCleanToastMsg = (m?: any) =>
+              Boolean(
+                m &&
+                typeof m === 'string' &&
+                !/^(form validation error|validation error|bad request)$/i.test(m.trim()) &&
+                !/^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(m.trim()) &&
+                !/<(!DOCTYPE|html)/i.test(m)
+              );
             const fallbackMsg =
-              res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message)
-                ? res.message
-                : res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error)
-                ? res.error
-                : 'Failed to submit contract to Proforma. Please check highlighted fields.';
+              (isCleanToastMsg(res?.message) ? res.message : null) ||
+              (isCleanToastMsg(res?.error) ? res.error : null) ||
+              'Failed to submit contract to Proforma. Please check highlighted fields.';
             toast.error(fallbackMsg);
           }
         }

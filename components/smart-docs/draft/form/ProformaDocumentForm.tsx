@@ -46,6 +46,7 @@ export interface FormOptionItem {
 
 export interface ProformaDocumentFormProps {
   initialData?: any;
+  dataVersion?: number;
   proformaId?: string;
   contractId?: string;
   confirmationId?: string;
@@ -1120,20 +1121,32 @@ export function extractVesselVoyageNo(data: any): string {
  * Supports both disclaimer and bank_charges_note keys from backend.
  */
 export function extractBankChargesNote(data: any): string {
-  return safeString(
-    data?.disclaimer ??
-      data?.bank_charges_note ??
+  const note = safeString(
+    data?.bank_charges_note ??
       data?.bank_charges ??
       data?.charges_note ??
-      data?.proforma?.disclaimer ??
       data?.proforma?.bank_charges_note ??
-      data?.contract?.disclaimer ??
+      data?.proforma?.bank_charges ??
       data?.contract?.bank_charges_note ??
-      data?.data?.disclaimer ??
       data?.data?.bank_charges_note ??
+      data?.data?.bank_charges ??
       '',
     ''
   );
+  if (note) return note;
+
+  // Only check disclaimer if it explicitly pertains to bank charges/fees (never leak contract arbitration/dispute clause)
+  const dis = safeString(
+    data?.disclaimer ??
+      data?.proforma?.disclaimer ??
+      data?.data?.disclaimer ??
+      '',
+    ''
+  );
+  if (dis && /bank|charge|fee/i.test(dis)) {
+    return dis;
+  }
+  return '';
 }
 
 /**
@@ -1871,8 +1884,13 @@ export function parseProformaBackendErrors(
   };
 
   const isGenericValidationString = (str: string): boolean => {
-    return /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(
-      String(str || '').trim()
+    const s = String(str || '').trim();
+    return (
+      /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s) ||
+      /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
+      /<(!DOCTYPE|html)/i.test(s) ||
+      /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
+      /^(not found|bad gateway|service unavailable)$/i.test(s)
     );
   };
 
@@ -2032,6 +2050,7 @@ export function parseProformaBackendErrors(
 
 export function ProformaDocumentForm({
   initialData,
+  dataVersion,
   proformaId,
   contractId,
   confirmationId,
@@ -2272,17 +2291,34 @@ export function ProformaDocumentForm({
   const [invoiceNumber, setInvoiceNumber] = useState<string>(() =>
     safeString(initialData?.invoice_number || initialData?.invoice_no, '')
   );
-  const [gstNumber, setGstNumber] = useState<string>(() =>
-    resolveGstString(
+  const [gstNumber, setGstNumber] = useState<string>(() => {
+    const fromData = resolveGstString(
       initialData?.registration_number ||
         initialData?.gst_number ||
         initialData?.seller?.gst ||
         initialData?.seller?.registration_number
-    )
-  );
+    );
+    if (fromData) return fromData;
+    const sId =
+      extractSellerInstructionId(initialData, sellers) ||
+      safeString(
+        initialData?.seller_instruction_id ||
+          initialData?.sellerInstructionId ||
+          initialData?.seller_id ||
+          initialData?.sellerId,
+        ''
+      );
+    if (sId && sellers?.length) {
+      const matched = sellers.find((s: any) => String(s.id || s._id || s.instruction_id || s.value) === String(sId));
+      if (matched?.gst || matched?.registration_number || matched?.gst_number) {
+        return resolveGstString(matched.gst || matched.registration_number || matched.gst_number);
+      }
+    }
+    return '';
+  });
   const [invoiceDate, setInvoiceDate] = useState<string>(() => {
     if (initialData?.invoice_date) return safeString(initialData.invoice_date).slice(0, 10);
-    return '';
+    return new Date().toISOString().slice(0, 10);
   });
   const [buyerOrderNoDate, setBuyerOrderNoDate] = useState<string>(() =>
     safeString(initialData?.buyer_order_no_date || initialData?.buyer_order_no, '')
@@ -2626,7 +2662,7 @@ export function ProformaDocumentForm({
         if (matchedByText) {
           setSelectedBankId(String(matchedByText.bank_details_id || matchedByText.id));
         }
-      } else if (cached.length === 1) {
+      } else if (cached.length > 0) {
         const single = cached[0];
         setSelectedBankId(String(single.bank_details_id || single.id));
         setBankAccountDetails(formatBankDetails(single));
@@ -2672,8 +2708,8 @@ export function ProformaDocumentForm({
             if (matchedByText) {
               setSelectedBankId(String((matchedByText as any).bank_details_id || matchedByText.id));
             }
-          } else if (items.length === 1) {
-            // Auto-select if seller has exactly 1 bank account
+          } else if (items.length > 0) {
+            // Auto-select first bank account if none selected
             const single = items[0];
             const effectiveBankId = String((single as any).bank_details_id || single.id);
             setSelectedBankId(effectiveBankId);
@@ -2759,28 +2795,31 @@ export function ProformaDocumentForm({
   useEffect(() => {
     if (!initialData) return;
 
-    const currentIncomingDocId = sanitizeDocId(
-      initialData?.proforma_id ||
-      initialData?.proformaId ||
-      initialData?.proforma_invoice_id ||
-      initialData?.id ||
-      initialData?._id ||
-      initialData?.contract_id ||
-      initialData?.contractId ||
-      initialData?.confirmation_id ||
-      initialData?.confirmationId
-    );
+    const cleanParentContractId = sanitizeDocId(contractId || initialData?.contract_id || initialData?.contractId);
+    const cleanParentConfId = sanitizeDocId(confirmationId || initialData?.confirmation_id || initialData?.confirmationId);
 
+    // A real Proforma Invoice record must have proforma-specific markers and MUST NOT be a contract or confirmation
     const isIncomingRealProforma = Boolean(
       initialData?.invoice_number ||
       initialData?.invoice_no ||
-      initialData?.invoice_date ||
-      initialData?.disclaimer ||
-      initialData?.bank_charges_note ||
-      initialData?.goods_description ||
+      initialData?._is_proforma_loaded ||
+      initialData?.is_proforma_loaded ||
+      initialData?.document_type === 'proforma' ||
+      initialData?.doc_type === 'proforma' ||
       (initialData?.proforma && typeof initialData.proforma === 'object') ||
-      initialData?._is_proforma_loaded
+      (initialData?.proforma_id && initialData.proforma_id !== cleanParentContractId && initialData.proforma_id !== cleanParentConfId) ||
+      (initialData?.proforma_invoice_id && initialData.proforma_invoice_id !== cleanParentContractId && initialData.proforma_invoice_id !== cleanParentConfId)
     );
+
+    const currentIncomingDocId = isIncomingRealProforma
+      ? sanitizeDocId(
+          initialData?.proforma_id ||
+          initialData?.proformaId ||
+          initialData?.proforma_invoice_id ||
+          initialData?.id ||
+          initialData?._id
+        )
+      : '';
 
     const hasDocChanged = Boolean(
       currentIncomingDocId &&
@@ -2790,8 +2829,18 @@ export function ProformaDocumentForm({
 
     const needsProformaUpgrade = isIncomingRealProforma && !hasLoadedRealProformaRef.current;
 
+    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
+
+    // When genuine proforma data arrives (e.g. upgrading from ancestor contract fallback), when stepper navigation triggers, or when document ID changes,
+    // we MUST reset dirty flags so that the actual proforma data populates all form states cleanly!
+    if (needsProformaUpgrade || hasDocChanged || isDataVersionTriggered) {
+      isUserDirtyRef.current = false;
+      isSavingOrSubmittingRef.current = false;
+      hasLoadedRealProformaRef.current = true;
+    }
+
     // Protect user edits and prevent overwriting active entries when user has typed in the form
-    if (isUserDirtyRef.current || isSavingOrSubmittingRef.current) {
+    if (!isDataVersionTriggered && !hasDocChanged && (isUserDirtyRef.current || isSavingOrSubmittingRef.current)) {
       // Still update fresh signature / logo from backend if available and not cleared by user
       const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
       if (resolvedSig && !hasUserClearedSignatureRef.current && !stampImageUrl) {
@@ -2811,11 +2860,11 @@ export function ProformaDocumentForm({
       return;
     }
 
-    if (isIncomingRealProforma) {
+    if (isIncomingRealProforma && currentIncomingDocId) {
       hasLoadedRealProformaRef.current = true;
-    }
-    if (currentIncomingDocId && isIncomingRealProforma) {
       setDraftId(currentIncomingDocId);
+    } else if (!isIncomingRealProforma) {
+      setDraftId('');
     }
     isFormInitializedRef.current = true;
     lastLoadedDocIdRef.current = currentIncomingDocId || sanitizeDocId(draftId || proformaId) || '';
@@ -2840,7 +2889,10 @@ export function ProformaDocumentForm({
     }
     if (initialData.invoice_date) {
       setInvoiceDate(safeString(initialData.invoice_date).slice(0, 10));
+    } else if (!invoiceDate) {
+      setInvoiceDate(new Date().toISOString().slice(0, 10));
     }
+    const resolvedInstId = extractSellerInstructionId(initialData, sellers);
     if (
       initialData.registration_number ||
       initialData.gst_number ||
@@ -2855,6 +2907,15 @@ export function ProformaDocumentForm({
             initialData?.seller?.registration_number
         )
       );
+    } else if (!gstNumber) {
+      const sId = resolvedInstId || sellerId;
+      const matchedSeller = sellers?.find(
+        (s: any) =>
+          String(s.id || s._id || s.instruction_id || s.value) === String(sId)
+      );
+      if (matchedSeller?.gst || matchedSeller?.registration_number || matchedSeller?.gst_number) {
+        setGstNumber(resolveGstString(matchedSeller.gst || matchedSeller.registration_number || matchedSeller.gst_number));
+      }
     }
     if (initialData.buyer_order_no_date || initialData.buyer_order_no) {
       setBuyerOrderNoDate(safeString(initialData.buyer_order_no_date || initialData.buyer_order_no));
@@ -2897,7 +2958,6 @@ export function ProformaDocumentForm({
     }
 
     // Seller / Exporter
-    const resolvedInstId = extractSellerInstructionId(initialData, sellers);
     if (resolvedInstId) {
       setSellerInstructionId(resolvedInstId);
       setSellerId(resolvedInstId);
@@ -2912,10 +2972,11 @@ export function ProformaDocumentForm({
         const addr = initialData.seller_details.address || initialData.seller_details.instruction || initialData.seller_details.details;
         const cName = initialData.seller_details.company_name || initialData.seller_details.name || resolvedCompanyName;
         const combined = formatPartyDetails(cName, addr);
-        setSellerDetails(combined);
+        if (combined && combined.trim()) setSellerDetails(combined);
       } else {
         const raw = initialData.seller_details || initialData.seller_instruction;
-        setSellerDetails(dedupePartyDetails(raw));
+        const clean = dedupePartyDetails(raw);
+        if (clean && clean.trim()) setSellerDetails(clean);
       }
     }
 
@@ -3084,10 +3145,12 @@ export function ProformaDocumentForm({
       }
     }
     if (initialData.comment_label || initialData.comment_title) {
-      setCommentLabel(safeString(initialData.comment_label || initialData.comment_title));
+      const cLabel = safeString(initialData.comment_label || initialData.comment_title);
+      if (cLabel) setCommentLabel(cLabel);
     }
     if (initialData.comment_value || initialData.comment_text) {
-      setCommentValue(safeString(initialData.comment_value || initialData.comment_text));
+      const cVal = safeString(initialData.comment_value || initialData.comment_text);
+      if (cVal) setCommentValue(cVal);
     }
     const titleFromInit =
       initialData.pdf_title ||
@@ -3098,7 +3161,7 @@ export function ProformaDocumentForm({
     if (titleFromInit) {
       setDocumentTitle(safeString(titleFromInit, 'PROFORMA INVOICE'));
     }
-  }, [initialData, sellers, buyers, sellerId, products]);
+  }, [initialData, dataVersion, sellers, buyers, sellerId, products]);
 
   // Handle Logo Upload & Removal
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -3132,13 +3195,16 @@ export function ProformaDocumentForm({
   };
 
   const getEffectiveProformaId = useCallback(() => {
+    const cleanContractId = sanitizeDocId(contractId || initialData?.contract_id || initialData?.contractId);
+    const cleanConfId = sanitizeDocId(confirmationId || initialData?.confirmation_id || initialData?.confirmationId);
+
     // 1. Direct explicit proforma draft ID or prop
     const cleanDraft = sanitizeDocId(draftId);
     if (
       cleanDraft &&
-      cleanDraft !== sanitizeDocId(contractId) &&
-      cleanDraft !== sanitizeDocId(confirmationId) &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanDraft)
+      cleanDraft !== cleanContractId &&
+      cleanDraft !== cleanConfId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanDraft)
     ) {
       return cleanDraft;
     }
@@ -3146,26 +3212,32 @@ export function ProformaDocumentForm({
     const cleanProp = sanitizeDocId(proformaId);
     if (
       cleanProp &&
-      cleanProp !== sanitizeDocId(contractId) &&
-      cleanProp !== sanitizeDocId(confirmationId) &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanProp)
+      cleanProp !== cleanContractId &&
+      cleanProp !== cleanConfId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanProp)
     ) {
       return cleanProp;
     }
 
-    // 2. Stepper proforma step (strictly extract explicit proforma IDs, never template _id/id/document_id)
+    // 2. Stepper proforma step
     const proformaStep = getProformaStep(steps, selectedStep);
     if (proformaStep) {
       const stepId = sanitizeDocId(
         getStepSelfId(proformaStep) ||
         extractStepRedirectId(proformaStep) ||
-        extractStepId(proformaStep)
+        extractStepId(proformaStep) ||
+        proformaStep.redirect_id ||
+        (proformaStep as any).redirectId ||
+        proformaStep.proforma_id ||
+        (proformaStep as any).proformaId ||
+        proformaStep.proforma_invoice_id ||
+        (proformaStep as any).proformaInvoiceId
       );
       if (
         stepId &&
-        stepId !== sanitizeDocId(contractId) &&
-        stepId !== sanitizeDocId(confirmationId) &&
-        !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(stepId)
+        stepId !== cleanContractId &&
+        stepId !== cleanConfId &&
+        !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(stepId)
       ) {
         return stepId;
       }
@@ -3182,32 +3254,44 @@ export function ProformaDocumentForm({
     );
     if (
       pId &&
-      pId !== sanitizeDocId(contractId) &&
-      pId !== sanitizeDocId(confirmationId) &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(pId)
+      pId !== cleanContractId &&
+      pId !== cleanConfId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(pId)
     ) {
       return pId;
     }
 
-    // 4. InitialData id/_id (strictly ensuring it is not the parent contract or confirmation ID)
-    const cleanContractId = sanitizeDocId(contractId);
-    const cleanConfId = sanitizeDocId(confirmationId);
+    // 4. InitialData id/_id (strictly ensuring it is not the parent contract or confirmation ID, and is a real proforma record)
     const isConfOrContractRecord = Boolean(
       initialData?.confirmation_number ||
       initialData?.confirmation_date ||
       initialData?.contract_number ||
       initialData?.contract_no
     );
-    if (!isConfOrContractRecord) {
+    const hasProformaMarkers = Boolean(
+      initialData?.invoice_number ||
+      initialData?.invoice_no ||
+      initialData?._is_proforma_loaded
+    );
+    if (!isConfOrContractRecord && hasProformaMarkers) {
       const dataId = sanitizeDocId(initialData?.id || initialData?._id);
       if (
         dataId &&
         dataId !== cleanContractId &&
         dataId !== cleanConfId &&
-        !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(dataId)
+        !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(dataId)
       ) {
         return dataId;
       }
+    }
+
+    // 5. Fallback candidate from contract or confirmation for linked workflow backend submission
+    if (cleanContractId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanContractId)) {
+      return cleanContractId;
+    }
+
+    if (cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(cleanConfId)) {
+      return cleanConfId;
     }
 
     return '';
@@ -3637,7 +3721,7 @@ export function ProformaDocumentForm({
       if (onSaveDraft) {
         res = await onSaveDraft(formDataPayload);
       } else {
-        res = await saveProformaDraftAction(formDataPayload, lang, getEffectiveProformaId() || draftId || proformaId);
+        res = await saveProformaDraftAction(formDataPayload, lang, getEffectiveProformaId() || undefined);
       }
 
       if (!res) {
@@ -3661,11 +3745,19 @@ export function ProformaDocumentForm({
           scrollToAndFocusProformaField(fieldErrors);
         }
         const firstFieldErr = Object.values(fieldErrors)[0];
+        const isCleanToastMsg = (m?: any) =>
+          Boolean(
+            m &&
+            typeof m === 'string' &&
+            !/^(form validation error|validation error|bad request)$/i.test(m.trim()) &&
+            !/^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(m.trim()) &&
+            !/<(!DOCTYPE|html)/i.test(m)
+          );
         const toastMsg =
-          (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
+          (isCleanToastMsg(generalError) ? generalError : null) ||
           firstFieldErr ||
-          (res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message) ? res.message : null) ||
-          (res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error) ? res.error : null) ||
+          (isCleanToastMsg(res?.message) ? res.message : null) ||
+          (isCleanToastMsg(res?.error) ? res.error : null) ||
           'Failed to save draft. Please check highlighted fields.';
         toast.error(toastMsg);
         return;
@@ -3806,9 +3898,9 @@ export function ProformaDocumentForm({
       const plainPayload = buildPayload();
       let res: any;
       if (onSubmitProforma) {
-        res = await onSubmitProforma(formDataPayload, getEffectiveProformaId() || draftId || proformaId);
+        res = await onSubmitProforma(formDataPayload, getEffectiveProformaId() || undefined);
       } else {
-        res = await submitProformaAction(formDataPayload, lang, getEffectiveProformaId() || draftId || proformaId);
+        res = await submitProformaAction(formDataPayload, lang, getEffectiveProformaId() || undefined);
       }
 
       if (!res) {
@@ -3832,11 +3924,19 @@ export function ProformaDocumentForm({
           scrollToAndFocusProformaField(fieldErrors);
         }
         const firstFieldErr = Object.values(fieldErrors)[0];
+        const isCleanToastMsg = (m?: any) =>
+          Boolean(
+            m &&
+            typeof m === 'string' &&
+            !/^(form validation error|validation error|bad request)$/i.test(m.trim()) &&
+            !/^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(m.trim()) &&
+            !/<(!DOCTYPE|html)/i.test(m)
+          );
         const toastMsg =
-          (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError) ? generalError : null) ||
+          (isCleanToastMsg(generalError) ? generalError : null) ||
           firstFieldErr ||
-          (res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message) ? res.message : null) ||
-          (res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error) ? res.error : null) ||
+          (isCleanToastMsg(res?.message) ? res.message : null) ||
+          (isCleanToastMsg(res?.error) ? res.error : null) ||
           'Failed to submit Proforma Invoice. Please check highlighted fields.';
         toast.error(toastMsg);
         return;

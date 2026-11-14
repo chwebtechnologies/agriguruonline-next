@@ -15,6 +15,9 @@ export interface DocPrintPreviewModalProps {
   candidateIds?: string[];
   contractId?: string;
   confirmationId?: string;
+  proformaId?: string;
+  shipmentInstructionId?: string;
+  customInvoiceId?: string;
 }
 
 /**
@@ -147,6 +150,9 @@ export default function DocPrintPreviewModal({
   candidateIds,
   contractId,
   confirmationId,
+  proformaId,
+  shipmentInstructionId,
+  customInvoiceId,
 }: DocPrintPreviewModalProps) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -177,9 +183,12 @@ export default function DocPrintPreviewModal({
         [
           cleanId,
           ...(candidateIds || []).map((id) => String(id || '').trim()),
+          String(customInvoiceId || '').trim(),
+          String(shipmentInstructionId || '').trim(),
+          String(proformaId || '').trim(),
           String(contractId || '').trim(),
           String(confirmationId || '').trim(),
-        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(id)))
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|custom|custom-invoice|invoice|step-\d+)$/i.test(id)))
       )
     );
 
@@ -198,6 +207,9 @@ export default function DocPrintPreviewModal({
         candidateIds: allCandidateIds,
         contractId,
         confirmationId,
+        proformaId,
+        shipmentInstructionId,
+        customInvoiceId,
         lang,
       });
 
@@ -214,7 +226,7 @@ export default function DocPrintPreviewModal({
     } finally {
       setLoading(false);
     }
-  }, [prefix, docId, candidateIds, contractId, confirmationId, lang]);
+  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, lang]);
 
   useEffect(() => {
     if (!isOpen) {

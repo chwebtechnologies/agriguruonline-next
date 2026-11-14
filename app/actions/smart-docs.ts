@@ -50,6 +50,7 @@ import {
   type SaveConfirmationPayload,
   extractConfirmationData,
   extractContractData,
+  extractCustomInvoiceData,
   extractProductDetailData,
   extractPaymentTermDetailData,
   extractSellerDetailData,
@@ -57,11 +58,30 @@ import {
   generateSmartDocsCuid,
   isValidCuidOrId,
   extractApiValidationErrors,
+  convertDataUrlToBlob,
 } from "@/lib/api/smart-docs.service";
+
+/**
+ * Checks whether an error string is a raw Express / Nginx routing error, HTML error page,
+ * or 404/5xx status message that should never be shown to end users.
+ */
+function isRawRoutingOrHtmlError(str?: any): boolean {
+  if (!str || typeof str !== "string") return false;
+  const s = str.trim();
+  return (
+    /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
+    /^<!DOCTYPE\b/i.test(s) ||
+    /<html[\s>]/i.test(s) ||
+    /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
+    /^(not found|bad gateway|service unavailable|gateway timeout)$/i.test(s) ||
+    /^route\s+.*\s+not found/i.test(s)
+  );
+}
 
 /**
  * Helper to ensure error messages returned from server actions NEVER leak generic strings
  * like "Form Validation Error", "Validation Error", "Bad Request", etc.
+ * Also intercepts raw Express / proxy router messages ("Cannot PATCH /api/...", "Cannot POST /api/...").
  * Extracts the first specific human-readable field error message from backend error sources when available.
  */
 function sanitizeActionErrorMessage(
@@ -69,14 +89,18 @@ function sanitizeActionErrorMessage(
   errorSource?: any,
   fallback: string = "Validation error occurred. Please check highlighted fields."
 ): string {
-  const isGeneric = (str?: any) =>
-    !str ||
-    typeof str !== "string" ||
-    /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(
-      str.trim()
+  const isGeneric = (str?: any) => {
+    if (!str || typeof str !== "string") return true;
+    const s = str.trim();
+    return (
+      /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s) ||
+      /^[a-z0-9_.-]+$/i.test(s) ||
+      s.toLowerCase().includes("should not be empty") ||
+      s.toLowerCase().includes("must be")
     );
+  };
 
-  if (!isGeneric(rawMsg)) {
+  if (!isGeneric(rawMsg) && !isRawRoutingOrHtmlError(rawMsg)) {
     return String(rawMsg).trim();
   }
 
@@ -85,13 +109,35 @@ function sanitizeActionErrorMessage(
       const apiErrors = extractApiValidationErrors(errorSource);
       if (apiErrors && apiErrors.length > 0 && apiErrors[0].message) {
         const msg = apiErrors[0].message.trim();
-        if (!isGeneric(msg)) {
+        if (!isGeneric(msg) && !isRawRoutingOrHtmlError(msg)) {
+          return msg;
+        }
+      }
+      if (typeof errorSource.message === "string") {
+        const msg = errorSource.message.trim();
+        if (!isGeneric(msg) && !isRawRoutingOrHtmlError(msg)) {
+          return msg;
+        }
+      }
+      if (typeof errorSource.error === "string") {
+        const msg = errorSource.error.trim();
+        if (!isGeneric(msg) && !isRawRoutingOrHtmlError(msg)) {
+          return msg;
+        }
+      }
+      if (typeof errorSource.data?.message === "string") {
+        const msg = errorSource.data.message.trim();
+        if (!isGeneric(msg) && !isRawRoutingOrHtmlError(msg)) {
           return msg;
         }
       }
     } catch {
       // ignore
     }
+  }
+
+  if (isRawRoutingOrHtmlError(rawMsg)) {
+    return "Service temporarily unavailable. Please try again or contact support.";
   }
 
   return fallback;
@@ -1108,7 +1154,7 @@ export async function saveConfirmationDraftAction(
       };
     }
 
-    const errorFields =
+    let errorFields =
       rawRes.error_fields ||
       rawRes.data?.error_fields ||
       rawRes.errors ||
@@ -1116,6 +1162,17 @@ export async function saveConfirmationDraftAction(
       rawRes.raw?.error_fields ||
       rawRes.raw?.errors ||
       null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
 
     const sanitizedError = sanitizeActionErrorMessage(
       rawRes?.message || rawRes?.error,
@@ -1444,18 +1501,43 @@ export async function saveContractDraftAction(
     }
 
     const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
-    const directContractId = isFormData
-      ? payload.get("contract_id") || (payload.get("id") !== confIdInPayload ? payload.get("id") : "")
-      : payload?.contract_id || (payload?.id !== confIdInPayload ? payload?.id : "");
-    const rawEffectiveId = (id && String(id).trim() !== String(confIdInPayload || "").trim())
-      ? String(id).trim()
-      : String(directContractId || "").trim();
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("contract_id") || payload.get("id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.contract_id || payload?.id || payload?.confirmation_id || "").trim());
 
     // Filter out invalid placeholder words like "contract", "confirmation", etc.
     const effectiveId =
       rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawEffectiveId)
         ? rawEffectiveId
         : undefined;
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("contract_id", effectiveId);
+        payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("contract_id");
+        payload.delete("sales_contract_id");
+      }
+      if (confIdInPayload) {
+        payload.set("confirmation_id", String(confIdInPayload));
+      }
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.contract_id = effectiveId;
+        payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.contract_id;
+        delete payload.sales_contract_id;
+      }
+      if (confIdInPayload) {
+        payload.confirmation_id = String(confIdInPayload);
+      }
+    }
 
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.saveContractDraft(
@@ -1540,7 +1622,7 @@ export async function saveContractDraftAction(
       };
     }
 
-    const errorFields =
+    let errorFields =
       rawRes.error_fields ||
       rawRes.data?.error_fields ||
       rawRes.errors ||
@@ -1548,6 +1630,17 @@ export async function saveContractDraftAction(
       rawRes.raw?.error_fields ||
       rawRes.raw?.errors ||
       null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
 
     const sanitizedError = sanitizeActionErrorMessage(
       rawRes?.message || rawRes?.error,
@@ -1662,18 +1755,43 @@ export async function submitContractAction(
     }
 
     const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
-    const directContractId = isFormData
-      ? payload.get("contract_id") || (payload.get("id") !== confIdInPayload ? payload.get("id") : "")
-      : payload?.contract_id || (payload?.id !== confIdInPayload ? payload?.id : "");
-    const rawEffectiveId = (id && String(id).trim() !== String(confIdInPayload || "").trim())
-      ? String(id).trim()
-      : String(directContractId || "").trim();
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("contract_id") || payload.get("id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.contract_id || payload?.id || payload?.confirmation_id || "").trim());
 
     // Filter out invalid placeholder words like "contract", "confirmation", etc.
     const effectiveId =
       rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|step-\d+)$/i.test(rawEffectiveId)
         ? rawEffectiveId
         : undefined;
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("contract_id", effectiveId);
+        payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("contract_id");
+        payload.delete("sales_contract_id");
+      }
+      if (confIdInPayload) {
+        payload.set("confirmation_id", String(confIdInPayload));
+      }
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.contract_id = effectiveId;
+        payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.contract_id;
+        delete payload.sales_contract_id;
+      }
+      if (confIdInPayload) {
+        payload.confirmation_id = String(confIdInPayload);
+      }
+    }
 
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.submitContract(
@@ -1758,7 +1876,7 @@ export async function submitContractAction(
       };
     }
 
-    const errorFields =
+    let errorFields =
       rawRes.error_fields ||
       rawRes.data?.error_fields ||
       rawRes.errors ||
@@ -1766,6 +1884,17 @@ export async function submitContractAction(
       rawRes.raw?.error_fields ||
       rawRes.raw?.errors ||
       null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
 
     const sanitizedError = sanitizeActionErrorMessage(
       rawRes?.message || rawRes?.error,
@@ -1808,10 +1937,11 @@ export async function getProformaAction(
   lang: string = "en"
 ): Promise<GetProformaActionResult> {
   try {
-    if (!id || !String(id).trim()) {
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId || /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanId)) {
       return {
         success: false,
-        error: "Proforma ID is required",
+        error: "Valid Proforma ID is required",
         data: null,
       };
     }
@@ -1828,7 +1958,7 @@ export async function getProformaAction(
 
     const safeLang = getSafeLang(lang || "en");
     const rawRes = await smartDocsService.getProforma(
-      id,
+      cleanId,
       {
         lang: safeLang,
         source: "web",
@@ -1951,17 +2081,48 @@ export async function saveProformaDraftAction(
 
     const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
     const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
-    const directProformaId = isFormData
-      ? payload.get("proforma_id") || payload.get("proforma_invoice_id") || (payload.get("id") !== contractIdInPayload && payload.get("id") !== confIdInPayload ? payload.get("id") : "")
-      : payload?.proforma_id || payload?.proforma_invoice_id || (payload?.id !== contractIdInPayload && payload?.id !== confIdInPayload ? payload?.id : "");
-    const rawEffectiveId = (id && String(id).trim() !== String(contractIdInPayload || "").trim() && String(id).trim() !== String(confIdInPayload || "").trim())
-      ? String(id).trim()
-      : String(directProformaId || "").trim();
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("proforma_id") || payload.get("proforma_invoice_id") || payload.get("proformaId") || payload.get("id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || payload?.contract_id || payload?.confirmation_id || "").trim());
 
     const effectiveId =
       rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(rawEffectiveId)
         ? rawEffectiveId
         : undefined;
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("proforma_id", effectiveId);
+        payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("proforma_id");
+        payload.delete("proforma_invoice_id");
+      }
+      if (contractIdInPayload) {
+        payload.set("contract_id", String(contractIdInPayload));
+      }
+      if (confIdInPayload) {
+        payload.set("confirmation_id", String(confIdInPayload));
+      }
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.proforma_id = effectiveId;
+        payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.proforma_id;
+        delete payload.proforma_invoice_id;
+      }
+      if (contractIdInPayload) {
+        payload.contract_id = String(contractIdInPayload);
+      }
+      if (confIdInPayload) {
+        payload.confirmation_id = String(confIdInPayload);
+      }
+    }
 
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.saveProformaDraft(
@@ -2045,7 +2206,7 @@ export async function saveProformaDraftAction(
       };
     }
 
-    const errorFields =
+    let errorFields =
       rawRes.error_fields ||
       rawRes.data?.error_fields ||
       rawRes.errors ||
@@ -2053,6 +2214,17 @@ export async function saveProformaDraftAction(
       rawRes.raw?.error_fields ||
       rawRes.raw?.errors ||
       null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
 
     const sanitizedError = sanitizeActionErrorMessage(
       rawRes?.message || rawRes?.error,
@@ -2154,17 +2326,48 @@ export async function submitProformaAction(
 
     const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
     const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
-    const directProformaId = isFormData
-      ? payload.get("proforma_id") || payload.get("proforma_invoice_id") || (payload.get("id") !== contractIdInPayload && payload.get("id") !== confIdInPayload ? payload.get("id") : "")
-      : payload?.proforma_id || payload?.proforma_invoice_id || (payload?.id !== contractIdInPayload && payload?.id !== confIdInPayload ? payload?.id : "");
-    const rawEffectiveId = (id && String(id).trim() !== String(contractIdInPayload || "").trim() && String(id).trim() !== String(confIdInPayload || "").trim())
-      ? String(id).trim()
-      : String(directProformaId || "").trim();
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("proforma_id") || payload.get("proforma_invoice_id") || payload.get("proformaId") || payload.get("id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.proforma_id || payload?.proforma_invoice_id || payload?.proformaId || payload?.id || payload?.contract_id || payload?.confirmation_id || "").trim());
 
     const effectiveId =
       rawEffectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(rawEffectiveId)
         ? rawEffectiveId
         : undefined;
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("proforma_id", effectiveId);
+        payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("proforma_id");
+        payload.delete("proforma_invoice_id");
+      }
+      if (contractIdInPayload) {
+        payload.set("contract_id", String(contractIdInPayload));
+      }
+      if (confIdInPayload) {
+        payload.set("confirmation_id", String(confIdInPayload));
+      }
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.proforma_id = effectiveId;
+        payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.proforma_id;
+        delete payload.proforma_invoice_id;
+      }
+      if (contractIdInPayload) {
+        payload.contract_id = String(contractIdInPayload);
+      }
+      if (confIdInPayload) {
+        payload.confirmation_id = String(confIdInPayload);
+      }
+    }
 
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.submitProforma(
@@ -2248,7 +2451,7 @@ export async function submitProformaAction(
       };
     }
 
-    const errorFields =
+    let errorFields =
       rawRes.error_fields ||
       rawRes.data?.error_fields ||
       rawRes.errors ||
@@ -2256,6 +2459,17 @@ export async function submitProformaAction(
       rawRes.raw?.error_fields ||
       rawRes.raw?.errors ||
       null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
 
     const sanitizedError = sanitizeActionErrorMessage(
       rawRes?.message || rawRes?.error,
@@ -2442,37 +2656,43 @@ export async function saveShipmentInstructionDraftAction(
     const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
     const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
     const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
-
-    const directIdInPayload = isFormData
-      ? payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id")
-      : payload?.shipment_instruction_id || payload?.instruction_id || payload?.id;
-
-    const isInheritedParentId =
-      directIdInPayload &&
-      (directIdInPayload === contractIdInPayload ||
-        directIdInPayload === confIdInPayload ||
-        directIdInPayload === proformaIdInPayload);
-
-    const safeDirectId = isInheritedParentId
-      ? (isFormData
-          ? payload.get("shipment_instruction_id") || payload.get("instruction_id")
-          : payload?.shipment_instruction_id || payload?.instruction_id)
-      : directIdInPayload;
-
-    const rawEffectiveId = (id && String(id).trim()) || (safeDirectId && String(safeDirectId).trim());
-
-    const isMatchingParent =
-      rawEffectiveId &&
-      (rawEffectiveId === String(contractIdInPayload || "").trim() ||
-        rawEffectiveId === String(confIdInPayload || "").trim() ||
-        rawEffectiveId === String(proformaIdInPayload || "").trim());
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id") || payload.get("proforma_id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id || "").trim());
 
     const effectiveId =
       rawEffectiveId &&
-      !isMatchingParent &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(rawEffectiveId)
         ? rawEffectiveId
         : undefined;
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("shipment_instruction_id", effectiveId);
+        payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("shipment_instruction_id");
+        payload.delete("instruction_id");
+      }
+      if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
+      if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
+      if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.shipment_instruction_id = effectiveId;
+        payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.shipment_instruction_id;
+        delete payload.instruction_id;
+      }
+      if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
+      if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
+      if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
+    }
 
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.saveShipmentInstructionDraft(
@@ -2556,7 +2776,7 @@ export async function saveShipmentInstructionDraftAction(
       };
     }
 
-    const errorFields =
+    let errorFields =
       rawRes.error_fields ||
       rawRes.data?.error_fields ||
       rawRes.errors ||
@@ -2564,6 +2784,17 @@ export async function saveShipmentInstructionDraftAction(
       rawRes.raw?.error_fields ||
       rawRes.raw?.errors ||
       null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
 
     const sanitizedError = sanitizeActionErrorMessage(
       rawRes?.message || rawRes?.error,
@@ -2666,37 +2897,43 @@ export async function submitShipmentInstructionAction(
     const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
     const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
     const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
-
-    const directIdInPayload = isFormData
-      ? payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id")
-      : payload?.shipment_instruction_id || payload?.instruction_id || payload?.id;
-
-    const isInheritedParentId =
-      directIdInPayload &&
-      (directIdInPayload === contractIdInPayload ||
-        directIdInPayload === confIdInPayload ||
-        directIdInPayload === proformaIdInPayload);
-
-    const safeDirectId = isInheritedParentId
-      ? (isFormData
-          ? payload.get("shipment_instruction_id") || payload.get("instruction_id")
-          : payload?.shipment_instruction_id || payload?.instruction_id)
-      : directIdInPayload;
-
-    const rawEffectiveId = (id && String(id).trim()) || (safeDirectId && String(safeDirectId).trim());
-
-    const isMatchingParent =
-      rawEffectiveId &&
-      (rawEffectiveId === String(contractIdInPayload || "").trim() ||
-        rawEffectiveId === String(confIdInPayload || "").trim() ||
-        rawEffectiveId === String(proformaIdInPayload || "").trim());
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (isFormData
+        ? String(payload.get("shipment_instruction_id") || payload.get("instruction_id") || payload.get("id") || payload.get("proforma_id") || payload.get("contract_id") || payload.get("confirmation_id") || "").trim()
+        : String(payload?.shipment_instruction_id || payload?.instruction_id || payload?.id || payload?.proforma_id || payload?.contract_id || payload?.confirmation_id || "").trim());
 
     const effectiveId =
       rawEffectiveId &&
-      !isMatchingParent &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(rawEffectiveId)
         ? rawEffectiveId
         : undefined;
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("shipment_instruction_id", effectiveId);
+        payload.set("id", effectiveId);
+      } else {
+        payload.delete("id");
+        payload.delete("shipment_instruction_id");
+        payload.delete("instruction_id");
+      }
+      if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
+      if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
+      if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.shipment_instruction_id = effectiveId;
+        payload.id = effectiveId;
+      } else {
+        delete payload.id;
+        delete payload.shipment_instruction_id;
+        delete payload.instruction_id;
+      }
+      if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
+      if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
+      if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
+    }
 
     const safeLang = getSafeLang(lang || "en");
     let rawRes = await smartDocsService.submitShipmentInstruction(
@@ -2780,7 +3017,7 @@ export async function submitShipmentInstructionAction(
       };
     }
 
-    const errorFields =
+    let errorFields =
       rawRes.error_fields ||
       rawRes.data?.error_fields ||
       rawRes.errors ||
@@ -2788,6 +3025,17 @@ export async function submitShipmentInstructionAction(
       rawRes.raw?.error_fields ||
       rawRes.raw?.errors ||
       null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
 
     const sanitizedError = sanitizeActionErrorMessage(
       rawRes?.message || rawRes?.error,
@@ -2810,6 +3058,665 @@ export async function submitShipmentInstructionAction(
       success: false,
       error: error?.message || "Internal error occurred while submitting shipment instruction",
       message: error?.message || "Internal error occurred while submitting shipment instruction",
+    };
+  }
+}
+
+export interface GetCustomInvoiceActionResult {
+  success: boolean;
+  data: any | null;
+  error?: string;
+  message?: string;
+}
+
+export async function getCustomInvoiceAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetCustomInvoiceActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Custom Invoice ID is required",
+        data: null,
+      };
+    }
+
+    const token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getCustomInvoice(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch custom invoice details",
+        data: null,
+      };
+    }
+
+    const extData = extractCustomInvoiceData(rawRes);
+    return {
+      success: true,
+      data: extData || rawRes.data || rawRes,
+    };
+  } catch (error: any) {
+    console.error("[getCustomInvoiceAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch custom invoice details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveCustomInvoiceDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+export async function saveCustomInvoiceDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveCustomInvoiceDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    let isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    // Convert object payload containing base64 data URL signature to FormData to prevent HTTP 413 "Request Entity Too Large"
+    if (!isFormData && payload && typeof payload === "object") {
+      const sigData =
+        payload.seller_signature ||
+        payload.seller_signature_url ||
+        payload.signature ||
+        payload.stamp_image_url ||
+        payload.stamp;
+
+      if (typeof sigData === "string" && sigData.trim().startsWith("data:")) {
+        const convertedBlob = convertDataUrlToBlob(sigData.trim());
+        if (convertedBlob) {
+          const fd = new FormData();
+          for (const [k, v] of Object.entries(payload)) {
+            if (v === undefined || v === null) continue;
+            if (
+              k === "seller_signature" ||
+              k === "seller_signature_url" ||
+              k === "signature" ||
+              k === "stamp_image_url" ||
+              k === "stamp"
+            ) {
+              continue;
+            }
+            if (typeof v === "object" && !(typeof Blob !== "undefined" && v instanceof Blob)) {
+              fd.append(k, JSON.stringify(v));
+            } else {
+              fd.append(k, String(v));
+            }
+          }
+          fd.append("seller_signature", convertedBlob, "seller_signature.png");
+          fd.append("remove_seller_signature", "false");
+          payload = fd;
+          isFormData = true;
+        }
+      }
+    }
+
+    const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
+    const shipmentIdInPayload = isFormData ? payload.get("shipment_instruction_id") : payload?.shipment_instruction_id;
+
+    const directCustomId = isFormData
+      ? (payload.get("custom_invoice_id") || payload.get("invoice_id") || payload.get("id") || "")
+      : (payload?.custom_invoice_id || payload?.invoice_id || payload?.id || "");
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (directCustomId ? String(directCustomId).trim() : "") ||
+      (shipmentIdInPayload ? String(shipmentIdInPayload).trim() : "") ||
+      (proformaIdInPayload ? String(proformaIdInPayload).trim() : "") ||
+      (contractIdInPayload ? String(contractIdInPayload).trim() : "") ||
+      (confIdInPayload ? String(confIdInPayload).trim() : "");
+
+    const isPlaceholder =
+      !rawEffectiveId ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        rawEffectiveId
+      );
+
+    const effectiveId = !isPlaceholder ? rawEffectiveId : undefined;
+
+    const watermarkVal = isFormData
+      ? (payload.get("is_watermark_enabled") ?? payload.get("watermark_enabled") ?? payload.get("watermark") ?? "true")
+      : (payload?.is_watermark_enabled ?? payload?.watermark_enabled ?? payload?.watermark ?? true);
+    const isWatermarkBool = typeof watermarkVal === "string" ? watermarkVal !== "false" && watermarkVal !== "0" : Boolean(watermarkVal);
+
+    const titleVal = isFormData
+      ? (payload.get("pdf_title") ?? payload.get("document_title") ?? payload.get("custom_doc_title") ?? payload.get("title") ?? "CUSTOM INVOICE")
+      : (payload?.pdf_title ?? payload?.document_title ?? payload?.custom_doc_title ?? payload?.title ?? "CUSTOM INVOICE");
+    const safeTitle = String(titleVal || "").trim() || "CUSTOM INVOICE";
+
+    const cLabel = isFormData
+      ? (payload.get("comment_label") ?? payload.get("comment_title") ?? payload.get("notes_title") ?? payload.get("title") ?? "")
+      : (payload?.comment_label ?? payload?.comment_title ?? payload?.notes_title ?? payload?.title ?? "");
+    const cValue = isFormData
+      ? (payload.get("comment_value") ?? payload.get("comment_text") ?? payload.get("notes_comment") ?? payload.get("comment") ?? "")
+      : (payload?.comment_value ?? payload?.comment_text ?? payload?.notes_comment ?? payload?.comment ?? "");
+    const safeCLabel = String(cLabel || "").trim();
+    const safeCValue = String(cValue || "").trim();
+    const effectiveCLabel = safeCLabel || (safeCValue ? "Comments" : "");
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("custom_invoice_id", effectiveId);
+        payload.set("id", effectiveId);
+      }
+      if (shipmentIdInPayload) payload.set("shipment_instruction_id", String(shipmentIdInPayload));
+      if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
+      if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
+      if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
+      payload.set("is_watermark_enabled", String(isWatermarkBool));
+      payload.set("watermark_enabled", String(isWatermarkBool));
+      payload.set("watermark", String(isWatermarkBool));
+      payload.set("pdf_title", safeTitle);
+      payload.set("document_title", safeTitle);
+      payload.set("custom_doc_title", safeTitle);
+      payload.set("comment_label", effectiveCLabel);
+      payload.set("comment_title", effectiveCLabel);
+      payload.set("notes_title", effectiveCLabel);
+      payload.set("comment_value", safeCValue);
+      payload.set("comment_text", safeCValue);
+      payload.set("notes_comment", safeCValue);
+      payload.set("comment", safeCValue);
+      const rawPricePerBag = payload.get("price_per_bag") ?? payload.get("rate_per_bag") ?? payload.get("rate_bag");
+      if (rawPricePerBag !== undefined && rawPricePerBag !== null && String(rawPricePerBag).trim() !== "") {
+        payload.set("price_per_bag", String(rawPricePerBag).trim());
+        payload.set("rate_per_bag", String(rawPricePerBag).trim());
+      }
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.custom_invoice_id = effectiveId;
+        payload.id = effectiveId;
+      }
+      if (shipmentIdInPayload) payload.shipment_instruction_id = String(shipmentIdInPayload);
+      if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
+      if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
+      if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
+      payload.is_watermark_enabled = isWatermarkBool;
+      payload.watermark_enabled = isWatermarkBool;
+      payload.watermark = isWatermarkBool;
+      payload.pdf_title = safeTitle;
+      payload.document_title = safeTitle;
+      payload.custom_doc_title = safeTitle;
+      payload.comment_label = effectiveCLabel;
+      payload.comment_title = effectiveCLabel;
+      payload.notes_title = effectiveCLabel;
+      payload.comment_value = safeCValue;
+      payload.comment_text = safeCValue;
+      payload.notes_comment = safeCValue;
+      payload.comment = safeCValue;
+      const rawPricePerBag = payload.price_per_bag ?? payload.rate_per_bag ?? payload.rate_bag;
+      if (rawPricePerBag !== undefined && rawPricePerBag !== null && String(rawPricePerBag).trim() !== "") {
+        const numPrice = Number(rawPricePerBag);
+        payload.price_per_bag = !isNaN(numPrice) ? numPrice : rawPricePerBag;
+        payload.rate_per_bag = !isNaN(numPrice) ? numPrice : rawPricePerBag;
+      }
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveCustomInvoiceDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+        id: effectiveId,
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.saveCustomInvoiceDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+              id: effectiveId,
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveCustomInvoiceDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save custom invoice draft",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false)
+    );
+
+    const generatedId =
+      rawRes?.data?.custom_invoice_id ||
+      rawRes?.custom_invoice_id ||
+      rawRes?.data?.invoice_id ||
+      rawRes?.invoice_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      effectiveId;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs/draft`);
+      } catch (revErr) {
+        console.warn("[saveCustomInvoiceDraftAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message: rawRes.message || "Custom Invoice draft saved successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : effectiveId,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    let errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
+
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to save custom invoice draft. Please check highlighted fields."
+    );
+
+    return {
+      success: false,
+      message: sanitizedError,
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : effectiveId,
+      error: sanitizedError,
+    };
+  } catch (error: any) {
+    console.error("[saveCustomInvoiceDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving custom invoice draft",
+      message: error?.message || "Internal error occurred while saving custom invoice draft",
+    };
+  }
+}
+
+export interface SubmitCustomInvoiceActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+export async function submitCustomInvoiceAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SubmitCustomInvoiceActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    let isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    // Convert object payload containing base64 data URL signature to FormData to prevent HTTP 413 "Request Entity Too Large"
+    if (!isFormData && payload && typeof payload === "object") {
+      const sigData =
+        payload.seller_signature ||
+        payload.seller_signature_url ||
+        payload.signature ||
+        payload.stamp_image_url ||
+        payload.stamp;
+
+      if (typeof sigData === "string" && sigData.trim().startsWith("data:")) {
+        const convertedBlob = convertDataUrlToBlob(sigData.trim());
+        if (convertedBlob) {
+          const fd = new FormData();
+          for (const [k, v] of Object.entries(payload)) {
+            if (v === undefined || v === null) continue;
+            if (
+              k === "seller_signature" ||
+              k === "seller_signature_url" ||
+              k === "signature" ||
+              k === "stamp_image_url" ||
+              k === "stamp"
+            ) {
+              continue;
+            }
+            if (typeof v === "object" && !(typeof Blob !== "undefined" && v instanceof Blob)) {
+              fd.append(k, JSON.stringify(v));
+            } else {
+              fd.append(k, String(v));
+            }
+          }
+          fd.append("seller_signature", convertedBlob, "seller_signature.png");
+          fd.append("remove_seller_signature", "false");
+          payload = fd;
+          isFormData = true;
+        }
+      }
+    }
+
+    const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
+    const shipmentIdInPayload = isFormData ? payload.get("shipment_instruction_id") : payload?.shipment_instruction_id;
+
+    const directCustomId = isFormData
+      ? (payload.get("custom_invoice_id") || payload.get("invoice_id") || payload.get("id") || "")
+      : (payload?.custom_invoice_id || payload?.invoice_id || payload?.id || "");
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (directCustomId ? String(directCustomId).trim() : "") ||
+      (shipmentIdInPayload ? String(shipmentIdInPayload).trim() : "") ||
+      (proformaIdInPayload ? String(proformaIdInPayload).trim() : "") ||
+      (contractIdInPayload ? String(contractIdInPayload).trim() : "") ||
+      (confIdInPayload ? String(confIdInPayload).trim() : "");
+
+    const isPlaceholder =
+      !rawEffectiveId ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        rawEffectiveId
+      );
+
+    const effectiveId = !isPlaceholder ? rawEffectiveId : undefined;
+
+    const watermarkVal = isFormData
+      ? (payload.get("is_watermark_enabled") ?? payload.get("watermark_enabled") ?? payload.get("watermark") ?? "true")
+      : (payload?.is_watermark_enabled ?? payload?.watermark_enabled ?? payload?.watermark ?? true);
+    const isWatermarkBool = typeof watermarkVal === "string" ? watermarkVal !== "false" && watermarkVal !== "0" : Boolean(watermarkVal);
+
+    const titleVal = isFormData
+      ? (payload.get("pdf_title") ?? payload.get("document_title") ?? payload.get("custom_doc_title") ?? payload.get("title") ?? "CUSTOM INVOICE")
+      : (payload?.pdf_title ?? payload?.document_title ?? payload?.custom_doc_title ?? payload?.title ?? "CUSTOM INVOICE");
+    const safeTitle = String(titleVal || "").trim() || "CUSTOM INVOICE";
+
+    const cLabel = isFormData
+      ? (payload.get("comment_label") ?? payload.get("comment_title") ?? payload.get("notes_title") ?? payload.get("title") ?? "")
+      : (payload?.comment_label ?? payload?.comment_title ?? payload?.notes_title ?? payload?.title ?? "");
+    const cValue = isFormData
+      ? (payload.get("comment_value") ?? payload.get("comment_text") ?? payload.get("notes_comment") ?? payload.get("comment") ?? "")
+      : (payload?.comment_value ?? payload?.comment_text ?? payload?.notes_comment ?? payload?.comment ?? "");
+    const safeCLabel = String(cLabel || "").trim();
+    const safeCValue = String(cValue || "").trim();
+    const effectiveCLabel = safeCLabel || (safeCValue ? "Comments" : "");
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("custom_invoice_id", effectiveId);
+        payload.set("id", effectiveId);
+      }
+      if (shipmentIdInPayload) payload.set("shipment_instruction_id", String(shipmentIdInPayload));
+      if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
+      if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
+      if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
+      payload.set("is_watermark_enabled", String(isWatermarkBool));
+      payload.set("watermark_enabled", String(isWatermarkBool));
+      payload.set("watermark", String(isWatermarkBool));
+      payload.set("pdf_title", safeTitle);
+      payload.set("document_title", safeTitle);
+      payload.set("custom_doc_title", safeTitle);
+      payload.set("comment_label", effectiveCLabel);
+      payload.set("comment_title", effectiveCLabel);
+      payload.set("notes_title", effectiveCLabel);
+      payload.set("comment_value", safeCValue);
+      payload.set("comment_text", safeCValue);
+      payload.set("notes_comment", safeCValue);
+      payload.set("comment", safeCValue);
+      const rawPricePerBag = payload.get("price_per_bag") ?? payload.get("rate_per_bag") ?? payload.get("rate_bag");
+      if (rawPricePerBag !== undefined && rawPricePerBag !== null && String(rawPricePerBag).trim() !== "") {
+        payload.set("price_per_bag", String(rawPricePerBag).trim());
+        payload.set("rate_per_bag", String(rawPricePerBag).trim());
+      }
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.custom_invoice_id = effectiveId;
+        payload.id = effectiveId;
+      }
+      if (shipmentIdInPayload) payload.shipment_instruction_id = String(shipmentIdInPayload);
+      if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
+      if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
+      if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
+      payload.is_watermark_enabled = isWatermarkBool;
+      payload.watermark_enabled = isWatermarkBool;
+      payload.watermark = isWatermarkBool;
+      payload.pdf_title = safeTitle;
+      payload.document_title = safeTitle;
+      payload.custom_doc_title = safeTitle;
+      payload.comment_label = effectiveCLabel;
+      payload.comment_title = effectiveCLabel;
+      payload.notes_title = effectiveCLabel;
+      payload.comment_value = safeCValue;
+      payload.comment_text = safeCValue;
+      payload.notes_comment = safeCValue;
+      payload.comment = safeCValue;
+      const rawPricePerBag = payload.price_per_bag ?? payload.rate_per_bag ?? payload.rate_bag;
+      if (rawPricePerBag !== undefined && rawPricePerBag !== null && String(rawPricePerBag).trim() !== "") {
+        const numPrice = Number(rawPricePerBag);
+        payload.price_per_bag = !isNaN(numPrice) ? numPrice : rawPricePerBag;
+        payload.rate_per_bag = !isNaN(numPrice) ? numPrice : rawPricePerBag;
+      }
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitCustomInvoice(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+        id: effectiveId,
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitCustomInvoice(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+              id: effectiveId,
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitCustomInvoiceAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit custom invoice",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false)
+    );
+
+    const generatedId =
+      rawRes?.data?.custom_invoice_id ||
+      rawRes?.custom_invoice_id ||
+      rawRes?.data?.invoice_id ||
+      rawRes?.invoice_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      effectiveId;
+
+    if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs/draft`);
+      } catch (revErr) {
+        console.warn("[submitCustomInvoiceAction] Revalidate warning:", revErr);
+      }
+
+      return {
+        success: true,
+        message: rawRes.message || "Custom Invoice submitted successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : effectiveId,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    let errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
+
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to submit custom invoice. Please check highlighted fields."
+    );
+
+    return {
+      success: false,
+      message: sanitizedError,
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : effectiveId,
+      error: sanitizedError,
+    };
+  } catch (error: any) {
+    console.error("[submitCustomInvoiceAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while submitting custom invoice",
+      message: error?.message || "Internal error occurred while submitting custom invoice",
     };
   }
 }
@@ -2940,7 +3847,7 @@ export async function submitConfirmationAction(
       };
     }
 
-    const errorFields =
+    let errorFields =
       rawRes.error_fields ||
       rawRes.data?.error_fields ||
       rawRes.errors ||
@@ -2948,6 +3855,17 @@ export async function submitConfirmationAction(
       rawRes.raw?.error_fields ||
       rawRes.raw?.errors ||
       null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
 
     const sanitizedError = sanitizeActionErrorMessage(
       rawRes?.message || rawRes?.error,
@@ -2982,6 +3900,8 @@ export interface GetDocPreviewActionParams {
   contractId?: string;
   confirmationId?: string;
   proformaId?: string;
+  shipmentInstructionId?: string;
+  customInvoiceId?: string;
 }
 
 export interface GetDocPreviewActionResult {
@@ -2999,16 +3919,39 @@ export async function getDocPreviewAction(
   params: GetDocPreviewActionParams
 ): Promise<GetDocPreviewActionResult> {
   try {
+    const isCustomInvoice = /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
+    const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
-        [
-          cleanId,
-          ...(params.candidateIds || []).map((id) => String(id || "").trim()),
-          String(params.proformaId || "").trim(),
-          String(params.contractId || "").trim(),
-          String(params.confirmationId || "").trim(),
-        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(id)))
+        (isCustomInvoice
+          ? [
+              customId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : [
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+        ).filter(
+          (id): id is string =>
+            Boolean(
+              id &&
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                  id
+                )
+            )
+        )
       )
     );
 
@@ -3090,6 +4033,8 @@ export interface DownloadDocPdfActionParams {
   contractId?: string;
   confirmationId?: string;
   proformaId?: string;
+  shipmentInstructionId?: string;
+  customInvoiceId?: string;
 }
 
 export interface DownloadDocPdfActionResult {
@@ -3112,16 +4057,39 @@ export async function downloadDocPdfAction(
   params: DownloadDocPdfActionParams
 ): Promise<DownloadDocPdfActionResult> {
   try {
+    const isCustomInvoice = /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
+    const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
-        [
-          cleanId,
-          ...(params.candidateIds || []).map((id) => String(id || "").trim()),
-          String(params.proformaId || "").trim(),
-          String(params.contractId || "").trim(),
-          String(params.confirmationId || "").trim(),
-        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|step-\d+)$/i.test(id)))
+        (isCustomInvoice
+          ? [
+              customId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : [
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+        ).filter(
+          (id): id is string =>
+            Boolean(
+              id &&
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                  id
+                )
+            )
+        )
       )
     );
 

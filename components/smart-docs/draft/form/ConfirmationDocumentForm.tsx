@@ -108,6 +108,37 @@ export function isRawDbId(str?: string | null): boolean {
 }
 
 /**
+ * Safely extracts clean human-readable text for free-form fields (instructions, notes, comments, etc.).
+ * Preserves user text verbatim without stripping strings that have no spaces or match DB ID patterns.
+ */
+export function toCleanText(val: any): string {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'string') {
+    const t = val.trim();
+    if (!t || t === '[object Object]' || t === 'undefined' || t === 'null') return '';
+    return val;
+  }
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    const candidate =
+      val.text ||
+      val.instructionText ||
+      val.instruction ||
+      val.details ||
+      val.comment ||
+      val.notes ||
+      val.description ||
+      val.label ||
+      val.name ||
+      '';
+    if (candidate && typeof candidate === 'string' && candidate !== '[object Object]') {
+      return candidate;
+    }
+  }
+  return '';
+}
+
+/**
  * Safely extracts a clean human-readable display label.
  * Guarantees never returning "[object Object]" or raw stringified object or raw DB IDs.
  */
@@ -1073,6 +1104,7 @@ export function parseBackendFieldErrors(
 
 export interface ConfirmationDocumentFormProps {
   initialData?: any;
+  dataVersion?: number;
   steps?: StepperDocumentItem[];
   selectedStep?: StepperDocumentItem | null;
   sellers?: FormOptionItem[];
@@ -1096,6 +1128,7 @@ export interface ConfirmationDocumentFormProps {
 
 export function ConfirmationDocumentForm({
   initialData,
+  dataVersion,
   steps = [],
   selectedStep = null,
   sellers,
@@ -2055,13 +2088,16 @@ export function ConfirmationDocumentForm({
     setSellerId(val);
     setErrors((prev) => ({ ...prev, sellerId: '' }));
 
-    const selected = sellersList.find((s) => s.value === val);
+    const selected = sellersList.find(
+      (s) => String(s.value) === String(val) || String(s.id) === String(val) || String(s.label) === String(val)
+    );
     if (selected) {
       const textToFill =
         selected.instructionText ||
         selected.subLabel ||
         selected.details ||
         selected.instruction ||
+        selected.label ||
         '';
       if (textToFill) {
         setSellerInstruction(textToFill);
@@ -2075,13 +2111,16 @@ export function ConfirmationDocumentForm({
     setBuyerId(val);
     setErrors((prev) => ({ ...prev, buyerId: '' }));
 
-    const selected = buyersList.find((b) => b.value === val);
+    const selected = buyersList.find(
+      (b) => String(b.value) === String(val) || String(b.id) === String(val) || String(b.label) === String(val)
+    );
     if (selected) {
       const textToFill =
         selected.instructionText ||
         selected.subLabel ||
         selected.details ||
         selected.instruction ||
+        selected.label ||
         '';
       if (textToFill) {
         setBuyerInstruction(textToFill);
@@ -2395,12 +2434,12 @@ export function ConfirmationDocumentForm({
       }
 
       // Meta
-      const confNum = toCleanLabel(d.confirmation_number || d.confirmationNumber || d.number);
+      const confNum = toCleanText(d.confirmation_number || d.confirmationNumber || d.number);
       if (confNum) {
         setConfirmationNumber(confNum);
       }
 
-      const rawConfDate = toCleanLabel(d.confirmation_date || d.confirmationDate || d.date);
+      const rawConfDate = toCleanText(d.confirmation_date || d.confirmationDate || d.date);
       if (rawConfDate) {
         setConfirmationDate(rawConfDate.includes('T') ? rawConfDate.split('T')[0] : rawConfDate);
       }
@@ -2408,9 +2447,11 @@ export function ConfirmationDocumentForm({
       // Parties
       const rawSeller = d.seller || d.seller_instruction || d.seller_instruction_id || d.sellerId;
       const selId = toCleanId(d.seller_instruction_id || d.sellerId || d.seller_id || rawSeller);
-      const selInst = toCleanLabel(
+      const selInst = toCleanText(
         d.seller_instruction ||
         d.sellerInstruction ||
+        d.seller_details ||
+        d.sellerDetails ||
         (typeof rawSeller === 'object' ? rawSeller.instructionText || rawSeller.instruction || rawSeller.details : '')
       );
       if (selId) {
@@ -2433,9 +2474,11 @@ export function ConfirmationDocumentForm({
 
       const rawBuyer = d.buyer || d.buyer_instruction || d.buyer_instruction_id || d.buyerId;
       const buyId = toCleanId(d.buyer_instruction_id || d.buyerId || d.buyer_id || rawBuyer);
-      const buyInst = toCleanLabel(
+      const buyInst = toCleanText(
         d.buyer_instruction ||
         d.buyerInstruction ||
+        d.buyer_details ||
+        d.buyerDetails ||
         (typeof rawBuyer === 'object' ? rawBuyer.instructionText || rawBuyer.instruction || rawBuyer.details : '')
       );
       if (buyId) {
@@ -2468,7 +2511,7 @@ export function ConfirmationDocumentForm({
       if (prodId) {
         setProductId(prodId);
         currentProductIdRef.current = prodId;
-        fetchAndApplyProductDetails(prodId);
+        fetchAndApplyProductDetails(prodId, false);
         if (prodName) {
           setInternalProducts((prev) => {
             if (!prev.some((p) => toCleanId(p.value) === prodId)) {
@@ -2479,7 +2522,7 @@ export function ConfirmationDocumentForm({
         }
       }
 
-      const rawHsn = toCleanLabel(
+      const rawHsn = toCleanText(
         d.hsn_code ||
         d.hsnCode ||
         d.hsn ||
@@ -2489,7 +2532,7 @@ export function ConfirmationDocumentForm({
         setHsnCode(normalizeHsnString(rawHsn));
       }
 
-      const rawCountry = toCleanLabel(
+      const rawCountry = toCleanText(
         d.country ||
         d.productCountry ||
         d.origin_country ||
@@ -2500,7 +2543,7 @@ export function ConfirmationDocumentForm({
         setProductCountry(normalizeCountryString(rawCountry));
       }
 
-      const rawSpec = toCleanLabel(
+      const rawSpec = toCleanText(
         d.quality_specification ||
         d.specification ||
         (typeof d.product === 'object' ? d.product?.quality_specification || d.product?.specification : '')
@@ -2671,12 +2714,20 @@ export function ConfirmationDocumentForm({
 
       if (d.price !== undefined && d.price !== null) {
         setPrice(d.price);
+      } else if (d.rate !== undefined && d.rate !== null) {
+        setPrice(d.rate);
+      } else if (d.rate_price !== undefined && d.rate_price !== null) {
+        setPrice(d.rate_price);
       }
 
       if (d.total_value !== undefined && d.total_value !== null) {
         setTotalValue(d.total_value);
       } else if (d.totalValue !== undefined && d.totalValue !== null) {
         setTotalValue(d.totalValue);
+      } else if (d.total_amount !== undefined && d.total_amount !== null) {
+        setTotalValue(d.total_amount);
+      } else if (d.amount !== undefined && d.amount !== null) {
+        setTotalValue(d.amount);
       }
 
       // Shipment dates
@@ -2715,30 +2766,32 @@ export function ConfirmationDocumentForm({
         }
       }
 
-      if (d.notes !== undefined && d.notes !== null) {
-        const cleanNotes = typeof d.notes === 'string' ? d.notes : String(d.notes);
-        if (cleanNotes !== '[object Object]') {
-          setNotes(cleanNotes);
-        }
+      const rawNotes = toCleanText(d.notes ?? d.special_notes ?? d.terms_notes ?? d.terms_and_conditions);
+      if (rawNotes) {
+        setNotes(rawNotes);
       }
 
-      const cLabel = toCleanLabel(
+      const cLabel = toCleanText(
         d.comment_label ??
         d.commentLabel ??
         d.confirmation_comment_label ??
         d.comment_title
       );
-      if (cLabel !== undefined && cLabel !== null) {
+      if (cLabel) {
         setCommentLabel(cLabel);
       }
 
-      const cValue = toCleanLabel(
+      const cValue = toCleanText(
         d.comment_value ??
         d.commentValue ??
+        d.additional_comment ??
+        d.additionalComment ??
+        d.comment ??
+        d.comments ??
         d.confirmation_comment_value ??
         d.comment_text
       );
-      if (cValue !== undefined && cValue !== null) {
+      if (cValue) {
         setCommentValue(cValue);
       }
 
@@ -2751,7 +2804,7 @@ export function ConfirmationDocumentForm({
     [fetchAndApplyProductDetails]
   );
 
-  // Synchronize with initialData ONLY on initial async load or if switching to a completely DIFFERENT document
+  // Synchronize with initialData on initial load, doc change, or stepper navigation version trigger
   useEffect(() => {
     if (!initialData || typeof initialData !== 'object' || Object.keys(initialData).length === 0) {
       return;
@@ -2764,14 +2817,18 @@ export function ConfirmationDocumentForm({
       initialData.confirmationId
     );
 
-    // Once the form was already initialized, NEVER overwrite the user's active in-progress edits!
-    if (isFormInitializedRef.current) {
+    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
+    const hasDocIdChanged = Boolean(incomingDocId && incomingDocId !== lastLoadedDocIdRef.current);
+
+    // Once the form was already initialized, NEVER overwrite the user's active in-progress edits
+    // UNLESS stepper navigation / explicit version trigger or doc ID change occurred!
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
       if (hasDraftChanges) {
         return;
       }
     }
 
-    // New document or initial async load
+    // New document, initial async load, or stepper/version update
     isFormInitializedRef.current = true;
     if (incomingDocId) {
       lastLoadedDocIdRef.current = incomingDocId;
@@ -2780,7 +2837,7 @@ export function ConfirmationDocumentForm({
     setHasDraftChanges(false);
     const statusFromDoc = extractDocumentStatus(initialData);
     setHasSubmitChanges(Boolean(incomingDocId) && statusFromDoc !== 'COMPLETED');
-  }, [initialData, populateConfirmationData]);
+  }, [initialData, populateConfirmationData, dataVersion]);
 
   // Real-time calculation for MT QTY, BAG QTY & TOTAL VALUE
   useEffect(() => {

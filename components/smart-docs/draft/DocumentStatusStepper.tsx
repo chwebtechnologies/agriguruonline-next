@@ -8,6 +8,7 @@ import {
   downloadPdfFromActionResponse,
   isConfirmationStep,
   isContractStep,
+  isCustomInvoiceStep,
   extractStepRedirectId,
   extractStepId,
   getStepSelfId,
@@ -43,9 +44,6 @@ export function normalizeStepStatus(rawStatus?: string): NormalizedStatus {
   const s = String(rawStatus).toLowerCase().trim();
   if (['completed', 'complete', 'done', 'approved', 'success', 'finished'].includes(s)) {
     return 'completed';
-  }
-  if (['in_progress', 'inprogress', 'in-progress', 'active', 'current', 'processing', 'draft'].includes(s)) {
-    return 'in_progress';
   }
   if (['locked', 'lock', 'blocked'].includes(s)) {
     return 'locked';
@@ -465,14 +463,16 @@ export function DocumentStatusStepper({
       const stepName = String(
         step.document_name || step.name || step.title || step.id || ''
       ).toLowerCase();
-      const isShipment = stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4;
-      const isContract = !isShipment && (stepName.includes('contract') || step.step === 2);
-      const isProforma = !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
-      const prefix = isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
+      const isCustomInvoice = isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 5 || step.step === 6;
+      const isShipment = !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
+      const isContract = !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
+      const isProforma = !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
+      const prefix = isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
 
       const res = await downloadDocPdfAction({
         prefix,
         id: cleanId,
+        customInvoiceId: isCustomInvoice ? cleanId : undefined,
         lang,
       });
 
@@ -999,8 +999,8 @@ export function DocumentStatusStepper({
                       </span>
                       <div className="mt-0.5 flex items-center">
                         <StatusBadge
-                          status={isSelected && normalized !== 'completed' ? 'in_progress' : normalized}
-                          rawStatus={isSelected && normalized !== 'completed' ? 'in_progress' : rawStatus}
+                          status={normalized}
+                          rawStatus={rawStatus}
                           dict={dict}
                         />
                       </div>
@@ -1051,7 +1051,8 @@ function StatusBadge({
   rawStatus?: string;
   dict?: any;
 }) {
-  if (status === 'completed') {
+  const norm = normalizeStepStatus(rawStatus || status);
+  if (norm === 'completed') {
     return (
       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 leading-none">
         <i className="fa-solid fa-check text-[7px]" />
@@ -1060,24 +1061,10 @@ function StatusBadge({
     );
   }
 
-  if (status === 'in_progress') {
-    return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-brand-blue/10 text-brand-blue dark:text-sky-400 border border-brand-blue/20 dark:border-sky-500/30 leading-none">
-        <i className="fa-solid fa-circle-notch fa-spin text-[7px]" />
-        <span>{dict?.smart_docs?.status_in_progress || 'In Progress'}</span>
-      </span>
-    );
-  }
-
-  const label =
-    rawStatus && typeof rawStatus === 'string' && rawStatus.trim()
-      ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).replace(/[-_]/g, ' ')
-      : dict?.smart_docs?.status_pending || 'Pending';
-
   return (
     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 leading-none">
       <i className="fa-regular fa-clock text-[7px]" />
-      <span>{label}</span>
+      <span>{dict?.smart_docs?.status_pending || 'Pending'}</span>
     </span>
   );
 }

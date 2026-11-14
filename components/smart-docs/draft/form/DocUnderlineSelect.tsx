@@ -386,10 +386,15 @@ export function DocUnderlineSelect({
         } bg-transparent print:border-none ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
       >
         {(() => {
+          if (loading && !selectedOption && !value) {
+            return (
+              <span className="flex-1 flex items-center py-1">
+                <span className="inline-block h-3.5 w-28 max-w-full bg-muted/60 dark:bg-muted/40 rounded animate-pulse" />
+              </span>
+            );
+          }
+
           const displayText = (() => {
-            if (loading && !selectedOption) {
-              return searchPlaceholder === 'Search...' ? 'Loading options...' : placeholder;
-            }
             if (selectedOption && selectedOption.label && selectedOption.label !== '[object Object]') {
               if (isRawDbId(selectedOption.label)) {
                 return lastKnownLabelRef.current[String(value)] || placeholder;
@@ -426,7 +431,6 @@ export function DocUnderlineSelect({
           const isSelectedOrHasDisplayValue = Boolean(
             displayText &&
             displayText !== placeholder &&
-            displayText !== 'Loading options...' &&
             !isRawDbId(displayText)
           );
 
@@ -447,9 +451,6 @@ export function DocUnderlineSelect({
           );
         })()}
         <span className={`${error ? '!text-brand-red' : isOpen || isFocused ? 'text-primary scale-110 font-bold' : 'text-primary hover:text-primary-hover'} text-[11px] shrink-0 transition-all duration-200 flex items-center gap-1`}>
-          {loading && (
-            <i className="fa-solid fa-circle-notch fa-spin text-[10px] text-primary" />
-          )}
           <i
             className={`fa-solid fa-chevron-down transition-transform duration-200 ${
               isOpen ? 'rotate-180' : ''
@@ -528,7 +529,13 @@ export function DocUnderlineSelect({
                 <span className="truncate">Use &ldquo;{search.trim()}&rdquo;</span>
               </li>
             )}
-            {filteredOptions.length === 0 && (!allowCustom || !search.trim()) ? (
+            {loading && filteredOptions.length === 0 ? (
+              <div className="p-2.5 space-y-2 animate-pulse">
+                <div className="h-3.5 bg-muted/60 dark:bg-muted/40 rounded w-3/4" />
+                <div className="h-3.5 bg-muted/50 dark:bg-muted/30 rounded w-1/2" />
+                <div className="h-3.5 bg-muted/40 dark:bg-muted/20 rounded w-2/3" />
+              </div>
+            ) : filteredOptions.length === 0 && (!allowCustom || !search.trim()) ? (
               <li className="px-3 py-2 text-center text-muted-foreground italic text-xs">
                 {options.length === 0 ? 'No options available' : 'No matching options'}
               </li>

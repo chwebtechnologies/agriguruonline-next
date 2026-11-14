@@ -244,7 +244,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               id={id}
               name={name}
               rows={rows}
-              value={value}
+              value={value ?? ''}
               onChange={(e) => onChange?.(e.target.value)}
               placeholder={effectivePlaceholder}
               disabled={disabled}
@@ -276,7 +276,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               id={id}
               name={name}
               type={type}
-              value={value}
+              value={value ?? ''}
               onChange={(e) => onChange?.(e.target.value)}
               placeholder={effectivePlaceholder}
               disabled={disabled}
@@ -313,6 +313,8 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
                         ? 'text-transparent [&::-webkit-datetime-edit]:text-transparent [&::-webkit-datetime-edit-fields-wrapper]:text-transparent [&::-webkit-datetime-edit-text]:text-transparent [&::-webkit-datetime-edit-month-field]:text-transparent [&::-webkit-datetime-edit-day-field]:text-transparent [&::-webkit-datetime-edit-year-field]:text-transparent'
                         : ''
                     }`
+                  : type === 'number'
+                  ? '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                   : ''
               } ${disabled ? 'cursor-not-allowed text-muted-foreground' : ''} ${inputClassName}`}
             />

@@ -6,7 +6,13 @@ import DocUnderlineInput from './DocUnderlineInput';
 import DocUnderlineSelect, { DocSelectOption, isRawDbId } from './DocUnderlineSelect';
 import DocPrintPreviewModal from './DocPrintPreviewModal';
 import { dataUrlToFile } from './ContractDocumentForm';
-import { dedupePartyDetails, formatPartyDetails as formatPartyDetailsWithCompany } from './ProformaDocumentForm';
+import {
+  dedupePartyDetails,
+  formatPartyDetails as formatPartyDetailsWithCompany,
+  extractPortDisplayName,
+  formatPreCarriageBy,
+  extractLoadingPortCountry,
+} from './ProformaDocumentForm';
 import { toast } from 'sonner';
 import {
   downloadDocPdfAction,
@@ -41,12 +47,15 @@ export interface FormOptionItem {
 
 export interface ShipmentInstructionDocumentFormProps {
   initialData?: any;
+  dataVersion?: number;
   instructionId?: string;
   shipmentInstructionId?: string;
   proformaId?: string;
   contractId?: string;
   confirmationId?: string;
   buyerInstructionId?: string;
+  initialConsignees?: any[];
+  initialNotifyParties?: any[];
   steps?: StepperDocumentItem[];
   selectedStep?: StepperDocumentItem | null;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
@@ -221,6 +230,59 @@ function formatMultilineValue(val: any): string {
 const DEFAULT_COC_FIELDS_VALUE = 'IDF:\r\nUCR:\r\nPIP:';
 
 /**
+ * Safely extracts raw vessel / voyage string from various payload casings and source documents.
+ */
+export function extractVesselVoyageRawValue(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  return safeString(
+    data?.voyage_number ||
+      data?.voyage_no ||
+      data?.shipment_instruction?.voyage_number ||
+      data?.shipment_instruction?.voyage_no ||
+      data?.vessel_voyage_no ||
+      data?.vessel_voyage ||
+      data?.vessel_name ||
+      data?.vessel_flight_no ||
+      data?.vessel ||
+      data?.shipping_line ||
+      data?.contract?.vessel_name ||
+      data?.confirmation?.vessel_name ||
+      data?.proforma?.vessel_name ||
+      data?.shipment_instruction?.vessel_name,
+    ''
+  );
+}
+
+/**
+ * Resolves initial special instruction value.
+ * User requirement: The value previously shown in vessel voyage is now populated into special instruction,
+ * while honoring any existing explicit special instruction.
+ */
+export function resolveInitialSpecialInstruction(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  const direct = safeString(
+    data?.special_instruction ||
+      data?.special_note ||
+      data?.shipment_instruction?.special_instruction ||
+      data?.shipment_instruction?.special_note ||
+      data?.contract?.special_instruction ||
+      data?.confirmation?.special_instruction ||
+      data?.proforma?.special_instruction,
+    ''
+  );
+  if (direct && direct.trim() !== '') {
+    return direct;
+  }
+
+  const rawVesselVoyage = extractVesselVoyageRawValue(data);
+  if (rawVesselVoyage && rawVesselVoyage.trim().toUpperCase() !== 'AS PER BL') {
+    return rawVesselVoyage;
+  }
+
+  return '';
+}
+
+/**
  * Safely extracts bag photo URL from various response field casings.
  */
 function extractBagPhotoUrl(data: any): string {
@@ -392,8 +454,13 @@ export function parseShipmentInstructionBackendErrors(
   if (!result) return { fieldErrors, generalError: 'Failed to save draft' };
 
   const isGenericValidationString = (str: string): boolean => {
-    return /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(
-      String(str || '').trim()
+    const s = String(str || '').trim();
+    return (
+      /^(form validation error|validation error|bad request|invalid input|invalid payload|error occurred)$/i.test(s) ||
+      /^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(s) ||
+      /<(!DOCTYPE|html)/i.test(s) ||
+      /^(404|500|502|503|504)\s+(not found|internal server error|bad gateway|service unavailable)/i.test(s) ||
+      /^(not found|bad gateway|service unavailable)$/i.test(s)
     );
   };
 
@@ -717,16 +784,20 @@ export function parseShipmentInstructionBackendErrors(
 
 export function ShipmentInstructionDocumentForm({
   initialData,
+  dataVersion,
   instructionId,
   shipmentInstructionId,
   proformaId,
   contractId,
   confirmationId,
   buyerInstructionId,
+  initialConsignees = [],
+  initialNotifyParties = [],
   steps,
   selectedStep,
   onUpdateSteps,
   buyers = [],
+  products = [],
   onSaveDraft,
   onSaveSuccess,
   onSubmitInstruction,
@@ -751,20 +822,30 @@ export function ShipmentInstructionDocumentForm({
     setHasSubmitChanges(true);
   }, []);
 
-  // Canonical Draft ID: strictly the Shipment Instruction's self ID, NEVER contractId or confirmationId
+  // Canonical Draft ID: strictly the Shipment Instruction's self ID, NEVER contractId, proformaId, or confirmationId
+  const hasShipmentMarkers = Boolean(
+    initialData?.shipment_instruction_number ||
+    initialData?.instruction_number ||
+    initialData?.booking_number ||
+    initialData?.vessel_name ||
+    initialData?.shipping_bill_number ||
+    initialData?._is_shipment_loaded
+  );
   const candidateSelfId = sanitizeDocId(
     instructionId ||
     shipmentInstructionId ||
     initialData?.shipment_instruction_id ||
     initialData?.instruction_id ||
     initialData?.shipment_id ||
-    (initialData?.id &&
+    (hasShipmentMarkers &&
+     initialData?.id &&
      initialData.id !== contractId &&
      initialData.id !== confirmationId &&
      initialData.id !== proformaId
       ? initialData.id
       : '') ||
-    (initialData?._id &&
+    (hasShipmentMarkers &&
+     initialData?._id &&
      initialData._id !== contractId &&
      initialData._id !== confirmationId &&
      initialData._id !== proformaId
@@ -843,7 +924,7 @@ export function ShipmentInstructionDocumentForm({
       initialData?.confirmation?.seller_instruction;
     return formatPartyDetailsWithCompany(
       shipperName,
-      rawVal || 'ABC ADDRESS, NEAR XYZ AREA, AHMEDABAD, GUJARAT, INDIA, 380015, EMAIL: TEST@EXAMPLE.COM, CONTACT: +971-9898673214'
+      rawVal || ''
     );
   }, [initialData, shipperName]);
 
@@ -999,8 +1080,12 @@ export function ShipmentInstructionDocumentForm({
   });
 
   // State for fetched consignees and notify parties from APIs
-  const [consigneesList, setConsigneesList] = useState<any[]>([]);
-  const [notifyPartiesList, setNotifyPartiesList] = useState<any[]>([]);
+  const [consigneesList, setConsigneesList] = useState<any[]>(() => {
+    return Array.isArray(initialConsignees) && initialConsignees.length > 0 ? initialConsignees : [];
+  });
+  const [notifyPartiesList, setNotifyPartiesList] = useState<any[]>(() => {
+    return Array.isArray(initialNotifyParties) && initialNotifyParties.length > 0 ? initialNotifyParties : [];
+  });
   const [isLoadingConsignees, setIsLoadingConsignees] = useState<boolean>(false);
   const [isLoadingNotifyParties, setIsLoadingNotifyParties] = useState<boolean>(false);
 
@@ -1009,41 +1094,45 @@ export function ShipmentInstructionDocumentForm({
     if (!effectiveBuyerInstructionId) return;
 
     let isMounted = true;
-    setIsLoadingConsignees(true);
-    getBuyerConsigneesAction(effectiveBuyerInstructionId, { lang, source: 'web' })
-      .then((res) => {
-        if (!isMounted) return;
-        if (res?.success && Array.isArray(res.data)) {
-          setConsigneesList(res.data);
-        } else {
-          setConsigneesList([]);
-        }
-      })
-      .catch((err) => {
-        console.error('[ShipmentInstruction] Error fetching consignees:', err);
-        if (isMounted) setConsigneesList([]);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoadingConsignees(false);
-      });
+    if (consigneesList.length === 0) {
+      setIsLoadingConsignees(true);
+      getBuyerConsigneesAction(effectiveBuyerInstructionId, { lang, source: 'web' })
+        .then((res) => {
+          if (!isMounted) return;
+          if (res?.success && Array.isArray(res.data)) {
+            setConsigneesList(res.data);
+          } else {
+            setConsigneesList([]);
+          }
+        })
+        .catch((err) => {
+          console.error('[ShipmentInstruction] Error fetching consignees:', err);
+          if (isMounted) setConsigneesList([]);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingConsignees(false);
+        });
+    }
 
-    setIsLoadingNotifyParties(true);
-    getBuyerNotifyPartiesAction(effectiveBuyerInstructionId, { lang, source: 'web' })
-      .then((res) => {
-        if (!isMounted) return;
-        if (res?.success && Array.isArray(res.data)) {
-          setNotifyPartiesList(res.data);
-        } else {
-          setNotifyPartiesList([]);
-        }
-      })
-      .catch((err) => {
-        console.error('[ShipmentInstruction] Error fetching notify parties:', err);
-        if (isMounted) setNotifyPartiesList([]);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoadingNotifyParties(false);
-      });
+    if (notifyPartiesList.length === 0) {
+      setIsLoadingNotifyParties(true);
+      getBuyerNotifyPartiesAction(effectiveBuyerInstructionId, { lang, source: 'web' })
+        .then((res) => {
+          if (!isMounted) return;
+          if (res?.success && Array.isArray(res.data)) {
+            setNotifyPartiesList(res.data);
+          } else {
+            setNotifyPartiesList([]);
+          }
+        })
+        .catch((err) => {
+          console.error('[ShipmentInstruction] Error fetching notify parties:', err);
+          if (isMounted) setNotifyPartiesList([]);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingNotifyParties(false);
+        });
+    }
 
     return () => {
       isMounted = false;
@@ -1057,7 +1146,7 @@ export function ShipmentInstructionDocumentForm({
         (c) =>
           (consigneeId && String(c.consignee_details_id || c.id || c._id || c.consignee_id || c.value) === String(consigneeId)) ||
           (consigneeName && (c.company_name || c.name || c.label)?.toLowerCase() === consigneeName.toLowerCase())
-      );
+      ) || (!consigneeId && !consigneeName ? consigneesList[0] : undefined);
       if (matched) {
         if (!consigneeDetails) {
           const formatted = formatPartyDetails(matched);
@@ -1071,32 +1160,45 @@ export function ShipmentInstructionDocumentForm({
 
   useEffect(() => {
     if (notifyPartiesList.length > 0) {
+      const matchPartySimple = (n: any, targetVal: string) => {
+        if (!n || !targetVal) return false;
+        const s = String(targetVal).trim().toLowerCase();
+        const id = String(n.id || n._id || n.notify_party_id || n.value || '').trim().toLowerCase();
+        const name = String(n.company_name || n.name || n.label || n.business_name || n.title || '').trim().toLowerCase();
+        return Boolean((id && id === s) || (name && name === s));
+      };
+
       if (notifyParty1Id && !notifyParty1Details) {
-        const matched1 = notifyPartiesList.find(
-          (n) => String(n.id || n._id || n.notify_party_id || n.value) === String(notifyParty1Id)
-        );
+        const matched1 = notifyPartiesList.find((n) => matchPartySimple(n, notifyParty1Id));
         if (matched1) {
           const formatted = formatPartyDetails(matched1);
           if (formatted) setNotifyParty1Details(formatted);
         }
+      } else if (!notifyParty1Id && !notifyParty1Details) {
+        const first = notifyPartiesList[0];
+        setNotifyParty1Id(String(first.id || first._id || first.notify_party_id || first.value || ''));
+        const formatted = formatPartyDetails(first);
+        if (formatted) setNotifyParty1Details(formatted);
       }
+
       if (notifyParty2Id && !notifyParty2Details) {
-        const matched2 = notifyPartiesList.find(
-          (n) => String(n.id || n._id || n.notify_party_id || n.value) === String(notifyParty2Id)
-        );
+        const matched2 = notifyPartiesList.find((n) => matchPartySimple(n, notifyParty2Id));
         if (matched2) {
           const formatted = formatPartyDetails(matched2);
           if (formatted) setNotifyParty2Details(formatted);
         }
+      } else if (!notifyParty2Id && !notifyParty2Details && notifyPartiesList.length > 1) {
+        const second = notifyPartiesList[1];
+        setNotifyParty2Id(String(second.id || second._id || second.notify_party_id || second.value || ''));
+        const formatted = formatPartyDetails(second);
+        if (formatted) setNotifyParty2Details(formatted);
       }
       if (extraNotifyParties.length > 0) {
         setExtraNotifyParties((prev) => {
           let hasChanges = false;
           const updated = prev.map((p) => {
             if (p.id && !p.details) {
-              const matchedExtra = notifyPartiesList.find(
-                (n) => String(n.id || n._id || n.notify_party_id || n.value) === String(p.id)
-              );
+              const matchedExtra = notifyPartiesList.find((n) => matchPartySimple(n, p.id));
               if (matchedExtra) {
                 const formatted = formatPartyDetails(matchedExtra);
                 if (formatted) {
@@ -1278,61 +1380,114 @@ export function ShipmentInstructionDocumentForm({
     [getFilteredNotifyOptions, notifyParty2Id, notifyParty2Details]
   );
 
+  // Robust matcher for Notify Parties to ensure selection always updates details correctly
+  const findNotifyPartyMatch = useCallback(
+    (searchVal: string) => {
+      if (!searchVal) return null;
+      const s = String(searchVal).trim();
+      const sLower = s.toLowerCase();
+
+      // 1. Check in notifyPartiesList
+      for (const n of notifyPartiesList) {
+        if (!n) continue;
+        const id = String(n.id || n._id || n.notify_party_id || n.value || '').trim();
+        const name = String(n.company_name || n.name || n.label || n.business_name || n.title || '').trim();
+        if ((id && id === s) || (id && id.toLowerCase() === sLower)) return n;
+        if ((name && name === s) || (name && name.toLowerCase() === sLower)) return n;
+      }
+
+      // 2. Check in allNotifyOptions (carries pre-formatted label and subLabel)
+      const optMatch = allNotifyOptions.find(
+        (o) =>
+          String(o.value).trim().toLowerCase() === sLower ||
+          String(o.label).trim().toLowerCase() === sLower
+      );
+      if (optMatch) {
+        return {
+          id: optMatch.value,
+          company_name: optMatch.label,
+          address: optMatch.subLabel,
+          details: [optMatch.label, optMatch.subLabel].filter(Boolean).join('\n'),
+        };
+      }
+
+      // 3. Check in buyers
+      for (const b of buyers) {
+        if (!b) continue;
+        const bId = String(b.value || b.id || b._id || '').trim();
+        const bName = String(b.label || b.name || b.company_name || '').trim();
+        if ((bId && bId === s) || (bId && bId.toLowerCase() === sLower)) return b;
+        if ((bName && bName === s) || (bName && bName.toLowerCase() === sLower)) return b;
+      }
+
+      return null;
+    },
+    [notifyPartiesList, allNotifyOptions, buyers]
+  );
+
+  const findConsigneeMatch = useCallback(
+    (searchVal: string) => {
+      if (!searchVal) return null;
+      const s = String(searchVal).trim();
+      const sLower = s.toLowerCase();
+
+      for (const c of consigneesList) {
+        if (!c) continue;
+        const id = String(c.consignee_details_id || c.id || c._id || c.consignee_id || c.value || '').trim();
+        const name = String(c.company_name || c.name || c.label || '').trim();
+        if ((id && id === s) || (id && id.toLowerCase() === sLower)) return c;
+        if ((name && name === s) || (name && name.toLowerCase() === sLower)) return c;
+      }
+
+      for (const b of buyers) {
+        if (!b) continue;
+        const bId = String(b.value || b.id || b._id || '').trim();
+        const bName = String(b.label || b.name || b.company_name || '').trim();
+        if ((bId && bId === s) || (bId && bId.toLowerCase() === sLower)) return b;
+        if ((bName && bName === s) || (bName && bName.toLowerCase() === sLower)) return b;
+      }
+
+      return null;
+    },
+    [consigneesList, buyers]
+  );
+
   const handleConsigneeSelect = (val: string) => {
     markDirty();
     setConsigneeId(val);
-    const matched = consigneesList.find(
-      (c) => String(c.consignee_details_id || c.id || c._id || c.consignee_id || c.value || c.company_name) === String(val)
-    );
+    const matched = findConsigneeMatch(val);
     if (matched) {
-      setConsigneeName(matched.company_name || matched.name || matched.label || '');
+      setConsigneeName(matched.company_name || matched.name || matched.label || val);
       const formatted = formatPartyDetails(matched);
       if (formatted) setConsigneeDetails(formatted);
+      else setConsigneeDetails(val);
     } else {
-      const buyerMatched = buyers.find((b) => String(b.value || b.id) === String(val));
-      if (buyerMatched) {
-        setConsigneeName(buyerMatched.label || buyerMatched.name || '');
-        const formatted = formatPartyDetails(buyerMatched);
-        if (formatted) setConsigneeDetails(formatted);
-      } else if (val) {
-        setConsigneeName(val);
-      }
+      setConsigneeName(val);
+      setConsigneeDetails(val);
     }
   };
 
   const handleNotify1Select = (val: string) => {
     markDirty();
     setNotifyParty1Id(val);
-    const matched = notifyPartiesList.find(
-      (n) => String(n.id || n._id || n.notify_party_id || n.value || n.company_name) === String(val)
-    );
+    const matched = findNotifyPartyMatch(val);
     if (matched) {
       const formatted = formatPartyDetails(matched);
-      if (formatted) setNotifyParty1Details(formatted);
+      setNotifyParty1Details(formatted || String(matched.company_name || matched.name || matched.label || val));
     } else {
-      const buyerMatched = buyers.find((b) => String(b.value || b.id) === String(val));
-      if (buyerMatched) {
-        const formatted = formatPartyDetails(buyerMatched);
-        if (formatted) setNotifyParty1Details(formatted);
-      }
+      setNotifyParty1Details(val);
     }
   };
 
   const handleNotify2Select = (val: string) => {
     markDirty();
     setNotifyParty2Id(val);
-    const matched = notifyPartiesList.find(
-      (n) => String(n.id || n._id || n.notify_party_id || n.value || n.company_name) === String(val)
-    );
+    const matched = findNotifyPartyMatch(val);
     if (matched) {
       const formatted = formatPartyDetails(matched);
-      if (formatted) setNotifyParty2Details(formatted);
+      setNotifyParty2Details(formatted || String(matched.company_name || matched.name || matched.label || val));
     } else {
-      const buyerMatched = buyers.find((b) => String(b.value || b.id) === String(val));
-      if (buyerMatched) {
-        const formatted = formatPartyDetails(buyerMatched);
-        if (formatted) setNotifyParty2Details(formatted);
-      }
+      setNotifyParty2Details(val);
     }
   };
 
@@ -1342,21 +1497,14 @@ export function ShipmentInstructionDocumentForm({
     setExtraNotifyParties((prev) => {
       const updated = [...prev];
       let details = '';
-      const matched = notifyPartiesList.find(
-        (n) => String(n.id || n._id || n.notify_party_id || n.value || n.company_name) === String(val)
-      );
+      const matched = findNotifyPartyMatch(val);
       if (matched) {
         details = formatPartyDetails(matched);
-      } else {
-        const buyerMatched = buyers.find((b) => String(b.value || b.id) === String(val));
-        if (buyerMatched) {
-          details = formatPartyDetails(buyerMatched);
-        }
       }
       updated[index] = {
         ...updated[index],
         id: val,
-        details: details || updated[index]?.details || '',
+        details: details || String(matched?.company_name || matched?.name || matched?.label || val),
       };
       return updated;
     });
@@ -1434,74 +1582,78 @@ export function ShipmentInstructionDocumentForm({
   // ==========================================
   // 5 STATIC DISPLAY FIELDS:
   const preCarriageBy = useMemo(() => {
-    return safeString(
+    const raw =
       initialData?.pre_carriage_by ||
-        initialData?.pre_carriage ||
-        initialData?.preCarriageBy ||
-        initialData?.contract?.pre_carriage ||
-        initialData?.confirmation?.pre_carriage,
-      'BY SEA'
-    );
+      initialData?.pre_carriage ||
+      initialData?.preCarriageBy ||
+      initialData?.contract?.pre_carriage ||
+      initialData?.confirmation?.pre_carriage ||
+      initialData?.container_type ||
+      initialData?.fcl_type ||
+      initialData?.ship_by ||
+      initialData?.shipment_instruction?.pre_carriage_by ||
+      initialData?.proforma?.pre_carriage_by;
+    return formatPreCarriageBy(raw, 'BY SEA');
   }, [initialData]);
 
   const placeOfReceipt = useMemo(() => {
+    const extractedCountry = extractLoadingPortCountry(initialData, products);
     return safeString(
       initialData?.place_of_receipt ||
+        initialData?.place_of_receipt_by_pre_carrier ||
+        extractedCountry ||
         initialData?.country_of_origin ||
         initialData?.origin_country ||
+        initialData?.loading_port_country ||
         initialData?.product_country ||
         initialData?.country ||
         initialData?.contract?.country ||
-        initialData?.confirmation?.country,
-      'INDIA'
+        initialData?.confirmation?.country ||
+        initialData?.contract?.place_of_receipt ||
+        initialData?.proforma?.place_of_receipt ||
+        initialData?.shipment_instruction?.place_of_receipt,
+      ''
     );
-  }, [initialData]);
+  }, [initialData, products]);
 
-  const vesselVoyageNo = useMemo(() => {
-    return safeString(
-      initialData?.vessel_voyage_no ||
-        initialData?.vessel_voyage ||
-        initialData?.vessel_name ||
-        initialData?.vessel ||
-        initialData?.contract?.vessel_name ||
-        initialData?.confirmation?.vessel_name,
-      'AS PER BL'
-    );
-  }, [initialData]);
+  // VESSEL / VOYAGE NO.: User requirement: Static value is always "AS PER BL"
+  const vesselVoyageNo = 'AS PER BL';
 
   const portOfLoading = useMemo(() => {
-    return safeString(
+    return extractPortDisplayName(
       initialData?.port_of_loading ||
-        initialData?.loading_port_name ||
         initialData?.loading_port ||
         initialData?.loadingPort ||
         initialData?.contract?.loading_port ||
         initialData?.confirmation?.loading_port,
-      'AHMEDABAD, INDIA'
+      safeString(initialData?.loading_port_name, '')
     );
   }, [initialData]);
 
   const portOfDischarge = useMemo(() => {
-    return safeString(
+    return extractPortDisplayName(
       initialData?.port_of_discharge ||
-        initialData?.destination_port_name ||
         initialData?.destination_port ||
+        initialData?.port_of_destination ||
         initialData?.destinationPort ||
         initialData?.contract?.destination_port ||
         initialData?.confirmation?.destination_port,
-      'AMAMAPARE, IJ, INDONESIA'
+      safeString(initialData?.destination_port_name, '')
     );
   }, [initialData]);
 
   // 1 EDITABLE INPUT: PLACE OF DELIVERY
   const [placeOfDelivery, setPlaceOfDelivery] = useState<string>(() => {
-    return safeString(
+    const raw =
       initialData?.place_of_delivery ||
-        initialData?.final_destination ||
-        initialData?.destination_port_name ||
-        initialData?.placeOfDelivery,
-      ''
-    );
+      initialData?.final_destination ||
+      initialData?.destination_port_name ||
+      initialData?.destination_port ||
+      initialData?.port_of_destination ||
+      initialData?.placeOfDelivery ||
+      initialData?.contract?.destination_port ||
+      initialData?.confirmation?.destination_port;
+    return extractPortDisplayName(raw, safeString(raw, ''));
   });
 
   // ==========================================
@@ -1525,7 +1677,7 @@ export function ShipmentInstructionDocumentForm({
       initialData?.proforma?.marking_brand ||
       initialData?.buyer_instruction?.marking_brand ||
       initialData?.buyer_instruction?.marking;
-    return safeString(rawMarks, 'Jocker');
+    return safeString(rawMarks, '');
   });
 
   // Marks / Bag Photo Image (Response key: bag_photo_url / BAG_PHOTO_URL):
@@ -1550,7 +1702,7 @@ export function ShipmentInstructionDocumentForm({
         initialData?.contract?.commodity ||
         initialData?.contract?.product_name ||
         initialData?.confirmation?.commodity,
-      'SWARNA PARBOILED RICE 5% BROKEN'
+      ''
     );
   }, [initialData]);
 
@@ -1562,7 +1714,7 @@ export function ShipmentInstructionDocumentForm({
         initialData?.contract?.packing_type ||
         initialData?.contract?.packing ||
         initialData?.confirmation?.packing_type,
-      '50 KG BOPP BAG'
+      ''
     );
   }, [initialData]);
 
@@ -1574,7 +1726,7 @@ export function ShipmentInstructionDocumentForm({
         initialData?.shipBy ||
         initialData?.contract?.fcl_type ||
         initialData?.confirmation?.fcl_type,
-      '20 FT FCL'
+      ''
     );
   }, [initialData]);
 
@@ -1587,7 +1739,7 @@ export function ShipmentInstructionDocumentForm({
       initialData?.contract?.fcl_quantity ??
       initialData?.contract?.fcl_qty ??
       initialData?.confirmation?.fcl_quantity;
-    return q !== undefined && q !== null && q !== '' ? q : 60;
+    return q !== undefined && q !== null && q !== '' ? q : '';
   }, [initialData]);
 
   const fclCapacity = useMemo(() => {
@@ -1596,7 +1748,7 @@ export function ShipmentInstructionDocumentForm({
       initialData?.fclCapacity ??
       initialData?.contract?.fcl_capacity ??
       initialData?.confirmation?.fcl_capacity;
-    return c !== undefined && c !== null && c !== '' ? c : 27;
+    return c !== undefined && c !== null && c !== '' ? c : '';
   }, [initialData]);
 
   const mtQuantity = useMemo(() => {
@@ -1610,12 +1762,12 @@ export function ShipmentInstructionDocumentForm({
     if (q) return q;
     const fq = Number(fclQuantity) || 0;
     const fc = Number(fclCapacity) || 0;
-    return fq * fc > 0 ? fq * fc : 1620;
+    return fq * fc > 0 ? fq * fc : '';
   }, [initialData, fclQuantity, fclCapacity]);
 
   const bagWeightKg = useMemo(() => {
     const parsed = parsePackingBagWeightKg(packingDescription);
-    return parsed && parsed > 0 ? parsed : 50;
+    return parsed && parsed > 0 ? parsed : 0;
   }, [packingDescription]);
 
   const bagQuantity = useMemo(() => {
@@ -1626,7 +1778,7 @@ export function ShipmentInstructionDocumentForm({
     if (mt > 0 && bagWeightKg > 0) {
       return Math.round((mt * 1000) / bagWeightKg);
     }
-    return 32400;
+    return '';
   }, [initialData, mtQuantity, bagWeightKg]);
 
   const ratePrice = useMemo(() => {
@@ -1637,7 +1789,7 @@ export function ShipmentInstructionDocumentForm({
       initialData?.contract?.price ??
       initialData?.contract?.rate ??
       initialData?.confirmation?.price;
-    return p !== undefined && p !== null && p !== '' ? p : 480;
+    return p !== undefined && p !== null && p !== '' ? p : '';
   }, [initialData]);
 
   const totalValue = useMemo(() => {
@@ -1646,7 +1798,7 @@ export function ShipmentInstructionDocumentForm({
     }
     const mt = Number(mtQuantity) || 0;
     const rate = Number(ratePrice) || 0;
-    return mt * rate > 0 ? mt * rate : 777600;
+    return mt * rate > 0 ? mt * rate : '';
   }, [initialData, mtQuantity, ratePrice]);
 
   const currencySymbol = useMemo(() => {
@@ -1660,7 +1812,7 @@ export function ShipmentInstructionDocumentForm({
       initialData?.currency_symbol ||
         initialData?.currency?.symbol ||
         fromCode,
-      '₹'
+      ''
     );
   }, [initialData]);
 
@@ -1678,7 +1830,7 @@ export function ShipmentInstructionDocumentForm({
         initialData?.product?.hsn ||
         initialData?.contract?.hsn_code ||
         initialData?.confirmation?.hsn_code,
-      '456789'
+      '-'
     );
   }, [initialData]);
 
@@ -1695,7 +1847,7 @@ export function ShipmentInstructionDocumentForm({
       initialData?.free_days ||
         initialData?.freeDays ||
         initialData?.contract?.free_days,
-      '14 DAYS FREE AT POD'
+      ''
     );
   }, [initialData]);
 
@@ -1704,14 +1856,29 @@ export function ShipmentInstructionDocumentForm({
       initialData?.empty_bags ||
         initialData?.emptyBags ||
         initialData?.contract?.empty_bags,
-      '2% EMPTY BAGS'
+      ''
     );
   }, [initialData]);
 
   // EDITABLE INPUTS in Column 2:
   // 1. Enter freight (EDITABLE INPUT with pencil):
   const [freight, setFreight] = useState<string>(() => {
-    return safeString(initialData?.freight, '');
+    if (initialData?.freight) return safeString(initialData.freight, '');
+    const term = safeString(
+      initialData?.shipping_term ||
+        initialData?.incoterm ||
+        initialData?.contract?.shipping_term ||
+        initialData?.confirmation?.shipping_term ||
+        initialData?.delivery_terms ||
+        ''
+    ).toUpperCase();
+    if (term.includes('CIF') || term.includes('CNF') || term.includes('CFR')) {
+      return 'FREIGHT PREPAID';
+    }
+    if (term.includes('FOB')) {
+      return 'FREIGHT TO COLLECT';
+    }
+    return '';
   });
 
   // Country Required Documents: ECTN & COC
@@ -1765,11 +1932,9 @@ export function ShipmentInstructionDocumentForm({
   });
 
   // 2. Special warning note (EDITABLE INPUT with pencil):
+  // User requirement: Any value previously shown in vessel voyage is now populated into special instruction
   const [specialInstruction, setSpecialInstruction] = useState<string>(() => {
-    return safeString(
-      initialData?.special_instruction || initialData?.special_note,
-      'PLEASE DO NOT MENTION INVOICE NUMBER AND IEC NUMBER OR ANY OTHER DETAILS'
-    );
+    return resolveInitialSpecialInstruction(initialData);
   });
 
   // COLUMN 3: Gross Weight (STATIC TEXT DISPLAY):
@@ -1825,7 +1990,12 @@ export function ShipmentInstructionDocumentForm({
   useEffect(() => {
     if (!initialData) return;
 
-    // Only update fields if user has not actively made manual edits
+    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
+    if (isDataVersionTriggered) {
+      setIsDirty(false);
+    }
+
+    // Only update fields if user has not actively made manual edits (unless stepper navigation triggered a refresh)
     const cid = safeString(
       initialData.consignee_details_id ||
         initialData.consignee_id ||
@@ -1834,7 +2004,7 @@ export function ShipmentInstructionDocumentForm({
         initialData.buyer?._id,
       ''
     );
-    if (cid && (!consigneeId || !isDirty)) setConsigneeId(cid);
+    if (cid && (isDataVersionTriggered || !consigneeId || !isDirty)) setConsigneeId(cid);
 
     const cname = safeString(
       initialData.consignee_name ||
@@ -1843,7 +2013,7 @@ export function ShipmentInstructionDocumentForm({
         initialData.buyer_company_name,
       ''
     );
-    if (cname && (!consigneeName || !isDirty)) setConsigneeName(cname);
+    if (cname && (isDataVersionTriggered || !consigneeName || !isDirty)) setConsigneeName(cname);
 
     const cdetails = safeString(
       initialData.consignee_details ||
@@ -1851,18 +2021,18 @@ export function ShipmentInstructionDocumentForm({
         initialData.buyer_instruction,
       ''
     );
-    if (cdetails && (!consigneeDetails || !isDirty)) setConsigneeDetails(cdetails);
+    if (cdetails && (isDataVersionTriggered || !consigneeDetails || !isDirty)) setConsigneeDetails(cdetails);
 
     // Notify Parties
     const p1 = extractInitialParty(1);
-    if (p1.id && (!notifyParty1Id || !isDirty)) setNotifyParty1Id(p1.id);
-    if (p1.details && (!notifyParty1Details || !isDirty)) setNotifyParty1Details(p1.details);
+    if (p1.id && (isDataVersionTriggered || !notifyParty1Id || !isDirty)) setNotifyParty1Id(p1.id);
+    if (p1.details && (isDataVersionTriggered || !notifyParty1Details || !isDirty)) setNotifyParty1Details(p1.details);
 
     const p2 = extractInitialParty(2);
-    if (p2.id && (!notifyParty2Id || !isDirty)) setNotifyParty2Id(p2.id);
-    if (p2.details && (!notifyParty2Details || !isDirty)) setNotifyParty2Details(p2.details);
+    if (p2.id && (isDataVersionTriggered || !notifyParty2Id || !isDirty)) setNotifyParty2Id(p2.id);
+    if (p2.details && (isDataVersionTriggered || !notifyParty2Details || !isDirty)) setNotifyParty2Details(p2.details);
 
-    if (!isDirty) {
+    if (!isDirty || isDataVersionTriggered) {
       const extras: Array<{ id: string; details: string }> = [];
       for (let i = 3; i <= 6; i++) {
         const party = extractInitialParty(i);
@@ -1876,14 +2046,18 @@ export function ShipmentInstructionDocumentForm({
     }
 
     // Place of delivery
-    const pod = safeString(
+    const pod = extractPortDisplayName(
       initialData.place_of_delivery ||
         initialData.final_destination ||
         initialData.destination_port_name ||
-        initialData.placeOfDelivery,
-      ''
+        initialData.destination_port ||
+        initialData.port_of_destination ||
+        initialData.placeOfDelivery ||
+        initialData.contract?.destination_port ||
+        initialData.confirmation?.destination_port,
+      safeString(initialData.destination_port_name || initialData.place_of_delivery || initialData.final_destination, '')
     );
-    if (pod && (!placeOfDelivery || !isDirty)) setPlaceOfDelivery(pod);
+    if (pod && (isDataVersionTriggered || !placeOfDelivery || !isDirty)) setPlaceOfDelivery(pod);
 
     // Marks and numbers / Marking Brand / Container Marks
     const marks = safeString(
@@ -1903,7 +2077,7 @@ export function ShipmentInstructionDocumentForm({
       initialData.buyer_instruction?.marking,
       ''
     );
-    if (marks && (!marksAndNumbers || marksAndNumbers === 'Jocker' || !isDirty)) {
+    if (marks && (isDataVersionTriggered || !marksAndNumbers || !isDirty)) {
       setMarksAndNumbers(marks);
     }
 
@@ -1925,7 +2099,25 @@ export function ShipmentInstructionDocumentForm({
 
     // Freight
     const fr = safeString(initialData.freight, '');
-    if (fr && (!freight || !isDirty)) setFreight(fr);
+    if (isDataVersionTriggered && fr) {
+      setFreight(fr);
+    } else if (fr && (!freight || !isDirty)) {
+      setFreight(fr);
+    } else if (!freight) {
+      const term = safeString(
+        initialData?.shipping_term ||
+          initialData?.incoterm ||
+          initialData?.contract?.shipping_term ||
+          initialData?.confirmation?.shipping_term ||
+          initialData?.delivery_terms ||
+          ''
+      ).toUpperCase();
+      if (term.includes('CIF') || term.includes('CNF') || term.includes('CFR')) {
+        setFreight('FREIGHT PREPAID');
+      } else if (term.includes('FOB')) {
+        setFreight('FREIGHT TO COLLECT');
+      }
+    }
 
     // COC fields value
     const rawCoc =
@@ -1935,14 +2127,16 @@ export function ShipmentInstructionDocumentForm({
       initialData.contract?.coc_fields_value;
     if (rawCoc !== null && rawCoc !== undefined && String(rawCoc).trim() !== '') {
       const formattedCoc = formatMultilineValue(rawCoc);
-      if (!isDirty && (!cocFieldsValue || cocFieldsValue === DEFAULT_COC_FIELDS_VALUE || cocFieldsValue === 'IDF:\nUCR:\nPIP:')) {
+      if ((!isDirty || isDataVersionTriggered) && (!cocFieldsValue || cocFieldsValue === DEFAULT_COC_FIELDS_VALUE || cocFieldsValue === 'IDF:\nUCR:\nPIP:')) {
         setCocFieldsValue(formattedCoc);
       }
     }
 
     // Special instruction
-    const si = safeString(initialData.special_instruction || initialData.special_note, '');
-    if (si && (!specialInstruction || !isDirty)) setSpecialInstruction(si);
+    const nextSi = resolveInitialSpecialInstruction(initialData);
+    if (isDataVersionTriggered || (!isDirty && specialInstruction !== nextSi)) {
+      setSpecialInstruction(nextSi);
+    }
 
     // Remarks
     const rt = safeString(
@@ -1952,7 +2146,7 @@ export function ShipmentInstructionDocumentForm({
         initialData.commentTitle,
       ''
     );
-    if (rt && (!remarksTitle || !isDirty)) setRemarksTitle(rt);
+    if (rt && (isDataVersionTriggered || !remarksTitle || !isDirty)) setRemarksTitle(rt);
 
     const rc = safeString(
       initialData.remarks_comment ||
@@ -1961,13 +2155,13 @@ export function ShipmentInstructionDocumentForm({
         initialData.commentValue,
       ''
     );
-    if (rc && (!remarksComment || !isDirty)) setRemarksComment(rc);
+    if (rc && (isDataVersionTriggered || !remarksComment || !isDirty)) setRemarksComment(rc);
 
     // Document Title & Watermark
     const titleVal = safeString(initialData.pdf_title || initialData.document_title || initialData.title, '');
-    if (titleVal && (!documentTitle || !isDirty)) setDocumentTitle(titleVal);
+    if (isDataVersionTriggered ? Boolean(titleVal) : (titleVal && (!documentTitle || !isDirty))) setDocumentTitle(titleVal);
 
-    if (!isDirty) {
+    if (!isDirty || isDataVersionTriggered) {
       if (initialData.is_watermark_enabled !== undefined) setWatermark(Boolean(initialData.is_watermark_enabled));
       else if (initialData.watermark !== undefined) setWatermark(Boolean(initialData.watermark));
     }
@@ -1993,11 +2187,12 @@ export function ShipmentInstructionDocumentForm({
         : '');
     const cleanId = sanitizeDocId(rawCandidate);
     const isValid = cleanId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanId);
-    if (isValid && (!draftId || !isDirty)) {
+    if (isValid && (!draftId || !isDirty || isDataVersionTriggered)) {
       setDraftId(cleanId);
     }
   }, [
     initialData,
+    dataVersion,
     isDirty,
     consigneeId,
     consigneeName,
@@ -2370,11 +2565,19 @@ export function ShipmentInstructionDocumentForm({
     setErrors({}); // Always clear any existing error indicators on Save As Draft
     try {
       const payload = getFormDataPayload();
+      const isSelfIdValid = Boolean(
+        draftId &&
+        draftId !== contractId &&
+        draftId !== confirmationId &&
+        draftId !== proformaId &&
+        !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(draftId)
+      );
+      const validActionId = isSelfIdValid ? draftId : undefined;
       let res: any;
       if (onSaveDraft) {
         res = await onSaveDraft(payload);
       } else {
-        res = await saveShipmentInstructionDraftAction(payload, lang, draftId || undefined);
+        res = await saveShipmentInstructionDraftAction(payload, lang, validActionId);
       }
 
       if (!res) {
@@ -2444,11 +2647,19 @@ export function ShipmentInstructionDocumentForm({
     setErrors({});
     try {
       const payload = getFormDataPayload();
+      const isSelfIdValid = Boolean(
+        draftId &&
+        draftId !== contractId &&
+        draftId !== confirmationId &&
+        draftId !== proformaId &&
+        !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(draftId)
+      );
+      const validActionId = isSelfIdValid ? draftId : undefined;
       let res: any;
       if (onSubmitInstruction) {
-        res = await onSubmitInstruction(payload, draftId || undefined);
+        res = await onSubmitInstruction(payload, validActionId);
       } else {
-        res = await submitShipmentInstructionAction(payload, lang, draftId || undefined);
+        res = await submitShipmentInstructionAction(payload, lang, validActionId);
       }
 
       if (!res) {
@@ -2475,12 +2686,18 @@ export function ShipmentInstructionDocumentForm({
         } else if (generalError && !/^(form validation error|validation error|bad request)$/i.test(generalError)) {
           toast.error(generalError);
         } else {
+          const isCleanToastMsg = (m?: any) =>
+            Boolean(
+              m &&
+              typeof m === 'string' &&
+              !/^(form validation error|validation error|bad request)$/i.test(m.trim()) &&
+              !/^Cannot (PATCH|POST|GET|PUT|DELETE)\b/i.test(m.trim()) &&
+              !/<(!DOCTYPE|html)/i.test(m)
+            );
           const fallbackMsg =
-            res?.message && !/^(form validation error|validation error|bad request)$/i.test(res.message)
-              ? res.message
-              : res?.error && !/^(form validation error|validation error|bad request)$/i.test(res.error)
-              ? res.error
-              : 'Failed to submit shipment instruction. Please check highlighted fields.';
+            (isCleanToastMsg(res?.message) ? res.message : null) ||
+            (isCleanToastMsg(res?.error) ? res.error : null) ||
+            'Failed to submit shipment instruction. Please check highlighted fields.';
           toast.error(fallbackMsg);
         }
         return;
@@ -2806,7 +3023,7 @@ export function ShipmentInstructionDocumentForm({
                   }}
                   error={errors.consigneeId || errors.consignee}
                   disabled={readOnly}
-                  loading={isLoadingConsignees}
+                  loading={isLoadingConsignees && consigneeSelectOptions.length === 0}
                   placeholder="Select Consignee Detail"
                   allowCustom
                   className="w-full"
@@ -2851,7 +3068,7 @@ export function ShipmentInstructionDocumentForm({
                   }}
                   error={errors.notifyParty1Id || errors.notify_party_1_id || errors.notifyParty1}
                   disabled={readOnly}
-                  loading={isLoadingNotifyParties}
+                  loading={isLoadingNotifyParties && notifyParty1Options.length === 0}
                   placeholder="Select Notify Party 1"
                   allowCustom
                   className="w-full"
@@ -2908,7 +3125,7 @@ export function ShipmentInstructionDocumentForm({
                   }}
                   error={errors.notifyParty2Id || errors.notify_party_2_id || errors.notifyParty2}
                   disabled={readOnly || !notifyParty1Id}
-                  loading={isLoadingNotifyParties}
+                  loading={isLoadingNotifyParties && notifyParty2Options.length === 0}
                   placeholder={!notifyParty1Id ? 'Select Notify Party 01 first' : 'Select Notify Party 02'}
                   allowCustom
                   className="w-full"
@@ -3022,7 +3239,7 @@ export function ShipmentInstructionDocumentForm({
                               }}
                               error={errors[`notify_party_${partyNum}_id`] || errors[`notifyParty${partyNum}Id`]}
                               disabled={!isEnabled}
-                              loading={isLoadingNotifyParties}
+                              loading={isLoadingNotifyParties && allNotifyOptions.length === 0}
                               placeholder={
                                 !isEnabled
                                   ? `Select Notify Party 0${prevPartyNum} first`
@@ -3117,68 +3334,68 @@ export function ShipmentInstructionDocumentForm({
           {/* ========================================================
               ROW 3: SHIPPING ROUTE & LOGISTICS (2 Rows x 3 Columns)
               5 STATIC DISPLAY FIELDS + 1 EDITABLE INPUT (PLACE OF DELIVERY)
+              Headers: bg-muted/20 font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider
+              Values: bg-card text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase
              ======================================================== */}
           <div className="flex flex-col divide-y divide-border">
-            {/* Sub-row A: PRE-CARRIAGE BY | PLACE OF RECEIPT | VESSEL / VOYAGE NO. (STATIC TEXT) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
-              {/* PRE-CARRIAGE BY (STATIC DISPLAY) */}
-              <div className="p-2 sm:p-2.5 flex flex-col items-center justify-center gap-1 text-center min-h-[58px]">
-                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider text-center">
-                  PRE-CARRIAGE BY
-                </label>
-                <div className="text-[14px] font-semibold text-foreground uppercase">
-                  {preCarriageBy}
-                </div>
+            {/* Sub-row A Headers (bg-muted/20) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-muted/20">
+              <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider flex items-center justify-center min-h-[38px]">
+                PRE-CARRIAGE BY
               </div>
-
-              {/* PLACE OF RECEIPT (STATIC DISPLAY) */}
-              <div className="p-2 sm:p-2.5 flex flex-col items-center justify-center gap-1 text-center min-h-[58px]">
-                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider text-center">
-                  PLACE OF RECEIPT
-                </label>
-                <div className="text-[14px] font-semibold text-foreground uppercase">
-                  {placeOfReceipt}
-                </div>
+              <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider flex items-center justify-center min-h-[38px]">
+                PLACE OF RECEIPT
               </div>
-
-              {/* VESSEL / VOYAGE NO. (STATIC DISPLAY) */}
-              <div className="p-2 sm:p-2.5 flex flex-col items-center justify-center gap-1 text-center min-h-[58px]">
-                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider text-center">
-                  VESSEL / VOYAGE NO.
-                </label>
-                <div className="text-[14px] font-semibold text-foreground uppercase">
-                  {vesselVoyageNo}
-                </div>
+              <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider flex items-center justify-center min-h-[38px]">
+                VESSEL / VOYAGE NO.
               </div>
             </div>
 
-            {/* Sub-row B: PORT OF LOADING | PORT OF DISCHARGE | PLACE OF DELIVERY */}
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
-              {/* PORT OF LOADING (STATIC DISPLAY) */}
-              <div className="p-2 sm:p-2.5 flex flex-col items-center justify-center gap-1 text-center min-h-[58px]">
-                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider text-center">
-                  PORT OF LOADING
-                </label>
-                <div className="text-[14px] font-semibold text-foreground uppercase">
-                  {portOfLoading}
-                </div>
+            {/* Sub-row A Values (bg-card) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
+              <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                  {preCarriageBy || '-'}
+                </span>
               </div>
-
-              {/* PORT OF DISCHARGE (STATIC DISPLAY) */}
-              <div className="p-2 sm:p-2.5 flex flex-col items-center justify-center gap-1 text-center min-h-[58px]">
-                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider text-center">
-                  PORT OF DISCHARGE
-                </label>
-                <div className="text-[14px] font-semibold text-foreground uppercase">
-                  {portOfDischarge}
-                </div>
+              <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                  {placeOfReceipt || '-'}
+                </span>
               </div>
+              <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                  {vesselVoyageNo || '-'}
+                </span>
+              </div>
+            </div>
 
-              {/* PLACE OF DELIVERY (EDITABLE INPUT with pencil & dotted line!) */}
-              <div className="p-2 sm:p-2.5 flex flex-col items-center justify-center gap-1 text-center min-h-[58px]" id="field-placeOfDelivery" data-field="placeOfDelivery">
-                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider text-center">
-                  PLACE OF DELIVERY
-                </label>
+            {/* Sub-row B Headers (bg-muted/20) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-muted/20">
+              <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider flex items-center justify-center min-h-[38px]">
+                PORT OF LOADING
+              </div>
+              <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider flex items-center justify-center min-h-[38px]">
+                PORT OF DISCHARGE
+              </div>
+              <div className="p-2 sm:p-2.5 text-center font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider flex items-center justify-center min-h-[38px]">
+                PLACE OF DELIVERY
+              </div>
+            </div>
+
+            {/* Sub-row B Values (bg-card) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
+              <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                  {portOfLoading || '-'}
+                </span>
+              </div>
+              <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase select-all">
+                  {portOfDischarge || '-'}
+                </span>
+              </div>
+              <div className="p-2.5 sm:p-3 text-center min-h-[40px] flex items-center justify-center" id="field-placeOfDelivery" data-field="placeOfDelivery">
                 <div className="w-full max-w-[240px]">
                   <DocUnderlineInput
                     value={placeOfDelivery}
@@ -3194,7 +3411,7 @@ export function ShipmentInstructionDocumentForm({
                     placeholder="Enter place of delivery"
                     icon="fa-solid fa-pen"
                     align="center"
-                    inputClassName="text-[14px] font-semibold text-foreground text-center"
+                    inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground text-center uppercase tracking-wide"
                     className="w-full"
                   />
                 </div>
@@ -3207,7 +3424,7 @@ export function ShipmentInstructionDocumentForm({
               Exact match with Canva Screenshot 1 & 2 layout
              ======================================================== */}
           {/* Dedicated Table Header Row matching Canva */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-border border-b border-border bg-card">
+          <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-border border-b border-border bg-muted/20">
             {/* Column 1 Header */}
             <div className="lg:col-span-3 p-2 sm:p-2.5 flex items-center justify-start">
               <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5 leading-snug">
@@ -3237,7 +3454,7 @@ export function ShipmentInstructionDocumentForm({
             {/* Column 1: CONTAINER NOS. MARKS & NUMBERS (lg:col-span-3) */}
             <div className="lg:col-span-3 p-2.5 sm:p-3 flex flex-col gap-3 justify-start bg-card" id="field-marksAndNumbers" data-field="marksAndNumbers">
               <div className="flex flex-col gap-2.5">
-                {/* Marks text: EDITABLE INPUT with pencil & dotted line (e.g. Jocker) */}
+                {/* Marks text: EDITABLE INPUT with pencil & dotted line */}
                 <DocUnderlineInput
                   value={marksAndNumbers}
                   onChange={(v) => {
@@ -3401,7 +3618,7 @@ export function ShipmentInstructionDocumentForm({
               <div className="w-full border-y border-border overflow-x-auto custom-scrollbar">
                 <table className="w-full border-collapse text-center">
                   <thead>
-                    <tr className="bg-muted/20 border-b border-border font-bold text-muted-foreground/85 uppercase text-[12px] sm:text-[13px] tracking-wider">
+                    <tr className="bg-muted/20 border-b border-border font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
                       <th className="py-2.5 px-2.5 border-r border-border text-center font-bold">FCL QUANTITY</th>
                       <th className="py-2.5 px-2.5 border-r border-border text-center font-bold">FCL CAPACITY</th>
                       <th className="py-2.5 px-2.5 border-r border-border text-center font-bold">MT QTY</th>
@@ -3565,41 +3782,41 @@ export function ShipmentInstructionDocumentForm({
               Header row separated from values row by a horizontal line
              ======================================================== */}
           <div className="flex flex-col divide-y divide-border bg-card">
-            {/* Headers row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border text-center">
-              <div className="p-2 sm:p-2.5 flex items-center justify-center">
+            {/* Headers row (bg-muted/20) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border text-center bg-muted/20">
+              <div className="p-2 sm:p-2.5 flex items-center justify-center min-h-[38px]">
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
                   TOTAL NO. OF / PACKAGES
                 </label>
               </div>
-              <div className="p-2 sm:p-2.5 flex items-center justify-center">
+              <div className="p-2 sm:p-2.5 flex items-center justify-center min-h-[38px]">
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
                   TOTAL WEIGHT:
                 </label>
               </div>
-              <div className="p-2 sm:p-2.5 flex items-center justify-center">
+              <div className="p-2 sm:p-2.5 flex items-center justify-center min-h-[38px]">
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
                   FREIGHT:
                 </label>
               </div>
             </div>
 
-            {/* Values row (ALL STATIC DISPLAY) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border text-center">
-              <div className="p-2 sm:p-2.5 flex items-center justify-center">
-                <div className="text-[14px] font-semibold text-foreground">
+            {/* Values row (ALL STATIC DISPLAY - bg-card) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border text-center bg-card">
+              <div className="p-2.5 sm:p-3 flex items-center justify-center min-h-[40px]">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
                   {cleanTotalPackages || '-'}
-                </div>
+                </span>
               </div>
-              <div className="p-2 sm:p-2.5 flex items-center justify-center">
-                <div className="text-[14px] font-semibold text-foreground">
-                  {totalWeight}
-                </div>
+              <div className="p-2.5 sm:p-3 flex items-center justify-center min-h-[40px]">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
+                  {totalWeight || '-'}
+                </span>
               </div>
-              <div className="p-2 sm:p-2.5 flex items-center justify-center">
-                <div className="text-[14px] font-semibold text-foreground uppercase">
+              <div className="p-2.5 sm:p-3 flex items-center justify-center min-h-[40px]">
+                <span className="text-[13px] sm:text-[14px] font-medium text-foreground tracking-wide uppercase">
                   {freight ? freight.toUpperCase() : '-'}
-                </div>
+                </span>
               </div>
             </div>
           </div>
