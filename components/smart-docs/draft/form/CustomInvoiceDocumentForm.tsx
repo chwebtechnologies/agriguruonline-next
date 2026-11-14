@@ -753,14 +753,6 @@ export function CustomInvoiceDocumentForm({
   dict,
   readOnly = false,
 }: CustomInvoiceDocumentFormProps) {
-  const [isDirty, setIsDirty] = useState(false);
-  const [hasDraftChanges, setHasDraftChanges] = useState(false);
-  const isDraftSavedToBackendRef = useRef<boolean>(false);
-
-  const markDirty = useCallback(() => {
-    setIsDirty(true);
-    setHasDraftChanges(true);
-  }, []);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // Validation check for legitimate document IDs (filters out placeholder strings)
@@ -866,6 +858,7 @@ export function CustomInvoiceDocumentForm({
   ]);
 
   const [draftId, setDraftId] = useState<string>(() => effectiveCustomInvoiceId || '');
+  const isDraftSavedToBackendRef = useRef<boolean>(false);
 
   // Keep draftId in sync when effectiveCustomInvoiceId updates (e.g. stepper loads)
   useEffect(() => {
@@ -885,20 +878,81 @@ export function CustomInvoiceDocumentForm({
     return undefined;
   }, [draftId, effectiveCustomInvoiceId, isCandidateValid]);
 
-  // Document status: strictly COMPLETED or PENDING
-  const docStatus = useMemo(() => {
+  // Document Status: 'PENDING' shows Save As Draft; 'COMPLETED' strictly hides Save As Draft
+  const [docStatus, setDocStatus] = useState<string>(() => {
+    const customStep = getCustomInvoiceStep(steps, selectedStep);
     const raw = String(
       initialData?.status ||
       initialData?.document_status ||
-      selectedStep?.status ||
-      selectedStep?.document_status ||
+      customStep?.status ||
+      customStep?.document_status ||
       'PENDING'
     ).toUpperCase();
     if (raw === 'COMPLETED' || raw === 'COMPLETE' || raw === 'DONE' || raw === 'APPROVED' || raw === 'SUCCESS') {
       return 'COMPLETED';
     }
     return 'PENDING';
-  }, [initialData, selectedStep]);
+  });
+
+  // User interaction & dirty state tracking:
+  // - hasDraftChanges: enabled only if user made edits since opening or since last successful draft save
+  // - hasSubmitChanges: enabled if user made edits, or if an uncompleted custom invoice is available to submit
+  const [hasDraftChanges, setHasDraftChanges] = useState<boolean>(false);
+  const [hasSubmitChanges, setHasSubmitChanges] = useState<boolean>(() => {
+    const customStep = getCustomInvoiceStep(steps, selectedStep);
+    const raw = String(
+      initialData?.status ||
+      initialData?.document_status ||
+      customStep?.status ||
+      customStep?.document_status ||
+      'PENDING'
+    ).toUpperCase();
+    const isCompleted =
+      raw === 'COMPLETED' ||
+      raw === 'COMPLETE' ||
+      raw === 'DONE' ||
+      raw === 'APPROVED' ||
+      raw === 'SUCCESS';
+    return !isCompleted;
+  });
+
+  const [isDirty, setIsDirty] = useState<boolean>(false);
+
+  const markDirty = useCallback(() => {
+    setIsDirty(true);
+    setHasDraftChanges(true);
+    setHasSubmitChanges(true);
+  }, []);
+
+  // Guard against blinking: if doc ID exists but data/status is still loading, wait with a smooth skeleton
+  const [statusLoadTimedOut, setStatusLoadTimedOut] = useState<boolean>(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setStatusLoadTimedOut(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const isStatusLoading = !statusLoadTimedOut && Boolean(
+    (propCustomInvoiceId || draftId || effectiveCustomInvoiceId) &&
+    !initialData &&
+    !steps?.some((s, idx) => isCustomInvoiceStep(s, idx) && (s.status || s.document_status || s.step_status))
+  );
+
+  // Sync docStatus when steps or initialData updates
+  useEffect(() => {
+    const customStep = getCustomInvoiceStep(steps, selectedStep);
+    const raw = String(
+      initialData?.status ||
+      initialData?.document_status ||
+      customStep?.status ||
+      customStep?.document_status ||
+      ''
+    ).toUpperCase();
+    if (raw === 'COMPLETED' || raw === 'COMPLETE' || raw === 'DONE' || raw === 'APPROVED' || raw === 'SUCCESS') {
+      setDocStatus('COMPLETED');
+    } else if (raw === 'PENDING' || raw === 'DRAFT' || raw === 'IN_PROGRESS') {
+      setDocStatus('PENDING');
+    }
+  }, [initialData, steps, selectedStep]);
 
   // Document Title & Watermark
   const [customDocTitle, setCustomDocTitle] = useState<string>(() =>
@@ -1024,8 +1078,24 @@ export function CustomInvoiceDocumentForm({
     const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
     if (isDataVersionTriggered) {
       setIsDirty(false);
+      setHasDraftChanges(false);
+      const customStep = getCustomInvoiceStep(steps, selectedStep);
+      const raw = String(
+        initialData?.status ||
+        initialData?.document_status ||
+        customStep?.status ||
+        customStep?.document_status ||
+        'PENDING'
+      ).toUpperCase();
+      const isCompleted =
+        raw === 'COMPLETED' ||
+        raw === 'COMPLETE' ||
+        raw === 'DONE' ||
+        raw === 'APPROVED' ||
+        raw === 'SUCCESS';
+      setHasSubmitChanges(!isCompleted);
     }
-    if (isDirty && !isDataVersionTriggered) {
+    if ((isDirty || hasDraftChanges) && !isDataVersionTriggered) {
       return;
     }
 
@@ -2441,6 +2511,7 @@ export function CustomInvoiceDocumentForm({
           setDraftId(cleanSavedId);
           isDraftSavedToBackendRef.current = true;
           setHasDraftChanges(false);
+          setHasSubmitChanges(true);
           setIsDirty(false);
           if (onSaveSuccess) onSaveSuccess(cleanSavedId, res?.data);
           if (onUpdateSteps && steps && steps.length > 0) {
@@ -2468,6 +2539,7 @@ export function CustomInvoiceDocumentForm({
 
         setIsDirty(false);
         setHasDraftChanges(false);
+        setHasSubmitChanges(true);
         toast.success(res?.message || 'Custom invoice saved as draft!');
       } else {
         const { fieldErrors, generalError } = parseCustomInvoiceBackendErrors(res);
@@ -2553,7 +2625,9 @@ export function CustomInvoiceDocumentForm({
           const cleanSavedId = String(savedId);
           setDraftId(cleanSavedId);
           isDraftSavedToBackendRef.current = true;
+          setDocStatus('COMPLETED');
           setHasDraftChanges(false);
+          setHasSubmitChanges(false);
           setIsDirty(false);
           if (onSaveSuccess) onSaveSuccess(cleanSavedId, res?.data);
           if (onUpdateSteps && steps && steps.length > 0) {
@@ -2579,8 +2653,10 @@ export function CustomInvoiceDocumentForm({
           setStampImageUrl(formatSignatureUrl(sSellerSig));
         }
 
+        setDocStatus('COMPLETED');
         setIsDirty(false);
         setHasDraftChanges(false);
+        setHasSubmitChanges(false);
         toast.success(res?.message || 'Custom invoice submitted successfully!');
       } else {
         const { fieldErrors, generalError } = parseCustomInvoiceBackendErrors(res);
@@ -2671,6 +2747,7 @@ export function CustomInvoiceDocumentForm({
             effectiveId = cleanNewId;
             isDraftSavedToBackendRef.current = true;
             setHasDraftChanges(false);
+            setHasSubmitChanges(true);
             setIsDirty(false);
             if (onSaveSuccess) onSaveSuccess(cleanNewId, res.data);
             if (onUpdateSteps && steps && steps.length > 0) {
@@ -2739,6 +2816,7 @@ export function CustomInvoiceDocumentForm({
             activeId = cleanNewId;
             isDraftSavedToBackendRef.current = true;
             setHasDraftChanges(false);
+            setHasSubmitChanges(true);
             setIsDirty(false);
             if (onSaveSuccess) onSaveSuccess(cleanNewId, res.data);
             if (onUpdateSteps && steps && steps.length > 0) {
@@ -3844,11 +3922,15 @@ export function CustomInvoiceDocumentForm({
             docStatus === 'COMPLETED' ? 'grid-cols-1' : 'grid-cols-2'
           } sm:flex sm:items-center gap-2 sm:gap-2.5 transition-all duration-200`}
         >
-          {docStatus !== 'COMPLETED' ? (
+          {/* Save As Draft: Shown only while status is PENDING; hidden when COMPLETED */}
+          {isStatusLoading ? (
+            <div className="h-7 w-28 rounded-md bg-muted/60 animate-pulse border border-border" />
+          ) : docStatus !== 'COMPLETED' ? (
             <button
               type="button"
-              disabled={isSavingDraft || isSubmitting || readOnly}
+              disabled={isSavingDraft || isSubmitting || readOnly || !hasDraftChanges}
               onClick={handleSaveDraft}
+              title={!hasDraftChanges ? 'No changes to save as draft' : undefined}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-md text-xs font-semibold border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary active:scale-[0.98] transition-all duration-150 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 animate-in fade-in"
             >
               {isSavingDraft ? (
@@ -3856,20 +3938,33 @@ export function CustomInvoiceDocumentForm({
               ) : (
                 <i className="fa-regular fa-floppy-disk text-xs" />
               )}
-              <span className="truncate">{isSavingDraft ? 'Saving...' : 'Save As Draft'}</span>
+              <span className="truncate">
+                {isSavingDraft
+                  ? 'Saving...'
+                  : dict?.smart_docs?.confirmation_form?.save_as_draft || dict?.smart_docs?.save_as_draft || 'Save As Draft'}
+              </span>
             </button>
           ) : null}
 
           {/* Submit */}
           <button
             type="button"
-            disabled={isSubmitting || isSavingDraft || readOnly}
+            disabled={isSubmitting || isSavingDraft || readOnly || (docStatus === 'COMPLETED' && !hasSubmitChanges)}
             onClick={handleSubmit}
+            title={
+              docStatus === 'COMPLETED' && !hasSubmitChanges
+                ? 'Custom Invoice already submitted'
+                : undefined
+            }
             className={`inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-5 py-1.5 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-xs hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30 group ${
               docStatus === 'COMPLETED' ? 'w-full sm:w-auto' : ''
             }`}
           >
-            <span className="truncate">{isSubmitting ? 'Submitting...' : 'Submit'}</span>
+            <span className="truncate">
+              {isSubmitting
+                ? dict?.smart_docs?.submitting || 'Submitting...'
+                : dict?.smart_docs?.custom_invoice_form?.submit || dict?.smart_docs?.submit || 'Submit'}
+            </span>
             {isSubmitting ? (
               <i className="fa-solid fa-circle-notch fa-spin text-xs" />
             ) : (
