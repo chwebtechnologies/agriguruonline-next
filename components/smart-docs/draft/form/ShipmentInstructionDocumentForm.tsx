@@ -815,6 +815,9 @@ export function ShipmentInstructionDocumentForm({
   const [hasSubmitChanges, setHasSubmitChanges] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const isDraftSavedToBackendRef = useRef<boolean>(false);
+  const isFormInitializedRef = useRef<boolean>(false);
+  const lastDataVersionRef = useRef<number>(dataVersion ?? 0);
+  const lastLoadedDocIdRef = useRef<string>('');
 
   const markDirty = useCallback(() => {
     setIsDirty(true);
@@ -1990,10 +1993,46 @@ export function ShipmentInstructionDocumentForm({
   useEffect(() => {
     if (!initialData) return;
 
-    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
-    if (isDataVersionTriggered) {
-      setIsDirty(false);
+    const rawCandidate =
+      instructionId ||
+      shipmentInstructionId ||
+      initialData.shipment_instruction_id ||
+      initialData.instruction_id ||
+      initialData.shipment_id ||
+      (initialData.id &&
+       initialData.id !== contractId &&
+       initialData.id !== confirmationId &&
+       initialData.id !== proformaId
+        ? initialData.id
+        : '') ||
+      (initialData._id &&
+       initialData._id !== contractId &&
+       initialData._id !== confirmationId &&
+       initialData._id !== proformaId
+        ? initialData._id
+        : '');
+    const cleanId = sanitizeDocId(rawCandidate);
+    const hasDocIdChanged = Boolean(cleanId && cleanId !== lastLoadedDocIdRef.current);
+
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
+    // If form has already initialized, NEVER overwrite user edits unless stepper version changed or doc ID changed!
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
+      return;
     }
+
+    isFormInitializedRef.current = true;
+    if (dataVersion !== undefined) {
+      lastDataVersionRef.current = dataVersion;
+    }
+    if (cleanId) {
+      lastLoadedDocIdRef.current = cleanId;
+      setDraftId(cleanId);
+    }
+    setIsDirty(false);
+    setHasDraftChanges(false);
 
     // Only update fields if user has not actively made manual edits (unless stepper navigation triggered a refresh)
     const cid = safeString(
@@ -2166,56 +2205,14 @@ export function ShipmentInstructionDocumentForm({
       else if (initialData.watermark !== undefined) setWatermark(Boolean(initialData.watermark));
     }
 
-    // Draft ID: strictly the Shipment Instruction's self ID
-    const rawCandidate =
-      instructionId ||
-      shipmentInstructionId ||
-      initialData.shipment_instruction_id ||
-      initialData.instruction_id ||
-      initialData.shipment_id ||
-      (initialData.id &&
-       initialData.id !== contractId &&
-       initialData.id !== confirmationId &&
-       initialData.id !== proformaId
-        ? initialData.id
-        : '') ||
-      (initialData._id &&
-       initialData._id !== contractId &&
-       initialData._id !== confirmationId &&
-       initialData._id !== proformaId
-        ? initialData._id
-        : '');
-    const cleanId = sanitizeDocId(rawCandidate);
-    const isValid = cleanId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanId);
-    if (isValid && (!draftId || !isDirty || isDataVersionTriggered)) {
-      setDraftId(cleanId);
-    }
   }, [
     initialData,
     dataVersion,
-    isDirty,
-    consigneeId,
-    consigneeName,
-    consigneeDetails,
-    notifyParty1Id,
-    notifyParty1Details,
-    notifyParty2Id,
-    notifyParty2Details,
-    placeOfDelivery,
-    marksAndNumbers,
-    marksImageUrl,
-    freight,
-    isEctnField,
-    ectnNumber,
-    isCocField,
-    cocFieldsValue,
-    specialInstruction,
-    remarksTitle,
-    remarksComment,
-    documentTitle,
-    draftId,
     instructionId,
     shipmentInstructionId,
+    contractId,
+    confirmationId,
+    proformaId,
     extractInitialParty,
   ]);
 

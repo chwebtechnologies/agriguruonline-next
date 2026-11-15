@@ -33,6 +33,8 @@ export function InstructionManageModal({
   const [error, setError] = useState('');
 
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const isFirstOpenRef = useRef(false);
+  const prevPartyIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -40,7 +42,22 @@ export function InstructionManageModal({
 
   // Sync state when modal opens or editing party changes
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      isFirstOpenRef.current = false;
+      prevPartyIdRef.current = null;
+      return;
+    }
+
+    const currentPartyId =
+      mode === 'edit' && party
+        ? String(party.value || party.id || party._id || party.label || '')
+        : '';
+
+    // Only populate if first open or switched to a different party
+    if (!isFirstOpenRef.current || (mode === 'edit' && currentPartyId && currentPartyId !== prevPartyIdRef.current)) {
+      isFirstOpenRef.current = true;
+      prevPartyIdRef.current = currentPartyId;
+
       if (mode === 'edit' && party) {
         setCompanyName(
           party.label ||

@@ -46,6 +46,8 @@ export function PaymentTermManageModal({
   const [error, setError] = useState('');
 
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const isFirstOpenRef = useRef(false);
+  const prevTermIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -53,7 +55,22 @@ export function PaymentTermManageModal({
 
   // Sync state when modal opens or editing payment term changes
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      isFirstOpenRef.current = false;
+      prevTermIdRef.current = null;
+      return;
+    }
+
+    const currentTermId =
+      mode === 'edit' && paymentTerm
+        ? String(paymentTerm.value || paymentTerm.id || paymentTerm._id || paymentTerm.label || '')
+        : '';
+
+    // Only populate if first open or switched to a different term
+    if (!isFirstOpenRef.current || (mode === 'edit' && currentTermId && currentTermId !== prevTermIdRef.current)) {
+      isFirstOpenRef.current = true;
+      prevTermIdRef.current = currentTermId;
+
       if (mode === 'edit' && paymentTerm) {
         setName(paymentTerm.label || paymentTerm.name || paymentTerm.title || paymentTerm.term || '');
         setDays(

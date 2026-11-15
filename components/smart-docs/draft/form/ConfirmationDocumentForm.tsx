@@ -2129,6 +2129,13 @@ export function ConfirmationDocumentForm({
   };
 
   // Helper to fetch and populate product specific fields (HSN, Spec, Packing Types, Loading & Destination Ports)
+  const hsnCodeRef = useRef(hsnCode);
+  hsnCodeRef.current = hsnCode;
+  const productCountryRef = useRef(productCountry);
+  productCountryRef.current = productCountry;
+  const specificationRef = useRef(specification);
+  specificationRef.current = specification;
+
   const fetchAndApplyProductDetails = useCallback(
     async (targetProdId: string, forceOverwrite = false) => {
       if (!targetProdId || !targetProdId.trim()) return;
@@ -2137,17 +2144,17 @@ export function ConfirmationDocumentForm({
       // Check cache first
       if (productDetailsCacheRef.current[cleanId]) {
         const cached = productDetailsCacheRef.current[cleanId];
-        if (forceOverwrite || !hsnCode) {
+        if (forceOverwrite || !hsnCodeRef.current) {
           if (cached.hsnCode || cached.hsn) {
             setHsnCode(normalizeHsnString(cached.hsnCode || cached.hsn));
           }
         }
-        if (forceOverwrite || !productCountry) {
+        if (forceOverwrite || !productCountryRef.current) {
           if (cached.country) {
             setProductCountry(normalizeCountryString(cached.country));
           }
         }
-        if (forceOverwrite || !specification) {
+        if (forceOverwrite || !specificationRef.current) {
           if (cached.specification) {
             setSpecification(cached.specification);
           }
@@ -2185,17 +2192,17 @@ export function ConfirmationDocumentForm({
             return;
           }
 
-          if (forceOverwrite || !hsnCode) {
+          if (forceOverwrite || !hsnCodeRef.current) {
             if (d.hsnCode || d.hsn) {
               setHsnCode(normalizeHsnString(d.hsnCode || d.hsn));
             }
           }
-          if (forceOverwrite || !productCountry) {
+          if (forceOverwrite || !productCountryRef.current) {
             if (d.country) {
               setProductCountry(normalizeCountryString(d.country));
             }
           }
-          if (forceOverwrite || !specification) {
+          if (forceOverwrite || !specificationRef.current) {
             if (d.specification) {
               setSpecification(d.specification);
             }
@@ -2218,7 +2225,7 @@ export function ConfirmationDocumentForm({
         }
       }
     },
-    [lang, hsnCode, productCountry, specification]
+    [lang]
   );
 
   // Auto-fill HSN, Country & Specification when Product is selected, and trigger product details API
@@ -2382,6 +2389,7 @@ export function ConfirmationDocumentForm({
   );
   // Start uninitialized so that populateConfirmationData runs on initial mount to cleanly wire up all options & fields
   const isFormInitializedRef = useRef<boolean>(false);
+  const lastDataVersionRef = useRef<number>(dataVersion ?? 0);
 
   /**
    * Helper function to populate and synchronize all form state fields from a confirmation data object.
@@ -2817,19 +2825,22 @@ export function ConfirmationDocumentForm({
       initialData.confirmationId
     );
 
-    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
     const hasDocIdChanged = Boolean(incomingDocId && incomingDocId !== lastLoadedDocIdRef.current);
 
     // Once the form was already initialized, NEVER overwrite the user's active in-progress edits
     // UNLESS stepper navigation / explicit version trigger or doc ID change occurred!
     if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
-      if (hasDraftChanges) {
-        return;
-      }
+      return;
     }
 
     // New document, initial async load, or stepper/version update
     isFormInitializedRef.current = true;
+    if (dataVersion !== undefined) {
+      lastDataVersionRef.current = dataVersion;
+    }
     if (incomingDocId) {
       lastLoadedDocIdRef.current = incomingDocId;
     }
@@ -3726,6 +3737,7 @@ export function ConfirmationDocumentForm({
                   id="confirmation-number-input"
                   value={confirmationNumber}
                   onChange={(val) => {
+                    markDirty();
                     setConfirmationNumber(val);
                     if (val.trim()) {
                       setErrors((prev) => ({ ...prev, confirmationNumber: '' }));
@@ -3770,6 +3782,7 @@ export function ConfirmationDocumentForm({
                   type="date"
                   value={confirmationDate}
                   onChange={(val) => {
+                    markDirty();
                     setConfirmationDate(val);
                     setErrors((prev) => ({ ...prev, confirmationDate: '' }));
                   }}
@@ -3818,6 +3831,7 @@ export function ConfirmationDocumentForm({
                   className="mt-0.5"
                   value={sellerInstruction}
                   onChange={(val) => {
+                    markDirty();
                     setSellerInstruction(val);
                     setErrors((prev) => ({ ...prev, sellerInstruction: '' }));
                   }}
@@ -3864,6 +3878,7 @@ export function ConfirmationDocumentForm({
                   className="mt-0.5"
                   value={buyerInstruction}
                   onChange={(val) => {
+                    markDirty();
                     setBuyerInstruction(val);
                     setErrors((prev) => ({ ...prev, buyerInstruction: '' }));
                   }}
@@ -3989,6 +4004,7 @@ export function ConfirmationDocumentForm({
                 rows={2}
                 value={specification}
                 onChange={(val) => {
+                  markDirty();
                   setSpecification(val);
                   setErrors((prev) => ({ ...prev, specification: '' }));
                 }}
@@ -4177,6 +4193,7 @@ export function ConfirmationDocumentForm({
                     type="number"
                     value={fclQty}
                     onChange={(val) => {
+                      markDirty();
                       setFclQty(val);
                       setErrors((prev) => ({ ...prev, fclQty: '' }));
                     }}
@@ -4200,6 +4217,7 @@ export function ConfirmationDocumentForm({
                     type="number"
                     value={fclCapacity}
                     onChange={(val) => {
+                      markDirty();
                       setFclCapacity(val);
                       setErrors((prev) => ({ ...prev, fclCapacity: '' }));
                     }}
@@ -4279,6 +4297,7 @@ export function ConfirmationDocumentForm({
                     type="number"
                     value={price}
                     onChange={(val) => {
+                      markDirty();
                       setPrice(val);
                       setErrors((prev) => ({ ...prev, price: '' }));
                     }}
@@ -4321,6 +4340,7 @@ export function ConfirmationDocumentForm({
                     type="number"
                     value={mtQty}
                     onChange={(val) => {
+                      markDirty();
                       setMtQty(val);
                       setErrors((prev) => ({ ...prev, mtQty: '' }));
                     }}
@@ -4384,6 +4404,7 @@ export function ConfirmationDocumentForm({
                     type="number"
                     value={price}
                     onChange={(val) => {
+                      markDirty();
                       setPrice(val);
                       setErrors((prev) => ({ ...prev, price: '' }));
                     }}
@@ -4542,6 +4563,7 @@ export function ConfirmationDocumentForm({
                 id="field-commentLabel"
                 value={commentLabel}
                 onChange={(val) => {
+                  markDirty();
                   setCommentLabel(val);
                   setErrors((prev) => ({ ...prev, commentLabel: '', comment_label: '' }));
                 }}
@@ -4564,6 +4586,7 @@ export function ConfirmationDocumentForm({
                 id="field-commentValue"
                 value={commentValue}
                 onChange={(val) => {
+                  markDirty();
                   setCommentValue(val);
                   setErrors((prev) => ({ ...prev, commentValue: '', comment_value: '' }));
                 }}

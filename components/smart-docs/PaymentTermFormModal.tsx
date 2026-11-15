@@ -40,6 +40,8 @@ export function PaymentTermFormModal({
   const [error, setError] = useState('');
 
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const isFirstOpenRef = useRef(false);
+  const prevTermIdRef = useRef<string | null>(null);
   const backdropMouseDownRef = useRef(false);
 
   useEffect(() => {
@@ -48,7 +50,22 @@ export function PaymentTermFormModal({
 
   // Sync state when modal opens or editing payment term changes
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      isFirstOpenRef.current = false;
+      prevTermIdRef.current = null;
+      return;
+    }
+
+    const currentTermId =
+      mode === 'edit' && paymentTerm
+        ? String(paymentTerm.id || paymentTerm._id || paymentTerm.title || '')
+        : '';
+
+    // Only populate if first open or switched to a different term
+    if (!isFirstOpenRef.current || (mode === 'edit' && currentTermId && currentTermId !== prevTermIdRef.current)) {
+      isFirstOpenRef.current = true;
+      prevTermIdRef.current = currentTermId;
+
       if (mode === 'edit' && paymentTerm) {
         const rawTitle =
           paymentTerm.title ||

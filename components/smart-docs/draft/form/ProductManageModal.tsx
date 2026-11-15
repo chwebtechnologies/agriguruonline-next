@@ -192,9 +192,27 @@ export function ProductManageModal({
     return { code: null, name: trimmed };
   };
 
+  const isFirstOpenRef = useRef(false);
+  const prevProductIdRef = useRef<string | null>(null);
+
   // Sync state when modal opens or editing product changes
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      isFirstOpenRef.current = false;
+      prevProductIdRef.current = null;
+      return;
+    }
+
+    const currentProdId =
+      mode === 'edit' && product
+        ? String(product.id || product._id || product.value || '')
+        : '';
+
+    // Only populate if first open or switched to a different product
+    if (!isFirstOpenRef.current || (mode === 'edit' && currentProdId && currentProdId !== prevProductIdRef.current)) {
+      isFirstOpenRef.current = true;
+      prevProductIdRef.current = currentProdId;
+
       if (mode === 'edit' && product) {
         setName(product.label || product.product_name || product.name || '');
 

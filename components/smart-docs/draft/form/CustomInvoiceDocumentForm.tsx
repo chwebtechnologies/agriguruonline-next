@@ -917,6 +917,9 @@ export function CustomInvoiceDocumentForm({
   });
 
   const [isDirty, setIsDirty] = useState<boolean>(false);
+  const isFormInitializedRef = useRef<boolean>(false);
+  const lastDataVersionRef = useRef<number>(dataVersion ?? 0);
+  const lastLoadedDocIdRef = useRef<string>('');
 
   const markDirty = useCallback(() => {
     setIsDirty(true);
@@ -1075,29 +1078,51 @@ export function CustomInvoiceDocumentForm({
   // Hydrate form states when fresh initialData arrives from API or when stepper navigation triggers
   useEffect(() => {
     if (!initialData || typeof initialData !== 'object') return;
-    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
-    if (isDataVersionTriggered) {
-      setIsDirty(false);
-      setHasDraftChanges(false);
-      const customStep = getCustomInvoiceStep(steps, selectedStep);
-      const raw = String(
-        initialData?.status ||
-        initialData?.document_status ||
-        customStep?.status ||
-        customStep?.document_status ||
-        'PENDING'
-      ).toUpperCase();
-      const isCompleted =
-        raw === 'COMPLETED' ||
-        raw === 'COMPLETE' ||
-        raw === 'DONE' ||
-        raw === 'APPROVED' ||
-        raw === 'SUCCESS';
-      setHasSubmitChanges(!isCompleted);
-    }
-    if ((isDirty || hasDraftChanges) && !isDataVersionTriggered) {
+
+    const invoiceIdCandidate = safeString(
+      initialData?.custom_invoice_id ||
+      initialData?.invoice_id ||
+      (initialData?.id !== contractId && initialData?.id !== confirmationId && initialData?.id !== proformaId && initialData?.id !== shipmentInstructionId ? initialData?.id : '') ||
+      (initialData?._id !== contractId && initialData?._id !== confirmationId && initialData?._id !== proformaId && initialData?._id !== shipmentInstructionId ? initialData?._id : ''),
+      ''
+    );
+    const hasDocIdChanged = Boolean(invoiceIdCandidate && invoiceIdCandidate !== lastLoadedDocIdRef.current);
+
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
+
+    // If form has already initialized, NEVER overwrite user edits unless stepper version changed or doc ID changed!
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
       return;
     }
+
+    isFormInitializedRef.current = true;
+    if (dataVersion !== undefined) {
+      lastDataVersionRef.current = dataVersion;
+    }
+    if (invoiceIdCandidate) {
+      lastLoadedDocIdRef.current = invoiceIdCandidate;
+      setDraftId(invoiceIdCandidate);
+    }
+    setIsDirty(false);
+    setHasDraftChanges(false);
+
+    const customStep = getCustomInvoiceStep(steps, selectedStep);
+    const raw = String(
+      initialData?.status ||
+      initialData?.document_status ||
+      customStep?.status ||
+      customStep?.document_status ||
+      'PENDING'
+    ).toUpperCase();
+    const isCompleted =
+      raw === 'COMPLETED' ||
+      raw === 'COMPLETE' ||
+      raw === 'DONE' ||
+      raw === 'APPROVED' ||
+      raw === 'SUCCESS';
+    setHasSubmitChanges(!isCompleted);
 
     if (initialData.custom_doc_title !== undefined || initialData.document_title !== undefined) {
       setCustomDocTitle(safeString(initialData.custom_doc_title || initialData.document_title, 'CUSTOM INVOICE'));
@@ -1203,7 +1228,7 @@ export function CustomInvoiceDocumentForm({
     if (rawBankDetails) {
       setBankAccountDetails(rawBankDetails);
     }
-  }, [initialData, dataVersion, isDirty]);
+  }, [initialData, dataVersion, steps, selectedStep, contractId, confirmationId, proformaId, shipmentInstructionId]);
 
   // Validation / Server-side Errors State
   const [errors, setErrors] = useState<Record<string, string>>({});

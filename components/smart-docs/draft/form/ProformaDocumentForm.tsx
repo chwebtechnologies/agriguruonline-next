@@ -2088,6 +2088,7 @@ export function ProformaDocumentForm({
   );
   const hasLoadedRealProformaRef = useRef<boolean>(isInitialDataRealProforma);
   const isFormInitializedRef = useRef<boolean>(isInitialDataRealProforma);
+  const lastDataVersionRef = useRef<number>(dataVersion ?? 0);
   const isSavingOrSubmittingRef = useRef<boolean>(false);
   const lastLoadedDocIdRef = useRef<string>(
     sanitizeDocId(
@@ -2829,7 +2830,9 @@ export function ProformaDocumentForm({
 
     const needsProformaUpgrade = isIncomingRealProforma && !hasLoadedRealProformaRef.current;
 
-    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
 
     // When genuine proforma data arrives (e.g. upgrading from ancestor contract fallback), when stepper navigation triggers, or when document ID changes,
     // we MUST reset dirty flags so that the actual proforma data populates all form states cleanly!
@@ -2837,10 +2840,13 @@ export function ProformaDocumentForm({
       isUserDirtyRef.current = false;
       isSavingOrSubmittingRef.current = false;
       hasLoadedRealProformaRef.current = true;
+      if (dataVersion !== undefined) {
+        lastDataVersionRef.current = dataVersion;
+      }
     }
 
     // Protect user edits and prevent overwriting active entries when user has typed in the form
-    if (!isDataVersionTriggered && !hasDocChanged && (isUserDirtyRef.current || isSavingOrSubmittingRef.current)) {
+    if (!isDataVersionTriggered && !hasDocChanged && (isUserDirtyRef.current || isSavingOrSubmittingRef.current || isFormInitializedRef.current)) {
       // Still update fresh signature / logo from backend if available and not cleared by user
       const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
       if (resolvedSig && !hasUserClearedSignatureRef.current && !stampImageUrl) {
@@ -3161,7 +3167,7 @@ export function ProformaDocumentForm({
     if (titleFromInit) {
       setDocumentTitle(safeString(titleFromInit, 'PROFORMA INVOICE'));
     }
-  }, [initialData, dataVersion, sellers, buyers, sellerId, products]);
+  }, [initialData, dataVersion, sellers, buyers, products]);
 
   // Handle Logo Upload & Removal
   const [logoFile, setLogoFile] = useState<File | null>(null);

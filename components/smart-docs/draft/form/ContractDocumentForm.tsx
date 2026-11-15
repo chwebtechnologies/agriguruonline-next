@@ -2170,6 +2170,7 @@ export function ContractDocumentForm({
     )
   );
   const isFormInitializedRef = useRef<boolean>(false);
+  const lastDataVersionRef = useRef<number>(dataVersion ?? 0);
 
   // Top Header Configuration
   const [letterhead, setLetterhead] = useState<boolean>(
@@ -3662,6 +3663,13 @@ export function ContractDocumentForm({
   };
 
   // Product Selection & Details Fetching
+  const hsnCodeRef = useRef(hsnCode);
+  hsnCodeRef.current = hsnCode;
+  const productCountryRef = useRef(productCountry);
+  productCountryRef.current = productCountry;
+  const specificationRef = useRef(specification);
+  specificationRef.current = specification;
+
   const fetchAndApplyProductDetails = useCallback(
     async (targetProdId: string, forceOverwrite = false) => {
       if (!targetProdId || !targetProdId.trim()) return;
@@ -3670,13 +3678,13 @@ export function ContractDocumentForm({
       // Check cache first
       if (productDetailsCacheRef.current[cleanId]) {
         const cached = productDetailsCacheRef.current[cleanId];
-        if (forceOverwrite || !hsnCode) {
+        if (forceOverwrite || !hsnCodeRef.current) {
           if (cached.hsnCode || cached.hsn) setHsnCode(cached.hsnCode || cached.hsn);
         }
-        if (forceOverwrite || !productCountry) {
+        if (forceOverwrite || !productCountryRef.current) {
           if (cached.country) setProductCountry(cached.country);
         }
-        if (forceOverwrite || !specification) {
+        if (forceOverwrite || !specificationRef.current) {
           if (cached.specification) setSpecification(cached.specification);
         }
         if (cached.packingTypes && Array.isArray(cached.packingTypes)) {
@@ -3707,13 +3715,13 @@ export function ContractDocumentForm({
           // Discard if user already switched product
           if (currentProductIdRef.current !== cleanId) return;
 
-          if (forceOverwrite || !hsnCode) {
+          if (forceOverwrite || !hsnCodeRef.current) {
             if (d.hsnCode || (d as any).hsn) setHsnCode(d.hsnCode || (d as any).hsn);
           }
-          if (forceOverwrite || !productCountry) {
+          if (forceOverwrite || !productCountryRef.current) {
             if (d.country) setProductCountry(d.country);
           }
-          if (forceOverwrite || !specification) {
+          if (forceOverwrite || !specificationRef.current) {
             if (d.specification) setSpecification(d.specification);
           }
 
@@ -3735,7 +3743,7 @@ export function ContractDocumentForm({
         }
       }
     },
-    [lang, hsnCode, productCountry, specification]
+    [lang]
   );
 
   const handleProductChange = (val: string) => {
@@ -3867,7 +3875,9 @@ export function ContractDocumentForm({
       (initialData && !initialData.confirmation_number && !initialData.confirmation_id && initialData.status)
     );
 
-    const isDataVersionTriggered = dataVersion !== undefined && dataVersion > 0;
+    const isDataVersionTriggered = Boolean(
+      dataVersion !== undefined && dataVersion !== lastDataVersionRef.current
+    );
     const hasDocIdChanged = Boolean(contractIdCandidate && contractIdCandidate !== lastLoadedDocIdRef.current);
 
     // Once the form has been initialized, protect user edits UNLESS stepper navigation / explicit version trigger or doc ID change occurred
@@ -3914,9 +3924,13 @@ export function ContractDocumentForm({
         }
         return;
       }
+      return;
     }
 
     isFormInitializedRef.current = true;
+    if (dataVersion !== undefined) {
+      lastDataVersionRef.current = dataVersion;
+    }
     setHasDraftChanges(false);
     const isCompleted = statusFromDoc === 'COMPLETED';
     const hasId = Boolean(contractIdCandidate);
@@ -5574,6 +5588,7 @@ export function ContractDocumentForm({
                   type="date"
                   value={confirmationDate}
                   onChange={(val) => {
+                    markDirty();
                     setConfirmationDate(val);
                     setErrors((prev) => ({ ...prev, confirmationDate: '' }));
                   }}
@@ -5605,6 +5620,7 @@ export function ContractDocumentForm({
                   id="field-contractNumber"
                   value={contractNumber}
                   onChange={(val) => {
+                    markDirty();
                     setContractNumber(val);
                     setErrors((prev) => ({ ...prev, contractNumber: '' }));
                   }}
@@ -5630,6 +5646,7 @@ export function ContractDocumentForm({
                   type="date"
                   value={contractDate}
                   onChange={(val) => {
+                    markDirty();
                     setContractDate(val);
                     setErrors((prev) => ({ ...prev, contractDate: '' }));
                   }}
@@ -5650,6 +5667,7 @@ export function ContractDocumentForm({
               id="field-partiesHeader"
               value={partiesHeader}
               onChange={(val) => {
+                markDirty();
                 setPartiesHeader(val);
                 setErrors((prev) => ({ ...prev, partiesHeader: '' }));
               }}
@@ -5691,6 +5709,7 @@ export function ContractDocumentForm({
                 icon="fa-solid fa-pen"
                 value={sellerInstruction}
                 onChange={(val) => {
+                  markDirty();
                   setSellerInstruction(val);
                   setErrors((prev) => ({ ...prev, sellerInstruction: '' }));
                 }}
@@ -5727,6 +5746,7 @@ export function ContractDocumentForm({
                 icon="fa-solid fa-pen"
                 value={buyerInstruction}
                 onChange={(val) => {
+                  markDirty();
                   setBuyerInstruction(val);
                   setErrors((prev) => ({ ...prev, buyerInstruction: '' }));
                 }}
@@ -5749,6 +5769,7 @@ export function ContractDocumentForm({
                 id="field-shippingInstruction"
                 value={shippingInstruction}
                 onChange={(val) => {
+                  markDirty();
                   setShippingInstruction(val);
                   setErrors((prev) => ({ ...prev, shippingInstruction: '', termsAndCondition: '' }));
                 }}
@@ -5818,6 +5839,7 @@ export function ContractDocumentForm({
                 rows={2}
                 value={specification}
                 onChange={(val) => {
+                  markDirty();
                   setSpecification(val);
                   setErrors((prev) => ({ ...prev, specification: '' }));
                 }}
@@ -5947,6 +5969,7 @@ export function ContractDocumentForm({
                 id="field-markingBrand"
                 value={markingBrand}
                 onChange={(val) => {
+                  markDirty();
                   setMarkingBrand(val);
                   setErrors((prev) => ({ ...prev, markingBrand: '' }));
                 }}
@@ -6070,6 +6093,7 @@ export function ContractDocumentForm({
                     type="number"
                     value={fclQty}
                     onChange={(val) => {
+                      markDirty();
                       setFclQty(val);
                       setErrors((prev) => ({ ...prev, fclQty: '' }));
                     }}
@@ -6093,6 +6117,7 @@ export function ContractDocumentForm({
                     type="number"
                     value={fclCapacity}
                     onChange={(val) => {
+                      markDirty();
                       setFclCapacity(val);
                       setErrors((prev) => ({ ...prev, fclCapacity: '' }));
                     }}
@@ -6159,6 +6184,7 @@ export function ContractDocumentForm({
                     type="number"
                     value={price}
                     onChange={(val) => {
+                      markDirty();
                       setPrice(val);
                       setErrors((prev) => ({ ...prev, price: '' }));
                     }}
@@ -6197,6 +6223,7 @@ export function ContractDocumentForm({
                     type="number"
                     value={mtQty}
                     onChange={(val) => {
+                      markDirty();
                       setMtQty(val);
                       setErrors((prev) => ({ ...prev, mtQty: '' }));
                     }}
@@ -6255,6 +6282,7 @@ export function ContractDocumentForm({
                     type="number"
                     value={price}
                     onChange={(val) => {
+                      markDirty();
                       setPrice(val);
                       setErrors((prev) => ({ ...prev, price: '' }));
                     }}
@@ -6704,6 +6732,7 @@ export function ContractDocumentForm({
                         step="any"
                         value={brokerCommission}
                         onChange={(val) => {
+                          markDirty();
                           setBrokerCommission(val);
                           setErrors((prev) => ({ ...prev, brokerCommission: '' }));
                         }}
@@ -6742,6 +6771,7 @@ export function ContractDocumentForm({
                         id="field-broker-name"
                         value={brokerName}
                         onChange={(val) => {
+                          markDirty();
                           setBrokerName(val);
                           setErrors((prev) => ({ ...prev, brokerName: '' }));
                         }}
@@ -6820,6 +6850,7 @@ export function ContractDocumentForm({
                     id="field-freeDays"
                     value={freeDays}
                     onChange={(val) => {
+                      markDirty();
                       setFreeDays(val);
                       setErrors((prev) => ({ ...prev, freeDays: '' }));
                     }}
@@ -6844,6 +6875,7 @@ export function ContractDocumentForm({
                     id="field-emptyBags"
                     value={emptyBags}
                     onChange={(val) => {
+                      markDirty();
                       setEmptyBags(val);
                       setErrors((prev) => ({ ...prev, emptyBags: '' }));
                     }}
@@ -6868,6 +6900,7 @@ export function ContractDocumentForm({
                     id="field-additionalComment"
                     value={additionalComment}
                     onChange={(val) => {
+                      markDirty();
                       setAdditionalComment(val);
                       setErrors((prev) => ({ ...prev, additionalComment: '', comment: '' }));
                     }}
@@ -6893,6 +6926,7 @@ export function ContractDocumentForm({
                 id="field-otherTermsPayment"
                 value={otherTermsPayment}
                 onChange={(val) => {
+                  markDirty();
                   setOtherTermsPayment(val);
                   setErrors((prev) => ({ ...prev, otherTermsPayment: '', other_terms_1: '' }));
                 }}
@@ -6944,6 +6978,7 @@ export function ContractDocumentForm({
                 id="field-shippingLine"
                 value={shippingLine}
                 onChange={(val) => {
+                  markDirty();
                   setShippingLine(val);
                   setErrors((prev) => ({ ...prev, shippingLine: '' }));
                 }}
@@ -6967,6 +7002,7 @@ export function ContractDocumentForm({
                 id="field-arbitration"
                 value={arbitration}
                 onChange={(val) => {
+                  markDirty();
                   setArbitration(val);
                   setErrors((prev) => ({ ...prev, arbitration: '' }));
                 }}
@@ -7127,6 +7163,7 @@ export function ContractDocumentForm({
                 id="field-commentLabel"
                 value={commentLabel}
                 onChange={(val) => {
+                  markDirty();
                   setCommentLabel(val);
                   setErrors((prev) => ({ ...prev, commentLabel: '', comment_label: '' }));
                 }}
@@ -7147,6 +7184,7 @@ export function ContractDocumentForm({
                 id="field-commentValue"
                 value={commentValue}
                 onChange={(val) => {
+                  markDirty();
                   setCommentValue(val);
                   setErrors((prev) => ({ ...prev, commentValue: '', comment_value: '' }));
                 }}

@@ -352,9 +352,27 @@ export default function SellerManageModal({
     [allCountries]
   );
 
+  const isFirstOpenRef = useRef(false);
+  const prevOpenedIdRef = useRef<string | null>(null);
+
   // Sync state when modal opens or editing seller changes
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      isFirstOpenRef.current = false;
+      prevOpenedIdRef.current = null;
+      return;
+    }
+
+    const currentSellerId =
+      mode === 'edit' && seller
+        ? String(seller.id || seller._id || seller.instruction_id || '')
+        : '';
+
+    // Only populate if first open or switched to a different seller
+    if (!isFirstOpenRef.current || (mode === 'edit' && currentSellerId && currentSellerId !== prevOpenedIdRef.current)) {
+      isFirstOpenRef.current = true;
+      prevOpenedIdRef.current = currentSellerId;
+
       // Always reset to Business Details tab upon opening modal
       setActiveTab('business');
 
