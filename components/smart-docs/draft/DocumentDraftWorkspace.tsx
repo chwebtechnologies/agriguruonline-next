@@ -39,6 +39,10 @@ import {
   isRealStepperList,
   isStatusCompleted,
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
+  isVisibleWorkflowStep,
+  isSameWorkflowStep,
+  mergeStepperWithHidden,
+  getWorkflowSubmitButtonInfo,
 } from '@/lib/api/smart-docs.service';
 import DocumentStatusStepper, { cleanDocNumber } from './DocumentStatusStepper';
 import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
@@ -224,13 +228,35 @@ export interface DocumentDraftWorkspaceProps {
 }
 
 export function getStepSlug(step?: StepperDocumentItem | null, index?: number): string {
-  if (index === 0 || isConfirmationStep(step, index)) return 'confirmation';
-  if (index === 1 || isContractStep(step, index)) return 'contract';
-  if (index === 2 || isProformaStep(step, index)) return 'proforma';
-  if (index === 3 || isShipmentInstructionStep(step, index)) return 'shipment';
-  if (index === 5 || isCustomInvoiceStep(step, index)) return 'custom-invoice';
-  if (step?.id) return String(step.id);
-  return `step-${(index ?? 0) + 1}`;
+  if (isConfirmationStep(step)) return 'confirmation';
+  if (isContractStep(step)) return 'contract';
+  if (isProformaStep(step)) return 'proforma';
+  if (isShipmentInstructionStep(step)) return 'shipment';
+  if (isCustomInvoiceStep(step)) return 'custom-invoice';
+
+  if (step) {
+    const name = String(step.document_name || step.name || step.title || '').trim().toLowerCase();
+    if (name.includes('lading')) return 'bill-of-lading';
+    if (name.includes('commercial')) return 'commercial-invoice';
+    if (name.includes('packing')) return 'packing-list';
+    if (name.includes('phyto')) return 'phyto-certificate';
+    if (name.includes('fumigation')) return 'fumigation-certificate';
+    if (name.includes('origin')) return 'certificate-of-origin';
+    if (name.includes('w & q') || name.includes('w&q')) return 'wq-certificate';
+    if (step.slug) return String(step.slug);
+    if (step.id) return String(step.id);
+  }
+
+  if (typeof index === 'number') {
+    if (index === 0) return 'confirmation';
+    if (index === 1) return 'contract';
+    if (index === 2) return 'proforma';
+    if (index === 3) return 'shipment';
+    if (index === 4) return 'bill-of-lading';
+    if (index === 5) return 'custom-invoice';
+    return `step-${index + 1}`;
+  }
+  return 'confirmation';
 }
 
 /**
@@ -256,24 +282,24 @@ export function resolveInitialStepIndex(
       return 0;
     }
     if (clean === 'contract' || clean === '2') {
-      if (!stepList || stepList.length === 0) return 1;
-      const contractIdx = stepList.findIndex((s, idx) => isContractStep(s, idx));
-      return contractIdx >= 0 ? contractIdx : (stepList.length > 1 ? 1 : 1);
+      if (!stepList || stepList.length === 0) return 0;
+      const contractIdx = stepList.findIndex((s) => isContractStep(s));
+      return contractIdx >= 0 ? contractIdx : (stepList.length > 1 ? 1 : 0);
     }
     if (clean === 'proforma' || clean === '3') {
-      if (!stepList || stepList.length === 0) return 2;
-      const proformaIdx = stepList.findIndex((s, idx) => isProformaStep(s, idx));
-      return proformaIdx >= 0 ? proformaIdx : (stepList.length > 2 ? 2 : 2);
+      if (!stepList || stepList.length === 0) return 0;
+      const proformaIdx = stepList.findIndex((s) => isProformaStep(s));
+      return proformaIdx >= 0 ? proformaIdx : (stepList.length > 2 ? 2 : 0);
     }
     if (clean === 'shipment' || clean === 'shipment_instruction' || clean === 'shipment-instruction' || clean === 'instruction' || clean === 'document' || clean === '4') {
-      if (!stepList || stepList.length === 0) return 3;
-      const shipmentIdx = stepList.findIndex((s, idx) => isShipmentInstructionStep(s, idx));
-      return shipmentIdx >= 0 ? shipmentIdx : (stepList.length > 3 ? 3 : 3);
+      if (!stepList || stepList.length === 0) return 0;
+      const shipmentIdx = stepList.findIndex((s) => isShipmentInstructionStep(s));
+      return shipmentIdx >= 0 ? shipmentIdx : (stepList.length > 3 ? 3 : 0);
     }
     if (clean === 'custom-invoice' || clean === 'custom_invoice' || clean === 'custom' || clean === 'invoice' || clean === '6') {
-      if (!stepList || stepList.length === 0) return 5;
-      const customIdx = stepList.findIndex((s, idx) => isCustomInvoiceStep(s, idx));
-      return customIdx >= 0 ? customIdx : (stepList.length > 5 ? 5 : 5);
+      if (!stepList || stepList.length === 0) return 0;
+      const customIdx = stepList.findIndex((s) => isCustomInvoiceStep(s));
+      return customIdx >= 0 ? customIdx : (stepList.length > 5 ? 5 : 0);
     }
     if (stepList && stepList.length > 0) {
       const matchedIdx = stepList.findIndex((s, i) => {
@@ -358,11 +384,11 @@ export function DocumentDraftWorkspace({
 
   const [isMobileStepperOpen, setIsMobileStepperOpen] = useState<boolean>(false);
 
-  const isConfirmation = selectedStepIndex === 0 || isConfirmationStep(selectedStep, selectedStepIndex);
-  const isContract = !isConfirmation && (selectedStepIndex === 1 || isContractStep(selectedStep, selectedStepIndex));
-  const isProforma = !isConfirmation && !isContract && (selectedStepIndex === 2 || isProformaStep(selectedStep, selectedStepIndex));
-  const isShipmentInstruction = !isConfirmation && !isContract && !isProforma && (selectedStepIndex === 3 || isShipmentInstructionStep(selectedStep, selectedStepIndex));
-  const isCustomInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && (selectedStepIndex === 5 || isCustomInvoiceStep(selectedStep, selectedStepIndex));
+  const isConfirmation = isConfirmationStep(selectedStep);
+  const isContract = !isConfirmation && isContractStep(selectedStep);
+  const isProforma = !isConfirmation && !isContract && isProformaStep(selectedStep);
+  const isShipmentInstruction = !isConfirmation && !isContract && !isProforma && isShipmentInstructionStep(selectedStep);
+  const isCustomInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && isCustomInvoiceStep(selectedStep);
 
   // Contract ID extracted strictly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
   const contractIdFromStepper = useMemo(() => {
@@ -387,7 +413,7 @@ export function DocumentDraftWorkspace({
     }
 
     // 2. Stepper list Step 0 (Trade Confirmation) redirect_id
-    const stepperConfStep = steps.find((s, idx) => isConfirmationStep(s, idx)) || steps[0];
+    const stepperConfStep = steps.find((s) => isConfirmationStep(s)) || null;
     const stepperConfId = sanitizeDocId(
       getConfirmationIdFromStepper(steps) ||
       getStepSelfId(stepperConfStep) ||
@@ -475,7 +501,7 @@ export function DocumentDraftWorkspace({
     }
 
     // 2. Stepper list Step 1 (Sales Contract) redirect_id / contract_id
-    const stepperContractStep = steps.find((s, idx) => isContractStep(s, idx)) || steps[1];
+    const stepperContractStep = steps.find((s) => isContractStep(s)) || null;
     const stepperContractId = sanitizeDocId(
       stepperContractStep?.contract_id ||
       (stepperContractStep as any)?.contractId ||
@@ -882,8 +908,7 @@ export function DocumentDraftWorkspace({
       initialContractData?.confirmation_number ||
       initialContractData?.confirmationNumber ||
       initialContractData?.confirmation?.confirmation_number ||
-      steps[0]?.confirmation_number ||
-      steps.find((s, idx) => isConfirmationStep(s, idx))?.confirmation_number
+      steps.find((s) => isConfirmationStep(s))?.confirmation_number
     );
   }, [confirmationData, initialData, contractData, initialContractData, steps]);
 
@@ -901,55 +926,34 @@ export function DocumentDraftWorkspace({
       initialContractData?.contract_no ||
       initialContractData?.contract?.contract_number ||
       initialContractData?.contract?.contract_no ||
-      steps[1]?.contract_number ||
-      steps.find((s, idx) => isContractStep(s, idx))?.contract_number
+      steps.find((s) => isContractStep(s))?.contract_number
     );
   }, [contractData, initialContractData, steps]);
 
   // Active document ID and type for stepper:
   // "document id hi stepper me pass karo jis step se aaye hai form me button se si ki id contract ki id ya confirmation ki id vo hi stepper ki api me same pass karni hai"
-  const activeStepperId = useMemo(() => {
-    if (isCustomInvoice) {
-      return canonicalCustomInvoiceId || initialId || draftId || '';
-    }
-    if (isShipmentInstruction) {
-      return canonicalShipmentInstructionId || initialId || draftId || '';
-    }
-    if (isContract) {
-      return canonicalContractId || initialId || draftId || '';
-    }
-    if (isProforma) {
-      return canonicalProformaId || initialId || draftId || '';
-    }
-    return effectiveConfirmationId || initialId || draftId || '';
-  }, [
-    isCustomInvoice,
-    isShipmentInstruction,
-    isContract,
-    isProforma,
-    canonicalCustomInvoiceId,
-    canonicalShipmentInstructionId,
-    canonicalContractId,
-    canonicalProformaId,
-    effectiveConfirmationId,
-    initialId,
-    draftId,
-  ]);
-
-  const activeStepperType = useMemo(() => {
-    if (isCustomInvoice) return 'document';
-    if (isShipmentInstruction) return 'document';
-    if (isContract) return 'contract';
-    if (isProforma) return 'document';
+  // The true workflow root action and ID anchoring this entire document workflow.
+  // Confirmation ID is the primary root of the entire trade deal workflow.
+  // If the deal was started directly as a contract without confirmation, contract ID is the root.
+  const workflowAnchorType = useMemo(() => {
+    if (effectiveConfirmationId) return 'confirmation';
+    if (canonicalContractId) return 'contract';
     return 'confirmation';
-  }, [isCustomInvoice, isShipmentInstruction, isContract, isProforma]);
+  }, [effectiveConfirmationId, canonicalContractId]);
 
-  const rootWorkflowId = useMemo(() => {
-    return activeStepperId || effectiveConfirmationId || canonicalContractId || initialId || '';
-  }, [activeStepperId, effectiveConfirmationId, canonicalContractId, initialId]);
+  const workflowAnchorId = useMemo(() => {
+    return (
+      effectiveConfirmationId ||
+      canonicalContractId ||
+      initialId ||
+      draftId ||
+      'new-confirmation'
+    );
+  }, [effectiveConfirmationId, canonicalContractId, initialId, draftId]);
 
-  const workflowAnchorType = activeStepperType;
-  const workflowAnchorId = activeStepperId || rootWorkflowId || initialId || '';
+  const activeStepperType = workflowAnchorType;
+  const activeStepperId = workflowAnchorId;
+  const rootWorkflowId = workflowAnchorId;
 
   useEffect(() => {
     if (initialSteps && initialSteps.length > 0) {
@@ -965,7 +969,18 @@ export function DocumentDraftWorkspace({
 
   useEffect(() => {
     if (steps.length > 0) {
-      const active = steps[selectedStepIndex] || steps[0];
+      const visibleList = steps.filter(isVisibleWorkflowStep);
+      const targetList = visibleList.length > 0 ? visibleList : steps;
+      if (selectedStep) {
+        const found = targetList.find((s) => isSameWorkflowStep(s, selectedStep));
+        if (found) {
+          const idx = targetList.indexOf(found);
+          if (idx !== selectedStepIndex) setSelectedStepIndex(idx);
+          if (found !== selectedStep) setSelectedStep(found);
+          return;
+        }
+      }
+      const active = targetList[selectedStepIndex] || targetList[0];
       setSelectedStep(active);
     }
   }, [steps, selectedStepIndex]);
@@ -974,11 +989,11 @@ export function DocumentDraftWorkspace({
   useEffect(() => {
     setSteps((prevSteps) => {
       let changed = false;
-      const updated = prevSteps.map((step, idx) => {
+      const updated = prevSteps.map((step) => {
         let newStep = { ...step };
 
         // Step 0: Confirmation
-        if (isConfirmationStep(step, idx)) {
+        if (isConfirmationStep(step)) {
           const confId = sanitizeDocId(
             confirmationData?.id ||
             confirmationData?._id ||
@@ -1002,11 +1017,14 @@ export function DocumentDraftWorkspace({
           if (isDone && normalizeStepStatus(step.status) !== 'completed') {
             newStep.status = 'completed';
             changed = true;
+          } else if (!isDone && normalizeStepStatus(step.status) === 'completed') {
+            newStep.status = confirmationData?.status || initialData?.status || 'draft';
+            changed = true;
           }
         }
 
         // Step 1: Contract
-        if (isContractStep(step, idx)) {
+        else if (isContractStep(step)) {
           const contractId = sanitizeDocId(
             contractData?.id ||
             contractData?._id ||
@@ -1030,11 +1048,14 @@ export function DocumentDraftWorkspace({
           if (isDone && normalizeStepStatus(step.status) !== 'completed') {
             newStep.status = 'completed';
             changed = true;
+          } else if (!isDone && normalizeStepStatus(step.status) === 'completed') {
+            newStep.status = contractData?.status || initialContractData?.status || 'pending';
+            changed = true;
           }
         }
 
         // Step 2: Proforma
-        if (isProformaStep(step, idx)) {
+        else if (isProformaStep(step)) {
           const proformaId = sanitizeDocId(
             proformaData?.id ||
             proformaData?._id ||
@@ -1058,11 +1079,14 @@ export function DocumentDraftWorkspace({
           if (isDone && normalizeStepStatus(step.status) !== 'completed') {
             newStep.status = 'completed';
             changed = true;
+          } else if (!isDone && normalizeStepStatus(step.status) === 'completed') {
+            newStep.status = proformaData?.status || initialProformaData?.status || 'pending';
+            changed = true;
           }
         }
 
         // Step 3: Shipment Instruction
-        if (isShipmentInstructionStep(step, idx)) {
+        else if (isShipmentInstructionStep(step)) {
           const shipmentId = sanitizeDocId(
             shipmentInstructionData?.id ||
             shipmentInstructionData?._id ||
@@ -1088,11 +1112,14 @@ export function DocumentDraftWorkspace({
           if (isDone && normalizeStepStatus(step.status) !== 'completed') {
             newStep.status = 'completed';
             changed = true;
+          } else if (!isDone && normalizeStepStatus(step.status) === 'completed') {
+            newStep.status = shipmentInstructionData?.status || initialShipmentInstructionData?.status || 'pending';
+            changed = true;
           }
         }
 
         // Step 5: Custom Invoice
-        if (isCustomInvoiceStep(step, idx)) {
+        else if (isCustomInvoiceStep(step)) {
           const customId = sanitizeDocId(
             customInvoiceData?.id ||
             customInvoiceData?._id ||
@@ -1123,6 +1150,9 @@ export function DocumentDraftWorkspace({
           );
           if (isDone && normalizeStepStatus(step.status) !== 'completed') {
             newStep.status = 'completed';
+            changed = true;
+          } else if (!isDone && normalizeStepStatus(step.status) === 'completed') {
+            newStep.status = customInvoiceData?.status || initialCustomInvoiceData?.status || 'pending';
             changed = true;
           }
         }
@@ -1257,11 +1287,11 @@ export function DocumentDraftWorkspace({
   // Centralized step data fetcher: fetches the latest document data and refreshes stepper metadata
   const fetchLatestStepData = useCallback(
     async (targetStep: StepperDocumentItem | null | undefined, targetIndex: number, currentSeq: number) => {
-      const isTargetConfirmation = targetIndex === 0 || isConfirmationStep(targetStep, targetIndex);
-      const isTargetContract = !isTargetConfirmation && (targetIndex === 1 || isContractStep(targetStep, targetIndex));
-      const isTargetProforma = !isTargetConfirmation && !isTargetContract && (targetIndex === 2 || isProformaStep(targetStep, targetIndex));
-      const isTargetShipment = !isTargetConfirmation && !isTargetContract && !isTargetProforma && (targetIndex === 3 || isShipmentInstructionStep(targetStep, targetIndex));
-      const isTargetCustomInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && (targetIndex === 5 || isCustomInvoiceStep(targetStep, targetIndex));
+      const isTargetConfirmation = isConfirmationStep(targetStep);
+      const isTargetContract = !isTargetConfirmation && isContractStep(targetStep);
+      const isTargetProforma = !isTargetConfirmation && !isTargetContract && isProformaStep(targetStep);
+      const isTargetShipment = !isTargetConfirmation && !isTargetContract && !isTargetProforma && isShipmentInstructionStep(targetStep);
+      const isTargetCustomInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && isCustomInvoiceStep(targetStep);
 
       const stepSelfId = getStepSelfId(targetStep);
 
@@ -1285,12 +1315,8 @@ export function DocumentDraftWorkspace({
         );
 
         // Concurrently refresh stepper list from backend so we have the absolute latest redirect_id & status
-        const stepperAction = effectiveConfirmationId
-          ? 'confirmation'
-          : canonicalContractId
-          ? 'contract'
-          : (activeStepperType || 'confirmation');
-        const stepperParam = effectiveConfirmationId || canonicalContractId || candidateId || initialId || 'new-confirmation';
+        const stepperAction = workflowAnchorType;
+        const stepperParam = workflowAnchorId;
         getStepperListAction({
           action: stepperAction,
           step: String(stepperParam),
@@ -1298,7 +1324,7 @@ export function DocumentDraftWorkspace({
         })
           .then((sRes) => {
             if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
-              setSteps(sRes.data);
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
               const freshProformaStep = getProformaStep(sRes.data);
               const freshProformaId = sanitizeDocId(
                 getStepSelfId(freshProformaStep) ||
@@ -1378,15 +1404,16 @@ export function DocumentDraftWorkspace({
           (contractData?.contract_number ? contractData?.id || contractData?.contract_id : '')
         );
 
-        const stepperParam = candidateId || effectiveConfirmationId || 'new-contract';
+        const stepperAction = workflowAnchorType;
+        const stepperParam = workflowAnchorId;
         getStepperListAction({
-          action: 'contract',
+          action: stepperAction,
           step: String(stepperParam),
           lang,
         })
           .then((sRes) => {
             if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
-              setSteps(sRes.data);
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
             }
           })
           .catch(() => {});
@@ -1440,15 +1467,16 @@ export function DocumentDraftWorkspace({
           setIsLoadingConfirmation(true);
         }
 
-        const stepperParam = candidateId || 'new-confirmation';
+        const stepperAction = workflowAnchorType;
+        const stepperParam = workflowAnchorId;
         getStepperListAction({
-          action: 'confirmation',
+          action: stepperAction,
           step: String(stepperParam),
           lang,
         })
           .then((sRes) => {
             if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
-              setSteps(sRes.data);
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
             }
           })
           .catch(() => {});
@@ -1502,15 +1530,16 @@ export function DocumentDraftWorkspace({
           (shipmentInstructionData?.shipment_instruction_number ? shipmentInstructionData?.id || shipmentInstructionData?.shipment_instruction_id : '')
         );
 
-        const stepperParam = workflowAnchorId || effectiveConfirmationId || candidateId || 'new-confirmation';
+        const stepperAction = workflowAnchorType;
+        const stepperParam = workflowAnchorId;
         getStepperListAction({
-          action: workflowAnchorType,
+          action: stepperAction,
           step: String(stepperParam),
           lang,
         })
           .then((sRes) => {
             if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
-              setSteps(sRes.data);
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
             }
           })
           .catch(() => {});
@@ -1565,15 +1594,16 @@ export function DocumentDraftWorkspace({
           (customInvoiceData?.custom_invoice_number ? customInvoiceData?.id || customInvoiceData?.custom_invoice_id : '')
         );
 
-        const stepperParam = workflowAnchorId || effectiveConfirmationId || 'new-confirmation';
+        const stepperAction = workflowAnchorType;
+        const stepperParam = workflowAnchorId;
         getStepperListAction({
-          action: workflowAnchorType || 'confirmation',
+          action: stepperAction,
           step: String(stepperParam),
           lang,
         })
           .then((sRes) => {
             if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
-              setSteps(sRes.data);
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
             }
           })
           .catch(() => {});
@@ -1632,8 +1662,24 @@ export function DocumentDraftWorkspace({
   // Deep link navigation: update URL query parameters without full page reload.
   // Stepper root ID remains constant; step slug indicates current view.
   const handleSelectStep = useCallback(
-    (step: StepperDocumentItem, index: number) => {
-      setSelectedStepIndex(index);
+    (step: StepperDocumentItem, index?: number) => {
+      let resolvedIndex = typeof index === 'number' ? index : -1;
+      if (resolvedIndex < 0) {
+        const visibleList = steps.filter(isVisibleWorkflowStep);
+        resolvedIndex = visibleList.findIndex((s) => isSameWorkflowStep(s, step));
+        if (resolvedIndex < 0) resolvedIndex = 0;
+      }
+
+      // Guard: If already on this exact step, avoid duplicate execution & visual flash
+      if (
+        selectedStep &&
+        isSameWorkflowStep(selectedStep, step) &&
+        resolvedIndex === selectedStepIndex
+      ) {
+        return;
+      }
+
+      setSelectedStepIndex(resolvedIndex);
       setSelectedStep(step);
       setIsMobileStepperOpen(false);
 
@@ -1643,11 +1689,11 @@ export function DocumentDraftWorkspace({
       attemptedShipmentFetchRef.current = null;
       attemptedCustomInvoiceFetchRef.current = null;
 
-      const isSelectingConfirmation = index === 0 || isConfirmationStep(step, index);
-      const isSelectingContract = !isSelectingConfirmation && (index === 1 || isContractStep(step, index));
-      const isSelectingProforma = !isSelectingConfirmation && !isSelectingContract && (index === 2 || isProformaStep(step, index));
-      const isSelectingShipment = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && (index === 3 || isShipmentInstructionStep(step, index));
-      const isSelectingCustomInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && (index === 5 || isCustomInvoiceStep(step, index));
+      const isSelectingConfirmation = isConfirmationStep(step);
+      const isSelectingContract = !isSelectingConfirmation && isContractStep(step);
+      const isSelectingProforma = !isSelectingConfirmation && !isSelectingContract && isProformaStep(step);
+      const isSelectingShipment = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && isShipmentInstructionStep(step);
+      const isSelectingCustomInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && isCustomInvoiceStep(step);
 
       if (isSelectingConfirmation) {
         setConfirmationVersion((v) => v + 1);
@@ -1679,7 +1725,7 @@ export function DocumentDraftWorkspace({
         setIsLoadingCustomInvoice(true);
       }
 
-      const slug = getStepSlug(step, index);
+      const slug = getStepSlug(step, resolvedIndex);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         const specificDocId = isSelectingCustomInvoice
@@ -1702,7 +1748,7 @@ export function DocumentDraftWorkspace({
       }
 
       const currentSeq = ++activeFetchSeqRef.current;
-      fetchLatestStepData(step, index, currentSeq);
+      fetchLatestStepData(step, resolvedIndex, currentSeq);
     },
     [
       steps,
@@ -1725,6 +1771,36 @@ export function DocumentDraftWorkspace({
       initialId,
       fetchLatestStepData,
     ]
+  );
+
+  const handleUpdateSteps = useCallback(
+    (newSteps: StepperDocumentItem[]) => {
+      if (!newSteps || newSteps.length === 0) return;
+      setSteps((prevSteps) => {
+        const merged = mergeStepperWithHidden(newSteps, prevSteps);
+        const visibleSteps = merged.filter(isVisibleWorkflowStep);
+        if (visibleSteps.length === 0) return merged;
+
+        if (!selectedStep) {
+          handleSelectStep(visibleSteps[0], 0);
+          return merged;
+        }
+
+        const matchIdx = visibleSteps.findIndex((s) => isSameWorkflowStep(s, selectedStep));
+
+        if (matchIdx >= 0) {
+          setSelectedStepIndex(matchIdx);
+          setSelectedStep(visibleSteps[matchIdx]);
+        } else {
+          // Currently open document was removed/hidden from workflow!
+          // Gracefully switch to nearest valid visible step (or first step):
+          const fallbackStep = visibleSteps[0];
+          handleSelectStep(fallbackStep, 0);
+        }
+        return merged;
+      });
+    },
+    [selectedStep, handleSelectStep]
   );
 
   const pageTitle = isContract
@@ -2217,19 +2293,19 @@ export function DocumentDraftWorkspace({
           <div className="mt-2.5 pt-2 border-t border-border animate-in fade-in duration-200 max-h-[60vh] sm:max-h-[440px] overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar">
             <DocumentStatusStepper
               isMobile
-              stepperType={activeStepperType}
-              stepperId={activeStepperId || initialId || draftId || 'new-confirmation'}
-              stepId={activeStepperId || initialId || draftId || 'new-confirmation'}
-              confirmationId={effectiveConfirmationId || activeStepperId || draftId}
+              stepperType={workflowAnchorType}
+              stepperId={workflowAnchorId}
+              stepId={workflowAnchorId}
+              confirmationId={effectiveConfirmationId}
               initialSteps={steps}
               currentStepIndex={selectedStepIndex}
               onSelectStep={handleSelectStep}
-              onUpdateSteps={setSteps}
+              onUpdateSteps={handleUpdateSteps}
               lang={lang}
               dict={dict}
               confirmationNumber={resolvedConfirmationNumber}
               contractNumber={resolvedContractNumber}
-              isContractStep={activeStepperType === 'contract'}
+              isContractStep={isContract}
             />
           </div>
         )}
@@ -2263,11 +2339,7 @@ export function DocumentDraftWorkspace({
             paymentTerms={initialPaymentTerms}
             currencies={initialCurrencies}
             shippingTerms={shippingTerms}
-            onUpdateSteps={(newSteps) => {
-              if (newSteps && newSteps.length > 0) {
-                setSteps(newSteps);
-              }
-            }}
+            onUpdateSteps={handleUpdateSteps}
             onSaveSuccess={(savedId, savedData) => {
               if (savedId) {
                 setDraftId(savedId);
@@ -2308,7 +2380,8 @@ export function DocumentDraftWorkspace({
               }
               return res;
             }}
-            onSubmitContract={async (formData) => {
+            onSelectStep={handleSelectStep}
+            onSubmitContract={async (formData, passedNextStep) => {
               const res = await submitConfirmationAction(formData, lang);
               if (res?.success) {
                 const newId =
@@ -2337,70 +2410,38 @@ export function DocumentDraftWorkspace({
                   setContractData(extracted);
                 }
 
-                // Update stepper to reflect completion and switch to contract step
+                // Update stepper to reflect completion and switch to next step
                 try {
+                  const stepperParam = workflowAnchorId;
                   const stepperRes = await getStepperListAction({
-                    action: 'confirmation',
-                    step: String(newId || 'new-confirmation'),
+                    action: workflowAnchorType,
+                    step: String(stepperParam),
                     lang,
                   });
+                  let targetList = steps;
                   if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
-                    setSteps(stepperRes.data);
-                    const contractIndex = stepperRes.data.findIndex((s, idx) => isContractStep(s, idx));
-                    const targetIdx =
-                      contractIndex >= 0 ? contractIndex : (stepperRes.data.length > 1 ? 1 : 0);
-                    setSelectedStepIndex(targetIdx);
-                    const newContractStep = stepperRes.data[targetIdx] || null;
-                    setSelectedStep(newContractStep);
-
-                    // Extract the contract ID from the stepper contract step!
-                    const newContractId = extractStepId(newContractStep);
-                    if (newContractId) {
-                      setDraftId(newContractId);
-                      setIsLoadingContract(true);
-                      getContractAction(newContractId, lang).then((cRes) => {
-                        if (cRes?.success && cRes.data) {
-                          const extracted = extractContractData(cRes.data);
-                          if (extracted) {
-                            setContractData(extracted);
-                          }
-                        }
-                      }).finally(() => {
-                        setIsLoadingContract(false);
-                      });
-                    } else if (newId) {
-                      setDraftId(String(newId));
-                      fetchLatestStepData(newContractStep, targetIdx, ++activeFetchSeqRef.current);
-                    } else {
-                      fetchLatestStepData(newContractStep, targetIdx, ++activeFetchSeqRef.current);
+                    targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                    setSteps(targetList);
+                  }
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const confIndex = visibleList.findIndex((s) => isConfirmationStep(s));
+                    if (confIndex >= 0 && confIndex + 1 < visibleList.length) {
+                      targetIdx = confIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
                     }
-
-                    // Update URL to contract step (preserving rootWorkflowId in ?id=)
-                    if (typeof window !== 'undefined') {
-                      const url = new URL(window.location.href);
-                      const targetId = rootWorkflowId || effectiveConfirmationId || String(newId);
-                      if (targetId) {
-                        url.searchParams.set('id', targetId);
-                      }
-                      url.searchParams.set('step', 'contract');
-                      window.history.replaceState(null, '', url.toString());
-                    }
-                  } else if (steps.length > 1) {
-                    setSelectedStepIndex(1);
-                    setSelectedStep(steps[1]);
-                    fetchLatestStepData(steps[1], 1, ++activeFetchSeqRef.current);
-                    if (typeof window !== 'undefined') {
-                      const url = new URL(window.location.href);
-                      url.searchParams.set('step', 'contract');
-                      window.history.replaceState(null, '', url.toString());
-                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 } catch (stepErr) {
                   console.error('[DocumentDraftWorkspace] Stepper refresh error:', stepErr);
-                  if (steps.length > 1) {
-                    setSelectedStepIndex(1);
-                    setSelectedStep(steps[1]);
-                  }
                 }
               }
               return res;
@@ -2418,11 +2459,8 @@ export function DocumentDraftWorkspace({
               contractId={contractIdFromStepper || canonicalContractId}
               steps={steps}
               selectedStep={selectedStep}
-              onUpdateSteps={(newSteps) => {
-                if (newSteps && newSteps.length > 0) {
-                  setSteps(newSteps);
-                }
-              }}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
               lang={lang}
               dict={dict}
               sellers={initialSellers}
@@ -2451,8 +2489,8 @@ export function DocumentDraftWorkspace({
                   }));
                   // Update stepper item for contract so checkmark and redirect_id reflect the saved contract
                   setSteps((prevSteps) =>
-                    prevSteps.map((s, idx) =>
-                      isContractStep(s, idx)
+                    prevSteps.map((s) =>
+                      isContractStep(s)
                         ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
                         : s
                     )
@@ -2563,14 +2601,14 @@ export function DocumentDraftWorkspace({
 
                   // Concurrently refresh stepper list from backend so all steps stay fresh
                   try {
-                    const stepperParam = validEffectiveId || newId || 'new-confirmation';
+                    const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
-                      action: 'confirmation',
+                      action: workflowAnchorType,
                       step: String(stepperParam),
                       lang,
                     });
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
-                      setSteps(stepperRes.data);
+                      setSteps((prevSteps) => mergeStepperWithHidden(stepperRes.data, prevSteps));
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Stepper refresh error:', stepErr);
@@ -2578,7 +2616,7 @@ export function DocumentDraftWorkspace({
                 }
                 return res;
               }}
-              onSubmitContract={async (formData, passedId) => {
+              onSubmitContract={async (formData, passedId, passedNextStep) => {
                 const activeDocId =
                   passedId ||
                   canonicalContractId ||
@@ -2668,73 +2706,35 @@ export function DocumentDraftWorkspace({
                       return updated;
                     });
                   }
-                  // Update stepper to reflect completion and switch to proforma step (just like confirmation switches to contract!)
+                  // Update stepper to reflect completion and switch to next step
                   try {
-                    const stepperParam = effectiveConfirmationId || confId || 'new-confirmation';
+                    const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
-                      action: 'confirmation',
+                      action: workflowAnchorType,
                       step: String(stepperParam),
                       lang,
                     });
-
+                    let targetList = steps;
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
-                      setSteps(stepperRes.data);
-                      const proformaIndex = stepperRes.data.findIndex((s, idx) => isProformaStep(s, idx));
-                      const targetIdx =
-                        proformaIndex >= 0 ? proformaIndex : (stepperRes.data.length > 2 ? 2 : 2);
-                      setSelectedStepIndex(targetIdx);
-                      const newProformaStep = stepperRes.data[targetIdx] || null;
-                      setSelectedStep(newProformaStep);
-
-                      const newProformaId = extractStepId(newProformaStep) || res.data?.proforma_id;
-                      if (newProformaId) {
-                        setIsLoadingProforma(true);
-                        getProformaAction(String(newProformaId), lang)
-                          .then((pRes) => {
-                            if (pRes?.success && pRes.data) {
-                              const extracted = extractProformaData(pRes.data);
-                              if (extracted && isCompleteProformaData(extracted)) {
-                                setProformaData(extracted);
-                              } else if (pRes.data) {
-                                setProformaData(pRes.data);
-                              }
-                            }
-                          })
-                          .catch((pErr) => {
-                            console.warn('[DocumentDraftWorkspace] Post-submit contract proforma fetch error:', pErr);
-                          })
-                          .finally(() => {
-                            setIsLoadingProforma(false);
-                          });
-                      } else {
-                        fetchLatestStepData(newProformaStep, targetIdx, ++activeFetchSeqRef.current);
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                      setSteps(targetList);
+                    }
+                    const visibleList = targetList.filter(isVisibleWorkflowStep);
+                    let nextStepToSelect: StepperDocumentItem | null = null;
+                    let targetIdx = -1;
+                    if (passedNextStep) {
+                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                    }
+                    if (!nextStepToSelect || targetIdx === -1) {
+                      const contIndex = visibleList.findIndex((s) => isContractStep(s));
+                      if (contIndex >= 0 && contIndex + 1 < visibleList.length) {
+                        targetIdx = contIndex + 1;
+                        nextStepToSelect = visibleList[targetIdx];
                       }
-
-                      // Update URL to proforma step (preserving rootWorkflowId in ?id=)
-                      if (typeof window !== 'undefined') {
-                        const url = new URL(window.location.href);
-                        const targetId = rootWorkflowId || effectiveConfirmationId;
-                        if (targetId) {
-                          url.searchParams.set('id', targetId);
-                        }
-                        url.searchParams.set('step', 'proforma');
-                        window.history.replaceState(null, '', url.toString());
-                      }
-                    } else if (steps.length > 2) {
-                      const proformaIndex = steps.findIndex((s, idx) => isProformaStep(s, idx));
-                      const targetIdx = proformaIndex >= 0 ? proformaIndex : 2;
-                      setSelectedStepIndex(targetIdx);
-                      setSelectedStep(steps[targetIdx]);
-                      fetchLatestStepData(steps[targetIdx], targetIdx, ++activeFetchSeqRef.current);
-                      if (typeof window !== 'undefined') {
-                        const url = new URL(window.location.href);
-                        const targetId = rootWorkflowId || effectiveConfirmationId;
-                        if (targetId) {
-                          url.searchParams.set('id', targetId);
-                        }
-                        url.searchParams.set('step', 'proforma');
-                        window.history.replaceState(null, '', url.toString());
-                      }
+                    }
+                    if (nextStepToSelect && targetIdx >= 0) {
+                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit contract stepper error:', stepErr);
@@ -2758,11 +2758,8 @@ export function DocumentDraftWorkspace({
               confirmationId={effectiveConfirmationId}
               steps={steps}
               selectedStep={selectedStep}
-              onUpdateSteps={(newSteps) => {
-                if (newSteps && newSteps.length > 0) {
-                  setSteps(newSteps);
-                }
-              }}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
               lang={lang}
               dict={dict}
               sellers={initialSellers}
@@ -2781,8 +2778,8 @@ export function DocumentDraftWorkspace({
                   }));
                   // Update stepper item for proforma so checkmark and redirect_id reflect the saved proforma
                   setSteps((prevSteps) =>
-                    prevSteps.map((s, idx) =>
-                      isProformaStep(s, idx)
+                    prevSteps.map((s) =>
+                      isProformaStep(s)
                         ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
                         : s
                     )
@@ -2833,8 +2830,8 @@ export function DocumentDraftWorkspace({
                   const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.proforma_invoice_id;
                   if (newId) {
                     setSteps((prevSteps) =>
-                      prevSteps.map((s, idx) =>
-                        isProformaStep(s, idx)
+                      prevSteps.map((s) =>
+                        isProformaStep(s)
                           ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: s.status || 'draft' }
                           : s
                       )
@@ -2914,14 +2911,14 @@ export function DocumentDraftWorkspace({
                     return updated;
                   });
                   try {
-                    const stepperParam = effectiveConfirmationId || 'new-confirmation';
+                    const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
-                      action: 'confirmation',
+                      action: workflowAnchorType,
                       step: String(stepperParam),
                       lang,
                     });
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
-                      setSteps(stepperRes.data);
+                      setSteps((prevSteps) => mergeStepperWithHidden(stepperRes.data, prevSteps));
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-save proforma stepper error:', stepErr);
@@ -2929,7 +2926,7 @@ export function DocumentDraftWorkspace({
                 }
                 return res;
               }}
-              onSubmitProforma={async (formData, passedId) => {
+              onSubmitProforma={async (formData, passedId, passedNextStep) => {
                 const cleanPassed = sanitizeDocId(passedId);
                 const activeDocId =
                   cleanPassed ||
@@ -2966,8 +2963,8 @@ export function DocumentDraftWorkspace({
                   const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.proforma_invoice_id;
                   if (newId) {
                     setSteps((prevSteps) =>
-                      prevSteps.map((s, idx) =>
-                        isProformaStep(s, idx)
+                      prevSteps.map((s) =>
+                        isProformaStep(s)
                           ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: 'completed' }
                           : s
                       )
@@ -3049,14 +3046,33 @@ export function DocumentDraftWorkspace({
                     return updated;
                   });
                   try {
-                    const stepperParam = effectiveConfirmationId || 'new-confirmation';
+                    const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
-                      action: 'confirmation',
+                      action: workflowAnchorType,
                       step: String(stepperParam),
                       lang,
                     });
-                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
-                      setSteps(stepperRes.data);
+                    let targetList = steps;
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                      setSteps(targetList);
+                    }
+                    const visibleList = targetList.filter(isVisibleWorkflowStep);
+                    let nextStepToSelect: StepperDocumentItem | null = null;
+                    let targetIdx = -1;
+                    if (passedNextStep) {
+                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                    }
+                    if (!nextStepToSelect || targetIdx === -1) {
+                      const profIndex = visibleList.findIndex((s) => isProformaStep(s));
+                      if (profIndex >= 0 && profIndex + 1 < visibleList.length) {
+                        targetIdx = profIndex + 1;
+                        nextStepToSelect = visibleList[targetIdx];
+                      }
+                    }
+                    if (nextStepToSelect && targetIdx >= 0) {
+                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit proforma stepper error:', stepErr);
@@ -3083,11 +3099,8 @@ export function DocumentDraftWorkspace({
               confirmationId={effectiveConfirmationId}
               steps={steps}
               selectedStep={selectedStep}
-              onUpdateSteps={(newSteps) => {
-                if (newSteps && newSteps.length > 0) {
-                  setSteps(newSteps);
-                }
-              }}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
               lang={lang}
               dict={dict}
               sellers={initialSellers}
@@ -3105,8 +3118,8 @@ export function DocumentDraftWorkspace({
                   }));
                   // Update stepper item for shipment instruction so checkmark and redirect_id reflect the saved document
                   setSteps((prevSteps) =>
-                    prevSteps.map((s, idx) =>
-                      isShipmentInstructionStep(s, idx)
+                    prevSteps.map((s) =>
+                      isShipmentInstructionStep(s)
                         ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
                         : s
                     )
@@ -3173,8 +3186,8 @@ export function DocumentDraftWorkspace({
                   const newId = res.id || res.data?.id || res.data?.shipment_instruction_id;
                   if (newId) {
                     setSteps((prevSteps) =>
-                      prevSteps.map((s, idx) =>
-                        isShipmentInstructionStep(s, idx)
+                      prevSteps.map((s) =>
+                        isShipmentInstructionStep(s)
                           ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: s.status || 'draft' }
                           : s
                       )
@@ -3198,7 +3211,7 @@ export function DocumentDraftWorkspace({
                 }
                 return res;
               }}
-              onSubmitInstruction={async (formData) => {
+              onSubmitInstruction={async (formData, passedId, passedNextStep) => {
                 const activeDocId =
                   canonicalShipmentInstructionId ||
                   sanitizeDocId(
@@ -3249,8 +3262,8 @@ export function DocumentDraftWorkspace({
                   const newId = res.id || res.data?.id || res.data?.shipment_instruction_id;
                   if (newId) {
                     setSteps((prevSteps) =>
-                      prevSteps.map((s, idx) =>
-                        isShipmentInstructionStep(s, idx)
+                      prevSteps.map((s) =>
+                        isShipmentInstructionStep(s)
                           ? { ...s, redirect_id: String(newId), redirectId: String(newId), status: 'completed' }
                           : s
                       )
@@ -3276,14 +3289,33 @@ export function DocumentDraftWorkspace({
                   }));
 
                   try {
-                    const stepperParam = effectiveConfirmationId || 'new-confirmation';
+                    const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
-                      action: 'confirmation',
+                      action: workflowAnchorType,
                       step: String(stepperParam),
                       lang,
                     });
-                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
-                      setSteps(stepperRes.data);
+                    let targetList = steps;
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                      setSteps(targetList);
+                    }
+                    const visibleList = targetList.filter(isVisibleWorkflowStep);
+                    let nextStepToSelect: StepperDocumentItem | null = null;
+                    let targetIdx = -1;
+                    if (passedNextStep) {
+                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                    }
+                    if (!nextStepToSelect || targetIdx === -1) {
+                      const shipIndex = visibleList.findIndex((s) => isShipmentInstructionStep(s));
+                      if (shipIndex >= 0 && shipIndex + 1 < visibleList.length) {
+                        targetIdx = shipIndex + 1;
+                        nextStepToSelect = visibleList[targetIdx];
+                      }
+                    }
+                    if (nextStepToSelect && targetIdx >= 0) {
+                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit shipment stepper error:', stepErr);
@@ -3307,7 +3339,8 @@ export function DocumentDraftWorkspace({
               confirmationId={effectiveConfirmationId}
               steps={steps}
               selectedStep={selectedStep}
-              onUpdateSteps={setSteps}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
               sellers={initialSellers}
               buyers={initialBuyers}
               products={initialProducts}
@@ -3325,8 +3358,8 @@ export function DocumentDraftWorkspace({
                     custom_invoice_id: savedId,
                   }));
                   setSteps((prevSteps) =>
-                    prevSteps.map((s, idx) =>
-                      isCustomInvoiceStep(s, idx)
+                    prevSteps.map((s) =>
+                      isCustomInvoiceStep(s)
                         ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
                         : s
                     )
@@ -3467,8 +3500,8 @@ export function DocumentDraftWorkspace({
                   if (newId) {
                     const cleanNewId = String(newId);
                     setSteps((prevSteps) =>
-                      prevSteps.map((s, idx) =>
-                        isCustomInvoiceStep(s, idx)
+                      prevSteps.map((s) =>
+                        isCustomInvoiceStep(s)
                           ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
                           : s
                       )
@@ -3492,7 +3525,7 @@ export function DocumentDraftWorkspace({
                 }
                 return res;
               }}
-              onSubmitInvoice={async (formData, id) => {
+              onSubmitInvoice={async (formData, id, passedNextStep) => {
                 const cleanPassed = sanitizeDocId(id);
                 const customStep = getCustomInvoiceStep(steps, selectedStep);
                 const activeDocId =
@@ -3619,8 +3652,8 @@ export function DocumentDraftWorkspace({
                   if (newId) {
                     const cleanNewId = String(newId);
                     setSteps((prevSteps) =>
-                      prevSteps.map((s, idx) =>
-                        isCustomInvoiceStep(s, idx)
+                      prevSteps.map((s) =>
+                        isCustomInvoiceStep(s)
                           ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
                           : s
                       )
@@ -3646,14 +3679,33 @@ export function DocumentDraftWorkspace({
                   }));
 
                   try {
-                    const stepperParam = effectiveConfirmationId || 'new-confirmation';
+                    const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
-                      action: 'confirmation',
+                      action: workflowAnchorType,
                       step: String(stepperParam),
                       lang,
                     });
-                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
-                      setSteps(stepperRes.data);
+                    let targetList = steps;
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                      setSteps(targetList);
+                    }
+                    const visibleList = targetList.filter(isVisibleWorkflowStep);
+                    let nextStepToSelect: StepperDocumentItem | null = null;
+                    let targetIdx = -1;
+                    if (passedNextStep) {
+                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                    }
+                    if (!nextStepToSelect || targetIdx === -1) {
+                      const customIndex = visibleList.findIndex((s) => isCustomInvoiceStep(s));
+                      if (customIndex >= 0 && customIndex + 1 < visibleList.length) {
+                        targetIdx = customIndex + 1;
+                        nextStepToSelect = visibleList[targetIdx];
+                      }
+                    }
+                    if (nextStepToSelect && targetIdx >= 0) {
+                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit custom invoice stepper error:', stepErr);
@@ -3679,19 +3731,19 @@ export function DocumentDraftWorkspace({
         {/* Stepper Viewport (pinned header with internal scrollable list) */}
         <div className="w-full h-full flex flex-col p-2.5 sm:p-3 min-h-0">
           <DocumentStatusStepper
-            stepperType={activeStepperType}
-            stepperId={activeStepperId || initialId || draftId || 'new-confirmation'}
-            stepId={activeStepperId || initialId || draftId || 'new-confirmation'}
-            confirmationId={effectiveConfirmationId || activeStepperId || draftId}
+            stepperType={workflowAnchorType}
+            stepperId={workflowAnchorId}
+            stepId={workflowAnchorId}
+            confirmationId={effectiveConfirmationId}
             initialSteps={steps}
             currentStepIndex={selectedStepIndex}
             onSelectStep={handleSelectStep}
-            onUpdateSteps={setSteps}
+            onUpdateSteps={handleUpdateSteps}
             lang={lang}
             dict={dict}
             confirmationNumber={resolvedConfirmationNumber}
             contractNumber={resolvedContractNumber}
-            isContractStep={activeStepperType === 'contract'}
+            isContractStep={isContract}
           />
         </div>
       </aside>

@@ -37,6 +37,9 @@ import {
   type SaveConfirmationPayload,
   type StepperDocumentItem,
   downloadPdfFromActionResponse,
+  getWorkflowSubmitButtonInfo,
+  getWorkflowSubmitToastMessage,
+  isSameWorkflowStep,
 } from '@/lib/api/smart-docs.service';
 import ProductManageModal from './ProductManageModal';
 import PaymentTermManageModal from './PaymentTermManageModal';
@@ -1120,7 +1123,8 @@ export interface ConfirmationDocumentFormProps {
   onSaveDraft?: (data: any) => Promise<any> | any;
   onSaveSuccess?: (savedId: string, confirmationData?: any) => Promise<void> | void;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
-  onSubmitContract?: (data: any) => Promise<any> | any;
+  onSelectStep?: (step: StepperDocumentItem, index?: number) => void;
+  onSubmitContract?: (data: any, nextStep?: StepperDocumentItem | null) => Promise<any> | any;
   lang?: string;
   dict?: any;
   readOnly?: boolean;
@@ -1144,6 +1148,7 @@ export function ConfirmationDocumentForm({
   onSaveDraft,
   onSaveSuccess,
   onUpdateSteps,
+  onSelectStep,
   onSubmitContract,
   lang = 'en',
   dict,
@@ -1196,7 +1201,7 @@ export function ConfirmationDocumentForm({
   const isStatusLoading = !statusLoadTimedOut && Boolean(
     draftId &&
     !initialData &&
-    !steps?.some((s, idx) => isConfirmationStep(s, idx) && (s.status || s.document_status || s.step_status))
+    !steps?.some((s) => isConfirmationStep(s) && (s.status || s.document_status || s.step_status))
   );
 
   useEffect(() => {
@@ -3469,6 +3474,16 @@ export function ConfirmationDocumentForm({
       return;
     }
 
+    const submitTargetInfo = getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'confirmation',
+      isSubmitting: false,
+      defaultSubmitText: dict?.smart_docs?.submit || 'Submit',
+    });
+    const targetNextStep = submitTargetInfo.nextStep;
+    const targetNextStepName = submitTargetInfo.nextStepName;
+
     setIsSubmitting(true);
     setErrors({});
     try {
@@ -3476,7 +3491,7 @@ export function ConfirmationDocumentForm({
 
       let result: any = null;
       if (onSubmitContract) {
-        result = await onSubmitContract(payload);
+        result = await onSubmitContract(payload, targetNextStep);
       } else {
         result = await submitConfirmationAction(payload, lang);
       }
@@ -3554,30 +3569,17 @@ export function ConfirmationDocumentForm({
         }
       }
 
-      // Concurrently trigger stepper update if not updated by parent
-      try {
-        const stepperRes = await getStepperListAction({
-          action: 'confirmation',
-          step: cleanId || 'new-confirmation',
-          lang,
-        });
-
-        if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
-          if (onUpdateSteps) {
-            onUpdateSteps(stepperRes.data);
-          }
-        }
-      } catch (postSyncErr) {
-        console.error('[ConfirmationDocumentForm] Post-submit stepper update error:', postSyncErr);
-      }
-
       // Preserve Confirmation document form and title intact (Confirmation must never morph or display as CONTRACT)
 
-      const successText =
-        result?.message ||
-        dict?.smart_docs?.confirmation_form?.submit_contract_success ||
-        'Confirmation submitted successfully for Contract generation!';
+      const successText = getWorkflowSubmitToastMessage({
+        currentDocName: 'Confirmation',
+        nextStepName: targetNextStepName,
+      });
       toast.success(successText);
+
+      if (targetNextStep && onSelectStep && !onSubmitContract) {
+        onSelectStep(targetNextStep);
+      }
     } catch (err: any) {
       console.error('[ConfirmationDocumentForm] handleSubmitContract error:', err);
       const { fieldErrors, generalError } = parseBackendFieldErrors(err);
@@ -3599,6 +3601,17 @@ export function ConfirmationDocumentForm({
       setIsSubmitting(false);
     }
   };
+
+  const submitInfo = useMemo(() => {
+    return getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'confirmation',
+      isSubmitting,
+      submittingText: 'Submitting...',
+      defaultSubmitText: dict?.smart_docs?.submit || 'Submit',
+    });
+  }, [steps, selectedStep, isSubmitting, dict]);
 
   return (
     <div
@@ -4674,7 +4687,7 @@ export function ConfirmationDocumentForm({
             </button>
           ) : null}
 
-          {/* Submit To Contract */}
+          {/* Submit */}
           <button
             type="button"
             disabled={isSubmitting || isSavingDraft || readOnly || (docStatus === 'COMPLETED' && !hasSubmitChanges)}
@@ -4687,7 +4700,7 @@ export function ConfirmationDocumentForm({
             <span className="truncate">
               {isSubmitting
                 ? 'Submitting...'
-                : dict?.smart_docs?.confirmation_form?.submit_to_contract || 'Submit To Contract'}
+                : submitInfo.buttonLabel}
             </span>
             {isSubmitting ? (
               <i className="fa-solid fa-circle-notch fa-spin text-xs" />

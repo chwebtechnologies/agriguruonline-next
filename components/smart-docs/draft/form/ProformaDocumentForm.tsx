@@ -35,6 +35,9 @@ import {
   extractStepRedirectId,
   isProformaStep,
   isValidCuidOrId,
+  getWorkflowSubmitButtonInfo,
+  getWorkflowSubmitToastMessage,
+  isSameWorkflowStep,
 } from '@/lib/api/smart-docs.service';
 
 export interface FormOptionItem {
@@ -53,6 +56,7 @@ export interface ProformaDocumentFormProps {
   steps?: StepperDocumentItem[];
   selectedStep?: StepperDocumentItem | null;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
+  onSelectStep?: (step: StepperDocumentItem, index?: number) => void;
   sellers?: FormOptionItem[];
   buyers?: FormOptionItem[];
   products?: FormOptionItem[];
@@ -63,7 +67,7 @@ export interface ProformaDocumentFormProps {
   shippingTerms?: FormOptionItem[];
   onSaveDraft?: (payload: any) => Promise<any>;
   onSaveSuccess?: (savedId: string, savedData?: any) => void;
-  onSubmitProforma?: (payload: any, id?: string) => Promise<any>;
+  onSubmitProforma?: (payload: any, id?: string, nextStep?: StepperDocumentItem | null) => Promise<any>;
   lang?: string;
   dict?: any;
   readOnly?: boolean;
@@ -2057,6 +2061,7 @@ export function ProformaDocumentForm({
   steps = [],
   selectedStep,
   onUpdateSteps,
+  onSelectStep,
   sellers = [],
   buyers = [],
   products = [],
@@ -2158,7 +2163,7 @@ export function ProformaDocumentForm({
   const isStatusLoading = !statusLoadTimedOut && Boolean(
     (proformaId || draftId) &&
     !initialData &&
-    !steps?.some((s, idx) => isProformaStep(s, idx) && (s.status || s.document_status || s.step_status))
+    !steps?.some((s) => isProformaStep(s) && (s.status || s.document_status || s.step_status))
   );
 
   // Sync docStatus when steps or initialData updates
@@ -3896,6 +3901,16 @@ export function ProformaDocumentForm({
       return;
     }
 
+    const submitTargetInfo = getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'proforma',
+      isSubmitting: false,
+      defaultSubmitText: dict?.smart_docs?.submit || 'Submit',
+    });
+    const targetNextStep = submitTargetInfo.nextStep;
+    const targetNextStepName = submitTargetInfo.nextStepName;
+
     isSavingOrSubmittingRef.current = true;
     setIsSubmitting(true);
     setErrors({});
@@ -3904,7 +3919,7 @@ export function ProformaDocumentForm({
       const plainPayload = buildPayload();
       let res: any;
       if (onSubmitProforma) {
-        res = await onSubmitProforma(formDataPayload, getEffectiveProformaId() || undefined);
+        res = await onSubmitProforma(formDataPayload, getEffectiveProformaId() || undefined, targetNextStep);
       } else {
         res = await submitProformaAction(formDataPayload, lang, getEffectiveProformaId() || undefined);
       }
@@ -3969,7 +3984,15 @@ export function ProformaDocumentForm({
       setHasSubmitChanges(false);
       setDocStatus('COMPLETED');
       setErrors({});
-      toast.success(res?.message || 'Proforma Invoice submitted successfully!');
+      const successToast = getWorkflowSubmitToastMessage({
+        currentDocName: 'Proforma Invoice',
+        nextStepName: targetNextStepName,
+      });
+      toast.success(successToast);
+
+      if (targetNextStep && onSelectStep && !onSubmitProforma) {
+        onSelectStep(targetNextStep);
+      }
       if (savedId) {
         const extracted =
           extractProformaData(res?.data) ||
@@ -4233,6 +4256,17 @@ export function ProformaDocumentForm({
 
   const deliveryTermsDisplay = safeString(termsDeliveryPayment, '');
   const shippingTermHeader = formatShippingTermHeader(shippingTerm);
+
+  const submitInfo = useMemo(() => {
+    return getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'proforma',
+      isSubmitting,
+      submittingText: dict?.smart_docs?.submitting || 'Submitting...',
+      defaultSubmitText: dict?.smart_docs?.proforma_form?.submit || dict?.smart_docs?.submit || 'Submit',
+    });
+  }, [steps, selectedStep, isSubmitting, dict]);
 
   return (
     <div
@@ -5384,7 +5418,7 @@ export function ProformaDocumentForm({
             <span className="truncate">
               {isSubmitting
                 ? dict?.smart_docs?.submitting || 'Submitting...'
-                : dict?.smart_docs?.proforma_form?.submit || dict?.smart_docs?.submit || 'Submit'}
+                : submitInfo.buttonLabel}
             </span>
             {isSubmitting ? (
               <i className="fa-solid fa-circle-notch fa-spin text-xs" />

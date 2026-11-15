@@ -45,6 +45,9 @@ import {
   extractStepId,
   downloadPdfFromActionResponse,
   sanitizeDocId,
+  getWorkflowSubmitButtonInfo,
+  getWorkflowSubmitToastMessage,
+  isSameWorkflowStep,
 } from '@/lib/api/smart-docs.service';
 import type { FormOptionItem } from './ConfirmationDocumentForm';
 import { normalizeCountryString, normalizeHsnString, deduplicateValidationMessage } from './ConfirmationDocumentForm';
@@ -56,6 +59,7 @@ export interface ContractDocumentFormProps {
   steps?: StepperDocumentItem[];
   selectedStep?: StepperDocumentItem | null;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
+  onSelectStep?: (step: StepperDocumentItem, index?: number) => void;
   sellers?: FormOptionItem[];
   buyers?: FormOptionItem[];
   products?: FormOptionItem[];
@@ -68,7 +72,7 @@ export interface ContractDocumentFormProps {
   documentsList?: SmartDocsSelectionDocumentOption[];
   onSaveDraft?: (payload: any) => Promise<any>;
   onSaveSuccess?: (savedId: string, savedData?: any) => void;
-  onSubmitContract?: (payload: any, id?: string) => Promise<any>;
+  onSubmitContract?: (payload: any, id?: string, nextStep?: StepperDocumentItem | null) => Promise<any>;
   lang?: string;
   dict?: any;
   readOnly?: boolean;
@@ -1985,6 +1989,7 @@ export function ContractDocumentForm({
   steps = [],
   selectedStep = null,
   onUpdateSteps,
+  onSelectStep,
   sellers = [],
   buyers = [],
   products = [],
@@ -2119,7 +2124,7 @@ export function ContractDocumentForm({
   const isStatusLoading = !statusLoadTimedOut && Boolean(
     (contractIdProp || draftId || confirmationId) &&
     !initialData &&
-    !steps?.some((s, idx) => isContractStep(s, idx) && (s.status || s.document_status || s.step_status))
+    !steps?.some((s) => isContractStep(s) && (s.status || s.document_status || s.step_status))
   );
 
   useEffect(() => {
@@ -5297,9 +5302,11 @@ export function ContractDocumentForm({
 
         // Concurrently refresh stepper list from backend so all steps stay fresh
         try {
+          const stepperAction = confirmationId ? 'confirmation' : 'contract';
+          const stepperParam = confirmationId || newId || 'new-confirmation';
           const stepperRes = await getStepperListAction({
-            action: 'confirmation',
-            step: confirmationId || newId || 'new-confirmation',
+            action: stepperAction,
+            step: stepperParam,
             lang,
           });
           if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
@@ -5338,6 +5345,16 @@ export function ContractDocumentForm({
       return;
     }
 
+    const submitTargetInfo = getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'contract',
+      isSubmitting: false,
+      defaultSubmitText: dict?.smart_docs?.submit || 'Submit',
+    });
+    const targetNextStep = submitTargetInfo.nextStep;
+    const targetNextStepName = submitTargetInfo.nextStepName;
+
     setIsSubmitting(true);
     setErrors({});
     try {
@@ -5348,7 +5365,7 @@ export function ContractDocumentForm({
         ? cleanEffectiveId
         : (draftId && draftId !== cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
       if (onSubmitContract) {
-        const res = await onSubmitContract(payload, effectiveId);
+        const res = await onSubmitContract(payload, effectiveId, targetNextStep);
         const hasFieldErrors = Boolean(
           (Array.isArray(res?.error_fields) && res.error_fields.length > 0) ||
           (Array.isArray(res?.errors) && res.errors.length > 0) ||
@@ -5369,7 +5386,11 @@ export function ContractDocumentForm({
           if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
             setBrokerSignature('');
           }
-          toast.success('Contract submitted successfully to Proforma Invoice!');
+          const successToast = getWorkflowSubmitToastMessage({
+            currentDocName: 'Contract',
+            nextStepName: targetNextStepName,
+          });
+          toast.success(successToast);
           const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id || effectiveId;
           if (newId && !isInvalidPlaceholder(String(newId))) {
             setDraftId(String(newId));
@@ -5377,20 +5398,8 @@ export function ContractDocumentForm({
             isFormInitializedRef.current = true;
           }
 
-          // Concurrently refresh stepper list from backend
-          try {
-            const stepperRes = await getStepperListAction({
-              action: 'confirmation',
-              step: String(confirmationId || newId || 'new-confirmation'),
-              lang,
-            });
-            if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
-              if (onUpdateSteps) {
-                onUpdateSteps(stepperRes.data);
-              }
-            }
-          } catch (postSyncErr) {
-            console.error('[ContractDocumentForm] Post-submit stepper update error:', postSyncErr);
+          if (targetNextStep && onSelectStep && !onSubmitContract) {
+            onSelectStep(targetNextStep);
           }
         } else {
           const { fieldErrors, generalError } = parseContractBackendErrors(res);
@@ -5413,7 +5422,7 @@ export function ContractDocumentForm({
             const fallbackMsg =
               (isCleanToastMsg(res?.message) ? res.message : null) ||
               (isCleanToastMsg(res?.error) ? res.error : null) ||
-              'Failed to submit contract to Proforma. Please check highlighted fields.';
+              `Failed to submit contract${targetNextStepName ? ` to ${targetNextStepName}` : ''}. Please check highlighted fields.`;
             toast.error(fallbackMsg);
           }
         }
@@ -5439,6 +5448,17 @@ export function ContractDocumentForm({
       setIsSubmitting(false);
     }
   };
+
+  const submitInfo = useMemo(() => {
+    return getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'contract',
+      isSubmitting,
+      submittingText: 'Submitting...',
+      defaultSubmitText: dict?.smart_docs?.submit || 'Submit',
+    });
+  }, [steps, selectedStep, isSubmitting, dict]);
 
   return (
     <div
@@ -7269,7 +7289,7 @@ export function ContractDocumentForm({
             </button>
           ) : null}
 
-          {/* Submit To Proforma */}
+          {/* Submit */}
           <button
             type="button"
             disabled={isSubmitting || isSavingDraft || readOnly || (docStatus === 'COMPLETED' && !hasSubmitChanges)}
@@ -7280,7 +7300,7 @@ export function ContractDocumentForm({
             }`}
           >
             <span className="truncate">
-              {isSubmitting ? 'Submitting...' : 'Submit To Proforma'}
+              {isSubmitting ? 'Submitting...' : submitInfo.buttonLabel}
             </span>
             {isSubmitting ? (
               <i className="fa-solid fa-circle-notch fa-spin text-xs" />

@@ -366,7 +366,7 @@ async function DraftPageDataLoader({
     }
 
     // Step discovery from Stepper and Document data
-    const stepperConfirmationStep = initialSteps.find((s, idx) => isConfirmationStep(s, idx)) || initialSteps[0];
+    const stepperConfirmationStep = initialSteps.find((s) => isConfirmationStep(s)) || null;
     const confId =
       discoveredConfId ||
       getStepSelfId(stepperConfirmationStep) ||
@@ -375,7 +375,7 @@ async function DraftPageDataLoader({
       initialConfirmationData?.id ||
       (!isContractRequested && !isProformaRequested && !isShipmentRequested && !isCustomInvoiceRequested ? stepperTarget : '');
 
-    const stepperContractStep = initialSteps.find((s, idx) => isContractStep(s, idx)) || initialSteps[1];
+    const stepperContractStep = initialSteps.find((s) => isContractStep(s)) || null;
     const contractId =
       discoveredContractId ||
       stepperContractStep?.contract_id ||
@@ -385,7 +385,7 @@ async function DraftPageDataLoader({
       extractStepRedirectId(stepperContractStep) ||
       extractLinkedContractId(initialConfirmationData);
 
-    const stepperProformaStep = initialSteps.find((s, idx) => isProformaStep(s, idx)) || initialSteps[2];
+    const stepperProformaStep = initialSteps.find((s) => isProformaStep(s)) || null;
     const proformaId =
       stepperProformaStep?.proforma_id ||
       (stepperProformaStep as any)?.proformaId ||
@@ -395,7 +395,7 @@ async function DraftPageDataLoader({
       extractLinkedProformaId(initialContractData) ||
       extractLinkedProformaId(initialConfirmationData);
 
-    const stepperShipmentStep = initialSteps.find((s, idx) => isShipmentInstructionStep(s, idx)) || initialSteps[3];
+    const stepperShipmentStep = initialSteps.find((s) => isShipmentInstructionStep(s)) || null;
     const shipmentId =
       stepperShipmentStep?.shipment_instruction_id ||
       (stepperShipmentStep as any)?.shipmentInstructionId ||
@@ -406,7 +406,7 @@ async function DraftPageDataLoader({
       extractLinkedShipmentInstructionId(initialContractData) ||
       extractLinkedShipmentInstructionId(initialConfirmationData);
 
-    const stepperCustomInvoiceStep = initialSteps.find((s, idx) => isCustomInvoiceStep(s, idx)) || initialSteps[5];
+    const stepperCustomInvoiceStep = initialSteps.find((s) => isCustomInvoiceStep(s)) || null;
     const customInvoiceId =
       stepperCustomInvoiceStep?.custom_invoice_id ||
       (stepperCustomInvoiceStep as any)?.customInvoiceId ||
@@ -514,9 +514,9 @@ async function DraftPageDataLoader({
     }
 
     // Ensure initialSteps reflects all loaded document IDs and genuine completed statuses
-    initialSteps = initialSteps.map((s, idx) => {
+    initialSteps = initialSteps.map((s) => {
       let updated = { ...s };
-      if (isConfirmationStep(s, idx)) {
+      if (isConfirmationStep(s)) {
         if (confId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
           updated.redirect_id = confId;
           updated.redirectId = confId;
@@ -529,7 +529,7 @@ async function DraftPageDataLoader({
         } else if (s.status) {
           updated.status = s.status;
         }
-      } else if (isContractStep(s, idx)) {
+      } else if (isContractStep(s)) {
         if (contractId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
           updated.redirect_id = contractId;
           updated.redirectId = contractId;
@@ -542,7 +542,7 @@ async function DraftPageDataLoader({
         } else if (s.status) {
           updated.status = s.status;
         }
-      } else if (isProformaStep(s, idx)) {
+      } else if (isProformaStep(s)) {
         if (proformaId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
           updated.redirect_id = proformaId;
           updated.redirectId = proformaId;
@@ -555,7 +555,7 @@ async function DraftPageDataLoader({
         } else if (s.status) {
           updated.status = s.status;
         }
-      } else if (isShipmentInstructionStep(s, idx)) {
+      } else if (isShipmentInstructionStep(s)) {
         if (shipmentId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
           updated.redirect_id = shipmentId;
           updated.redirectId = shipmentId;
@@ -568,7 +568,7 @@ async function DraftPageDataLoader({
         } else if (s.status) {
           updated.status = s.status;
         }
-      } else if (isCustomInvoiceStep(s, idx)) {
+      } else if (isCustomInvoiceStep(s)) {
         if (customInvoiceId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
           updated.redirect_id = customInvoiceId;
           updated.redirectId = customInvoiceId;

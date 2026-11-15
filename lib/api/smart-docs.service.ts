@@ -7989,102 +7989,340 @@ export function normalizeStepStatus(rawStatus?: string): NormalizedStepStatus {
   return 'pending';
 }
 
-export function isConfirmationStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0) return true;
-  if (index === 1 || index === 2) return false;
+export function isVisibleWorkflowStep(step?: StepperDocumentItem | null): boolean {
   if (!step) return false;
+  if (step.is_hidden === true || step.is_hidden === 1 || String(step.is_hidden) === 'true') {
+    return false;
+  }
+  return true;
+}
 
-  const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1) return true;
-  if (stepNum === 2 || stepNum === 3) return false;
+export interface WorkflowSubmitButtonInfo {
+  nextStep: StepperDocumentItem | null;
+  nextStepName: string | null;
+  buttonLabel: string;
+}
 
-  const id = String(step.id || step._id || '').toLowerCase();
-  const name = String(
-    step.document_name ||
-    step.name ||
-    step.title ||
-    step.doc_name ||
-    step.step_name ||
-    step.label ||
+export function getWorkflowSubmitButtonInfo({
+  steps,
+  currentStep,
+  currentStepType,
+  isSubmitting = false,
+  submittingText,
+  defaultSubmitText = 'Submit',
+}: {
+  steps?: StepperDocumentItem[];
+  currentStep?: StepperDocumentItem | null;
+  currentStepType?: 'confirmation' | 'contract' | 'proforma' | 'shipment' | 'custom_invoice' | string;
+  isSubmitting?: boolean;
+  submittingText?: string;
+  defaultSubmitText?: string;
+}): WorkflowSubmitButtonInfo {
+  const effectiveSubmittingText = submittingText || 'Submitting...';
+
+  if (isSubmitting) {
+    return {
+      nextStep: null,
+      nextStepName: null,
+      buttonLabel: effectiveSubmittingText,
+    };
+  }
+
+  const visibleSteps = (steps || []).filter(isVisibleWorkflowStep);
+  if (visibleSteps.length === 0) {
+    return {
+      nextStep: null,
+      nextStepName: null,
+      buttonLabel: defaultSubmitText,
+    };
+  }
+
+  // 1. Locate current step index within visibleSteps
+  let currentIdx = -1;
+
+  if (currentStep) {
+    currentIdx = visibleSteps.findIndex((s) => {
+      if (s === currentStep) return true;
+      const sId = s.id || s._id;
+      const cId = currentStep.id || currentStep._id;
+      if (sId && cId && String(sId) === String(cId)) return true;
+      if (typeof s.step === 'number' && typeof currentStep.step === 'number' && s.step === currentStep.step) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  if (currentIdx === -1 && currentStepType) {
+    const t = String(currentStepType).toLowerCase();
+    currentIdx = visibleSteps.findIndex((s, idx) => {
+      if (t.includes('confirmation')) return isConfirmationStep(s, idx);
+      if (t.includes('contract')) return isContractStep(s, idx);
+      if (t.includes('proforma')) return isProformaStep(s, idx);
+      if (t.includes('shipment') || t.includes('instruction')) return isShipmentInstructionStep(s, idx);
+      if (t.includes('custom') || t.includes('invoice')) return isCustomInvoiceStep(s, idx);
+      return false;
+    });
+  }
+
+  const nextStep = (currentIdx >= 0 && currentIdx + 1 < visibleSteps.length)
+    ? visibleSteps[currentIdx + 1]
+    : null;
+
+  if (!nextStep) {
+    return {
+      nextStep: null,
+      nextStepName: null,
+      buttonLabel: defaultSubmitText,
+    };
+  }
+
+  const rawName = String(
+    nextStep.document_name ||
+    nextStep.name ||
+    nextStep.title ||
+    nextStep.doc_name ||
+    nextStep.step_name ||
     ''
-  ).toLowerCase();
-  return id.includes('confirmation') || name.includes('confirmation');
+  ).trim();
+
+  // Clean any leading 'to ' if already prefixed in the step name
+  const cleanName = rawName.replace(/^to\s+/i, '').trim();
+  const nextStepName = cleanName || null;
+  const buttonLabel = nextStepName ? `${defaultSubmitText} To ${nextStepName}` : defaultSubmitText;
+
+  return {
+    nextStep,
+    nextStepName,
+    buttonLabel,
+  };
+}
+
+export function isConfirmationStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+
+    // Disqualify if it matches another specific trade document
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || id.includes('instruction') || name.includes('instruction')) return false;
+    if (id.includes('custom') || name.includes('custom')) return false;
+    if (id.includes('lading') || name.includes('lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
+
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return true;
+
+    // Only if completely untyped/unnamed fallback to step sequence
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 1) return true;
+    }
+    return false;
+  }
+  return typeof index === 'number' && index === 0;
 }
 
 export function isContractStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0 || index === 2) return false;
-  if (index === 1) return true;
-  if (!step) return false;
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
 
-  const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1 || stepNum === 3) return false;
-  if (stepNum === 2) return true;
+    // Disqualify if it matches another specific trade document
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || id.includes('instruction') || name.includes('instruction')) return false;
+    if (id.includes('custom') || name.includes('custom')) return false;
+    if (id.includes('lading') || name.includes('lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
 
-  const id = String(step.id || step._id || '').toLowerCase();
-  const name = String(
-    step.document_name ||
-    step.name ||
-    step.title ||
-    step.doc_name ||
-    step.step_name ||
-    step.label ||
-    ''
-  ).toLowerCase();
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return true;
 
-  if (id.includes('confirmation') || name.includes('confirmation')) return false;
-  if (id.includes('proforma') || name.includes('proforma')) return false;
-  return id.includes('contract') || name.includes('contract');
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 2) return true;
+    }
+    return false;
+  }
+  return typeof index === 'number' && index === 1;
 }
 
 export function isProformaStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0 || index === 1) return false;
-  if (index === 2) return true;
-  if (!step) return false;
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
 
-  const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1 || stepNum === 2) return false;
-  if (stepNum === 3) return true;
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || id.includes('instruction') || name.includes('instruction')) return false;
+    if (id.includes('custom') || name.includes('custom')) return false;
+    if (id.includes('lading') || name.includes('lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
 
-  const id = String(step.id || step._id || '').toLowerCase();
-  const name = String(
-    step.document_name ||
-    step.name ||
-    step.title ||
-    step.doc_name ||
-    step.step_name ||
-    step.label ||
-    ''
-  ).toLowerCase();
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma') || id.includes('proforma_invoice') || name.includes('proforma invoice')) return true;
 
-  if (id.includes('confirmation') || name.includes('confirmation')) return false;
-  if (id.includes('contract') || name.includes('contract')) return false;
-  return id.includes('proforma') || name.includes('proforma');
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 3) return true;
+    }
+    return false;
+  }
+  return typeof index === 'number' && index === 2;
 }
 
 export function isShipmentInstructionStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0 || index === 1 || index === 2) return false;
-  if (index === 3) return true;
-  if (!step) return false;
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
 
-  const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1 || stepNum === 2 || stepNum === 3) return false;
-  if (stepNum === 4) return true;
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('custom') || name.includes('custom')) return false;
+    if (id.includes('lading') || name.includes('lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
 
-  const id = String(step.id || step._id || '').toLowerCase();
-  const name = String(
-    step.document_name ||
-    step.name ||
-    step.title ||
-    step.doc_name ||
-    step.step_name ||
-    step.label ||
-    ''
-  ).toLowerCase();
+    if (
+      id.includes('shipment') ||
+      name.includes('shipment') ||
+      id.includes('instruction') ||
+      name.includes('instruction') ||
+      slug.includes('shipment') ||
+      slug.includes('instruction')
+    ) {
+      return true;
+    }
 
-  if (id.includes('confirmation') || name.includes('confirmation')) return false;
-  if (id.includes('contract') || name.includes('contract')) return false;
-  if (id.includes('proforma') || name.includes('proforma')) return false;
-  return id.includes('shipment') || name.includes('shipment') || id.includes('instruction') || name.includes('instruction');
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 4) return true;
+    }
+    return false;
+  }
+  return typeof index === 'number' && index === 3;
+}
+
+export function isBillOfLadingStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(step.document_name || step.name || step.title || step.doc_name || '').toLowerCase();
+    const slug = String(step.slug || step.type || '').toLowerCase();
+    if (id.includes('lading') || name.includes('lading') || slug.includes('lading')) return true;
+    return false;
+  }
+  return typeof index === 'number' && index === 4;
+}
+
+export function isCommercialInvoiceStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(step.document_name || step.name || step.title || step.doc_name || '').toLowerCase();
+    const slug = String(step.slug || step.type || '').toLowerCase();
+    if (id.includes('commercial') || name.includes('commercial') || slug.includes('commercial')) return true;
+    return false;
+  }
+  return typeof index === 'number' && index === 6;
+}
+
+export function isPackingListStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(step.document_name || step.name || step.title || step.doc_name || '').toLowerCase();
+    const slug = String(step.slug || step.type || '').toLowerCase();
+    if (id.includes('packing') || name.includes('packing') || slug.includes('packing')) return true;
+    return false;
+  }
+  return typeof index === 'number' && index === 7;
 }
 
 export function getShipmentInstructionStep(
@@ -8093,7 +8331,7 @@ export function getShipmentInstructionStep(
 ): StepperDocumentItem | null {
   if (selectedStep && isShipmentInstructionStep(selectedStep)) return selectedStep;
   if (steps && steps.length > 0) {
-    const found = steps.find((s, idx) => isShipmentInstructionStep(s, idx));
+    const found = steps.find((s) => isShipmentInstructionStep(s));
     if (found) return found;
   }
   return null;
@@ -8109,57 +8347,64 @@ export function getShipmentInstructionIdFromStepper(
 }
 
 export function isCustomInvoiceStep(step?: StepperDocumentItem | null, index?: number): boolean {
-  if (index === 0 || index === 1 || index === 2 || index === 3) return false;
-  if (!step) {
-    return index === 4 || index === 5;
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+    const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
+
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || slug.includes('shipment')) return false;
+    if (id.includes('lading') || name.includes('lading') || id.includes('bill_of_lading') || name.includes('bill of lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
+
+    if (
+      (id.includes('custom') && id.includes('invoice')) ||
+      (name.includes('custom') && name.includes('invoice')) ||
+      id.includes('custom_invoice') ||
+      id.includes('custom-invoice') ||
+      name.includes('custom invoice') ||
+      name.includes('customs invoice') ||
+      slug.includes('custom-invoice') ||
+      slug.includes('custom_invoice') ||
+      slug === 'custom' ||
+      redirect.includes('custom-invoice') ||
+      redirect.includes('custom_invoice')
+    ) {
+      return true;
+    }
+
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 6) return true;
+    }
+    return false;
   }
-
-  const stepNum = Number(step.step ?? step.step_number ?? step.order);
-  if (stepNum === 1 || stepNum === 2 || stepNum === 3 || stepNum === 4) return false;
-  if (stepNum === 6) return true;
-
-  const id = String(step.id || step._id || '').toLowerCase();
-  const name = String(
-    step.document_name ||
-    step.name ||
-    step.title ||
-    step.doc_name ||
-    step.step_name ||
-    step.label ||
-    ''
-  ).toLowerCase();
-  const slug = String(
-    step.slug ||
-    step.type ||
-    step.action ||
-    step.document_type ||
-    step.doc_type ||
-    step.key ||
-    ''
-  ).toLowerCase();
-  const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
-
-  if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
-  if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
-  if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
-  if (id.includes('shipment') || name.includes('shipment') || slug.includes('shipment')) return false;
-  if (id.includes('lading') || name.includes('lading') || id.includes('bill_of_lading') || name.includes('bill of lading')) return false;
-
-  if (index === 5) return true;
-
-  return (
-    (id.includes('custom') && id.includes('invoice')) ||
-    (name.includes('custom') && name.includes('invoice')) ||
-    id.includes('custom_invoice') ||
-    id.includes('custom-invoice') ||
-    name.includes('custom invoice') ||
-    name.includes('customs invoice') ||
-    slug.includes('custom-invoice') ||
-    slug.includes('custom_invoice') ||
-    slug === 'custom' ||
-    redirect.includes('custom-invoice') ||
-    redirect.includes('custom_invoice')
-  );
+  return typeof index === 'number' && (index === 4 || index === 5);
 }
 
 export function getCustomInvoiceStep(
@@ -8168,7 +8413,7 @@ export function getCustomInvoiceStep(
 ): StepperDocumentItem | null {
   if (selectedStep && isCustomInvoiceStep(selectedStep)) return selectedStep;
   if (steps && steps.length > 0) {
-    const found = steps.find((s, idx) => isCustomInvoiceStep(s, idx));
+    const found = steps.find((s) => isCustomInvoiceStep(s));
     if (found) return found;
   }
   return null;
@@ -8181,6 +8426,92 @@ export function getCustomInvoiceIdFromStepper(
   const step = getCustomInvoiceStep(steps, selectedStep);
   if (!step) return '';
   return getStepSelfId(step);
+}
+
+/**
+ * Checks whether two workflow step items refer to the same document stage.
+ */
+export function isSameWorkflowStep(
+  a?: StepperDocumentItem | null,
+  b?: StepperDocumentItem | null
+): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const aId = a.id || a._id || a.document_id || a.doc_id;
+  const bId = b.id || b._id || b.document_id || b.doc_id;
+  if (aId && bId && String(aId) === String(bId)) return true;
+
+  const aName = String(a.document_name || a.name || a.title || a.type || '').trim().toLowerCase();
+  const bName = String(b.document_name || b.name || b.title || b.type || '').trim().toLowerCase();
+  if (aName && bName && aName === bName) return true;
+
+  if (isConfirmationStep(a) && isConfirmationStep(b)) return true;
+  if (isContractStep(a) && isContractStep(b)) return true;
+  if (isProformaStep(a) && isProformaStep(b)) return true;
+  if (isShipmentInstructionStep(a) && isShipmentInstructionStep(b)) return true;
+  if (isCustomInvoiceStep(a) && isCustomInvoiceStep(b)) return true;
+
+  if (typeof a.step === 'number' && typeof b.step === 'number' && a.step === b.step) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Merges freshly fetched stepper items from backend while preserving the is_hidden state
+ * configured on existing steps (e.g. via document visibility settings).
+ */
+export function mergeStepperWithHidden(
+  newSteps: StepperDocumentItem[],
+  existingSteps?: StepperDocumentItem[]
+): StepperDocumentItem[] {
+  if (!newSteps || newSteps.length === 0) return existingSteps || [];
+  if (!existingSteps || existingSteps.length === 0) return newSteps;
+
+  return newSteps.map((newStep) => {
+    // If incoming newStep already explicitly specifies is_hidden, trust it!
+    if (newStep.is_hidden !== undefined && newStep.is_hidden !== null) {
+      const isHidden =
+        newStep.is_hidden === true ||
+        newStep.is_hidden === 1 ||
+        String(newStep.is_hidden).toLowerCase() === 'true';
+      return { ...newStep, is_hidden: isHidden };
+    }
+
+    // Only if newStep does not specify is_hidden, match with existing step to preserve hidden state
+    const matchedPrev = existingSteps.find((prev) => isSameWorkflowStep(newStep, prev));
+    if (
+      matchedPrev &&
+      matchedPrev.is_hidden !== undefined &&
+      matchedPrev.is_hidden !== null
+    ) {
+      const isHidden =
+        matchedPrev.is_hidden === true ||
+        matchedPrev.is_hidden === 1 ||
+        String(matchedPrev.is_hidden).toLowerCase() === 'true';
+      return { ...newStep, is_hidden: isHidden };
+    }
+
+    return newStep;
+  });
+}
+
+/**
+ * Returns a clean, dynamic toast success message matching the submit button's target document.
+ */
+export function getWorkflowSubmitToastMessage({
+  currentDocName,
+  nextStepName,
+}: {
+  currentDocName: string;
+  nextStepName?: string | null;
+}): string {
+  const cleanNext = nextStepName ? String(nextStepName).replace(/^to\s+/i, '').trim() : '';
+  if (cleanNext) {
+    return `${currentDocName} submitted successfully to ${cleanNext}!`;
+  }
+  return `${currentDocName} submitted successfully!`;
 }
 
 export function extractLinkedCustomInvoiceId(data: any): string {
@@ -8641,13 +8972,7 @@ export function getProformaStep(
   if (selectedStep && isProformaStep(selectedStep)) {
     return selectedStep;
   }
-  const found = steps.find((s, idx) => isProformaStep(s, idx));
-  if (found) return found;
-
-  if (steps.length > 2 && !isConfirmationStep(steps[2], 2) && !isContractStep(steps[2], 2)) {
-    return steps[2];
-  }
-  return null;
+  return steps.find((s) => isProformaStep(s)) || null;
 }
 
 export function getProformaIdFromStepper(
@@ -8666,12 +8991,7 @@ export function getConfirmationStep(
   if (selectedStep && isConfirmationStep(selectedStep)) {
     return selectedStep;
   }
-  const found = steps.find((s, idx) => isConfirmationStep(s, idx));
-  if (found) return found;
-  if (steps.length > 0 && !isContractStep(steps[0], 0)) {
-    return steps[0];
-  }
-  return null;
+  return steps.find((s) => isConfirmationStep(s)) || null;
 }
 
 export function getConfirmationIdFromStepper(
@@ -8770,13 +9090,7 @@ export function getContractStep(
   if (selectedStep && isContractStep(selectedStep)) {
     return selectedStep;
   }
-  const found = steps.find((s, idx) => isContractStep(s, idx));
-  if (found) return found;
-
-  if (steps.length > 1 && !isConfirmationStep(steps[1], 1)) {
-    return steps[1];
-  }
-  return null;
+  return steps.find((s) => isContractStep(s)) || null;
 }
 
 export function getContractIdFromStepper(

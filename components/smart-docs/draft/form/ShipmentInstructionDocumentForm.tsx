@@ -32,6 +32,9 @@ import {
   parsePackingBagWeightKg,
   extractApiValidationErrors,
   getCurrencySymbol,
+  getWorkflowSubmitButtonInfo,
+  getWorkflowSubmitToastMessage,
+  isSameWorkflowStep,
 } from '@/lib/api/smart-docs.service';
 
 export interface FormOptionItem {
@@ -59,6 +62,7 @@ export interface ShipmentInstructionDocumentFormProps {
   steps?: StepperDocumentItem[];
   selectedStep?: StepperDocumentItem | null;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
+  onSelectStep?: (step: StepperDocumentItem, index?: number) => void;
   sellers?: FormOptionItem[];
   buyers?: FormOptionItem[];
   products?: FormOptionItem[];
@@ -66,7 +70,7 @@ export interface ShipmentInstructionDocumentFormProps {
   shippingTerms?: FormOptionItem[];
   onSaveDraft?: (payload: any) => Promise<any>;
   onSaveSuccess?: (savedId: string, savedData?: any) => void;
-  onSubmitInstruction?: (payload: any, id?: string) => Promise<any>;
+  onSubmitInstruction?: (payload: any, id?: string, nextStep?: StepperDocumentItem | null) => Promise<any>;
   lang?: string;
   dict?: any;
   readOnly?: boolean;
@@ -796,6 +800,7 @@ export function ShipmentInstructionDocumentForm({
   steps,
   selectedStep,
   onUpdateSteps,
+  onSelectStep,
   buyers = [],
   products = [],
   onSaveDraft,
@@ -2640,6 +2645,17 @@ export function ShipmentInstructionDocumentForm({
   // Handle Submit
   const handleSubmit = async () => {
     if (isSubmitting || isSavingDraft || readOnly) return;
+
+    const submitTargetInfo = getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'shipment',
+      isSubmitting: false,
+      defaultSubmitText: dict?.smart_docs?.submit || 'Submit',
+    });
+    const targetNextStep = submitTargetInfo.nextStep;
+    const targetNextStepName = submitTargetInfo.nextStepName;
+
     setIsSubmitting(true);
     setErrors({});
     try {
@@ -2654,7 +2670,7 @@ export function ShipmentInstructionDocumentForm({
       const validActionId = isSelfIdValid ? draftId : undefined;
       let res: any;
       if (onSubmitInstruction) {
-        res = await onSubmitInstruction(payload, validActionId);
+        res = await onSubmitInstruction(payload, validActionId, targetNextStep);
       } else {
         res = await submitShipmentInstructionAction(payload, lang, validActionId);
       }
@@ -2700,7 +2716,11 @@ export function ShipmentInstructionDocumentForm({
         return;
       }
 
-      toast.success(res?.message || 'Shipment Instruction submitted successfully!');
+      const successToast = getWorkflowSubmitToastMessage({
+        currentDocName: 'Shipment Instruction',
+        nextStepName: targetNextStepName,
+      });
+      toast.success(successToast);
       const newId = String(res?.id || res?.data?.id || res?.data?.shipment_instruction_id || draftId);
 
       // Re-fetch fresh shipment instruction to get the newly generated bag_photo_url from server
@@ -2729,18 +2749,8 @@ export function ShipmentInstructionDocumentForm({
       setHasSubmitChanges(false);
       setIsDirty(false);
 
-      // Refresh stepper workflow
-      try {
-        const stepRes = await getStepperListAction({
-          action: 'confirmation',
-          step: String(confirmationId || contractId || draftId || 'new-confirmation'),
-          lang,
-        });
-        if (stepRes?.success && stepRes.data && onUpdateSteps) {
-          onUpdateSteps(stepRes.data);
-        }
-      } catch (stepErr) {
-        console.warn('[ShipmentInstructionDocumentForm] Stepper refresh error:', stepErr);
+      if (targetNextStep && onSelectStep && !onSubmitInstruction) {
+        onSelectStep(targetNextStep);
       }
     } catch (err: any) {
       console.error('[ShipmentInstructionDocumentForm] Submit error:', err);
@@ -2863,6 +2873,17 @@ export function ShipmentInstructionDocumentForm({
       setIsDownloadingPdf(false);
     }
   };
+
+  const submitInfo = useMemo(() => {
+    return getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'shipment',
+      isSubmitting,
+      submittingText: 'Submitting...',
+      defaultSubmitText: dict?.smart_docs?.submit || 'Submit',
+    });
+  }, [steps, selectedStep, isSubmitting, dict]);
 
   return (
     <div
@@ -3976,7 +3997,7 @@ export function ShipmentInstructionDocumentForm({
               docStatus === 'COMPLETED' ? 'w-full sm:w-auto' : ''
             }`}
           >
-            <span className="truncate">{isSubmitting ? 'Submitting...' : 'Submit'}</span>
+            <span className="truncate">{isSubmitting ? 'Submitting...' : submitInfo.buttonLabel}</span>
             {isSubmitting ? (
               <i className="fa-solid fa-circle-notch fa-spin text-xs" />
             ) : (

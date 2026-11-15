@@ -8,6 +8,8 @@ import {
   downloadPdfFromActionResponse,
   isConfirmationStep,
   isContractStep,
+  isProformaStep,
+  isShipmentInstructionStep,
   isCustomInvoiceStep,
   extractStepRedirectId,
   extractStepId,
@@ -128,22 +130,20 @@ export function DocumentStatusStepper({
 
   // Load steps from API if initialSteps is empty or when target workflow ID changes
   useEffect(() => {
-    const { stepperId, stepperType } = getStepperContext();
-    const targetStep = propConfirmationId || stepperId || stepId || '';
-
-    // If initialSteps already provided and targetStep hasn't changed to a new valid ID, skip initial fetch
-    if (initialSteps && initialSteps.length > 0 && (!targetStep || targetStep === lastFetchedIdRef.current || targetStep === 'new-confirmation')) {
+    // If initialSteps already provided by parent, use them and NEVER trigger redundant re-fetch or skeleton
+    if (initialSteps && initialSteps.length > 0) {
       setSteps(initialSteps);
       setIsLoading(false);
       return;
     }
 
+    const { stepperId, stepperType } = getStepperContext();
+    const targetStep = propConfirmationId || stepperId || stepId || '';
+
     if (!targetStep || targetStep === 'new-confirmation') {
-      if (initialSteps && initialSteps.length > 0) {
-        setSteps(initialSteps);
-        setIsLoading(false);
-        return;
-      }
+      setSteps(DEFAULT_WORKFLOW_STEPPER_ITEMS);
+      setIsLoading(false);
+      return;
     }
 
     // Avoid refetching identical targetStep
@@ -158,7 +158,7 @@ export function DocumentStatusStepper({
       setIsLoading(true);
       setError(null);
       try {
-        const actionToUse = (stepperType as any) || 'confirmation';
+        const actionToUse = propConfirmationId ? 'confirmation' : ((stepperType as any) || 'confirmation');
         const res = await getStepperListAction({
           action: actionToUse,
           step: targetStep || 'new-confirmation',
@@ -187,9 +187,7 @@ export function DocumentStatusStepper({
 
         if (stepsData.length > 0) {
           setSteps(stepsData);
-          if (isRealStepperList(stepsData)) {
-            onUpdateSteps?.(stepsData);
-          }
+          onUpdateSteps?.(stepsData);
         } else if (initialSteps && initialSteps.length > 0) {
           setSteps(initialSteps);
         } else {
@@ -290,7 +288,10 @@ export function DocumentStatusStepper({
   }, [steps, selectedIndex, stepId]);
 
   const safeSteps = Array.isArray(steps) ? steps : [];
-  const completedCount = safeSteps.filter(
+  const visibleSteps = useMemo(() => {
+    return safeSteps.filter((s) => !s.is_hidden && String(s.is_hidden) !== 'true');
+  }, [safeSteps]);
+  const completedCount = visibleSteps.filter(
     (s) => normalizeStepStatus(s?.status || s?.document_status || s?.step_status) === 'completed'
   ).length;
 
@@ -301,7 +302,7 @@ export function DocumentStatusStepper({
 
   const getStepperContext = useCallback(() => {
     // 1. Resolve stepper action/type
-    let sType = propStepperType;
+    let sType = propConfirmationId ? 'confirmation' : propStepperType;
     if (!sType) {
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
@@ -319,8 +320,7 @@ export function DocumentStatusStepper({
     }
 
     // 2. The document ID passed from the button / URL is the primary document ID:
-    // (SI id, Contract id, Confirmation id)
-    let sId = propStepId || propStepperId;
+    let sId = propConfirmationId || propStepId || propStepperId;
 
     if (typeof window !== 'undefined' && (!sId || sId === 'new-confirmation')) {
       try {
@@ -359,10 +359,10 @@ export function DocumentStatusStepper({
 
     return { stepperType: finalType, stepperId: finalId };
   }, [
+    propConfirmationId,
     propStepperType,
     propStepperId,
     propStepId,
-    propConfirmationId,
     propIsContractStep,
     safeSteps,
     selectedIndex,
@@ -485,14 +485,32 @@ export function DocumentStatusStepper({
     }
   };
 
+  const isStepMatchingDoc = useCallback((stepItem: StepperDocumentItem, docConfig: StepperDocConfigItem): boolean => {
+    const stepId = String(stepItem.id || stepItem._id || stepItem.document_id || stepItem.doc_id || '').trim();
+    const configId = String(docConfig.id || '').trim();
+    if (stepId && configId && stepId === configId) return true;
+
+    const sName = String(stepItem.document_name || stepItem.name || stepItem.title || '').trim().toLowerCase();
+    const cName = String(docConfig.name || '').trim().toLowerCase();
+    if (sName && cName && sName === cName) return true;
+
+    if (isConfirmationStep(stepItem) && isConfirmationStep(docConfig as any)) return true;
+    if (isContractStep(stepItem) && isContractStep(docConfig as any)) return true;
+    if (isProformaStep(stepItem) && isProformaStep(docConfig as any)) return true;
+    if (isShipmentInstructionStep(stepItem) && isShipmentInstructionStep(docConfig as any)) return true;
+    if (isCustomInvoiceStep(stepItem) && isCustomInvoiceStep(docConfig as any)) return true;
+
+    return false;
+  }, []);
+
   const refreshSteps = () => {
     startTransition(async () => {
       setIsLoading(true);
       setError(null);
       try {
         const { stepperId, stepperType } = getStepperContext();
+        const actionToUse = propConfirmationId ? 'confirmation' : ((stepperType as any) || 'confirmation');
         const targetStep = propConfirmationId || stepperId || stepId || 'new-confirmation';
-        const actionToUse = (stepperType as any) || 'confirmation';
         let res = await getStepperListAction({
           action: actionToUse,
           step: targetStep,
@@ -510,10 +528,18 @@ export function DocumentStatusStepper({
           }
         }
         if (stepsData.length > 0) {
-          setSteps(stepsData);
-          if (isRealStepperList(stepsData)) {
-            onUpdateSteps?.(stepsData);
-          }
+          const finalSteps = stepsData.map((s) => {
+            if (s.is_hidden !== undefined && s.is_hidden !== null) return s;
+            const isDocHidden = visibilityDocuments.some(
+              (doc) => hiddenDocuments.includes(String(doc.id)) && isStepMatchingDoc(s, doc)
+            );
+            return {
+              ...s,
+              is_hidden: isDocHidden,
+            };
+          });
+          setSteps(finalSteps);
+          onUpdateSteps?.(finalSteps);
         } else {
           setSteps(initialSteps && initialSteps.length > 0 ? initialSteps : DEFAULT_WORKFLOW_STEPPER_ITEMS);
         }
@@ -569,6 +595,18 @@ export function DocumentStatusStepper({
         setInitialHiddenDocuments(hiddenDocuments);
         setVisibilitySuccess(dict?.common?.saved_successfully || 'Saved successfully');
         setIsOpen(false);
+        // Optimistically update visible steps locally so parent and stepper update instantly
+        const updatedSteps = (steps || []).map((s) => {
+          const isDocHidden = visibilityDocuments.some(
+            (doc) => hiddenDocuments.includes(String(doc.id)) && isStepMatchingDoc(s, doc)
+          );
+          return {
+            ...s,
+            is_hidden: isDocHidden,
+          };
+        });
+        setSteps(updatedSteps);
+        onUpdateSteps?.(updatedSteps);
         // Re-trigger the main Stepper steps API so the vertical steps immediately reflect the updated visible documents
         refreshSteps();
       } else {
@@ -637,12 +675,12 @@ export function DocumentStatusStepper({
               <h2 className="text-xs sm:text-[13px] font-bold text-foreground tracking-wide uppercase truncate group-hover:text-brand-blue transition-colors">
                 {titleText}
               </h2>
-              {!isLoading && steps.length > 0 && (
+              {!isLoading && visibleSteps.length > 0 && (
                 <span
                   className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue dark:text-sky-400 border border-brand-blue/20 dark:border-sky-500/30"
-                  title={`${completedCount} of ${steps.length} documents completed`}
+                  title={`${completedCount} of ${visibleSteps.length} documents completed`}
                 >
-                  {completedCount}/{steps.length}
+                  {completedCount}/{visibleSteps.length}
                 </span>
               )}
             </div>
@@ -689,12 +727,12 @@ export function DocumentStatusStepper({
               <h2 className="text-xs sm:text-[13px] font-bold text-foreground tracking-wide uppercase truncate group-hover:text-brand-blue transition-colors">
                 {titleText}
               </h2>
-              {!isLoading && steps.length > 0 && (
+              {!isLoading && visibleSteps.length > 0 && (
                 <span
                   className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-blue/10 text-brand-blue dark:text-sky-400 border border-brand-blue/20 dark:border-sky-500/30"
-                  title={`${completedCount} of ${steps.length} documents completed`}
+                  title={`${completedCount} of ${visibleSteps.length} documents completed`}
                 >
-                  {completedCount}/{steps.length}
+                  {completedCount}/{visibleSteps.length}
                 </span>
               )}
             </div>
@@ -867,9 +905,9 @@ export function DocumentStatusStepper({
               : 'flex-1 min-h-0 overflow-y-scroll overscroll-contain pr-1 custom-scrollbar'
           }
         >
-          {isLoading ? (
-            <StepperSkeleton count={steps.length > 0 ? steps.length : 11} />
-          ) : error && steps.length === 0 ? (
+          {isLoading && (!visibleSteps || visibleSteps.length === 0) ? (
+            <StepperSkeleton count={11} />
+          ) : error && (!visibleSteps || visibleSteps.length === 0) ? (
             <div className="py-6 px-3 text-center flex flex-col items-center justify-center">
               <div className="w-8 h-8 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-2">
                 <i className="fa-solid fa-triangle-exclamation text-xs" />
@@ -884,14 +922,14 @@ export function DocumentStatusStepper({
                 <span>{dict?.smart_docs?.retry || 'Retry'}</span>
               </button>
             </div>
-          ) : steps.length === 0 ? (
+          ) : visibleSteps.length === 0 ? (
             <div className="py-6 px-3 text-center text-muted-foreground text-xs">
               <i className="fa-regular fa-folder-open text-lg mb-1.5 text-muted-foreground/60 block" />
               {dict?.smart_docs?.no_documents_found || 'No documents in workflow'}
             </div>
           ) : (
             <div className="relative flex flex-col space-y-0.5">
-              {steps.map((step, index) => {
+              {visibleSteps.map((step, index) => {
                 const docName =
                   step.document_name ||
                   step.name ||
@@ -903,7 +941,7 @@ export function DocumentStatusStepper({
                 const rawStatus = step.status || step.document_status || step.step_status;
                 const normalized = normalizeStepStatus(rawStatus);
                 const isSelected = selectedIndex === index;
-                const isLast = index === steps.length - 1;
+                const isLast = index === visibleSteps.length - 1;
                 const isPdfEnabled = isStepPdfEnabled(step);
                 const stepNumber = step.step ?? step.step_number ?? step.order ?? index + 1;
                 const pdfUrl = step.pdf_url || step.pdf || step.download_url || step.file_url;
@@ -921,7 +959,7 @@ export function DocumentStatusStepper({
                     return true;
                   }
 
-                  const prevStep = steps[index - 1];
+                  const prevStep = visibleSteps[index - 1];
                   const prevStatus = normalizeStepStatus(prevStep?.status || prevStep?.document_status || prevStep?.step_status);
                   const prevHasId = Boolean(getStepSelfId(prevStep));
                   if (prevStatus !== 'completed' && !prevHasId) {
@@ -946,7 +984,7 @@ export function DocumentStatusStepper({
                       {index > 0 && (
                         <div
                           className={`absolute -top-2 left-1/2 -translate-x-1/2 w-0.5 h-2.5 transition-colors ${
-                            normalizeStepStatus(steps[index - 1]?.status) === 'completed'
+                            normalizeStepStatus(visibleSteps[index - 1]?.status) === 'completed'
                               ? 'bg-emerald-500/70'
                               : 'bg-border'
                           }`}

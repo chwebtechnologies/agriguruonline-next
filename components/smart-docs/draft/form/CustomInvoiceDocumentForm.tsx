@@ -30,6 +30,9 @@ import {
   getStepSelfId,
   extractStepRedirectId,
   extractLinkedCustomInvoiceId,
+  getWorkflowSubmitButtonInfo,
+  getWorkflowSubmitToastMessage,
+  isSameWorkflowStep,
 } from '@/lib/api/smart-docs.service';
 
 export interface FormOptionItem {
@@ -50,6 +53,7 @@ export interface CustomInvoiceDocumentFormProps {
   steps?: StepperDocumentItem[];
   selectedStep?: StepperDocumentItem | null;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
+  onSelectStep?: (step: StepperDocumentItem, index?: number) => void;
   sellers?: FormOptionItem[];
   buyers?: FormOptionItem[];
   products?: FormOptionItem[];
@@ -57,7 +61,7 @@ export interface CustomInvoiceDocumentFormProps {
   shippingTerms?: FormOptionItem[];
   onSaveDraft?: (payload: any) => Promise<any>;
   onSaveSuccess?: (savedId: string, savedData?: any) => void;
-  onSubmitInvoice?: (payload: any, id?: string) => Promise<any>;
+  onSubmitInvoice?: (payload: any, id?: string, nextStep?: StepperDocumentItem | null) => Promise<any>;
   lang?: string;
   dict?: any;
   readOnly?: boolean;
@@ -741,6 +745,7 @@ export function CustomInvoiceDocumentForm({
   steps,
   selectedStep,
   onUpdateSteps,
+  onSelectStep,
   sellers = [],
   buyers = [],
   products = [],
@@ -937,7 +942,7 @@ export function CustomInvoiceDocumentForm({
   const isStatusLoading = !statusLoadTimedOut && Boolean(
     (propCustomInvoiceId || draftId || effectiveCustomInvoiceId) &&
     !initialData &&
-    !steps?.some((s, idx) => isCustomInvoiceStep(s, idx) && (s.status || s.document_status || s.step_status))
+    !steps?.some((s) => isCustomInvoiceStep(s) && (s.status || s.document_status || s.step_status))
   );
 
   // Sync docStatus when steps or initialData updates
@@ -2541,8 +2546,8 @@ export function CustomInvoiceDocumentForm({
           if (onSaveSuccess) onSaveSuccess(cleanSavedId, res?.data);
           if (onUpdateSteps && steps && steps.length > 0) {
             onUpdateSteps(
-              steps.map((s, idx) =>
-                isCustomInvoiceStep(s, idx)
+              steps.map((s) =>
+                isCustomInvoiceStep(s)
                   ? { ...s, redirect_id: cleanSavedId, redirectId: cleanSavedId, status: s.status || 'draft' }
                   : s
               )
@@ -2630,6 +2635,17 @@ export function CustomInvoiceDocumentForm({
   // Submit Handler (NO client-side validation)
   const handleSubmit = async () => {
     if (isSubmitting || isSavingDraft || readOnly) return;
+
+    const submitTargetInfo = getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'custom_invoice',
+      isSubmitting: false,
+      defaultSubmitText: dict?.smart_docs?.submit || 'Submit',
+    });
+    const targetNextStep = submitTargetInfo.nextStep;
+    const targetNextStepName = submitTargetInfo.nextStepName;
+
     setIsSubmitting(true);
     setErrors({});
 
@@ -2639,7 +2655,7 @@ export function CustomInvoiceDocumentForm({
       let res: any;
 
       if (onSubmitInvoice) {
-        res = await onSubmitInvoice(formDataPayload, activeId || undefined);
+        res = await onSubmitInvoice(formDataPayload, activeId || undefined, targetNextStep);
       } else {
         res = await submitCustomInvoiceAction(formDataPayload, lang, activeId || undefined);
       }
@@ -2655,15 +2671,6 @@ export function CustomInvoiceDocumentForm({
           setHasSubmitChanges(false);
           setIsDirty(false);
           if (onSaveSuccess) onSaveSuccess(cleanSavedId, res?.data);
-          if (onUpdateSteps && steps && steps.length > 0) {
-            onUpdateSteps(
-              steps.map((s, idx) =>
-                isCustomInvoiceStep(s, idx)
-                  ? { ...s, redirect_id: cleanSavedId, redirectId: cleanSavedId, status: 'completed' }
-                  : s
-              )
-            );
-          }
         }
         // Synchronize fresh signature URL from backend response
         const sSellerSig =
@@ -2682,7 +2689,15 @@ export function CustomInvoiceDocumentForm({
         setIsDirty(false);
         setHasDraftChanges(false);
         setHasSubmitChanges(false);
-        toast.success(res?.message || 'Custom invoice submitted successfully!');
+        const successToast = getWorkflowSubmitToastMessage({
+          currentDocName: 'Custom invoice',
+          nextStepName: targetNextStepName,
+        });
+        toast.success(successToast);
+
+        if (targetNextStep && onSelectStep && !onSubmitInvoice) {
+          onSelectStep(targetNextStep);
+        }
       } else {
         const { fieldErrors, generalError } = parseCustomInvoiceBackendErrors(res);
         if (Object.keys(fieldErrors).length > 0) {
@@ -2777,8 +2792,8 @@ export function CustomInvoiceDocumentForm({
             if (onSaveSuccess) onSaveSuccess(cleanNewId, res.data);
             if (onUpdateSteps && steps && steps.length > 0) {
               onUpdateSteps(
-                steps.map((s, idx) =>
-                  isCustomInvoiceStep(s, idx)
+                steps.map((s) =>
+                  isCustomInvoiceStep(s)
                     ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
                     : s
                 )
@@ -2846,8 +2861,8 @@ export function CustomInvoiceDocumentForm({
             if (onSaveSuccess) onSaveSuccess(cleanNewId, res.data);
             if (onUpdateSteps && steps && steps.length > 0) {
               onUpdateSteps(
-                steps.map((s, idx) =>
-                  isCustomInvoiceStep(s, idx)
+                steps.map((s) =>
+                  isCustomInvoiceStep(s)
                     ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
                     : s
                 )
@@ -2914,6 +2929,17 @@ export function CustomInvoiceDocumentForm({
       setIsDownloadingPdf(false);
     }
   };
+
+  const submitInfo = useMemo(() => {
+    return getWorkflowSubmitButtonInfo({
+      steps,
+      currentStep: selectedStep,
+      currentStepType: 'custom_invoice',
+      isSubmitting,
+      submittingText: dict?.smart_docs?.submitting || 'Submitting...',
+      defaultSubmitText: dict?.smart_docs?.custom_invoice_form?.submit || dict?.smart_docs?.submit || 'Submit',
+    });
+  }, [steps, selectedStep, isSubmitting, dict]);
 
   return (
     <div
@@ -3988,7 +4014,7 @@ export function CustomInvoiceDocumentForm({
             <span className="truncate">
               {isSubmitting
                 ? dict?.smart_docs?.submitting || 'Submitting...'
-                : dict?.smart_docs?.custom_invoice_form?.submit || dict?.smart_docs?.submit || 'Submit'}
+                : submitInfo.buttonLabel}
             </span>
             {isSubmitting ? (
               <i className="fa-solid fa-circle-notch fa-spin text-xs" />
