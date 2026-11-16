@@ -438,7 +438,7 @@ export function DocUnderlineSelect({
 
           return (
             <span
-              className={`truncate flex-1 text-[14px] ${alignClass} ${
+              className={`truncate flex-1 text-[14px] font-sans ${alignClass} ${
                 error
                   ? 'font-semibold text-brand-red'
                   : isSelectedOrHasDisplayValue

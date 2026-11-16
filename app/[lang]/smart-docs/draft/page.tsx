@@ -71,15 +71,34 @@ export async function generateMetadata(props: {
     if (searchParams?.step) queryParts.push(`step=${encodeURIComponent(String(searchParams.step))}`);
     const idQuery = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
 
-    const pageTitle = isCustomInvoiceRequested
-      ? 'Custom Invoice'
-      : isShipmentRequested
-      ? 'Shipment Instruction'
-      : isProformaRequested
-      ? 'Proforma Invoice'
-      : isContractRequested
-      ? 'Draft Contract'
-      : 'Draft Confirmation';
+    const dict = await getDictionary(activeLang).catch(() => ({} as any));
+
+    let pageTitle = '';
+    if (isCustomInvoiceRequested) {
+      pageTitle = dict?.smart_docs?.draft_custom_invoice_title || 'Draft Custom Invoice';
+    } else if (isShipmentRequested) {
+      pageTitle = dict?.smart_docs?.draft_shipment_instruction_title || 'Draft Shipment Instruction';
+    } else if (isProformaRequested) {
+      pageTitle = dict?.smart_docs?.draft_proforma_title || 'Draft Proforma Invoice';
+    } else if (isContractRequested) {
+      pageTitle = dict?.smart_docs?.draft_contract_title || 'Draft Contract';
+    } else if (
+      searchParams?.step &&
+      !['confirmation', '1', 'trade-confirmation', 'new-confirmation'].includes(
+        String(searchParams.step).toLowerCase().trim()
+      )
+    ) {
+      const stepRaw = String(searchParams.step)
+        .replace(/[-_]+/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase())
+        .trim();
+      pageTitle = /^draft\b/i.test(stepRaw) ? stepRaw : `Draft ${stepRaw}`;
+    } else {
+      pageTitle =
+        dict?.smart_docs?.draft_confirmation_title ||
+        dict?.smart_docs?.draft_title ||
+        'Draft Confirmation';
+    }
 
     return {
       title: `${pageTitle} | Smart Docs | AgriGuru Online`,

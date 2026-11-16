@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import DocUnderlineInput from './DocUnderlineInput';
+import DocTitleInput from './DocTitleInput';
 import DocUnderlineSelect from './DocUnderlineSelect';
 import DocToggle from './DocToggle';
 import DocNotesEditor from './DocNotesEditor';
@@ -2194,7 +2195,6 @@ export function ContractDocumentForm({
       dict?.smart_docs?.contract_form?.contract_title ||
       'CONTRACT'
   );
-  const titleInputRef = useRef<HTMLInputElement>(null);
 
   // ROW 1: Confirmation Number & Date (Clean static, filled by backend/user)
   const [confirmationNumber, setConfirmationNumber] = useState<string>(
@@ -5478,7 +5478,7 @@ export function ContractDocumentForm({
         {/* TOP BAR: Letterhead Toggle | CONTRACT Title | Watermark Toggle */}
         <div className="px-3 sm:px-4 py-2 border-b border-border flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
           {/* Desktop Left: Letterhead Toggle */}
-          <div className="hidden sm:flex items-center">
+          <div className="hidden sm:flex items-center shrink-0 sm:w-[140px]">
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.letterhead || 'Letterhead'}
               checked={letterhead}
@@ -5491,55 +5491,23 @@ export function ContractDocumentForm({
           </div>
 
           {/* Center: Title (Directly Editable Field) + Dotted Accent Underline */}
-          <div className="flex flex-col items-center justify-center group/title w-full sm:w-auto">
-            <div className="inline-flex items-center justify-center gap-1.5 max-w-full">
-              <input
-                ref={titleInputRef}
-                type="text"
-                value={documentTitle}
-                onChange={(e) => {
-                  markDirty();
-                  setDocumentTitle(e.target.value);
-                  setErrors((prev) => ({ ...prev, documentTitle: '' }));
-                }}
-                disabled={readOnly}
-                placeholder={dict?.smart_docs?.contract_form?.contract_title || 'CONTRACT'}
-                aria-label={dict?.smart_docs?.contract_form?.contract_title || 'Document Title'}
-                style={{ outline: 'none', border: 'none', boxShadow: 'none' }}
-                className="text-xs sm:text-sm md:text-[15px] font-extrabold uppercase tracking-widest text-foreground text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:bg-transparent rounded-sm px-1.5 py-0.5 w-auto min-w-[130px] max-w-[210px] sm:max-w-xs cursor-text transition-all"
-              />
-              {!readOnly && (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => titleInputRef.current?.focus()}
-                  title="Edit document title"
-                  aria-label="Edit document title"
-                  style={{ outline: 'none' }}
-                  className="w-5 h-5 flex items-center justify-center rounded-full text-primary hover:text-primary-hover hover:bg-primary/10 text-[10px] transition-colors cursor-pointer shrink-0 outline-none focus:outline-none"
-                >
-                  <i className="fa-solid fa-pen text-primary" />
-                </button>
-              )}
-            </div>
-            {/* Clean Underline - becomes solid and vibrant on focus */}
-            <div
-              className={`w-36 sm:w-56 md:w-64 border-b-2 ${
-                errors.documentTitle
-                  ? 'border-solid border-brand-red'
-                  : 'border-dotted border-primary/70 group-focus-within/title:border-solid group-focus-within/title:border-primary'
-              } mt-0.5 transition-all`}
-            />
-            {errors.documentTitle && (
-              <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1">
-                <i className="fa-solid fa-circle-exclamation text-[10px] shrink-0 text-brand-red" />
-                <span>{errors.documentTitle}</span>
-              </span>
-            )}
-          </div>
+          <DocTitleInput
+            value={documentTitle}
+            onChange={(val) => {
+              markDirty();
+              setDocumentTitle(val);
+              setErrors((prev) => ({ ...prev, documentTitle: '' }));
+            }}
+            disabled={readOnly}
+            placeholder={dict?.smart_docs?.contract_form?.contract_title || 'CONTRACT'}
+            ariaLabel={dict?.smart_docs?.contract_form?.contract_title || 'Document Title'}
+            error={errors.documentTitle}
+            id="field-documentTitle"
+            dataField="documentTitle"
+          />
 
           {/* Desktop Right: Watermark Toggle */}
-          <div className="hidden sm:flex items-center">
+          <div className="hidden sm:flex items-center justify-end shrink-0 sm:w-[140px]">
             <DocToggle
               label={dict?.smart_docs?.confirmation_form?.watermark || 'Watermark'}
               checked={watermark}
@@ -6518,7 +6486,7 @@ export function ContractDocumentForm({
                           Total
                         </span>
                         <div className="w-[52px] sm:w-[60px] mx-auto mt-1 text-center">
-                          <span className="block w-full text-center font-extrabold text-xs sm:text-sm font-mono truncate">
+                          <span className="block w-full text-center font-extrabold text-xs sm:text-sm tabular-nums truncate">
                             {partialSum}
                           </span>
                         </div>

@@ -1751,7 +1751,11 @@ export function ConfirmationsDataTable({
                     }
                   }}
                   className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg ${config.bg} ${config.hoverBg} text-white shadow-2xs transition-all flex items-center justify-center text-xs shrink-0 cursor-pointer active:scale-95`}
-                  title={docType}
+                  title={
+                    docType
+                      ? (/^draft\b/i.test(docType) ? docType : `Draft ${docType}`)
+                      : dict?.smart_docs?.continue_to_draft || 'Continue to Draft'
+                  }
                 >
                   <i className="fa-solid fa-file-lines text-xs"></i>
                 </Link>

@@ -53,7 +53,7 @@ function preparePreviewHtml(rawHtml: string): string {
       }
 
       /* Base Calibri typography fallback */
-      body, table, td, th, p, span, div, h1, h2, h3, h4, h5, h6 {
+      body, table, td, th, p, span, div, h1, h2, h3, h4, h5, h6, input, textarea, select, button {
         font-family: 'Calibri', Candara, 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
       }
 

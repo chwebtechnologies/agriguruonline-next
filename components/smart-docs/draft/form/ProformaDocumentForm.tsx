@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import DocUnderlineInput from './DocUnderlineInput';
+import DocTitleInput from './DocTitleInput';
 import DocUnderlineSelect from './DocUnderlineSelect';
 import DocToggle from './DocToggle';
 import DocSignatureBox from './DocSignatureBox';
@@ -2078,7 +2079,6 @@ export function ProformaDocumentForm({
   readOnly = false,
 }: ProformaDocumentFormProps) {
   // Refs
-  const titleInputRef = useRef<HTMLInputElement>(null);
   const gstInputRef = useRef<any>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const isInitialDataRealProforma = Boolean(
@@ -4361,72 +4361,36 @@ export function ProformaDocumentForm({
           </div>
 
           {/* Center: Seller Name & PROFORMA INVOICE Title (Centered Properly) */}
-          <div className="flex flex-col items-center justify-center flex-1 max-w-md mx-auto order-last sm:order-none w-full sm:w-auto text-center" id="field-documentTitle" data-field="documentTitle">
-            {companyName && (
-              <div className="text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground text-center">
-                {companyName}
-              </div>
-            )}
-
-            {/* Document Title with Pencil */}
-            <div className="inline-flex items-center justify-center gap-1.5 max-w-full mt-0.5">
-              <input
-                ref={titleInputRef}
-                type="text"
-                value={documentTitle}
-                onChange={(e) => {
-                  markDirty();
-                  setDocumentTitle(e.target.value);
-                  if (e.target.value.trim()) {
-                    setErrors((prev) => ({
-                      ...prev,
-                      documentTitle: '',
-                      document_title: '',
-                      pdf_title: '',
-                      pdfTitle: '',
-                      title: '',
-                    }));
-                  }
-                }}
-                disabled={readOnly}
-                placeholder="PROFORMA INVOICE"
-                aria-label="Document Title"
-                className={`text-xs sm:text-sm md:text-[14px] font-extrabold uppercase tracking-widest text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:bg-transparent rounded-sm px-1.5 py-0.5 w-auto min-w-[150px] max-w-[240px] sm:max-w-xs cursor-text transition-all ${
-                  (errors.documentTitle || errors.document_title || errors.pdf_title || errors.pdfTitle || errors.title)
-                    ? '!text-brand-red font-bold'
-                    : 'text-foreground'
-                }`}
-              />
-              {!readOnly && (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => titleInputRef.current?.focus()}
-                  title="Edit document title"
-                  aria-label="Edit document title"
-                  className="w-5 h-5 flex items-center justify-center rounded-full text-primary hover:text-primary-hover hover:bg-primary/10 text-[11px] transition-colors cursor-pointer shrink-0 outline-none focus:outline-none"
-                >
-                  <i className="fa-solid fa-pen" />
-                </button>
-              )}
-            </div>
-            {/* Dotted Accent Underline */}
-            <div
-              className={`w-36 sm:w-56 md:w-60 border-b-2 ${
-                (errors.documentTitle || errors.document_title || errors.pdf_title || errors.pdfTitle || errors.title)
-                  ? 'border-solid !border-brand-red'
-                  : 'border-dotted border-primary/70'
-              } mt-0.5 transition-all`}
-            />
-            {(errors.documentTitle || errors.document_title || errors.pdf_title || errors.pdfTitle || errors.title) && (
-              <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center justify-center gap-1.5">
-                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
-                <span className="text-brand-red">
-                  {errors.documentTitle || errors.document_title || errors.pdf_title || errors.pdfTitle || errors.title}
-                </span>
-              </span>
-            )}
-          </div>
+          <DocTitleInput
+            value={documentTitle}
+            onChange={(val) => {
+              markDirty();
+              setDocumentTitle(val);
+              if (val.trim()) {
+                setErrors((prev) => ({
+                  ...prev,
+                  documentTitle: '',
+                  document_title: '',
+                  pdf_title: '',
+                  pdfTitle: '',
+                  title: '',
+                }));
+              }
+            }}
+            companyName={companyName}
+            disabled={readOnly}
+            placeholder="PROFORMA INVOICE"
+            ariaLabel="Document Title"
+            error={
+              errors.documentTitle ||
+              errors.document_title ||
+              errors.pdf_title ||
+              errors.pdfTitle ||
+              errors.title
+            }
+            id="field-documentTitle"
+            dataField="documentTitle"
+          />
 
           {/* Desktop Right: Letterhead on top, Watermark underneath in proper alignment */}
           <div className="hidden sm:flex flex-col items-end justify-center gap-1.5 shrink-0 min-w-[120px] sm:w-[140px]">
@@ -4552,7 +4516,7 @@ export function ProformaDocumentForm({
                           disabled={readOnly}
                           placeholder="Enter Invoice No"
                           icon="fa-solid fa-pen"
-                          inputClassName="text-[14px] font-bold"
+                          inputClassName="text-[14px] font-semibold"
                           className="w-full"
                         />
                       </div>
@@ -4579,7 +4543,7 @@ export function ProformaDocumentForm({
                           disabled={readOnly}
                           placeholder="Select Invoice Date"
                           icon="fa-regular fa-calendar"
-                          inputClassName="text-[14px] font-bold"
+                          inputClassName="text-[14px] font-semibold"
                           className="w-full"
                         />
                       </div>
@@ -4609,7 +4573,7 @@ export function ProformaDocumentForm({
                       placeholder="Enter Registration / GST Number"
                       icon="fa-solid fa-pen"
                       uppercase={false}
-                      inputClassName="text-[14px] font-bold text-foreground resize-none leading-relaxed"
+                      inputClassName="text-[14px] font-semibold text-foreground resize-none leading-relaxed"
                       className="w-full h-full justify-between mt-1"
                     />
                   </div>
@@ -4635,7 +4599,7 @@ export function ProformaDocumentForm({
                       disabled={readOnly}
                       placeholder="Enter Order No & Date"
                       icon="fa-solid fa-pen"
-                      inputClassName="text-[14px] font-bold"
+                      inputClassName="text-[14px] font-semibold"
                       className="w-full"
                     />
                   </div>
@@ -4719,7 +4683,7 @@ export function ProformaDocumentForm({
                       disabled={readOnly}
                       placeholder="Enter Other References"
                       icon="fa-solid fa-pen"
-                      inputClassName="text-[14px] font-bold"
+                      inputClassName="text-[14px] font-semibold"
                       className="w-full"
                     />
                   </div>
@@ -5304,7 +5268,7 @@ export function ProformaDocumentForm({
                   'Enter Title'
                 }
                 uppercase={false}
-                inputClassName="text-[14px] font-bold"
+                inputClassName="text-[14px] font-semibold"
               />
             </div>
             <div
@@ -5329,7 +5293,7 @@ export function ProformaDocumentForm({
                   'Enter Comment'
                 }
                 uppercase={false}
-                inputClassName="text-[14px] font-bold"
+                inputClassName="text-[14px] font-semibold"
               />
             </div>
           </div>

@@ -16,7 +16,7 @@
 
 
 @theme {
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 html {
@@ -25,10 +25,11 @@ html {
   -ms-text-size-adjust: 100%;
   text-size-adjust: 100%;
   overflow-x: clip;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-text-size-adjust: 100%;
   -moz-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
@@ -36,6 +37,24 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: clip;
+}
+
+/* ==========================================================================
+   Universal Form Controls Typography Reset
+   Guarantees 100% consistent typography and font-family across all form inputs,
+   textareas, selects, and buttons across all browsers (Chrome, Safari, Firefox, Edge).
+   ========================================================================== */
+input,
+button,
+select,
+textarea,
+optgroup {
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+input::placeholder,
+textarea::placeholder {
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 main {
@@ -358,8 +377,8 @@ i[class*="fa-"] {
   --color-status-missing-text: var(--status-missing-text);
   --color-status-missing-border: var(--status-missing-border);
   
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   
   /* Device Category Breakpoints:
      1. Mobile: < 768px
@@ -374,7 +393,7 @@ i[class*="fa-"] {
 }
 
 body {
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, var(--font-geist-sans), ui-sans-serif, system-ui;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background-color: var(--background);
   color: var(--foreground);
   -ms-overflow-style: none; /* IE and Edge */

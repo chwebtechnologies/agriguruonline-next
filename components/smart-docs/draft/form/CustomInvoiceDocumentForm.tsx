@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import DocUnderlineInput from './DocUnderlineInput';
+import DocTitleInput from './DocTitleInput';
 import DocUnderlineSelect, { DocSelectOption } from './DocUnderlineSelect';
 import DocToggle from './DocToggle';
 import DocSignatureBox from './DocSignatureBox';
@@ -758,8 +759,6 @@ export function CustomInvoiceDocumentForm({
   dict,
   readOnly = false,
 }: CustomInvoiceDocumentFormProps) {
-  const titleInputRef = useRef<HTMLInputElement>(null);
-
   // Validation check for legitimate document IDs (filters out placeholder strings)
   const isCandidateValid = useCallback(
     (val?: string | null): boolean => {
@@ -2961,61 +2960,33 @@ export function CustomInvoiceDocumentForm({
           <div className="hidden sm:block shrink-0 sm:w-[140px]" />
 
           {/* Center: Title "CUSTOM INVOICE" with pencil & dotted underline */}
-          <div
-            className="flex flex-col items-center justify-center flex-1 max-w-lg mx-auto order-last sm:order-none w-full sm:w-auto text-center px-2"
+          <DocTitleInput
+            value={customDocTitle}
+            onChange={(val) => {
+              markDirty();
+              setCustomDocTitle(val);
+              setErrors((prev) => ({
+                ...prev,
+                documentTitle: '',
+                document_title: '',
+                pdf_title: '',
+                custom_doc_title: '',
+                title: '',
+              }));
+            }}
+            disabled={readOnly}
+            placeholder="CUSTOM INVOICE"
+            ariaLabel="Document Title"
+            error={
+              errors.documentTitle ||
+              errors.document_title ||
+              errors.pdf_title ||
+              errors.custom_doc_title ||
+              errors.title
+            }
             id="field-documentTitle"
-            data-field="documentTitle"
-          >
-            <div className="inline-flex items-center justify-center gap-1.5 w-full max-w-[360px] sm:max-w-[440px]">
-              <input
-                ref={titleInputRef}
-                type="text"
-                size={Math.max((customDocTitle || '').length + 1, 16)}
-                value={customDocTitle}
-                onChange={(e) => {
-                  markDirty();
-                  setCustomDocTitle(e.target.value);
-                  setErrors((prev) => ({
-                    ...prev,
-                    documentTitle: '',
-                    document_title: '',
-                    pdf_title: '',
-                    custom_doc_title: '',
-                    title: '',
-                  }));
-                }}
-                disabled={readOnly}
-                placeholder="CUSTOM INVOICE"
-                aria-label="Document Title"
-                className={`text-xs sm:text-sm md:text-[14px] font-bold uppercase tracking-wider text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 rounded-sm px-1.5 py-0.5 w-full min-w-[260px] sm:min-w-[320px] max-w-[360px] sm:max-w-[440px] cursor-text ${
-                  (errors.documentTitle || errors.document_title || errors.pdf_title || errors.custom_doc_title || errors.title) ? 'text-brand-red font-bold' : 'text-foreground'
-                }`}
-              />
-              {!readOnly && (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => titleInputRef.current?.focus()}
-                  title="Edit document title"
-                  className="w-5 h-5 flex items-center justify-center rounded-full text-primary hover:text-primary/80 hover:bg-primary/10 text-[11px] transition-colors cursor-pointer shrink-0"
-                >
-                  <i className="fa-solid fa-pen text-primary" />
-                </button>
-              )}
-            </div>
-            {/* Dotted Accent Underline */}
-            <div
-              className={`w-full max-w-[260px] sm:max-w-[340px] md:max-w-[380px] border-b-2 ${
-                (errors.documentTitle || errors.document_title || errors.pdf_title || errors.custom_doc_title || errors.title) ? 'border-solid !border-brand-red' : 'border-dotted border-primary/70'
-              } mt-0.5 transition-all`}
-            />
-            {(errors.documentTitle || errors.document_title || errors.pdf_title || errors.custom_doc_title || errors.title) && (
-              <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
-                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
-                <span className="text-brand-red">{errors.documentTitle || errors.document_title || errors.pdf_title || errors.custom_doc_title || errors.title}</span>
-              </span>
-            )}
-          </div>
+            dataField="documentTitle"
+          />
 
           {/* Right: Watermark Toggle */}
           <div className="flex flex-col items-end justify-center shrink-0 sm:w-[140px]" id="field-is_watermark_enabled" data-field="is_watermark_enabled">
@@ -3098,7 +3069,7 @@ export function CustomInvoiceDocumentForm({
                       icon="fa-solid fa-pencil"
                       disabled={readOnly}
                       error={errors.invoice_number || errors.invoice_no}
-                      inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide"
+                      inputClassName="text-[14px] font-semibold text-foreground uppercase tracking-wide"
                     />
                   </div>
                 </div>
@@ -3122,7 +3093,7 @@ export function CustomInvoiceDocumentForm({
                       disabled={readOnly}
                       icon="fa-regular fa-calendar-days"
                       error={errors.invoice_date || errors.date}
-                      inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground"
+                      inputClassName="text-[14px] font-semibold text-foreground"
                     />
                   </div>
                 </div>
@@ -3458,7 +3429,7 @@ export function CustomInvoiceDocumentForm({
                           placeholder="0.000"
                           icon="fa-solid fa-pencil"
                           error={errors.gross_weight}
-                          inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          inputClassName="text-[14px] font-semibold text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     </div>
@@ -3587,7 +3558,7 @@ export function CustomInvoiceDocumentForm({
                               {incoterm || 'CNF'} Rate Value
                             </td>
                             <td className="py-2.5 px-3"></td>
-                            <td className="py-2.5 px-3 font-semibold text-[13px] sm:text-[14px] text-foreground text-right tabular-nums font-mono">
+                            <td className="py-2.5 px-3 font-semibold text-[13px] sm:text-[14px] text-foreground text-right tabular-nums">
                               {currencySymbol} {formatCurrencyAmount(totalAmount, 2, currency)}
                             </td>
                           </tr>
@@ -3616,7 +3587,7 @@ export function CustomInvoiceDocumentForm({
                                     placeholder="0.00"
                                     icon="fa-solid fa-pencil"
                                     error={errors.fob_rate || errors.fob}
-                                    inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    inputClassName="text-[14px] font-semibold text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
                                 </div>
                                 <span className="text-[12px] sm:text-[13px] font-medium text-muted-foreground shrink-0">
@@ -3624,7 +3595,7 @@ export function CustomInvoiceDocumentForm({
                                 </span>
                               </div>
                             </td>
-                            <td className="py-2 px-3 text-right font-semibold text-[13px] sm:text-[14px] text-foreground tabular-nums font-mono">
+                            <td className="py-2 px-3 text-right font-semibold text-[13px] sm:text-[14px] text-foreground tabular-nums">
                               {currencySymbol} {formatCurrencyAmount(calculatedFobAmount, 2, currency)}
                             </td>
                           </tr>
@@ -3653,7 +3624,7 @@ export function CustomInvoiceDocumentForm({
                                     placeholder="0.00"
                                     icon="fa-solid fa-pencil"
                                     error={errors.freight_rate || errors.freight}
-                                    inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    inputClassName="text-[14px] font-semibold text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
                                 </div>
                                 <span className="text-[12px] sm:text-[13px] font-medium text-muted-foreground shrink-0">
@@ -3661,7 +3632,7 @@ export function CustomInvoiceDocumentForm({
                                 </span>
                               </div>
                             </td>
-                            <td className="py-2 px-3 text-right font-semibold text-[13px] sm:text-[14px] text-foreground tabular-nums font-mono">
+                            <td className="py-2 px-3 text-right font-semibold text-[13px] sm:text-[14px] text-foreground tabular-nums">
                               {currencySymbol} {formatCurrencyAmount(calculatedFreightAmount, 2, currency)}
                             </td>
                           </tr>
@@ -3690,7 +3661,7 @@ export function CustomInvoiceDocumentForm({
                                     placeholder="0.00"
                                     icon="fa-solid fa-pencil"
                                     error={errors.commission_rate || errors.commission}
-                                    inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    inputClassName="text-[14px] font-semibold text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
                                 </div>
                                 <span className="text-[12px] sm:text-[13px] font-medium text-muted-foreground shrink-0">
@@ -3698,7 +3669,7 @@ export function CustomInvoiceDocumentForm({
                                 </span>
                               </div>
                             </td>
-                            <td className="py-2 px-3 text-right font-semibold text-[13px] sm:text-[14px] text-foreground tabular-nums font-mono">
+                            <td className="py-2 px-3 text-right font-semibold text-[13px] sm:text-[14px] text-foreground tabular-nums">
                               {currencySymbol} {formatCurrencyAmount(calculatedCommissionAmount, 2, currency)}
                             </td>
                           </tr>
@@ -3709,7 +3680,7 @@ export function CustomInvoiceDocumentForm({
                               Total
                             </td>
                             <td className="py-2.5 px-3"></td>
-                            <td className="py-2.5 px-3 font-semibold text-[13px] sm:text-[14px] text-foreground text-right tabular-nums font-mono">
+                            <td className="py-2.5 px-3 font-semibold text-[13px] sm:text-[14px] text-foreground text-right tabular-nums">
                               {currencySymbol} {formatCurrencyAmount(calculatedRateTotal, 2, currency)}
                             </td>
                           </tr>
@@ -3758,7 +3729,7 @@ export function CustomInvoiceDocumentForm({
                               errors.rate_bag ||
                               errors.ratePerBag
                             }
-                            inputClassName="text-[13px] sm:text-[14px] font-semibold text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            inputClassName="text-[14px] font-semibold text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       </div>
@@ -3775,7 +3746,7 @@ export function CustomInvoiceDocumentForm({
 
                       {/* Live Calculation: e.g. 32400 BAGS × 240.00 = ₹ 77,76,000.00 */}
                       {parsedRatePerBag > 0 && bagQuantityNum > 0 && (
-                        <div className="text-[13px] sm:text-[14px] font-bold text-foreground font-mono tracking-wide pt-0.5 flex items-center gap-2">
+                        <div className="text-[13px] sm:text-[14px] font-bold text-foreground tabular-nums tracking-wide pt-0.5 flex items-center gap-2">
                           <span>
                             {bagQuantityNum} BAGS × {parsedRatePerBag.toFixed(2)} = {currencySymbol} {formatCurrencyAmount(calculatedBagTotal, 2, currency)}
                           </span>
@@ -3842,7 +3813,7 @@ export function CustomInvoiceDocumentForm({
                         ariaLabel="Disclaimer"
                         icon="fa-solid fa-pencil"
                         error={errors.disclaimer}
-                        inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground resize-none leading-relaxed"
+                        inputClassName="text-[14px] font-semibold text-foreground resize-none leading-relaxed"
                       />
                     </div>
                   </div>
@@ -3854,9 +3825,17 @@ export function CustomInvoiceDocumentForm({
 
         {/* ========================================================
             ROW 8: BOTTOM FULL-WIDTH ROW: ENTER TITLE & ENTER COMMENT
+            Matching 3-column layout (1/3 Title & 2/3 Comment) across Smart Docs forms
            ======================================================== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
-          <div className="p-2.5 sm:p-3" id="field-notes_title" data-field="notes_title">
+        <div
+          className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card"
+          data-field="commentSection"
+        >
+          <div
+            className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0"
+            id="field-notes_title"
+            data-field="notes_title"
+          >
             <DocUnderlineInput
               id="field-notes_title-input"
               name="comment_label"
@@ -3875,8 +3854,13 @@ export function CustomInvoiceDocumentForm({
                 }));
               }}
               disabled={readOnly}
-              placeholder="Enter Title"
-              icon="fa-solid fa-pencil"
+              placeholder={
+                dict?.smart_docs?.confirmation_form?.enter_title ||
+                dict?.smart_docs?.contract_form?.enter_title ||
+                'Enter Title'
+              }
+              icon="fa-solid fa-pen"
+              uppercase={false}
               error={
                 errors.title ||
                 errors.extra_title ||
@@ -3885,11 +3869,16 @@ export function CustomInvoiceDocumentForm({
                 errors.comment_title ||
                 errors.commentLabel
               }
-              inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground"
+              inputClassName="text-[14px] font-semibold text-foreground"
+              className="w-full"
             />
           </div>
 
-          <div className="p-2.5 sm:p-3" id="field-notes_comment" data-field="notes_comment">
+          <div
+            className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 md:col-span-2"
+            id="field-notes_comment"
+            data-field="notes_comment"
+          >
             <DocUnderlineInput
               id="field-notes_comment-input"
               name="comment_value"
@@ -3908,8 +3897,13 @@ export function CustomInvoiceDocumentForm({
                 }));
               }}
               disabled={readOnly}
-              placeholder="Enter Comment"
-              icon="fa-solid fa-pencil"
+              placeholder={
+                dict?.smart_docs?.confirmation_form?.enter_comment ||
+                dict?.smart_docs?.contract_form?.enter_comment ||
+                'Enter Comment'
+              }
+              icon="fa-solid fa-pen"
+              uppercase={false}
               error={
                 errors.comment ||
                 errors.extra_comment ||
@@ -3918,7 +3912,8 @@ export function CustomInvoiceDocumentForm({
                 errors.comment_text ||
                 errors.commentValue
               }
-              inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground"
+              inputClassName="text-[14px] font-semibold text-foreground"
+              className="w-full"
             />
           </div>
         </div>

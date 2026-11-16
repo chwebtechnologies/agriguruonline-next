@@ -202,7 +202,7 @@ export function DocNotesEditor({
           aria-multiline="true"
           aria-label="Notes description"
           style={{ outline: 'none' }}
-          className={`w-full min-h-[56px] text-[14px] font-normal text-foreground outline-none focus:outline-none focus-visible:outline-none leading-relaxed [&>p]:text-[14px] [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 ${
+          className={`w-full min-h-[56px] text-[14px] font-sans font-normal text-foreground outline-none focus:outline-none focus-visible:outline-none leading-relaxed [&>p]:text-[14px] [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 ${
             disabled ? 'opacity-60 cursor-not-allowed' : ''
           }`}
           data-placeholder={placeholder}

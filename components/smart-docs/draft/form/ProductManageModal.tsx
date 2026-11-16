@@ -1049,7 +1049,7 @@ export function ProductManageModal({
                     }
                   }}
                   placeholder="HSN CODE"
-                  className={`w-full h-10 px-3.5 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors font-mono ${
+                  className={`w-full h-10 px-3.5 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors tabular-nums ${
                     (errors.hsn_code || errors.hsn)
                       ? 'border-destructive focus:ring-1 focus:ring-destructive'
                       : 'border-border focus:border-primary focus:ring-1 focus:ring-primary'
@@ -1302,7 +1302,7 @@ export function ProductManageModal({
                                 handlePackingChange(item.id, 'quantity', e.target.value)
                               }
                               placeholder="Example: 50"
-                              className={`w-full h-10 pl-3.5 pr-10 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors font-mono ${
+                              className={`w-full h-10 pl-3.5 pr-10 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors tabular-nums ${
                                 qtyErr
                                   ? 'border-destructive focus:ring-1 focus:ring-destructive'
                                   : 'border-border focus:border-primary focus:ring-1 focus:ring-primary'
@@ -1369,7 +1369,7 @@ export function ProductManageModal({
                                   handlePackingChange(item.id, 'quantity', e.target.value)
                                 }
                                 placeholder="Example: 200"
-                                className={`w-full h-10 pl-3.5 pr-8 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors font-mono ${
+                                className={`w-full h-10 pl-3.5 pr-8 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors tabular-nums ${
                                   qtyErr
                                     ? 'border-destructive focus:ring-1 focus:ring-destructive'
                                     : 'border-border focus:border-primary focus:ring-1 focus:ring-primary'
@@ -1404,7 +1404,7 @@ export function ProductManageModal({
                                   handlePackingChange(item.id, 'density', e.target.value)
                                 }
                                 placeholder="1.00"
-                                className={`w-full h-10 pl-3.5 pr-13 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors font-mono ${
+                                className={`w-full h-10 pl-3.5 pr-13 text-xs sm:text-sm bg-background text-foreground border rounded-lg outline-none transition-colors tabular-nums ${
                                   densityErr
                                     ? 'border-destructive focus:ring-1 focus:ring-destructive'
                                     : 'border-border focus:border-primary focus:ring-1 focus:ring-primary'
@@ -1427,7 +1427,7 @@ export function ProductManageModal({
                               <span>Net WT (KG)</span>
                             </label>
                             <div className="h-10 px-3.5 bg-background border border-border rounded-lg flex items-center justify-between">
-                              <span className="font-mono font-bold text-xs sm:text-sm text-foreground">
+                              <span className="tabular-nums font-bold text-xs sm:text-sm text-foreground">
                                 {item.netWeightKg || '0.00'}
                               </span>
                               <span className="text-[11px] font-bold text-muted-foreground">

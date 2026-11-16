@@ -1803,16 +1803,50 @@ export function DocumentDraftWorkspace({
     [selectedStep, handleSelectStep]
   );
 
-  const pageTitle = isContract
+  const pageTitle = isContract || (!selectedStep && (initialStepParam === 'contract' || initialStepParam === '2'))
     ? dict?.smart_docs?.draft_contract_title || dict?.smart_docs?.draft_contract || 'Draft Contract'
-    : isProforma
-    ? dict?.smart_docs?.draft_proforma_title || 'Proforma Invoice'
-    : isShipmentInstruction
-    ? 'Shipment Instruction'
-    : dict?.smart_docs?.draft_title ||
+    : isProforma || (!selectedStep && (initialStepParam === 'proforma' || initialStepParam === '3'))
+    ? dict?.smart_docs?.draft_proforma_title || 'Draft Proforma Invoice'
+    : isShipmentInstruction ||
+      (!selectedStep &&
+        (initialStepParam === 'shipment' ||
+          initialStepParam === 'shipment_instruction' ||
+          initialStepParam === 'shipment-instruction' ||
+          initialStepParam === 'instruction' ||
+          initialStepParam === 'document' ||
+          initialStepParam === '4'))
+    ? dict?.smart_docs?.draft_shipment_instruction_title || 'Draft Shipment Instruction'
+    : isCustomInvoice ||
+      (!selectedStep &&
+        (initialStepParam === 'custom-invoice' ||
+          initialStepParam === 'custom_invoice' ||
+          initialStepParam === 'custom' ||
+          initialStepParam === 'invoice' ||
+          initialStepParam === '6'))
+    ? dict?.smart_docs?.draft_custom_invoice_title || 'Draft Custom Invoice'
+    : isConfirmation || !selectedStep
+    ? dict?.smart_docs?.draft_confirmation_title ||
+      dict?.smart_docs?.draft_title ||
       dict?.smart_docs?.add_new_confirmation ||
       dict?.smart_docs?.add_confirmation ||
-      'Draft Confirmation';
+      'Draft Confirmation'
+    : (() => {
+        const rawName = (
+          selectedStep?.document_name ||
+          selectedStep?.name ||
+          selectedStep?.title ||
+          selectedStep?.doc_name ||
+          selectedStep?.step_name ||
+          ''
+        ).trim();
+        if (!rawName) {
+          return dict?.smart_docs?.draft_confirmation_title || dict?.smart_docs?.draft_title || 'Draft Confirmation';
+        }
+        if (/^draft\b/i.test(rawName)) {
+          return rawName;
+        }
+        return `Draft ${rawName}`;
+      })();
 
   // Synchronize document.title dynamically when switching steps
   useEffect(() => {

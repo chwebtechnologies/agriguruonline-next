@@ -258,7 +258,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               aria-label={ariaLabel || effectivePlaceholder}
               aria-invalid={Boolean(error)}
               style={{ outline: 'none', boxShadow: 'none' }}
-              className={`w-full bg-transparent px-0 py-0.5 text-[14px] ${
+              className={`w-full bg-transparent px-0 py-0.5 text-[14px] font-sans ${
                 hasValue ? 'font-semibold' : 'font-normal'
               } ${
                 error
@@ -298,7 +298,7 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
               aria-label={ariaLabel || effectivePlaceholder}
               aria-invalid={Boolean(error)}
               style={{ outline: 'none', boxShadow: 'none' }}
-              className={`w-full bg-transparent px-0 py-0.5 text-[14px] ${
+              className={`w-full bg-transparent px-0 py-0.5 text-[14px] font-sans ${
                 hasValue ? 'font-semibold' : 'font-normal'
               } ${
                 error

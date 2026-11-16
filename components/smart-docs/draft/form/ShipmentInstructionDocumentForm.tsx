@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import DocToggle from './DocToggle';
+import DocTitleInput from './DocTitleInput';
 import DocUnderlineInput from './DocUnderlineInput';
 import DocUnderlineSelect, { DocSelectOption, isRawDbId } from './DocUnderlineSelect';
 import DocPrintPreviewModal from './DocPrintPreviewModal';
@@ -878,7 +879,6 @@ export function ShipmentInstructionDocumentForm({
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   // Refs
-  const titleInputRef = useRef<HTMLInputElement>(null);
   const marksImageInputRef = useRef<HTMLInputElement>(null);
   const marksImageFileRef = useRef<File | null>(null);
   const hasUserSelectedNewImageRef = useRef<boolean>(false);
@@ -2907,56 +2907,22 @@ export function ShipmentInstructionDocumentForm({
           <div className="hidden sm:block shrink-0 sm:w-[140px]" />
 
           {/* Center: Title "SHIPMENT INSTRUCTION" with pencil & dotted underline (EDITABLE) */}
-          <div
-            className="flex flex-col items-center justify-center flex-1 max-w-lg mx-auto order-last sm:order-none w-full sm:w-auto text-center px-2"
+          <DocTitleInput
+            value={documentTitle}
+            onChange={(val) => {
+              markDirty();
+              setDocumentTitle(val);
+              if (errors.documentTitle) {
+                setErrors((prev) => ({ ...prev, documentTitle: '' }));
+              }
+            }}
+            disabled={readOnly}
+            placeholder="SHIPMENT INSTRUCTION"
+            ariaLabel="Document Title"
+            error={errors.documentTitle}
             id="field-documentTitle"
-            data-field="documentTitle"
-          >
-            <div className="inline-flex items-center justify-center gap-1.5 w-full max-w-[360px] sm:max-w-[440px]">
-              <input
-                ref={titleInputRef}
-                type="text"
-                size={Math.max((documentTitle || '').length + 1, 21)}
-                value={documentTitle}
-                onChange={(e) => {
-                  markDirty();
-                  setDocumentTitle(e.target.value);
-                  if (errors.documentTitle) {
-                    setErrors((prev) => ({ ...prev, documentTitle: '' }));
-                  }
-                }}
-                disabled={readOnly}
-                placeholder="SHIPMENT INSTRUCTION"
-                aria-label="Document Title"
-                className={`text-xs sm:text-sm md:text-[14px] font-bold uppercase tracking-wider text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 rounded-sm px-1.5 py-0.5 w-full min-w-[260px] sm:min-w-[320px] max-w-[360px] sm:max-w-[440px] cursor-text ${
-                  errors.documentTitle ? 'text-brand-red' : 'text-foreground'
-                }`}
-              />
-              {!readOnly && (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => titleInputRef.current?.focus()}
-                  title="Edit document title"
-                  className="w-5 h-5 flex items-center justify-center rounded-full text-primary hover:text-primary-hover hover:bg-primary/10 text-[11px] transition-colors cursor-pointer shrink-0"
-                >
-                  <i className="fa-solid fa-pen text-primary" />
-                </button>
-              )}
-            </div>
-            {/* Dotted Accent Underline */}
-            <div
-              className={`w-full max-w-[260px] sm:max-w-[340px] md:max-w-[380px] border-b-2 ${
-                errors.documentTitle ? 'border-solid !border-brand-red' : 'border-dotted border-primary/70'
-              } mt-0.5 transition-all`}
-            />
-            {errors.documentTitle && (
-              <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
-                <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
-                <span>{errors.documentTitle}</span>
-              </span>
-            )}
-          </div>
+            dataField="documentTitle"
+          />
 
           {/* Right: Watermark Toggle Only */}
           <div className="flex items-center justify-end gap-1.5 shrink-0 min-w-[100px] sm:w-[140px]">
@@ -3062,7 +3028,7 @@ export function ShipmentInstructionDocumentForm({
                     disabled={readOnly}
                     placeholder=""
                     icon="fa-solid fa-pen"
-                    inputClassName="text-[13px] font-medium leading-relaxed resize-none text-foreground"
+                    inputClassName="text-[14px] font-semibold leading-relaxed resize-none text-foreground"
                     className="w-full"
                   />
                 </div>
@@ -3107,7 +3073,7 @@ export function ShipmentInstructionDocumentForm({
                     disabled={readOnly}
                     placeholder=""
                     icon="fa-solid fa-pen"
-                    inputClassName="text-[13px] font-medium leading-relaxed resize-none text-foreground"
+                    inputClassName="text-[14px] font-semibold leading-relaxed resize-none text-foreground"
                     className="w-full"
                   />
                 </div>
@@ -3164,7 +3130,7 @@ export function ShipmentInstructionDocumentForm({
                     disabled={readOnly || !notifyParty1Id}
                     placeholder=""
                     icon="fa-solid fa-pen"
-                    inputClassName="text-[13px] font-medium leading-relaxed resize-none text-foreground"
+                    inputClassName="text-[14px] font-semibold leading-relaxed resize-none text-foreground"
                     className="w-full"
                   />
                 </div>
@@ -3282,7 +3248,7 @@ export function ShipmentInstructionDocumentForm({
                               disabled={!isEnabled}
                               placeholder=""
                               icon="fa-solid fa-pen"
-                              inputClassName="text-[13px] font-medium leading-relaxed resize-none text-foreground"
+                              inputClassName="text-[14px] font-semibold leading-relaxed resize-none text-foreground"
                               className="w-full mt-1"
                             />
                           </div>
@@ -3429,7 +3395,7 @@ export function ShipmentInstructionDocumentForm({
                     placeholder="Enter place of delivery"
                     icon="fa-solid fa-pen"
                     align="center"
-                    inputClassName="text-[13px] sm:text-[14px] font-medium text-foreground text-center uppercase tracking-wide"
+                    inputClassName="text-[14px] font-semibold text-foreground text-center uppercase tracking-wide"
                     className="w-full"
                   />
                 </div>
@@ -3877,7 +3843,7 @@ export function ShipmentInstructionDocumentForm({
                 }
                 icon="fa-solid fa-pen"
                 uppercase={false}
-                inputClassName="text-[14px] font-bold text-foreground"
+                inputClassName="text-[14px] font-semibold text-foreground"
                 className="w-full"
               />
             </div>
@@ -3913,7 +3879,7 @@ export function ShipmentInstructionDocumentForm({
                 }
                 icon="fa-solid fa-pen"
                 uppercase={false}
-                inputClassName="text-[14px] font-medium text-foreground"
+                inputClassName="text-[14px] font-semibold text-foreground"
                 className="w-full"
               />
             </div>
