@@ -265,17 +265,40 @@ export function extractVesselVoyageRawValue(data: any): string {
  */
 export function resolveInitialSpecialInstruction(data: any): string {
   if (!data || typeof data !== 'object') return '';
+  const d = data.data !== undefined && typeof data.data === 'object' && data.data !== null ? data.data : data;
   const direct = safeString(
-    data?.special_instruction ||
-      data?.special_note ||
-      data?.shipment_instruction?.special_instruction ||
-      data?.shipment_instruction?.special_note ||
-      data?.contract?.special_instruction ||
-      data?.confirmation?.special_instruction ||
+    data?.disclaimer ??
+      d?.disclaimer ??
+      data?.shipment_instruction?.disclaimer ??
+      d?.shipment_instruction?.disclaimer ??
+      data?.details?.disclaimer ??
+      d?.details?.disclaimer ??
+      data?.special_instruction ??
+      d?.special_instruction ??
+      data?.special_instructions ??
+      d?.special_instructions ??
+      data?.special_note ??
+      d?.special_note ??
+      data?.shipment_instruction?.special_instruction ??
+      data?.shipment_instruction?.special_note ??
+      data?.details?.special_instruction ??
+      data?.contract?.disclaimer ??
+      data?.contract?.special_instruction ??
+      data?.confirmation?.disclaimer ??
+      data?.confirmation?.special_instruction ??
+      data?.proforma?.disclaimer ??
       data?.proforma?.special_instruction,
     ''
   );
   if (direct && direct.trim() !== '') {
+    return direct;
+  }
+
+  // If this is an existing saved shipment instruction and disclaimer is explicitly provided as empty
+  if (
+    (data?.id || data?._id || data?.shipment_instruction_id || data?.shipment_instruction_number) &&
+    (data?.disclaimer !== undefined || d?.disclaimer !== undefined || data?.special_instruction !== undefined)
+  ) {
     return direct;
   }
 
@@ -323,6 +346,7 @@ export const SHIPMENT_FORM_FIELD_VISUAL_ORDER = [
   'freight',
   'cocFieldsValue',
   'specialInstruction',
+  'disclaimer',
   'remarksTitle',
   'remarksComment',
 ];
@@ -426,6 +450,8 @@ export function humanizeShipmentValidationMessage(rawMessage: string, targetKey?
       case 'cocFieldsValue':
         return 'Please enter COC details (IDF / UCR / PIP)';
       case 'specialInstruction':
+      case 'special_instruction':
+      case 'disclaimer':
         return 'Please enter special instruction';
       case 'documentTitle':
         return 'Document title is required';
@@ -545,6 +571,9 @@ export function parseShipmentInstructionBackendErrors(
       case 'specialnote':
       case 'instruction':
       case 'specialinstructions':
+      case 'disclaimer':
+      case 'disclaimernote':
+      case 'disclaimertext':
         return 'specialInstruction';
       case 'remarkstitle':
       case 'commenttitle':
@@ -612,7 +641,7 @@ export function parseShipmentInstructionBackendErrors(
     if (s.includes('coc')) {
       return { key: 'cocFieldsValue', label: 'COC Details' };
     }
-    if (s.includes('special instruction') || s.includes('special note')) {
+    if (s.includes('special instruction') || s.includes('special note') || s.includes('disclaimer')) {
       return { key: 'specialInstruction', label: 'Special Instruction' };
     }
     if (s.includes('remark') || s.includes('comment')) {
@@ -811,12 +840,6 @@ export function ShipmentInstructionDocumentForm({
   dict,
   readOnly = false,
 }: ShipmentInstructionDocumentFormProps) {
-  // Document Status
-  const [docStatus, setDocStatus] = useState<string>(() => {
-    const step = getShipmentInstructionStep(steps, selectedStep);
-    return step?.status?.toUpperCase() || initialData?.status?.toUpperCase() || 'PENDING';
-  });
-
   const [hasDraftChanges, setHasDraftChanges] = useState(false);
   const [hasSubmitChanges, setHasSubmitChanges] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -834,17 +857,26 @@ export function ShipmentInstructionDocumentForm({
   // Canonical Draft ID: strictly the Shipment Instruction's self ID, NEVER contractId, proformaId, or confirmationId
   const hasShipmentMarkers = Boolean(
     initialData?.shipment_instruction_number ||
-    initialData?.instruction_number ||
     initialData?.booking_number ||
+    initialData?.booking_no ||
     initialData?.vessel_name ||
     initialData?.shipping_bill_number ||
+    initialData?.shipping_bill_no ||
     initialData?._is_shipment_loaded
   );
+
+  // Document Status: Only inherit status from initialData if genuine shipment markers exist
+  const [docStatus, setDocStatus] = useState<string>(() => {
+    const step = getShipmentInstructionStep(steps, selectedStep);
+    const stepStatus = step?.status || (step as any)?.document_status || (step as any)?.step_status;
+    if (stepStatus) return String(stepStatus).toUpperCase();
+    if (hasShipmentMarkers && initialData?.status) return String(initialData.status).toUpperCase();
+    return 'PENDING';
+  });
+
   const candidateSelfId = sanitizeDocId(
-    instructionId ||
     shipmentInstructionId ||
     initialData?.shipment_instruction_id ||
-    initialData?.instruction_id ||
     initialData?.shipment_id ||
     (hasShipmentMarkers &&
      initialData?.id &&
@@ -1149,12 +1181,12 @@ export function ShipmentInstructionDocumentForm({
 
   // Auto-populate details on initial load if matching party exists and details are empty
   useEffect(() => {
-    if (consigneesList.length > 0) {
+    if (consigneesList.length > 0 && (consigneeId || consigneeName)) {
       const matched = consigneesList.find(
         (c) =>
           (consigneeId && String(c.consignee_details_id || c.id || c._id || c.consignee_id || c.value) === String(consigneeId)) ||
           (consigneeName && (c.company_name || c.name || c.label)?.toLowerCase() === consigneeName.toLowerCase())
-      ) || (!consigneeId && !consigneeName ? consigneesList[0] : undefined);
+      );
       if (matched) {
         if (!consigneeDetails) {
           const formatted = formatPartyDetails(matched);
@@ -1182,11 +1214,6 @@ export function ShipmentInstructionDocumentForm({
           const formatted = formatPartyDetails(matched1);
           if (formatted) setNotifyParty1Details(formatted);
         }
-      } else if (!notifyParty1Id && !notifyParty1Details) {
-        const first = notifyPartiesList[0];
-        setNotifyParty1Id(String(first.id || first._id || first.notify_party_id || first.value || ''));
-        const formatted = formatPartyDetails(first);
-        if (formatted) setNotifyParty1Details(formatted);
       }
 
       if (notifyParty2Id && !notifyParty2Details) {
@@ -1195,11 +1222,6 @@ export function ShipmentInstructionDocumentForm({
           const formatted = formatPartyDetails(matched2);
           if (formatted) setNotifyParty2Details(formatted);
         }
-      } else if (!notifyParty2Id && !notifyParty2Details && notifyPartiesList.length > 1) {
-        const second = notifyPartiesList[1];
-        setNotifyParty2Id(String(second.id || second._id || second.notify_party_id || second.value || ''));
-        const formatted = formatPartyDetails(second);
-        if (formatted) setNotifyParty2Details(formatted);
       }
       if (extraNotifyParties.length > 0) {
         setExtraNotifyParties((prev) => {
@@ -1947,14 +1969,14 @@ export function ShipmentInstructionDocumentForm({
 
   // COLUMN 3: Gross Weight (STATIC TEXT DISPLAY):
   const grossWeight = useMemo(() => {
-    return safeString(initialData?.gross_weight, '000.000 KGS');
+    return safeString(initialData?.gross_weight, '-');
   }, [initialData]);
 
   // ==========================================
   // 6. ROW 5: SUMMARY TOTALS (ALL STATIC TEXT DISPLAY)
   // ==========================================
   const totalPackages = useMemo(() => {
-    return safeString(initialData?.total_packages || initialData?.total_no_of_packages, String(bagQuantity || '32400'));
+    return safeString(initialData?.total_packages || initialData?.total_no_of_packages, bagQuantity ? String(bagQuantity) : '-');
   }, [initialData, bagQuantity]);
 
   const cleanTotalPackages = useMemo(() => {
@@ -1966,7 +1988,7 @@ export function ShipmentInstructionDocumentForm({
   }, [bagQuantity]);
 
   const totalWeight = useMemo(() => {
-    return safeString(initialData?.total_weight, grossWeight || '000.000 KGS');
+    return safeString(initialData?.total_weight, grossWeight !== '-' ? grossWeight : '-');
   }, [initialData, grossWeight]);
 
   // ==========================================
@@ -2024,7 +2046,7 @@ export function ShipmentInstructionDocumentForm({
     );
 
     // If form has already initialized, NEVER overwrite user edits unless stepper version changed or doc ID changed!
-    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && (isDirty || hasDraftChanges)) {
       return;
     }
 
@@ -2485,7 +2507,10 @@ export function ShipmentInstructionDocumentForm({
 
     if (freeDays && freeDays.trim()) fd.append('free_days', freeDays.trim());
     if (emptyBags && emptyBags.trim()) fd.append('empty_bags', emptyBags.trim());
-    if (specialInstruction && specialInstruction.trim()) fd.append('special_instruction', specialInstruction.trim());
+    if (specialInstruction && specialInstruction.trim()) {
+      fd.append('disclaimer', specialInstruction.trim());
+      fd.append('special_instruction', specialInstruction.trim());
+    }
     if (grossWeight && grossWeight.trim()) fd.append('gross_weight', grossWeight.trim());
 
     // Totals & Remarks
@@ -3504,7 +3529,7 @@ export function ShipmentInstructionDocumentForm({
                       <img
                         src={marksImageUrl}
                         alt="Bag Photo / Mark"
-                        className="w-full h-full object-contain p-2"
+                        className="w-full h-full max-w-full max-h-full object-contain p-2 select-none"
                         onClick={() => !readOnly && marksImageInputRef.current?.click()}
                       />
                       {!readOnly && (
@@ -3714,8 +3739,10 @@ export function ShipmentInstructionDocumentForm({
                 </div>
 
                 {/* SPECIAL WARNING NOTE (EDITABLE INPUT IN AMBER with pencil & dotted line!) */}
-                <div className="mt-2 w-full" id="field-specialInstruction" data-field="specialInstruction">
+                <div className="mt-2 w-full" id="field-specialInstruction" data-field="specialInstruction" data-field-alias="disclaimer">
                   <DocUnderlineInput
+                    id="field-specialInstruction-input"
+                    name="disclaimer"
                     flush
                     multiline
                     rows={2}
@@ -3723,26 +3750,27 @@ export function ShipmentInstructionDocumentForm({
                     onChange={(v) => {
                       markDirty();
                       setSpecialInstruction(v);
-                      if (errors.specialInstruction || errors.special_instruction || errors.special_note) {
+                      if (errors.specialInstruction || errors.special_instruction || errors.special_note || errors.disclaimer) {
                         setErrors((prev) => ({
                           ...prev,
                           specialInstruction: '',
                           special_instruction: '',
                           special_note: '',
+                          disclaimer: '',
                         }));
                       }
                     }}
-                    error={errors.specialInstruction || errors.special_instruction || errors.special_note}
+                    error={errors.specialInstruction || errors.special_instruction || errors.special_note || errors.disclaimer}
                     disabled={readOnly}
                     placeholder="Enter special instruction"
                     icon="fa-solid fa-pen"
                     inputClassName={
-                      errors.specialInstruction || errors.special_instruction || errors.special_note
+                      errors.specialInstruction || errors.special_instruction || errors.special_note || errors.disclaimer
                         ? "text-[13px] font-semibold uppercase text-brand-red resize-none leading-relaxed"
                         : "text-[13px] font-semibold uppercase !text-amber-600 dark:!text-amber-400 resize-none leading-relaxed"
                     }
                     underlineClassName={
-                      errors.specialInstruction || errors.special_instruction || errors.special_note
+                      errors.specialInstruction || errors.special_instruction || errors.special_note || errors.disclaimer
                         ? undefined
                         : "border-b-2 border-dotted !border-amber-500/60 hover:!border-amber-500 dark:!border-amber-400/60 dark:hover:!border-amber-400 bg-transparent"
                     }

@@ -2837,7 +2837,7 @@ export function ConfirmationDocumentForm({
 
     // Once the form was already initialized, NEVER overwrite the user's active in-progress edits
     // UNLESS stepper navigation / explicit version trigger or doc ID change occurred!
-    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && hasDraftChanges) {
       return;
     }
 

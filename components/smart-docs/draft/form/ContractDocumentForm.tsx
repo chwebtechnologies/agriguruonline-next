@@ -1602,9 +1602,18 @@ function getFallbackSellerOption(data: any, currentId?: string): FormOptionItem 
   if (typeof raw === 'object' && raw) {
     label = toCleanLabel(raw.company_name || raw.label || raw.name || raw.title || '');
     instructionText = toCleanLabel(raw.instructionText || raw.details || raw.address || raw.instruction || '');
+  } else if (typeof raw === 'string' && raw.trim()) {
+    const lines = raw.trim().split('\n').map((l: string) => l.trim()).filter(Boolean);
+    if (lines.length > 0 && !isRawDbId(lines[0])) {
+      label = lines[0];
+      instructionText = raw.trim();
+    }
   }
   if (!label) {
     label = toCleanLabel(data.seller_name || data.sellerName || data.seller_company_name || data.exporter_name || '');
+  }
+  if (!instructionText) {
+    instructionText = toCleanLabel(data.seller_instruction || data.seller_address || '');
   }
   if (!label && instructionText) {
     label = instructionText.split('\n')[0].trim();
@@ -1629,9 +1638,18 @@ function getFallbackBuyerOption(data: any, currentId?: string): FormOptionItem |
   if (typeof raw === 'object' && raw) {
     label = toCleanLabel(raw.company_name || raw.label || raw.name || raw.title || '');
     instructionText = toCleanLabel(raw.instructionText || raw.details || raw.address || raw.instruction || '');
+  } else if (typeof raw === 'string' && raw.trim()) {
+    const lines = raw.trim().split('\n').map((l: string) => l.trim()).filter(Boolean);
+    if (lines.length > 0 && !isRawDbId(lines[0])) {
+      label = lines[0];
+      instructionText = raw.trim();
+    }
   }
   if (!label) {
     label = toCleanLabel(data.buyer_name || data.buyerName || data.buyer_company_name || data.importer_name || '');
+  }
+  if (!instructionText) {
+    instructionText = toCleanLabel(data.buyer_instruction || data.buyer_address || '');
   }
   if (!label && instructionText) {
     label = instructionText.split('\n')[0].trim();
@@ -2027,8 +2045,7 @@ export function ContractDocumentForm({
     (initialData?.confirmation && typeof initialData.confirmation === 'object' ? initialData.confirmation.id || initialData.confirmation._id : '') ||
     // If initialData is a confirmation record (not a standalone contract)
     (!initialData?.contract_id && !initialData?.contractId && (initialData?.confirmation_number || initialData?.confirmation_date) ? initialData?.id || initialData?._id : '') ||
-    (initialData?.confirmation_number || initialData?.confirmation_date ? initialData?.id || initialData?._id : '') ||
-    (!initialData?.contract_number && !initialData?.contract_date ? initialData?.id || initialData?._id : '')
+    (initialData?.confirmation_number || initialData?.confirmation_date ? initialData?.id || initialData?._id : '')
   );
 
   // Saved Draft / Contract ID (from Stepper / API)
@@ -2050,14 +2067,17 @@ export function ContractDocumentForm({
       (initialData?.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '')
     );
     if (cid && !isInvalidPlaceholder(cid)) return cid.trim();
-    if (initialData?.id && !isInvalidPlaceholder(initialData.id)) {
+    const isExplicitContract = Boolean(
+      initialData?.contract_number ||
+      initialData?.contract_date ||
+      initialData?.sales_contract_id ||
+      initialData?._is_contract_loaded
+    );
+    if (isExplicitContract && initialData?.id && !isInvalidPlaceholder(initialData.id)) {
       return toCleanId(initialData.id);
     }
-    if (initialData?._id && !isInvalidPlaceholder(initialData._id)) {
+    if (isExplicitContract && initialData?._id && !isInvalidPlaceholder(initialData._id)) {
       return toCleanId(initialData._id);
-    }
-    if (confirmationId && !isInvalidPlaceholder(confirmationId)) {
-      return confirmationId.trim();
     }
     return '';
   });
@@ -3885,49 +3905,46 @@ export function ContractDocumentForm({
     );
     const hasDocIdChanged = Boolean(contractIdCandidate && contractIdCandidate !== lastLoadedDocIdRef.current);
 
-    // Once the form has been initialized, protect user edits UNLESS stepper navigation / explicit version trigger or doc ID change occurred
-    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
-      if (hasDraftChanges) {
-        // Still update fresh signature URLs from backend if available and not cleared by user
-        const sSig = resolveSigValue(initialData, [
-          'seller_signature',
-          'sellerSignature',
-          'exporter_signature',
-          'exporterSignature',
-        ]);
-        if (hasUserClearedExporterSigRef.current || !exporterSignature) {
-          setExporterSignature('');
-        } else if (sSig) {
-          const formatted = formatSignatureUrl(sSig);
-          setExporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
-        }
+    // Once the form has been initialized, protect user edits IF user has active draft changes, UNLESS stepper navigation / explicit version trigger or doc ID change occurred
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && hasDraftChanges) {
+      // Still update fresh signature URLs from backend if available and not cleared by user
+      const sSig = resolveSigValue(initialData, [
+        'seller_signature',
+        'sellerSignature',
+        'exporter_signature',
+        'exporterSignature',
+      ]);
+      if (hasUserClearedExporterSigRef.current || !exporterSignature) {
+        setExporterSignature('');
+      } else if (sSig) {
+        const formatted = formatSignatureUrl(sSig);
+        setExporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+      }
 
-        const bSig = resolveSigValue(initialData, [
-          'buyer_signature',
-          'buyerSignature',
-          'importer_signature',
-          'importerSignature',
-        ]);
-        if (hasUserClearedImporterSigRef.current || !importerSignature) {
-          setImporterSignature('');
-        } else if (bSig) {
-          const formatted = formatSignatureUrl(bSig);
-          setImporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
-        }
+      const bSig = resolveSigValue(initialData, [
+        'buyer_signature',
+        'buyerSignature',
+        'importer_signature',
+        'importerSignature',
+      ]);
+      if (hasUserClearedImporterSigRef.current || !importerSignature) {
+        setImporterSignature('');
+      } else if (bSig) {
+        const formatted = formatSignatureUrl(bSig);
+        setImporterSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
+      }
 
-        const brSig = resolveSigValue(initialData, [
-          'broker_signature',
-          'brokerSignature',
-          'sales_broker_signature',
-          'salesBrokerSignature',
-        ]);
-        if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
-          setBrokerSignature('');
-        } else if (brSig) {
-          const formatted = formatSignatureUrl(brSig);
-          setBrokerSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
-        }
-        return;
+      const brSig = resolveSigValue(initialData, [
+        'broker_signature',
+        'brokerSignature',
+        'sales_broker_signature',
+        'salesBrokerSignature',
+      ]);
+      if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
+        setBrokerSignature('');
+      } else if (brSig) {
+        const formatted = formatSignatureUrl(brSig);
+        setBrokerSignature((prev) => (prev && prev.startsWith('data:') ? prev : formatted));
       }
       return;
     }
@@ -5022,10 +5039,6 @@ export function ContractDocumentForm({
       }
     }
 
-    // 6. Confirmation ID fallback (the workflow document ID)
-    if (confirmationId && !isInvalidPlaceholder(confirmationId)) {
-      return confirmationId.trim();
-    }
     return '';
   }, [contractIdProp, steps, selectedStep, draftId, confirmationId, initialData, isInvalidPlaceholder]);
 

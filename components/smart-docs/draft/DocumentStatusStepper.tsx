@@ -10,10 +10,12 @@ import {
   isContractStep,
   isProformaStep,
   isShipmentInstructionStep,
+  isBillOfLadingStep,
   isCustomInvoiceStep,
   extractStepRedirectId,
   extractStepId,
   getStepSelfId,
+  isSameWorkflowStep,
 } from '@/lib/api/smart-docs.service';
 import {
   getStepperListAction,
@@ -41,10 +43,11 @@ export function cleanDocNumber(val: any): string | null {
 
 export type NormalizedStatus = 'completed' | 'in_progress' | 'pending' | 'locked';
 
-export function normalizeStepStatus(rawStatus?: string): NormalizedStatus {
+export function normalizeStepStatus(rawStatus?: string | boolean, step?: any): NormalizedStatus {
+  if (step?.is_completed === true || rawStatus === true) return 'completed';
   if (!rawStatus) return 'pending';
   const s = String(rawStatus).toLowerCase().trim();
-  if (['completed', 'complete', 'done', 'approved', 'success', 'finished'].includes(s)) {
+  if (['completed', 'complete', 'done', 'approved', 'success', 'finished', 'true'].includes(s)) {
     return 'completed';
   }
   if (['locked', 'lock', 'blocked'].includes(s)) {
@@ -70,6 +73,7 @@ export function isStepPdfEnabled(step: StepperDocumentItem): boolean {
 export interface DocumentStatusStepperProps {
   initialSteps?: StepperDocumentItem[];
   currentStepIndex?: number;
+  selectedStep?: StepperDocumentItem | null;
   onSelectStep?: (step: StepperDocumentItem, index: number) => void;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
   lang?: string;
@@ -81,12 +85,14 @@ export interface DocumentStatusStepperProps {
   confirmationId?: string;
   confirmationNumber?: string | null;
   contractNumber?: string | null;
+  activeDocNumber?: string | null;
   isContractStep?: boolean;
 }
 
 export function DocumentStatusStepper({
   initialSteps,
   currentStepIndex = 0,
+  selectedStep: propSelectedStep,
   onSelectStep,
   onUpdateSteps,
   lang = 'en',
@@ -98,6 +104,7 @@ export function DocumentStatusStepper({
   confirmationId: propConfirmationId,
   confirmationNumber,
   contractNumber,
+  activeDocNumber: propActiveDocNumber,
   isContractStep: propIsContractStep,
 }: DocumentStatusStepperProps) {
   const propStepId = stepId;
@@ -220,18 +227,30 @@ export function DocumentStatusStepper({
     }
   }, [initialSteps]);
 
-  // Keep internal selection synced if parent passes new currentStepIndex
+  const safeSteps = Array.isArray(steps) ? steps : [];
+  const visibleSteps = useMemo(() => {
+    return safeSteps.filter((s) => !s.is_hidden && String(s.is_hidden) !== 'true');
+  }, [safeSteps]);
+
+  // Keep internal selection synced if parent passes new selectedStep or currentStepIndex
   useEffect(() => {
+    if (propSelectedStep && visibleSteps.length > 0) {
+      const idx = visibleSteps.findIndex((s) => isSameWorkflowStep(s, propSelectedStep));
+      if (idx >= 0) {
+        setSelectedIndex(idx);
+        return;
+      }
+    }
     if (typeof currentStepIndex === 'number' && currentStepIndex >= 0) {
       setSelectedIndex(currentStepIndex);
     }
-  }, [currentStepIndex]);
+  }, [propSelectedStep, currentStepIndex, visibleSteps]);
 
   // Resolves the dynamic redirect id from the current active step in stepper
   const getActiveStepRedirectId = useCallback((): string => {
-    const safeSteps = Array.isArray(steps) ? steps : [];
+    const safeStepsList = Array.isArray(steps) ? steps : [];
     // 1. Current step from selection
-    const activeStep = safeSteps[selectedIndex] || safeSteps[0];
+    const activeStep = safeStepsList[selectedIndex] || safeStepsList[0];
     const activeId = extractStepRedirectId(activeStep);
     if (activeId) return activeId;
 
@@ -260,7 +279,7 @@ export function DocumentStatusStepper({
     }
 
     // 3. Check all steps in the stepper for any available redirect_id
-    for (const step of safeSteps) {
+    for (const step of safeStepsList) {
       const candidateId = extractStepRedirectId(step);
       if (candidateId) return candidateId;
     }
@@ -287,10 +306,6 @@ export function DocumentStatusStepper({
     return '';
   }, [steps, selectedIndex, stepId]);
 
-  const safeSteps = Array.isArray(steps) ? steps : [];
-  const visibleSteps = useMemo(() => {
-    return safeSteps.filter((s) => !s.is_hidden && String(s.is_hidden) !== 'true');
-  }, [safeSteps]);
   const completedCount = visibleSteps.filter(
     (s) => normalizeStepStatus(s?.status || s?.document_status || s?.step_status) === 'completed'
   ).length;
@@ -307,7 +322,20 @@ export function DocumentStatusStepper({
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         const stepParam = urlParams.get('step')?.toLowerCase();
-        if (stepParam === 'shipment' || stepParam === 'document' || stepParam === 'instruction' || stepParam === 'shipment_instruction') {
+        if (
+          stepParam === 'shipment' ||
+          stepParam === 'document' ||
+          stepParam === 'instruction' ||
+          stepParam === 'shipment_instruction' ||
+          stepParam === 'bill-of-lading' ||
+          stepParam === 'bill_of_lading' ||
+          stepParam === 'lading' ||
+          stepParam === 'bl' ||
+          stepParam === 'custom-invoice' ||
+          stepParam === 'custom_invoice' ||
+          stepParam === 'custom' ||
+          stepParam === 'invoice'
+        ) {
           sType = 'document';
         } else if (stepParam === 'contract') {
           sType = 'contract';
@@ -463,11 +491,12 @@ export function DocumentStatusStepper({
       const stepName = String(
         step.document_name || step.name || step.title || step.id || ''
       ).toLowerCase();
-      const isCustomInvoice = isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 5 || step.step === 6;
-      const isShipment = !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
-      const isContract = !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
-      const isProforma = !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
-      const prefix = isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
+      const isBillOfLading = isBillOfLadingStep(step) || stepName.includes('lading') || step.step === 5;
+      const isCustomInvoice = !isBillOfLading && (isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 6);
+      const isShipment = !isBillOfLading && !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
+      const isContract = !isBillOfLading && !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
+      const isProforma = !isBillOfLading && !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
+      const prefix = isBillOfLading ? 'bill_of_lading' : isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
 
       const res = await downloadDocPdfAction({
         prefix,
@@ -498,6 +527,7 @@ export function DocumentStatusStepper({
     if (isContractStep(stepItem) && isContractStep(docConfig as any)) return true;
     if (isProformaStep(stepItem) && isProformaStep(docConfig as any)) return true;
     if (isShipmentInstructionStep(stepItem) && isShipmentInstructionStep(docConfig as any)) return true;
+    if (isBillOfLadingStep(stepItem) && isBillOfLadingStep(docConfig as any)) return true;
     if (isCustomInvoiceStep(stepItem) && isCustomInvoiceStep(docConfig as any)) return true;
 
     return false;
@@ -632,10 +662,15 @@ export function DocumentStatusStepper({
   );
 
   let activeDocNumber: string | null = null;
-  if (cleanCont) {
-    activeDocNumber = cleanCont;
-  } else if (cleanConf) {
-    activeDocNumber = cleanConf;
+  if (propActiveDocNumber) {
+    activeDocNumber = cleanDocNumber(propActiveDocNumber);
+  }
+  if (!activeDocNumber) {
+    if (cleanCont) {
+      activeDocNumber = cleanCont;
+    } else if (cleanConf) {
+      activeDocNumber = cleanConf;
+    }
   }
 
   const titleText = (dict?.smart_docs?.document_list || 'DOCUMENT LIST').toUpperCase();
@@ -940,33 +975,15 @@ export function DocumentStatusStepper({
 
                 const rawStatus = step.status || step.document_status || step.step_status;
                 const normalized = normalizeStepStatus(rawStatus);
-                const isSelected = selectedIndex === index;
+                const isSelected = propSelectedStep
+                  ? isSameWorkflowStep(step, propSelectedStep)
+                  : selectedIndex === index;
                 const isLast = index === visibleSteps.length - 1;
                 const isPdfEnabled = isStepPdfEnabled(step);
                 const stepNumber = step.step ?? step.step_number ?? step.order ?? index + 1;
                 const pdfUrl = step.pdf_url || step.pdf || step.download_url || step.file_url;
 
-                const isStepLocked = (() => {
-                  if (index === 0) return false;
-                  if (index === selectedIndex) return false;
-                  if (index < selectedIndex) return false;
-                  if (normalized === 'completed') return false;
-
-                  const selfId = getStepSelfId(step);
-                  if (selfId) return false;
-
-                  if (Boolean(step.is_locked || step.locked || normalized === 'locked')) {
-                    return true;
-                  }
-
-                  const prevStep = visibleSteps[index - 1];
-                  const prevStatus = normalizeStepStatus(prevStep?.status || prevStep?.document_status || prevStep?.step_status);
-                  const prevHasId = Boolean(getStepSelfId(prevStep));
-                  if (prevStatus !== 'completed' && !prevHasId) {
-                    return true;
-                  }
-                  return false;
-                })();
+                const isStepLocked = Boolean(step.is_locked || step.locked || normalized === 'locked');
 
                 return (
                   <div

@@ -2079,6 +2079,7 @@ export function ProformaDocumentForm({
   readOnly = false,
 }: ProformaDocumentFormProps) {
   // Refs
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const gstInputRef = useRef<any>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const isInitialDataRealProforma = Boolean(
@@ -2097,16 +2098,15 @@ export function ProformaDocumentForm({
   const isSavingOrSubmittingRef = useRef<boolean>(false);
   const lastLoadedDocIdRef = useRef<string>(
     sanitizeDocId(
-      initialData?.id ||
-      initialData?._id ||
-      initialData?.proforma_id ||
-      initialData?.proformaId ||
-      initialData?.contract_id ||
-      initialData?.contractId ||
-      proformaId ||
-      contractId ||
-      confirmationId ||
-      ''
+      isInitialDataRealProforma
+        ? initialData?.proforma_id ||
+          initialData?.proformaId ||
+          initialData?.proforma_invoice_id ||
+          initialData?.id ||
+          initialData?._id ||
+          proformaId ||
+          ''
+        : proformaId || ''
     )
   );
 
@@ -2174,6 +2174,13 @@ export function ProformaDocumentForm({
       setDocStatus(resolvedStatus);
     }
   }, [initialData, steps, selectedStep]);
+
+  // Auto-scroll viewport to top whenever step or document changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [selectedStep?.id, initialData?.id, initialData?.proforma_id]);
 
   // Form Header State
   const [documentTitle, setDocumentTitle] = useState<string>(() =>
@@ -2324,7 +2331,7 @@ export function ProformaDocumentForm({
   });
   const [invoiceDate, setInvoiceDate] = useState<string>(() => {
     if (initialData?.invoice_date) return safeString(initialData.invoice_date).slice(0, 10);
-    return new Date().toISOString().slice(0, 10);
+    return '';
   });
   const [buyerOrderNoDate, setBuyerOrderNoDate] = useState<string>(() =>
     safeString(initialData?.buyer_order_no_date || initialData?.buyer_order_no, '')
@@ -2851,7 +2858,7 @@ export function ProformaDocumentForm({
     }
 
     // Protect user edits and prevent overwriting active entries when user has typed in the form
-    if (!isDataVersionTriggered && !hasDocChanged && (isUserDirtyRef.current || isSavingOrSubmittingRef.current || isFormInitializedRef.current)) {
+    if (!isDataVersionTriggered && !hasDocChanged && (isUserDirtyRef.current || isSavingOrSubmittingRef.current || (isFormInitializedRef.current && hasDraftChanges))) {
       // Still update fresh signature / logo from backend if available and not cleared by user
       const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
       if (resolvedSig && !hasUserClearedSignatureRef.current && !stampImageUrl) {
@@ -2900,8 +2907,8 @@ export function ProformaDocumentForm({
     }
     if (initialData.invoice_date) {
       setInvoiceDate(safeString(initialData.invoice_date).slice(0, 10));
-    } else if (!invoiceDate) {
-      setInvoiceDate(new Date().toISOString().slice(0, 10));
+    } else if (hasDocChanged) {
+      setInvoiceDate('');
     }
     const resolvedInstId = extractSellerInstructionId(initialData, sellers);
     if (
@@ -4273,10 +4280,14 @@ export function ProformaDocumentForm({
       id="proforma-form-card"
       onInput={markDirty}
       onChange={markDirty}
-      className="w-full h-auto lg:h-full flex flex-col min-h-fit lg:min-h-0 bg-card text-foreground rounded-xl relative border border-border shadow-xs"
+      className="w-full h-auto lg:h-full flex flex-col min-h-fit lg:min-h-0 bg-card text-foreground rounded-xl relative"
     >
       {/* Scrollable Viewport */}
-      <div className="w-full flex-none lg:flex-1 min-h-fit lg:min-h-0 overflow-visible lg:overflow-y-scroll lg:overscroll-contain custom-scrollbar">
+      <div
+        ref={scrollContainerRef}
+        id="proforma-scroll-viewport"
+        className="w-full flex-none lg:flex-1 min-h-fit lg:min-h-0 overflow-visible lg:overflow-y-scroll lg:overscroll-contain custom-scrollbar"
+      >
         {/* 
           TOP HEADER BAR:
           - Left: Round Company Logo (seller_logo) with Change & Remove
@@ -4299,12 +4310,12 @@ export function ProformaDocumentForm({
                 <div
                   onClick={() => !readOnly && logoInputRef.current?.click()}
                   title={readOnly ? 'Company Logo' : 'Click to change logo'}
-                  className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-full border-2 border-border/80 hover:border-primary/80 bg-background/90 hover:bg-background shadow-xs transition-all flex items-center justify-center overflow-hidden cursor-pointer group"
+                  className="relative w-12 h-12 sm:w-14 sm:h-14 shrink-0 aspect-square rounded-full border-2 border-border/80 hover:border-primary/80 bg-background/90 hover:bg-background shadow-xs transition-all flex items-center justify-center overflow-hidden cursor-pointer group"
                 >
                   <img
                     src={formatSignatureUrl(companyLogoUrl) || companyLogoUrl}
                     alt="Company Logo"
-                    className="w-full h-full object-contain p-1.5 rounded-full filter drop-shadow-2xs"
+                    className="w-full h-full max-w-full max-h-full object-contain p-1.5 rounded-full filter drop-shadow-2xs select-none"
                     onError={(e) => {
                       const target = e.currentTarget;
                       if (companyLogoUrl && target.src !== companyLogoUrl && !companyLogoUrl.startsWith('blob:')) {
@@ -4347,7 +4358,7 @@ export function ProformaDocumentForm({
             ) : (
               <div
                 onClick={() => !readOnly && logoInputRef.current?.click()}
-                className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-full border-2 border-dashed border-border/90 hover:border-primary/80 bg-muted/20 hover:bg-muted/40 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-all shadow-2xs cursor-pointer group/avatar shrink-0"
+                className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-dashed border-border/90 hover:border-primary/80 bg-muted/20 hover:bg-muted/40 flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-all shadow-2xs cursor-pointer group/avatar shrink-0"
                 title={readOnly ? 'Company Logo' : 'Click to upload logo'}
               >
                 <div className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover/avatar:scale-110 transition-transform">
@@ -4454,13 +4465,13 @@ export function ProformaDocumentForm({
             {/* LEFT COLUMN: Exporter (Top) & Importer (Bottom) */}
             <div className="w-full md:w-[37%] shrink-0 flex flex-col divide-y divide-border">
               {/* EXPORTER / SELLER: NON-INPUT TEXT DISPLAY ONLY */}
-              <div className="p-2.5 sm:p-3 flex flex-col gap-1.5 min-h-[145px] justify-start bg-card" id="field-sellerId" data-field="sellerId">
+              <div className="p-2.5 sm:p-3 flex flex-col gap-1.5 flex-1 min-h-[140px] justify-start bg-card" id="field-sellerId" data-field="sellerId">
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                   EXPORTER / SELLER:
                 </label>
 
                 <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
-                  {formatPartyDetails(companyName, sellerDetails)}
+                  {formatPartyDetails(companyName, sellerDetails) || '-'}
                 </div>
                 {(errors.sellerId || errors.seller_id) && (
                   <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
@@ -4471,13 +4482,13 @@ export function ProformaDocumentForm({
               </div>
 
               {/* IMPORTER (BUYER): NON-INPUT TEXT DISPLAY ONLY */}
-              <div className="p-2.5 sm:p-3 flex flex-col gap-1.5 min-h-[145px] justify-start bg-card" id="field-buyerId" data-field="buyerId">
+              <div className="p-2.5 sm:p-3 flex flex-col gap-1.5 flex-1 min-h-[140px] justify-start bg-card" id="field-buyerId" data-field="buyerId">
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                   CONSIGNEE / BUYER:
                 </label>                
 
                 <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
-                  {formatPartyDetails(buyerName, buyerDetails)}
+                  {formatPartyDetails(buyerName, buyerDetails) || '-'}
                 </div>
                 {(errors.buyerId || errors.buyer_id) && (
                   <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
@@ -4489,204 +4500,190 @@ export function ProformaDocumentForm({
             </div>
 
             {/* RIGHT COLUMN: Invoicing & Reference Mini-Grids */}
-            <div className="w-full md:w-[63%] min-w-0 flex-1 flex flex-col divide-y divide-border">
-              {/* TOP BLOCK: INVOICE NO / DATE & GST, BUYER'S ORDER NO */}
-              <div className="flex flex-col divide-y divide-border min-h-[145px] justify-between">
-                {/* 2-Column Split: Left (INVOICE NO & DATE) | Right (GST Number) */}
-                <div className="grid grid-cols-1 sm:grid-cols-12 divide-y sm:divide-y-0 sm:divide-x divide-border">
-                  {/* Left Sub-Column (INVOICE NO & INVOICE DATE) */}
-                  <div className="sm:col-span-7 flex flex-col divide-y divide-border">
-                    {/* INVOICE NO: */}
-                    <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-invoiceNumber" data-field="invoiceNumber">
-                      <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
-                        INVOICE NO:
-                      </label>
-                      <div className="flex-1 min-w-0 w-full sm:w-auto">
-                        <DocUnderlineInput
-                          id="invoice-number-input"
-                          value={invoiceNumber}
-                          onChange={(v) => {
-                            markDirty();
-                            setInvoiceNumber(v);
-                            if (v.trim()) {
-                              setErrors((prev) => ({ ...prev, invoiceNumber: '', invoice_number: '' }));
-                            }
-                          }}
-                          error={errors.invoiceNumber || errors.invoice_number}
-                          disabled={readOnly}
-                          placeholder="Enter Invoice No"
-                          icon="fa-solid fa-pen"
-                          inputClassName="text-[14px] font-semibold"
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-
-                    {/* INVOICE DATE: */}
-                    <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-invoiceDate" data-field="invoiceDate">
-                      <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
-                        INVOICE DATE:
-                      </label>
-                      <div className="flex-1 min-w-0 w-full sm:w-auto">
-                        <DocUnderlineInput
-                          id="field-invoiceDate-input"
-                          type="date"
-                          value={invoiceDate}
-                          onChange={(v) => {
-                            markDirty();
-                            setInvoiceDate(v);
-                            if (v.trim()) {
-                              setErrors((prev) => ({ ...prev, invoiceDate: '', invoice_date: '' }));
-                            }
-                          }}
-                          error={errors.invoiceDate || errors.invoice_date}
-                          disabled={readOnly}
-                          placeholder="Select Invoice Date"
-                          icon="fa-regular fa-calendar"
-                          inputClassName="text-[14px] font-semibold"
-                          className="w-full"
-                        />
-                      </div>
+            <div className="w-full md:w-[63%] min-w-0 flex-1 flex flex-col divide-y divide-border bg-card">
+              {/* Row 1 & 2: INVOICE NO & INVOICE DATE + REGISTRATION NO / GST */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 divide-y sm:divide-y-0 sm:divide-x divide-border">
+                {/* Left Sub-Column (INVOICE NO & INVOICE DATE) */}
+                <div className="sm:col-span-7 flex flex-col divide-y divide-border">
+                  {/* INVOICE NO: */}
+                  <div className="p-2 sm:p-2.5 flex items-center gap-2 min-h-[40px]" id="field-invoiceNumber" data-field="invoiceNumber">
+                    <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
+                      INVOICE NO:
+                    </label>
+                    <div className="flex-1 min-w-0">
+                      <DocUnderlineInput
+                        id="invoice-number-input"
+                        value={invoiceNumber}
+                        onChange={(v) => {
+                          markDirty();
+                          setInvoiceNumber(v);
+                          if (v.trim()) {
+                            setErrors((prev) => ({ ...prev, invoiceNumber: '', invoice_number: '' }));
+                          }
+                        }}
+                        error={errors.invoiceNumber || errors.invoice_number}
+                        disabled={readOnly}
+                        placeholder="Enter Invoice No"
+                        icon="fa-solid fa-pen"
+                        inputClassName="text-[14px] font-semibold"
+                        className="w-full"
+                      />
                     </div>
                   </div>
 
-                  {/* Right Sub-Column (Registration / GST Number) */}
-                  <div className="sm:col-span-5 p-2 sm:p-2.5 flex flex-col justify-between min-h-[76px] h-full" id="field-gstNumber" data-field="gstNumber">
-                    <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
-                      REGISTRATION NO / GST:
+                  {/* INVOICE DATE: */}
+                  <div className="p-2 sm:p-2.5 flex items-center gap-2 min-h-[40px]" id="field-invoiceDate" data-field="invoiceDate">
+                    <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
+                      INVOICE DATE:
                     </label>
-                    <DocUnderlineInput
-                      ref={gstInputRef}
-                      id="field-gstNumber-input"
-                      multiline
-                      rows={2}
-                      value={gstNumber}
-                      onChange={(v) => {
-                        markDirty();
-                        setGstNumber(v);
-                        if (v.trim()) {
-                          setErrors((prev) => ({ ...prev, gstNumber: '', gst_number: '', registration_number: '' }));
-                        }
-                      }}
-                      error={errors.gstNumber || errors.gst_number || errors.registration_number}
-                      disabled={readOnly}
-                      placeholder="Enter Registration / GST Number"
-                      icon="fa-solid fa-pen"
-                      uppercase={false}
-                      inputClassName="text-[14px] font-semibold text-foreground resize-none leading-relaxed"
-                      className="w-full h-full justify-between mt-1"
-                    />
+                    <div className="flex-1 min-w-0">
+                      <DocUnderlineInput
+                        id="field-invoiceDate-input"
+                        type="date"
+                        value={invoiceDate}
+                        onChange={(v) => {
+                          markDirty();
+                          setInvoiceDate(v);
+                          if (v.trim()) {
+                            setErrors((prev) => ({ ...prev, invoiceDate: '', invoice_date: '' }));
+                          }
+                        }}
+                        error={errors.invoiceDate || errors.invoice_date}
+                        disabled={readOnly}
+                        placeholder="Select Invoice Date"
+                        icon="fa-regular fa-calendar"
+                        inputClassName="text-[14px] font-semibold"
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* BUYER'S ORDER NO & DATE: */}
-                <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-buyerOrderNoDate" data-field="buyerOrderNoDate">
-                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
-                    BUYER&apos;S ORDER NO & DATE:
+                {/* Right Sub-Column (Registration / GST Number) */}
+                <div className="sm:col-span-5 p-2 sm:p-2.5 flex flex-col justify-between min-h-[80px]" id="field-gstNumber" data-field="gstNumber">
+                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5 leading-tight">
+                    REGISTRATION NO / GST:
                   </label>
-                  <div className="flex-1 min-w-0 w-full sm:w-auto">
-                    <DocUnderlineInput
-                      id="field-buyerOrderNoDate-input"
-                      value={buyerOrderNoDate}
-                      onChange={(v) => {
-                        markDirty();
-                        setBuyerOrderNoDate(v);
-                        if (v.trim()) {
-                          setErrors((prev) => ({ ...prev, buyerOrderNoDate: '', buyer_order_no_date: '', buyer_order_no: '' }));
-                        }
-                      }}
-                      error={errors.buyerOrderNoDate || errors.buyer_order_no_date || errors.buyer_order_no}
-                      disabled={readOnly}
-                      placeholder="Enter Order No & Date"
-                      icon="fa-solid fa-pen"
-                      inputClassName="text-[14px] font-semibold"
-                      className="w-full"
-                    />
-                  </div>
+                  <DocUnderlineInput
+                    ref={gstInputRef}
+                    id="field-gstNumber-input"
+                    multiline
+                    rows={2}
+                    value={gstNumber}
+                    onChange={(v) => {
+                      markDirty();
+                      setGstNumber(v);
+                      if (v.trim()) {
+                        setErrors((prev) => ({ ...prev, gstNumber: '', gst_number: '', registration_number: '' }));
+                      }
+                    }}
+                    error={errors.gstNumber || errors.gst_number || errors.registration_number}
+                    disabled={readOnly}
+                    placeholder="Enter Registration / GST Number"
+                    icon="fa-solid fa-pen"
+                    uppercase={false}
+                    inputClassName="text-[14px] font-semibold text-foreground resize-none leading-relaxed"
+                    className="w-full mt-1"
+                  />
                 </div>
               </div>
 
-              {/* BOTTOM BLOCK: PURCHASE ORDER NO, CONTRACT DATE, OTHER REFERENCE */}
-              <div className="flex flex-col divide-y divide-border min-h-[145px] justify-between">
-                {/* 
-                  PURCHASE ORDER NO: 
-                  NON-INPUT DISPLAY VALUE: Rendered as clean text (no <input>).
-                  Cannot be deleted or removed by typing!
-                */}
-                <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-purchaseOrderNo" data-field="purchaseOrderNo">
-                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
-                    PURCHASE ORDER NO:
-                  </label>
-                  <div className="flex-1 min-w-0 w-full sm:w-auto flex flex-col justify-center min-h-[30px] px-1">
-                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
-                      {safeString(purchaseOrderNo, 'N/A')}
-                    </span>
-                    {(errors.purchaseOrderNo || errors.purchase_order_no) && (
-                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
-                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
-                        <span className="text-brand-red">{errors.purchaseOrderNo || errors.purchase_order_no}</span>
-                      </span>
-                    )}
-                  </div>
+              {/* Row 3: BUYER'S ORDER NO & DATE */}
+              <div className="p-2 sm:p-2.5 flex items-center gap-2 min-h-[40px]" id="field-buyerOrderNoDate" data-field="buyerOrderNoDate">
+                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
+                  BUYER&apos;S ORDER NO &amp; DATE:
+                </label>
+                <div className="flex-1 min-w-0">
+                  <DocUnderlineInput
+                    id="field-buyerOrderNoDate-input"
+                    value={buyerOrderNoDate}
+                    onChange={(v) => {
+                      markDirty();
+                      setBuyerOrderNoDate(v);
+                      if (v.trim()) {
+                        setErrors((prev) => ({ ...prev, buyerOrderNoDate: '', buyer_order_no_date: '', buyer_order_no: '' }));
+                      }
+                    }}
+                    error={errors.buyerOrderNoDate || errors.buyer_order_no_date || errors.buyer_order_no}
+                    disabled={readOnly}
+                    placeholder="Enter Order No & Date"
+                    icon="fa-solid fa-pen"
+                    inputClassName="text-[14px] font-semibold"
+                    className="w-full"
+                  />
                 </div>
+              </div>
 
-                {/* 
-                  CONTRACT DATE: 
-                  NON-INPUT DISPLAY VALUE: Rendered as clean text (no <input>).
-                  Cannot be deleted or removed by typing!
-                */}
-                <div className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]" id="field-contractDate" data-field="contractDate">
-                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
-                    CONTRACT DATE:
-                  </label>
-                  <div className="flex-1 min-w-0 w-full sm:w-auto flex flex-col justify-center min-h-[30px] px-1">
-                    <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
-                      {safeString(contractDate, 'N/A')}
+              {/* Row 4: PURCHASE ORDER NO */}
+              <div className="p-2 sm:p-2.5 flex items-center gap-2 min-h-[40px]" id="field-purchaseOrderNo" data-field="purchaseOrderNo">
+                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
+                  PURCHASE ORDER NO:
+                </label>
+                <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
+                    {safeString(purchaseOrderNo, '') || '-'}
+                  </span>
+                  {(errors.purchaseOrderNo || errors.purchase_order_no) && (
+                    <span className="text-[11px] text-brand-red font-semibold ml-2 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                      <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                      <span className="text-brand-red">{errors.purchaseOrderNo || errors.purchase_order_no}</span>
                     </span>
-                    {(errors.contractDate || errors.contract_date) && (
-                      <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
-                        <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
-                        <span className="text-brand-red">{errors.contractDate || errors.contract_date}</span>
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
+              </div>
 
-                {/* OTHER REFERENCE (S): Editable Input */}
-                <div
-                  className="p-2 sm:p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 min-h-[38px]"
-                  id="field-other_reference"
-                  data-field="other_reference"
-                >
-                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 pt-1.5 sm:pt-0">
-                    OTHER REFERENCE (S):
-                  </label>
-                  <div className="flex-1 min-w-0 w-full sm:w-auto">
-                    <DocUnderlineInput
-                      id="field-otherReferences-input"
-                      name="other_reference"
-                      value={otherReferences}
-                      onChange={(v) => {
-                        markDirty();
-                        setOtherReferences(v);
-                        if (v.trim()) {
-                          setErrors((prev) => ({
-                            ...prev,
-                            other_reference: '',
-                            otherReferences: '',
-                            other_references: '',
-                            otherReference: '',
-                          }));
-                        }
-                      }}
-                      error={errors.other_reference || errors.otherReferences || errors.other_references || errors.otherReference}
-                      disabled={readOnly}
-                      placeholder="Enter Other References"
-                      icon="fa-solid fa-pen"
-                      inputClassName="text-[14px] font-semibold"
-                      className="w-full"
-                    />
-                  </div>
+              {/* Row 5: CONTRACT DATE */}
+              <div className="p-2 sm:p-2.5 flex items-center gap-2 min-h-[40px]" id="field-contractDate" data-field="contractDate">
+                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
+                  CONTRACT DATE:
+                </label>
+                <div className="flex-1 min-w-0 flex items-center min-h-[30px] px-1">
+                  <span className="font-semibold text-[14px] text-foreground tracking-wide select-all">
+                    {safeString(contractDate, '') || '-'}
+                  </span>
+                  {(errors.contractDate || errors.contract_date) && (
+                    <span className="text-[11px] text-brand-red font-semibold ml-2 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
+                      <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
+                      <span className="text-brand-red">{errors.contractDate || errors.contract_date}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 6: OTHER REFERENCE (S): Editable Input */}
+              <div
+                className="p-2 sm:p-2.5 flex items-center gap-2 min-h-[40px]"
+                id="field-other_reference"
+                data-field="other_reference"
+              >
+                <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5">
+                  OTHER REFERENCE (S):
+                </label>
+                <div className="flex-1 min-w-0">
+                  <DocUnderlineInput
+                    id="field-otherReferences-input"
+                    name="other_reference"
+                    value={otherReferences}
+                    onChange={(v) => {
+                      markDirty();
+                      setOtherReferences(v);
+                      if (v.trim()) {
+                        setErrors((prev) => ({
+                          ...prev,
+                          other_reference: '',
+                          otherReferences: '',
+                          other_references: '',
+                          otherReference: '',
+                        }));
+                      }
+                    }}
+                    error={errors.other_reference || errors.otherReferences || errors.other_references || errors.otherReference}
+                    disabled={readOnly}
+                    placeholder="Enter Other References"
+                    icon="fa-solid fa-pen"
+                    inputClassName="text-[14px] font-semibold"
+                    className="w-full"
+                  />
                 </div>
               </div>
             </div>
@@ -4837,9 +4834,17 @@ export function ProformaDocumentForm({
             Values: NON-INPUT DISPLAY VALUES (clean text, no <input> tags to remove)
             Accounting Standard: All numerical amounts, rates, and quantities are strictly RIGHT ALIGNED (text-right)
             and vertically maintained at the TOP (align-top).
+            table-fixed with strict colgroup percentage widths guarantees columns never blow out or squash.
           */}
-          <div className="w-full overflow-x-auto custom-scrollbar">
-            <table className="w-full border-collapse text-left min-w-[700px]">
+          <div className="w-full border-b border-border overflow-x-auto custom-scrollbar">
+            <table className="w-full border-collapse table-fixed text-left min-w-[700px]">
+              <colgroup>
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '43%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '14%' }} />
+              </colgroup>
               <thead>
                 <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
                   <th className="py-2.5 px-3 border-r border-border w-[15%] text-left">
@@ -4865,14 +4870,14 @@ export function ProformaDocumentForm({
                   {/* COUNT / VESSEL (NON-INPUT Text) - Vertically merged across row 1 & row 2 */}
                   <td rowSpan={2} className="py-3 px-3 align-top text-left">
                     <span className="font-semibold text-[14px] text-foreground tracking-wide select-all uppercase">
-                      {safeString(countVessel, '')}
+                      {safeString(countVessel, '') || '-'}
                     </span>
                   </td>
 
                   {/* DESCRIPTIONS OF GOODS AND SERVICES (NON-INPUT Text) */}
                   <td className="py-3 px-3 align-top text-left pb-6" id="field-goodsDescription" data-field="goodsDescription">
                     <div className="font-semibold text-[14px] text-foreground uppercase leading-relaxed whitespace-pre-line select-all pb-2">
-                      {safeString(goodsDescription, '')}
+                      {safeString(goodsDescription, '') || '-'}
                     </div>
                     {(errors.goodsDescription || errors.goods_description) && (
                       <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center gap-1.5">
@@ -4948,7 +4953,7 @@ export function ProformaDocumentForm({
                         AMOUNT IN WORDS:
                       </span>
                       <span className="font-bold text-[14px] text-foreground uppercase tracking-wide select-all leading-normal">
-                        {effectiveAmountInWords}
+                        {effectiveAmountInWords || '-'}
                       </span>
                     </div>
                   </td>
@@ -4965,248 +4970,247 @@ export function ProformaDocumentForm({
                     </span>
                   </td>
                 </tr>
-
-                {/* 
-                  ROW 7: BANK ACCOUNT & AUTHORITY SIGNATURE / STAMP
-                  Placed directly inside the table as a <tr> so the vertical border between
-                  colSpan={2} (Bank Account) and colSpan={3} (Authority Signature) is
-                  THE EXACT SAME VERTICAL LINE as between AMOUNT IN WORDS (colSpan={2}) and TOTAL (colSpan={2})!
-                */}
-                <tr className="divide-x divide-border bg-card">
-                  {/* Left Column (colSpan 2): Bank Account Details */}
-                  <td colSpan={2} className="p-2.5 sm:p-3 align-top" id="field-selectedBankId" data-field="selectedBankId">
-                    <input type="hidden" name="bank_details_id" value={selectedBankId} />
-                    <input type="hidden" name="bank_account_id" value={selectedBankId} />
-                    <div className="flex flex-col justify-start gap-2 h-full">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-h-[30px] sm:min-h-[32px]">
-                        <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 leading-normal">
-                          SELECT BANK ACCOUNT:
-                        </label>
-                        <div className="flex-1 min-w-0 w-full sm:w-auto">
-                          <DocUnderlineSelect
-                            id="field-selectedBankId-select"
-                            loading={isLoadingBankAccounts}
-                            options={(() => {
-                              if (sellerBankAccounts.length > 0) {
-                                const opts = [
-                                  {
-                                    value: '',
-                                    label: 'Select Bank Account',
-                                    subLabel: '',
-                                  },
-                                  ...sellerBankAccounts.map((b) => {
-                                    const bankTitle = safeString(
-                                      b.name || b.bank_name || b.bankName || b.account_name,
-                                      'Bank Account'
-                                    );
-                                    let bankSub = '';
-                                    if (b.account_number || b.account_no) {
-                                      bankSub = `A/C: ${b.account_number || b.account_no}`;
-                                    } else if (b.branch || b.branch_name) {
-                                      bankSub = `Branch: ${b.branch || b.branch_name}`;
-                                    } else if (b.account_details && typeof b.account_details === 'string') {
-                                      const firstLine = b.account_details.split('\n')[0]?.trim();
-                                      if (firstLine && firstLine !== bankTitle) {
-                                        bankSub = firstLine;
-                                      }
-                                    }
-                                    const primaryId = safeString(b.bank_details_id || b.id || b._id);
-                                    return {
-                                      value: primaryId,
-                                      id: safeString(b.id || b.bank_details_id || b._id),
-                                      bank_details_id: primaryId,
-                                      bank_account_id: primaryId,
-                                      label: bankTitle,
-                                      subLabel: bankSub,
-                                    };
-                                  }),
-                                ];
-
-                                if (
-                                  selectedBankId &&
-                                  !opts.some(
-                                    (o) =>
-                                      String(o.value) === String(selectedBankId) ||
-                                      String((o as any).id) === String(selectedBankId) ||
-                                      String((o as any).bank_details_id) === String(selectedBankId) ||
-                                      String((o as any).bank_account_id) === String(selectedBankId)
-                                  )
-                                ) {
-                                  let fallbackLabel = 'Selected Bank Account';
-                                  if (bankAccountDetails) {
-                                    const matchLine = bankAccountDetails
-                                      .split('\n')
-                                      .find((l) => /bank name/i.test(l) || /a\/c holder/i.test(l));
-                                    if (matchLine) {
-                                      fallbackLabel = matchLine.replace(/^[^:]+:\s*/, '').trim();
-                                    }
-                                  }
-                                  opts.push({
-                                    value: selectedBankId,
-                                    id: selectedBankId,
-                                    bank_details_id: selectedBankId,
-                                    bank_account_id: selectedBankId,
-                                    label: fallbackLabel,
-                                    subLabel: '',
-                                  });
-                                }
-
-                                return opts;
-                              }
-
-                              if (selectedBankId) {
-                                let fallbackLabel = isLoadingBankAccounts ? 'Loading bank accounts...' : 'Selected Bank Account';
-                                if (bankAccountDetails) {
-                                  const matchLine = bankAccountDetails
-                                    .split('\n')
-                                    .find((l) => /bank name/i.test(l) || /a\/c holder/i.test(l));
-                                  if (matchLine) {
-                                    fallbackLabel = matchLine.replace(/^[^:]+:\s*/, '').trim();
-                                  }
-                                }
-                                return [
-                                  {
-                                    value: '',
-                                    label: 'Select Bank Account',
-                                    subLabel: '',
-                                  },
-                                  {
-                                    value: selectedBankId,
-                                    id: selectedBankId,
-                                    bank_details_id: selectedBankId,
-                                    bank_account_id: selectedBankId,
-                                    label: fallbackLabel,
-                                    subLabel: '',
-                                  },
-                                ];
-                              }
-
-                              return [
-                                {
-                                  value: '',
-                                  label: isLoadingBankAccounts ? 'Loading bank accounts...' : 'Select Bank Account',
-                                  subLabel: '',
-                                },
-                              ];
-                            })()}
-                            value={selectedBankId}
-                            onChange={(val) => {
-                              markDirty();
-                              setSelectedBankId(val);
-                              setErrors((prev) => ({
-                                ...prev,
-                                selectedBankId: '',
-                                bank_details_id: '',
-                                bank_account_id: '',
-                                bankDetails: '',
-                                bank_details: '',
-                              }));
-                              const matched = sellerBankAccounts.find(
-                                (b) =>
-                                  String(b.bank_details_id || b.id || b._id) === String(val) ||
-                                  String(b.id) === String(val) ||
-                                  String(b.bank_details_id) === String(val) ||
-                                  String(b.bank_account_id) === String(val)
-                              );
-                              if (matched) {
-                                setBankAccountDetails(formatBankDetails(matched));
-                              } else {
-                                setBankAccountDetails('');
-                              }
-                            }}
-                            error={errors.selectedBankId || errors.bank_details_id || errors.bank_account_id || errors.bankDetails || errors.bank_details}
-                            placeholder="Select Bank Account"
-                            className="w-full font-bold text-foreground text-[14px]"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Formatted Bank Account Details: NON-INPUT normal text display only */}
-                      <div className="flex-1 flex flex-col mt-1.5 min-h-[90px] justify-start px-0.5">
-                        {bankAccountDetails ? (
-                          <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
-                            {bankAccountDetails}
-                          </div>
-                        ) : (
-                          <div className="text-[13px] text-muted-foreground/60 italic pt-1">
-                            {selectedBankId ? 'No details available for selected bank account' : 'Select a bank account from above to view details'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Right Column (colSpan 3): Official Seller Stamp & Signature Box */}
-                  <td colSpan={3} className="p-2.5 sm:p-3 align-top bg-card" id="field-seller_signature" data-field="seller_signature">
-                    <div className="flex flex-col justify-start h-full">
-                      <DocSignatureBox
-                        partyType="exporter"
-                        title={companyName}
-                        titleAsText={true}
-                        onTitleChange={(val) => {
-                          markDirty();
-                          setCompanyName(val);
-                          setErrors((prev) => ({ ...prev, companyName: '', seller_name: '' }));
-                        }}
-                        signatureUrl={stampImageUrl}
-                        onSignatureChange={(url) => {
-                          markDirty();
-                          if (!url) {
-                            hasUserClearedSignatureRef.current = true;
-                          } else {
-                            hasUserClearedSignatureRef.current = false;
-                          }
-                          setStampImageUrl(url);
-                          setErrors((prev) => ({
-                            ...prev,
-                            seller_signature: '',
-                            sellerSignature: '',
-                            stampImageUrl: '',
-                            signature: '',
-                            stamp: '',
-                            authorised_signature: '',
-                            authority_signature: '',
-                          }));
-                        }}
-                        authorityTitle={authoritySignatureTitle}
-                        onAuthorityTitleChange={(val) => {
-                          markDirty();
-                          setAuthoritySignatureTitle(val);
-                          setErrors((prev) => ({
-                            ...prev,
-                            seller_signature_label: '',
-                            sellerSignatureLabel: '',
-                            authoritySignatureTitle: '',
-                            authority_signature_title: '',
-                          }));
-                        }}
-                        titlePlaceholder="SELLER / EXPORTER"
-                        authorityPlaceholder="AUTHORISED SIGNATURE"
-                        error={
-                          errors.seller_signature ||
-                          errors.sellerSignature ||
-                          errors.stampImageUrl ||
-                          errors.signature ||
-                          errors.stamp ||
-                          errors.authorised_signature ||
-                          errors.authority_signature
-                        }
-                        authorityError={
-                          errors.seller_signature_label ||
-                          errors.sellerSignatureLabel ||
-                          errors.authoritySignatureTitle ||
-                          errors.authority_signature_title
-                        }
-                        readOnly={readOnly}
-                        uploadButtonLabel="Upload Stamp / Signature"
-                        clearButtonLabel="Clear"
-                        className="w-full"
-                      />
-                    </div>
-                  </td>
-                </tr>
               </tbody>
             </table>
+          </div>
+
+          {/* 
+            ROW 7: BANK ACCOUNT & AUTHORITY SIGNATURE / STAMP
+            Split: Left 58% (Bank Account Details) and Right 42% (Authority Signature & Stamp)
+            Aligned 100% identically with the 58% / 42% split of the Goods table above!
+          */}
+          <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border border-b border-border bg-card">
+            {/* Left Column (58%): Bank Account Details */}
+            <div className="w-full md:w-[58%] p-2.5 sm:p-3 flex flex-col justify-start gap-2 bg-card" id="field-selectedBankId" data-field="selectedBankId">
+              <input type="hidden" name="bank_details_id" value={selectedBankId} />
+              <input type="hidden" name="bank_account_id" value={selectedBankId} />
+              <div className="flex flex-col justify-start gap-2 h-full">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-h-[30px] sm:min-h-[32px]">
+                  <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0 px-0.5 leading-normal">
+                    SELECT BANK ACCOUNT:
+                  </label>
+                  <div className="flex-1 min-w-0 w-full sm:w-auto">
+                    <DocUnderlineSelect
+                      id="field-selectedBankId-select"
+                      loading={isLoadingBankAccounts}
+                      options={(() => {
+                        if (sellerBankAccounts.length > 0) {
+                          const opts = [
+                            {
+                              value: '',
+                              label: 'Select Bank Account',
+                              subLabel: '',
+                            },
+                            ...sellerBankAccounts.map((b) => {
+                              const bankTitle = safeString(
+                                b.name || b.bank_name || b.bankName || b.account_name,
+                                'Bank Account'
+                              );
+                              let bankSub = '';
+                              if (b.account_number || b.account_no) {
+                                bankSub = `A/C: ${b.account_number || b.account_no}`;
+                              } else if (b.branch || b.branch_name) {
+                                bankSub = `Branch: ${b.branch || b.branch_name}`;
+                              } else if (b.account_details && typeof b.account_details === 'string') {
+                                const firstLine = b.account_details.split('\n')[0]?.trim();
+                                if (firstLine && firstLine !== bankTitle) {
+                                  bankSub = firstLine;
+                                }
+                              }
+                              const primaryId = safeString(b.bank_details_id || b.id || b._id);
+                              return {
+                                value: primaryId,
+                                id: safeString(b.id || b.bank_details_id || b._id),
+                                bank_details_id: primaryId,
+                                bank_account_id: primaryId,
+                                label: bankTitle,
+                                subLabel: bankSub,
+                              };
+                            }),
+                          ];
+
+                          if (
+                            selectedBankId &&
+                            !opts.some(
+                              (o) =>
+                                String(o.value) === String(selectedBankId) ||
+                                String((o as any).id) === String(selectedBankId) ||
+                                String((o as any).bank_details_id) === String(selectedBankId) ||
+                                String((o as any).bank_account_id) === String(selectedBankId)
+                            )
+                          ) {
+                            let fallbackLabel = 'Selected Bank Account';
+                            if (bankAccountDetails) {
+                              const matchLine = bankAccountDetails
+                                .split('\n')
+                                .find((l) => /bank name/i.test(l) || /a\/c holder/i.test(l));
+                              if (matchLine) {
+                                fallbackLabel = matchLine.replace(/^[^:]+:\s*/, '').trim();
+                              }
+                            }
+                            opts.push({
+                              value: selectedBankId,
+                              id: selectedBankId,
+                              bank_details_id: selectedBankId,
+                              bank_account_id: selectedBankId,
+                              label: fallbackLabel,
+                              subLabel: '',
+                            });
+                          }
+
+                          return opts;
+                        }
+
+                        if (selectedBankId) {
+                          let fallbackLabel = isLoadingBankAccounts ? 'Loading bank accounts...' : 'Selected Bank Account';
+                          if (bankAccountDetails) {
+                            const matchLine = bankAccountDetails
+                              .split('\n')
+                              .find((l) => /bank name/i.test(l) || /a\/c holder/i.test(l));
+                            if (matchLine) {
+                              fallbackLabel = matchLine.replace(/^[^:]+:\s*/, '').trim();
+                            }
+                          }
+                          return [
+                            {
+                              value: '',
+                              label: 'Select Bank Account',
+                              subLabel: '',
+                            },
+                            {
+                              value: selectedBankId,
+                              id: selectedBankId,
+                              bank_details_id: selectedBankId,
+                              bank_account_id: selectedBankId,
+                              label: fallbackLabel,
+                              subLabel: '',
+                            },
+                          ];
+                        }
+
+                        return [
+                          {
+                            value: '',
+                            label: isLoadingBankAccounts ? 'Loading bank accounts...' : 'Select Bank Account',
+                            subLabel: '',
+                          },
+                        ];
+                      })()}
+                      value={selectedBankId}
+                      onChange={(val) => {
+                        markDirty();
+                        setSelectedBankId(val);
+                        setErrors((prev) => ({
+                          ...prev,
+                          selectedBankId: '',
+                          bank_details_id: '',
+                          bank_account_id: '',
+                          bankDetails: '',
+                          bank_details: '',
+                        }));
+                        const matched = sellerBankAccounts.find(
+                          (b) =>
+                            String(b.bank_details_id || b.id || b._id) === String(val) ||
+                            String(b.id) === String(val) ||
+                            String(b.bank_details_id) === String(val) ||
+                            String(b.bank_account_id) === String(val)
+                        );
+                        if (matched) {
+                          setBankAccountDetails(formatBankDetails(matched));
+                        } else {
+                          setBankAccountDetails('');
+                        }
+                      }}
+                      error={errors.selectedBankId || errors.bank_details_id || errors.bank_account_id || errors.bankDetails || errors.bank_details}
+                      placeholder="Select Bank Account"
+                      className="w-full font-bold text-foreground text-[14px]"
+                    />
+                  </div>
+                </div>
+
+                {/* Formatted Bank Account Details: NON-INPUT normal text display only */}
+                <div className="flex-1 flex flex-col mt-1.5 min-h-[90px] justify-start px-0.5">
+                  {bankAccountDetails ? (
+                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                      {bankAccountDetails}
+                    </div>
+                  ) : (
+                    <div className="text-[13px] text-muted-foreground/60 italic pt-1">
+                      {selectedBankId ? 'No details available for selected bank account' : 'Select a bank account from above to view details'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column (42%): Official Seller Stamp & Signature Box */}
+            <div className="w-full md:w-[42%] p-2.5 sm:p-3 flex flex-col justify-start bg-card" id="field-seller_signature" data-field="seller_signature">
+              <div className="flex flex-col justify-start h-full">
+                <DocSignatureBox
+                  partyType="exporter"
+                  title={companyName}
+                  titleAsText={true}
+                  onTitleChange={(val) => {
+                    markDirty();
+                    setCompanyName(val);
+                    setErrors((prev) => ({ ...prev, companyName: '', seller_name: '' }));
+                  }}
+                  signatureUrl={stampImageUrl}
+                  onSignatureChange={(url) => {
+                    markDirty();
+                    if (!url) {
+                      hasUserClearedSignatureRef.current = true;
+                    } else {
+                      hasUserClearedSignatureRef.current = false;
+                    }
+                    setStampImageUrl(url);
+                    setErrors((prev) => ({
+                      ...prev,
+                      seller_signature: '',
+                      sellerSignature: '',
+                      stampImageUrl: '',
+                      signature: '',
+                      stamp: '',
+                      authorised_signature: '',
+                      authority_signature: '',
+                    }));
+                  }}
+                  authorityTitle={authoritySignatureTitle}
+                  onAuthorityTitleChange={(val) => {
+                    markDirty();
+                    setAuthoritySignatureTitle(val);
+                    setErrors((prev) => ({
+                      ...prev,
+                      seller_signature_label: '',
+                      sellerSignatureLabel: '',
+                      authoritySignatureTitle: '',
+                      authority_signature_title: '',
+                    }));
+                  }}
+                  titlePlaceholder="SELLER / EXPORTER"
+                  authorityPlaceholder="AUTHORISED SIGNATURE"
+                  error={
+                    errors.seller_signature ||
+                    errors.sellerSignature ||
+                    errors.stampImageUrl ||
+                    errors.signature ||
+                    errors.stamp ||
+                    errors.authorised_signature ||
+                    errors.authority_signature
+                  }
+                  authorityError={
+                    errors.seller_signature_label ||
+                    errors.sellerSignatureLabel ||
+                    errors.authoritySignatureTitle ||
+                    errors.authority_signature_title
+                  }
+                  readOnly={readOnly}
+                  uploadButtonLabel="Upload Stamp / Signature"
+                  clearButtonLabel="Clear"
+                  className="w-full"
+                />
+              </div>
+            </div>
           </div>
 
           {/* 

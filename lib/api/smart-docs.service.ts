@@ -429,29 +429,23 @@ export function extractLinkedShipmentInstructionId(data: any): string {
   if (!data || typeof data !== 'object') return '';
   const clean = (val: any) => sanitizeDocId(val);
 
+  // NOTE: Strictly extract shipment instruction document IDs.
+  // NEVER include party/buyer/seller instruction_id or instructionId, which belong to trade instructions, not shipping documents!
   const candidates = [
     data.shipment_instruction_id,
     data.shipmentInstructionId,
-    data.instruction_id,
-    data.instructionId,
     data.shipment_id,
     data.shipmentId,
     typeof data.shipment_instruction === 'string' ? data.shipment_instruction : '',
     data.shipment_instruction?.id,
     data.shipment_instruction?._id,
     data.shipment_instruction?.shipment_instruction_id,
-    data.shipment_instruction?.instruction_id,
     data.shipment?.id,
     data.shipment?._id,
-    data.shipment?.instruction_id,
     data.proforma?.shipment_instruction_id,
-    data.proforma?.instruction_id,
     data.contract?.shipment_instruction_id,
-    data.contract?.instruction_id,
     data.confirmation?.shipment_instruction_id,
-    data.confirmation?.instruction_id,
     data.data?.shipment_instruction_id,
-    data.data?.instruction_id,
     data.data?.shipment_id,
   ];
 
@@ -1034,67 +1028,40 @@ export const smartDocsService = {
     if (!token) return null;
 
     const baseUrl = getSmartDocsApiUrl();
-    const action = params.action || 'confirmation';
+    const primaryAction = params.action || 'confirmation';
     const step = params.step || 'new-confirmation';
     const safeLang = getSafeLang(params.lang || 'en');
-    const url = `${baseUrl}/dms/stepper-list/${encodeURIComponent(action)}/${encodeURIComponent(step)}`;
 
-    try {
-      const response = await customFetchJSON<any>(url, {
-        token,
-        params: {
-          lang_code: safeLang,
-          source: params.source || 'web',
-        },
-        cache: 'no-store',
-      });
+    // Build ordered list of candidate actions to attempt: requested action first, then others
+    const actionsToTry = step === 'new-confirmation'
+      ? [primaryAction]
+      : [primaryAction, 'document', 'contract', 'confirmation'].filter((act, idx, arr) => arr.indexOf(act) === idx);
 
-      const data = response?.data;
-      if (
-        (!response || !data || (Array.isArray(data) && data.length === 0)) &&
-        step !== 'new-confirmation'
-      ) {
-        const altAction = action === 'confirmation' ? 'document' : 'confirmation';
-        const altUrl = `${baseUrl}/dms/stepper-list/${encodeURIComponent(altAction)}/${encodeURIComponent(step)}`;
-        const altResponse = await customFetchJSON<any>(altUrl, {
+    let lastResponse: any = null;
+
+    for (const action of actionsToTry) {
+      const url = `${baseUrl}/dms/stepper-list/${encodeURIComponent(action)}/${encodeURIComponent(step)}`;
+      try {
+        const response = await customFetchJSON<any>(url, {
           token,
           params: {
             lang_code: safeLang,
             source: params.source || 'web',
           },
           cache: 'no-store',
-        }).catch(() => null);
+        });
 
-        if (altResponse?.data && (!Array.isArray(altResponse.data) || altResponse.data.length > 0)) {
-          return altResponse;
+        lastResponse = response;
+        const data = response?.data;
+        if (response && data && (!Array.isArray(data) || data.length > 0)) {
+          return response;
         }
+      } catch (error) {
+        console.warn(`[smartDocsService.getStepperList] error for action ${action}:`, error);
       }
-
-      return response;
-    } catch (error) {
-      console.error('[smartDocsService.getStepperList] error:', error);
-      if (step !== 'new-confirmation') {
-        try {
-          const altAction = action === 'confirmation' ? 'document' : 'confirmation';
-          const altUrl = `${baseUrl}/dms/stepper-list/${encodeURIComponent(altAction)}/${encodeURIComponent(step)}`;
-          const altResponse = await customFetchJSON<any>(altUrl, {
-            token,
-            params: {
-              lang_code: safeLang,
-              source: params.source || 'web',
-            },
-            cache: 'no-store',
-          }).catch(() => null);
-
-          if (altResponse?.data && (!Array.isArray(altResponse.data) || altResponse.data.length > 0)) {
-            return altResponse;
-          }
-        } catch {
-          // ignore
-        }
-      }
-      return null;
     }
+
+    return lastResponse || null;
   },
 
   /**
@@ -4827,6 +4794,20 @@ export const smartDocsService = {
               if (!payload.get('container_marks_numbers')) payload.append('container_marks_numbers', strMarks);
             }
           }
+
+          // Rule: sync disclaimer and special_instruction (backend uses disclaimer key)
+          const discVal =
+            payload.get('disclaimer') ||
+            payload.get('special_instruction') ||
+            payload.get('specialInstruction') ||
+            payload.get('special_note');
+          if (discVal !== null && discVal !== undefined) {
+            const strDisc = String(discVal).trim();
+            if (strDisc && strDisc !== '[object Object]' && strDisc !== 'undefined' && strDisc !== 'null') {
+              if (!payload.get('disclaimer')) payload.append('disclaimer', strDisc);
+              if (!payload.get('special_instruction')) payload.append('special_instruction', strDisc);
+            }
+          }
         }
         if (cleanId) {
           payload.set('shipment_instruction_id', cleanId);
@@ -5006,6 +4987,20 @@ export const smartDocsService = {
               if (!payload.get('marks_numbers')) payload.append('marks_numbers', strMarks);
               if (!payload.get('brand')) payload.append('brand', strMarks);
               if (!payload.get('container_marks_numbers')) payload.append('container_marks_numbers', strMarks);
+            }
+          }
+
+          // Rule: sync disclaimer and special_instruction (backend uses disclaimer key)
+          const discVal =
+            payload.get('disclaimer') ||
+            payload.get('special_instruction') ||
+            payload.get('specialInstruction') ||
+            payload.get('special_note');
+          if (discVal !== null && discVal !== undefined) {
+            const strDisc = String(discVal).trim();
+            if (strDisc && strDisc !== '[object Object]' && strDisc !== 'undefined' && strDisc !== 'null') {
+              if (!payload.get('disclaimer')) payload.append('disclaimer', strDisc);
+              if (!payload.get('special_instruction')) payload.append('special_instruction', strDisc);
             }
           }
         }
@@ -5692,6 +5687,515 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches Bill of Lading details by ID with authentication:
+   * GET /bill-of-lading/:id?lang_code=en&source=web
+   */
+  getBillOfLading: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/bill-of-lading/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+      if (!response) {
+        const fallbackUrl = `${baseUrl}/bill-of-ladings/${encodeURIComponent(cleanId)}`;
+        const fallbackRes = await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+        if (fallbackRes) return fallbackRes;
+      }
+      return response;
+    } catch (error) {
+      console.warn('[smartDocsService.getBillOfLading] /bill-of-lading error, attempting fallback:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/bill-of-ladings/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackError) {
+        console.error('[smartDocsService.getBillOfLading] fallback error:', fallbackError);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves a Bill of Lading draft with authentication:
+   * PATCH /bill-of-lading/save/:id?lang_code=en&source=web
+   */
+  saveBillOfLadingDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string; id?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+
+    let effectivePayload = payload;
+    let isFormData =
+      (typeof FormData !== 'undefined' && effectivePayload instanceof FormData) ||
+      (effectivePayload && typeof effectivePayload.get === 'function' && typeof effectivePayload.append === 'function');
+
+    const shipmentIdInPayload = isFormData ? (effectivePayload.get('shipment_instruction_id') || effectivePayload.get('shipment_id')) : (effectivePayload?.shipment_instruction_id || effectivePayload?.shipment_id);
+    const customInvoiceIdInPayload = isFormData ? effectivePayload.get('custom_invoice_id') : effectivePayload?.custom_invoice_id;
+    const proformaIdInPayload = isFormData ? effectivePayload.get('proforma_id') : effectivePayload?.proforma_id;
+    const contractIdInPayload = isFormData ? effectivePayload.get('contract_id') : effectivePayload?.contract_id;
+    const confIdInPayload = isFormData ? effectivePayload.get('confirmation_id') : effectivePayload?.confirmation_id;
+
+    const directBLId = isFormData
+      ? (effectivePayload.get('bill_of_lading_id') || effectivePayload.get('lading_id') || effectivePayload.get('bl_id') || effectivePayload.get('id') || '')
+      : (effectivePayload?.bill_of_lading_id || effectivePayload?.lading_id || effectivePayload?.bl_id || effectivePayload?.id || '');
+
+    const isPlaceholder = (val: string) =>
+      !val ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        val.trim()
+      );
+
+    const candidateIds = Array.from(
+      new Set(
+        [
+          params.id,
+          directBLId,
+          shipmentIdInPayload,
+          customInvoiceIdInPayload,
+          proformaIdInPayload,
+          contractIdInPayload,
+          confIdInPayload,
+        ]
+          .map((id) => (id ? String(id).trim() : ''))
+          .filter((id) => id && !isPlaceholder(id))
+      )
+    );
+
+    const primaryId = candidateIds[0] || (params.id && !isPlaceholder(String(params.id)) ? String(params.id).trim() : '');
+
+    const saveCandidates: Array<{ method: string; url: string; id?: string }> = [];
+
+    for (const candId of candidateIds) {
+      const encId = encodeURIComponent(candId);
+      saveCandidates.push(
+        { method: 'PATCH', url: `${baseUrl}/bill-of-lading/save/${encId}`, id: candId },
+        { method: 'POST', url: `${baseUrl}/bill-of-lading/save/${encId}`, id: candId },
+        { method: 'PATCH', url: `${baseUrl}/bill-of-ladings/save/${encId}`, id: candId },
+        { method: 'POST', url: `${baseUrl}/bill-of-ladings/save/${encId}`, id: candId }
+      );
+    }
+    saveCandidates.push(
+      { method: 'POST', url: `${baseUrl}/bill-of-lading/save`, id: primaryId || undefined },
+      { method: 'POST', url: `${baseUrl}/bill-of-ladings/save`, id: primaryId || undefined }
+    );
+
+    let lastErrorRes: any = null;
+
+    try {
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json, text/plain, */*',
+        };
+
+        let body: any;
+        if (isFormData) {
+          const clonedFd = new FormData();
+          for (const [k, v] of (effectivePayload as any).entries()) {
+            if (v === undefined || v === null) continue;
+            clonedFd.append(k, v);
+          }
+          if (candidate.id) {
+            clonedFd.set('bill_of_lading_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('bill_of_lading_id');
+            clonedFd.delete('lading_id');
+          }
+          if (shipmentIdInPayload) clonedFd.set('shipment_instruction_id', String(shipmentIdInPayload));
+          if (customInvoiceIdInPayload) clonedFd.set('custom_invoice_id', String(customInvoiceIdInPayload));
+          if (proformaIdInPayload) clonedFd.set('proforma_id', String(proformaIdInPayload));
+          if (contractIdInPayload) clonedFd.set('contract_id', String(contractIdInPayload));
+          if (confIdInPayload) clonedFd.set('confirmation_id', String(confIdInPayload));
+
+          const watermarkVal = clonedFd.get('is_watermark_enabled') ?? clonedFd.get('watermark_enabled') ?? clonedFd.get('watermark') ?? 'true';
+          const isWatermarkBool = typeof watermarkVal === 'string' ? watermarkVal !== 'false' && watermarkVal !== '0' : Boolean(watermarkVal);
+          clonedFd.set('is_watermark_enabled', String(isWatermarkBool));
+          clonedFd.set('watermark_enabled', String(isWatermarkBool));
+          clonedFd.set('watermark', String(isWatermarkBool));
+
+          const titleVal = clonedFd.get('pdf_title') ?? clonedFd.get('document_title') ?? clonedFd.get('title') ?? 'BILL OF LADING';
+          const safeTitle = String(titleVal || '').trim() || 'BILL OF LADING';
+          clonedFd.set('pdf_title', safeTitle);
+          clonedFd.set('document_title', safeTitle);
+
+          const cLabel = clonedFd.get('comment_label') ?? clonedFd.get('comment_title') ?? clonedFd.get('notes_title') ?? clonedFd.get('title') ?? '';
+          const cValue = clonedFd.get('comment_value') ?? clonedFd.get('comment_text') ?? clonedFd.get('notes_comment') ?? clonedFd.get('comment') ?? '';
+          const effectiveCLabel = String(cLabel || (cValue ? 'Comments' : '')).trim();
+          const effectiveCValue = String(cValue || '').trim();
+          clonedFd.set('comment_label', effectiveCLabel);
+          clonedFd.set('comment_title', effectiveCLabel);
+          clonedFd.set('notes_title', effectiveCLabel);
+          clonedFd.set('comment_value', effectiveCValue);
+          clonedFd.set('comment_text', effectiveCValue);
+          clonedFd.set('notes_comment', effectiveCValue);
+          clonedFd.set('comment', effectiveCValue);
+
+          body = clonedFd;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          const cleaned = cleanBillOfLadingPayload(effectivePayload);
+          if (candidate.id) {
+            cleaned.bill_of_lading_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            cleaned.id && delete cleaned.id;
+            cleaned.bill_of_lading_id && delete cleaned.bill_of_lading_id;
+            cleaned.lading_id && delete cleaned.lading_id;
+          }
+          if (shipmentIdInPayload) cleaned.shipment_instruction_id = String(shipmentIdInPayload);
+          if (customInvoiceIdInPayload) cleaned.custom_invoice_id = String(customInvoiceIdInPayload);
+          if (proformaIdInPayload) cleaned.proforma_id = String(proformaIdInPayload);
+          if (contractIdInPayload) cleaned.contract_id = String(contractIdInPayload);
+          if (confIdInPayload) cleaned.confirmation_id = String(confIdInPayload);
+          body = JSON.stringify(cleaned);
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            body,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            cache: 'no-store',
+          });
+
+          const text = await response.text();
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = null;
+          }
+
+          if (response.ok) {
+            return {
+              ...(typeof json === 'object' && json !== null ? json : {}),
+              success: true,
+              data: json ?? text,
+              raw: json ?? text,
+            };
+          }
+
+          const isRouteNotFound =
+            (response.status === 404 || response.status === 405) &&
+            (!json?.errors && !json?.error_fields && !json?.data) &&
+            (/^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(text.trim()) ||
+              /<(!DOCTYPE|html)/i.test(text) ||
+              /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+              /not found/i.test(String(json?.message || json?.error || text || '').trim()));
+
+          if (isRouteNotFound && i < saveCandidates.length - 1) {
+            console.warn(`[smartDocsService.saveBillOfLadingDraft] Candidate ${candidate.method} ${candidate.url} gave router error, trying next candidate...`);
+            continue;
+          }
+
+          const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
+          const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to save bill of lading draft');
+
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanMsg,
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          break;
+        } catch (fetchErr: any) {
+          if (i < saveCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while saving bill of lading',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while saving bill of lading',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.saveBillOfLadingDraft] error:', error);
+      return {
+        success: false,
+        message: error?.message || 'Network error occurred while saving bill of lading',
+      };
+    }
+  },
+
+  /**
+   * Submits a Bill of Lading with authentication:
+   * PATCH /bill-of-lading/submit/:id?lang_code=en&source=web
+   */
+  submitBillOfLading: async (
+    payload: any,
+    params: { lang?: string; source?: string; id?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+
+    let effectivePayload = payload;
+    let isFormData =
+      (typeof FormData !== 'undefined' && effectivePayload instanceof FormData) ||
+      (effectivePayload && typeof effectivePayload.get === 'function' && typeof effectivePayload.append === 'function');
+
+    const shipmentIdInPayload = isFormData ? (effectivePayload.get('shipment_instruction_id') || effectivePayload.get('shipment_id')) : (effectivePayload?.shipment_instruction_id || effectivePayload?.shipment_id);
+    const customInvoiceIdInPayload = isFormData ? effectivePayload.get('custom_invoice_id') : effectivePayload?.custom_invoice_id;
+    const proformaIdInPayload = isFormData ? effectivePayload.get('proforma_id') : effectivePayload?.proforma_id;
+    const contractIdInPayload = isFormData ? effectivePayload.get('contract_id') : effectivePayload?.contract_id;
+    const confIdInPayload = isFormData ? effectivePayload.get('confirmation_id') : effectivePayload?.confirmation_id;
+
+    const directBLId = isFormData
+      ? (effectivePayload.get('bill_of_lading_id') || effectivePayload.get('lading_id') || effectivePayload.get('bl_id') || effectivePayload.get('id') || '')
+      : (effectivePayload?.bill_of_lading_id || effectivePayload?.lading_id || effectivePayload?.bl_id || effectivePayload?.id || '');
+
+    const isPlaceholder = (val: string) =>
+      !val ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        val.trim()
+      );
+
+    const candidateIds = Array.from(
+      new Set(
+        [
+          params.id,
+          directBLId,
+          shipmentIdInPayload,
+          customInvoiceIdInPayload,
+          proformaIdInPayload,
+          contractIdInPayload,
+          confIdInPayload,
+        ]
+          .map((id) => (id ? String(id).trim() : ''))
+          .filter((id) => id && !isPlaceholder(id))
+      )
+    );
+
+    const primaryId = candidateIds[0] || (params.id && !isPlaceholder(String(params.id)) ? String(params.id).trim() : '');
+
+    const submitCandidates: Array<{ method: string; url: string; id?: string }> = [];
+
+    for (const candId of candidateIds) {
+      const encId = encodeURIComponent(candId);
+      submitCandidates.push(
+        { method: 'PATCH', url: `${baseUrl}/bill-of-lading/submit/${encId}`, id: candId },
+        { method: 'POST', url: `${baseUrl}/bill-of-lading/submit/${encId}`, id: candId },
+        { method: 'PATCH', url: `${baseUrl}/bill-of-ladings/submit/${encId}`, id: candId },
+        { method: 'POST', url: `${baseUrl}/bill-of-ladings/submit/${encId}`, id: candId }
+      );
+    }
+    submitCandidates.push(
+      { method: 'POST', url: `${baseUrl}/bill-of-lading/submit`, id: primaryId || undefined },
+      { method: 'POST', url: `${baseUrl}/bill-of-ladings/submit`, id: primaryId || undefined }
+    );
+
+    let lastErrorRes: any = null;
+
+    try {
+      for (let i = 0; i < submitCandidates.length; i++) {
+        const candidate = submitCandidates[i];
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json, text/plain, */*',
+        };
+
+        let body: any;
+        if (isFormData) {
+          const clonedFd = new FormData();
+          for (const [k, v] of (effectivePayload as any).entries()) {
+            if (v === undefined || v === null) continue;
+            clonedFd.append(k, v);
+          }
+          if (candidate.id) {
+            clonedFd.set('bill_of_lading_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('bill_of_lading_id');
+            clonedFd.delete('lading_id');
+          }
+          if (shipmentIdInPayload) clonedFd.set('shipment_instruction_id', String(shipmentIdInPayload));
+          if (customInvoiceIdInPayload) clonedFd.set('custom_invoice_id', String(customInvoiceIdInPayload));
+          if (proformaIdInPayload) clonedFd.set('proforma_id', String(proformaIdInPayload));
+          if (contractIdInPayload) clonedFd.set('contract_id', String(contractIdInPayload));
+          if (confIdInPayload) clonedFd.set('confirmation_id', String(confIdInPayload));
+
+          const watermarkVal = clonedFd.get('is_watermark_enabled') ?? clonedFd.get('watermark_enabled') ?? clonedFd.get('watermark') ?? 'true';
+          const isWatermarkBool = typeof watermarkVal === 'string' ? watermarkVal !== 'false' && watermarkVal !== '0' : Boolean(watermarkVal);
+          clonedFd.set('is_watermark_enabled', String(isWatermarkBool));
+          clonedFd.set('watermark_enabled', String(isWatermarkBool));
+          clonedFd.set('watermark', String(isWatermarkBool));
+
+          const titleVal = clonedFd.get('pdf_title') ?? clonedFd.get('document_title') ?? clonedFd.get('title') ?? 'BILL OF LADING';
+          const safeTitle = String(titleVal || '').trim() || 'BILL OF LADING';
+          clonedFd.set('pdf_title', safeTitle);
+          clonedFd.set('document_title', safeTitle);
+
+          const cLabel = clonedFd.get('comment_label') ?? clonedFd.get('comment_title') ?? clonedFd.get('notes_title') ?? clonedFd.get('title') ?? '';
+          const cValue = clonedFd.get('comment_value') ?? clonedFd.get('comment_text') ?? clonedFd.get('notes_comment') ?? clonedFd.get('comment') ?? '';
+          const effectiveCLabel = String(cLabel || (cValue ? 'Comments' : '')).trim();
+          const effectiveCValue = String(cValue || '').trim();
+          clonedFd.set('comment_label', effectiveCLabel);
+          clonedFd.set('comment_title', effectiveCLabel);
+          clonedFd.set('notes_title', effectiveCLabel);
+          clonedFd.set('comment_value', effectiveCValue);
+          clonedFd.set('comment_text', effectiveCValue);
+          clonedFd.set('notes_comment', effectiveCValue);
+          clonedFd.set('comment', effectiveCValue);
+
+          body = clonedFd;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          const cleaned = cleanBillOfLadingPayload(effectivePayload);
+          if (candidate.id) {
+            cleaned.bill_of_lading_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            cleaned.id && delete cleaned.id;
+            cleaned.bill_of_lading_id && delete cleaned.bill_of_lading_id;
+            cleaned.lading_id && delete cleaned.lading_id;
+          }
+          if (shipmentIdInPayload) cleaned.shipment_instruction_id = String(shipmentIdInPayload);
+          if (customInvoiceIdInPayload) cleaned.custom_invoice_id = String(customInvoiceIdInPayload);
+          if (proformaIdInPayload) cleaned.proforma_id = String(proformaIdInPayload);
+          if (contractIdInPayload) cleaned.contract_id = String(contractIdInPayload);
+          if (confIdInPayload) cleaned.confirmation_id = String(confIdInPayload);
+          body = JSON.stringify(cleaned);
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            body,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            cache: 'no-store',
+          });
+
+          const text = await response.text();
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = null;
+          }
+
+          if (response.ok) {
+            return {
+              ...(typeof json === 'object' && json !== null ? json : {}),
+              success: true,
+              data: json ?? text,
+              raw: json ?? text,
+            };
+          }
+
+          const isRouteNotFound =
+            (response.status === 404 || response.status === 405) &&
+            (!json?.errors && !json?.error_fields && !json?.data) &&
+            (/^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(text.trim()) ||
+              /<(!DOCTYPE|html)/i.test(text) ||
+              /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+              /not found/i.test(String(json?.message || json?.error || text || '').trim()));
+
+          if (isRouteNotFound && i < submitCandidates.length - 1) {
+            console.warn(`[smartDocsService.submitBillOfLading] Candidate ${candidate.method} ${candidate.url} gave router error, trying next candidate...`);
+            continue;
+          }
+
+          const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
+          const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit bill of lading');
+
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanMsg,
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          break;
+        } catch (fetchErr: any) {
+          if (i < submitCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while submitting bill of lading',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while submitting bill of lading',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.submitBillOfLading] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while submitting bill of lading'),
+      };
+    }
+  },
+
+  /**
    * GET /dms-templates/preview-pdf?prefix=:prefix&id=:id&lang_code=:lang&source=web
    * Fetches the rendered HTML preview for a document (e.g. proforma, contract, confirmation).
    * Robust multi-prefix & multi-candidate-id fallback guarantees previews load smoothly without
@@ -5734,14 +6238,17 @@ export const smartDocsService = {
 
     // Determine candidate prefixes based on document type
     const isCustomInvoice = /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isShipmentInstruction = !isCustomInvoice && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCustomInvoice && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCustomInvoice && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isBillOfLading = !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
+      : isBillOfLading
+      ? ['bill_of_lading', 'bill-of-lading', 'billOfLading', 'lading', 'bl']
       : isShipmentInstruction
       ? ['shipment_instruction', 'shipment-instruction', 'shipmentInstruction', 'shipment', 'instruction', 'si']
       : isProforma
@@ -5948,14 +6455,17 @@ export const smartDocsService = {
     }
 
     const isCustomInvoice = /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isShipmentInstruction = !isCustomInvoice && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCustomInvoice && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCustomInvoice && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isBillOfLading = !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
+      : isBillOfLading
+      ? ['bill_of_lading', 'bill-of-lading', 'billOfLading', 'lading', 'bl']
       : isShipmentInstruction
       ? ['shipment_instruction', 'shipment-instruction', 'shipmentInstruction', 'shipment', 'instruction', 'si']
       : isProforma
@@ -6499,6 +7009,15 @@ export function extractConfirmationData(data: any): any {
     return null;
   }
 
+  // Reject if it is clearly a contract, proforma, lading, or custom invoice without confirmation characteristics
+  if (
+    (current.contract_number && !current.confirmation_number && !current.confirmation_date) ||
+    (current.custom_invoice_number && !current.confirmation_number) ||
+    (current.bl_no && !current.confirmation_number)
+  ) {
+    return null;
+  }
+
   return current;
 }
 
@@ -6706,7 +7225,9 @@ export function cleanCustomInvoicePayload(payload: Record<string, any>): Record<
           key === 'notes_comment' ||
           key === 'comment_title' ||
           key === 'comment_text' ||
-          key === 'comment'
+          key === 'comment' ||
+          key === 'disclaimer' ||
+          key === 'special_instruction'
         ) {
           cleaned[key] = '';
         }
@@ -6837,6 +7358,159 @@ export function cleanCustomInvoicePayload(payload: Record<string, any>): Record<
   return cleaned;
 }
 
+export function cleanBillOfLadingPayload(payload: Record<string, any>): Record<string, any> {
+  if (!payload || typeof payload !== 'object') return {};
+  const cleaned: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined) continue;
+    if (value === null) {
+      cleaned[key] = null;
+      continue;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '' || trimmed === '[object Object]' || trimmed === 'undefined' || trimmed === 'null') {
+        if (
+          key === 'comment_label' ||
+          key === 'comment_value' ||
+          key === 'notes_title' ||
+          key === 'notes_comment' ||
+          key === 'comment_title' ||
+          key === 'comment_text' ||
+          key === 'comment' ||
+          key === 'disclaimer' ||
+          key === 'special_instruction'
+        ) {
+          cleaned[key] = '';
+        }
+        continue;
+      }
+      cleaned[key] = trimmed;
+    } else if (typeof value === 'number') {
+      if (isNaN(value)) continue;
+      cleaned[key] = value;
+    } else if (typeof value === 'boolean') {
+      cleaned[key] = value;
+    } else if (Array.isArray(value)) {
+      if (value.length > 0) cleaned[key] = value;
+    } else if (typeof value === 'object') {
+      const nested = cleanBillOfLadingPayload(value);
+      if (Object.keys(nested).length > 0) cleaned[key] = nested;
+    }
+  }
+
+  // Aliases normalization
+  if (cleaned.bl_no && !cleaned.bill_of_lading_no) {
+    cleaned.bill_of_lading_no = cleaned.bl_no;
+  }
+  if (cleaned.bill_of_lading_no && !cleaned.bl_no) {
+    cleaned.bl_no = cleaned.bill_of_lading_no;
+  }
+  if (cleaned.sb_no && !cleaned.shipping_bill_no) {
+    cleaned.shipping_bill_no = cleaned.sb_no;
+  }
+  if (cleaned.shipping_bill_no && !cleaned.sb_no) {
+    cleaned.sb_no = cleaned.shipping_bill_no;
+  }
+
+  // Shipping line / carrier aliases normalization
+  const shippingLineCandidate =
+    cleaned.shipping_line !== undefined && cleaned.shipping_line !== null && String(cleaned.shipping_line).trim() !== ''
+      ? String(cleaned.shipping_line).trim()
+      : cleaned.shipping_company !== undefined && cleaned.shipping_company !== null && String(cleaned.shipping_company).trim() !== ''
+      ? String(cleaned.shipping_company).trim()
+      : cleaned.carrier !== undefined && cleaned.carrier !== null && String(cleaned.carrier).trim() !== ''
+      ? String(cleaned.carrier).trim()
+      : cleaned.carrier_name !== undefined && cleaned.carrier_name !== null && String(cleaned.carrier_name).trim() !== ''
+      ? String(cleaned.carrier_name).trim()
+      : cleaned.liner !== undefined && cleaned.liner !== null && String(cleaned.liner).trim() !== ''
+      ? String(cleaned.liner).trim()
+      : cleaned.shipping_line_name !== undefined && cleaned.shipping_line_name !== null && String(cleaned.shipping_line_name).trim() !== ''
+      ? String(cleaned.shipping_line_name).trim()
+      : cleaned.shippingLine !== undefined && cleaned.shippingLine !== null && String(cleaned.shippingLine).trim() !== ''
+      ? String(cleaned.shippingLine).trim()
+      : '';
+
+  if (shippingLineCandidate && !(/DO NOT USE NVOCC/i.test(shippingLineCandidate) || /SHIPMENT IN CONTAINERS/i.test(shippingLineCandidate) || /IRANIAN SHIPPING/i.test(shippingLineCandidate))) {
+    cleaned.shipping_line = shippingLineCandidate;
+    cleaned.shipping_company = shippingLineCandidate;
+    cleaned.shipping_line_name = shippingLineCandidate;
+    cleaned.carrier = shippingLineCandidate;
+    cleaned.carrier_name = shippingLineCandidate;
+    cleaned.liner = shippingLineCandidate;
+    cleaned.shippingLine = shippingLineCandidate;
+  }
+
+  // Ensure is_watermark_enabled is ALWAYS a boolean and NEVER empty
+  const watermarkCandidate =
+    cleaned.is_watermark_enabled !== undefined
+      ? cleaned.is_watermark_enabled
+      : cleaned.watermark_enabled !== undefined
+      ? cleaned.watermark_enabled
+      : cleaned.watermark !== undefined
+      ? cleaned.watermark
+      : true;
+  const isWatermarkBool = Boolean(watermarkCandidate);
+  cleaned.is_watermark_enabled = isWatermarkBool;
+  cleaned.watermark_enabled = isWatermarkBool;
+  cleaned.watermark = isWatermarkBool;
+
+  // Ensure pdf_title is ALWAYS populated
+  const docTitle =
+    (cleaned.pdf_title && String(cleaned.pdf_title).trim()) ||
+    (cleaned.document_title && String(cleaned.document_title).trim()) ||
+    (cleaned.title && String(cleaned.title).trim()) ||
+    'BILL OF LADING';
+  cleaned.pdf_title = docTitle;
+  cleaned.document_title = docTitle;
+
+  // Ensure comment_label and comment_value are normalized strings
+  const cLabel =
+    (cleaned.comment_label !== undefined && cleaned.comment_label !== null ? String(cleaned.comment_label).trim() : '') ||
+    (cleaned.comment_title !== undefined && cleaned.comment_title !== null ? String(cleaned.comment_title).trim() : '') ||
+    (cleaned.notes_title !== undefined && cleaned.notes_title !== null ? String(cleaned.notes_title).trim() : '') ||
+    (cleaned.title !== undefined && cleaned.title !== null ? String(cleaned.title).trim() : '') ||
+    (cleaned.extra_title !== undefined && cleaned.extra_title !== null ? String(cleaned.extra_title).trim() : '');
+
+  const cValue =
+    (cleaned.comment_value !== undefined && cleaned.comment_value !== null ? String(cleaned.comment_value).trim() : '') ||
+    (cleaned.notes_comment !== undefined && cleaned.notes_comment !== null ? String(cleaned.notes_comment).trim() : '') ||
+    (cleaned.comment_text !== undefined && cleaned.comment_text !== null ? String(cleaned.comment_text).trim() : '') ||
+    (cleaned.comment !== undefined && cleaned.comment !== null ? String(cleaned.comment).trim() : '') ||
+    (cleaned.extra_comment !== undefined && cleaned.extra_comment !== null ? String(cleaned.extra_comment).trim() : '');
+
+  const effectiveLabel = cLabel || (cValue ? 'Comments' : '');
+  cleaned.comment_label = effectiveLabel;
+  cleaned.comment_title = effectiveLabel;
+  cleaned.notes_title = effectiveLabel;
+
+  cleaned.comment_value = cValue;
+  cleaned.comment_text = cValue;
+  cleaned.notes_comment = cValue;
+  cleaned.comment = cValue;
+
+  // Location and destination aliases normalization
+  if (cleaned.final_destination && !cleaned.place_of_delivery) {
+    cleaned.place_of_delivery = cleaned.final_destination;
+  }
+  if (cleaned.place_of_delivery && !cleaned.final_destination) {
+    cleaned.final_destination = cleaned.place_of_delivery;
+  }
+  if (cleaned.port_of_destination && !cleaned.pod) {
+    cleaned.pod = cleaned.port_of_destination;
+  }
+  if (cleaned.country_of_destination && !cleaned.destination_country) {
+    cleaned.destination_country = cleaned.country_of_destination;
+  }
+  if (cleaned.place_of_receipt && !cleaned.receipt_place) {
+    cleaned.receipt_place = cleaned.place_of_receipt;
+  }
+
+  return cleaned;
+}
+
 /**
  * Extracts and normalizes Proforma Invoice data from backend responses.
  */
@@ -6868,6 +7542,24 @@ export function extractProformaData(data: any): any {
 
   const keys = Object.keys(merged);
   if (keys.length === 0 || (keys.length <= 2 && keys.every(k => ['message', 'error', 'success', 'status', 'statusCode'].includes(k)))) {
+    return null;
+  }
+
+  const hasProformaMarkers = Boolean(
+    merged.invoice_number ||
+    merged.invoice_no ||
+    merged.proforma_invoice_number ||
+    merged.proforma_number ||
+    merged.proforma_invoice_id ||
+    merged.proforma_id ||
+    proformaLevel ||
+    merged._is_proforma_loaded ||
+    merged.disclaimer ||
+    merged.bank_charges_note ||
+    ((merged.id || merged._id) && (merged.seller_instruction_id || merged.buyer_instruction_id || merged.product_id || merged.contract_id || merged.confirmation_id)) ||
+    (dataLevel && (dataLevel.seller_instruction_id || dataLevel.product_id || dataLevel.id || dataLevel._id))
+  );
+  if (!hasProformaMarkers) {
     return null;
   }
 
@@ -7040,7 +7732,9 @@ export function cleanProformaPayload(payload: Record<string, any>): Record<strin
           key === 'notes_comment' ||
           key === 'comment_title' ||
           key === 'comment_text' ||
-          key === 'comment'
+          key === 'comment' ||
+          key === 'disclaimer' ||
+          key === 'special_instruction'
         ) {
           cleaned[key] = '';
         }
@@ -7217,11 +7911,7 @@ export function extractShipmentInstructionData(data: any): any {
     merged.markingBrand ||
     merged.containerMarks ||
     merged.brand ||
-    merged.marking ||
-    merged.contract?.marking_brand ||
-    merged.contract?.brand ||
-    merged.confirmation?.marking_brand ||
-    merged.proforma?.marking_brand;
+    merged.marking;
   if (marksVal !== undefined && marksVal !== null) {
     const cleanMarks = String(marksVal).trim();
     if (cleanMarks && cleanMarks !== '[object Object]' && cleanMarks !== 'undefined' && cleanMarks !== 'null') {
@@ -7230,6 +7920,44 @@ export function extractShipmentInstructionData(data: any): any {
       if (!merged.container_marks) merged.container_marks = cleanMarks;
       if (!merged.markingBrand) merged.markingBrand = cleanMarks;
     }
+  }
+
+  // Normalize disclaimer / special_instruction synonyms (backend uses disclaimer key)
+  const disclaimerCandidate =
+    merged.disclaimer ??
+    merged.special_instruction ??
+    merged.special_instructions ??
+    merged.special_note ??
+    (typeof raw === 'object' && raw !== null ? (raw.disclaimer ?? raw.special_instruction ?? raw.special_instructions ?? raw.special_note) : undefined) ??
+    (typeof d === 'object' && d !== null ? (d.disclaimer ?? d.special_instruction ?? d.special_instructions ?? d.special_note) : undefined);
+
+  if (disclaimerCandidate !== undefined && disclaimerCandidate !== null) {
+    const cleanDisclaimer = String(disclaimerCandidate).trim();
+    if (cleanDisclaimer && cleanDisclaimer !== '[object Object]' && cleanDisclaimer !== 'undefined' && cleanDisclaimer !== 'null') {
+      if (!merged.disclaimer) merged.disclaimer = cleanDisclaimer;
+      if (!merged.special_instruction) merged.special_instruction = cleanDisclaimer;
+    }
+  }
+
+  const hasShipmentMarkers = Boolean(
+    merged.shipment_instruction_number ||
+    merged.instruction_number ||
+    merged.booking_number ||
+    merged.booking_no ||
+    merged.shipping_bill_number ||
+    merged.shipping_bill_no ||
+    merged.sb_no ||
+    merged.vessel_name ||
+    merged.port_of_loading ||
+    merged.port_of_discharge ||
+    d?.shipment_instruction ||
+    d?.shipmentInstruction ||
+    merged._is_shipment_loaded ||
+    ((merged.id || merged._id) && (merged.consignee_id || merged.buyer_id || merged.booking_no || merged.vessel_name)) ||
+    (d && (d.booking_no || d.vessel_name || d.id || d._id))
+  );
+  if (!hasShipmentMarkers) {
+    return null;
   }
 
   return merged;
@@ -7259,7 +7987,9 @@ export function cleanShipmentInstructionPayload(payload: Record<string, any>): R
           key === 'notes_comment' ||
           key === 'comment_title' ||
           key === 'comment_text' ||
-          key === 'comment'
+          key === 'comment' ||
+          key === 'disclaimer' ||
+          key === 'special_instruction'
         ) {
           cleaned[key] = '';
         }
@@ -7338,6 +8068,27 @@ export function cleanShipmentInstructionPayload(payload: Record<string, any>): R
       cleaned.brand = cleanMarks;
       cleaned.container_marks_numbers = cleanMarks;
       cleaned.container_marks_and_numbers = cleanMarks;
+    }
+  }
+
+  // Sync disclaimer and special_instruction (disclaimer is primary)
+  const disclaimerVal =
+    cleaned.disclaimer ??
+    cleaned.special_instruction ??
+    cleaned.special_instructions ??
+    cleaned.special_note ??
+    cleaned.specialInstruction ??
+    payload?.disclaimer ??
+    payload?.special_instruction ??
+    payload?.special_instructions ??
+    payload?.special_note ??
+    payload?.specialInstruction;
+
+  if (disclaimerVal !== undefined && disclaimerVal !== null) {
+    const cleanDisclaimer = String(disclaimerVal).trim();
+    if (cleanDisclaimer !== '[object Object]' && cleanDisclaimer !== 'undefined' && cleanDisclaimer !== 'null') {
+      cleaned.disclaimer = cleanDisclaimer;
+      cleaned.special_instruction = cleanDisclaimer;
     }
   }
 
@@ -7510,6 +8261,22 @@ export function extractContractData(data: any): any {
 
   const keys = Object.keys(merged);
   if (keys.length === 0 || (keys.length <= 2 && keys.every(k => ['message', 'error', 'success', 'status', 'statusCode'].includes(k)))) {
+    return null;
+  }
+
+  const hasContractMarkers = Boolean(
+    merged.contract_number ||
+    merged.contractNumber ||
+    merged.contract_no ||
+    merged.sales_contract_id ||
+    merged.contract_id ||
+    contractLevel ||
+    merged._is_contract_loaded ||
+    (merged.contract_date && !merged.confirmation_number && !merged.invoice_number) ||
+    ((merged.id || merged._id) && (merged.seller_instruction_id || merged.buyer_instruction_id || merged.product_id || merged.confirmation_id || merged.terms_and_condition || merged.fcl_type || merged.packing_type_id)) ||
+    (dataLevel && (dataLevel.seller_instruction_id || dataLevel.product_id || dataLevel.id || dataLevel._id))
+  );
+  if (!hasContractMarkers) {
     return null;
   }
 
@@ -7907,19 +8674,29 @@ export function isRealStepperList(steps: StepperDocumentItem[]): boolean {
     const rid = s?.redirect_id || s?.redirectId || s?.document_id || s?.doc_id;
     if (rid) {
       const str = String(rid).trim();
-      if (str.length > 0 && !/^(step-\d+|new-confirmation|new-contract|null|undefined|\d+)$/i.test(str)) {
-        return true;
+      if (str.length > 0 && !/^(step-\d+|new-confirmation|new-contract|null|undefined)$/i.test(str)) {
+        // Exclude trivial single-digit step indices 1..6 if they are just the step sequence
+        if (!(/^\d+$/.test(str) && Number(str) <= 6)) {
+          return true;
+        }
       }
     }
     const id = s?.id || s?._id;
     if (id) {
       const str = String(id).trim();
-      // Must be a real ObjectId (24 hex) or UUID, NOT a step sequence index "1", "2", etc.!
       if (
-        str.length >= 8 &&
-        !/^(step-\d+|new-confirmation|new-contract|null|undefined|\d+)$/i.test(str) &&
-        (/^[0-9a-fA-F]{24}$/.test(str) || /^[0-9a-fA-F-]{36}$/.test(str) || str.includes('/'))
+        str.length > 0 &&
+        !/^(step-\d+|new-confirmation|new-contract|null|undefined)$/i.test(str)
       ) {
+        if (!(/^\d+$/.test(str) && Number(str) <= 6)) {
+          return true;
+        }
+      }
+    }
+    const status = s?.status || s?.document_status || s?.step_status;
+    if (status) {
+      const st = String(status).trim().toLowerCase();
+      if (['completed', 'complete', 'done', 'approved', 'success', 'finished'].includes(st)) {
         return true;
       }
     }
@@ -7974,10 +8751,11 @@ export function extractStepperList(data: any): StepperDocumentItem[] {
 
 export type NormalizedStepStatus = 'completed' | 'in_progress' | 'pending' | 'locked';
 
-export function normalizeStepStatus(rawStatus?: string): NormalizedStepStatus {
+export function normalizeStepStatus(rawStatus?: string | boolean, step?: any): NormalizedStepStatus {
+  if (step?.is_completed === true || rawStatus === true) return 'completed';
   if (!rawStatus) return 'pending';
   const s = String(rawStatus).toLowerCase().trim();
-  if (['completed', 'complete', 'done', 'approved', 'success', 'finished'].includes(s)) {
+  if (['completed', 'complete', 'done', 'approved', 'success', 'finished', 'true'].includes(s)) {
     return 'completed';
   }
   if (['in_progress', 'inprogress', 'in-progress', 'active', 'current', 'processing', 'draft'].includes(s)) {
@@ -8060,6 +8838,7 @@ export function getWorkflowSubmitButtonInfo({
       if (t.includes('contract')) return isContractStep(s, idx);
       if (t.includes('proforma')) return isProformaStep(s, idx);
       if (t.includes('shipment') || t.includes('instruction')) return isShipmentInstructionStep(s, idx);
+      if (t.includes('lading') || t.includes('bill_of_lading') || t.includes('bl')) return isBillOfLadingStep(s, idx);
       if (t.includes('custom') || t.includes('invoice')) return isCustomInvoiceStep(s, idx);
       return false;
     });
@@ -8295,12 +9074,84 @@ export function isShipmentInstructionStep(step?: StepperDocumentItem | null, ind
 export function isBillOfLadingStep(step?: StepperDocumentItem | null, index?: number): boolean {
   if (step) {
     const id = String(step.id || step._id || '').toLowerCase();
-    const name = String(step.document_name || step.name || step.title || step.doc_name || '').toLowerCase();
-    const slug = String(step.slug || step.type || '').toLowerCase();
-    if (id.includes('lading') || name.includes('lading') || slug.includes('lading')) return true;
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+    const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
+
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('custom') || name.includes('custom')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
+
+    if (
+      id.includes('lading') ||
+      name.includes('lading') ||
+      slug.includes('lading') ||
+      id.includes('bill_of_lading') ||
+      id.includes('bill-of-lading') ||
+      name.includes('bill of lading') ||
+      slug.includes('bill-of-lading') ||
+      slug.includes('bill_of_lading') ||
+      slug === 'bl' ||
+      name === 'bl' ||
+      redirect.includes('bill-of-lading') ||
+      redirect.includes('bill_of_lading') ||
+      redirect.includes('lading')
+    ) {
+      return true;
+    }
+
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 5) return true;
+    }
     return false;
   }
   return typeof index === 'number' && index === 4;
+}
+
+export function getBillOfLadingStep(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isBillOfLadingStep(selectedStep)) return selectedStep;
+  if (steps && steps.length > 0) {
+    const found = steps.find((s) => isBillOfLadingStep(s));
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getBillOfLadingIdFromStepper(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getBillOfLadingStep(steps, selectedStep);
+  if (!step) return '';
+  return getStepSelfId(step);
 }
 
 export function isCommercialInvoiceStep(step?: StepperDocumentItem | null, index?: number): boolean {
@@ -8343,7 +9194,9 @@ export function getShipmentInstructionIdFromStepper(
 ): string {
   const step = getShipmentInstructionStep(steps, selectedStep);
   if (!step) return '';
-  return getStepSelfId(step);
+  const id = extractStepRedirectId(step) || extractStepId(step) || '';
+  if (/^\d+$/.test(id) && Number(id) <= 20) return '';
+  return id;
 }
 
 export function isCustomInvoiceStep(step?: StepperDocumentItem | null, index?: number): boolean {
@@ -8404,7 +9257,7 @@ export function isCustomInvoiceStep(step?: StepperDocumentItem | null, index?: n
     }
     return false;
   }
-  return typeof index === 'number' && (index === 4 || index === 5);
+  return typeof index === 'number' && index === 5;
 }
 
 export function getCustomInvoiceStep(
@@ -8449,6 +9302,7 @@ export function isSameWorkflowStep(
   if (isContractStep(a) && isContractStep(b)) return true;
   if (isProformaStep(a) && isProformaStep(b)) return true;
   if (isShipmentInstructionStep(a) && isShipmentInstructionStep(b)) return true;
+  if (isBillOfLadingStep(a) && isBillOfLadingStep(b)) return true;
   if (isCustomInvoiceStep(a) && isCustomInvoiceStep(b)) return true;
 
   if (typeof a.step === 'number' && typeof b.step === 'number' && a.step === b.step) {
@@ -8470,30 +9324,62 @@ export function mergeStepperWithHidden(
   if (!existingSteps || existingSteps.length === 0) return newSteps;
 
   return newSteps.map((newStep) => {
-    // If incoming newStep already explicitly specifies is_hidden, trust it!
-    if (newStep.is_hidden !== undefined && newStep.is_hidden !== null) {
-      const isHidden =
-        newStep.is_hidden === true ||
-        newStep.is_hidden === 1 ||
-        String(newStep.is_hidden).toLowerCase() === 'true';
-      return { ...newStep, is_hidden: isHidden };
-    }
-
-    // Only if newStep does not specify is_hidden, match with existing step to preserve hidden state
+    let mergedStep: StepperDocumentItem = { ...newStep };
     const matchedPrev = existingSteps.find((prev) => isSameWorkflowStep(newStep, prev));
-    if (
-      matchedPrev &&
-      matchedPrev.is_hidden !== undefined &&
-      matchedPrev.is_hidden !== null
-    ) {
-      const isHidden =
-        matchedPrev.is_hidden === true ||
-        matchedPrev.is_hidden === 1 ||
-        String(matchedPrev.is_hidden).toLowerCase() === 'true';
-      return { ...newStep, is_hidden: isHidden };
+
+    if (matchedPrev) {
+      // 1. Preserve hidden state
+      if (newStep.is_hidden !== undefined && newStep.is_hidden !== null) {
+        const isHidden =
+          newStep.is_hidden === true ||
+          newStep.is_hidden === 1 ||
+          String(newStep.is_hidden).toLowerCase() === 'true';
+        mergedStep.is_hidden = isHidden;
+      } else if (matchedPrev.is_hidden !== undefined && matchedPrev.is_hidden !== null) {
+        const isHidden =
+          matchedPrev.is_hidden === true ||
+          matchedPrev.is_hidden === 1 ||
+          String(matchedPrev.is_hidden).toLowerCase() === 'true';
+        mergedStep.is_hidden = isHidden;
+      }
+
+      // 2. Preserve completed status: Never downgrade an already completed step to pending
+      const prevNorm = normalizeStepStatus(matchedPrev.status || matchedPrev.document_status || matchedPrev.step_status);
+      const newNorm = normalizeStepStatus(newStep.status || newStep.document_status || newStep.step_status);
+      if (prevNorm === 'completed' && newNorm !== 'completed') {
+        mergedStep.status = matchedPrev.status || 'completed';
+      }
+
+      // 3. Preserve valid redirect IDs if newStep is missing one or has placeholder
+      const prevRedirect = extractStepRedirectId(matchedPrev);
+      const newRedirect = extractStepRedirectId(newStep);
+      if (prevRedirect && (!newRedirect || newRedirect === 'new-confirmation')) {
+        mergedStep.redirect_id = prevRedirect;
+        mergedStep.redirectId = prevRedirect;
+      }
+
+      // 4. Preserve PDF availability / URLs if already unlocked
+      if (matchedPrev.pdf_enabled || matchedPrev.is_pdf_available) {
+        mergedStep.pdf_enabled = true;
+        mergedStep.is_pdf_available = true;
+      }
+      if (matchedPrev.pdf_url && !mergedStep.pdf_url) {
+        mergedStep.pdf_url = matchedPrev.pdf_url;
+      }
+      if (matchedPrev.pdf && !mergedStep.pdf) {
+        mergedStep.pdf = matchedPrev.pdf;
+      }
+    } else {
+      if (newStep.is_hidden !== undefined && newStep.is_hidden !== null) {
+        const isHidden =
+          newStep.is_hidden === true ||
+          newStep.is_hidden === 1 ||
+          String(newStep.is_hidden).toLowerCase() === 'true';
+        mergedStep.is_hidden = isHidden;
+      }
     }
 
-    return newStep;
+    return mergedStep;
   });
 }
 
@@ -8569,32 +9455,116 @@ export function extractCustomInvoiceData(data: any): any {
     merged.rate_per_bag = bagPrice;
   }
 
+  const hasCustomMarkers = Boolean(
+    merged.custom_invoice_number ||
+    merged.custom_invoice_no ||
+    d?.custom_invoice ||
+    d?.customInvoice ||
+    merged.custom_invoice_id ||
+    merged._is_custom_invoice_loaded ||
+    ((merged.id || merged._id) && (merged.invoice_number || merged.goods_description || merged.total_value)) ||
+    (d && (d.invoice_number || d.goods_description || d.id || d._id))
+  );
+  if (!hasCustomMarkers) {
+    return null;
+  }
+
   return merged;
 }
 
 export function isCompleteCustomInvoiceData(data: any): boolean {
   if (!data || typeof data !== 'object') return false;
-  const substantiveKeys = Object.keys(data).filter(
-    (k) => !['id', '_id', 'custom_invoice_id', 'customInvoiceId', 'status', 'success', 'message', 'statusCode', 'redirect_id', 'redirectId'].includes(k)
-  );
-  if (substantiveKeys.length === 0) return false;
   return Boolean(
-    data.invoice_number ||
-    data.invoice_no ||
-    data.goods_description ||
-    data.seller_details ||
-    data.buyer_details ||
-    data.seller_id ||
-    data.buyer_id ||
-    data.seller ||
-    data.buyer ||
-    data.company_name ||
-    data.seller_name ||
-    data.quantity_mt ||
-    data.rate_price ||
-    data.contract_number ||
-    data.custom_invoice ||
-    substantiveKeys.length >= 3
+    data.custom_invoice_number ||
+    data.custom_invoice_no ||
+    data.custom_invoice_date ||
+    data.custom_invoice_status ||
+    data._is_custom_invoice_loaded ||
+    (data.custom_invoice && typeof data.custom_invoice === 'object' && (data.custom_invoice.custom_invoice_number || data.custom_invoice.id)) ||
+    ((data.id || data._id) && (data.invoice_number || data.goods_description))
+  );
+}
+
+export function extractLinkedBillOfLadingId(data: any): string {
+  if (!data) return '';
+  const d = data.data ?? data;
+  const candidates = [
+    d?.bill_of_lading_id,
+    d?.billOfLadingId,
+    d?.lading_id,
+    d?.ladingId,
+    d?.bl_id,
+    d?.blId,
+    d?.bill_of_lading?.id,
+    d?.bill_of_lading?._id,
+    d?.lading?.id,
+    d?.lading?._id,
+  ];
+  for (const c of candidates) {
+    if (c) {
+      const clean = sanitizeDocId(c);
+      if (clean && !/^(lading|bill-of-lading|bill_of_lading|bl|step-\d+)$/i.test(clean)) return clean;
+    }
+  }
+  return '';
+}
+
+export function extractBillOfLadingData(data: any): any {
+  if (!data) return null;
+  const d = data.data !== undefined ? data.data : data;
+  if (!d) return null;
+
+  const raw =
+    d.bill_of_lading ||
+    d.billOfLading ||
+    d.lading ||
+    d.document ||
+    d.details ||
+    d;
+
+  const merged: any = {
+    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  };
+
+  merged.id = merged.id || merged._id || merged.bill_of_lading_id || merged.lading_id || merged.bl_id;
+  if (merged.id) merged.id = String(merged.id);
+
+  const hasLadingMarkers = Boolean(
+    merged.bl_no ||
+    merged.blNo ||
+    merged.bill_of_lading_no ||
+    merged.bill_of_lading_number ||
+    merged.voyage_no ||
+    merged.shipping_line ||
+    d?.bill_of_lading ||
+    d?.billOfLading ||
+    d?.lading ||
+    merged._is_lading_loaded ||
+    ((merged.id || merged._id) && (merged.vessel_name || merged.shipping_line || merged.booking_no || merged.shipper_details)) ||
+    (d && (d.vessel_name || d.shipping_line || d.id || d._id))
+  );
+  if (!hasLadingMarkers) {
+    return null;
+  }
+
+  return merged;
+}
+
+export function isCompleteBillOfLadingData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  return Boolean(
+    data.bl_no ||
+    data.blNo ||
+    data.bill_of_lading_no ||
+    data.bill_of_lading_number ||
+    data.voyage_no ||
+    data.shipping_line ||
+    data.bill_of_lading_status ||
+    data.lading_status ||
+    data._is_lading_loaded ||
+    (data.bill_of_lading && typeof data.bill_of_lading === 'object' && (data.bill_of_lading.bl_no || data.bill_of_lading.id)) ||
+    ((data.id || data._id) && (data.vessel_name || data.shipping_line || data.booking_no))
   );
 }
 
@@ -8640,13 +9610,40 @@ export function extractStepId(step?: StepperDocumentItem | null): string {
     return '';
   }
 
+  // If this is specifically a Bill of Lading step, prioritize bill-of-lading-specific IDs ONLY
+  if (isBillOfLadingStep(step)) {
+    const blCandidates = [
+      step.bill_of_lading_id,
+      step.billOfLadingId,
+      step.lading_id,
+      step.ladingId,
+      step.bl_id,
+      step.blId,
+      step.bill_of_lading?.id,
+      step.bill_of_lading?._id,
+      step.redirect_id,
+      step.redirectId,
+      step.redirect_document_id,
+      step.redirectDocumentId,
+      step.document_id,
+      step.documentId,
+      step.doc_id,
+      step.docId,
+    ];
+    for (const raw of blCandidates) {
+      if (raw !== undefined && raw !== null) {
+        const clean = String(raw).trim();
+        if (clean && !isInvalidPlaceholder(clean)) return clean;
+      }
+    }
+    return '';
+  }
+
   // If this is specifically a Shipment Instruction step, prioritize shipment-specific IDs ONLY
   if (isShipmentInstructionStep(step)) {
     const shipmentCandidates = [
       step.shipment_instruction_id,
       step.shipmentInstructionId,
-      step.instruction_id,
-      step.instructionId,
       step.shipment_id,
       step.shipmentId,
       step.shipment?.id,
@@ -8879,14 +9876,25 @@ export function extractStepRedirectId(step?: StepperDocumentItem | null): string
         step.redirect_id,
         step.redirectId,
       ]
+    : isBillOfLadingStep(step)
+    ? [
+        step.bill_of_lading_id,
+        step.billOfLadingId,
+        step.lading_id,
+        step.ladingId,
+        step.bl_id,
+        step.blId,
+        step.redirect_id,
+        step.redirectId,
+      ]
     : isShipmentInstructionStep(step)
     ? [
         step.shipment_instruction_id,
         step.shipmentInstructionId,
-        step.instruction_id,
-        step.instructionId,
         step.shipment_id,
         step.shipmentId,
+        step.redirect_id,
+        step.redirectId,
       ]
     : isProformaStep(step)
     ? [
@@ -9068,10 +10076,11 @@ export function extractProformaDocumentStatus(data?: any, stepItem?: StepperDocu
 /**
  * Returns true if the status indicates the document has completed / been submitted.
  */
-export function isStatusCompleted(status?: string | null): boolean {
+export function isStatusCompleted(status?: string | boolean | null): boolean {
+  if (status === true) return true;
   if (!status) return false;
   const s = String(status).trim().toUpperCase();
-  return s === 'COMPLETED' || s === 'COMPLETE' || s === 'DONE' || s === 'APPROVED' || s === 'SUCCESS' || s === 'FINISHED';
+  return s === 'COMPLETED' || s === 'COMPLETE' || s === 'DONE' || s === 'APPROVED' || s === 'SUCCESS' || s === 'FINISHED' || s === 'TRUE';
 }
 
 /**

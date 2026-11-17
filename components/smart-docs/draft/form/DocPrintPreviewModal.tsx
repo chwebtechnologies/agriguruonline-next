@@ -18,6 +18,7 @@ export interface DocPrintPreviewModalProps {
   proformaId?: string;
   shipmentInstructionId?: string;
   customInvoiceId?: string;
+  billOfLadingId?: string;
 }
 
 /**
@@ -153,6 +154,7 @@ export default function DocPrintPreviewModal({
   proformaId,
   shipmentInstructionId,
   customInvoiceId,
+  billOfLadingId,
 }: DocPrintPreviewModalProps) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -183,6 +185,7 @@ export default function DocPrintPreviewModal({
         [
           cleanId,
           ...(candidateIds || []).map((id) => String(id || '').trim()),
+          String(billOfLadingId || '').trim(),
           String(customInvoiceId || '').trim(),
           String(shipmentInstructionId || '').trim(),
           String(proformaId || '').trim(),

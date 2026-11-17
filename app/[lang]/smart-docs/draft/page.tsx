@@ -17,17 +17,20 @@ import {
   extractContractData,
   extractProformaData,
   extractShipmentInstructionData,
+  extractBillOfLadingData,
   extractCustomInvoiceData,
   extractDocumentListData,
   isConfirmationStep,
   isContractStep,
   isProformaStep,
   isShipmentInstructionStep,
+  isBillOfLadingStep,
   isCustomInvoiceStep,
   extractStepId,
   extractStepRedirectId,
   getStepSelfId,
   getShipmentInstructionIdFromStepper,
+  getBillOfLadingIdFromStepper,
   getCustomInvoiceIdFromStepper,
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
   isRealStepperList,
@@ -37,7 +40,9 @@ import {
   extractLinkedContractId,
   extractLinkedProformaId,
   extractLinkedShipmentInstructionId,
+  extractLinkedBillOfLadingId,
   extractLinkedCustomInvoiceId,
+  mergeStepperWithHidden,
   DEFAULT_CURRENCIES,
 } from '@/lib/api/smart-docs.service';
 
@@ -60,6 +65,12 @@ export async function generateMetadata(props: {
       searchParams?.step === 'shipment-instruction' ||
       searchParams?.step === 'instruction' ||
       searchParams?.step === '4';
+    const isBillOfLadingRequested =
+      searchParams?.step === 'bill-of-lading' ||
+      searchParams?.step === 'bill_of_lading' ||
+      searchParams?.step === 'lading' ||
+      searchParams?.step === 'bl' ||
+      searchParams?.step === '5';
     const isCustomInvoiceRequested =
       searchParams?.step === 'custom-invoice' ||
       searchParams?.step === 'custom_invoice' ||
@@ -74,7 +85,9 @@ export async function generateMetadata(props: {
     const dict = await getDictionary(activeLang).catch(() => ({} as any));
 
     let pageTitle = '';
-    if (isCustomInvoiceRequested) {
+    if (isBillOfLadingRequested) {
+      pageTitle = dict?.smart_docs?.draft_bill_of_lading_title || 'Draft Bill of Lading';
+    } else if (isCustomInvoiceRequested) {
       pageTitle = dict?.smart_docs?.draft_custom_invoice_title || 'Draft Custom Invoice';
     } else if (isShipmentRequested) {
       pageTitle = dict?.smart_docs?.draft_shipment_instruction_title || 'Draft Shipment Instruction';
@@ -139,6 +152,12 @@ export default async function SmartDocsDraftPage(props: {
     initialStepParam === 'document' ||
     initialStepParam === '4';
   const isContractRequested = initialStepParam === 'contract' || initialStepParam === '2';
+  const isBillOfLadingRequested =
+    initialStepParam === 'bill-of-lading' ||
+    initialStepParam === 'bill_of_lading' ||
+    initialStepParam === 'lading' ||
+    initialStepParam === 'bl' ||
+    initialStepParam === '5';
   const isCustomInvoiceRequested =
     initialStepParam === 'custom-invoice' ||
     initialStepParam === 'custom_invoice' ||
@@ -162,7 +181,7 @@ export default async function SmartDocsDraftPage(props: {
       fallback={
         <DocumentDraftSkeleton
           mode={
-            isCustomInvoiceRequested || isShipmentRequested || isProformaRequested || isContractRequested
+            isCustomInvoiceRequested || isBillOfLadingRequested || isShipmentRequested || isProformaRequested || isContractRequested
               ? 'contract'
               : 'confirmation'
           }
@@ -201,6 +220,12 @@ async function DraftPageDataLoader({
     initialStepParam === 'instruction' ||
     initialStepParam === 'document' ||
     initialStepParam === '4';
+  const isBillOfLadingRequested =
+    initialStepParam === 'bill-of-lading' ||
+    initialStepParam === 'bill_of_lading' ||
+    initialStepParam === 'lading' ||
+    initialStepParam === 'bl' ||
+    initialStepParam === '5';
   const isCustomInvoiceRequested =
     initialStepParam === 'custom-invoice' ||
     initialStepParam === 'custom_invoice' ||
@@ -209,7 +234,11 @@ async function DraftPageDataLoader({
     initialStepParam === '6';
 
   try {
-    const targetAction = isContractRequested ? 'contract' : 'confirmation';
+    const targetAction = isContractRequested
+      ? 'contract'
+      : isShipmentRequested || isBillOfLadingRequested || isCustomInvoiceRequested
+      ? 'document'
+      : 'confirmation';
 
     // The document ID passed from the button is the exact ID passed to the stepper API
     const stepperTarget = draftId || 'new-confirmation';
@@ -227,6 +256,7 @@ async function DraftPageDataLoader({
       contractRes,
       proformaRes,
       shipmentRes,
+      billOfLadingRes,
       customInvoiceRes,
     ] = await Promise.all([
       getDictionary(lang).catch(() => ({})),
@@ -267,16 +297,19 @@ async function DraftPageDataLoader({
       draftId
         ? smartDocsService.getConfirmation(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      isContractRequested && draftId
+      (isContractRequested || (!initialStepParam && draftId) || draftId)
         ? smartDocsService.getContract(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      isProformaRequested && draftId
+      (isProformaRequested || draftId)
         ? smartDocsService.getProforma(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      isShipmentRequested && draftId
+      (isShipmentRequested || (!initialStepParam && draftId) || draftId)
         ? smartDocsService.getShipmentInstruction(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      isCustomInvoiceRequested && draftId
+      (isBillOfLadingRequested || draftId)
+        ? smartDocsService.getBillOfLading(draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      (isCustomInvoiceRequested || draftId)
         ? smartDocsService.getCustomInvoice(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
     ]);
@@ -292,7 +325,22 @@ async function DraftPageDataLoader({
     let initialContractData: any = extractContractData(contractRes);
     let initialProformaData: any = extractProformaData(proformaRes);
     let initialShipmentInstructionData: any = extractShipmentInstructionData(shipmentRes);
+    let initialBillOfLadingData: any = extractBillOfLadingData(billOfLadingRes);
     let initialCustomInvoiceData: any = extractCustomInvoiceData(customInvoiceRes);
+
+    // If initialShipmentInstructionData contains nested contract/confirmation/proforma objects, seed missing data
+    if (!initialContractData && initialShipmentInstructionData?.contract && typeof initialShipmentInstructionData.contract === 'object') {
+      const ext = extractContractData(initialShipmentInstructionData.contract);
+      if (ext) initialContractData = ext;
+    }
+    if (!initialConfirmationData && initialShipmentInstructionData?.confirmation && typeof initialShipmentInstructionData.confirmation === 'object') {
+      const ext = extractConfirmationData(initialShipmentInstructionData.confirmation);
+      if (ext) initialConfirmationData = ext;
+    }
+    if (!initialProformaData && initialShipmentInstructionData?.proforma && typeof initialShipmentInstructionData.proforma === 'object') {
+      const ext = extractProformaData(initialShipmentInstructionData.proforma);
+      if (ext) initialProformaData = ext;
+    }
 
     // Linked ID Discovery
     let discoveredConfId =
@@ -300,6 +348,7 @@ async function DraftPageDataLoader({
       extractLinkedConfirmationId(initialContractData) ||
       extractLinkedConfirmationId(initialProformaData) ||
       extractLinkedConfirmationId(initialShipmentInstructionData) ||
+      extractLinkedConfirmationId(initialBillOfLadingData) ||
       extractLinkedConfirmationId(initialCustomInvoiceData);
 
     let discoveredContractId =
@@ -307,31 +356,37 @@ async function DraftPageDataLoader({
       extractLinkedContractId(initialContractData) ||
       extractLinkedContractId(initialProformaData) ||
       extractLinkedContractId(initialShipmentInstructionData) ||
+      extractLinkedContractId(initialBillOfLadingData) ||
       extractLinkedContractId(initialCustomInvoiceData);
-      extractLinkedContractId(initialProformaData) ||
-      extractLinkedContractId(initialShipmentInstructionData);
 
-    // If confirmation stepper returned empty/dummy, check if this workflow is contract-rooted (action = 'contract')
+    let discoveredProformaId =
+      extractLinkedProformaId(initialConfirmationData) ||
+      extractLinkedProformaId(initialContractData) ||
+      extractLinkedProformaId(initialProformaData) ||
+      extractLinkedProformaId(initialShipmentInstructionData) ||
+      extractLinkedProformaId(initialBillOfLadingData) ||
+      extractLinkedProformaId(initialCustomInvoiceData);
+
+    // If stepper returned empty/dummy, check if this workflow is document-rooted or contract-rooted
     if (!isRealStepperList(initialSteps) && stepperTarget && stepperTarget !== 'new-confirmation') {
       try {
-        const contractStepperRes = await smartDocsService
-          .getStepperList(
-            {
-              action: 'contract',
-              step: stepperTarget,
-              lang,
-              source: 'web',
-            },
-            token
-          )
-          .catch(() => null);
-        const cSteps = extractStepperList(contractStepperRes);
-        if (cSteps.length > 0 && isRealStepperList(cSteps)) {
-          initialSteps = cSteps;
-          if (!initialContractData) {
-            const cRes = await smartDocsService.getContract(stepperTarget, { lang, source: 'web' }, token).catch(() => null);
-            const extC = extractContractData(cRes);
-            if (extC) initialContractData = extC;
+        const candidateFallbackActions = ['document', 'contract', 'confirmation'].filter((a) => a !== targetAction);
+        for (const fbAction of candidateFallbackActions) {
+          const fallbackStepperRes = await smartDocsService
+            .getStepperList(
+              {
+                action: fbAction,
+                step: stepperTarget,
+                lang,
+                source: 'web',
+              },
+              token
+            )
+            .catch(() => null);
+          const fbSteps = extractStepperList(fallbackStepperRes);
+          if (fbSteps.length > 0 && isRealStepperList(fbSteps)) {
+            initialSteps = fbSteps;
+            break;
           }
         }
       } catch {
@@ -375,7 +430,7 @@ async function DraftPageDataLoader({
           .catch(() => null);
         const steps = extractStepperList(discoveredStepperRes);
         if (steps.length > 0 && isRealStepperList(steps)) {
-          initialSteps = steps;
+          initialSteps = mergeStepperWithHidden(steps, initialSteps);
         } else if (steps.length > 0 && !hasRealSteps) {
           initialSteps = steps;
         }
@@ -388,11 +443,12 @@ async function DraftPageDataLoader({
     const stepperConfirmationStep = initialSteps.find((s) => isConfirmationStep(s)) || null;
     const confId =
       discoveredConfId ||
+      extractStepRedirectId(stepperConfirmationStep) ||
       getStepSelfId(stepperConfirmationStep) ||
       extractStepId(stepperConfirmationStep) ||
-      extractStepRedirectId(stepperConfirmationStep) ||
       initialConfirmationData?.id ||
-      (!isContractRequested && !isProformaRequested && !isShipmentRequested && !isCustomInvoiceRequested ? stepperTarget : '');
+      stepperTarget ||
+      '';
 
     const stepperContractStep = initialSteps.find((s) => isContractStep(s)) || null;
     const contractId =
@@ -400,30 +456,45 @@ async function DraftPageDataLoader({
       stepperContractStep?.contract_id ||
       (stepperContractStep as any)?.contractId ||
       stepperContractStep?.sales_contract_id ||
-      getStepSelfId(stepperContractStep) ||
       extractStepRedirectId(stepperContractStep) ||
-      extractLinkedContractId(initialConfirmationData);
+      getStepSelfId(stepperContractStep) ||
+      extractLinkedContractId(initialConfirmationData) ||
+      extractLinkedContractId(initialShipmentInstructionData);
 
     const stepperProformaStep = initialSteps.find((s) => isProformaStep(s)) || null;
     const proformaId =
+      discoveredProformaId ||
       stepperProformaStep?.proforma_id ||
       (stepperProformaStep as any)?.proformaId ||
       stepperProformaStep?.proforma_invoice_id ||
-      getStepSelfId(stepperProformaStep) ||
       extractStepRedirectId(stepperProformaStep) ||
+      getStepSelfId(stepperProformaStep) ||
       extractLinkedProformaId(initialContractData) ||
-      extractLinkedProformaId(initialConfirmationData);
+      extractLinkedProformaId(initialConfirmationData) ||
+      extractLinkedProformaId(initialShipmentInstructionData);
 
     const stepperShipmentStep = initialSteps.find((s) => isShipmentInstructionStep(s)) || null;
     const shipmentId =
       stepperShipmentStep?.shipment_instruction_id ||
       (stepperShipmentStep as any)?.shipmentInstructionId ||
-      stepperShipmentStep?.instruction_id ||
-      getStepSelfId(stepperShipmentStep) ||
+      stepperShipmentStep?.shipment_id ||
+      (stepperShipmentStep as any)?.shipmentId ||
       extractStepRedirectId(stepperShipmentStep) ||
       extractLinkedShipmentInstructionId(initialProformaData) ||
       extractLinkedShipmentInstructionId(initialContractData) ||
       extractLinkedShipmentInstructionId(initialConfirmationData);
+
+    const stepperBillOfLadingStep = initialSteps.find((s) => isBillOfLadingStep(s)) || null;
+    const billOfLadingId =
+      stepperBillOfLadingStep?.bill_of_lading_id ||
+      (stepperBillOfLadingStep as any)?.billOfLadingId ||
+      stepperBillOfLadingStep?.lading_id ||
+      getStepSelfId(stepperBillOfLadingStep) ||
+      extractStepRedirectId(stepperBillOfLadingStep) ||
+      extractLinkedBillOfLadingId(initialShipmentInstructionData) ||
+      extractLinkedBillOfLadingId(initialProformaData) ||
+      extractLinkedBillOfLadingId(initialContractData) ||
+      extractLinkedBillOfLadingId(initialConfirmationData);
 
     const stepperCustomInvoiceStep = initialSteps.find((s) => isCustomInvoiceStep(s)) || null;
     const customInvoiceId =
@@ -432,26 +503,30 @@ async function DraftPageDataLoader({
       stepperCustomInvoiceStep?.invoice_id ||
       getStepSelfId(stepperCustomInvoiceStep) ||
       extractStepRedirectId(stepperCustomInvoiceStep) ||
+      extractLinkedCustomInvoiceId(initialBillOfLadingData) ||
       extractLinkedCustomInvoiceId(initialShipmentInstructionData) ||
       extractLinkedCustomInvoiceId(initialProformaData) ||
       extractLinkedCustomInvoiceId(initialContractData) ||
       extractLinkedCustomInvoiceId(initialConfirmationData);
 
     // Phase 2: Fetch any missing documents in ONE clean parallel round trip!
-    const [missingConfRes, missingContractRes, missingProformaRes, missingShipmentRes, missingCustomInvoiceRes] = await Promise.all([
+    const [missingConfRes, missingContractRes, missingProformaRes, missingShipmentRes, missingBillOfLadingRes, missingCustomInvoiceRes] = await Promise.all([
       !initialConfirmationData && confId
         ? smartDocsService.getConfirmation(confId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialContractData && contractId
+      !initialContractData && contractId && contractId !== confId
         ? smartDocsService.getContract(contractId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialProformaData && proformaId
+      !initialProformaData && proformaId && proformaId !== confId && proformaId !== contractId
         ? smartDocsService.getProforma(proformaId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialShipmentInstructionData && shipmentId
+      !initialShipmentInstructionData && shipmentId && shipmentId !== confId && shipmentId !== contractId && shipmentId !== proformaId
         ? smartDocsService.getShipmentInstruction(shipmentId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialCustomInvoiceData && customInvoiceId
+      !initialBillOfLadingData && billOfLadingId && billOfLadingId !== confId && billOfLadingId !== contractId && billOfLadingId !== proformaId && billOfLadingId !== shipmentId
+        ? smartDocsService.getBillOfLading(billOfLadingId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      !initialCustomInvoiceData && customInvoiceId && customInvoiceId !== confId && customInvoiceId !== contractId && customInvoiceId !== proformaId && customInvoiceId !== shipmentId && customInvoiceId !== billOfLadingId
         ? smartDocsService.getCustomInvoice(customInvoiceId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
     ]);
@@ -472,6 +547,10 @@ async function DraftPageDataLoader({
       const ext = extractShipmentInstructionData(missingShipmentRes);
       if (ext) initialShipmentInstructionData = ext;
     }
+    if (missingBillOfLadingRes) {
+      const ext = extractBillOfLadingData(missingBillOfLadingRes);
+      if (ext) initialBillOfLadingData = ext;
+    }
     if (missingCustomInvoiceRes) {
       const ext = extractCustomInvoiceData(missingCustomInvoiceRes);
       if (ext) initialCustomInvoiceData = ext;
@@ -481,10 +560,6 @@ async function DraftPageDataLoader({
     const effectiveBuyerId =
       initialShipmentInstructionData?.buyer_instruction_id ||
       initialShipmentInstructionData?.buyer_id ||
-      initialConfirmationData?.buyer_instruction_id ||
-      initialConfirmationData?.buyer_id ||
-      initialContractData?.buyer_instruction_id ||
-      initialContractData?.buyer_id ||
       (initialBuyers && initialBuyers.length === 1 ? initialBuyers[0].value || initialBuyers[0].id : '');
 
     let initialConsignees: any[] = [];
@@ -542,7 +617,9 @@ async function DraftPageDataLoader({
         }
         const isConfDone =
           normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
-          isStatusCompleted(initialConfirmationData?.status || initialConfirmationData?.document_status || initialConfirmationData?.confirmation_status);
+          isStatusCompleted(initialConfirmationData?.status || initialConfirmationData?.document_status || initialConfirmationData?.confirmation_status) ||
+          isStatusCompleted(initialShipmentInstructionData?.confirmation?.status) ||
+          isStatusCompleted(initialShipmentInstructionData?.confirmation_status);
         if (isConfDone) {
           updated.status = 'completed';
         } else if (s.status) {
@@ -555,7 +632,9 @@ async function DraftPageDataLoader({
         }
         const isContractDone =
           normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
-          isStatusCompleted(initialContractData?.status || initialContractData?.document_status || initialContractData?.contract_status);
+          isStatusCompleted(initialContractData?.status || initialContractData?.document_status || initialContractData?.contract_status) ||
+          isStatusCompleted(initialShipmentInstructionData?.contract?.status) ||
+          isStatusCompleted(initialShipmentInstructionData?.contract_status);
         if (isContractDone) {
           updated.status = 'completed';
         } else if (s.status) {
@@ -568,7 +647,9 @@ async function DraftPageDataLoader({
         }
         const isProformaDone =
           normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
-          isStatusCompleted(initialProformaData?.status || initialProformaData?.document_status || initialProformaData?.proforma_status);
+          isStatusCompleted(initialProformaData?.status || initialProformaData?.document_status || initialProformaData?.proforma_status) ||
+          isStatusCompleted(initialShipmentInstructionData?.proforma?.status) ||
+          isStatusCompleted(initialShipmentInstructionData?.proforma_status);
         if (isProformaDone) {
           updated.status = 'completed';
         } else if (s.status) {
@@ -581,8 +662,21 @@ async function DraftPageDataLoader({
         }
         const isShipmentDone =
           normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
-          isStatusCompleted(initialShipmentInstructionData?.status || initialShipmentInstructionData?.document_status || initialShipmentInstructionData?.shipment_instruction_status);
+          (Boolean(initialShipmentInstructionData) && isStatusCompleted(initialShipmentInstructionData?.status || initialShipmentInstructionData?.document_status || initialShipmentInstructionData?.shipment_instruction_status));
         if (isShipmentDone) {
+          updated.status = 'completed';
+        } else if (s.status) {
+          updated.status = s.status;
+        }
+      } else if (isBillOfLadingStep(s)) {
+        if (billOfLadingId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
+          updated.redirect_id = billOfLadingId;
+          updated.redirectId = billOfLadingId;
+        }
+        const isLadingDone =
+          normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
+          isStatusCompleted(initialBillOfLadingData?.status || initialBillOfLadingData?.document_status || initialBillOfLadingData?.bill_of_lading_status || initialBillOfLadingData?.lading_status);
+        if (isLadingDone) {
           updated.status = 'completed';
         } else if (s.status) {
           updated.status = s.status;
@@ -604,11 +698,13 @@ async function DraftPageDataLoader({
       return updated;
     });
 
-    // If this ID is a Contract or Proforma or Shipment or Custom Invoice (or step requested), ensure initialStepParam defaults accordingly
+    // If this ID is a Contract or Proforma or Shipment or Bill of Lading or Custom Invoice (or step requested), ensure initialStepParam defaults accordingly
     const effectiveStepParam =
       initialStepParam ||
       (isCustomInvoiceRequested
         ? 'custom-invoice'
+        : isBillOfLadingRequested
+        ? 'bill-of-lading'
         : isShipmentRequested
         ? 'shipment'
         : isProformaRequested
@@ -625,6 +721,7 @@ async function DraftPageDataLoader({
       extractLinkedConfirmationId(initialContractData) ||
       extractLinkedConfirmationId(initialProformaData) ||
       extractLinkedConfirmationId(initialShipmentInstructionData) ||
+      extractLinkedConfirmationId(initialBillOfLadingData) ||
       extractLinkedCustomInvoiceId(initialCustomInvoiceData);
 
     // The workspace root ID must ALWAYS be the Confirmation ID anchoring this entire workflow (or contract ID if contract-rooted).
@@ -645,7 +742,7 @@ async function DraftPageDataLoader({
             <DocumentDraftWorkspace
               lang={lang}
               dict={dict}
-              initialSteps={initialSteps}
+              initialSteps={initialSteps && initialSteps.length > 0 ? initialSteps : DEFAULT_WORKFLOW_STEPPER_ITEMS}
               initialSellers={initialSellers}
               initialBuyers={initialBuyers}
               initialProducts={initialProducts}
@@ -656,6 +753,7 @@ async function DraftPageDataLoader({
               initialContractData={initialContractData}
               initialProformaData={initialProformaData}
               initialShipmentInstructionData={initialShipmentInstructionData}
+              initialBillOfLadingData={initialBillOfLadingData}
               initialCustomInvoiceData={initialCustomInvoiceData}
               initialConsignees={initialConsignees}
               initialNotifyParties={initialNotifyParties}
@@ -668,6 +766,7 @@ async function DraftPageDataLoader({
     );
   } catch (error) {
     console.error('[DraftPageDataLoader] Fatal rendering error caught:', error);
+    const safeDict = await getDictionary(lang).catch(() => ({} as any));
 
     // Graceful fallback: render workspace with default stepper so "Something went wrong" never crashes the UI
     return (
@@ -676,7 +775,7 @@ async function DraftPageDataLoader({
           <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
             <DocumentDraftWorkspace
               lang={lang}
-              dict={{}}
+              dict={safeDict}
               initialSteps={DEFAULT_WORKFLOW_STEPPER_ITEMS}
               initialSellers={[]}
               initialBuyers={[]}
@@ -688,6 +787,7 @@ async function DraftPageDataLoader({
               initialContractData={null}
               initialProformaData={null}
               initialShipmentInstructionData={null}
+              initialBillOfLadingData={null}
               initialCustomInvoiceData={null}
               initialId={draftId}
               initialStepParam={initialStepParam}

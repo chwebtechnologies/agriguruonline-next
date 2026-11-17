@@ -646,6 +646,7 @@
     "draft_contract_title": "مسودة العقد",
     "draft_proforma_title": "مسودة الفاتورة الأولية",
     "draft_shipment_instruction_title": "مسودة تعليمات الشحن",
+    "draft_bill_of_lading_title": "مسودة بوليصة الشحن",
     "draft_custom_invoice_title": "مسودة الفاتورة الجمركية",
     "draft_description": "إنشاء وتكوين مسودة التأكيد والمستندات الذكية.",
     "draft_form_shell": "نموذج مسودة المستند",

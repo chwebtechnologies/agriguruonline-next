@@ -1097,7 +1097,7 @@ export function CustomInvoiceDocumentForm({
     );
 
     // If form has already initialized, NEVER overwrite user edits unless stepper version changed or doc ID changed!
-    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && (isDirty || hasDraftChanges)) {
       return;
     }
 

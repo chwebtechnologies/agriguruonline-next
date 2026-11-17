@@ -153,6 +153,7 @@ export function DocUnderlineSelect({
     (opt) =>
       String(opt.value) === String(value) ||
       (!!value && String((opt as any).id || '') === String(value)) ||
+      (!!value && String((opt as any)._id || '') === String(value)) ||
       (!!value && String((opt as any).bank_details_id || '') === String(value)) ||
       (!!value && String((opt as any).bank_account_id || '') === String(value)) ||
       (isUsdInput && (String(opt.value).toUpperCase() === 'USD' || String((opt as any).code || '').toUpperCase() === 'USD')) ||
@@ -176,6 +177,7 @@ export function DocUnderlineSelect({
       (opt) =>
         String(opt.value) === String(value) ||
         (!!value && String((opt as any).id || '') === String(value)) ||
+        (!!value && String((opt as any)._id || '') === String(value)) ||
         (!!value && String((opt as any).bank_details_id || '') === String(value)) ||
         (!!value && String((opt as any).bank_account_id || '') === String(value)) ||
         (isUsdInput && (String(opt.value).toUpperCase() === 'USD' || String((opt as any).code || '').toUpperCase() === 'USD')) ||

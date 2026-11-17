@@ -51,6 +51,7 @@ import {
   extractConfirmationData,
   extractContractData,
   extractCustomInvoiceData,
+  extractBillOfLadingData,
   extractProductDetailData,
   extractPaymentTermDetailData,
   extractSellerDetailData,
@@ -281,7 +282,7 @@ export async function deleteSmartDocAction(
 
     if (result.success) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs`);
+        revalidatePath(`/${safeLang}/smart-docs`, 'page');
       } catch (e) {
         // Ignore cache revalidation errors
       }
@@ -1137,12 +1138,6 @@ export async function saveConfirmationDraftAction(
       rawRes?.confirmation_id;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-      } catch (revErr) {
-        console.warn("[saveConfirmationDraftAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message:
@@ -1481,6 +1476,20 @@ export async function saveContractDraftAction(
           if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
         }
       }
+
+      // Sync disclaimer and special_instruction (backend uses disclaimer key)
+      const discVal =
+        payload.get("disclaimer") ||
+        payload.get("special_instruction") ||
+        payload.get("specialInstruction") ||
+        payload.get("special_note");
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.get("disclaimer")) payload.append("disclaimer", strDisc);
+          if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
+        }
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -1496,6 +1505,20 @@ export async function saveContractDraftAction(
           if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
           if (!payload.container_marks) payload.container_marks = strMarks;
           if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+
+      // Sync disclaimer and special_instruction
+      const discVal =
+        payload.disclaimer ||
+        payload.special_instruction ||
+        payload.specialInstruction ||
+        payload.special_note;
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.disclaimer) payload.disclaimer = strDisc;
+          if (!payload.special_instruction) payload.special_instruction = strDisc;
         }
       }
     }
@@ -1606,13 +1629,6 @@ export async function saveContractDraftAction(
       effectiveId;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-        revalidatePath(`/${safeLang}/smart-docs/draft`);
-      } catch (revErr) {
-        console.warn("[saveContractDraftAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message: rawRes.message || "Contract draft saved successfully!",
@@ -1735,6 +1751,20 @@ export async function submitContractAction(
           if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
         }
       }
+
+      // Sync disclaimer and special_instruction (backend uses disclaimer key)
+      const discVal =
+        payload.get("disclaimer") ||
+        payload.get("special_instruction") ||
+        payload.get("specialInstruction") ||
+        payload.get("special_note");
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.get("disclaimer")) payload.append("disclaimer", strDisc);
+          if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
+        }
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -1750,6 +1780,20 @@ export async function submitContractAction(
           if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
           if (!payload.container_marks) payload.container_marks = strMarks;
           if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+
+      // Sync disclaimer and special_instruction
+      const discVal =
+        payload.disclaimer ||
+        payload.special_instruction ||
+        payload.specialInstruction ||
+        payload.special_note;
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.disclaimer) payload.disclaimer = strDisc;
+          if (!payload.special_instruction) payload.special_instruction = strDisc;
         }
       }
     }
@@ -1860,13 +1904,6 @@ export async function submitContractAction(
       effectiveId;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-        revalidatePath(`/${safeLang}/smart-docs/draft`);
-      } catch (revErr) {
-        console.warn("[submitContractAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message: rawRes.message || "Contract submitted successfully!",
@@ -2060,6 +2097,20 @@ export async function saveProformaDraftAction(
           if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
         }
       }
+
+      // Sync disclaimer and special_instruction (backend uses disclaimer key)
+      const discVal =
+        payload.get("disclaimer") ||
+        payload.get("special_instruction") ||
+        payload.get("specialInstruction") ||
+        payload.get("special_note");
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.get("disclaimer")) payload.append("disclaimer", strDisc);
+          if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
+        }
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -2075,6 +2126,20 @@ export async function saveProformaDraftAction(
           if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
           if (!payload.container_marks) payload.container_marks = strMarks;
           if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+
+      // Sync disclaimer and special_instruction
+      const discVal =
+        payload.disclaimer ||
+        payload.special_instruction ||
+        payload.specialInstruction ||
+        payload.special_note;
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.disclaimer) payload.disclaimer = strDisc;
+          if (!payload.special_instruction) payload.special_instruction = strDisc;
         }
       }
     }
@@ -2190,13 +2255,6 @@ export async function saveProformaDraftAction(
       effectiveId;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-        revalidatePath(`/${safeLang}/smart-docs/draft`);
-      } catch (revErr) {
-        console.warn("[saveProformaDraftAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message: rawRes.message || "Proforma draft saved successfully!",
@@ -2305,6 +2363,20 @@ export async function submitProformaAction(
           if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
         }
       }
+
+      // Sync disclaimer and special_instruction (backend uses disclaimer key)
+      const discVal =
+        payload.get("disclaimer") ||
+        payload.get("special_instruction") ||
+        payload.get("specialInstruction") ||
+        payload.get("special_note");
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.get("disclaimer")) payload.append("disclaimer", strDisc);
+          if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
+        }
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -2320,6 +2392,20 @@ export async function submitProformaAction(
           if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
           if (!payload.container_marks) payload.container_marks = strMarks;
           if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+
+      // Sync disclaimer and special_instruction
+      const discVal =
+        payload.disclaimer ||
+        payload.special_instruction ||
+        payload.specialInstruction ||
+        payload.special_note;
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.disclaimer) payload.disclaimer = strDisc;
+          if (!payload.special_instruction) payload.special_instruction = strDisc;
         }
       }
     }
@@ -2435,13 +2521,6 @@ export async function submitProformaAction(
       effectiveId;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-        revalidatePath(`/${safeLang}/smart-docs/draft`);
-      } catch (revErr) {
-        console.warn("[submitProformaAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message: rawRes.message || "Proforma Invoice submitted successfully!",
@@ -2634,6 +2713,20 @@ export async function saveShipmentInstructionDraftAction(
           if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
         }
       }
+
+      // Sync disclaimer and special_instruction (backend uses disclaimer key)
+      const discVal =
+        payload.get("disclaimer") ||
+        payload.get("special_instruction") ||
+        payload.get("specialInstruction") ||
+        payload.get("special_note");
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.get("disclaimer")) payload.append("disclaimer", strDisc);
+          if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
+        }
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -2649,6 +2742,20 @@ export async function saveShipmentInstructionDraftAction(
           if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
           if (!payload.container_marks) payload.container_marks = strMarks;
           if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+
+      // Sync disclaimer and special_instruction
+      const discVal =
+        payload.disclaimer ||
+        payload.special_instruction ||
+        payload.specialInstruction ||
+        payload.special_note;
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.disclaimer) payload.disclaimer = strDisc;
+          if (!payload.special_instruction) payload.special_instruction = strDisc;
         }
       }
     }
@@ -2760,13 +2867,6 @@ export async function saveShipmentInstructionDraftAction(
       effectiveId;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-        revalidatePath(`/${safeLang}/smart-docs/draft`);
-      } catch (revErr) {
-        console.warn("[saveShipmentInstructionDraftAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message: rawRes.message || "Shipment instruction draft saved successfully!",
@@ -2875,6 +2975,20 @@ export async function submitShipmentInstructionAction(
           if (!payload.get("markingBrand")) payload.append("markingBrand", strMarks);
         }
       }
+
+      // Sync disclaimer and special_instruction (backend uses disclaimer key)
+      const discVal =
+        payload.get("disclaimer") ||
+        payload.get("special_instruction") ||
+        payload.get("specialInstruction") ||
+        payload.get("special_note");
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.get("disclaimer")) payload.append("disclaimer", strDisc);
+          if (!payload.get("special_instruction")) payload.append("special_instruction", strDisc);
+        }
+      }
     } else if (payload && typeof payload === "object") {
       const marksVal =
         payload.marking_brand ||
@@ -2890,6 +3004,20 @@ export async function submitShipmentInstructionAction(
           if (!payload.marks_and_numbers) payload.marks_and_numbers = strMarks;
           if (!payload.container_marks) payload.container_marks = strMarks;
           if (!payload.markingBrand) payload.markingBrand = strMarks;
+        }
+      }
+
+      // Sync disclaimer and special_instruction
+      const discVal =
+        payload.disclaimer ||
+        payload.special_instruction ||
+        payload.specialInstruction ||
+        payload.special_note;
+      if (discVal !== null && discVal !== undefined) {
+        const strDisc = String(discVal).trim();
+        if (strDisc && strDisc !== "[object Object]" && strDisc !== "undefined" && strDisc !== "null") {
+          if (!payload.disclaimer) payload.disclaimer = strDisc;
+          if (!payload.special_instruction) payload.special_instruction = strDisc;
         }
       }
     }
@@ -3001,13 +3129,6 @@ export async function submitShipmentInstructionAction(
       effectiveId;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-        revalidatePath(`/${safeLang}/smart-docs/draft`);
-      } catch (revErr) {
-        console.warn("[submitShipmentInstructionAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message: rawRes.message || "Shipment Instruction submitted successfully!",
@@ -3362,13 +3483,6 @@ export async function saveCustomInvoiceDraftAction(
       effectiveId;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-        revalidatePath(`/${safeLang}/smart-docs/draft`);
-      } catch (revErr) {
-        console.warn("[saveCustomInvoiceDraftAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message: rawRes.message || "Custom Invoice draft saved successfully!",
@@ -3660,13 +3774,6 @@ export async function submitCustomInvoiceAction(
       effectiveId;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-        revalidatePath(`/${safeLang}/smart-docs/draft`);
-      } catch (revErr) {
-        console.warn("[submitCustomInvoiceAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message: rawRes.message || "Custom Invoice submitted successfully!",
@@ -3717,6 +3824,561 @@ export async function submitCustomInvoiceAction(
       success: false,
       error: error?.message || "Internal error occurred while submitting custom invoice",
       message: error?.message || "Internal error occurred while submitting custom invoice",
+    };
+  }
+}
+
+export interface GetBillOfLadingActionResult {
+  success: boolean;
+  data: any | null;
+  error?: string;
+  message?: string;
+}
+
+export async function getBillOfLadingAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetBillOfLadingActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Bill of Lading ID is required",
+        data: null,
+      };
+    }
+
+    const token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getBillOfLading(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch bill of lading details",
+        data: null,
+      };
+    }
+
+    const extData = extractBillOfLadingData(rawRes);
+    return {
+      success: true,
+      data: extData || rawRes.data || rawRes,
+    };
+  } catch (error: any) {
+    console.error("[getBillOfLadingAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch bill of lading details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveBillOfLadingDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+export async function saveBillOfLadingDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveBillOfLadingDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    let isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
+    const shipmentIdInPayload = isFormData ? payload.get("shipment_instruction_id") : payload?.shipment_instruction_id;
+    const customInvoiceIdInPayload = isFormData ? payload.get("custom_invoice_id") : payload?.custom_invoice_id;
+
+    const directBLId = isFormData
+      ? (payload.get("bill_of_lading_id") || payload.get("lading_id") || payload.get("bl_id") || payload.get("id") || "")
+      : (payload?.bill_of_lading_id || payload?.lading_id || payload?.bl_id || payload?.id || "");
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (directBLId ? String(directBLId).trim() : "") ||
+      (customInvoiceIdInPayload ? String(customInvoiceIdInPayload).trim() : "") ||
+      (shipmentIdInPayload ? String(shipmentIdInPayload).trim() : "") ||
+      (proformaIdInPayload ? String(proformaIdInPayload).trim() : "") ||
+      (contractIdInPayload ? String(contractIdInPayload).trim() : "") ||
+      (confIdInPayload ? String(confIdInPayload).trim() : "");
+
+    const isPlaceholder =
+      !rawEffectiveId ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        rawEffectiveId
+      );
+
+    const effectiveId = !isPlaceholder ? rawEffectiveId : undefined;
+
+    const watermarkVal = isFormData
+      ? (payload.get("is_watermark_enabled") ?? payload.get("watermark_enabled") ?? payload.get("watermark") ?? "true")
+      : (payload?.is_watermark_enabled ?? payload?.watermark_enabled ?? payload?.watermark ?? true);
+    const isWatermarkBool = typeof watermarkVal === "string" ? watermarkVal !== "false" && watermarkVal !== "0" : Boolean(watermarkVal);
+
+    const titleVal = isFormData
+      ? (payload.get("pdf_title") ?? payload.get("document_title") ?? payload.get("title") ?? "BILL OF LADING")
+      : (payload?.pdf_title ?? payload?.document_title ?? payload?.title ?? "BILL OF LADING");
+    const safeTitle = String(titleVal || "").trim() || "BILL OF LADING";
+
+    const cLabel = isFormData
+      ? (payload.get("comment_label") ?? payload.get("comment_title") ?? payload.get("notes_title") ?? payload.get("title") ?? "")
+      : (payload?.comment_label ?? payload?.comment_title ?? payload?.notes_title ?? payload?.title ?? "");
+    const cValue = isFormData
+      ? (payload.get("comment_value") ?? payload.get("comment_text") ?? payload.get("notes_comment") ?? payload.get("comment") ?? "")
+      : (payload?.comment_value ?? payload?.comment_text ?? payload?.notes_comment ?? payload?.comment ?? "");
+    const safeCLabel = String(cLabel || "").trim();
+    const safeCValue = String(cValue || "").trim();
+    const effectiveCLabel = safeCLabel || (safeCValue ? "Comments" : "");
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("bill_of_lading_id", effectiveId);
+        payload.set("id", effectiveId);
+      }
+      if (customInvoiceIdInPayload) payload.set("custom_invoice_id", String(customInvoiceIdInPayload));
+      if (shipmentIdInPayload) payload.set("shipment_instruction_id", String(shipmentIdInPayload));
+      if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
+      if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
+      if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
+      payload.set("is_watermark_enabled", String(isWatermarkBool));
+      payload.set("watermark_enabled", String(isWatermarkBool));
+      payload.set("watermark", String(isWatermarkBool));
+      payload.set("pdf_title", safeTitle);
+      payload.set("document_title", safeTitle);
+      payload.set("comment_label", effectiveCLabel);
+      payload.set("comment_title", effectiveCLabel);
+      payload.set("notes_title", effectiveCLabel);
+      payload.set("comment_value", safeCValue);
+      payload.set("comment_text", safeCValue);
+      payload.set("notes_comment", safeCValue);
+      payload.set("comment", safeCValue);
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.bill_of_lading_id = effectiveId;
+        payload.id = effectiveId;
+      }
+      if (customInvoiceIdInPayload) payload.custom_invoice_id = String(customInvoiceIdInPayload);
+      if (shipmentIdInPayload) payload.shipment_instruction_id = String(shipmentIdInPayload);
+      if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
+      if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
+      if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
+      payload.is_watermark_enabled = isWatermarkBool;
+      payload.watermark_enabled = isWatermarkBool;
+      payload.watermark = isWatermarkBool;
+      payload.pdf_title = safeTitle;
+      payload.document_title = safeTitle;
+      payload.comment_label = effectiveCLabel;
+      payload.comment_title = effectiveCLabel;
+      payload.notes_title = effectiveCLabel;
+      payload.comment_value = safeCValue;
+      payload.comment_text = safeCValue;
+      payload.notes_comment = safeCValue;
+      payload.comment = safeCValue;
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveBillOfLadingDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+        id: effectiveId,
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.saveBillOfLadingDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+              id: effectiveId,
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveBillOfLadingDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save bill of lading draft",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false)
+    );
+
+    const generatedId =
+      rawRes?.data?.bill_of_lading_id ||
+      rawRes?.bill_of_lading_id ||
+      rawRes?.data?.lading_id ||
+      rawRes?.lading_id ||
+      rawRes?.data?.bl_id ||
+      rawRes?.bl_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      effectiveId;
+
+    if (isSuccess) {
+      return {
+        success: true,
+        message: rawRes.message || "Bill of Lading draft saved successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : effectiveId,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    let errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
+
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to save bill of lading draft"
+    );
+
+    return {
+      success: false,
+      message: sanitizedError,
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : effectiveId,
+      error: sanitizedError,
+    };
+  } catch (error: any) {
+    console.error("[saveBillOfLadingDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving bill of lading draft",
+      message: error?.message || "Internal error occurred while saving bill of lading draft",
+    };
+  }
+}
+
+export interface SubmitBillOfLadingActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+export async function submitBillOfLadingAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SubmitBillOfLadingActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        message: "Authentication token missing",
+      };
+    }
+
+    let isFormData =
+      (typeof FormData !== "undefined" && payload instanceof FormData) ||
+      (payload && typeof payload.get === "function" && typeof payload.append === "function");
+
+    const contractIdInPayload = isFormData ? payload.get("contract_id") : payload?.contract_id;
+    const confIdInPayload = isFormData ? payload.get("confirmation_id") : payload?.confirmation_id;
+    const proformaIdInPayload = isFormData ? payload.get("proforma_id") : payload?.proforma_id;
+    const shipmentIdInPayload = isFormData ? payload.get("shipment_instruction_id") : payload?.shipment_instruction_id;
+    const customInvoiceIdInPayload = isFormData ? payload.get("custom_invoice_id") : payload?.custom_invoice_id;
+
+    const directBLId = isFormData
+      ? (payload.get("bill_of_lading_id") || payload.get("lading_id") || payload.get("bl_id") || payload.get("id") || "")
+      : (payload?.bill_of_lading_id || payload?.lading_id || payload?.bl_id || payload?.id || "");
+
+    const rawEffectiveId =
+      (id && String(id).trim()) ||
+      (directBLId ? String(directBLId).trim() : "") ||
+      (customInvoiceIdInPayload ? String(customInvoiceIdInPayload).trim() : "") ||
+      (shipmentIdInPayload ? String(shipmentIdInPayload).trim() : "") ||
+      (proformaIdInPayload ? String(proformaIdInPayload).trim() : "") ||
+      (contractIdInPayload ? String(contractIdInPayload).trim() : "") ||
+      (confIdInPayload ? String(confIdInPayload).trim() : "");
+
+    const isPlaceholder =
+      !rawEffectiveId ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        rawEffectiveId
+      );
+
+    const effectiveId = !isPlaceholder ? rawEffectiveId : undefined;
+
+    const watermarkVal = isFormData
+      ? (payload.get("is_watermark_enabled") ?? payload.get("watermark_enabled") ?? payload.get("watermark") ?? "true")
+      : (payload?.is_watermark_enabled ?? payload?.watermark_enabled ?? payload?.watermark ?? true);
+    const isWatermarkBool = typeof watermarkVal === "string" ? watermarkVal !== "false" && watermarkVal !== "0" : Boolean(watermarkVal);
+
+    const titleVal = isFormData
+      ? (payload.get("pdf_title") ?? payload.get("document_title") ?? payload.get("title") ?? "BILL OF LADING")
+      : (payload?.pdf_title ?? payload?.document_title ?? payload?.title ?? "BILL OF LADING");
+    const safeTitle = String(titleVal || "").trim() || "BILL OF LADING";
+
+    const cLabel = isFormData
+      ? (payload.get("comment_label") ?? payload.get("comment_title") ?? payload.get("notes_title") ?? payload.get("title") ?? "")
+      : (payload?.comment_label ?? payload?.comment_title ?? payload?.notes_title ?? payload?.title ?? "");
+    const cValue = isFormData
+      ? (payload.get("comment_value") ?? payload.get("comment_text") ?? payload.get("notes_comment") ?? payload.get("comment") ?? "")
+      : (payload?.comment_value ?? payload?.comment_text ?? payload?.notes_comment ?? payload?.comment ?? "");
+    const safeCLabel = String(cLabel || "").trim();
+    const safeCValue = String(cValue || "").trim();
+    const effectiveCLabel = safeCLabel || (safeCValue ? "Comments" : "");
+
+    if (isFormData) {
+      if (effectiveId) {
+        payload.set("bill_of_lading_id", effectiveId);
+        payload.set("id", effectiveId);
+      }
+      if (customInvoiceIdInPayload) payload.set("custom_invoice_id", String(customInvoiceIdInPayload));
+      if (shipmentIdInPayload) payload.set("shipment_instruction_id", String(shipmentIdInPayload));
+      if (proformaIdInPayload) payload.set("proforma_id", String(proformaIdInPayload));
+      if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
+      if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
+      payload.set("is_watermark_enabled", String(isWatermarkBool));
+      payload.set("watermark_enabled", String(isWatermarkBool));
+      payload.set("watermark", String(isWatermarkBool));
+      payload.set("pdf_title", safeTitle);
+      payload.set("document_title", safeTitle);
+      payload.set("comment_label", effectiveCLabel);
+      payload.set("comment_title", effectiveCLabel);
+      payload.set("notes_title", effectiveCLabel);
+      payload.set("comment_value", safeCValue);
+      payload.set("comment_text", safeCValue);
+      payload.set("notes_comment", safeCValue);
+      payload.set("comment", safeCValue);
+    } else if (payload && typeof payload === "object") {
+      if (effectiveId) {
+        payload.bill_of_lading_id = effectiveId;
+        payload.id = effectiveId;
+      }
+      if (customInvoiceIdInPayload) payload.custom_invoice_id = String(customInvoiceIdInPayload);
+      if (shipmentIdInPayload) payload.shipment_instruction_id = String(shipmentIdInPayload);
+      if (proformaIdInPayload) payload.proforma_id = String(proformaIdInPayload);
+      if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
+      if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
+      payload.is_watermark_enabled = isWatermarkBool;
+      payload.watermark_enabled = isWatermarkBool;
+      payload.watermark = isWatermarkBool;
+      payload.pdf_title = safeTitle;
+      payload.document_title = safeTitle;
+      payload.comment_label = effectiveCLabel;
+      payload.comment_title = effectiveCLabel;
+      payload.notes_title = effectiveCLabel;
+      payload.comment_value = safeCValue;
+      payload.comment_text = safeCValue;
+      payload.notes_comment = safeCValue;
+      payload.comment = safeCValue;
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitBillOfLading(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+        id: effectiveId,
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitBillOfLading(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+              id: effectiveId,
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitBillOfLadingAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit bill of lading",
+        message: "No response from server",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false)
+    );
+
+    const generatedId =
+      rawRes?.data?.bill_of_lading_id ||
+      rawRes?.bill_of_lading_id ||
+      rawRes?.data?.lading_id ||
+      rawRes?.lading_id ||
+      rawRes?.data?.bl_id ||
+      rawRes?.bl_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?._id ||
+      rawRes?.id ||
+      rawRes?._id ||
+      effectiveId;
+
+    if (isSuccess) {
+      return {
+        success: true,
+        message: rawRes.message || "Bill of Lading submitted successfully!",
+        data: rawRes.data || rawRes,
+        id: generatedId ? String(generatedId) : effectiveId,
+        raw: rawRes.raw || rawRes,
+      };
+    }
+
+    let errorFields =
+      rawRes.error_fields ||
+      rawRes.data?.error_fields ||
+      rawRes.errors ||
+      rawRes.data?.errors ||
+      rawRes.raw?.error_fields ||
+      rawRes.raw?.errors ||
+      null;
+
+    if (!errorFields) {
+      const extracted = extractApiValidationErrors(rawRes);
+      if (extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = errMap;
+      }
+    }
+
+    const sanitizedError = sanitizeActionErrorMessage(
+      rawRes?.message || rawRes?.error,
+      rawRes,
+      "Failed to submit bill of lading. Please check highlighted fields."
+    );
+
+    return {
+      success: false,
+      message: sanitizedError,
+      errors: errorFields,
+      error_fields: errorFields,
+      raw: rawRes.raw || rawRes,
+      id: generatedId ? String(generatedId) : effectiveId,
+      error: sanitizedError,
+    };
+  } catch (error: any) {
+    console.error("[submitBillOfLadingAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while submitting bill of lading",
+      message: error?.message || "Internal error occurred while submitting bill of lading",
     };
   }
 }
@@ -3830,12 +4492,6 @@ export async function submitConfirmationAction(
       rawRes?.confirmation_id;
 
     if (isSuccess) {
-      try {
-        revalidatePath(`/${safeLang}/smart-docs`);
-      } catch (revErr) {
-        console.warn("[submitConfirmationAction] Revalidate warning:", revErr);
-      }
-
       return {
         success: true,
         message:
@@ -5144,7 +5800,6 @@ export async function saveSellerAction(
     const payload = normalizeSellerPayloadToFormData(sellerData);
     const result = await smartDocsService.saveSeller(payload, token);
     revalidatePath("/[lang]/smart-docs/sellers", "page");
-    revalidatePath("/[lang]/smart-docs/draft", "page");
     return result;
   } catch (error: any) {
     return { success: false, message: error?.message || "Failed to save seller", error_fields: [] };
@@ -5185,7 +5840,6 @@ export async function updateSellerAction(
 
     if (result.success) {
       revalidatePath("/[lang]/smart-docs/sellers", "page");
-      revalidatePath("/[lang]/smart-docs/draft", "page");
     }
     return result;
   } catch (error: any) {
@@ -5218,7 +5872,6 @@ export async function deleteSellerAction(
       source: "web",
     });
     revalidatePath("/[lang]/smart-docs/sellers", "page");
-    revalidatePath("/[lang]/smart-docs/draft", "page");
     return result;
   } catch (error: any) {
     return { success: false, message: error?.message || "Failed to delete seller" };
@@ -5399,7 +6052,6 @@ export async function updateSellerBankDetailsAction(
 
     if (result.success) {
       revalidatePath("/[lang]/smart-docs/sellers", "page");
-      revalidatePath("/[lang]/smart-docs/draft", "page");
     }
     return result;
   } catch (error: any) {
@@ -5459,7 +6111,6 @@ export async function deleteSellerBankDetailAction(
 
     if (result.success) {
       revalidatePath("/[lang]/smart-docs/sellers", "page");
-      revalidatePath("/[lang]/smart-docs/draft", "page");
     }
     return result;
   } catch (error: any) {
@@ -5773,7 +6424,6 @@ export async function saveBuyerAction(
     const payload = normalizeBuyerPayloadToFormData(buyerData);
     const result = await smartDocsService.saveBuyer(payload, token);
     revalidatePath("/[lang]/smart-docs/buyers", "page");
-    revalidatePath("/[lang]/smart-docs/draft", "page");
     return result;
   } catch (error: any) {
     return { success: false, message: error?.message || "Failed to save buyer", error_fields: [] };
@@ -5814,7 +6464,6 @@ export async function updateBuyerAction(
 
     if (result.success) {
       revalidatePath("/[lang]/smart-docs/buyers", "page");
-      revalidatePath("/[lang]/smart-docs/draft", "page");
     }
     return result;
   } catch (error: any) {
@@ -5847,7 +6496,6 @@ export async function deleteBuyerAction(
       source: "web",
     });
     revalidatePath("/[lang]/smart-docs/buyers", "page");
-    revalidatePath("/[lang]/smart-docs/draft", "page");
     return result;
   } catch (error: any) {
     return { success: false, message: error?.message || "Failed to delete buyer" };

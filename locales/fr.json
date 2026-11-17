@@ -645,6 +645,7 @@
     "draft_contract_title": "Brouillon de contrat",
     "draft_proforma_title": "Brouillon de facture proforma",
     "draft_shipment_instruction_title": "Brouillon d'instructions d'expédition",
+    "draft_bill_of_lading_title": "Brouillon de connaissement",
     "draft_custom_invoice_title": "Brouillon de facture douanière",
     "draft_description": "Créez et configurez des brouillons de confirmation et documents commerciaux intelligents.",
     "draft_form_shell": "Formulaire de document brouillon",

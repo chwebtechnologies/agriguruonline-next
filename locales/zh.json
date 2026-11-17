@@ -645,6 +645,7 @@
     "draft_contract_title": "合同草稿",
     "draft_proforma_title": "形式发票草稿",
     "draft_shipment_instruction_title": "装运指示草稿",
+    "draft_bill_of_lading_title": "提单草稿",
     "draft_custom_invoice_title": "海关发票草稿",
     "draft_description": "创建并配置智能贸易确认书和文档草稿。",
     "draft_form_shell": "文档草稿表单",
