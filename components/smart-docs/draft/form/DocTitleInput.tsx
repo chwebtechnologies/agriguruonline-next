@@ -25,6 +25,8 @@ export interface DocTitleInputProps {
   dataField?: string;
   /** Additional container class */
   className?: string;
+  /** Whether to visually force uppercase display (defaults to true) */
+  uppercase?: boolean;
 }
 
 /**
@@ -52,6 +54,7 @@ export const DocTitleInput = forwardRef<HTMLInputElement, DocTitleInputProps>(
       id = 'field-documentTitle',
       dataField = 'documentTitle',
       className = '',
+      uppercase = true,
     },
     forwardedRef
   ) {
@@ -95,7 +98,9 @@ export const DocTitleInput = forwardRef<HTMLInputElement, DocTitleInputProps>(
               {/* Invisible Sizer */}
               <span
                 aria-hidden="true"
-                className="invisible col-start-1 row-start-1 px-2 py-0.5 text-xs sm:text-sm md:text-[15px] font-bold uppercase tracking-wider whitespace-pre pointer-events-none select-none text-center"
+                className={`invisible col-start-1 row-start-1 px-2 py-0.5 text-xs sm:text-sm md:text-[15px] font-bold ${
+                  uppercase ? 'uppercase' : ''
+                } tracking-wider whitespace-pre pointer-events-none select-none text-center`}
               >
                 {sizerText}
               </span>
@@ -115,7 +120,9 @@ export const DocTitleInput = forwardRef<HTMLInputElement, DocTitleInputProps>(
                   border: 'none',
                   boxShadow: 'none',
                 }}
-                className={`col-start-1 row-start-1 w-full min-w-0 text-xs sm:text-sm md:text-[15px] font-bold uppercase tracking-wider text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:bg-transparent rounded-sm px-2 py-0.5 transition-all ${
+                className={`col-start-1 row-start-1 w-full min-w-0 text-xs sm:text-sm md:text-[15px] font-bold ${
+                  uppercase ? 'uppercase' : ''
+                } tracking-wider text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:bg-transparent rounded-sm px-2 py-0.5 transition-all ${
                   isEditable ? 'cursor-text' : 'cursor-default'
                 } ${error ? '!text-brand-red' : 'text-foreground'}`}
               />

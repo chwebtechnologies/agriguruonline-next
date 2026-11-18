@@ -809,11 +809,8 @@ export function DocumentDraftWorkspace({
     );
     if (
       directLadingId &&
-      directLadingId !== effectiveConfirmationId &&
-      directLadingId !== canonicalContractId &&
-      directLadingId !== canonicalProformaId &&
-      directLadingId !== canonicalShipmentInstructionId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|step-\d+)$/i.test(directLadingId)
+      !(/^\d+$/.test(directLadingId) && Number(directLadingId) <= 20) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(directLadingId)
     ) {
       return directLadingId;
     }
@@ -832,11 +829,8 @@ export function DocumentDraftWorkspace({
     );
     if (
       fromStepper &&
-      fromStepper !== effectiveConfirmationId &&
-      fromStepper !== canonicalContractId &&
-      fromStepper !== canonicalProformaId &&
-      fromStepper !== canonicalShipmentInstructionId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|step-\d+)$/i.test(fromStepper)
+      !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(fromStepper)
     ) {
       return fromStepper;
     }
@@ -1549,6 +1543,13 @@ export function DocumentDraftWorkspace({
   const attemptedShipmentFetchRef = useRef<string | null>(null);
   const attemptedBillOfLadingFetchRef = useRef<string | null>(null);
   const attemptedCustomInvoiceFetchRef = useRef<string | null>(null);
+  const isInitialBillOfLadingSsrFreshRef = useRef<boolean>(
+    Boolean(
+      initialBillOfLadingData &&
+      initialStepParam &&
+      /lading|\bbl\b/i.test(String(initialStepParam))
+    )
+  );
   const isInitialCustomInvoiceSsrFreshRef = useRef<boolean>(
     Boolean(
       initialCustomInvoiceData &&
@@ -1873,8 +1874,13 @@ export function DocumentDraftWorkspace({
       if (isTargetBillOfLading) {
         setIsLoadingBillOfLading(true);
 
+        const isPlaceholderLadingId = (val: string) =>
+          !val ||
+          (/^\d+$/.test(val) && Number(val) <= 20) ||
+          /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(val);
+
         const candidateId = sanitizeDocId(
-          (stepSelfId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(stepSelfId) ? stepSelfId : '') ||
+          (stepSelfId && !isPlaceholderLadingId(stepSelfId) ? stepSelfId : '') ||
           targetStep?.bill_of_lading_id ||
           (targetStep as any)?.billOfLadingId ||
           targetStep?.lading_id ||
@@ -1886,46 +1892,82 @@ export function DocumentDraftWorkspace({
           extractLinkedBillOfLadingId(shipmentInstructionData) ||
           extractLinkedBillOfLadingId(proformaData) ||
           extractLinkedBillOfLadingId(contractData) ||
-          (billOfLadingData?.bl_no || billOfLadingData?.vessel_name ? billOfLadingData?.id || billOfLadingData?.bill_of_lading_id : '')
+          (billOfLadingData?.bl_no || billOfLadingData?.vessel_name || billOfLadingData?._is_lading_loaded ? billOfLadingData?.id || billOfLadingData?.bill_of_lading_id : '')
         );
+
+        const applyFreshBillOfLading = (rawPayload: any): boolean => {
+          if (!rawPayload || typeof rawPayload !== 'object') return false;
+          const extracted =
+            extractBillOfLadingData(rawPayload) ||
+            { ...rawPayload, _is_lading_loaded: true };
+          if (extracted && typeof extracted === 'object') {
+            setBillOfLadingData({ ...extracted, _is_lading_loaded: true });
+            setBillOfLadingVersion((v) => v + 1);
+            return true;
+          }
+          return false;
+        };
+
+        let didPrimaryFetchSucceed = false;
 
         const stepperAction = workflowAnchorType;
         const stepperParam = workflowAnchorId;
-        getStepperListAction({
+        const stepperPromise = getStepperListAction({
           action: stepperAction,
           step: String(stepperParam),
           lang,
         })
-          .then((sRes) => {
+          .then(async (sRes) => {
             if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
               setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
+              const freshLadingStep = getBillOfLadingStep(sRes.data);
+              const freshLadingId = sanitizeDocId(
+                freshLadingStep?.bill_of_lading_id ||
+                (freshLadingStep as any)?.billOfLadingId ||
+                freshLadingStep?.lading_id ||
+                getStepSelfId(freshLadingStep) ||
+                getBillOfLadingIdFromStepper(sRes.data, freshLadingStep) ||
+                freshLadingStep?.redirect_id ||
+                (freshLadingStep as any)?.redirectId
+              );
+              if (
+                freshLadingId &&
+                !isPlaceholderLadingId(freshLadingId) &&
+                freshLadingId !== candidateId
+              ) {
+                try {
+                  const freshRes = await getBillOfLadingAction(freshLadingId, lang);
+                  if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
+                    attemptedBillOfLadingFetchRef.current = freshLadingId;
+                    applyFreshBillOfLading(freshRes.data);
+                  }
+                } catch (freshErr) {
+                  console.warn('[DocumentDraftWorkspace] Error fetching fresh bill of lading from stepper:', freshErr);
+                }
+              }
             }
           })
           .catch(() => {});
 
-        if (candidateId && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(candidateId)) {
+        if (candidateId && !isPlaceholderLadingId(candidateId)) {
           try {
+            attemptedBillOfLadingFetchRef.current = candidateId;
             const res = await getBillOfLadingAction(candidateId, lang);
-            if (activeFetchSeqRef.current === currentSeq) {
-              if (res?.success && res.data) {
-                const extracted = extractBillOfLadingData(res.data);
-                if (extracted && isCompleteBillOfLadingData(extracted)) {
-                  setBillOfLadingData(extracted);
-                  setBillOfLadingVersion((v) => v + 1);
-                } else if (extracted) {
-                  setBillOfLadingData(extracted);
-                  setBillOfLadingVersion((v) => v + 1);
-                }
-              }
+            if (activeFetchSeqRef.current === currentSeq && res?.success && res.data) {
+              didPrimaryFetchSucceed = applyFreshBillOfLading(res.data);
             }
           } catch (err) {
             console.warn('[DocumentDraftWorkspace] Error fetching latest bill of lading:', err);
           } finally {
+            if (!didPrimaryFetchSucceed) {
+              await stepperPromise;
+            }
             if (activeFetchSeqRef.current === currentSeq) {
               setIsLoadingBillOfLading(false);
             }
           }
         } else {
+          await stepperPromise;
           if (activeFetchSeqRef.current === currentSeq) {
             setIsLoadingBillOfLading(false);
             setBillOfLadingVersion((v) => v + 1);
@@ -2496,27 +2538,58 @@ export function DocumentDraftWorkspace({
     }
   }, [canonicalShipmentInstructionId, shipmentInstructionData, initialShipmentInstructionData, lang]);
 
-  // Fetch bill of lading data dynamically only if bill of lading step is active and not loaded
+  // Fetch fresh bill of lading data whenever Bill of Lading step becomes active
   useEffect(() => {
-    if (!isBillOfLading || isCompleteBillOfLadingData(billOfLadingData) || isCompleteBillOfLadingData(initialBillOfLadingData)) {
+    if (!isBillOfLading) {
+      attemptedBillOfLadingFetchRef.current = null;
+      isInitialBillOfLadingSsrFreshRef.current = false;
       return;
     }
 
-    const effectiveId = canonicalBillOfLadingId;
-    if (!effectiveId) {
+    const ladingStep = getBillOfLadingStep(steps, selectedStep);
+    const effectiveId = sanitizeDocId(
+      canonicalBillOfLadingId ||
+      ladingStep?.bill_of_lading_id ||
+      (ladingStep as any)?.billOfLadingId ||
+      ladingStep?.lading_id ||
+      getStepSelfId(ladingStep) ||
+      getBillOfLadingIdFromStepper(steps, selectedStep) ||
+      extractStepRedirectId(ladingStep) ||
+      extractLinkedBillOfLadingId(billOfLadingData) ||
+      extractLinkedBillOfLadingId(shipmentInstructionData) ||
+      extractLinkedBillOfLadingId(proformaData) ||
+      extractLinkedBillOfLadingId(contractData)
+    );
+
+    if (
+      !effectiveId ||
+      (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(effectiveId)
+    ) {
       setIsLoadingBillOfLading(false);
+      return;
+    }
+
+    // On direct SSR hard-refresh to Bill of Lading step, SSR data is already fresh for this exact ID
+    if (isInitialBillOfLadingSsrFreshRef.current) {
+      isInitialBillOfLadingSsrFreshRef.current = false;
+      attemptedBillOfLadingFetchRef.current = effectiveId;
       return;
     }
 
     if (attemptedBillOfLadingFetchRef.current !== effectiveId) {
       attemptedBillOfLadingFetchRef.current = effectiveId;
+      let cancelled = false;
       setIsLoadingBillOfLading(true);
       getBillOfLadingAction(effectiveId, lang)
         .then((res) => {
-          if (res?.success && res.data) {
-            const extracted = extractBillOfLadingData(res.data) || res.data;
+          if (cancelled) return;
+          if (res?.success && res.data && typeof res.data === 'object') {
+            const extracted =
+              extractBillOfLadingData(res.data) ||
+              { ...res.data, _is_lading_loaded: true };
             if (extracted) {
-              setBillOfLadingData(extracted);
+              setBillOfLadingData({ ...extracted, _is_lading_loaded: true });
               setBillOfLadingVersion((v) => v + 1);
             }
           }
@@ -2525,10 +2598,24 @@ export function DocumentDraftWorkspace({
           console.warn('[DocumentDraftWorkspace] Error fetching bill of lading dynamically:', err);
         })
         .finally(() => {
-          setIsLoadingBillOfLading(false);
+          if (!cancelled) {
+            setIsLoadingBillOfLading(false);
+          }
         });
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [isBillOfLading, canonicalBillOfLadingId, billOfLadingData, initialBillOfLadingData, lang]);
+  }, [
+    isBillOfLading,
+    canonicalBillOfLadingId,
+    steps,
+    selectedStep,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    lang,
+  ]);
 
   // Fetch fresh custom invoice data whenever Custom Invoice step becomes active
   useEffect(() => {
@@ -2731,49 +2818,6 @@ export function DocumentDraftWorkspace({
     buyerInstructionIdForShipment,
     canonicalContractId,
     effectiveConfirmationId,
-  ]);
-
-  // Comprehensive data merge for Bill of Lading so trade context is inherited
-  const mergedBillOfLadingData = useMemo(() => {
-    const sources = [
-      initialData,
-      confirmationData,
-      initialContractData,
-      contractData,
-      initialProformaData,
-      proformaData,
-      initialShipmentInstructionData,
-      shipmentInstructionData,
-      initialBillOfLadingData,
-      billOfLadingData,
-    ];
-    const merged: Record<string, any> = {};
-    for (const src of sources) {
-      if (!src || typeof src !== 'object') continue;
-      for (const [key, val] of Object.entries(src)) {
-        if (val === undefined || val === null || val === '') continue;
-        if (
-          src !== billOfLadingData &&
-          src !== initialBillOfLadingData &&
-          (key === 'id' || key === '_id' || key === 'status' || key === 'document_status' || key === 'title' || key === 'pdf_title' || key === 'document_title')
-        ) {
-          continue;
-        }
-        merged[key] = val;
-      }
-    }
-    return merged;
-  }, [
-    initialData,
-    confirmationData,
-    initialContractData,
-    contractData,
-    initialProformaData,
-    proformaData,
-    initialShipmentInstructionData,
-    shipmentInstructionData,
-    initialBillOfLadingData,
-    billOfLadingData,
   ]);
 
   // Comprehensive data merge for Custom Invoice so trade context is inherited
@@ -4012,10 +4056,13 @@ export function DocumentDraftWorkspace({
 
         {/* Bill of Lading Document Form: Visible when Bill of Lading Step is active */}
         <div className={`w-full h-full ${isBillOfLading ? 'flex flex-col' : 'hidden'}`}>
+          {isBillOfLading && isLoadingBillOfLading && !billOfLadingData && !initialBillOfLadingData ? (
+            <DocumentDraftSkeleton mode="contract" isFormCardOnly={true} />
+          ) : (
           <BillOfLadingDocumentForm
             key={`bill-of-lading-${canonicalBillOfLadingId || (billOfLadingData?.id ? String(billOfLadingData.id) : 'default')}`}
             dataVersion={billOfLadingVersion}
-            initialData={billOfLadingData || initialBillOfLadingData || mergedBillOfLadingData || null}
+            initialData={billOfLadingData || initialBillOfLadingData || null}
             billOfLadingId={canonicalBillOfLadingId || ''}
             shipmentInstructionId={canonicalShipmentInstructionId}
             customInvoiceId={canonicalCustomInvoiceId}
@@ -4067,7 +4114,7 @@ export function DocumentDraftWorkspace({
                 canonicalBillOfLadingId ||
                 sanitizeDocId(
                   billOfLadingData?.bill_of_lading_id ||
-                  (billOfLadingData?.bl_no ? billOfLadingData?.id : '')
+                  ((billOfLadingData?.bl_number || billOfLadingData?.bl_no) ? billOfLadingData?.id : '')
                 ) ||
                 getStepSelfId(ladingStep) ||
                 extractStepRedirectId(ladingStep) ||
@@ -4163,7 +4210,7 @@ export function DocumentDraftWorkspace({
                 canonicalBillOfLadingId ||
                 sanitizeDocId(
                   billOfLadingData?.bill_of_lading_id ||
-                  (billOfLadingData?.bl_no ? billOfLadingData?.id : '')
+                  ((billOfLadingData?.bl_number || billOfLadingData?.bl_no) ? billOfLadingData?.id : '')
                 ) ||
                 getStepSelfId(ladingStep) ||
                 extractStepRedirectId(ladingStep) ||
@@ -4288,6 +4335,7 @@ export function DocumentDraftWorkspace({
               return res;
             }}
           />
+          )}
         </div>
 
         {/* Custom Invoice Document Form: Visible when Custom Invoice Step is active */}

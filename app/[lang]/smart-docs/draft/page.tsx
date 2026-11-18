@@ -326,7 +326,18 @@ async function DraftPageDataLoader({
     let initialContractData: any = extractContractData(contractRes);
     let initialProformaData: any = extractProformaData(proformaRes);
     let initialShipmentInstructionData: any = extractShipmentInstructionData(shipmentRes);
-    let initialBillOfLadingData: any = extractBillOfLadingData(billOfLadingRes);
+    let initialBillOfLadingData: any =
+      extractBillOfLadingData(billOfLadingRes) ||
+      (billOfLadingRes?.data &&
+      typeof billOfLadingRes.data === 'object' &&
+      !Array.isArray(billOfLadingRes.data) &&
+      billOfLadingRes.success !== false &&
+      billOfLadingRes.success !== 0 &&
+      billOfLadingRes.status !== false &&
+      billOfLadingRes.status !== 0 &&
+      !billOfLadingRes.error
+        ? { ...billOfLadingRes.data, _is_lading_loaded: true }
+        : null);
     let initialCustomInvoiceData: any = extractCustomInvoiceData(customInvoiceRes);
 
     // If initialShipmentInstructionData contains nested contract/confirmation/proforma objects, seed missing data
@@ -524,7 +535,7 @@ async function DraftPageDataLoader({
       !initialShipmentInstructionData && shipmentId && shipmentId !== confId && shipmentId !== contractId && shipmentId !== proformaId
         ? smartDocsService.getShipmentInstruction(shipmentId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialBillOfLadingData && billOfLadingId && billOfLadingId !== confId && billOfLadingId !== contractId && billOfLadingId !== proformaId && billOfLadingId !== shipmentId
+      !initialBillOfLadingData && billOfLadingId && billOfLadingId !== draftId
         ? smartDocsService.getBillOfLading(billOfLadingId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
       !initialCustomInvoiceData && customInvoiceId && customInvoiceId !== draftId
@@ -549,7 +560,18 @@ async function DraftPageDataLoader({
       if (ext) initialShipmentInstructionData = ext;
     }
     if (missingBillOfLadingRes) {
-      const ext = extractBillOfLadingData(missingBillOfLadingRes);
+      const ext =
+        extractBillOfLadingData(missingBillOfLadingRes) ||
+        (missingBillOfLadingRes?.data &&
+        typeof missingBillOfLadingRes.data === 'object' &&
+        !Array.isArray(missingBillOfLadingRes.data) &&
+        missingBillOfLadingRes.success !== false &&
+        missingBillOfLadingRes.success !== 0 &&
+        missingBillOfLadingRes.status !== false &&
+        missingBillOfLadingRes.status !== 0 &&
+        !missingBillOfLadingRes.error
+          ? { ...missingBillOfLadingRes.data, _is_lading_loaded: true }
+          : null);
       if (ext) initialBillOfLadingData = ext;
     }
     if (missingCustomInvoiceRes) {

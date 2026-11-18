@@ -1704,6 +1704,41 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches loading ports for a specific origin country ID with authentication:
+   * GET /dms-fields/loading-ports/:countryId?lang_code=en&source=web
+   */
+  getLoadingPortsByCountry: async (
+    countryId: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token || !countryId) return null;
+
+    const cleanCountryId = sanitizeDocId(countryId);
+    if (!cleanCountryId) return null;
+
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const url = `${baseUrl}/dms-fields/loading-ports/${encodeURIComponent(cleanCountryId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      return response;
+    } catch (error) {
+      console.error('[smartDocsService.getLoadingPortsByCountry] error:', error);
+      return null;
+    }
+  },
+
+  /**
    * Fetches payment terms listing with pagination, search and authentication:
    * GET /payment-term?page=1&limit=10&lang_code=en&source=web
    */
@@ -6021,10 +6056,20 @@ export const smartDocsService = {
           }
 
           if (response.ok) {
+            const isExplicitFailure =
+              json && typeof json === 'object' && (json.success === 0 || json.success === false);
+            if (isExplicitFailure) {
+              console.warn(
+                `[smartDocsService.saveBillOfLadingDraft] Validation/API failure ${candidate.method} ${candidate.url}`,
+                { sentBody: typeof body === 'string' ? body : '[FormData]', response: json }
+              );
+            }
             return {
               ...(typeof json === 'object' && json !== null ? json : {}),
-              success: true,
+              success: !isExplicitFailure,
               data: json ?? text,
+              error_fields: json?.error_fields || json?.data?.error_fields || null,
+              errors: json?.errors || json?.data?.errors || null,
               raw: json ?? text,
             };
           }
@@ -6041,6 +6086,11 @@ export const smartDocsService = {
             console.warn(`[smartDocsService.saveBillOfLadingDraft] Candidate ${candidate.method} ${candidate.url} gave router error, trying next candidate...`);
             continue;
           }
+
+          console.warn(
+            `[smartDocsService.saveBillOfLadingDraft] Error ${response.status} ${candidate.method} ${candidate.url}`,
+            { sentBody: typeof body === 'string' ? body : '[FormData]', response: json ?? text }
+          );
 
           const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
           const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to save bill of lading draft');
@@ -6244,10 +6294,20 @@ export const smartDocsService = {
           }
 
           if (response.ok) {
+            const isExplicitFailure =
+              json && typeof json === 'object' && (json.success === 0 || json.success === false);
+            if (isExplicitFailure) {
+              console.warn(
+                `[smartDocsService.submitBillOfLading] Validation/API failure ${candidate.method} ${candidate.url}`,
+                { sentBody: typeof body === 'string' ? body : '[FormData]', response: json }
+              );
+            }
             return {
               ...(typeof json === 'object' && json !== null ? json : {}),
-              success: true,
+              success: !isExplicitFailure,
               data: json ?? text,
+              error_fields: json?.error_fields || json?.data?.error_fields || null,
+              errors: json?.errors || json?.data?.errors || null,
               raw: json ?? text,
             };
           }
@@ -6264,6 +6324,11 @@ export const smartDocsService = {
             console.warn(`[smartDocsService.submitBillOfLading] Candidate ${candidate.method} ${candidate.url} gave router error, trying next candidate...`);
             continue;
           }
+
+          console.warn(
+            `[smartDocsService.submitBillOfLading] Error ${response.status} ${candidate.method} ${candidate.url}`,
+            { sentBody: typeof body === 'string' ? body : '[FormData]', response: json ?? text }
+          );
 
           const rawErrMsg = json?.message || json?.error || `Request failed with status ${response.status}`;
           const cleanMsg = cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit bill of lading');
@@ -7514,21 +7579,24 @@ export function cleanBillOfLadingPayload(payload: Record<string, any>): Record<s
     }
   }
 
-  // Aliases normalization
-  if (cleaned.bl_no && !cleaned.bill_of_lading_no) {
-    cleaned.bill_of_lading_no = cleaned.bl_no;
+  // Canonical Bill of Lading field normalization
+  if (cleaned.bl_no && !cleaned.bl_number) {
+    cleaned.bl_number = cleaned.bl_no;
   }
-  if (cleaned.bill_of_lading_no && !cleaned.bl_no) {
-    cleaned.bl_no = cleaned.bill_of_lading_no;
+  if (cleaned.bill_of_lading_no && !cleaned.bl_number) {
+    cleaned.bl_number = cleaned.bill_of_lading_no;
+  }
+  if (cleaned.voyage_no && !cleaned.voyage_number) {
+    cleaned.voyage_number = cleaned.voyage_no;
+  }
+  if (cleaned.booking_no && !cleaned.booking_number) {
+    cleaned.booking_number = cleaned.booking_no;
   }
   if (cleaned.sb_no && !cleaned.shipping_bill_no) {
     cleaned.shipping_bill_no = cleaned.sb_no;
   }
-  if (cleaned.shipping_bill_no && !cleaned.sb_no) {
-    cleaned.sb_no = cleaned.shipping_bill_no;
-  }
 
-  // Shipping line / carrier aliases normalization
+  // Shipping line normalization
   const shippingLineCandidate =
     cleaned.shipping_line !== undefined && cleaned.shipping_line !== null && String(cleaned.shipping_line).trim() !== ''
       ? String(cleaned.shipping_line).trim()
@@ -7548,12 +7616,20 @@ export function cleanBillOfLadingPayload(payload: Record<string, any>): Record<s
 
   if (shippingLineCandidate && !(/DO NOT USE NVOCC/i.test(shippingLineCandidate) || /SHIPMENT IN CONTAINERS/i.test(shippingLineCandidate) || /IRANIAN SHIPPING/i.test(shippingLineCandidate))) {
     cleaned.shipping_line = shippingLineCandidate;
-    cleaned.shipping_company = shippingLineCandidate;
-    cleaned.shipping_line_name = shippingLineCandidate;
-    cleaned.carrier = shippingLineCandidate;
-    cleaned.carrier_name = shippingLineCandidate;
-    cleaned.liner = shippingLineCandidate;
-    cleaned.shippingLine = shippingLineCandidate;
+  }
+
+  // Loading port ID normalization (`loading_port` and `loading_port_id`)
+  const loadingPortIdCandidate =
+    typeof cleaned.loading_port === 'string' && cleaned.loading_port.trim()
+      ? cleaned.loading_port.trim()
+      : typeof cleaned.loading_port === 'object' && cleaned.loading_port?.id
+      ? String(cleaned.loading_port.id).trim()
+      : typeof cleaned.loading_port_id === 'string' && cleaned.loading_port_id.trim()
+      ? cleaned.loading_port_id.trim()
+      : '';
+  if (loadingPortIdCandidate) {
+    cleaned.loading_port = loadingPortIdCandidate;
+    cleaned.loading_port_id = loadingPortIdCandidate;
   }
 
   // Ensure is_watermark_enabled is ALWAYS a boolean and NEVER empty
@@ -7565,10 +7641,7 @@ export function cleanBillOfLadingPayload(payload: Record<string, any>): Record<s
       : cleaned.watermark !== undefined
       ? cleaned.watermark
       : true;
-  const isWatermarkBool = Boolean(watermarkCandidate);
-  cleaned.is_watermark_enabled = isWatermarkBool;
-  cleaned.watermark_enabled = isWatermarkBool;
-  cleaned.watermark = isWatermarkBool;
+  cleaned.is_watermark_enabled = Boolean(watermarkCandidate);
 
   // Ensure pdf_title is ALWAYS populated
   const docTitle =
@@ -7577,14 +7650,12 @@ export function cleanBillOfLadingPayload(payload: Record<string, any>): Record<s
     (cleaned.title && String(cleaned.title).trim()) ||
     'BILL OF LADING';
   cleaned.pdf_title = docTitle;
-  cleaned.document_title = docTitle;
 
   // Ensure comment_label and comment_value are normalized strings
   const cLabel =
     (cleaned.comment_label !== undefined && cleaned.comment_label !== null ? String(cleaned.comment_label).trim() : '') ||
     (cleaned.comment_title !== undefined && cleaned.comment_title !== null ? String(cleaned.comment_title).trim() : '') ||
     (cleaned.notes_title !== undefined && cleaned.notes_title !== null ? String(cleaned.notes_title).trim() : '') ||
-    (cleaned.title !== undefined && cleaned.title !== null ? String(cleaned.title).trim() : '') ||
     (cleaned.extra_title !== undefined && cleaned.extra_title !== null ? String(cleaned.extra_title).trim() : '');
 
   const cValue =
@@ -7596,29 +7667,98 @@ export function cleanBillOfLadingPayload(payload: Record<string, any>): Record<s
 
   const effectiveLabel = cLabel || (cValue ? 'Comments' : '');
   cleaned.comment_label = effectiveLabel;
-  cleaned.comment_title = effectiveLabel;
-  cleaned.notes_title = effectiveLabel;
-
   cleaned.comment_value = cValue;
-  cleaned.comment_text = cValue;
-  cleaned.notes_comment = cValue;
-  cleaned.comment = cValue;
 
-  // Location and destination aliases normalization
-  if (cleaned.final_destination && !cleaned.place_of_delivery) {
-    cleaned.place_of_delivery = cleaned.final_destination;
-  }
-  if (cleaned.place_of_delivery && !cleaned.final_destination) {
-    cleaned.final_destination = cleaned.place_of_delivery;
-  }
-  if (cleaned.port_of_destination && !cleaned.pod) {
-    cleaned.pod = cleaned.port_of_destination;
-  }
-  if (cleaned.country_of_destination && !cleaned.destination_country) {
-    cleaned.destination_country = cleaned.country_of_destination;
-  }
-  if (cleaned.place_of_receipt && !cleaned.receipt_place) {
-    cleaned.receipt_place = cleaned.place_of_receipt;
+  // Normalize containers: keep ONLY containers that have at least one detail filled,
+  // and ensure gross_weight / net_weight are sent as decimal strings (never numbers).
+  if (Array.isArray(cleaned.containers)) {
+    const hasVal = (v: unknown): boolean => {
+      if (v === undefined || v === null) return false;
+      const s = String(v).trim();
+      return s !== '' && s.toLowerCase() !== 'null' && s.toLowerCase() !== 'undefined';
+    };
+    const normalizeWeightStr = (v: unknown): string | undefined => {
+      if (!hasVal(v)) return undefined;
+      const raw = String(v).replace(/,/g, '').trim();
+      if (/^\d{1,5}(?:\.\d{1,3})?$/.test(raw)) {
+        const [intPart, decPart = ''] = raw.split('.');
+        return `${intPart}.${decPart.padEnd(3, '0')}`;
+      }
+      return raw;
+    };
+
+    const sanitizedContainers = cleaned.containers
+      .filter((c: any) => c && typeof c === 'object')
+      .map((c: any, idx: number) => {
+        const containerNumber = hasVal(c.container_number ?? c.container_no)
+          ? String(c.container_number ?? c.container_no).trim()
+          : '';
+        const sealNumber = hasVal(c.seal_number ?? c.seal_no)
+          ? String(c.seal_number ?? c.seal_no).trim()
+          : '';
+        const grossWeight = normalizeWeightStr(c.gross_weight);
+        const netWeight = normalizeWeightStr(c.net_weight);
+        const hasBags = hasVal(c.bags);
+        const parsedBags = hasBags ? Number(String(c.bags).replace(/,/g, '').trim()) : NaN;
+
+        const hasAnyDetail =
+          Boolean(containerNumber) ||
+          Boolean(sealNumber) ||
+          grossWeight !== undefined ||
+          netWeight !== undefined ||
+          (hasBags && !isNaN(parsedBags));
+
+        if (!hasAnyDetail) return null;
+
+        const parsedIndex =
+          c.index !== undefined && c.index !== null && String(c.index).trim() !== ''
+            ? Number(c.index)
+            : idx;
+
+        const item: Record<string, any> = {
+          index: Number.isInteger(parsedIndex) && parsedIndex >= 0 ? parsedIndex : idx,
+        };
+        if (containerNumber) item.container_number = containerNumber;
+        if (sealNumber) item.seal_number = sealNumber;
+        if (grossWeight !== undefined) item.gross_weight = grossWeight;
+        if (netWeight !== undefined) item.net_weight = netWeight;
+        if (hasBags && !isNaN(parsedBags)) item.bags = parsedBags;
+        return item;
+      })
+      .filter(Boolean);
+
+    if (sanitizedContainers.length > 0) {
+      cleaned.containers = sanitizedContainers;
+
+      // Always keep top-level gross_weight & net_weight (in MTS) strictly synchronized
+      // with the sanitized container weights (in KG / 1000) to prevent mismatch errors.
+      let totalGrossMilliKg = 0;
+      let totalNetMilliKg = 0;
+      for (const item of sanitizedContainers) {
+        if (item && item.gross_weight !== undefined) {
+          const gw = Number(String(item.gross_weight).replace(/,/g, '').trim());
+          if (!isNaN(gw) && isFinite(gw) && gw > 0) {
+            totalGrossMilliKg += Math.round(gw * 1000);
+          }
+        }
+        if (item && item.net_weight !== undefined) {
+          const nw = Number(String(item.net_weight).replace(/,/g, '').trim());
+          if (!isNaN(nw) && isFinite(nw) && nw > 0) {
+            totalNetMilliKg += Math.round(nw * 1000);
+          }
+        }
+      }
+
+      cleaned.gross_weight = (Math.round(totalGrossMilliKg / 1000) / 1000).toFixed(3);
+      cleaned.net_weight = (Math.round(totalNetMilliKg / 1000) / 1000).toFixed(3);
+    } else {
+      delete cleaned.containers;
+      if (cleaned.gross_weight !== undefined) cleaned.gross_weight = '0.000';
+      if (cleaned.net_weight !== undefined) cleaned.net_weight = '0.000';
+    }
+  } else {
+    if (cleaned.gross_weight !== undefined) cleaned.gross_weight = '0.000';
+    if (cleaned.net_weight !== undefined) cleaned.net_weight = '0.000';
   }
 
   return cleaned;
@@ -9700,61 +9840,127 @@ export function extractLinkedBillOfLadingId(data: any): string {
 }
 
 export function extractBillOfLadingData(data: any): any {
-  if (!data) return null;
+  if (!data || typeof data !== 'object') return null;
+
+  // Never treat error responses as valid Bill of Lading data
+  if (
+    data.success === false ||
+    data.success === 0 ||
+    data.status === false ||
+    data.status === 0 ||
+    (typeof data.statusCode === 'number' && data.statusCode >= 400) ||
+    Boolean(data.error)
+  ) {
+    return null;
+  }
+
   const d = data.data !== undefined ? data.data : data;
-  if (!d) return null;
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
 
   const raw =
-    d.bill_of_lading ||
-    d.billOfLading ||
-    d.lading ||
-    d.document ||
-    d.details ||
+    (d.bill_of_lading && typeof d.bill_of_lading === 'object' ? d.bill_of_lading : null) ||
+    (d.billOfLading && typeof d.billOfLading === 'object' ? d.billOfLading : null) ||
+    (d.lading && typeof d.lading === 'object' ? d.lading : null) ||
+    (d.document && typeof d.document === 'object' ? d.document : null) ||
+    (d.details && typeof d.details === 'object' ? d.details : null) ||
     d;
 
   const merged: any = {
-    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...d,
     ...(typeof raw === 'object' && raw !== null ? raw : {}),
   };
+
+  // Preserve rich nested objects (country_of_origin with id/name, destination_port with country, loading_port with id/country)
+  if (
+    d.country_of_origin &&
+    typeof d.country_of_origin === 'object' &&
+    (typeof merged.country_of_origin !== 'object' || !merged.country_of_origin?.id)
+  ) {
+    merged.country_of_origin = d.country_of_origin;
+  }
+  if (
+    d.destination_port &&
+    typeof d.destination_port === 'object' &&
+    d.destination_port.country &&
+    (typeof merged.destination_port !== 'object' || !merged.destination_port?.country)
+  ) {
+    merged.destination_port = d.destination_port;
+  }
+  if (
+    d.loading_port &&
+    typeof d.loading_port === 'object' &&
+    (typeof merged.loading_port !== 'object' || !merged.loading_port?.id)
+  ) {
+    merged.loading_port = d.loading_port;
+  }
+  if (
+    Array.isArray(d.containers) &&
+    d.containers.length > 0 &&
+    (!Array.isArray(merged.containers) || merged.containers.length === 0)
+  ) {
+    merged.containers = d.containers;
+  }
 
   merged.id = merged.id || merged._id || merged.bill_of_lading_id || merged.lading_id || merged.bl_id;
   if (merged.id) merged.id = String(merged.id);
 
   const hasLadingMarkers = Boolean(
+    merged.bl_number ||
     merged.bl_no ||
     merged.blNo ||
     merged.bill_of_lading_no ||
     merged.bill_of_lading_number ||
+    merged.voyage_number ||
     merged.voyage_no ||
     merged.shipping_line ||
+    merged.vessel_name ||
+    merged.booking_number ||
+    merged.booking_no ||
+    merged.sailing_date ||
+    merged.arrival_date ||
+    merged.shipping_bill_no ||
+    merged.sb_no ||
+    merged.country_of_origin ||
+    merged.destination_port ||
+    merged.place_of_delivery ||
+    merged.seller_details ||
+    merged.shipper_details ||
+    merged.consignee_details ||
+    merged.notify_party_1 ||
+    merged.notify_party_1_instruction ||
+    merged.containers ||
+    merged.fcl !== undefined ||
     d?.bill_of_lading ||
     d?.billOfLading ||
     d?.lading ||
     merged._is_lading_loaded ||
-    ((merged.id || merged._id) && (merged.vessel_name || merged.shipping_line || merged.booking_no || merged.shipper_details)) ||
-    (d && (d.vessel_name || d.shipping_line || d.id || d._id))
+    merged.id ||
+    merged._id
   );
   if (!hasLadingMarkers) {
     return null;
   }
 
+  merged._is_lading_loaded = true;
   return merged;
 }
 
 export function isCompleteBillOfLadingData(data: any): boolean {
   if (!data || typeof data !== 'object') return false;
   return Boolean(
+    data.bl_number ||
     data.bl_no ||
     data.blNo ||
     data.bill_of_lading_no ||
     data.bill_of_lading_number ||
+    data.voyage_number ||
     data.voyage_no ||
     data.shipping_line ||
     data.bill_of_lading_status ||
     data.lading_status ||
     data._is_lading_loaded ||
-    (data.bill_of_lading && typeof data.bill_of_lading === 'object' && (data.bill_of_lading.bl_no || data.bill_of_lading.id)) ||
-    ((data.id || data._id) && (data.vessel_name || data.shipping_line || data.booking_no))
+    (data.bill_of_lading && typeof data.bill_of_lading === 'object' && (data.bill_of_lading.bl_number || data.bill_of_lading.bl_no || data.bill_of_lading.id)) ||
+    ((data.id || data._id) && (data.vessel_name || data.shipping_line || data.booking_number || data.booking_no))
   );
 }
 
@@ -11657,6 +11863,129 @@ export function extractProductDetailsData(
     destinationPorts,
     raw: data,
   };
+}
+
+/**
+ * Extracts and formats loading port options from GET /dms-fields/loading-ports/:countryId
+ * Matches the exact option formatting used in Contract/Confirmation loading port dropdowns.
+ */
+export function extractLoadingPortsData(data: any): SmartDocsProductFieldOption[] {
+  if (!data) return [];
+
+  const d = data.data !== undefined ? data.data : data;
+  let rawList: any[] = [];
+
+  if (Array.isArray(d)) {
+    rawList = d;
+  } else if (Array.isArray(data)) {
+    rawList = data;
+  } else if (d && typeof d === 'object') {
+    const candidateKeys = [
+      'loading_ports',
+      'loadingPorts',
+      'loading_port',
+      'loadingPort',
+      'ports',
+      'port_list',
+      'portsList',
+      'list',
+      'items',
+      'records',
+      'results',
+      'data',
+    ];
+    for (const k of candidateKeys) {
+      if (Array.isArray(d[k])) {
+        rawList = d[k];
+        break;
+      }
+    }
+    if (rawList.length === 0 && typeof data === 'object') {
+      for (const k of candidateKeys) {
+        if (Array.isArray(data[k])) {
+          rawList = data[k];
+          break;
+        }
+      }
+    }
+  }
+
+  const options: SmartDocsProductFieldOption[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const item of rawList) {
+    if (!item) continue;
+    if (typeof item === 'string') {
+      const clean = item.trim();
+      if (clean && !seenKeys.has(clean.toLowerCase())) {
+        seenKeys.add(clean.toLowerCase());
+        options.push({ value: clean, label: clean });
+      }
+      continue;
+    }
+
+    if (typeof item === 'object') {
+      const portObj = item.port && typeof item.port === 'object' ? item.port : item;
+      const portName = String(
+        portObj.name ||
+        portObj.port_name ||
+        portObj.title ||
+        portObj.label ||
+        item.name ||
+        item.port_name ||
+        item.title ||
+        item.label ||
+        ''
+      ).trim();
+
+      if (!portName || portName === '[object Object]') continue;
+
+      let portCountry = '';
+      const c =
+        portObj.country ||
+        portObj.country_name ||
+        portObj.countryName ||
+        item.country ||
+        item.country_name ||
+        item.countryName;
+      if (typeof c === 'string') {
+        portCountry = c.trim();
+      } else if (c && typeof c === 'object') {
+        portCountry = String(c.name || c.title || c.label || '').trim();
+      }
+
+      const displayLabel =
+        portCountry && !portName.toLowerCase().includes(portCountry.toLowerCase())
+          ? `${portName}, ${portCountry}`
+          : portName;
+
+      const value = String(
+        item.id ||
+        item._id ||
+        portObj.id ||
+        portObj._id ||
+        item.code ||
+        portObj.code ||
+        displayLabel
+      ).trim();
+
+      const dedupeKey = `${value}_${displayLabel}`.toLowerCase();
+      if (!seenKeys.has(dedupeKey) && !seenKeys.has(displayLabel.toLowerCase())) {
+        seenKeys.add(dedupeKey);
+        seenKeys.add(displayLabel.toLowerCase());
+        options.push({
+          ...item,
+          id: value || displayLabel,
+          name: portName,
+          value: value || displayLabel,
+          label: displayLabel,
+          subLabel: portCountry ? portCountry : undefined,
+        });
+      }
+    }
+  }
+
+  return options;
 }
 
 export interface SmartDocsPaymentTermsParams {

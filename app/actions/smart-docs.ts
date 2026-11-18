@@ -37,6 +37,7 @@ import {
   extractProductsData,
   type SmartDocsProductOption,
   extractProductDetailsData,
+  extractLoadingPortsData,
   type SmartDocsProductDetailsResult,
   type SmartDocsProductFieldOption,
   extractPaymentTermsData,
@@ -860,6 +861,101 @@ export async function getSmartDocsProductDetailsAction(
       success: false,
       error: error?.message || "Failed to fetch product details",
       data: null,
+    };
+  }
+}
+
+export interface GetSmartDocsLoadingPortsByCountryActionParams {
+  lang?: string;
+  source?: string;
+}
+
+export interface GetSmartDocsLoadingPortsByCountryActionResult {
+  success: boolean;
+  loadingPorts: SmartDocsProductFieldOption[];
+  message?: string;
+  error?: string;
+}
+
+export async function getSmartDocsLoadingPortsByCountryAction(
+  countryId: string,
+  params: GetSmartDocsLoadingPortsByCountryActionParams = {}
+): Promise<GetSmartDocsLoadingPortsByCountryActionResult> {
+  try {
+    const cleanCountryId = sanitizeDocId(countryId);
+    if (!cleanCountryId) {
+      return {
+        success: false,
+        error: "Origin country ID is required",
+        loadingPorts: [],
+      };
+    }
+
+    let token = await getActionToken();
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        loadingPorts: [],
+      };
+    }
+
+    const safeLang = getSafeLang(params.lang || "en");
+    let rawRes = await smartDocsService.getLoadingPortsByCountry(
+      cleanCountryId,
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401 ||
+        rawRes.statusCode === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.getLoadingPortsByCountry(
+            cleanCountryId,
+            {
+              lang: safeLang,
+              source: params.source || "web",
+            },
+            refreshRes.access_token
+          );
+        }
+      } catch (refErr) {
+        console.warn("[getSmartDocsLoadingPortsByCountryAction] Token refresh retry failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch loading ports",
+        loadingPorts: [],
+      };
+    }
+
+    const loadingPorts = extractLoadingPortsData(rawRes);
+
+    return {
+      success: Boolean(rawRes?.success ?? true),
+      loadingPorts,
+      message: rawRes?.message,
+    };
+  } catch (error: any) {
+    console.error("[getSmartDocsLoadingPortsByCountryAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch loading ports",
+      loadingPorts: [],
     };
   }
 }
@@ -3876,10 +3972,38 @@ export async function getBillOfLadingAction(
       };
     }
 
+    if (
+      rawRes.success === false ||
+      rawRes.success === 0 ||
+      rawRes.status === false ||
+      rawRes.status === 0 ||
+      (typeof rawRes.statusCode === "number" && rawRes.statusCode >= 400) ||
+      Boolean(rawRes.error)
+    ) {
+      return {
+        success: false,
+        error: rawRes.message || rawRes.error || "Failed to fetch bill of lading details",
+        data: null,
+      };
+    }
+
     const extData = extractBillOfLadingData(rawRes);
+    const fallbackObj =
+      rawRes.data && typeof rawRes.data === "object" && !Array.isArray(rawRes.data)
+        ? { ...rawRes.data, _is_lading_loaded: true }
+        : null;
+
+    if (!extData && !fallbackObj) {
+      return {
+        success: false,
+        error: rawRes.message || "Bill of Lading data not found",
+        data: null,
+      };
+    }
+
     return {
       success: true,
-      data: extData || rawRes.data || rawRes,
+      data: extData || fallbackObj,
     };
   } catch (error: any) {
     console.error("[getBillOfLadingAction] Error:", error);
@@ -3980,17 +4104,9 @@ export async function saveBillOfLadingDraftAction(
       if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
       if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
       payload.set("is_watermark_enabled", String(isWatermarkBool));
-      payload.set("watermark_enabled", String(isWatermarkBool));
-      payload.set("watermark", String(isWatermarkBool));
       payload.set("pdf_title", safeTitle);
-      payload.set("document_title", safeTitle);
       payload.set("comment_label", effectiveCLabel);
-      payload.set("comment_title", effectiveCLabel);
-      payload.set("notes_title", effectiveCLabel);
       payload.set("comment_value", safeCValue);
-      payload.set("comment_text", safeCValue);
-      payload.set("notes_comment", safeCValue);
-      payload.set("comment", safeCValue);
     } else if (payload && typeof payload === "object") {
       if (effectiveId) {
         payload.bill_of_lading_id = effectiveId;
@@ -4002,17 +4118,9 @@ export async function saveBillOfLadingDraftAction(
       if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
       if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
       payload.is_watermark_enabled = isWatermarkBool;
-      payload.watermark_enabled = isWatermarkBool;
-      payload.watermark = isWatermarkBool;
       payload.pdf_title = safeTitle;
-      payload.document_title = safeTitle;
       payload.comment_label = effectiveCLabel;
-      payload.comment_title = effectiveCLabel;
-      payload.notes_title = effectiveCLabel;
       payload.comment_value = safeCValue;
-      payload.comment_text = safeCValue;
-      payload.notes_comment = safeCValue;
-      payload.comment = safeCValue;
     }
 
     const safeLang = getSafeLang(lang || "en");
@@ -4226,17 +4334,9 @@ export async function submitBillOfLadingAction(
       if (contractIdInPayload) payload.set("contract_id", String(contractIdInPayload));
       if (confIdInPayload) payload.set("confirmation_id", String(confIdInPayload));
       payload.set("is_watermark_enabled", String(isWatermarkBool));
-      payload.set("watermark_enabled", String(isWatermarkBool));
-      payload.set("watermark", String(isWatermarkBool));
       payload.set("pdf_title", safeTitle);
-      payload.set("document_title", safeTitle);
       payload.set("comment_label", effectiveCLabel);
-      payload.set("comment_title", effectiveCLabel);
-      payload.set("notes_title", effectiveCLabel);
       payload.set("comment_value", safeCValue);
-      payload.set("comment_text", safeCValue);
-      payload.set("notes_comment", safeCValue);
-      payload.set("comment", safeCValue);
     } else if (payload && typeof payload === "object") {
       if (effectiveId) {
         payload.bill_of_lading_id = effectiveId;
@@ -4248,17 +4348,9 @@ export async function submitBillOfLadingAction(
       if (contractIdInPayload) payload.contract_id = String(contractIdInPayload);
       if (confIdInPayload) payload.confirmation_id = String(confIdInPayload);
       payload.is_watermark_enabled = isWatermarkBool;
-      payload.watermark_enabled = isWatermarkBool;
-      payload.watermark = isWatermarkBool;
       payload.pdf_title = safeTitle;
-      payload.document_title = safeTitle;
       payload.comment_label = effectiveCLabel;
-      payload.comment_title = effectiveCLabel;
-      payload.notes_title = effectiveCLabel;
       payload.comment_value = safeCValue;
-      payload.comment_text = safeCValue;
-      payload.notes_comment = safeCValue;
-      payload.comment = safeCValue;
     }
 
     const safeLang = getSafeLang(lang || "en");
