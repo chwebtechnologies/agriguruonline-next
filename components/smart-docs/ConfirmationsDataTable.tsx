@@ -1279,7 +1279,11 @@ export function ConfirmationsDataTable({
             row.unit_price ??
             row.unitPrice ??
             row.target_price;
-          const currency = row.currency || row.currency_code || row.price_currency || '$';
+          const rawCur = row.currency || row.currency_code || row.price_currency;
+          const currency =
+            row.currency_symbol && typeof rawCur !== 'object'
+              ? { code: rawCur || 'USD', symbol: row.currency_symbol }
+              : rawCur || row.currency_symbol || 'USD';
           const unit = row.price_unit || row.rate_unit || row.uom || row.unit;
           if (price === undefined || price === null || price === '') {
             return <span className="text-[14px] text-muted-foreground">—</span>;
@@ -1370,7 +1374,11 @@ export function ConfirmationsDataTable({
             row.contract_value ??
             row.value ??
             row.amount;
-          const currency = row.currency || row.currency_code || '$';
+          const rawCur = row.currency || row.currency_code;
+          const currency =
+            row.currency_symbol && typeof rawCur !== 'object'
+              ? { code: rawCur || 'USD', symbol: row.currency_symbol }
+              : rawCur || row.currency_symbol || 'USD';
           if (val === undefined || val === null || val === '') {
             return <span className="text-[14px] text-muted-foreground">—</span>;
           }

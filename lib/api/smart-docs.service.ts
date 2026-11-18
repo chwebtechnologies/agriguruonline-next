@@ -784,9 +784,6 @@ async function executeResilientSubmit(options: {
   };
 }
 
-const buyerConsigneesCache = new Map<string, any>();
-const buyerNotifyPartiesCache = new Map<string, any>();
-
 export const smartDocsService = {
   /**
    * Fetches the Smart Docs list with authentication:
@@ -2978,10 +2975,6 @@ export const smartDocsService = {
     const safeLang = getSafeLang(params.lang || 'en');
     const source = params.source || 'web';
 
-    for (const k of buyerNotifyPartiesCache.keys()) {
-      if (k.startsWith(cleanId)) buyerNotifyPartiesCache.delete(k);
-    }
-
     const url = `${baseUrl}/instructions/${encodeURIComponent(cleanId)}`;
 
     const isFormData =
@@ -3162,9 +3155,6 @@ export const smartDocsService = {
   },
 
   /**
-   * Fetches consignee details for a buyer with authentication
-   */
-  /**
    * Fetches consignee details for a buyer with authentication:
    * GET /instructions/buyer-instruction/consignee/:buyerId?lang_code=en&source=web
    */
@@ -3179,58 +3169,116 @@ export const smartDocsService = {
     const cleanId = sanitizeDocId(buyerId);
     if (!cleanId) return null;
 
-    const cacheKey = `${cleanId}_${safeLang}`;
-    if (buyerConsigneesCache.has(cacheKey)) {
-      return buyerConsigneesCache.get(cacheKey);
-    }
-
-    const endpoints = [
+    const dedicatedEndpoints = [
       `${baseUrl}/instructions/buyer-instruction/consignee/${encodeURIComponent(cleanId)}`,
-      `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
       `${baseUrl}/dms-fields/buyer-instruction/consignee/${encodeURIComponent(cleanId)}`,
-      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=B`,
     ];
 
-    for (const url of endpoints) {
+    for (const url of dedicatedEndpoints) {
       try {
         const res = await customFetchJSON<any>(url, {
           token,
           params: { lang_code: safeLang, source: params.source || 'web' },
           cache: 'no-store',
         });
-        if (res) {
-          const root = res.data ?? res;
-          const candidate = Array.isArray(root) ? root : root.instruction ?? root;
-          const rawItems =
-            (Array.isArray(root) && root) ||
-            (Array.isArray(root.items) && root.items) ||
-            (Array.isArray(root.consignees) && root.consignees) ||
-            (Array.isArray(root.consignee) && root.consignee) ||
-            (Array.isArray(root.consignee_details) && root.consignee_details) ||
-            (Array.isArray(candidate?.consignees) && candidate.consignees) ||
-            (Array.isArray(candidate?.consignee) && candidate.consignee) ||
-            (Array.isArray(candidate?.consignee_details) && candidate.consignee_details) ||
-            (Array.isArray(res.items) && res.items) ||
-            (Array.isArray(res.consignees) && res.consignees) ||
-            (Array.isArray(res.consignee) && res.consignee) ||
-            (Array.isArray(res.consignee_details) && res.consignee_details) ||
-            (typeof root === 'object' && root !== null && !Array.isArray(root) && (root.company_name || root.name || root.address) ? [root] : null);
-          if (Array.isArray(rawItems) && rawItems.length > 0) {
-            const result = { success: true, data: rawItems };
-            buyerConsigneesCache.set(cacheKey, result);
-            return result;
+        if (!res) continue;
+
+        const isSuccessStatus =
+          res.success === true ||
+          res.status === true ||
+          res.status === 200 ||
+          res.statusCode === 200 ||
+          Array.isArray(res) ||
+          Array.isArray(res.data);
+
+        const root = res.data !== undefined ? res.data : res;
+        const candidate = Array.isArray(root) ? root : root?.instruction ?? root?.data ?? root;
+        const rawItems =
+          (Array.isArray(root) && root) ||
+          (Array.isArray(root?.items) && root.items) ||
+          (Array.isArray(root?.list) && root.list) ||
+          (Array.isArray(root?.rows) && root.rows) ||
+          (Array.isArray(root?.results) && root.results) ||
+          (Array.isArray(root?.consignees) && root.consignees) ||
+          (Array.isArray(root?.consignee) && root.consignee) ||
+          (Array.isArray(root?.consignee_details) && root.consignee_details) ||
+          (Array.isArray(root?.consignees_details) && root.consignees_details) ||
+          (Array.isArray(root?.consignee_list) && root.consignee_list) ||
+          (Array.isArray(candidate) && candidate) ||
+          (Array.isArray(candidate?.items) && candidate.items) ||
+          (Array.isArray(candidate?.consignees) && candidate.consignees) ||
+          (Array.isArray(candidate?.consignee) && candidate.consignee) ||
+          (Array.isArray(candidate?.consignee_details) && candidate.consignee_details) ||
+          (Array.isArray(candidate?.consignees_details) && candidate.consignees_details) ||
+          (Array.isArray(res.items) && res.items) ||
+          (Array.isArray(res.consignees) && res.consignees) ||
+          (Array.isArray(res.consignee) && res.consignee) ||
+          (Array.isArray(res.consignee_details) && res.consignee_details) ||
+          null;
+
+        if (Array.isArray(rawItems)) {
+          if (rawItems.length > 0 || isSuccessStatus) {
+            return { success: true, data: rawItems };
           }
-          if (res?.success && Array.isArray(rawItems)) {
-            const result = { success: true, data: rawItems };
-            buyerConsigneesCache.set(cacheKey, result);
-            return result;
-          }
+        }
+        // Only treat a single non-array object on a dedicated consignee endpoint as a single consignee
+        if (
+          isSuccessStatus &&
+          typeof root === 'object' &&
+          root !== null &&
+          !Array.isArray(root) &&
+          !('consignees' in root) &&
+          !('notify_parties' in root) &&
+          (root.consignee_details_id || root.consignee_id || root.company_name || root.name || root.address)
+        ) {
+          return { success: true, data: [root] };
+        }
+        if (isSuccessStatus && (root === null || (typeof root === 'object' && Object.keys(root).length === 0))) {
+          return { success: true, data: [] };
         }
       } catch {}
     }
-    const emptyResult = { success: true, data: [] };
-    buyerConsigneesCache.set(cacheKey, emptyResult);
-    return emptyResult;
+
+    // Fallback to parent buyer-instruction endpoints ONLY if dedicated consignee endpoints were unavailable.
+    // Strictly extract explicit consignee array properties; NEVER treat the parent buyer object itself as a consignee.
+    const parentEndpoints = [
+      `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=B`,
+    ];
+
+    for (const url of parentEndpoints) {
+      try {
+        const res = await customFetchJSON<any>(url, {
+          token,
+          params: { lang_code: safeLang, source: params.source || 'web' },
+          cache: 'no-store',
+        });
+        if (!res) continue;
+
+        const root = res.data !== undefined ? res.data : res;
+        const candidate = Array.isArray(root) ? root[0] : root?.instruction ?? root;
+        const rawItems =
+          (Array.isArray(root?.consignees) && root.consignees) ||
+          (Array.isArray(root?.consignee) && root.consignee) ||
+          (Array.isArray(root?.consignee_details) && root.consignee_details) ||
+          (Array.isArray(root?.consignees_details) && root.consignees_details) ||
+          (Array.isArray(root?.consignee_list) && root.consignee_list) ||
+          (Array.isArray(candidate?.consignees) && candidate.consignees) ||
+          (Array.isArray(candidate?.consignee) && candidate.consignee) ||
+          (Array.isArray(candidate?.consignee_details) && candidate.consignee_details) ||
+          (Array.isArray(candidate?.consignees_details) && candidate.consignees_details) ||
+          (Array.isArray(res.consignees) && res.consignees) ||
+          (Array.isArray(res.consignee) && res.consignee) ||
+          (Array.isArray(res.consignee_details) && res.consignee_details) ||
+          null;
+
+        if (Array.isArray(rawItems)) {
+          return { success: true, data: rawItems };
+        }
+      } catch {}
+    }
+
+    return { success: true, data: [] };
   },
 
   /**
@@ -3250,10 +3298,6 @@ export const smartDocsService = {
     const cleanId = sanitizeDocId(buyerId);
     const safeLang = getSafeLang(params.lang || 'en');
     const source = params.source || 'web';
-
-    for (const k of buyerConsigneesCache.keys()) {
-      if (k.startsWith(cleanId)) buyerConsigneesCache.delete(k);
-    }
 
     let rawItems: any[] = [];
     if (Array.isArray(payload)) {
@@ -3461,60 +3505,126 @@ export const smartDocsService = {
     const cleanId = sanitizeDocId(buyerId);
     if (!cleanId) return null;
 
-    const cacheKey = `${cleanId}_${safeLang}`;
-    if (buyerNotifyPartiesCache.has(cacheKey)) {
-      return buyerNotifyPartiesCache.get(cacheKey);
-    }
-
-    const endpoints = [
+    const dedicatedEndpoints = [
       `${baseUrl}/instructions/buyer-instruction/notify/${encodeURIComponent(cleanId)}`,
-      `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
       `${baseUrl}/dms-fields/buyer-instruction/notify/${encodeURIComponent(cleanId)}`,
-      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=B`,
     ];
 
-    for (const url of endpoints) {
+    for (const url of dedicatedEndpoints) {
       try {
         const res = await customFetchJSON<any>(url, {
           token,
           params: { lang_code: safeLang, source: params.source || 'web' },
           cache: 'no-store',
         });
-        if (res) {
-          const root = res.data ?? res;
-          const candidate = Array.isArray(root) ? root : root.instruction ?? root;
-          const rawItems =
-            (Array.isArray(root) && root) ||
-            (Array.isArray(root.items) && root.items) ||
-            (Array.isArray(root.notify_parties) && root.notify_parties) ||
-            (Array.isArray(root.notify_party) && root.notify_party) ||
-            (Array.isArray(root.notify_party_details) && root.notify_party_details) ||
-            (Array.isArray(root.notifies) && root.notifies) ||
-            (Array.isArray(candidate?.notify_parties) && candidate.notify_parties) ||
-            (Array.isArray(candidate?.notify_party) && candidate.notify_party) ||
-            (Array.isArray(candidate?.notify_party_details) && candidate.notify_party_details) ||
-            (Array.isArray(candidate?.notifies) && candidate.notifies) ||
-            (Array.isArray(res.items) && res.items) ||
-            (Array.isArray(res.notify_parties) && res.notify_parties) ||
-            (Array.isArray(res.notify_party) && res.notify_party) ||
-            (Array.isArray(res.notify_party_details) && res.notify_party_details) ||
-            (typeof root === 'object' && root !== null && !Array.isArray(root) && (root.company_name || root.name || root.address) ? [root] : null);
-          if (Array.isArray(rawItems) && rawItems.length > 0) {
-            const result = { success: true, data: rawItems };
-            buyerNotifyPartiesCache.set(cacheKey, result);
-            return result;
+        if (!res) continue;
+
+        const isSuccessStatus =
+          res.success === true ||
+          res.status === true ||
+          res.status === 200 ||
+          res.statusCode === 200 ||
+          Array.isArray(res) ||
+          Array.isArray(res.data);
+
+        const root = res.data !== undefined ? res.data : res;
+        const candidate = Array.isArray(root) ? root : root?.instruction ?? root?.data ?? root;
+        const rawItems =
+          (Array.isArray(root) && root) ||
+          (Array.isArray(root?.items) && root.items) ||
+          (Array.isArray(root?.list) && root.list) ||
+          (Array.isArray(root?.rows) && root.rows) ||
+          (Array.isArray(root?.results) && root.results) ||
+          (Array.isArray(root?.notify_parties) && root.notify_parties) ||
+          (Array.isArray(root?.notify_party) && root.notify_party) ||
+          (Array.isArray(root?.notify_party_details) && root.notify_party_details) ||
+          (Array.isArray(root?.notify_parties_details) && root.notify_parties_details) ||
+          (Array.isArray(root?.notifies) && root.notifies) ||
+          (Array.isArray(root?.notify) && root.notify) ||
+          (Array.isArray(root?.notifyParty) && root.notifyParty) ||
+          (Array.isArray(root?.notify_list) && root.notify_list) ||
+          (Array.isArray(candidate) && candidate) ||
+          (Array.isArray(candidate?.items) && candidate.items) ||
+          (Array.isArray(candidate?.notify_parties) && candidate.notify_parties) ||
+          (Array.isArray(candidate?.notify_party) && candidate.notify_party) ||
+          (Array.isArray(candidate?.notify_party_details) && candidate.notify_party_details) ||
+          (Array.isArray(candidate?.notify_parties_details) && candidate.notify_parties_details) ||
+          (Array.isArray(candidate?.notifies) && candidate.notifies) ||
+          (Array.isArray(res.items) && res.items) ||
+          (Array.isArray(res.notify_parties) && res.notify_parties) ||
+          (Array.isArray(res.notify_party) && res.notify_party) ||
+          (Array.isArray(res.notify_party_details) && res.notify_party_details) ||
+          (Array.isArray(res.notifies) && res.notifies) ||
+          null;
+
+        if (Array.isArray(rawItems)) {
+          if (rawItems.length > 0 || isSuccessStatus) {
+            return { success: true, data: rawItems };
           }
-          if (res?.success && Array.isArray(rawItems)) {
-            const result = { success: true, data: rawItems };
-            buyerNotifyPartiesCache.set(cacheKey, result);
-            return result;
-          }
+        }
+        // Only treat a single non-array object on a dedicated notify endpoint as a single notify party
+        if (
+          isSuccessStatus &&
+          typeof root === 'object' &&
+          root !== null &&
+          !Array.isArray(root) &&
+          !('consignees' in root) &&
+          !('notify_parties' in root) &&
+          (root.notify_party_details_id || root.notify_party_id || root.company_name || root.name || root.address)
+        ) {
+          return { success: true, data: [root] };
+        }
+        if (isSuccessStatus && (root === null || (typeof root === 'object' && Object.keys(root).length === 0))) {
+          return { success: true, data: [] };
         }
       } catch {}
     }
-    const emptyResult = { success: true, data: [] };
-    buyerNotifyPartiesCache.set(cacheKey, emptyResult);
-    return emptyResult;
+
+    // Fallback to parent buyer-instruction endpoints ONLY if dedicated notify endpoints were unavailable.
+    // Strictly extract explicit notify party array properties; NEVER treat the parent buyer object itself as a notify party.
+    const parentEndpoints = [
+      `${baseUrl}/instructions/buyer-instruction/${encodeURIComponent(cleanId)}`,
+      `${baseUrl}/instructions/${encodeURIComponent(cleanId)}?type=B`,
+    ];
+
+    for (const url of parentEndpoints) {
+      try {
+        const res = await customFetchJSON<any>(url, {
+          token,
+          params: { lang_code: safeLang, source: params.source || 'web' },
+          cache: 'no-store',
+        });
+        if (!res) continue;
+
+        const root = res.data !== undefined ? res.data : res;
+        const candidate = Array.isArray(root) ? root[0] : root?.instruction ?? root;
+        const rawItems =
+          (Array.isArray(root?.notify_parties) && root.notify_parties) ||
+          (Array.isArray(root?.notify_party) && root.notify_party) ||
+          (Array.isArray(root?.notify_party_details) && root.notify_party_details) ||
+          (Array.isArray(root?.notify_parties_details) && root.notify_parties_details) ||
+          (Array.isArray(root?.notifies) && root.notifies) ||
+          (Array.isArray(root?.notify) && root.notify) ||
+          (Array.isArray(root?.notifyParty) && root.notifyParty) ||
+          (Array.isArray(root?.notify_list) && root.notify_list) ||
+          (Array.isArray(candidate?.notify_parties) && candidate.notify_parties) ||
+          (Array.isArray(candidate?.notify_party) && candidate.notify_party) ||
+          (Array.isArray(candidate?.notify_party_details) && candidate.notify_party_details) ||
+          (Array.isArray(candidate?.notify_parties_details) && candidate.notify_parties_details) ||
+          (Array.isArray(candidate?.notifies) && candidate.notifies) ||
+          (Array.isArray(res.notify_parties) && res.notify_parties) ||
+          (Array.isArray(res.notify_party) && res.notify_party) ||
+          (Array.isArray(res.notify_party_details) && res.notify_party_details) ||
+          (Array.isArray(res.notifies) && res.notifies) ||
+          null;
+
+        if (Array.isArray(rawItems)) {
+          return { success: true, data: rawItems };
+        }
+      } catch {}
+    }
+
+    return { success: true, data: [] };
   },
 
   /**
@@ -3534,10 +3644,6 @@ export const smartDocsService = {
     const cleanId = sanitizeDocId(buyerId);
     const safeLang = getSafeLang(params.lang || 'en');
     const source = params.source || 'web';
-
-    for (const k of buyerNotifyPartiesCache.keys()) {
-      if (k.startsWith(cleanId)) buyerNotifyPartiesCache.delete(k);
-    }
 
     let rawItems: any[] = [];
     if (Array.isArray(payload)) {
@@ -7040,6 +7146,13 @@ export function cleanConfirmationPayload(payload: Record<string, any>): Record<s
         key === 'transhipment_allowed' ||
         key === 'transit_clause_allowed' ||
         key === 'any_advance' ||
+        key === 'advance_payment_type' ||
+        key === 'advance_payment_amt' ||
+        key === 'advance_payment_pct' ||
+        key === 'advance_type' ||
+        key === 'advance_amount' ||
+        key === 'advance_percentage' ||
+        key === 'advance_pct' ||
         key === 'is_broker' ||
         key === 'sales_broker_allowed' ||
         key === 'broker_commission_type' ||
@@ -7892,6 +8005,26 @@ export function extractShipmentInstructionData(data: any): any {
   merged.id = merged.id || merged._id || merged.shipment_instruction_id || merged.instruction_id;
   if (merged.id) merged.id = String(merged.id);
 
+  // Normalize buyer_instruction_id from SI response (used to fetch buyer's consignees & notify parties)
+  const rawBuyerInstId =
+    merged.buyer_instruction_id ||
+    merged.buyerInstructionId ||
+    (typeof merged.buyer_instruction === 'object' && merged.buyer_instruction !== null
+      ? merged.buyer_instruction.id || merged.buyer_instruction._id || merged.buyer_instruction.buyer_instruction_id
+      : '') ||
+    (typeof d === 'object' && d !== null ? d.buyer_instruction_id || d.buyerInstructionId : '') ||
+    merged.shipment_instruction?.buyer_instruction_id ||
+    merged.shipment_instruction?.buyerInstructionId ||
+    merged.buyer?.buyer_instruction_id ||
+    merged.proforma?.buyer_instruction_id ||
+    merged.contract?.buyer_instruction_id ||
+    merged.confirmation?.buyer_instruction_id ||
+    '';
+  const cleanBuyerInstId = sanitizeDocId(rawBuyerInstId);
+  if (cleanBuyerInstId) {
+    merged.buyer_instruction_id = cleanBuyerInstId;
+  }
+
   // Normalize status
   if (!merged.status) {
     merged.status = merged.shipment_status || merged.document_status || merged.step_status || 'PENDING';
@@ -8413,6 +8546,13 @@ export function cleanContractPayload(payload: Record<string, any>): Record<strin
         key === 'transhipment_allowed' ||
         key === 'transit_clause_allowed' ||
         key === 'any_advance' ||
+        key === 'advance_payment_type' ||
+        key === 'advance_payment_amt' ||
+        key === 'advance_payment_pct' ||
+        key === 'advance_type' ||
+        key === 'advance_amount' ||
+        key === 'advance_percentage' ||
+        key === 'advance_pct' ||
         key === 'is_broker' ||
         key === 'sales_broker_allowed' ||
         key === 'broker_commission_type' ||
@@ -9422,9 +9562,16 @@ export function extractLinkedCustomInvoiceId(data: any): string {
 }
 
 export function extractCustomInvoiceData(data: any): any {
-  if (!data) return null;
+  if (!data || typeof data !== 'object') return null;
+  if (
+    data.success === false ||
+    data.status === false ||
+    (typeof data.statusCode === 'number' && data.statusCode >= 400)
+  ) {
+    return null;
+  }
   const d = data.data !== undefined ? data.data : data;
-  if (!d) return null;
+  if (!d || typeof d !== 'object') return null;
 
   const raw =
     d.custom_invoice ||
@@ -9438,6 +9585,42 @@ export function extractCustomInvoiceData(data: any): any {
     ...(typeof d === 'object' && d !== null ? d : {}),
     ...(typeof raw === 'object' && raw !== null ? raw : {}),
   };
+
+  // Preserve non-empty gross_weight and net_weight across outer/nested payloads
+  if (
+    (merged.gross_weight === undefined || merged.gross_weight === null || String(merged.gross_weight).trim() === '') &&
+    d?.gross_weight !== undefined &&
+    d?.gross_weight !== null &&
+    String(d.gross_weight).trim() !== ''
+  ) {
+    merged.gross_weight = d.gross_weight;
+  }
+  if (
+    (merged.net_weight === undefined || merged.net_weight === null || String(merged.net_weight).trim() === '') &&
+    d?.net_weight !== undefined &&
+    d?.net_weight !== null &&
+    String(d.net_weight).trim() !== ''
+  ) {
+    merged.net_weight = d.net_weight;
+  }
+
+  // Preserve loading_port / destination_port objects with nested country.name
+  if (
+    typeof d?.loading_port === 'object' &&
+    d.loading_port !== null &&
+    d.loading_port.country &&
+    (typeof merged.loading_port !== 'object' || merged.loading_port === null || !merged.loading_port.country)
+  ) {
+    merged.loading_port = d.loading_port;
+  }
+  if (
+    typeof d?.destination_port === 'object' &&
+    d.destination_port !== null &&
+    d.destination_port.country &&
+    (typeof merged.destination_port !== 'object' || merged.destination_port === null || !merged.destination_port.country)
+  ) {
+    merged.destination_port = d.destination_port;
+  }
 
   merged.id = merged.id || merged._id || merged.custom_invoice_id || merged.invoice_id;
   if (merged.id) merged.id = String(merged.id);
@@ -9462,6 +9645,12 @@ export function extractCustomInvoiceData(data: any): any {
     d?.customInvoice ||
     merged.custom_invoice_id ||
     merged._is_custom_invoice_loaded ||
+    merged.gross_weight !== undefined ||
+    merged.net_weight !== undefined ||
+    merged.fob_rate !== undefined ||
+    merged.freight_rate !== undefined ||
+    merged.commission_rate !== undefined ||
+    merged.price_per_bag !== undefined ||
     ((merged.id || merged._id) && (merged.invoice_number || merged.goods_description || merged.total_value)) ||
     (d && (d.invoice_number || d.goods_description || d.id || d._id))
   );
@@ -9469,6 +9658,7 @@ export function extractCustomInvoiceData(data: any): any {
     return null;
   }
 
+  merged._is_custom_invoice_loaded = true;
   return merged;
 }
 
@@ -11645,6 +11835,7 @@ export interface SmartDocsCurrencyOption {
   code?: string;
   symbol?: string;
   subLabel?: string;
+  searchText?: string;
   badge?: string;
   raw?: any;
   [key: string]: any;
@@ -11875,34 +12066,140 @@ export function normalizeCurrencyCode(val: any): string {
   return 'USD';
 }
 
+const DYNAMIC_CURRENCY_SYMBOLS: Record<string, string> = {};
+
+function getFallbackCurrencySymbol(code: string): string {
+  const upper = String(code || '').trim().toUpperCase();
+  if (!upper) return '$';
+  if (KNOWN_CURRENCIES[upper]?.symbol) {
+    return KNOWN_CURRENCIES[upper].symbol;
+  }
+  if (DYNAMIC_CURRENCY_SYMBOLS[upper]) {
+    return DYNAMIC_CURRENCY_SYMBOLS[upper];
+  }
+  if (/^[A-Z]{3}$/.test(upper)) {
+    try {
+      const parts = new Intl.NumberFormat('en', {
+        style: 'currency',
+        currency: upper,
+        currencyDisplay: 'narrowSymbol',
+      }).formatToParts(0);
+      const sym = parts.find((p) => p.type === 'currency')?.value?.trim();
+      if (sym) {
+        return sym;
+      }
+    } catch {
+      // Ignore unrecognized ISO currency codes
+    }
+    return upper === 'USD' ? '$' : upper;
+  }
+  return upper === 'USD' ? '$' : upper;
+}
+
 /**
- * Returns the currency symbol for formatting or display (defaults to '$' for USD/unrecognized).
+ * Returns the currency symbol for formatting or display.
+ * Resolves dynamically from the provided currencies list, currency object, known/cached API symbols, or Intl narrowSymbol.
  */
-export function getCurrencySymbol(currencyOrCode: any): string {
+export function getCurrencySymbol(currencyOrCode: any, currenciesList?: any[]): string {
+  if (!currencyOrCode) return '$';
+
   if (typeof currencyOrCode === 'object' && currencyOrCode) {
+    const objCode = normalizeCurrencyCode(currencyOrCode);
+    const knownSym = KNOWN_CURRENCIES[objCode]?.symbol;
     const sym =
       currencyOrCode.symbol ||
       currencyOrCode.currency_symbol ||
       currencyOrCode.currencySymbol ||
       currencyOrCode.sign;
     if (sym && typeof sym === 'string' && sym.trim()) {
-      return sym.trim();
+      const cleanSym = sym.trim();
+      // For known disambiguated dollar currencies (e.g. AUD -> A$, CAD -> C$), prefer the disambiguated symbol over bare '$'
+      const resolvedSym = cleanSym === '$' && knownSym && knownSym !== '$' ? knownSym : cleanSym;
+      if (objCode && /^[A-Z]{3}$/.test(objCode)) {
+        DYNAMIC_CURRENCY_SYMBOLS[objCode] = resolvedSym;
+      }
+      return resolvedSym;
     }
   }
-  const code = normalizeCurrencyCode(currencyOrCode);
-  if (KNOWN_CURRENCIES[code]?.symbol) {
-    return KNOWN_CURRENCIES[code].symbol;
+
+  if (currenciesList && Array.isArray(currenciesList) && currenciesList.length > 0) {
+    const rawStr = typeof currencyOrCode === 'string' ? currencyOrCode.trim() : '';
+    const rawObjId =
+      typeof currencyOrCode === 'object' && currencyOrCode
+        ? String(currencyOrCode.id || currencyOrCode._id || currencyOrCode.currency_id || currencyOrCode.currencyId || '').trim()
+        : '';
+    const lookupId = rawObjId || rawStr;
+
+    const idMatch = lookupId
+      ? currenciesList.find(
+          (item: any) =>
+            String(item.id || '') === lookupId ||
+            String(item._id || '') === lookupId ||
+            String(item.raw?.id || '') === lookupId ||
+            String(item.raw?._id || '') === lookupId ||
+            String(item.raw?.currency_id || '') === lookupId
+        )
+      : undefined;
+
+    const targetCode = !idMatch ? normalizeCurrencyCode(currencyOrCode) : '';
+    const match =
+      idMatch ||
+      currenciesList.find(
+        (item: any) =>
+          (item.value && String(item.value).toUpperCase() === targetCode) ||
+          (item.code && String(item.code).toUpperCase() === targetCode) ||
+          (rawStr && item.label && String(item.label).toUpperCase() === rawStr.toUpperCase())
+      );
+
+    if (match) {
+      const matchCode = String(match.code || match.value || targetCode || '').toUpperCase();
+      const knownSym = KNOWN_CURRENCIES[matchCode]?.symbol;
+      const matchSym =
+        match.symbol ||
+        match.currency_symbol ||
+        match.raw?.symbol ||
+        match.raw?.currency_symbol;
+      if (matchSym && typeof matchSym === 'string' && matchSym.trim()) {
+        const cleanSym = matchSym.trim();
+        return cleanSym === '$' && knownSym && knownSym !== '$' ? knownSym : cleanSym;
+      }
+      if (typeof match.label === 'string') {
+        const parenMatch = match.label.match(/\(([^)]+)\)/);
+        if (parenMatch && parenMatch[1]?.trim()) {
+          return parenMatch[1].trim();
+        }
+      }
+      if (matchCode) {
+        return getFallbackCurrencySymbol(matchCode);
+      }
+    }
   }
-  return '$';
+
+  if (typeof currencyOrCode === 'string') {
+    const trimmed = currencyOrCode.trim();
+    // If string is already formatted like "AWG (ƒ)" or "BAM (KM)", extract the symbol inside parentheses
+    const parenMatch = trimmed.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1]?.trim()) {
+      return parenMatch[1].trim();
+    }
+    // If string itself is a non-alphanumeric symbol (e.g. '₹', '€', '£', 'ƒ', '₼', '৳')
+    if (trimmed.length > 0 && trimmed.length <= 4 && !/^[A-Za-z0-9]+$/.test(trimmed) && trimmed !== '$') {
+      return trimmed;
+    }
+  }
+
+  const code = normalizeCurrencyCode(currencyOrCode);
+  return getFallbackCurrencySymbol(code);
 }
 
 /**
  * Robustly normalizes any raw currency item, object, or code into a structured SmartDocsCurrencyOption.
- * Guarantees that "US Dollar" / "US DOLLAR" is cleanly represented as { value: 'USD', label: 'USD ($)', code: 'USD', symbol: '$' }.
+ * Guarantees clean short-code + symbol format (e.g. "AUD (A$)", "USD ($)") with no inconsistent subtitle names.
  */
 export function normalizeCurrencyOption(raw: any, existingList?: any[]): SmartDocsCurrencyOption {
   let id: string | undefined = undefined;
   let rawSymbol: string | undefined = undefined;
+  let rawName: string | undefined = undefined;
   let rawObj: any = undefined;
 
   if (raw && typeof raw === 'object') {
@@ -11914,6 +12211,12 @@ export function normalizeCurrencyOption(raw: any, existingList?: any[]): SmartDo
       raw.currencySymbol ||
       raw.sign ||
       raw.icon;
+    rawName =
+      raw.name ||
+      raw.currency_name ||
+      raw.currencyName ||
+      raw.full_name ||
+      raw.fullName;
   } else if (typeof raw === 'string') {
     const trimmed = raw.trim();
     if (
@@ -11929,31 +12232,45 @@ export function normalizeCurrencyOption(raw: any, existingList?: any[]): SmartDo
   const code = normalizeCurrencyCode(raw);
   const known = KNOWN_CURRENCIES[code];
 
-  // Check if an existing option matches by ID or Code in existingList
+  // Check if an existing option matches by ID first, then by Code in existingList
   if (existingList && Array.isArray(existingList) && existingList.length > 0) {
     const rawIdStr = id ? String(id) : typeof raw === 'string' ? raw.trim() : '';
-    const match = existingList.find(
-      (item: any) =>
-        (rawIdStr && (
-          String(item.id) === rawIdStr ||
-          String(item._id) === rawIdStr ||
-          String(item.value) === rawIdStr ||
-          String(item.raw?.id) === rawIdStr ||
-          String(item.raw?._id) === rawIdStr ||
-          String(item.raw?.currency_id) === rawIdStr
-        )) ||
-        (item.value && String(item.value).toUpperCase() === code) ||
-        (item.code && String(item.code).toUpperCase() === code) ||
-        (item.label && String(item.label).toUpperCase().startsWith(code))
-    );
+    const idMatch = rawIdStr
+      ? existingList.find(
+          (item: any) =>
+            String(item.id || '') === rawIdStr ||
+            String(item._id || '') === rawIdStr ||
+            String(item.raw?.id || '') === rawIdStr ||
+            String(item.raw?._id || '') === rawIdStr ||
+            String(item.raw?.currency_id || '') === rawIdStr
+        )
+      : undefined;
+
+    const match =
+      idMatch ||
+      existingList.find(
+        (item: any) =>
+          (rawIdStr && String(item.value) === rawIdStr) ||
+          (item.value && String(item.value).toUpperCase() === code) ||
+          (item.code && String(item.code).toUpperCase() === code) ||
+          (item.label && String(item.label).toUpperCase().startsWith(`${code} (`))
+      );
+
     if (match) {
       const matchId = match.id || match._id || match.raw?.id || match.raw?._id || match.raw?.currency_id || id;
-      const matchCode = match.code || match.value || code;
-      const matchSymbol = match.symbol || rawSymbol || known?.symbol || '$';
-      const matchLabel =
-        match.label && match.label.includes('(')
-          ? match.label
-          : `${matchCode} (${matchSymbol})`;
+      const matchCode = String(match.code || match.value || code).toUpperCase();
+      const matchKnown = KNOWN_CURRENCIES[matchCode];
+      const rawMatchSym = match.symbol || rawSymbol;
+      const cleanMatchSym = typeof rawMatchSym === 'string' && rawMatchSym.trim() ? rawMatchSym.trim() : undefined;
+      const matchSymbol =
+        (cleanMatchSym === '$' && matchKnown?.symbol && matchKnown.symbol !== '$' ? matchKnown.symbol : cleanMatchSym) ||
+        matchKnown?.symbol ||
+        getFallbackCurrencySymbol(matchCode);
+      const matchLabel = matchSymbol ? `${matchCode} (${matchSymbol})` : matchCode;
+
+      if (matchCode && matchSymbol) {
+        DYNAMIC_CURRENCY_SYMBOLS[matchCode] = matchSymbol;
+      }
 
       return {
         id: matchId ? String(matchId) : undefined,
@@ -11961,14 +12278,22 @@ export function normalizeCurrencyOption(raw: any, existingList?: any[]): SmartDo
         label: matchLabel,
         code: matchCode,
         symbol: matchSymbol,
-        subLabel: match.subLabel || known?.name,
+        searchText: match.searchText || matchKnown?.name || (typeof rawName === 'string' ? rawName.trim() : undefined),
         raw: match.raw || rawObj,
       };
     }
   }
 
-  const symbol = rawSymbol || known?.symbol || (code === 'USD' ? '$' : undefined);
-  const label = known?.label || (symbol ? `${code} (${symbol})` : code);
+  const cleanRawSymbol = typeof rawSymbol === 'string' && rawSymbol.trim() ? rawSymbol.trim() : undefined;
+  const symbol =
+    (cleanRawSymbol === '$' && known?.symbol && known.symbol !== '$' ? known.symbol : cleanRawSymbol) ||
+    known?.symbol ||
+    getFallbackCurrencySymbol(code);
+  const label = symbol ? `${code} (${symbol})` : code;
+
+  if (code && symbol) {
+    DYNAMIC_CURRENCY_SYMBOLS[code] = symbol;
+  }
 
   return {
     id: id ? String(id) : undefined,
@@ -11976,7 +12301,7 @@ export function normalizeCurrencyOption(raw: any, existingList?: any[]): SmartDo
     label: label,
     code: code,
     symbol: symbol,
-    subLabel: known?.name,
+    searchText: known?.name || (typeof rawName === 'string' ? rawName.trim() : undefined),
     raw: rawObj,
   };
 }

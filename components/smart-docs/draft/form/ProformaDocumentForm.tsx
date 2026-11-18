@@ -21,6 +21,7 @@ import {
   DEFAULT_CURRENCIES,
   getCurrencySymbol,
   normalizeCurrencyCode,
+  normalizeCurrencyOption,
   formatSignatureUrl,
   normalizeSignaturePayload,
   type StepperDocumentItem,
@@ -2499,9 +2500,19 @@ export function ProformaDocumentForm({
     return initialData?.quantity_mt || initialData?.mt_quantity || initialData?.quantity || '';
   });
   const [currency, setCurrency] = useState<string>(() => {
-    return normalizeCurrencyCode(initialData?.currency || 'USD');
+    const raw =
+      initialData?.currency ||
+      initialData?.currency_code ||
+      initialData?.currencyCode ||
+      initialData?.currency_id ||
+      initialData?.currencyId ||
+      'USD';
+    return normalizeCurrencyOption(raw, currencies).value || normalizeCurrencyCode(raw);
   });
-  const currencySymbol = useMemo(() => getCurrencySymbol(currency), [currency]);
+  const currencySymbol = useMemo(
+    () => getCurrencySymbol(currency, currencies),
+    [currency, currencies]
+  );
   const [ratePrice, setRatePrice] = useState<string>(() => {
     const rawR = initialData?.rate_price ?? initialData?.price ?? initialData?.rate;
     if (rawR !== undefined && rawR !== null && String(rawR).trim() !== '') {
@@ -2572,8 +2583,23 @@ export function ProformaDocumentForm({
       : [];
   });
   const [isLoadingBankAccounts, setIsLoadingBankAccounts] = useState<boolean>(false);
-  const [selectedBankId, setSelectedBankId] = useState<string>(() =>
-    safeString(
+  const [selectedBankId, setSelectedBankId] = useState<string>(() => {
+    const cleanParentContractId = sanitizeDocId(contractId || initialData?.contract_id || initialData?.contractId);
+    const cleanParentConfId = sanitizeDocId(confirmationId || initialData?.confirmation_id || initialData?.confirmationId);
+    const isRealProformaInit = Boolean(
+      initialData?.invoice_number ||
+      initialData?.invoice_no ||
+      initialData?._is_proforma_loaded ||
+      initialData?.is_proforma_loaded ||
+      initialData?.document_type === 'proforma' ||
+      initialData?.doc_type === 'proforma' ||
+      (initialData?.proforma && typeof initialData.proforma === 'object') ||
+      (initialData?.proforma_id && initialData.proforma_id !== cleanParentContractId && initialData.proforma_id !== cleanParentConfId) ||
+      (initialData?.proforma_invoice_id && initialData.proforma_invoice_id !== cleanParentContractId && initialData.proforma_invoice_id !== cleanParentConfId)
+    );
+    // Never inherit or pre-select bank details from Contract/Confirmation fallback data
+    if (!isRealProformaInit) return '';
+    return safeString(
       initialData?.bank_details_id ??
         initialData?.bankDetailsId ??
         initialData?.bank_account_id ??
@@ -2585,10 +2611,25 @@ export function ProformaDocumentForm({
         initialData?.data?.bank_details_id ??
         initialData?.data?.bank_account_id,
       ''
-    )
-  );
-  const [bankAccountDetails, setBankAccountDetails] = useState<string>(() =>
-    safeString(
+    );
+  });
+  const [bankAccountDetails, setBankAccountDetails] = useState<string>(() => {
+    const cleanParentContractId = sanitizeDocId(contractId || initialData?.contract_id || initialData?.contractId);
+    const cleanParentConfId = sanitizeDocId(confirmationId || initialData?.confirmation_id || initialData?.confirmationId);
+    const isRealProformaInit = Boolean(
+      initialData?.invoice_number ||
+      initialData?.invoice_no ||
+      initialData?._is_proforma_loaded ||
+      initialData?.is_proforma_loaded ||
+      initialData?.document_type === 'proforma' ||
+      initialData?.doc_type === 'proforma' ||
+      (initialData?.proforma && typeof initialData.proforma === 'object') ||
+      (initialData?.proforma_id && initialData.proforma_id !== cleanParentContractId && initialData.proforma_id !== cleanParentConfId) ||
+      (initialData?.proforma_invoice_id && initialData.proforma_invoice_id !== cleanParentContractId && initialData.proforma_invoice_id !== cleanParentConfId)
+    );
+    // Never inherit or pre-select bank details from Contract/Confirmation fallback data
+    if (!isRealProformaInit) return '';
+    return safeString(
       initialData?.bank_details ??
         initialData?.bankAccountDetails ??
         initialData?.bank_account_details ??
@@ -2596,8 +2637,8 @@ export function ProformaDocumentForm({
         initialData?.proforma?.bank_details ??
         initialData?.data?.bank_details,
       ''
-    )
-  );
+    );
+  });
 
   const formatBankDetails = useCallback((item: any): string => {
     if (!item) return '';
@@ -2675,11 +2716,8 @@ export function ProformaDocumentForm({
         if (matchedByText) {
           setSelectedBankId(String(matchedByText.bank_details_id || matchedByText.id));
         }
-      } else if (cached.length > 0) {
-        const single = cached[0];
-        setSelectedBankId(String(single.bank_details_id || single.id));
-        setBankAccountDetails(formatBankDetails(single));
       }
+      // Explicit requirement: NEVER auto-select a bank account. User must intentionally pick one.
       return;
     }
 
@@ -2721,13 +2759,8 @@ export function ProformaDocumentForm({
             if (matchedByText) {
               setSelectedBankId(String((matchedByText as any).bank_details_id || matchedByText.id));
             }
-          } else if (items.length > 0) {
-            // Auto-select first bank account if none selected
-            const single = items[0];
-            const effectiveBankId = String((single as any).bank_details_id || single.id);
-            setSelectedBankId(effectiveBankId);
-            setBankAccountDetails(formatBankDetails(single));
           }
+          // Explicit requirement: NEVER auto-select a bank account. User must intentionally pick one.
         }
       })
       .catch((err) => {
@@ -3072,8 +3105,14 @@ export function ProformaDocumentForm({
     if (initialData.quantity_mt || initialData.mt_quantity || initialData.quantity) {
       setQuantityMt(initialData.quantity_mt || initialData.mt_quantity || initialData.quantity || '');
     }
-    if (initialData.currency) {
-      setCurrency(normalizeCurrencyCode(initialData.currency));
+    const rawCur =
+      initialData.currency ||
+      initialData.currency_code ||
+      initialData.currencyCode ||
+      initialData.currency_id ||
+      initialData.currencyId;
+    if (rawCur) {
+      setCurrency(normalizeCurrencyOption(rawCur, currencies).value || normalizeCurrencyCode(rawCur));
     }
     if (initialData.rate_price !== undefined || initialData.price !== undefined || initialData.rate !== undefined) {
       const rawR = initialData.rate_price ?? initialData.price ?? initialData.rate;
@@ -3119,29 +3158,39 @@ export function ProformaDocumentForm({
     const gDesc = extractGoodsDescription(initialData);
     if (gDesc) setGoodsDescription(gDesc);
 
-    const incomingBankId = safeString(
-      initialData?.bank_details_id ??
-        initialData?.bankDetailsId ??
-        initialData?.proforma?.bank_details_id ??
-        initialData?.data?.bank_details_id ??
-        initialData?.bank_account_id ??
-        initialData?.bankAccountId ??
-        initialData?.bank_id ??
-        initialData?.bankId
-    );
-    if (incomingBankId) {
-      setSelectedBankId(incomingBankId);
-    }
-    const incomingBankDetails = safeString(
-      initialData?.bank_details ??
-        initialData?.bankAccountDetails ??
-        initialData?.bank_account_details ??
-        initialData?.account_details ??
-        initialData?.proforma?.bank_details ??
-        initialData?.data?.bank_details
-    );
-    if (incomingBankDetails) {
-      setBankAccountDetails(incomingBankDetails);
+    if (isIncomingRealProforma) {
+      const incomingBankId = safeString(
+        initialData?.bank_details_id ??
+          initialData?.bankDetailsId ??
+          initialData?.proforma?.bank_details_id ??
+          initialData?.data?.bank_details_id ??
+          initialData?.bank_account_id ??
+          initialData?.bankAccountId ??
+          initialData?.bank_id ??
+          initialData?.bankId
+      );
+      if (incomingBankId) {
+        setSelectedBankId(incomingBankId);
+      } else if (hasDocChanged || isDataVersionTriggered) {
+        setSelectedBankId('');
+      }
+      const incomingBankDetails = safeString(
+        initialData?.bank_details ??
+          initialData?.bankAccountDetails ??
+          initialData?.bank_account_details ??
+          initialData?.account_details ??
+          initialData?.proforma?.bank_details ??
+          initialData?.data?.bank_details
+      );
+      if (incomingBankDetails) {
+        setBankAccountDetails(incomingBankDetails);
+      } else if (!incomingBankId && (hasDocChanged || isDataVersionTriggered)) {
+        setBankAccountDetails('');
+      }
+    } else {
+      // Never auto-select or inherit bank details from Contract / Confirmation fallback data
+      setSelectedBankId('');
+      setBankAccountDetails('');
     }
     const resolvedSig = resolveSignatureValue(initialData, sellers, sellerId);
     if (resolvedSig && !hasUserClearedSignatureRef.current) {
@@ -3439,9 +3488,13 @@ export function ProformaDocumentForm({
     formData.append('total_amount', String(computedTotal));
     formData.append('amount_in_words', safeString(effectiveAmountInWords));
 
-    formData.append('bank_details_id', safeString(selectedBankId));
-    formData.append('bank_account_id', safeString(selectedBankId));
-    formData.append('bank_details', safeString(bankAccountDetails));
+    if (selectedBankId && !/^select bank account$/i.test(selectedBankId.trim())) {
+      formData.append('bank_details_id', safeString(selectedBankId));
+      formData.append('bank_account_id', safeString(selectedBankId));
+    }
+    if (bankAccountDetails) {
+      formData.append('bank_details', safeString(bankAccountDetails));
+    }
 
     const cleanDisclaimer = safeString(bankChargesNote);
     formData.append('disclaimer', cleanDisclaimer);
@@ -3628,9 +3681,9 @@ export function ProformaDocumentForm({
       advance_amount: parseFloat(String(advancePayment || 0).replace(/,/g, '')) || 0,
       total_amount: computedTotal,
       amount_in_words: effectiveAmountInWords,
-      bank_details_id: safeString(selectedBankId),
-      bank_account_id: safeString(selectedBankId),
-      bank_details: safeString(bankAccountDetails),
+      bank_details_id: (selectedBankId && !/^select bank account$/i.test(selectedBankId.trim())) ? safeString(selectedBankId) : undefined,
+      bank_account_id: (selectedBankId && !/^select bank account$/i.test(selectedBankId.trim())) ? safeString(selectedBankId) : undefined,
+      bank_details: safeString(bankAccountDetails) || undefined,
       seller_signature_field: safeString(companyName),
       seller_signature_label: safeString(authoritySignatureTitle),
       authority_signature_title: safeString(authoritySignatureTitle),
@@ -3712,7 +3765,12 @@ export function ProformaDocumentForm({
     if (!invoiceDate || !invoiceDate.trim()) {
       newErrors.invoiceDate = 'Please select a valid invoice date';
     }
-    if (!selectedBankId) {
+    const cleanSelectedBankId = safeString(selectedBankId).trim();
+    if (
+      !cleanSelectedBankId ||
+      /^select bank account$/i.test(cleanSelectedBankId) ||
+      /^loading bank accounts/i.test(cleanSelectedBankId)
+    ) {
       newErrors.selectedBankId = 'Please select a bank account';
     }
 
@@ -4995,39 +5053,32 @@ export function ProformaDocumentForm({
                       loading={isLoadingBankAccounts}
                       options={(() => {
                         if (sellerBankAccounts.length > 0) {
-                          const opts = [
-                            {
-                              value: '',
-                              label: 'Select Bank Account',
-                              subLabel: '',
-                            },
-                            ...sellerBankAccounts.map((b) => {
-                              const bankTitle = safeString(
-                                b.name || b.bank_name || b.bankName || b.account_name,
-                                'Bank Account'
-                              );
-                              let bankSub = '';
-                              if (b.account_number || b.account_no) {
-                                bankSub = `A/C: ${b.account_number || b.account_no}`;
-                              } else if (b.branch || b.branch_name) {
-                                bankSub = `Branch: ${b.branch || b.branch_name}`;
-                              } else if (b.account_details && typeof b.account_details === 'string') {
-                                const firstLine = b.account_details.split('\n')[0]?.trim();
-                                if (firstLine && firstLine !== bankTitle) {
-                                  bankSub = firstLine;
-                                }
+                          const opts = sellerBankAccounts.map((b) => {
+                            const bankTitle = safeString(
+                              b.name || b.bank_name || b.bankName || b.account_name,
+                              'Bank Account'
+                            );
+                            let bankSub = '';
+                            if (b.account_number || b.account_no) {
+                              bankSub = `A/C: ${b.account_number || b.account_no}`;
+                            } else if (b.branch || b.branch_name) {
+                              bankSub = `Branch: ${b.branch || b.branch_name}`;
+                            } else if (b.account_details && typeof b.account_details === 'string') {
+                              const firstLine = b.account_details.split('\n')[0]?.trim();
+                              if (firstLine && firstLine !== bankTitle) {
+                                bankSub = firstLine;
                               }
-                              const primaryId = safeString(b.bank_details_id || b.id || b._id);
-                              return {
-                                value: primaryId,
-                                id: safeString(b.id || b.bank_details_id || b._id),
-                                bank_details_id: primaryId,
-                                bank_account_id: primaryId,
-                                label: bankTitle,
-                                subLabel: bankSub,
-                              };
-                            }),
-                          ];
+                            }
+                            const primaryId = safeString(b.bank_details_id || b.id || b._id);
+                            return {
+                              value: primaryId,
+                              id: safeString(b.id || b.bank_details_id || b._id),
+                              bank_details_id: primaryId,
+                              bank_account_id: primaryId,
+                              label: bankTitle,
+                              subLabel: bankSub,
+                            };
+                          });
 
                           if (
                             selectedBankId &&
@@ -5073,11 +5124,6 @@ export function ProformaDocumentForm({
                           }
                           return [
                             {
-                              value: '',
-                              label: 'Select Bank Account',
-                              subLabel: '',
-                            },
-                            {
                               value: selectedBankId,
                               id: selectedBankId,
                               bank_details_id: selectedBankId,
@@ -5088,18 +5134,18 @@ export function ProformaDocumentForm({
                           ];
                         }
 
-                        return [
-                          {
-                            value: '',
-                            label: isLoadingBankAccounts ? 'Loading bank accounts...' : 'Select Bank Account',
-                            subLabel: '',
-                          },
-                        ];
+                        return [];
                       })()}
                       value={selectedBankId}
                       onChange={(val) => {
+                        const cleanVal =
+                          !val ||
+                          /^select bank account$/i.test(String(val).trim()) ||
+                          /^loading bank accounts/i.test(String(val).trim())
+                            ? ''
+                            : String(val).trim();
                         markDirty();
-                        setSelectedBankId(val);
+                        setSelectedBankId(cleanVal);
                         setErrors((prev) => ({
                           ...prev,
                           selectedBankId: '',
@@ -5108,13 +5154,15 @@ export function ProformaDocumentForm({
                           bankDetails: '',
                           bank_details: '',
                         }));
-                        const matched = sellerBankAccounts.find(
-                          (b) =>
-                            String(b.bank_details_id || b.id || b._id) === String(val) ||
-                            String(b.id) === String(val) ||
-                            String(b.bank_details_id) === String(val) ||
-                            String(b.bank_account_id) === String(val)
-                        );
+                        const matched = cleanVal
+                          ? sellerBankAccounts.find(
+                              (b) =>
+                                String(b.bank_details_id || b.id || b._id) === cleanVal ||
+                                String(b.id) === cleanVal ||
+                                String(b.bank_details_id) === cleanVal ||
+                                String(b.bank_account_id) === cleanVal
+                            )
+                          : undefined;
                         if (matched) {
                           setBankAccountDetails(formatBankDetails(matched));
                         } else {

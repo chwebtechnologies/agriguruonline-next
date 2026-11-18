@@ -20,6 +20,7 @@ export interface DocSegmentedToggleProps<T = any> {
   disabled?: boolean;
   className?: string;
   allowDeselect?: boolean;
+  error?: string | boolean;
 }
 
 export function DocSegmentedToggle<T = any>({
@@ -34,12 +35,17 @@ export function DocSegmentedToggle<T = any>({
   disabled = false,
   className = '',
   allowDeselect = true,
+  error,
 }: DocSegmentedToggleProps<T>) {
+  const borderClasses = error
+    ? 'border-brand-red dark:border-brand-red ring-1 ring-brand-red/40'
+    : 'border-dotted border-primary/70 dark:border-primary/80';
+
   if (options && options.length > 0) {
     return (
       <div
         id={id}
-        className={`inline-flex items-center rounded border border-dotted border-primary/70 dark:border-primary/80 bg-background/50 p-0.5 select-none transition-colors ${
+        className={`inline-flex items-center rounded border bg-background/50 p-0.5 select-none transition-colors ${borderClasses} ${
           disabled ? 'opacity-60 cursor-not-allowed' : ''
         } ${className}`}
       >
@@ -101,7 +107,7 @@ export function DocSegmentedToggle<T = any>({
   return (
     <div
       id={id}
-      className={`inline-flex items-center rounded border border-dotted border-primary/70 dark:border-primary/80 bg-background/50 p-0.5 select-none transition-colors ${
+      className={`inline-flex items-center rounded border bg-background/50 p-0.5 select-none transition-colors ${borderClasses} ${
         disabled ? 'opacity-60 cursor-not-allowed' : ''
       } ${className}`}
     >

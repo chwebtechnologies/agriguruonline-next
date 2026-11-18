@@ -541,7 +541,7 @@ export function SmartDocsHeader({
                 >
                   {profile?.profile_image ? (
                     <Image
-                      className="rounded-full object-cover"
+                      className="w-full h-full rounded-full object-cover"
                       src={
                         profile.profile_image.startsWith('http')
                           ? profile.profile_image
@@ -549,8 +549,8 @@ export function SmartDocsHeader({
                       }
                       alt="Profile"
                       title={dict?.navigation?.profile || "User Profile"}
-                      fill
-                      sizes="36px"
+                      width={36}
+                      height={36}
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                         if (e.currentTarget.nextElementSibling) {

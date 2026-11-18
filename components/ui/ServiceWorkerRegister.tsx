@@ -7,12 +7,21 @@ export default function ServiceWorkerRegister() {
     if (!('serviceWorker' in navigator)) return;
 
     if (process.env.NODE_ENV === 'production') {
-      window.addEventListener('load', () => {
+      const registerSw = () => {
         navigator.serviceWorker
-          .register('/sw.js')
-          .then(() => {})
+          .register('/sw.js', { updateViaCache: 'none' })
+          .then((registration) => {
+            registration.update().catch(() => {})
+          })
           .catch(() => {})
-      })
+      }
+
+      if (document.readyState === 'complete') {
+        registerSw()
+      } else {
+        window.addEventListener('load', registerSw, { once: true })
+        return () => window.removeEventListener('load', registerSw)
+      }
     } else {
       // In development: Serwist's /sw.js is disabled, so only unregister
       // non-firebase SWs that may be stale from previous production builds.

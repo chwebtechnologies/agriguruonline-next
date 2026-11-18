@@ -24,6 +24,7 @@ export interface DocSelectOption {
   label: string;
   subLabel?: string;
   badge?: string;
+  searchText?: string;
 }
 
 export interface DocUnderlineSelectProps {
@@ -37,6 +38,7 @@ export interface DocUnderlineSelectProps {
   searchable?: boolean;
   searchPlaceholder?: string;
   className?: string;
+  dropdownClassName?: string;
   tabIndex?: number;
   id?: string;
   ariaLabel?: string;
@@ -61,6 +63,7 @@ export function DocUnderlineSelect({
   searchable = true,
   searchPlaceholder = 'Search...',
   className = '',
+  dropdownClassName = '',
   tabIndex = 0,
   id,
   ariaLabel,
@@ -141,7 +144,8 @@ export function DocUnderlineSelect({
     return (
       opt.label.toLowerCase().includes(q) ||
       (opt.subLabel && opt.subLabel.toLowerCase().includes(q)) ||
-      (opt.badge && opt.badge.toLowerCase().includes(q))
+      (opt.badge && opt.badge.toLowerCase().includes(q)) ||
+      (opt.searchText && opt.searchText.toLowerCase().includes(q))
     );
   });
 
@@ -475,7 +479,9 @@ export function DocUnderlineSelect({
           aria-label={placeholder}
           onKeyDown={handleListKeyDown}
           style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
-          className="absolute left-0 top-full mt-1 w-full min-w-[240px] max-w-[380px] bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150 transform-gpu"
+          className={`absolute left-0 top-full mt-1 text-left ${
+            dropdownClassName || 'w-full min-w-[240px] max-w-[380px]'
+          } bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150 transform-gpu`}
         >
           {/* Search Box whenever searchable is true */}
           {searchable && (
@@ -493,7 +499,7 @@ export function DocUnderlineSelect({
                   onKeyDown={handleSearchKeyDown}
                   placeholder={searchPlaceholder}
                   style={{ outline: 'none' }}
-                  className="w-full pl-7 pr-2.5 py-1 text-[13px] sm:text-[14px] bg-background text-foreground border border-border rounded-md outline-none focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-[13px] sm:placeholder:text-[14px] placeholder:text-muted-foreground/50"
+                  className={`w-full pl-7 ${search ? 'pr-6' : 'pr-2.5'} py-1 text-[13px] sm:text-[14px] bg-background text-foreground border border-border rounded-md outline-none focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-[13px] sm:placeholder:text-[14px] placeholder:text-muted-foreground/50`}
                 />
                 {search && (
                   <button
@@ -563,7 +569,7 @@ export function DocUnderlineSelect({
                         : 'text-foreground hover:bg-muted/60'
                     }`}
                   >
-                    <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex flex-col min-w-0 flex-1 text-left">
                       <span className="truncate font-semibold text-foreground text-xs leading-tight">
                         {opt.label}
                       </span>

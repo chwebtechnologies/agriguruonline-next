@@ -24,6 +24,7 @@ import {
   downloadPdfFromActionResponse,
   sanitizeDocId,
   getCurrencySymbol,
+  normalizeCurrencyOption,
   extractApiValidationErrors,
   getCustomInvoiceStep,
   getCustomInvoiceIdFromStepper,
@@ -112,6 +113,28 @@ export function formatCurrencyAmount(val: number | string, decimals = 2, currenc
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
+}
+
+function parseNumericInputValue(...candidates: any[]): string {
+  for (const raw of candidates) {
+    if (raw === undefined || raw === null) continue;
+    const cleaned = String(raw).replace(/,/g, '').trim();
+    if (!cleaned) continue;
+    const num = Number(cleaned);
+    if (!isNaN(num) && isFinite(num)) {
+      return cleaned;
+    }
+  }
+  return '';
+}
+
+function resolveWeightString(...candidates: any[]): string {
+  for (const raw of candidates) {
+    if (raw === undefined || raw === null) continue;
+    const str = safeString(raw, '');
+    if (str !== '') return str;
+  }
+  return '';
 }
 
 const sellerBankAccountsCache = new Map<string, any[]>();
@@ -264,6 +287,8 @@ export function detectCustomInvoiceFieldInSentence(text: string): { key: string;
     if (rawF.includes('freight')) return { key: 'freight_rate', rawField: cvMatch[1] };
     if (rawF.includes('commission')) return { key: 'commission_rate', rawField: cvMatch[1] };
     if (rawF.includes('bag')) return { key: 'price_per_bag', rawField: cvMatch[1] };
+    if (rawF.includes('gross') && rawF.includes('weight')) return { key: 'gross_weight', rawField: cvMatch[1] };
+    if (rawF.includes('net') && rawF.includes('weight')) return { key: 'net_weight', rawField: cvMatch[1] };
     if (rawF.includes('weight')) return { key: 'gross_weight', rawField: cvMatch[1] };
     if (rawF.includes('sign') || rawF.includes('stamp')) return { key: 'seller_signature', rawField: cvMatch[1] };
     if (rawF.includes('disclaimer')) return { key: 'disclaimer', rawField: cvMatch[1] };
@@ -993,33 +1018,47 @@ export function CustomInvoiceDocumentForm({
     return String(raw).split('T')[0];
   });
 
-  // 3. Gross Weight (GROSS WEIGHT : 0.000)
+  // 3. Gross Weight (key: gross_weight; placeholder "0.000" shown when empty)
   const [grossWeight, setGrossWeight] = useState<string>(() =>
-    safeString(initialData?.gross_weight, '0.000')
+    resolveWeightString(initialData?.custom_invoice?.gross_weight, initialData?.gross_weight)
   );
 
   // 4. Rate Breakdown Inputs (FOB Rate, Freight Rate, Commission Rate, Rate Per Bag)
-  const [fobRate, setFobRate] = useState<string>(() => {
-    const raw = initialData?.fob_rate ?? initialData?.fob ?? initialData?.fob_price;
-    return raw !== undefined && raw !== null ? String(raw).replace(/,/g, '').trim() : '';
-  });
-  const [freightRate, setFreightRate] = useState<string>(() => {
-    const raw = initialData?.freight_rate ?? initialData?.freight ?? initialData?.freight_price;
-    return raw !== undefined && raw !== null ? String(raw).replace(/,/g, '').trim() : '';
-  });
-  const [commissionRate, setCommissionRate] = useState<string>(() => {
-    const raw = initialData?.commission_rate ?? initialData?.commission;
-    return raw !== undefined && raw !== null ? String(raw).replace(/,/g, '').trim() : '';
-  });
-  const [ratePerBag, setRatePerBag] = useState<string>(() => {
-    const raw =
-      initialData?.price_per_bag ??
-      initialData?.pricePerBag ??
-      initialData?.rate_per_bag ??
-      initialData?.rate_bag ??
-      initialData?.bag_rate;
-    return raw !== undefined && raw !== null ? String(raw).replace(/,/g, '').trim() : '';
-  });
+  const [fobRate, setFobRate] = useState<string>(() =>
+    parseNumericInputValue(
+      initialData?.custom_invoice?.fob_rate,
+      initialData?.fob_rate,
+      initialData?.fobRate,
+      initialData?.fob_price,
+      initialData?.fob
+    )
+  );
+  const [freightRate, setFreightRate] = useState<string>(() =>
+    parseNumericInputValue(
+      initialData?.custom_invoice?.freight_rate,
+      initialData?.freight_rate,
+      initialData?.freightRate,
+      initialData?.freight_price
+    )
+  );
+  const [commissionRate, setCommissionRate] = useState<string>(() =>
+    parseNumericInputValue(
+      initialData?.custom_invoice?.commission_rate,
+      initialData?.commission_rate,
+      initialData?.commissionRate,
+      initialData?.commission
+    )
+  );
+  const [ratePerBag, setRatePerBag] = useState<string>(() =>
+    parseNumericInputValue(
+      initialData?.custom_invoice?.price_per_bag,
+      initialData?.price_per_bag,
+      initialData?.pricePerBag,
+      initialData?.rate_per_bag,
+      initialData?.rate_bag,
+      initialData?.bag_rate
+    )
+  );
 
   // 5. Authority Signature Title & Disclaimer
   const [authoritySignatureTitle, setAuthoritySignatureTitle] = useState<string>(() =>
@@ -1158,26 +1197,54 @@ export function CustomInvoiceDocumentForm({
       }
     }
 
-    if (initialData.gross_weight !== undefined) {
-      setGrossWeight(safeString(initialData.gross_weight, '0.000'));
+    const nextGrossWeight = resolveWeightString(
+      initialData.custom_invoice?.gross_weight,
+      initialData.gross_weight
+    );
+    if (
+      nextGrossWeight !== '' ||
+      initialData.gross_weight !== undefined ||
+      initialData.custom_invoice?.gross_weight !== undefined ||
+      isDataVersionTriggered ||
+      hasDocIdChanged
+    ) {
+      setGrossWeight(nextGrossWeight);
     }
 
-    const rawFob = initialData.fob_rate ?? initialData.fob ?? initialData.fob_price;
-    if (rawFob !== undefined && rawFob !== null) setFobRate(String(rawFob).replace(/,/g, '').trim());
+    const nextFob = parseNumericInputValue(
+      initialData.custom_invoice?.fob_rate,
+      initialData.fob_rate,
+      initialData.fobRate,
+      initialData.fob_price,
+      initialData.fob
+    );
+    setFobRate(nextFob);
 
-    const rawFreight = initialData.freight_rate ?? initialData.freight ?? initialData.freight_price;
-    if (rawFreight !== undefined && rawFreight !== null) setFreightRate(String(rawFreight).replace(/,/g, '').trim());
+    const nextFreight = parseNumericInputValue(
+      initialData.custom_invoice?.freight_rate,
+      initialData.freight_rate,
+      initialData.freightRate,
+      initialData.freight_price
+    );
+    setFreightRate(nextFreight);
 
-    const rawCommission = initialData.commission_rate ?? initialData.commission;
-    if (rawCommission !== undefined && rawCommission !== null) setCommissionRate(String(rawCommission).replace(/,/g, '').trim());
+    const nextCommission = parseNumericInputValue(
+      initialData.custom_invoice?.commission_rate,
+      initialData.commission_rate,
+      initialData.commissionRate,
+      initialData.commission
+    );
+    setCommissionRate(nextCommission);
 
-    const rawRatePerBag =
-      initialData.price_per_bag ??
-      initialData.pricePerBag ??
-      initialData.rate_per_bag ??
-      initialData.rate_bag ??
-      initialData.bag_rate;
-    if (rawRatePerBag !== undefined && rawRatePerBag !== null) setRatePerBag(String(rawRatePerBag).replace(/,/g, '').trim());
+    const nextRatePerBag = parseNumericInputValue(
+      initialData.custom_invoice?.price_per_bag,
+      initialData.price_per_bag,
+      initialData.pricePerBag,
+      initialData.rate_per_bag,
+      initialData.rate_bag,
+      initialData.bag_rate
+    );
+    setRatePerBag(nextRatePerBag);
 
     if (initialData.authority_signature_title !== undefined || initialData.seller_signature_label !== undefined || initialData.authority_title !== undefined) {
       setAuthoritySignatureTitle(
@@ -1586,25 +1653,54 @@ export function CustomInvoiceDocumentForm({
   // User requirement: "PRE CARRIGE BY ME STATIC VALUE 'BY SEA'"
   const preCarriageBy = 'BY SEA';
 
-  const placeOfReceipt = safeString(
-    initialData?.place_of_receipt ||
-    initialData?.place_of_receipt_by_pre_carrier ||
-    initialData?.country_of_origin ||
-    initialData?.origin_country ||
-    initialData?.shipment_instruction?.place_of_receipt ||
-    initialData?.contract?.country,
-    ''
-  );
+  // User requirement: "PLACE OF RECEIPT BY PRE-CARRIER me and COUNTRY OF ORIGIN dono me 'loading_port' ke andar 'country' ke andar 'name' hai dono me same dikhga"
+  const loadingPortCountry = useMemo(() => {
+    const lpCandidates = [
+      initialData?.custom_invoice?.loading_port,
+      initialData?.loading_port,
+      initialData?.loadingPort,
+      initialData?.port_of_loading,
+      initialData?.proforma?.loading_port,
+      initialData?.contract?.loading_port,
+      initialData?.confirmation?.loading_port,
+      initialData?.shipment_instruction?.loading_port,
+    ];
 
-  const countryOfOrigin = safeString(
-    initialData?.country_of_origin ||
-    initialData?.origin_country ||
-    initialData?.product_country ||
-    initialData?.country ||
-    initialData?.contract?.country ||
-    initialData?.confirmation?.country,
-    ''
-  );
+    for (const lp of lpCandidates) {
+      if (typeof lp === 'object' && lp !== null) {
+        if (typeof lp.country === 'object' && lp.country !== null) {
+          const cName = lp.country.name || lp.country.title || lp.country.label;
+          if (cName) {
+            const s = safeString(cName);
+            if (s) return s;
+          }
+        } else if (typeof lp.country === 'string' && lp.country.trim()) {
+          const s = safeString(lp.country);
+          if (s) return s;
+        }
+        if (lp.country_name || lp.countryName) {
+          const s = safeString(lp.country_name || lp.countryName);
+          if (s) return s;
+        }
+      }
+    }
+
+    return safeString(
+      initialData?.loading_port_country ||
+      initialData?.loading_port_country_name ||
+      initialData?.country_of_origin ||
+      initialData?.origin_country ||
+      initialData?.product_country ||
+      initialData?.place_of_receipt ||
+      initialData?.place_of_receipt_by_pre_carrier ||
+      initialData?.contract?.country ||
+      initialData?.confirmation?.country,
+      ''
+    );
+  }, [initialData]);
+
+  const placeOfReceipt = loadingPortCountry;
+  const countryOfOrigin = loadingPortCountry;
 
   // User requirement: "COUNRY OF DESTINATION ME destination_port KE ANDAR country KE ANDAR name hai usko dikhana hai"
   const countryOfDestination = useMemo(() => {
@@ -1872,9 +1968,16 @@ export function CustomInvoiceDocumentForm({
     return 0;
   }, [initialData]);
 
+  // User requirement: "Custom Invoice me Gross Weight ki key gross_weight and Net Weight ki key net_weight hai"
   const netWeight = useMemo(() => {
+    const directNetWeight = resolveWeightString(
+      initialData?.custom_invoice?.net_weight,
+      initialData?.net_weight
+    );
+    if (directNetWeight !== '') {
+      return directNetWeight;
+    }
     return safeString(
-      initialData?.net_weight ||
       (quantityMt > 0 ? `${formatNumberWithCommas(quantityMt)} MT` : '') ||
       initialData?.quantity_mt ||
       initialData?.mt_quantity,
@@ -1886,32 +1989,32 @@ export function CustomInvoiceDocumentForm({
     const raw =
       initialData?.currency ||
       initialData?.currency_code ||
+      initialData?.currency_id ||
       initialData?.contract?.currency ||
       initialData?.confirmation?.currency ||
       initialData?.proforma?.currency ||
       'USD';
-    if (typeof raw === 'object' && raw !== null) {
-      return safeString(raw.code || raw.currency_code || raw.name || raw.symbol, 'USD');
-    }
-    return safeString(raw, 'USD');
-  }, [initialData]);
+    return normalizeCurrencyOption(raw, currencies).value || 'USD';
+  }, [initialData, currencies]);
 
   const currencySymbol = useMemo(() => {
     const cCode =
       initialData?.currency ||
       initialData?.currency_code ||
+      initialData?.currency_id ||
       initialData?.contract?.currency ||
       initialData?.confirmation?.currency ||
       initialData?.proforma?.currency;
-    const fromCode = cCode ? getCurrencySymbol(cCode) : '';
+    if (cCode) {
+      return getCurrencySymbol(cCode, currencies);
+    }
     return safeString(
       initialData?.currency_symbol ||
       initialData?.currency?.symbol ||
-      fromCode ||
-      getCurrencySymbol(currency),
+      getCurrencySymbol(currency, currencies),
       '$'
     );
-  }, [initialData, currency]);
+  }, [initialData, currency, currencies]);
 
   const incoterm = useMemo(() => {
     return safeString(
@@ -2318,8 +2421,16 @@ export function CustomInvoiceDocumentForm({
     if (registrationNumber) {
       formData.append('registration_number', registrationNumber);
     }
-    if (grossWeight) {
-      formData.append('gross_weight', String(grossWeight));
+    const trimmedGrossWeight = String(grossWeight ?? '').trim();
+    if (trimmedGrossWeight !== '') {
+      formData.append('gross_weight', trimmedGrossWeight);
+    }
+    const directNetWeightForPayload = resolveWeightString(
+      initialData?.custom_invoice?.net_weight,
+      initialData?.net_weight
+    );
+    if (directNetWeightForPayload !== '') {
+      formData.append('net_weight', directNetWeightForPayload);
     }
     if (selectedBankId) {
       formData.append('bank_details_id', selectedBankId);
@@ -2430,12 +2541,18 @@ export function CustomInvoiceDocumentForm({
     ratePrice,
     quantityMt,
     amountInWords,
+    initialData,
   ]);
 
   // Payload Construction (All fields optional - no client blocking)
   const constructPayload = useCallback(() => {
     const activeDocId = cleanSelfId || (isCandidateValid(draftId) ? draftId : undefined) || (isCandidateValid(effectiveCustomInvoiceId) ? effectiveCustomInvoiceId : undefined);
     const effectiveTitle = (customDocTitle || '').trim() || 'CUSTOM INVOICE';
+    const trimmedGrossWeight = String(grossWeight ?? '').trim();
+    const directNetWeightForPayload = resolveWeightString(
+      initialData?.custom_invoice?.net_weight,
+      initialData?.net_weight
+    );
     return {
       custom_invoice_id: activeDocId,
       id: activeDocId,
@@ -2449,7 +2566,8 @@ export function CustomInvoiceDocumentForm({
       invoice_no: invoiceNumber,
       invoice_date: invoiceDate,
       registration_number: registrationNumber || undefined,
-      gross_weight: grossWeight,
+      gross_weight: trimmedGrossWeight || undefined,
+      net_weight: directNetWeightForPayload || undefined,
       bank_details_id: selectedBankId || undefined,
       bank_account_id: selectedBankId || undefined,
       bank_details: bankAccountDetails || undefined,
@@ -2514,6 +2632,7 @@ export function CustomInvoiceDocumentForm({
     ratePrice,
     quantityMt,
     amountInWords,
+    initialData,
   ]);
 
   // Save As Draft Handler (NO client-side validation)
@@ -3696,7 +3815,7 @@ export function CustomInvoiceDocumentForm({
                     >
                       <div className="flex items-center justify-between gap-3 w-full">
                         <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider shrink-0">
-                          {ratePerLabel}
+                          {ratePerLabel} ({currencySymbol})
                         </span>
                         <div className="flex-1 min-w-[120px]">
                           <DocUnderlineInput
@@ -3739,7 +3858,7 @@ export function CustomInvoiceDocumentForm({
                         <div className="text-amber-600 dark:text-amber-400 font-medium text-[12px] sm:text-[13px] flex items-center gap-1.5 pt-0.5 animate-in fade-in duration-200">
                           <i className="fa-solid fa-triangle-exclamation text-amber-500 shrink-0 text-[12px]" />
                           <span>
-                            Bags × Price per bag must equal the total value of {targetTotal.toFixed(2)}.
+                            Bags × Price per bag must equal the total value of {currencySymbol} {formatCurrencyAmount(targetTotal, 2, currency)}.
                           </span>
                         </div>
                       )}

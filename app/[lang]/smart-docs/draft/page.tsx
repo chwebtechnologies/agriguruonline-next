@@ -44,6 +44,7 @@ import {
   extractLinkedCustomInvoiceId,
   mergeStepperWithHidden,
   DEFAULT_CURRENCIES,
+  sanitizeDocId,
 } from '@/lib/api/smart-docs.service';
 
 export const dynamic = 'force-dynamic';
@@ -526,7 +527,7 @@ async function DraftPageDataLoader({
       !initialBillOfLadingData && billOfLadingId && billOfLadingId !== confId && billOfLadingId !== contractId && billOfLadingId !== proformaId && billOfLadingId !== shipmentId
         ? smartDocsService.getBillOfLading(billOfLadingId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialCustomInvoiceData && customInvoiceId && customInvoiceId !== confId && customInvoiceId !== contractId && customInvoiceId !== proformaId && customInvoiceId !== shipmentId && customInvoiceId !== billOfLadingId
+      !initialCustomInvoiceData && customInvoiceId && customInvoiceId !== draftId
         ? smartDocsService.getCustomInvoice(customInvoiceId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
     ]);
@@ -552,15 +553,34 @@ async function DraftPageDataLoader({
       if (ext) initialBillOfLadingData = ext;
     }
     if (missingCustomInvoiceRes) {
-      const ext = extractCustomInvoiceData(missingCustomInvoiceRes);
+      const ext =
+        extractCustomInvoiceData(missingCustomInvoiceRes) ||
+        (missingCustomInvoiceRes?.data && typeof missingCustomInvoiceRes.data === 'object'
+          ? { ...missingCustomInvoiceRes.data, _is_custom_invoice_loaded: true }
+          : null);
       if (ext) initialCustomInvoiceData = ext;
     }
 
-    // Pre-fetch buyer consignees and notify parties on server to eliminate client dropdown loading lag
-    const effectiveBuyerId =
+    // Pre-fetch buyer consignees and notify parties strictly for this trade's Importer (buyer_instruction_id).
+    // Strictly prioritize buyer_instruction_id from Shipment Instruction response; NEVER default to initialBuyers[0].
+    const effectiveBuyerId = sanitizeDocId(
       initialShipmentInstructionData?.buyer_instruction_id ||
+      initialShipmentInstructionData?.buyerInstructionId ||
+      initialShipmentInstructionData?.shipment_instruction?.buyer_instruction_id ||
+      initialShipmentInstructionData?.buyer?.buyer_instruction_id ||
+      initialProformaData?.buyer_instruction_id ||
+      initialProformaData?.buyerInstructionId ||
+      initialContractData?.buyer_instruction_id ||
+      initialContractData?.buyerInstructionId ||
+      initialConfirmationData?.buyer_instruction_id ||
+      initialConfirmationData?.buyerInstructionId ||
       initialShipmentInstructionData?.buyer_id ||
-      (initialBuyers && initialBuyers.length === 1 ? initialBuyers[0].value || initialBuyers[0].id : '');
+      initialShipmentInstructionData?.buyerId ||
+      initialProformaData?.buyer_id ||
+      initialContractData?.buyer_id ||
+      initialConfirmationData?.buyer_id ||
+      ''
+    );
 
     let initialConsignees: any[] = [];
     let initialNotifyParties: any[] = [];
@@ -757,6 +777,7 @@ async function DraftPageDataLoader({
               initialCustomInvoiceData={initialCustomInvoiceData}
               initialConsignees={initialConsignees}
               initialNotifyParties={initialNotifyParties}
+              initialConsigneesBuyerId={effectiveBuyerId}
               initialId={draftId || effectiveDraftId}
               initialStepParam={effectiveStepParam}
             />

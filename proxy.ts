@@ -312,10 +312,12 @@ export default async function middleware(request: NextRequest) {
   // 3. Locale Redirect Logic
   if (pathnameHasLocale) return applyNewCookies(NextResponse.next({ request: { headers: request.headers } }));
 
-  // Avoid redirecting static files, api endpoints, images, and next internal files
+  // Avoid redirecting static files, api endpoints, images, offline fallback, and next internal files
   const isInternalOrStatic = 
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
+    pathname === '/~offline' ||
+    pathname.startsWith('/~offline/') ||
     pathname.includes('.') ||
     pathname === '/favicon.ico' ||
     pathname === '/manifest.webmanifest' ||

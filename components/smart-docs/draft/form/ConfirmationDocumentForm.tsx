@@ -2029,12 +2029,13 @@ export function ConfirmationDocumentForm({
       ? initialData.shippingTermsList
       : STATIC_SHIPPING_TERM_OPTIONS;
   const currenciesList: FormOptionItem[] = useMemo(() => {
-    const base =
+    const baseRaw =
       internalCurrencies.length > 0
         ? internalCurrencies
         : currencies && currencies.length > 0
         ? currencies
         : initialData?.currencies || initialData?.currenciesList || DEFAULT_CURRENCIES;
+    const base = baseRaw.map((c: any) => ({ ...c, subLabel: undefined }));
     const raw =
       initialData?.currency ||
       initialData?.currency_code ||
@@ -2044,10 +2045,17 @@ export function ConfirmationDocumentForm({
     if (!raw) return base;
     const resolved = normalizeCurrencyOption(raw, base);
     if (resolved && !base.some((c: any) => String(c.value).toUpperCase() === resolved.value.toUpperCase())) {
-      return [resolved, ...base];
+      return [{ ...resolved, subLabel: undefined }, ...base];
     }
     return base;
   }, [internalCurrencies, currencies, initialData]);
+
+  const currencySymbol = useMemo(
+    () => getCurrencySymbol(currency, currenciesList),
+    [currency, currenciesList]
+  );
+  const priceLabelBase = (dict?.smart_docs?.confirmation_form?.price || 'PRICE').replace(/\s*\(\$\)\s*$/, '');
+  const totalValueLabelBase = (dict?.smart_docs?.confirmation_form?.total_value || 'TOTAL VALUE').replace(/\s*\(\$\)\s*$/, '');
   const paymentTermsList: FormOptionItem[] =
     internalPaymentTerms.length > 0
       ? internalPaymentTerms
@@ -2719,7 +2727,7 @@ export function ConfirmationDocumentForm({
             value: effectiveCode,
             label: effectiveLabel,
             code: effectiveCode,
-            symbol: normCur.symbol || '$',
+            symbol: normCur.symbol || getCurrencySymbol(effectiveCode, currenciesList),
           },
           ...prev,
         ];
@@ -4248,7 +4256,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.currency || 'CURRENCY'}
                 </span>
-                <div className="w-full max-w-[110px]">
+                <div className="w-full max-w-[115px]">
                   <DocUnderlineSelect
                     id="field-currency"
                     options={currenciesList}
@@ -4263,6 +4271,7 @@ export function ConfirmationDocumentForm({
                     loading={isLoadingCurrencies}
                     placeholder="Select"
                     align="center"
+                    dropdownClassName="min-w-[155px] w-[165px] max-w-[195px]"
                   />
                 </div>
               </div>
@@ -4270,7 +4279,7 @@ export function ConfirmationDocumentForm({
               {/* PRICE */}
               <div className="p-1.5 sm:p-2 border-b sm:border-r sm:border-b-0 lg:border-r lg:border-b-0 border-border flex flex-col items-center justify-center" data-field="price">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
-                  {dict?.smart_docs?.confirmation_form?.price || 'PRICE'}
+                  {priceLabelBase} ({currencySymbol})
                 </span>
                 <div className="w-full max-w-[100px]">
                   <DocUnderlineInput
@@ -4294,7 +4303,7 @@ export function ConfirmationDocumentForm({
               {/* TOTAL VALUE */}
               <div className="p-1.5 sm:p-2 col-span-2 sm:col-span-2 lg:col-span-1 flex flex-col items-center justify-center" data-field="totalValue">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
-                  {dict?.smart_docs?.confirmation_form?.total_value || 'TOTAL VALUE'}
+                  {totalValueLabelBase} ({currencySymbol})
                 </span>
                 <span className="text-[14px] font-bold text-foreground py-0.5">
                   {totalValue || '-'}
@@ -4355,7 +4364,7 @@ export function ConfirmationDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   {dict?.smart_docs?.confirmation_form?.currency || 'CURRENCY'}
                 </span>
-                <div className="w-full max-w-[110px]">
+                <div className="w-full max-w-[115px]">
                   <DocUnderlineSelect
                     id="field-currency"
                     options={currenciesList}
@@ -4370,6 +4379,7 @@ export function ConfirmationDocumentForm({
                     loading={isLoadingCurrencies}
                     placeholder="Select"
                     align="center"
+                    dropdownClassName="min-w-[155px] w-[165px] max-w-[195px]"
                   />
                 </div>
               </div>
@@ -4377,7 +4387,7 @@ export function ConfirmationDocumentForm({
               {/* PRICE */}
               <div className="p-1.5 sm:p-2 border-b sm:border-b-0 sm:border-r border-border flex flex-col items-center justify-center" data-field="price">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
-                  {dict?.smart_docs?.confirmation_form?.price || 'PRICE'}
+                  {priceLabelBase} ({currencySymbol})
                 </span>
                 <div className="w-full max-w-[100px]">
                   <DocUnderlineInput
@@ -4401,7 +4411,7 @@ export function ConfirmationDocumentForm({
               {/* TOTAL VALUE */}
               <div className="p-1.5 sm:p-2 col-span-2 sm:col-span-1 flex flex-col items-center justify-center" data-field="totalValue">
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
-                  {dict?.smart_docs?.confirmation_form?.total_value || 'TOTAL VALUE'}
+                  {totalValueLabelBase} ({currencySymbol})
                 </span>
                 <span className="text-[14px] font-bold text-foreground py-0.5">
                   {totalValue || '-'}

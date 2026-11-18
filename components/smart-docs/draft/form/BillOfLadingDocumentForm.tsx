@@ -1055,7 +1055,7 @@ export default function BillOfLadingDocumentForm({
     }
   }, [initialData, dataVersion, effectiveBLId, isDirty, hasDraftChanges]);
 
-  // Container Table Row handlers
+  // Container Table Row handler
   const handleContainerChange = (index: number, field: keyof ContainerItem, val: string) => {
     markDirty();
     setContainers((prev) => {
@@ -1063,26 +1063,6 @@ export default function BillOfLadingDocumentForm({
       next[index] = { ...next[index], [field]: val };
       return next;
     });
-  };
-
-  const handleAddContainerRow = () => {
-    markDirty();
-    setContainers((prev) => [
-      ...prev,
-      {
-        id: `c-${prev.length + 1}`,
-        container_no: '',
-        seal_no: '',
-        bags: '',
-        gross_weight: '',
-        net_weight: '',
-      },
-    ]);
-  };
-
-  const handleRemoveContainerRow = (index: number) => {
-    markDirty();
-    setContainers((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Build Payload
@@ -1665,49 +1645,46 @@ export default function BillOfLadingDocumentForm({
               </div>
             </div>
 
-            {/* Bottom Sub-row: BOOKING NO & TRACKING LINK */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border">
-              {/* BOOKING NO */}
-              <div className="p-2.5 sm:p-3 flex flex-col justify-center min-h-[64px]">
-                <div className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider px-0.5 mb-1">
-                  BOOKING NO
-                </div>
-                <DocUnderlineInput
-                  value={bookingNo}
-                  onChange={(val) => {
-                    markDirty();
-                    setBookingNo(val);
-                    setErrors((prev) => ({ ...prev, booking_no: '' }));
-                  }}
-                  disabled={readOnly}
-                  placeholder="ENTER BOOKING NO"
-                  icon="fa-solid fa-pen"
-                  uppercase={true}
-                  error={errors.booking_no}
-                  inputClassName="text-[13px] sm:text-[14px] font-semibold text-foreground uppercase"
-                />
+            {/* Sub-row: BOOKING NO */}
+            <div className="p-2.5 sm:p-3 flex flex-col justify-center min-h-[64px]">
+              <div className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider px-0.5 mb-1">
+                BOOKING NO
               </div>
+              <DocUnderlineInput
+                value={bookingNo}
+                onChange={(val) => {
+                  markDirty();
+                  setBookingNo(val);
+                  setErrors((prev) => ({ ...prev, booking_no: '' }));
+                }}
+                disabled={readOnly}
+                placeholder="ENTER BOOKING NO"
+                icon="fa-solid fa-pen"
+                uppercase={true}
+                error={errors.booking_no}
+                inputClassName="text-[13px] sm:text-[14px] font-semibold text-foreground uppercase"
+              />
+            </div>
 
-              {/* TRACKING LINK */}
-              <div className="p-2.5 sm:p-3 flex flex-col justify-center min-h-[64px]">
-                <div className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider px-0.5 mb-1">
-                  TRACKING LINK
-                </div>
-                <DocUnderlineInput
-                  value={trackingLink}
-                  onChange={(val) => {
-                    markDirty();
-                    setTrackingLink(val);
-                    setErrors((prev) => ({ ...prev, tracking_link: '' }));
-                  }}
-                  disabled={readOnly}
-                  placeholder=""
-                  icon="fa-solid fa-pen"
-                  uppercase={false}
-                  error={errors.tracking_link}
-                  inputClassName="text-[13px] sm:text-[14px] font-semibold text-foreground"
-                />
+            {/* Bottom Sub-row: TRACKING LINK */}
+            <div className="p-2.5 sm:p-3 flex flex-col justify-center min-h-[64px]">
+              <div className="font-bold text-muted-foreground/85 uppercase text-[13px] sm:text-[14px] tracking-wider px-0.5 mb-1">
+                TRACKING LINK
               </div>
+              <DocUnderlineInput
+                value={trackingLink}
+                onChange={(val) => {
+                  markDirty();
+                  setTrackingLink(val);
+                  setErrors((prev) => ({ ...prev, tracking_link: '' }));
+                }}
+                disabled={readOnly}
+                placeholder=""
+                icon="fa-solid fa-pen"
+                uppercase={false}
+                error={errors.tracking_link}
+                inputClassName="text-[13px] sm:text-[14px] font-semibold text-foreground"
+              />
             </div>
           </div>
         </div>
@@ -2054,7 +2031,6 @@ export default function BillOfLadingDocumentForm({
                 <th className="py-2.5 px-3">BAGS</th>
                 <th className="py-2.5 px-3">GROSS Wt (KG)</th>
                 <th className="py-2.5 px-3">NET Wt (KG)</th>
-                {!readOnly && <th className="py-2.5 px-2 w-10 text-center print:hidden"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -2126,21 +2102,6 @@ export default function BillOfLadingDocumentForm({
                       inputClassName="text-[13px] font-medium text-foreground"
                     />
                   </td>
-
-                  {/* Row Delete Action */}
-                  {!readOnly && (
-                    <td className="py-1.5 px-2 text-center print:hidden">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveContainerRow(idx)}
-                        disabled={containers.length <= 1}
-                        title="Remove container"
-                        className="text-muted-foreground/60 hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed transition-colors p-1"
-                      >
-                        <i className="fa-solid fa-trash-can text-xs" />
-                      </button>
-                    </td>
-                  )}
                 </tr>
               ))}
             </tbody>
@@ -2159,27 +2120,9 @@ export default function BillOfLadingDocumentForm({
                 <td className="py-2.5 px-3 text-center sm:text-left font-bold text-foreground">
                   {formatWeightWithDecimals(tableTotals.totalNet)}
                 </td>
-                {!readOnly && <td className="py-2 px-2 print:hidden"></td>}
               </tr>
             </tfoot>
           </table>
-
-          {/* Add Container Row Button */}
-          {!readOnly && (
-            <div className="p-2 sm:p-2.5 border-t border-dashed border-border/80 flex items-center justify-between bg-card/60 print:hidden">
-              <button
-                type="button"
-                onClick={handleAddContainerRow}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold border border-dashed border-primary/50 text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-              >
-                <i className="fa-solid fa-plus text-xs" />
-                <span>Add Container</span>
-              </button>
-              <span className="text-[11px] text-muted-foreground italic px-1">
-                {`Total containers: ${containers.length}`}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* ========================================================

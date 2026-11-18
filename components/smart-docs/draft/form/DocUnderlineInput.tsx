@@ -86,7 +86,11 @@ export const DocUnderlineInput = forwardRef<HTMLInputElement | HTMLTextAreaEleme
     const alignClass =
       align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
 
-    const hasValue = String(value ?? '').trim().length > 0;
+    const rawValStr = String(value ?? '').trim();
+    const hasValue =
+      type === 'number'
+        ? rawValStr.length > 0 && !isNaN(Number(rawValStr))
+        : rawValStr.length > 0;
     const effectivePlaceholder = placeholder || (type === 'date' ? 'Select Date' : '');
 
     const [isFocused, setIsFocused] = useState(false);

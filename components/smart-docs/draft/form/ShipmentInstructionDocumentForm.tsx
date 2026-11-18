@@ -11,7 +11,6 @@ import {
   dedupePartyDetails,
   formatPartyDetails as formatPartyDetailsWithCompany,
   extractPortDisplayName,
-  formatPreCarriageBy,
   extractLoadingPortCountry,
 } from './ProformaDocumentForm';
 import { toast } from 'sonner';
@@ -60,6 +59,7 @@ export interface ShipmentInstructionDocumentFormProps {
   buyerInstructionId?: string;
   initialConsignees?: any[];
   initialNotifyParties?: any[];
+  initialConsigneesBuyerId?: string;
   steps?: StepperDocumentItem[];
   selectedStep?: StepperDocumentItem | null;
   onUpdateSteps?: (steps: StepperDocumentItem[]) => void;
@@ -827,12 +827,14 @@ export function ShipmentInstructionDocumentForm({
   buyerInstructionId,
   initialConsignees = [],
   initialNotifyParties = [],
+  initialConsigneesBuyerId = '',
   steps,
   selectedStep,
   onUpdateSteps,
   onSelectStep,
   buyers = [],
   products = [],
+  currencies = [],
   onSaveDraft,
   onSaveSuccess,
   onSubmitInstruction,
@@ -979,112 +981,206 @@ export function ShipmentInstructionDocumentForm({
   // ==========================================
   // 3. ROW 2: PARTIES (INPUTS: Dropdown + Multiline details with pencil)
   // ==========================================
+  // Strictly resolve buyer_instruction_id from the SI response (or the trade's Importer), NEVER a static/arbitrary buyer.
   const effectiveBuyerInstructionId = useMemo(() => {
     const cand = [
-      buyerInstructionId,
+      // 1. Primary: SI response buyer_instruction_id
       initialData?.buyer_instruction_id,
       initialData?.buyerInstructionId,
+      initialData?.shipment_instruction?.buyer_instruction_id,
+      initialData?.shipment_instruction?.buyerInstructionId,
+      initialData?.data?.buyer_instruction_id,
+      initialData?.data?.buyerInstructionId,
+      typeof initialData?.buyer_instruction === 'object' && initialData?.buyer_instruction !== null
+        ? initialData.buyer_instruction.id ||
+          initialData.buyer_instruction._id ||
+          initialData.buyer_instruction.buyer_instruction_id
+        : '',
+      initialData?.buyer?.buyer_instruction_id,
+      // 2. Workspace-resolved buyerInstructionId (from SI response -> upstream trade Importer)
+      buyerInstructionId,
+      // 3. Upstream trade document buyer_instruction_id
+      initialData?.proforma?.buyer_instruction_id,
+      initialData?.contract?.buyer_instruction_id,
+      initialData?.confirmation?.buyer_instruction_id,
+      // 4. Last resort: buyer_id on SI / upstream trade docs (never buyers[0])
       initialData?.buyer_id,
       initialData?.buyerId,
-      initialData?.buyer?.buyer_instruction_id,
+      initialData?.shipment_instruction?.buyer_id,
+      initialData?.data?.buyer_id,
       initialData?.buyer?.id,
       initialData?.buyer?._id,
-      initialData?.contract?.buyer_instruction_id,
-      initialData?.contract?.buyer_id,
-      initialData?.confirmation?.buyer_instruction_id,
-      initialData?.confirmation?.buyer_id,
-      initialData?.proforma?.buyer_instruction_id,
       initialData?.proforma?.buyer_id,
-      initialData?.data?.buyer_instruction_id,
-      initialData?.data?.buyer_id,
-      initialData?.shipment_instruction?.buyer_instruction_id,
-      initialData?.shipment_instruction?.buyer_id,
+      initialData?.contract?.buyer_id,
+      initialData?.confirmation?.buyer_id,
     ];
     for (const c of cand) {
       const clean = sanitizeDocId(c);
       if (clean) return clean;
     }
-    if (buyers && buyers.length > 0) {
-      if (buyers.length === 1) {
-        const b = sanitizeDocId(buyers[0].value || buyers[0].id);
-        if (b) return b;
-      }
-      const matchedByConsignee = buyers.find((b) => String(b.value || b.id) === String(initialData?.consignee_id || initialData?.buyer_id));
-      if (matchedByConsignee) {
-        const b = sanitizeDocId(matchedByConsignee.value || matchedByConsignee.id);
-        if (b) return b;
-      }
-    }
     return '';
-  }, [buyerInstructionId, initialData, buyers]);
+  }, [buyerInstructionId, initialData]);
 
-  const [consigneeId, setConsigneeId] = useState<string>(() => {
-    return safeString(
-      initialData?.consignee_details_id ||
-        initialData?.consignee_id ||
-        initialData?.buyer_id ||
-        initialData?.buyer?.id ||
-        initialData?.buyer?._id,
+  // Helper to extract Consignee strictly from Consignee fields on SI data (never substituting Importer/Buyer fields)
+  const extractInitialConsignee = useCallback((data: any) => {
+    if (!data || typeof data !== 'object') return { id: '', name: '', details: '' };
+    const si =
+      data.shipment_instruction && typeof data.shipment_instruction === 'object'
+        ? data.shipment_instruction
+        : null;
+    const rawConsigneeObj =
+      (typeof data.consignee === 'object' && data.consignee !== null ? data.consignee : null) ||
+      (typeof si?.consignee === 'object' && si?.consignee !== null ? si.consignee : null);
+
+    const id = safeString(
+      data.consignee_details_id ||
+        si?.consignee_details_id ||
+        data.consignee_id ||
+        si?.consignee_id ||
+        rawConsigneeObj?.consignee_details_id ||
+        rawConsigneeObj?.consignee_id ||
+        rawConsigneeObj?.id ||
+        rawConsigneeObj?._id,
       ''
     );
-  });
 
-  const [consigneeName, setConsigneeName] = useState<string>(() => {
+    const rawConsigneeStr =
+      typeof data.consignee === 'string' && data.consignee.trim() && !isRawDbId(data.consignee.trim())
+        ? formatMultilineValue(data.consignee.trim())
+        : typeof si?.consignee === 'string' && si.consignee.trim() && !isRawDbId(si.consignee.trim())
+        ? formatMultilineValue(si.consignee.trim())
+        : '';
+
+    const details = safeString(
+      data.consignee_details ||
+        si?.consignee_details ||
+        rawConsigneeStr ||
+        rawConsigneeObj?.details ||
+        (rawConsigneeObj ? formatPartyDetails(rawConsigneeObj) : ''),
+      ''
+    );
+
     const directName = safeString(
-      initialData?.consignee_name ||
-        initialData?.buyer_name ||
-        initialData?.buyer?.name ||
-        initialData?.buyer_company_name,
+      data.consignee_name ||
+        si?.consignee_name ||
+        rawConsigneeObj?.company_name ||
+        rawConsigneeObj?.name ||
+        rawConsigneeObj?.label,
       ''
     );
-    if (directName && !isRawDbId(directName)) return directName;
-    const details = safeString(initialData?.consignee_details || initialData?.buyer_details, '');
-    if (details) {
-      const firstLine = details.split('\n')[0].trim();
-      if (firstLine && !isRawDbId(firstLine)) return firstLine;
-    }
-    return directName || '';
-  });
 
-  const [consigneeDetails, setConsigneeDetails] = useState<string>(() => {
-    return safeString(
-      initialData?.consignee_details ||
-        initialData?.buyer_details ||
-        initialData?.buyer_instruction ||
-        initialData?.buyer?.address,
-      ''
-    );
-  });
+    let name = '';
+    if (directName && !isRawDbId(directName)) {
+      name = directName;
+    } else if (details) {
+      const firstLine = details.split('\n')[0].trim();
+      if (firstLine && !isRawDbId(firstLine)) name = firstLine;
+    }
+
+    return { id, name, details };
+  }, []);
+
+  const [consigneeId, setConsigneeId] = useState<string>(() => extractInitialConsignee(initialData).id);
+
+  const [consigneeName, setConsigneeName] = useState<string>(() => extractInitialConsignee(initialData).name);
+
+  const [consigneeDetails, setConsigneeDetails] = useState<string>(() => extractInitialConsignee(initialData).details);
 
   // Helper to extract party data from various initialData structures
   const extractInitialParty = useCallback((index1Based: number) => {
-    const rawList = Array.isArray(initialData?.notify_parties)
-      ? initialData.notify_parties
-      : Array.isArray(initialData?.notify_party_details)
-      ? initialData.notify_party_details
-      : Array.isArray(initialData?.notify_party)
-      ? initialData.notify_party
-      : [];
+    const si =
+      initialData?.shipment_instruction && typeof initialData.shipment_instruction === 'object'
+        ? initialData.shipment_instruction
+        : null;
 
-    const itemFromList = rawList[index1Based - 1];
+    const parseRawList = (val: any): any[] => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string' && val.trim().startsWith('[')) {
+        try {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed)) return parsed;
+        } catch {
+          // ignore malformed JSON
+        }
+      }
+      return [];
+    };
+
+    const rawList =
+      parseRawList(initialData?.notify_parties) ||
+      parseRawList(si?.notify_parties);
+    const effectiveList =
+      rawList.length > 0
+        ? rawList
+        : parseRawList(initialData?.notify_party_details).length > 0
+        ? parseRawList(initialData?.notify_party_details)
+        : parseRawList(initialData?.notify_party).length > 0
+        ? parseRawList(initialData?.notify_party)
+        : parseRawList(si?.notify_parties).length > 0
+        ? parseRawList(si?.notify_parties)
+        : parseRawList(si?.notify_party_details).length > 0
+        ? parseRawList(si?.notify_party_details)
+        : parseRawList(si?.notify_party);
+
+    const itemFromList =
+      effectiveList.find((item: any) => Number(item?.party_number) === index1Based) ||
+      effectiveList[index1Based - 1];
+
+    const rawPartyField =
+      initialData?.[`notify_party_${index1Based}`] ??
+      si?.[`notify_party_${index1Based}`];
 
     const id = safeString(
       initialData?.[`notify_party_${index1Based}_id`] ||
-        initialData?.[`notify_party_${index1Based}`]?.id ||
+        si?.[`notify_party_${index1Based}_id`] ||
+        initialData?.[`notify_party_${index1Based}_details_id`] ||
+        si?.[`notify_party_${index1Based}_details_id`] ||
+        (typeof rawPartyField === 'object' && rawPartyField !== null
+          ? rawPartyField.notify_party_details_id ||
+            rawPartyField.notify_party_id ||
+            rawPartyField.id ||
+            rawPartyField._id
+          : '') ||
+        itemFromList?.notify_party_details_id ||
+        itemFromList?.notify_party_id ||
         itemFromList?.id ||
         itemFromList?._id ||
-        itemFromList?.notify_party_id ||
         itemFromList?.value,
       ''
     );
 
+    const rawPartyString =
+      typeof rawPartyField === 'string' && rawPartyField.trim() && !isRawDbId(rawPartyField.trim())
+        ? formatMultilineValue(rawPartyField.trim())
+        : '';
+
+    const rawPartyObjectDetails =
+      typeof rawPartyField === 'object' && rawPartyField !== null
+        ? rawPartyField.details ||
+          rawPartyField.notify_party ||
+          rawPartyField.text ||
+          formatPartyDetails(rawPartyField)
+        : '';
+
+    const itemDetails = itemFromList
+      ? typeof itemFromList === 'string'
+        ? !isRawDbId(itemFromList.trim())
+          ? formatMultilineValue(itemFromList.trim())
+          : ''
+        : itemFromList.details ||
+          itemFromList.notify_party ||
+          itemFromList.text ||
+          formatPartyDetails(itemFromList)
+      : '';
+
     const details = safeString(
       initialData?.[`notify_party_${index1Based}_details`] ||
+        si?.[`notify_party_${index1Based}_details`] ||
         initialData?.[`notify_party_${index1Based}_text`] ||
-        initialData?.[`notify_party_${index1Based}`]?.details ||
-        itemFromList?.details ||
-        itemFromList?.text ||
-        (itemFromList && formatPartyDetails(itemFromList)),
+        si?.[`notify_party_${index1Based}_text`] ||
+        rawPartyString ||
+        rawPartyObjectDetails ||
+        itemDetails,
       ''
     );
 
@@ -1119,28 +1215,64 @@ export function ShipmentInstructionDocumentForm({
     return extras;
   });
 
-  // State for fetched consignees and notify parties from APIs
+  // Whether SSR-provided initialConsignees / initialNotifyParties match the current effectiveBuyerInstructionId
+  const cleanInitialConsigneesBuyerId = sanitizeDocId(initialConsigneesBuyerId);
+  const ssrMatchesBuyer = Boolean(
+    cleanInitialConsigneesBuyerId &&
+      effectiveBuyerInstructionId &&
+      cleanInitialConsigneesBuyerId === effectiveBuyerInstructionId
+  );
+
+  // State for fetched consignees and notify parties from APIs (strictly scoped to effectiveBuyerInstructionId)
   const [consigneesList, setConsigneesList] = useState<any[]>(() => {
-    return Array.isArray(initialConsignees) && initialConsignees.length > 0 ? initialConsignees : [];
+    return ssrMatchesBuyer && Array.isArray(initialConsignees) && initialConsignees.length > 0
+      ? initialConsignees
+      : [];
   });
   const [notifyPartiesList, setNotifyPartiesList] = useState<any[]>(() => {
-    return Array.isArray(initialNotifyParties) && initialNotifyParties.length > 0 ? initialNotifyParties : [];
+    return ssrMatchesBuyer && Array.isArray(initialNotifyParties) && initialNotifyParties.length > 0
+      ? initialNotifyParties
+      : [];
   });
   const [isLoadingConsignees, setIsLoadingConsignees] = useState<boolean>(false);
   const [isLoadingNotifyParties, setIsLoadingNotifyParties] = useState<boolean>(false);
 
-  // Fetch consignees and notify parties from API using effectiveBuyerInstructionId
+  // Track which buyer_instruction_id the current lists belong to so changing Importer/SI always re-fetches
+  const loadedConsigneesBuyerIdRef = useRef<string>(
+    ssrMatchesBuyer && Array.isArray(initialConsignees) && initialConsignees.length > 0
+      ? effectiveBuyerInstructionId
+      : ''
+  );
+  const loadedNotifyBuyerIdRef = useRef<string>(
+    ssrMatchesBuyer && Array.isArray(initialNotifyParties) && initialNotifyParties.length > 0
+      ? effectiveBuyerInstructionId
+      : ''
+  );
+
+  // Fetch consignees and notify parties from API whenever effectiveBuyerInstructionId changes
   useEffect(() => {
-    if (!effectiveBuyerInstructionId) return;
+    if (!effectiveBuyerInstructionId) {
+      loadedConsigneesBuyerIdRef.current = '';
+      loadedNotifyBuyerIdRef.current = '';
+      setConsigneesList([]);
+      setNotifyPartiesList([]);
+      setIsLoadingConsignees(false);
+      setIsLoadingNotifyParties(false);
+      return;
+    }
 
     let isMounted = true;
-    if (consigneesList.length === 0) {
+    const targetBuyerId = effectiveBuyerInstructionId;
+
+    if (loadedConsigneesBuyerIdRef.current !== targetBuyerId) {
+      setConsigneesList([]);
       setIsLoadingConsignees(true);
-      getBuyerConsigneesAction(effectiveBuyerInstructionId, { lang, source: 'web' })
+      getBuyerConsigneesAction(targetBuyerId, { lang, source: 'web' })
         .then((res) => {
           if (!isMounted) return;
           if (res?.success && Array.isArray(res.data)) {
             setConsigneesList(res.data);
+            loadedConsigneesBuyerIdRef.current = targetBuyerId;
           } else {
             setConsigneesList([]);
           }
@@ -1154,13 +1286,15 @@ export function ShipmentInstructionDocumentForm({
         });
     }
 
-    if (notifyPartiesList.length === 0) {
+    if (loadedNotifyBuyerIdRef.current !== targetBuyerId) {
+      setNotifyPartiesList([]);
       setIsLoadingNotifyParties(true);
-      getBuyerNotifyPartiesAction(effectiveBuyerInstructionId, { lang, source: 'web' })
+      getBuyerNotifyPartiesAction(targetBuyerId, { lang, source: 'web' })
         .then((res) => {
           if (!isMounted) return;
           if (res?.success && Array.isArray(res.data)) {
             setNotifyPartiesList(res.data);
+            loadedNotifyBuyerIdRef.current = targetBuyerId;
           } else {
             setNotifyPartiesList([]);
           }
@@ -1179,14 +1313,19 @@ export function ShipmentInstructionDocumentForm({
     };
   }, [effectiveBuyerInstructionId, lang]);
 
-  // Auto-populate details on initial load if matching party exists and details are empty
+  // Auto-populate consignee details on initial load if matching consignee exists in fetched list and details are empty
   useEffect(() => {
     if (consigneesList.length > 0 && (consigneeId || consigneeName)) {
-      const matched = consigneesList.find(
-        (c) =>
-          (consigneeId && String(c.consignee_details_id || c.id || c._id || c.consignee_id || c.value) === String(consigneeId)) ||
-          (consigneeName && (c.company_name || c.name || c.label)?.toLowerCase() === consigneeName.toLowerCase())
-      );
+      const targetId = String(consigneeId || '').trim().toLowerCase();
+      const targetName = String(consigneeName || '').trim().toLowerCase();
+      const matched = consigneesList.find((c) => {
+        if (!c) return false;
+        const candidateIds = [c.consignee_details_id, c.id, c._id, c.consignee_id, c.value]
+          .filter((v) => v !== undefined && v !== null && String(v).trim() !== '')
+          .map((v) => String(v).trim().toLowerCase());
+        const name = String(c.company_name || c.name || c.label || '').trim().toLowerCase();
+        return Boolean((targetId && candidateIds.includes(targetId)) || (targetName && name && name === targetName));
+      });
       if (matched) {
         if (!consigneeDetails) {
           const formatted = formatPartyDetails(matched);
@@ -1198,43 +1337,58 @@ export function ShipmentInstructionDocumentForm({
     }
   }, [consigneesList, consigneeId, consigneeName, consigneeDetails]);
 
+  const extraNotifySyncKey = extraNotifyParties
+    .map((p) => `${p.id || ''}:${p.details ? '1' : '0'}`)
+    .join('|');
+
   useEffect(() => {
     if (notifyPartiesList.length > 0) {
       const matchPartySimple = (n: any, targetVal: string) => {
         if (!n || !targetVal) return false;
         const s = String(targetVal).trim().toLowerCase();
-        const id = String(n.id || n._id || n.notify_party_id || n.value || '').trim().toLowerCase();
+        const candidateIds = [
+          n.notify_party_details_id,
+          n.id,
+          n._id,
+          n.notify_party_id,
+          n.value,
+        ]
+          .filter((v) => v !== undefined && v !== null && String(v).trim() !== '')
+          .map((v) => String(v).trim().toLowerCase());
         const name = String(n.company_name || n.name || n.label || n.business_name || n.title || '').trim().toLowerCase();
-        return Boolean((id && id === s) || (name && name === s));
+        return Boolean(candidateIds.includes(s) || (name && name === s));
+      };
+
+      const resolveMatchedDetails = (targetId: string): string => {
+        const matchedFromList = notifyPartiesList.find((n) => matchPartySimple(n, targetId));
+        if (matchedFromList) {
+          return (
+            formatPartyDetails(matchedFromList) ||
+            safeString(matchedFromList.company_name || matchedFromList.name || matchedFromList.label, '')
+          );
+        }
+        return '';
       };
 
       if (notifyParty1Id && !notifyParty1Details) {
-        const matched1 = notifyPartiesList.find((n) => matchPartySimple(n, notifyParty1Id));
-        if (matched1) {
-          const formatted = formatPartyDetails(matched1);
-          if (formatted) setNotifyParty1Details(formatted);
-        }
+        const formatted = resolveMatchedDetails(notifyParty1Id);
+        if (formatted) setNotifyParty1Details(formatted);
       }
 
       if (notifyParty2Id && !notifyParty2Details) {
-        const matched2 = notifyPartiesList.find((n) => matchPartySimple(n, notifyParty2Id));
-        if (matched2) {
-          const formatted = formatPartyDetails(matched2);
-          if (formatted) setNotifyParty2Details(formatted);
-        }
+        const formatted = resolveMatchedDetails(notifyParty2Id);
+        if (formatted) setNotifyParty2Details(formatted);
       }
+
       if (extraNotifyParties.length > 0) {
         setExtraNotifyParties((prev) => {
           let hasChanges = false;
           const updated = prev.map((p) => {
             if (p.id && !p.details) {
-              const matchedExtra = notifyPartiesList.find((n) => matchPartySimple(n, p.id));
-              if (matchedExtra) {
-                const formatted = formatPartyDetails(matchedExtra);
-                if (formatted) {
-                  hasChanges = true;
-                  return { ...p, details: formatted };
-                }
+              const formatted = resolveMatchedDetails(p.id);
+              if (formatted) {
+                hasChanges = true;
+                return { ...p, details: formatted };
               }
             }
             return p;
@@ -1243,18 +1397,9 @@ export function ShipmentInstructionDocumentForm({
         });
       }
     }
-  }, [notifyPartiesList, notifyParty1Id, notifyParty1Details, notifyParty2Id, notifyParty2Details]);
+  }, [notifyPartiesList, notifyParty1Id, notifyParty1Details, notifyParty2Id, notifyParty2Details, extraNotifySyncKey]);
 
-  // Buyer fallback options list for selects
-  const buyerSelectOptions = useMemo<DocSelectOption[]>(() => {
-    return buyers.map((b) => ({
-      value: String(b.value || b.id || ''),
-      label: b.label || b.name || 'Unnamed Buyer',
-      subLabel: b.subLabel || b.address || '',
-    }));
-  }, [buyers]);
-
-  // Consignee select options (from fetched API response or fallback)
+  // Consignee select options (strictly from fetched consigneesList for effectiveBuyerInstructionId; never mixes in unrelated buyers)
   const consigneeSelectOptions = useMemo<DocSelectOption[]>(() => {
     const list: DocSelectOption[] = [];
     const seenValues = new Set<string>();
@@ -1275,29 +1420,11 @@ export function ShipmentInstructionDocumentForm({
       });
     }
 
-    // Add fallback buyer options if not already in list
-    if (Array.isArray(buyers) && buyers.length > 0) {
-      buyers.forEach((b) => {
-        const val = String(b.value || b.id || '').trim();
-        const lbl = String(b.label || b.name || 'Unnamed Buyer').trim();
-        const sub = String(b.subLabel || b.address || '').trim();
-        if (val && !seenValues.has(val)) {
-          seenValues.add(val);
-          list.push({
-            value: val,
-            label: lbl && !isRawDbId(lbl) ? lbl : 'Buyer',
-            subLabel: sub,
-          });
-        }
-      });
-    }
-
-    // CRITICAL: Ensure currently selected consigneeId is ALWAYS present with a user-friendly label (NEVER raw DB ID)
+    // Preserve currently selected consigneeId (e.g. saved or custom entry) with a clean user-friendly label (never raw DB ID)
     if (consigneeId && consigneeId.trim()) {
       const cleanId = consigneeId.trim();
       const existingIdx = list.findIndex((o) => String(o.value) === cleanId);
       if (existingIdx === -1) {
-        // Find best label: consigneeName, or first line of consigneeDetails, or matched consigneesList item
         let cleanLabel = consigneeName?.trim() || '';
         if (!cleanLabel || isRawDbId(cleanLabel)) {
           if (consigneeDetails && consigneeDetails.trim()) {
@@ -1308,14 +1435,13 @@ export function ShipmentInstructionDocumentForm({
           }
         }
         if (!cleanLabel || isRawDbId(cleanLabel)) {
-          const matched = (consigneesList || []).find(
-            (c) => String(c.consignee_details_id || c.id || c._id || c.consignee_id || c.value) === cleanId
-          );
+          const matched = (consigneesList || []).find((c) => {
+            if (!c) return false;
+            const ids = [c.consignee_details_id, c.id, c._id, c.consignee_id, c.value].map((v) => String(v || '').trim());
+            return ids.includes(cleanId);
+          });
           if (matched) {
             cleanLabel = matched.company_name || matched.name || matched.label || 'Selected Consignee';
-          } else {
-            const bMatched = (buyers || []).find((b) => String(b.value || b.id) === cleanId);
-            cleanLabel = bMatched?.label || bMatched?.name || 'Selected Consignee';
           }
         }
 
@@ -1330,24 +1456,30 @@ export function ShipmentInstructionDocumentForm({
     }
 
     return list;
-  }, [consigneesList, consigneeId, consigneeName, consigneeDetails, buyers]);
+  }, [consigneesList, consigneeId, consigneeName, consigneeDetails]);
 
-  // All Notify Party options (from fetched API response)
+  // All Notify Party options (strictly from fetched notifyPartiesList for effectiveBuyerInstructionId; never falls back to buyers)
   const allNotifyOptions = useMemo<DocSelectOption[]>(() => {
-    if (notifyPartiesList.length > 0) {
-      return notifyPartiesList.map((item, idx) => {
-        const val = String(item.id || item._id || item.notify_party_id || item.company_name || `notify-${idx}`);
-        const lbl = String(item.company_name || item.name || item.label || 'Unnamed Notify Party');
-        const sub = String(item.address || [item.city, item.country].filter(Boolean).join(', ') || item.subLabel || '');
-        return {
-          value: val,
-          label: lbl,
-          subLabel: sub,
-        };
-      });
+    if (!Array.isArray(notifyPartiesList) || notifyPartiesList.length === 0) {
+      return [];
     }
-    return buyerSelectOptions;
-  }, [notifyPartiesList, buyerSelectOptions]);
+    const list: DocSelectOption[] = [];
+    const seenValues = new Set<string>();
+    notifyPartiesList.forEach((item, idx) => {
+      const val = String(item.notify_party_details_id || item.id || item._id || item.notify_party_id || item.company_name || `notify-${idx}`).trim();
+      const lbl = String(item.company_name || item.name || item.label || 'Unnamed Notify Party').trim();
+      const sub = String(item.address || [item.city, item.country].filter(Boolean).join(', ') || item.subLabel || '').trim();
+      if (val && !seenValues.has(val)) {
+        seenValues.add(val);
+        list.push({
+          value: val,
+          label: lbl && !isRawDbId(lbl) ? lbl : 'Notify Party',
+          subLabel: sub,
+        });
+      }
+    });
+    return list;
+  }, [notifyPartiesList]);
 
   // Helper to generate options for any notify party slot, excluding options selected in other slots
   const getFilteredNotifyOptions = useCallback(
@@ -1380,13 +1512,20 @@ export function ShipmentInstructionDocumentForm({
         return true;
       });
 
-      // Ensure the currently selected option is preserved in the list
+      // Ensure the currently selected option is preserved in the list with a clean label
       if (currentId && !list.some((o) => String(o.value) === String(currentId))) {
         const currentMatched = allNotifyOptions.find((o) => String(o.value) === String(currentId));
+        const firstLine = currentDetails ? currentDetails.split('\n')[0].trim() : '';
+        const fallbackLabel =
+          firstLine && !isRawDbId(firstLine)
+            ? firstLine
+            : !isRawDbId(currentId)
+            ? currentId
+            : `Notify Party 0${slotIndex}`;
         list = [
           currentMatched || {
             value: currentId,
-            label: currentDetails ? currentDetails.split('\n')[0] : currentId,
+            label: fallbackLabel,
             subLabel: currentDetails || '',
           },
           ...list,
@@ -1410,7 +1549,7 @@ export function ShipmentInstructionDocumentForm({
     [getFilteredNotifyOptions, notifyParty2Id, notifyParty2Details]
   );
 
-  // Robust matcher for Notify Parties to ensure selection always updates details correctly
+  // Robust matcher for Notify Parties (strictly matches fetched notifyPartiesList for effectiveBuyerInstructionId)
   const findNotifyPartyMatch = useCallback(
     (searchVal: string) => {
       if (!searchVal) return null;
@@ -1420,9 +1559,11 @@ export function ShipmentInstructionDocumentForm({
       // 1. Check in notifyPartiesList
       for (const n of notifyPartiesList) {
         if (!n) continue;
-        const id = String(n.id || n._id || n.notify_party_id || n.value || '').trim();
+        const candidateIds = [n.notify_party_details_id, n.id, n._id, n.notify_party_id, n.value]
+          .filter((v) => v !== undefined && v !== null && String(v).trim() !== '')
+          .map((v) => String(v).trim());
         const name = String(n.company_name || n.name || n.label || n.business_name || n.title || '').trim();
-        if ((id && id === s) || (id && id.toLowerCase() === sLower)) return n;
+        if (candidateIds.some((id) => id === s || id.toLowerCase() === sLower)) return n;
         if ((name && name === s) || (name && name.toLowerCase() === sLower)) return n;
       }
 
@@ -1441,20 +1582,12 @@ export function ShipmentInstructionDocumentForm({
         };
       }
 
-      // 3. Check in buyers
-      for (const b of buyers) {
-        if (!b) continue;
-        const bId = String(b.value || b.id || b._id || '').trim();
-        const bName = String(b.label || b.name || b.company_name || '').trim();
-        if ((bId && bId === s) || (bId && bId.toLowerCase() === sLower)) return b;
-        if ((bName && bName === s) || (bName && bName.toLowerCase() === sLower)) return b;
-      }
-
       return null;
     },
-    [notifyPartiesList, allNotifyOptions, buyers]
+    [notifyPartiesList, allNotifyOptions]
   );
 
+  // Robust matcher for Consignees (strictly matches fetched consigneesList for effectiveBuyerInstructionId)
   const findConsigneeMatch = useCallback(
     (searchVal: string) => {
       if (!searchVal) return null;
@@ -1463,23 +1596,17 @@ export function ShipmentInstructionDocumentForm({
 
       for (const c of consigneesList) {
         if (!c) continue;
-        const id = String(c.consignee_details_id || c.id || c._id || c.consignee_id || c.value || '').trim();
+        const candidateIds = [c.consignee_details_id, c.id, c._id, c.consignee_id, c.value]
+          .filter((v) => v !== undefined && v !== null && String(v).trim() !== '')
+          .map((v) => String(v).trim());
         const name = String(c.company_name || c.name || c.label || '').trim();
-        if ((id && id === s) || (id && id.toLowerCase() === sLower)) return c;
+        if (candidateIds.some((id) => id === s || id.toLowerCase() === sLower)) return c;
         if ((name && name === s) || (name && name.toLowerCase() === sLower)) return c;
-      }
-
-      for (const b of buyers) {
-        if (!b) continue;
-        const bId = String(b.value || b.id || b._id || '').trim();
-        const bName = String(b.label || b.name || b.company_name || '').trim();
-        if ((bId && bId === s) || (bId && bId.toLowerCase() === sLower)) return b;
-        if ((bName && bName === s) || (bName && bName.toLowerCase() === sLower)) return b;
       }
 
       return null;
     },
-    [consigneesList, buyers]
+    [consigneesList]
   );
 
   const handleConsigneeSelect = (val: string) => {
@@ -1611,20 +1738,8 @@ export function ShipmentInstructionDocumentForm({
   // 4. ROW 3: ROUTE (5 STATIC TEXT + 1 EDITABLE INPUT)
   // ==========================================
   // 5 STATIC DISPLAY FIELDS:
-  const preCarriageBy = useMemo(() => {
-    const raw =
-      initialData?.pre_carriage_by ||
-      initialData?.pre_carriage ||
-      initialData?.preCarriageBy ||
-      initialData?.contract?.pre_carriage ||
-      initialData?.confirmation?.pre_carriage ||
-      initialData?.container_type ||
-      initialData?.fcl_type ||
-      initialData?.ship_by ||
-      initialData?.shipment_instruction?.pre_carriage_by ||
-      initialData?.proforma?.pre_carriage_by;
-    return formatPreCarriageBy(raw, 'BY SEA');
-  }, [initialData]);
+  // PRE-CARRIAGE BY: User requirement: Fixed static value is always "BY SEA"
+  const preCarriageBy = 'BY SEA';
 
   const placeOfReceipt = useMemo(() => {
     const extractedCountry = extractLoadingPortCountry(initialData, products);
@@ -1672,18 +1787,14 @@ export function ShipmentInstructionDocumentForm({
     );
   }, [initialData]);
 
-  // 1 EDITABLE INPUT: PLACE OF DELIVERY
+  // 1 EDITABLE INPUT: PLACE OF DELIVERY (strictly bound to place_of_delivery key)
   const [placeOfDelivery, setPlaceOfDelivery] = useState<string>(() => {
-    const raw =
-      initialData?.place_of_delivery ||
-      initialData?.final_destination ||
-      initialData?.destination_port_name ||
-      initialData?.destination_port ||
-      initialData?.port_of_destination ||
-      initialData?.placeOfDelivery ||
-      initialData?.contract?.destination_port ||
-      initialData?.confirmation?.destination_port;
-    return extractPortDisplayName(raw, safeString(raw, ''));
+    return safeString(
+      initialData?.place_of_delivery ??
+        initialData?.shipment_instruction?.place_of_delivery ??
+        initialData?.placeOfDelivery,
+      ''
+    );
   });
 
   // ==========================================
@@ -1738,7 +1849,14 @@ export function ShipmentInstructionDocumentForm({
 
   const packingDescription = useMemo(() => {
     return safeString(
-      initialData?.packing_description ||
+      initialData?.packing_type_title ||
+        initialData?.packing_type?.title ||
+        initialData?.packing_type?.name ||
+        initialData?.shipment_instruction?.packing_type_title ||
+        initialData?.proforma?.packing_type_title ||
+        initialData?.contract?.packing_type_title ||
+        initialData?.confirmation?.packing_type_title ||
+        initialData?.packing_description ||
         initialData?.packing_type ||
         initialData?.packing ||
         initialData?.contract?.packing_type ||
@@ -1796,9 +1914,18 @@ export function ShipmentInstructionDocumentForm({
   }, [initialData, fclQuantity, fclCapacity]);
 
   const bagWeightKg = useMemo(() => {
-    const parsed = parsePackingBagWeightKg(packingDescription);
+    const parsed =
+      parsePackingBagWeightKg(packingDescription) ||
+      parsePackingBagWeightKg(
+        safeString(
+          initialData?.packing_description ||
+            initialData?.packing_type ||
+            initialData?.packing,
+          ''
+        )
+      );
     return parsed && parsed > 0 ? parsed : 0;
-  }, [packingDescription]);
+  }, [packingDescription, initialData]);
 
   const bagQuantity = useMemo(() => {
     if (initialData?.bag_quantity || initialData?.total_bags) {
@@ -1835,16 +1962,18 @@ export function ShipmentInstructionDocumentForm({
     const cCode =
       initialData?.currency ||
       initialData?.currency_code ||
+      initialData?.currency_id ||
       initialData?.contract?.currency ||
       initialData?.confirmation?.currency;
-    const fromCode = cCode ? getCurrencySymbol(cCode) : '';
+    if (cCode) {
+      return getCurrencySymbol(cCode, currencies);
+    }
     return safeString(
       initialData?.currency_symbol ||
-        initialData?.currency?.symbol ||
-        fromCode,
-      ''
+        initialData?.currency?.symbol,
+      '$'
     );
-  }, [initialData]);
+  }, [initialData, currencies]);
 
   // Additional Specifications (STATIC TEXT DISPLAY):
   const sbillNo = useMemo(() => {
@@ -1988,8 +2117,23 @@ export function ShipmentInstructionDocumentForm({
   }, [bagQuantity]);
 
   const totalWeight = useMemo(() => {
-    return safeString(initialData?.total_weight, grossWeight !== '-' ? grossWeight : '-');
-  }, [initialData, grossWeight]);
+    const raw =
+      initialData?.net_weight ??
+      initialData?.shipment_instruction?.net_weight;
+    const str = safeString(raw, '');
+    if (!str || str === '-') {
+      return '000.000 KGS';
+    }
+    const match = str.match(/^([\d,]+(?:\.\d+)?)(?:\s*([a-zA-Z.]+))?$/);
+    if (match) {
+      const num = parseFloat(match[1].replace(/,/g, ''));
+      if (!isNaN(num)) {
+        const unit = match[2] ? match[2].toUpperCase() : 'KGS';
+        return `${num.toFixed(3)} ${unit}`;
+      }
+    }
+    return /\b(?:kgs?|mts?|lbs?|g)\b/i.test(str) ? str : `${str} KGS`;
+  }, [initialData]);
 
   // ==========================================
   // 7. ROW 6: CUSTOM REMARKS (2 EDITABLE INPUTS with pencil)
@@ -2062,43 +2206,37 @@ export function ShipmentInstructionDocumentForm({
     setHasDraftChanges(false);
 
     // Only update fields if user has not actively made manual edits (unless stepper navigation triggered a refresh)
-    const cid = safeString(
-      initialData.consignee_details_id ||
-        initialData.consignee_id ||
-        initialData.buyer_id ||
-        initialData.buyer?.id ||
-        initialData.buyer?._id,
-      ''
-    );
-    if (cid && (isDataVersionTriggered || !consigneeId || !isDirty)) setConsigneeId(cid);
-
-    const cname = safeString(
-      initialData.consignee_name ||
-        initialData.buyer_name ||
-        initialData.buyer?.name ||
-        initialData.buyer_company_name,
-      ''
-    );
-    if (cname && (isDataVersionTriggered || !consigneeName || !isDirty)) setConsigneeName(cname);
-
-    const cdetails = safeString(
-      initialData.consignee_details ||
-        initialData.buyer_details ||
-        initialData.buyer_instruction,
-      ''
-    );
-    if (cdetails && (isDataVersionTriggered || !consigneeDetails || !isDirty)) setConsigneeDetails(cdetails);
+    const initialConsignee = extractInitialConsignee(initialData);
+    if (isDataVersionTriggered || hasDocIdChanged) {
+      setConsigneeId(initialConsignee.id);
+      setConsigneeName(initialConsignee.name);
+      setConsigneeDetails(initialConsignee.details);
+    } else {
+      if (initialConsignee.id && (!consigneeId || !isDirty)) setConsigneeId(initialConsignee.id);
+      if (initialConsignee.name && (!consigneeName || !isDirty)) setConsigneeName(initialConsignee.name);
+      if (initialConsignee.details && (!consigneeDetails || !isDirty)) setConsigneeDetails(initialConsignee.details);
+    }
 
     // Notify Parties
     const p1 = extractInitialParty(1);
-    if (p1.id && (isDataVersionTriggered || !notifyParty1Id || !isDirty)) setNotifyParty1Id(p1.id);
-    if (p1.details && (isDataVersionTriggered || !notifyParty1Details || !isDirty)) setNotifyParty1Details(p1.details);
+    if (isDataVersionTriggered || hasDocIdChanged) {
+      setNotifyParty1Id(p1.id);
+      setNotifyParty1Details(p1.details);
+    } else {
+      if (p1.id && (!notifyParty1Id || !isDirty)) setNotifyParty1Id(p1.id);
+      if (p1.details && (!notifyParty1Details || !isDirty)) setNotifyParty1Details(p1.details);
+    }
 
     const p2 = extractInitialParty(2);
-    if (p2.id && (isDataVersionTriggered || !notifyParty2Id || !isDirty)) setNotifyParty2Id(p2.id);
-    if (p2.details && (isDataVersionTriggered || !notifyParty2Details || !isDirty)) setNotifyParty2Details(p2.details);
+    if (isDataVersionTriggered || hasDocIdChanged) {
+      setNotifyParty2Id(p2.id);
+      setNotifyParty2Details(p2.details);
+    } else {
+      if (p2.id && (!notifyParty2Id || !isDirty)) setNotifyParty2Id(p2.id);
+      if (p2.details && (!notifyParty2Details || !isDirty)) setNotifyParty2Details(p2.details);
+    }
 
-    if (!isDirty || isDataVersionTriggered) {
+    if (!isDirty || isDataVersionTriggered || hasDocIdChanged) {
       const extras: Array<{ id: string; details: string }> = [];
       for (let i = 3; i <= 6; i++) {
         const party = extractInitialParty(i);
@@ -2106,24 +2244,23 @@ export function ShipmentInstructionDocumentForm({
           extras.push(party);
         }
       }
-      if (extras.length > 0) {
+      if (isDataVersionTriggered || hasDocIdChanged || extras.length > 0) {
         setExtraNotifyParties(extras);
       }
     }
 
-    // Place of delivery
-    const pod = extractPortDisplayName(
-      initialData.place_of_delivery ||
-        initialData.final_destination ||
-        initialData.destination_port_name ||
-        initialData.destination_port ||
-        initialData.port_of_destination ||
-        initialData.placeOfDelivery ||
-        initialData.contract?.destination_port ||
-        initialData.confirmation?.destination_port,
-      safeString(initialData.destination_port_name || initialData.place_of_delivery || initialData.final_destination, '')
+    // Place of delivery (strictly bound to place_of_delivery key)
+    const pod = safeString(
+      initialData.place_of_delivery ??
+        initialData.shipment_instruction?.place_of_delivery ??
+        initialData.placeOfDelivery,
+      ''
     );
-    if (pod && (isDataVersionTriggered || !placeOfDelivery || !isDirty)) setPlaceOfDelivery(pod);
+    if (isDataVersionTriggered || hasDocIdChanged) {
+      setPlaceOfDelivery(pod);
+    } else if (pod && (!placeOfDelivery || !isDirty)) {
+      setPlaceOfDelivery(pod);
+    }
 
     // Marks and numbers / Marking Brand / Container Marks
     const marks = safeString(
@@ -2240,6 +2377,7 @@ export function ShipmentInstructionDocumentForm({
     contractId,
     confirmationId,
     proformaId,
+    extractInitialConsignee,
     extractInitialParty,
   ]);
 
@@ -2332,7 +2470,7 @@ export function ShipmentInstructionDocumentForm({
           return name && effNotify1Details.toLowerCase().includes(name);
         });
         if (matched) {
-          effNotify1Id = String(matched.id || matched._id || matched.notify_party_id || '');
+          effNotify1Id = String(matched.notify_party_details_id || matched.id || matched._id || matched.notify_party_id || '');
         }
       }
       const finalNotify1Id = effNotify1Id || 'custom';
@@ -2356,7 +2494,7 @@ export function ShipmentInstructionDocumentForm({
           return name && effNotify2Details.toLowerCase().includes(name);
         });
         if (matched) {
-          effNotify2Id = String(matched.id || matched._id || matched.notify_party_id || '');
+          effNotify2Id = String(matched.notify_party_details_id || matched.id || matched._id || matched.notify_party_id || '');
         }
       }
       const finalNotify2Id = effNotify2Id || 'custom';
@@ -2381,7 +2519,7 @@ export function ShipmentInstructionDocumentForm({
             const name = (n.company_name || n.name || n.label || '').toLowerCase();
             return name && rawDetails.toLowerCase().includes(name);
           });
-          if (matched) rawId = String(matched.id || matched._id || matched.notify_party_id || '');
+          if (matched) rawId = String(matched.notify_party_details_id || matched.id || matched._id || matched.notify_party_id || '');
         }
         const finalExtraId = rawId || 'custom';
         const finalExtraDetails = rawDetails || finalExtraId;
@@ -2467,7 +2605,10 @@ export function ShipmentInstructionDocumentForm({
     }
 
     if (productName && productName.trim()) fd.append('product_name', productName.trim());
-    if (packingDescription && packingDescription.trim()) fd.append('packing_description', packingDescription.trim());
+    if (packingDescription && packingDescription.trim()) {
+      fd.append('packing_description', packingDescription.trim());
+      fd.append('packing_type_title', packingDescription.trim());
+    }
     if (fclType && fclType.trim()) fd.append('fcl_type', fclType.trim());
     if (fclQuantity) fd.append('fcl_quantity', String(fclQuantity));
     if (fclCapacity) fd.append('fcl_capacity', String(fclCapacity));

@@ -6528,8 +6528,10 @@ export async function getBuyerConsigneesAction(
 
     const safeLang = getSafeLang(params.lang || "en");
     const res = await smartDocsService.getBuyerConsignees(cleanId, { lang: safeLang, source: params.source || "web" }, token);
-    const dataObj = res?.data || res;
-    const rawItems = Array.isArray(dataObj?.items)
+    const dataObj = res?.data ?? res;
+    const rawItems = Array.isArray(dataObj)
+      ? dataObj
+      : Array.isArray(dataObj?.items)
       ? dataObj.items
       : Array.isArray(dataObj?.consignees)
       ? dataObj.consignees
@@ -6537,8 +6539,6 @@ export async function getBuyerConsigneesAction(
       ? dataObj.consignee
       : Array.isArray(dataObj?.consignee_details)
       ? dataObj.consignee_details
-      : Array.isArray(dataObj)
-      ? dataObj
       : Array.isArray(res?.items)
       ? res.items
       : Array.isArray(res?.consignees)
@@ -6547,8 +6547,6 @@ export async function getBuyerConsigneesAction(
       ? res.consignee
       : Array.isArray(res)
       ? res
-      : typeof dataObj === 'object' && dataObj !== null && (dataObj.company_name || dataObj.name || dataObj.address)
-      ? [dataObj]
       : [];
     return { success: true, data: rawItems };
   } catch (err: any) {
@@ -6643,8 +6641,10 @@ export async function getBuyerNotifyPartiesAction(
 
     const safeLang = getSafeLang(params.lang || "en");
     const res = await smartDocsService.getBuyerNotifyParties(cleanId, { lang: safeLang, source: params.source || "web" }, token);
-    const dataObj = res?.data || res;
-    const rawItems = Array.isArray(dataObj?.items)
+    const dataObj = res?.data ?? res;
+    const rawItems = Array.isArray(dataObj)
+      ? dataObj
+      : Array.isArray(dataObj?.items)
       ? dataObj.items
       : Array.isArray(dataObj?.notify_parties)
       ? dataObj.notify_parties
@@ -6654,8 +6654,6 @@ export async function getBuyerNotifyPartiesAction(
       ? dataObj.notify_party_details
       : Array.isArray(dataObj?.notifies)
       ? dataObj.notifies
-      : Array.isArray(dataObj)
-      ? dataObj
       : Array.isArray(res?.items)
       ? res.items
       : Array.isArray(res?.notify_parties)
@@ -6664,8 +6662,6 @@ export async function getBuyerNotifyPartiesAction(
       ? res.notify_party
       : Array.isArray(res)
       ? res
-      : typeof dataObj === 'object' && dataObj !== null && (dataObj.company_name || dataObj.name || dataObj.address)
-      ? [dataObj]
       : [];
     return { success: true, data: rawItems };
   } catch (err: any) {

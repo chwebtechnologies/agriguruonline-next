@@ -96,9 +96,9 @@ const DEFAULT_FIXED_LOADING_CONDITION: FormOptionItem = {
   label: 'Any Port Of Loading',
 };
 
-const DEFAULT_ADVANCE_TYPE_OPTIONS: DocSegmentedToggleOption<'amount' | '%'>[] = [
-  { value: '%', label: '%', icon: 'fa-solid fa-percent' },
-  { value: 'amount', label: 'AMOUNT', icon: 'fa-solid fa-coins' },
+const DEFAULT_ADVANCE_TYPE_OPTIONS: DocSegmentedToggleOption<'PERCENTAGE' | 'AMOUNT'>[] = [
+  { value: 'PERCENTAGE', label: '%', icon: 'fa-solid fa-percent' },
+  { value: 'AMOUNT', label: 'AMOUNT', icon: 'fa-solid fa-coins' },
 ];
 
 const DEFAULT_BROKER_COMMISSION_TYPE_OPTIONS: DocSegmentedToggleOption<'PERCENTAGE' | 'PMT'>[] = [
@@ -244,9 +244,14 @@ export const CONTRACT_FIELD_VISUAL_ORDER = [
   'totalValue',
   'inspection',
   'incoterm',
+  'partialCount',
   'partialTotal',
+  'advance',
+  'advanceType',
   'advanceAmount',
   'advancePercentage',
+  'salesBroker',
+  'brokerCommissionType',
   'brokerCommission',
   'brokerName',
   'freeDays',
@@ -309,6 +314,34 @@ export function scrollToAndFocusContractField(fieldErrorsOrKey: string | Record<
 
   if (targetKey === 'contractNumber') {
     selectors.unshift('#contract-number-input', '#field-contractNumber');
+  }
+
+  if (targetKey === 'partialCount' || targetKey === 'splitCount' || targetKey === 'partialTotal') {
+    selectors.unshift('#field-split-count', '[data-field="partial"]');
+  }
+
+  if (targetKey === 'brokerCommissionType') {
+    selectors.unshift('#toggle-broker-commission-type', '[data-field="brokerCommissionType"]', '[data-field="salesBroker"]');
+  }
+
+  if (targetKey === 'advanceType') {
+    selectors.unshift('#toggle-advance-type', '[data-field="advanceType"]', '[data-field="advance"]');
+  }
+
+  if (targetKey === 'brokerCommission') {
+    selectors.unshift('#field-broker-commission', '[data-field="brokerCommission"]');
+  }
+
+  if (targetKey === 'brokerName') {
+    selectors.unshift('#field-broker-name', '[data-field="brokerName"]');
+  }
+
+  if (targetKey === 'advanceAmount') {
+    selectors.unshift('#field-advance-amount', '[data-field="advanceAmount"]');
+  }
+
+  if (targetKey === 'advancePercentage') {
+    selectors.unshift('#field-advance-percent', '[data-field="advancePercentage"]');
   }
 
   let el: HTMLElement | null = null;
@@ -1019,18 +1052,46 @@ export function parseContractBackendErrors(
       case 'partialtotal':
         return 'partialTotal';
       case 'advanceamount':
+      case 'advance_amount':
+      case 'advancepaymentamt':
+      case 'advance_payment_amt':
+      case 'advancepayment':
+      case 'advance_payment':
         return 'advanceAmount';
       case 'advancepercentage':
       case 'advancepercent':
+      case 'advance_percentage':
+      case 'advancepaymentpct':
+      case 'advance_payment_pct':
+      case 'advancepct':
+      case 'advance_pct':
         return 'advancePercentage';
+      case 'advancetype':
+      case 'advance_type':
+      case 'advancepaymenttype':
+      case 'advance_payment_type':
+        return 'advanceType';
       case 'brokercommissiontype':
+      case 'broker_commission_type':
+      case 'salesbrokertype':
+      case 'sales_broker_type':
         return 'brokerCommissionType';
       case 'brokercommission':
+      case 'broker_commission':
+      case 'salesbrokercommission':
+      case 'sales_broker_commission':
         return 'brokerCommission';
       case 'brokercommissionamt':
       case 'brokercommissionamount':
+      case 'broker_commission_amt':
+      case 'broker_commission_amount':
+      case 'salesbrokeramount':
+      case 'sales_broker_amount':
         return 'brokerCommissionAmt';
       case 'brokername':
+      case 'broker_name':
+      case 'salesbrokername':
+      case 'sales_broker_name':
         return 'brokerName';
       case 'brokersignaturefield':
       case 'brokertitle':
@@ -1264,6 +1325,32 @@ export function getPartialLabel(index: number): string {
   return label;
 }
 
+export function formatSplitNumber(val: any, index: number): string {
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    // If it's already purely alphabetic (e.g. 'A', 'B', 'AA', 'AB')
+    if (/^[A-Za-z]+$/.test(trimmed)) {
+      return trimmed.toUpperCase();
+    }
+    // If it has digits like "1", "27" or "Partial 1"
+    const digitsOnly = trimmed.replace(/\D/g, '');
+    if (digitsOnly) {
+      const num = parseInt(digitsOnly, 10);
+      if (!isNaN(num) && num > 0) {
+        return getPartialLabel(num - 1);
+      }
+    }
+    const lettersOnly = trimmed.replace(/[^A-Za-z]/g, '').toUpperCase();
+    const withoutPartial = lettersOnly.replace(/^PARTIAL/, '');
+    if (withoutPartial && /^[A-Za-z]+$/.test(withoutPartial)) {
+      return withoutPartial;
+    }
+  } else if (typeof val === 'number' && val > 0) {
+    return getPartialLabel(val - 1);
+  }
+  return getPartialLabel(index);
+}
+
 export function parseInitialIsPartial(data: any): boolean | null {
   if (!data) return null;
   const raw =
@@ -1291,26 +1378,21 @@ export function parseInitialIsBroker(data: any): boolean | null {
   const parsed = parseNullableBoolean(raw);
   if (parsed !== null) return parsed;
 
-  // Check if any broker-specific fields are actively populated in the data
-  const hasBrokerDetails = Boolean(
-    data.broker_name ||
-    data.sales_broker_name ||
-    data.brokerName ||
-    data.broker_commission ||
-    data.sales_broker_commission ||
-    data.brokerCommission ||
-    data.broker_commission_type ||
-    data.sales_broker_type ||
-    data.brokerCommissionType ||
-    data.broker_signature ||
-    data.sales_broker_signature ||
-    data.brokerSignature ||
-    data.broker_signature_field ||
-    data.broker_title ||
-    data.sales_broker_title
-  );
+  // By default, sales broker is NOT allowed in contracts.
+  // Never treat default template layout titles or signature field labels as an indicator of broker allowance.
+  const hasRealBrokerDetails =
+    Boolean(
+      (typeof data.broker_name === 'string' && data.broker_name.trim()) ||
+      (typeof data.sales_broker_name === 'string' && data.sales_broker_name.trim()) ||
+      (typeof data.brokerName === 'string' && data.brokerName.trim())
+    ) &&
+    Boolean(
+      data.broker_commission ||
+      data.sales_broker_commission ||
+      data.brokerCommission
+    );
 
-  if (hasBrokerDetails) {
+  if (hasRealBrokerDetails) {
     return true;
   }
 
@@ -1330,6 +1412,39 @@ export function parseBrokerCommissionType(val: any): 'PERCENTAGE' | 'PMT' | null
   return null;
 }
 
+export function parseInitialAdvanceType(data: any): 'PERCENTAGE' | 'AMOUNT' | null {
+  if (!data || typeof data !== 'object') return null;
+  const raw =
+    data.advance_payment_type ??
+    data.advancePaymentType ??
+    data.advance_type ??
+    data.advanceType;
+  if (raw !== null && raw !== undefined) {
+    const s = String(raw).trim().toUpperCase();
+    if (s === 'PERCENTAGE' || s === '%' || s === 'PERCENT') return 'PERCENTAGE';
+    if (s === 'AMOUNT' || s === 'FIXED' || s === 'AMT') return 'AMOUNT';
+  }
+  const pctVal =
+    data.advance_payment_pct ??
+    data.advancePaymentPct ??
+    data.advance_percentage ??
+    data.advancePercentage ??
+    data.advance_pct;
+  if (
+    pctVal !== undefined &&
+    pctVal !== null &&
+    pctVal !== '' &&
+    Number(pctVal) > 0
+  ) {
+    return 'PERCENTAGE';
+  }
+  const amtVal = data.advance_payment_amt ?? data.advance_payment ?? data.advance_amount ?? data.advanceAmount;
+  if (amtVal !== undefined && amtVal !== null && amtVal !== '' && Number(amtVal) > 0) {
+    return 'AMOUNT';
+  }
+  return null;
+}
+
 export function parseInitialSplitCount(data: any): string | number {
   if (!data) return '';
   const countRaw =
@@ -1338,7 +1453,10 @@ export function parseInitialSplitCount(data: any): string | number {
     data.partial_count ??
     data.partialCount;
   if (countRaw !== undefined && countRaw !== null && String(countRaw).trim() !== '') {
-    return countRaw;
+    const count = parseInt(String(countRaw), 10);
+    if (!isNaN(count) && count > 0) {
+      return Math.min(count, 30);
+    }
   }
   const rawSplits =
     data.splits ||
@@ -1347,7 +1465,7 @@ export function parseInitialSplitCount(data: any): string | number {
     data.partial_breakdown ||
     data.partial_quantities;
   if (Array.isArray(rawSplits) && rawSplits.length > 0) {
-    return rawSplits.length;
+    return Math.min(rawSplits.length, 30);
   }
   return '';
 }
@@ -1362,7 +1480,7 @@ export function parseInitialSplits(data: any): ContractSplitItem[] {
     data.partial_quantities;
 
   if (Array.isArray(rawSplits) && rawSplits.length > 0) {
-    return rawSplits.map((item, idx) => {
+    return rawSplits.slice(0, 30).map((item, idx) => {
       if (typeof item === 'object' && item !== null) {
         const qty =
           item.fcl_quantity ??
@@ -1374,16 +1492,15 @@ export function parseInitialSplits(data: any): ContractSplitItem[] {
           item.split_number ??
           item.splitNumber ??
           item.number ??
-          item.label ??
-          idx + 1;
+          item.label;
         return {
           ...item,
-          split_number: num,
+          split_number: formatSplitNumber(num, idx),
           fcl_quantity: qty !== undefined && qty !== null ? String(qty) : '',
         };
       }
       return {
-        split_number: idx + 1,
+        split_number: getPartialLabel(idx),
         fcl_quantity: item !== undefined && item !== null ? String(item) : '',
       };
     });
@@ -1393,10 +1510,11 @@ export function parseInitialSplits(data: any): ContractSplitItem[] {
   const countRaw = data.split_count ?? data.splitCount ?? data.partial_count ?? data.partialCount;
   const count = parseInt(String(countRaw), 10);
   if (!isNaN(count) && count > 0) {
+    const safeCount = Math.min(count, 30);
     const list: ContractSplitItem[] = [];
-    for (let i = 0; i < Math.min(count, 500); i++) {
+    for (let i = 0; i < safeCount; i++) {
       list.push({
-        split_number: i + 1,
+        split_number: getPartialLabel(i),
         fcl_quantity: '',
       });
     }
@@ -2411,9 +2529,6 @@ export function ContractDocumentForm({
     );
     return resolved.id || '';
   });
-  const currencySymbol = useMemo(() => {
-    return getCurrencySymbol(currency);
-  }, [currency]);
   const [price, setPrice] = useState<string | number>(
     initialData?.price ?? initialData?.rate ?? ''
   );
@@ -2479,28 +2594,47 @@ export function ContractDocumentForm({
 
   const handleSplitCountChange = (val: string) => {
     markDirty();
-    setSplitCount(val);
     setErrors((prev) => ({ ...prev, partialCount: '', partialTotal: '' }));
-    const count = parseInt(val, 10);
-    if (!isNaN(count) && count > 0) {
-      const safeCount = Math.min(count, 500);
-      setSplits((prev) => {
-        const next = [...prev];
-        if (next.length < safeCount) {
-          for (let i = next.length; i < safeCount; i++) {
-            next.push({
-              split_number: i + 1,
-              fcl_quantity: '',
-            });
-          }
-        } else if (next.length > safeCount) {
-          return next.slice(0, safeCount);
-        }
-        return next;
-      });
-    } else {
+
+    if (val === '') {
+      setSplitCount('');
       setSplits([]);
+      return;
     }
+
+    let count = parseInt(val, 10);
+    if (isNaN(count)) {
+      setSplitCount('');
+      setSplits([]);
+      return;
+    }
+
+    // Maximum 30 partial shipments allowed
+    if (count > 30) {
+      count = 30;
+      val = '30';
+    } else if (count < 1) {
+      setSplitCount(val);
+      setSplits([]);
+      return;
+    }
+
+    setSplitCount(val);
+
+    setSplits((prev) => {
+      const next = [...prev];
+      if (next.length < count) {
+        for (let i = next.length; i < count; i++) {
+          next.push({
+            split_number: getPartialLabel(i),
+            fcl_quantity: '',
+          });
+        }
+      } else if (next.length > count) {
+        return next.slice(0, count);
+      }
+      return next;
+    });
   };
 
   const handleSplitQtyChange = (index: number, val: string) => {
@@ -2550,8 +2684,8 @@ export function ContractDocumentForm({
   const [hasAdvance, setHasAdvance] = useState<boolean | null>(() =>
     parseNullableBoolean(initialData?.any_advance ?? initialData?.has_advance ?? initialData?.advance)
   );
-  const [advanceType, setAdvanceType] = useState<'amount' | '%'>(() => {
-    return (initialData?.advance_type || initialData?.advanceType || 'amount') as 'amount' | '%';
+  const [advanceType, setAdvanceType] = useState<'PERCENTAGE' | 'AMOUNT' | null>(() => {
+    return parseInitialAdvanceType(initialData);
   });
   const [advanceAmount, setAdvanceAmount] = useState<string | number>(
     initialData?.advance_payment_amt ??
@@ -2561,7 +2695,11 @@ export function ContractDocumentForm({
       ''
   );
   const [advancePercentage, setAdvancePercentage] = useState<string | number>(
-    initialData?.advance_percentage ?? initialData?.advancePercentage ?? ''
+    initialData?.advance_payment_pct ??
+      initialData?.advance_percentage ??
+      initialData?.advancePercentage ??
+      initialData?.advance_pct ??
+      ''
   );
 
   // Advance dynamic calculations based on MT and Total Contract Value
@@ -3308,7 +3446,7 @@ export function ContractDocumentForm({
   }, [internalPackingOptions, packingOptions, initialData, packing]);
 
   const currenciesList: FormOptionItem[] = useMemo(() => {
-    const base =
+    const baseRaw =
       internalCurrencies.length > 0
         ? internalCurrencies
         : currencies && currencies.length > 0
@@ -3318,6 +3456,7 @@ export function ContractDocumentForm({
         : initialData?.currenciesList && Array.isArray(initialData.currenciesList)
         ? initialData.currenciesList
         : DEFAULT_CURRENCIES;
+    const base = baseRaw.map((c: any) => ({ ...c, subLabel: undefined }));
 
     const raw =
       initialData?.currency ||
@@ -3329,10 +3468,14 @@ export function ContractDocumentForm({
     if (!raw) return base;
     const resolved = normalizeCurrencyOption(raw, base);
     if (resolved && !base.some((c: any) => String(c.value).toUpperCase() === resolved.value.toUpperCase())) {
-      return [resolved, ...base];
+      return [{ ...resolved, subLabel: undefined }, ...base];
     }
     return base;
   }, [internalCurrencies, currencies, initialData]);
+
+  const currencySymbol = useMemo(() => {
+    return getCurrencySymbol(currency, currenciesList);
+  }, [currency, currenciesList]);
 
   const isPortSelected = Boolean(isProductSelected && loadingPort && loadingPort.trim().length > 0);
 
@@ -4130,14 +4273,10 @@ export function ContractDocumentForm({
     setIsPartialAllowed(partialVal);
 
     const sCount = parseInitialSplitCount(initialData);
-    if (sCount !== undefined && sCount !== null && sCount !== '') {
-      setSplitCount(sCount);
-    }
+    setSplitCount(sCount !== undefined && sCount !== null ? sCount : '');
 
     const initialSplits = parseInitialSplits(initialData);
-    if (initialSplits.length > 0) {
-      setSplits(initialSplits);
-    }
+    setSplits(initialSplits || []);
 
     const transhipVal = parseNullableBoolean(initialData.transhipment_allowed ?? initialData.transhipment);
     setIsTranshipmentAllowed(transhipVal);
@@ -4148,7 +4287,8 @@ export function ContractDocumentForm({
     const advVal = parseNullableBoolean(initialData.any_advance ?? initialData.has_advance ?? initialData.advance);
     setHasAdvance(advVal);
 
-    if (initialData.advance_type || initialData.advanceType) setAdvanceType(initialData.advance_type || initialData.advanceType);
+    const parsedAdvType = parseInitialAdvanceType(initialData);
+    setAdvanceType(parsedAdvType);
 
     const advAmt =
       initialData.advance_payment_amt ??
@@ -4157,11 +4297,15 @@ export function ContractDocumentForm({
       initialData.advanceAmount;
     if (advAmt !== undefined && advAmt !== null && advAmt !== '') setAdvanceAmount(advAmt);
 
-    const advPct = initialData.advance_percentage ?? initialData.advancePercentage;
+    const advPct =
+      initialData.advance_payment_pct ??
+      initialData.advance_percentage ??
+      initialData.advancePercentage ??
+      initialData.advance_pct;
     if (advPct !== undefined && advPct !== null && advPct !== '') setAdvancePercentage(advPct);
 
     const brokerVal = parseInitialIsBroker(initialData);
-    if (brokerVal !== null && !userToggledBrokerRef.current) {
+    if (!userToggledBrokerRef.current) {
       setIsSalesBrokerAllowed(brokerVal);
     }
 
@@ -4170,9 +4314,7 @@ export function ContractDocumentForm({
       initialData.sales_broker_type ??
       initialData.brokerCommissionType
     );
-    if (bType !== null) {
-      setBrokerCommissionType(bType);
-    }
+    setBrokerCommissionType(bType);
 
     const bComm = initialData.broker_commission ?? initialData.sales_broker_commission ?? initialData.brokerCommission;
     if (bComm !== undefined && bComm !== null && bComm !== '') setBrokerCommission(String(bComm));
@@ -4529,6 +4671,8 @@ export function ContractDocumentForm({
       const count = parseInt(String(splitCount), 10);
       if (!splitCount || isNaN(count) || count <= 0) {
         newErrors.partialCount = 'Partial count is required';
+      } else if (count > 30) {
+        newErrors.partialCount = 'Maximum 30 partial shipments allowed';
       } else {
         const hasEmpty = splits.some((q) => q.fcl_quantity === '' || q.fcl_quantity === null || q.fcl_quantity === undefined);
         if (hasEmpty) {
@@ -4536,6 +4680,34 @@ export function ContractDocumentForm({
         } else if (targetFclQty > 0 && Math.abs(partialSum - targetFclQty) > 0.0001) {
           newErrors.partialTotal = `Total partial quantity (${partialSum}) must equal ${isFcl ? 'FCL' : 'MT'} Quantity (${targetFclQty})`;
         }
+      }
+    }
+
+    // Advance Validation (enforced only when user explicitly enables Advance and selects type; if unselected, treated as NO advance at save/submit)
+    if (hasAdvance === true && advanceType) {
+      if (advanceType === 'AMOUNT') {
+        const numAmt = parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0;
+        if (!advanceAmount || numAmt <= 0) {
+          newErrors.advanceAmount = 'Advance amount is required';
+        }
+      } else if (advanceType === 'PERCENTAGE') {
+        const numPct = parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0;
+        if (!advancePercentage || numPct <= 0) {
+          newErrors.advancePercentage = 'Advance percentage is required';
+        } else if (numPct > 100) {
+          newErrors.advancePercentage = 'Advance percentage cannot exceed 100%';
+        }
+      }
+    }
+
+    // Sales Broker Validation (enforced only when user explicitly enables Broker and selects type; if unselected, treated as NOT ALLOWED at save/submit)
+    if (isSalesBrokerAllowed === true && brokerCommissionType) {
+      const numComm = parseFloat(String(brokerCommission).replace(/[^\d.]/g, '')) || 0;
+      if (!brokerCommission || numComm <= 0) {
+        newErrors.brokerCommission = 'Broker commission rate is required';
+      }
+      if (!brokerName || !brokerName.trim()) {
+        newErrors.brokerName = 'Broker name is required';
       }
     }
 
@@ -4658,17 +4830,15 @@ export function ContractDocumentForm({
     // Splits / Partial Shipment
     formData.append('is_partial', String(Boolean(isPartialAllowed)));
     if (isPartialAllowed) {
-      const sCount = splitCount ? Number(splitCount) : splits.length || 2;
-      formData.append('split_count', String(sCount));
+      const sCount = splitCount ? Math.min(Number(splitCount), 30) : splits.length;
+      formData.append('split_count', String(sCount || 0));
 
-      splits.forEach((s, idx) => {
-        const splitNum = s.split_number !== undefined && s.split_number !== null && String(s.split_number).trim() !== ''
-          ? String(s.split_number).trim()
-          : String.fromCharCode(65 + idx);
+      splits.slice(0, 30).forEach((s, idx) => {
+        const splitLetter = formatSplitNumber(s.split_number, idx);
         const qtyVal = s.fcl_quantity !== undefined && s.fcl_quantity !== null && s.fcl_quantity !== ''
           ? String(s.fcl_quantity)
           : '0';
-        formData.append(`splits[${idx}][split_number]`, splitNum);
+        formData.append(`splits[${idx}][split_number]`, splitLetter);
         formData.append(`splits[${idx}][fcl_quantity]`, qtyVal);
       });
     } else {
@@ -4681,33 +4851,63 @@ export function ContractDocumentForm({
     formData.append('transit_clause', String(Boolean(isTransitClauseAllowed)));
     formData.append('transit_clause_allowed', String(Boolean(isTransitClauseAllowed)));
 
-    formData.append('any_advance', String(Boolean(hasAdvance)));
-    if (hasAdvance) {
-      formData.append('advance_type', advanceType || '');
-      if (advanceType === 'amount') {
-        if (advanceAmount) formData.append('advance_amount', String(advanceAmount));
-      } else {
-        if (advancePercentage) formData.append('advance_percentage', String(advancePercentage));
-        if (calculatedAdvanceAmount) formData.append('advance_amount', String(calculatedAdvanceAmount));
+    // Advance Details - if user did not explicitly choose YES and select a type, defaults to NO advance (false) at submit/save time
+    const effectiveHasAdvance = Boolean(hasAdvance === true && advanceType);
+    formData.append('any_advance', String(effectiveHasAdvance));
+    if (effectiveHasAdvance) {
+      const advPaymentType = advanceType === 'PERCENTAGE' ? 'PERCENTAGE' : 'AMOUNT';
+      formData.append('advance_payment_type', advPaymentType);
+      formData.append('advance_type', advPaymentType);
+
+      if (advanceType === 'AMOUNT') {
+        const rawAmt = parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0;
+        const formattedAmt = rawAmt.toFixed(2);
+        formData.append('advance_payment_amt', formattedAmt);
+        formData.append('advance_amount', formattedAmt);
+        formData.append('advance_payment', formattedAmt);
+
+        const calcPct = effectiveContractTotalValue > 0 && rawAmt > 0
+          ? Math.min((rawAmt / effectiveContractTotalValue) * 100, 100)
+          : 0;
+        const formattedPct = calcPct.toFixed(2);
+        formData.append('advance_payment_pct', formattedPct);
+        formData.append('advance_percentage', formattedPct);
+        formData.append('advance_pct', formattedPct);
+      } else if (advanceType === 'PERCENTAGE') {
+        const rawPct = parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0;
+        const formattedPct = Math.min(rawPct, 100).toFixed(2);
+        formData.append('advance_payment_pct', formattedPct);
+        formData.append('advance_percentage', formattedPct);
+        formData.append('advance_pct', formattedPct);
+
+        const calcAmt = effectiveContractTotalValue > 0 && rawPct > 0
+          ? (effectiveContractTotalValue * rawPct) / 100
+          : parseFloat(String(calculatedAdvanceAmount).replace(/[^\d.]/g, '')) || 0;
+        const formattedAmt = calcAmt.toFixed(2);
+        formData.append('advance_payment_amt', formattedAmt);
+        formData.append('advance_amount', formattedAmt);
+        formData.append('advance_payment', formattedAmt);
       }
     }
 
-    // Broker Details
-    formData.append('is_broker', String(Boolean(isSalesBrokerAllowed)));
-    formData.append('sales_broker_allowed', String(Boolean(isSalesBrokerAllowed)));
-    if (isSalesBrokerAllowed) {
-      if (brokerCommissionType) {
-        formData.append('broker_commission_type', brokerCommissionType);
-        formData.append('sales_broker_type', brokerCommissionType);
-      }
+    // Broker Details - if user did not explicitly choose Allowed with a commission type, defaults to NOT ALLOWED (false) at submit/save time
+    const effectiveIsBroker = Boolean(isSalesBrokerAllowed === true && brokerCommissionType);
+    formData.append('is_broker', String(effectiveIsBroker));
+    formData.append('sales_broker_allowed', String(effectiveIsBroker));
+    if (effectiveIsBroker) {
+      formData.append('broker_commission_type', brokerCommissionType!);
+      formData.append('sales_broker_type', brokerCommissionType!);
       if (brokerCommission) {
         formData.append('broker_commission', String(brokerCommission));
         formData.append('sales_broker_commission', String(brokerCommission));
       }
       const cAmt = calculatedBrokerCommission || brokerCommissionAmt;
       if (cAmt) {
-        formData.append('broker_commission_amt', String(cAmt));
-        formData.append('broker_commission_amount', String(cAmt));
+        const rawCAmt = parseFloat(String(cAmt).replace(/[^\d.]/g, '')) || 0;
+        const formattedCAmt = rawCAmt.toFixed(2);
+        formData.append('broker_commission_amt', formattedCAmt);
+        formData.append('broker_commission_amount', formattedCAmt);
+        formData.append('sales_broker_amount', formattedCAmt);
       }
       if (brokerName.trim()) {
         formData.append('broker_name', brokerName.trim());
@@ -4716,9 +4916,9 @@ export function ContractDocumentForm({
     }
 
     // Broker Signature
-    formData.append('broker_signature_field', isSalesBrokerAllowed ? brokerTitle.trim() : '');
-    formData.append('broker_signature_label', isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : '');
-    if (isSalesBrokerAllowed && brokerSignature) {
+    formData.append('broker_signature_field', effectiveIsBroker ? brokerTitle.trim() : '');
+    formData.append('broker_signature_label', effectiveIsBroker ? brokerAuthorityTitle.trim() : '');
+    if (effectiveIsBroker && brokerSignature) {
       if (brokerSignature.startsWith('data:') || brokerSignature.startsWith('blob:')) {
         const file = dataUrlToFile(brokerSignature, 'broker_signature.png');
         if (file) {
@@ -4898,49 +5098,96 @@ export function ContractDocumentForm({
       is_partial: isPartialAllowed,
       partial_shipment_allowed: isPartialAllowed,
       is_partial_allowed: isPartialAllowed,
-      split_count: isPartialAllowed && splitCount ? Number(splitCount) : (isPartialAllowed === false ? 0 : null),
-      partial_count: isPartialAllowed && splitCount ? Number(splitCount) : undefined,
+      split_count: isPartialAllowed && splitCount ? Math.min(Number(splitCount), 30) : (isPartialAllowed === false ? 0 : null),
+      partial_count: isPartialAllowed && splitCount ? Math.min(Number(splitCount), 30) : undefined,
       splits:
         isPartialAllowed && splits.length > 0
-          ? splits.map((s, idx) => ({
+          ? splits.slice(0, 30).map((s, idx) => ({
               ...s,
-              split_number: s.split_number ?? getPartialLabel(idx),
+              split_number: formatSplitNumber(s.split_number, idx),
               fcl_quantity: s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined ? Number(s.fcl_quantity) : 0,
             }))
           : [],
       partial_breakdown:
         isPartialAllowed && splits.length > 0
-          ? splits.map((s) => (s.fcl_quantity !== '' ? Number(s.fcl_quantity) : 0))
+          ? splits.slice(0, 30).map((s) => (s.fcl_quantity !== '' ? Number(s.fcl_quantity) : 0))
           : undefined,
       partial_quantities:
         isPartialAllowed && splits.length > 0
-          ? splits.map((s) => (s.fcl_quantity !== '' ? Number(s.fcl_quantity) : 0))
+          ? splits.slice(0, 30).map((s) => (s.fcl_quantity !== '' ? Number(s.fcl_quantity) : 0))
           : undefined,
       transhipment: Boolean(isTranshipmentAllowed),
       transhipment_allowed: isTranshipmentAllowed !== null ? isTranshipmentAllowed : undefined,
       transit_clause: Boolean(isTransitClauseAllowed),
       transit_clause_allowed: isTransitClauseAllowed !== null ? isTransitClauseAllowed : undefined,
-      any_advance: hasAdvance !== null ? hasAdvance : undefined,
-      advance_type: hasAdvance ? advanceType : undefined,
-      advance_amount: hasAdvance
-        ? advanceType === 'amount'
-          ? advanceAmount ? Number(advanceAmount) : undefined
-          : calculatedAdvanceAmount ? Number(calculatedAdvanceAmount) : undefined
+      any_advance: Boolean(hasAdvance === true && advanceType),
+      advance_payment_type: hasAdvance === true && advanceType ? (advanceType === 'PERCENTAGE' ? 'PERCENTAGE' : 'AMOUNT') : undefined,
+      advance_type: hasAdvance === true && advanceType ? (advanceType === 'PERCENTAGE' ? 'PERCENTAGE' : 'AMOUNT') : undefined,
+      advance_payment_amt: hasAdvance === true && advanceType
+        ? advanceType === 'AMOUNT'
+          ? (parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0).toFixed(2)
+          : (
+              effectiveContractTotalValue > 0 && advancePercentage
+                ? (effectiveContractTotalValue * (parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0)) / 100
+                : parseFloat(String(calculatedAdvanceAmount).replace(/[^\d.]/g, '')) || 0
+            ).toFixed(2)
         : undefined,
-      advance_percentage: hasAdvance && advanceType === '%' && advancePercentage
-        ? Number(advancePercentage)
+      advance_amount: hasAdvance === true && advanceType
+        ? advanceType === 'AMOUNT'
+          ? (parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0).toFixed(2)
+          : (
+              effectiveContractTotalValue > 0 && advancePercentage
+                ? (effectiveContractTotalValue * (parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0)) / 100
+                : parseFloat(String(calculatedAdvanceAmount).replace(/[^\d.]/g, '')) || 0
+            ).toFixed(2)
         : undefined,
-      is_broker: isSalesBrokerAllowed,
-      sales_broker_allowed: isSalesBrokerAllowed,
-      broker_commission_type: isSalesBrokerAllowed ? brokerCommissionType : null,
-      broker_commission: isSalesBrokerAllowed && brokerCommission ? Number(brokerCommission) : undefined,
-      broker_commission_amt: isSalesBrokerAllowed && (calculatedBrokerCommission || brokerCommissionAmt) ? Number(calculatedBrokerCommission || brokerCommissionAmt) : undefined,
-      broker_commission_amount: isSalesBrokerAllowed && (calculatedBrokerCommission || brokerCommissionAmt) ? Number(calculatedBrokerCommission || brokerCommissionAmt) : undefined,
-      broker_name: isSalesBrokerAllowed && brokerName.trim() ? brokerName.trim() : undefined,
-      sales_broker_type: isSalesBrokerAllowed ? brokerCommissionType : null,
-      sales_broker_commission: isSalesBrokerAllowed && brokerCommission ? Number(brokerCommission) : undefined,
-      sales_broker_amount: isSalesBrokerAllowed && (calculatedBrokerCommission || brokerCommissionAmt) ? Number(calculatedBrokerCommission || brokerCommissionAmt) : undefined,
-      sales_broker_name: isSalesBrokerAllowed && brokerName.trim() ? brokerName.trim() : undefined,
+      advance_payment: hasAdvance === true && advanceType
+        ? advanceType === 'AMOUNT'
+          ? (parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0).toFixed(2)
+          : (
+              effectiveContractTotalValue > 0 && advancePercentage
+                ? (effectiveContractTotalValue * (parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0)) / 100
+                : parseFloat(String(calculatedAdvanceAmount).replace(/[^\d.]/g, '')) || 0
+            ).toFixed(2)
+        : undefined,
+      advance_payment_pct: hasAdvance === true && advanceType
+        ? advanceType === 'PERCENTAGE'
+          ? Math.min(parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0, 100).toFixed(2)
+          : (
+              effectiveContractTotalValue > 0 && advanceAmount
+                ? Math.min(((parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0) / effectiveContractTotalValue) * 100, 100)
+                : 0
+            ).toFixed(2)
+        : undefined,
+      advance_percentage: hasAdvance === true && advanceType
+        ? advanceType === 'PERCENTAGE'
+          ? Math.min(parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0, 100).toFixed(2)
+          : (
+              effectiveContractTotalValue > 0 && advanceAmount
+                ? Math.min(((parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0) / effectiveContractTotalValue) * 100, 100)
+                : 0
+            ).toFixed(2)
+        : undefined,
+      advance_pct: hasAdvance === true && advanceType
+        ? advanceType === 'PERCENTAGE'
+          ? Math.min(parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0, 100).toFixed(2)
+          : (
+              effectiveContractTotalValue > 0 && advanceAmount
+                ? Math.min(((parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0) / effectiveContractTotalValue) * 100, 100)
+                : 0
+            ).toFixed(2)
+        : undefined,
+      is_broker: Boolean(isSalesBrokerAllowed === true && brokerCommissionType),
+      sales_broker_allowed: Boolean(isSalesBrokerAllowed === true && brokerCommissionType),
+      broker_commission_type: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) ? brokerCommissionType : null,
+      broker_commission: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerCommission ? Number(brokerCommission) : undefined,
+      broker_commission_amt: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : undefined,
+      broker_commission_amount: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : undefined,
+      broker_name: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerName.trim() ? brokerName.trim() : undefined,
+      sales_broker_type: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) ? brokerCommissionType : null,
+      sales_broker_commission: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerCommission ? Number(brokerCommission) : undefined,
+      sales_broker_amount: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : undefined,
+      sales_broker_name: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerName.trim() ? brokerName.trim() : undefined,
       ectn_field: ectnField,
       coc_fields: cocFields,
       free_days: freeDays.trim(),
@@ -4970,12 +5217,12 @@ export function ContractDocumentForm({
       remove_seller_signature: !exporterSignature,
       remove_exporter_signature: !exporterSignature,
 
-      broker_signature_field: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
-      broker_signature_label: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
-      broker_signature: isSalesBrokerAllowed && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
-      broker_signature_url: isSalesBrokerAllowed && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
-      remove_broker_signature: !isSalesBrokerAllowed || !brokerSignature,
-      remove_sales_broker_signature: !isSalesBrokerAllowed || !brokerSignature,
+      broker_signature_field: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : undefined,
+      broker_signature_label: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : undefined,
+      broker_signature: isSalesBrokerAllowed === true && brokerCommissionType && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
+      broker_signature_url: isSalesBrokerAllowed === true && brokerCommissionType && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
+      remove_broker_signature: isSalesBrokerAllowed !== true || !brokerCommissionType || !brokerSignature,
+      remove_sales_broker_signature: isSalesBrokerAllowed !== true || !brokerCommissionType || !brokerSignature,
 
       buyer_signature_field: importerTitle.trim(),
       buyer_signature_label: importerAuthorityTitle.trim(),
@@ -4989,12 +5236,12 @@ export function ContractDocumentForm({
       importer_signature: importerSignature ? normalizeSignaturePayload(importerSignature) : null,
       importer_signature_url: importerSignature ? normalizeSignaturePayload(importerSignature) : null,
       importer_authority_title: importerAuthorityTitle.trim(),
-      broker_title: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
-      broker_authority_title: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
-      sales_broker_title: isSalesBrokerAllowed ? brokerTitle.trim() : undefined,
-      sales_broker_signature: isSalesBrokerAllowed && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
-      sales_broker_signature_url: isSalesBrokerAllowed && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
-      sales_broker_authority_title: isSalesBrokerAllowed ? brokerAuthorityTitle.trim() : undefined,
+      broker_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : undefined,
+      broker_authority_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : undefined,
+      sales_broker_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : undefined,
+      sales_broker_signature: isSalesBrokerAllowed === true && brokerCommissionType && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
+      sales_broker_signature_url: isSalesBrokerAllowed === true && brokerCommissionType && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
+      sales_broker_authority_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : undefined,
       exporter_title: exporterTitle.trim(),
       exporter_signature: exporterSignature ? normalizeSignaturePayload(exporterSignature) : null,
       exporter_signature_url: exporterSignature ? normalizeSignaturePayload(exporterSignature) : null,
@@ -6155,7 +6402,7 @@ export function ContractDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   CURRENCY
                 </span>
-                <div className="w-full max-w-[110px]">
+                <div className="w-full max-w-[115px]">
                   <DocUnderlineSelect
                     id="field-contract-currency"
                     options={currenciesList}
@@ -6170,6 +6417,7 @@ export function ContractDocumentForm({
                     loading={isLoadingCurrencies}
                     placeholder="Select"
                     align="center"
+                    dropdownClassName="min-w-[155px] w-[165px] max-w-[195px]"
                   />
                 </div>
               </div>
@@ -6253,7 +6501,7 @@ export function ContractDocumentForm({
                 <span className="block font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide mb-1 px-0.5">
                   CURRENCY
                 </span>
-                <div className="w-full max-w-[110px]">
+                <div className="w-full max-w-[115px]">
                   <DocUnderlineSelect
                     id="field-contract-currency"
                     options={currenciesList}
@@ -6268,6 +6516,7 @@ export function ContractDocumentForm({
                     loading={isLoadingCurrencies}
                     placeholder="Select"
                     align="center"
+                    dropdownClassName="min-w-[155px] w-[165px] max-w-[195px]"
                   />
                 </div>
               </div>
@@ -6390,12 +6639,6 @@ export function ContractDocumentForm({
                     setIsPartialAllowed(val);
                     if (!val) {
                       setErrors((prev) => ({ ...prev, partialCount: '', partialTotal: '' }));
-                    } else if (splits.length === 0 && (!splitCount || Number(splitCount) <= 0)) {
-                      setSplitCount(2);
-                      setSplits([
-                        { split_number: 1, fcl_quantity: '' },
-                        { split_number: 2, fcl_quantity: '' },
-                      ]);
                     }
                   }}
                   trueLabel="ALLOWED"
@@ -6417,9 +6660,15 @@ export function ContractDocumentForm({
                         id="field-split-count"
                         type="number"
                         min={1}
-                        max={500}
+                        max={30}
+                        step={1}
                         value={splitCount}
                         onChange={(e) => handleSplitCountChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === '.' || e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+                            e.preventDefault();
+                          }
+                        }}
                         placeholder="0"
                         disabled={readOnly}
                         className={`w-full text-center text-[14px] font-bold text-foreground bg-transparent border-b-2 border-dotted ${
@@ -6440,22 +6689,19 @@ export function ContractDocumentForm({
                 <div className="flex flex-col gap-2 pt-1">
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-2.5 w-full">
                     {/* Render all partial input cards */}
-                    {splits.map((splitItem, index) => {
-                      const splitNum = splitItem.split_number ?? (index + 1);
-                      const displayLabel =
-                        typeof splitNum === 'string' && splitNum.toLowerCase().includes('partial')
-                          ? splitNum
-                          : `Partial ${splitNum}`;
-                      const isLastPartial = index === splits.length - 1;
+                    {splits.slice(0, 30).map((splitItem, index) => {
+                      const splitLetter = formatSplitNumber(splitItem.split_number, index);
+                      const isLastPartial = index === Math.min(splits.length, 30) - 1;
                       return (
-                        <div key={`split-${index}-${splitNum}`} className="flex items-center gap-1.5 sm:gap-2 w-full min-w-0">
+                        <div key={`split-${index}-${splitLetter}`} className="flex items-center gap-1.5 sm:gap-2 w-full min-w-0">
                           {/* Stacked Card: Label on top, centered input with dotted underline below */}
                           <div className="flex-1 min-w-0 flex flex-col items-center justify-center py-2 px-2.5 rounded-lg border border-border/80 bg-card hover:border-primary/50 transition-all shadow-2xs group focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 min-h-[58px]">
                             <label
                               htmlFor={`field-split-${index}`}
                               className="font-bold text-muted-foreground/85 uppercase text-[10px] sm:text-[11px] tracking-wide select-none whitespace-nowrap cursor-pointer text-center"
+                              title={`Partial ${splitLetter}`}
                             >
-                              {displayLabel}
+                              {splitLetter}
                             </label>
                             <div className="w-[52px] sm:w-[60px] mx-auto mt-1">
                               <input
@@ -6466,6 +6712,7 @@ export function ContractDocumentForm({
                                 onChange={(e) => handleSplitQtyChange(index, e.target.value)}
                                 placeholder="0"
                                 disabled={readOnly}
+                                aria-label={`Partial ${splitLetter}`}
                                 className="w-full text-center text-[14px] font-bold text-foreground bg-transparent border-b-2 border-dotted border-primary/70 dark:border-primary/80 focus:border-solid focus:border-primary focus:outline-none transition-colors py-0.5 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-[14px] placeholder:font-normal placeholder:text-muted-foreground/50 disabled:cursor-not-allowed"
                               />
                             </div>
@@ -6513,10 +6760,10 @@ export function ContractDocumentForm({
               )}
 
               {/* Red Client-side Validation Error */}
-              {errors.partialTotal && (
+              {(errors.partialCount || errors.partialTotal) && (
                 <div className="w-full text-[11px] text-brand-red font-semibold px-0.5 tracking-tight flex items-center gap-1.5 mt-0.5">
                   <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
-                  <span>{errors.partialTotal}</span>
+                  <span>{errors.partialCount || errors.partialTotal}</span>
                 </div>
               )}
             </div>
@@ -6580,58 +6827,94 @@ export function ContractDocumentForm({
                 onChange={(val) => {
                   markDirty();
                   setHasAdvance(val);
-                  if (val && !advanceType) {
-                    setAdvanceType('amount');
+                  if (val !== true) {
+                    setAdvanceType(null);
+                    setAdvancePercentage('');
+                    setAdvanceAmount('');
+                    setErrors((prev) => {
+                      const copy = { ...prev };
+                      delete copy.advanceType;
+                      delete copy.advanceAmount;
+                      delete copy.advancePercentage;
+                      return copy;
+                    });
                   }
                 }}
                 trueLabel="YES"
                 falseLabel="NO"
+                allowDeselect={true}
                 disabled={readOnly}
               />
 
               {hasAdvance && (
                 <>
-                  <div className="pl-2 border-l border-border/70 flex items-center">
-                    <DocSegmentedToggle
+                  <div className="pl-2 border-l border-border/70 flex flex-col sm:flex-row sm:items-center gap-1.5" data-field="advanceType">
+                    <DocSegmentedToggle<'PERCENTAGE' | 'AMOUNT'>
                       id="toggle-advance-type"
                       value={advanceType}
-                      onChange={(val: 'amount' | '%') => {
+                      onChange={(val: 'PERCENTAGE' | 'AMOUNT') => {
                         markDirty();
                         setAdvanceType(val);
+                        setErrors((prev) => ({ ...prev, advanceType: '' }));
                       }}
                       options={DEFAULT_ADVANCE_TYPE_OPTIONS}
+                      allowDeselect={true}
                       disabled={readOnly}
+                      error={errors.advanceType}
                     />
+                    {errors.advanceType && (
+                      <span className="text-[11px] text-brand-red font-semibold px-0.5">
+                        {errors.advanceType}
+                      </span>
+                    )}
                   </div>
 
-                  {advanceType === 'amount' ? (
-                    <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
-                      <label
-                        htmlFor="field-advance-amount"
-                        className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap"
-                      >
-                        Advance ({currencySymbol})
-                      </label>
-                      <div className="w-[100px] sm:w-[120px]">
-                        <DocUnderlineInput
-                          id="field-advance-amount"
-                          type="number"
-                          min={0}
-                          value={advanceAmount}
-                          onChange={(val) => {
-                            setAdvanceAmount(val);
-                            setErrors((prev) => ({ ...prev, advanceAmount: '' }));
-                          }}
-                          error={errors.advanceAmount}
-                          placeholder="0.00"
-                          align="center"
-                          disabled={readOnly}
-                        />
-                      </div>
-                    </div>
-                  ) : (
+                  {advanceType === 'AMOUNT' && (
                     <>
-                      <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-border/70" data-field="advanceAmount">
+                        <label
+                          htmlFor="field-advance-amount"
+                          className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap"
+                        >
+                          Advance ({currencySymbol})
+                        </label>
+                        <div className="w-[100px] sm:w-[120px]">
+                          <DocUnderlineInput
+                            id="field-advance-amount"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={advanceAmount}
+                            onChange={(val) => {
+                              markDirty();
+                              setAdvanceAmount(val);
+                              setErrors((prev) => ({ ...prev, advanceAmount: '' }));
+                            }}
+                            error={errors.advanceAmount}
+                            placeholder="0.00"
+                            align="center"
+                            disabled={readOnly}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Calculated Percentage when Amount is entered */}
+                      {effectiveContractTotalValue > 0 && Number(advanceAmount) > 0 && (
+                        <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
+                          <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap">
+                            Percentage:
+                          </span>
+                          <span className="text-[14px] font-bold text-foreground py-0.5">
+                            {Math.min(((parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0) / effectiveContractTotalValue) * 100, 100).toFixed(2)}%
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {advanceType === 'PERCENTAGE' && (
+                    <>
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-border/70" data-field="advancePercentage">
                         <label
                           htmlFor="field-advance-percent"
                           className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap"
@@ -6644,8 +6927,10 @@ export function ContractDocumentForm({
                             type="number"
                             min={0}
                             max={100}
+                            step="0.01"
                             value={advancePercentage}
                             onChange={(val) => {
+                              markDirty();
                               setAdvancePercentage(val);
                               setErrors((prev) => ({ ...prev, advancePercentage: '' }));
                             }}
@@ -6693,6 +6978,18 @@ export function ContractDocumentForm({
                   markDirty();
                   userToggledBrokerRef.current = true;
                   setIsSalesBrokerAllowed(val);
+                  if (val !== true) {
+                    setBrokerCommissionType(null);
+                    setBrokerCommission('');
+                    setBrokerName('');
+                    setErrors((prev) => {
+                      const copy = { ...prev };
+                      delete copy.brokerCommissionType;
+                      delete copy.brokerCommission;
+                      delete copy.brokerName;
+                      return copy;
+                    });
+                  }
                 }}
                 trueLabel="ALLOWED"
                 falseLabel="NOT ALLOWED"
@@ -6703,86 +7000,98 @@ export function ContractDocumentForm({
               {isSalesBrokerAllowed && (
                 <>
                   {/* Commission Type Segmented Toggle: % or PMT */}
-                  <div className="pl-2 border-l border-border/70 flex items-center">
+                  <div className="pl-2 border-l border-border/70 flex flex-col sm:flex-row sm:items-center gap-1.5" data-field="brokerCommissionType">
                     <DocSegmentedToggle<'PERCENTAGE' | 'PMT'>
                       id="toggle-broker-commission-type"
                       value={brokerCommissionType}
                       onChange={(val) => {
                         markDirty();
                         setBrokerCommissionType(val);
+                        setErrors((prev) => ({ ...prev, brokerCommissionType: '' }));
                       }}
                       options={DEFAULT_BROKER_COMMISSION_TYPE_OPTIONS}
                       allowDeselect={true}
                       disabled={readOnly}
+                      error={errors.brokerCommissionType}
                     />
+                    {errors.brokerCommissionType && (
+                      <span className="text-[11px] text-brand-red font-semibold px-0.5">
+                        {errors.brokerCommissionType}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Commission Rate Number Input with Label */}
-                  <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
-                    <label
-                      htmlFor="field-broker-commission"
-                      className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap"
-                    >
-                      Commission:
-                    </label>
-                    <div className="w-[110px] sm:w-[125px]">
-                      <DocUnderlineInput
-                        id="field-broker-commission"
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={brokerCommission}
-                        onChange={(val) => {
-                          markDirty();
-                          setBrokerCommission(val);
-                          setErrors((prev) => ({ ...prev, brokerCommission: '' }));
-                        }}
-                        error={errors.brokerCommission}
-                        placeholder="0.00"
-                        align="center"
-                        disabled={readOnly}
-                      />
-                    </div>
-                  </div>
+                  {/* ONLY SHOW COMMISSION INPUT, AMOUNT, AND BROKER NAME AFTER % OR PMT IS SELECTED */}
+                  {Boolean(brokerCommissionType) && (
+                    <>
+                      {/* Commission Rate Number Input with Label */}
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-border/70" data-field="brokerCommission">
+                        <label
+                          htmlFor="field-broker-commission"
+                          className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap"
+                        >
+                          Commission {brokerCommissionType === 'PERCENTAGE' ? '(%)' : '(PMT)'}:
+                        </label>
+                        <div className="w-[110px] sm:w-[125px]">
+                          <DocUnderlineInput
+                            id="field-broker-commission"
+                            type="number"
+                            min={0}
+                            step="any"
+                            value={brokerCommission}
+                            onChange={(val) => {
+                              markDirty();
+                              setBrokerCommission(val);
+                              setErrors((prev) => ({ ...prev, brokerCommission: '' }));
+                            }}
+                            error={errors.brokerCommission}
+                            placeholder={brokerCommissionType === 'PERCENTAGE' ? '0.00 %' : '0.00 PMT'}
+                            align="center"
+                            disabled={readOnly}
+                          />
+                        </div>
+                      </div>
 
-                  {/* Broker Commission Calculated Amount Display */}
-                  <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
-                    <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap">
-                      Broker Commission:
-                    </span>
-                    <span className="text-[14px] font-bold text-foreground py-0.5">
-                      {calculatedBrokerCommission
-                        ? `${currencySymbol} ${formatNumberWithCommas(calculatedBrokerCommission)}`
-                        : brokerCommissionAmt
-                        ? `${currencySymbol} ${formatNumberWithCommas(brokerCommissionAmt)}`
-                        : '-'}
-                    </span>
-                  </div>
+                      {/* Broker Commission Calculated Amount Display */}
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-border/70">
+                        <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap">
+                          Broker Commission:
+                        </span>
+                        <span className="text-[14px] font-bold text-foreground py-0.5">
+                          {calculatedBrokerCommission
+                            ? `${currencySymbol} ${formatNumberWithCommas(calculatedBrokerCommission)}`
+                            : brokerCommissionAmt
+                            ? `${currencySymbol} ${formatNumberWithCommas(brokerCommissionAmt)}`
+                            : '-'}
+                        </span>
+                      </div>
 
-                  {/* Broker Name Text Input */}
-                  <div className="flex items-center gap-1.5 pl-2 border-l border-border/70 flex-1 min-w-[240px]">
-                    <label
-                      htmlFor="field-broker-name"
-                      className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap"
-                    >
-                      Broker Name:
-                    </label>
-                    <div className="flex-1 min-w-[160px]">
-                      <DocUnderlineInput
-                        id="field-broker-name"
-                        value={brokerName}
-                        onChange={(val) => {
-                          markDirty();
-                          setBrokerName(val);
-                          setErrors((prev) => ({ ...prev, brokerName: '' }));
-                        }}
-                        error={errors.brokerName}
-                        placeholder="BROKER NAME"
-                        icon="fa-solid fa-pen"
-                        disabled={readOnly}
-                      />
-                    </div>
-                  </div>
+                      {/* Broker Name Text Input */}
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-border/70 flex-1 min-w-[240px]" data-field="brokerName">
+                        <label
+                          htmlFor="field-broker-name"
+                          className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider whitespace-nowrap"
+                        >
+                          Broker Name:
+                        </label>
+                        <div className="flex-1 min-w-[160px]">
+                          <DocUnderlineInput
+                            id="field-broker-name"
+                            value={brokerName}
+                            onChange={(val) => {
+                              markDirty();
+                              setBrokerName(val);
+                              setErrors((prev) => ({ ...prev, brokerName: '' }));
+                            }}
+                            error={errors.brokerName}
+                            placeholder="BROKER NAME"
+                            icon="fa-solid fa-pen"
+                            disabled={readOnly}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -7109,7 +7418,7 @@ export function ContractDocumentForm({
 
           {/* ROW 34: SIGNATURES - RESPONSIVE COLLAPSIBLE ON MOBILE/TABLET & SIDE-BY-SIDE ON DESKTOP */}
           <ContractSignatureSection
-            isSalesBrokerAllowed={Boolean(isSalesBrokerAllowed)}
+            isSalesBrokerAllowed={isSalesBrokerAllowed === true}
             exporterTitle={exporterTitle}
             onExporterTitleChange={(val) => {
               markDirty();
@@ -7155,7 +7464,7 @@ export function ContractDocumentForm({
           {/* ROW 35: CONTRACT COMMENTS (comment_label & comment_value) */}
           <div
             className={`grid grid-cols-1 ${
-              isSalesBrokerAllowed ? 'md:grid-cols-3' : 'md:grid-cols-2'
+              isSalesBrokerAllowed === true ? 'md:grid-cols-3' : 'md:grid-cols-2'
             } divide-y md:divide-y-0 md:divide-x divide-border`}
             data-field="commentSection"
           >

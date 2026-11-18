@@ -280,7 +280,57 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/(.*).(webp|jpg|png|svg|ico|woff2|woff|ttf|css|js)',
+        source: '/:lang/smart-docs',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, max-age=0, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/:lang/smart-docs/:path*',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, max-age=0, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/',
+          },
+        ],
+      },
+      {
+        source: '/firebase-messaging-sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Only apply 1-year immutable caching to static media/font assets (NOT blanket .css/.js so /sw.js and non-hashed assets never get stuck stale).
+        // Next.js automatically sets immutable Cache-Control on content-hashed /_next/static/* CSS & JS bundles in production.
+        source: '/(.*).(webp|jpg|png|svg|ico|woff2|woff|ttf)',
         headers: [
           {
             key: 'Cache-Control',
