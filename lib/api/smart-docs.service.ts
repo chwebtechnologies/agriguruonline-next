@@ -5828,6 +5828,456 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches Commercial Invoice details by ID with authentication:
+   * GET /commercial-invoice/:id?lang_code=en&source=web
+   */
+  getCommercialInvoice: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/commercial-invoice/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+
+      const fallbackUrl = `${baseUrl}/commercial-invoices/${encodeURIComponent(cleanId)}`;
+      try {
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch {
+        return response;
+      }
+    } catch (error) {
+      console.warn('[smartDocsService.getCommercialInvoice] /commercial-invoice error, attempting fallback:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/commercial-invoices/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackErr) {
+        console.error('[smartDocsService.getCommercialInvoice] error:', fallbackErr);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves Commercial Invoice as draft:
+   * PATCH /commercial-invoice/save/:id?lang_code=en&source=web
+   */
+  saveCommercialInvoiceDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const candidateId = sanitizeDocId(
+      id ||
+        (isFormData
+          ? (payload.get('commercial_invoice_id') ||
+            payload.get('commercialInvoiceId') ||
+            payload.get('id') ||
+            payload.get('custom_invoice_id') ||
+            payload.get('shipment_instruction_id') ||
+            payload.get('proforma_id') ||
+            payload.get('contract_id') ||
+            payload.get('confirmation_id'))
+          : (payload?.commercial_invoice_id ||
+            payload?.commercialInvoiceId ||
+            payload?.id ||
+            payload?.custom_invoice_id ||
+            payload?.shipment_instruction_id ||
+            payload?.proforma_id ||
+            payload?.contract_id ||
+            payload?.confirmation_id))
+    );
+
+    const isPlaceholder =
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        candidateId
+      );
+    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+    if (cleanId) {
+      const encId = encodeURIComponent(cleanId);
+      saveCandidates.push(
+        { url: `${baseUrl}/commercial-invoice/save/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/commercial-invoice/save/${encId}`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/commercial-invoices/save/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/commercial-invoices/save/${encId}`, method: 'POST', id: cleanId }
+      );
+    }
+    saveCandidates.push(
+      { url: `${baseUrl}/commercial-invoice/save`, method: 'PATCH' },
+      { url: `${baseUrl}/commercial-invoice/save`, method: 'POST' },
+      { url: `${baseUrl}/commercial-invoices/save`, method: 'PATCH' },
+      { url: `${baseUrl}/commercial-invoices/save`, method: 'POST' }
+    );
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id) {
+            clonedFd.set('commercial_invoice_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('commercial_invoice_id');
+          }
+          body = clonedFd;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id) {
+            cleaned.commercial_invoice_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.commercial_invoice_id;
+          }
+          body = JSON.stringify(cleaned);
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text();
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = { message: text };
+          }
+
+          if (response.ok && json?.success !== false && json?.success !== 0 && json?.status !== false) {
+            return {
+              ...json,
+              success: true,
+              data: json?.data !== undefined ? json.data : json,
+              id:
+                json?.data?.id ||
+                json?.data?._id ||
+                json?.data?.commercial_invoice_id ||
+                json?.id ||
+                json?._id ||
+                candidate.id,
+            };
+          }
+
+          const isRouteNotFound =
+            response.status === 404 ||
+            response.status === 405 ||
+            (response.status >= 400 &&
+              (/<(!DOCTYPE|html)/i.test(text) ||
+                /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+                /not found/i.test(String(json?.message || json?.error || text || '').trim())));
+
+          if (isRouteNotFound && i < saveCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          const sentPayloadPreview = isFormData
+            ? Object.fromEntries(
+                Array.from((body as FormData).entries()).map(([k, v]) => [
+                  k,
+                  typeof v === 'string' ? v : `[File/Blob]`,
+                ])
+              )
+            : body;
+          console.error('[smartDocsService.saveCommercialInvoiceDraft] Backend error:', {
+            url: candidate.url,
+            method: candidate.method,
+            status: response.status,
+            sentPayload: sentPayloadPreview,
+            response: json ?? text,
+          });
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to save commercial invoice draft'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          break;
+        } catch (fetchErr: any) {
+          if (i < saveCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while saving commercial invoice draft',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while saving commercial invoice draft',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.saveCommercialInvoiceDraft] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while saving commercial invoice draft'),
+      };
+    }
+  },
+
+  /**
+   * Submits Commercial Invoice:
+   * PATCH /commercial-invoice/submit/:id?lang_code=en&source=web
+   */
+  submitCommercialInvoice: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const candidateId = sanitizeDocId(
+      id ||
+        (isFormData
+          ? (payload.get('commercial_invoice_id') ||
+            payload.get('commercialInvoiceId') ||
+            payload.get('id') ||
+            payload.get('custom_invoice_id') ||
+            payload.get('shipment_instruction_id') ||
+            payload.get('proforma_id') ||
+            payload.get('contract_id') ||
+            payload.get('confirmation_id'))
+          : (payload?.commercial_invoice_id ||
+            payload?.commercialInvoiceId ||
+            payload?.id ||
+            payload?.custom_invoice_id ||
+            payload?.shipment_instruction_id ||
+            payload?.proforma_id ||
+            payload?.contract_id ||
+            payload?.confirmation_id))
+    );
+
+    const isPlaceholder =
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        candidateId
+      );
+    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+    if (cleanId) {
+      const encId = encodeURIComponent(cleanId);
+      submitCandidates.push(
+        { url: `${baseUrl}/commercial-invoice/submit/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/commercial-invoice/submit/${encId}`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/commercial-invoices/submit/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/commercial-invoices/submit/${encId}`, method: 'POST', id: cleanId }
+      );
+    }
+    submitCandidates.push(
+      { url: `${baseUrl}/commercial-invoice/submit`, method: 'POST' },
+      { url: `${baseUrl}/commercial-invoice/submit`, method: 'PATCH' },
+      { url: `${baseUrl}/commercial-invoices/submit`, method: 'POST' },
+      { url: `${baseUrl}/commercial-invoices/submit`, method: 'PATCH' }
+    );
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < submitCandidates.length; i++) {
+        const candidate = submitCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id) {
+            clonedFd.set('commercial_invoice_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('commercial_invoice_id');
+          }
+          body = clonedFd;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id) {
+            cleaned.commercial_invoice_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.commercial_invoice_id;
+          }
+          body = JSON.stringify(cleaned);
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text();
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = { message: text };
+          }
+
+          if (response.ok && json?.success !== false && json?.success !== 0 && json?.status !== false) {
+            return {
+              ...json,
+              success: true,
+              data: json?.data !== undefined ? json.data : json,
+              id:
+                json?.data?.id ||
+                json?.data?._id ||
+                json?.data?.commercial_invoice_id ||
+                json?.id ||
+                json?._id ||
+                candidate.id,
+            };
+          }
+
+          const isRouteNotFound =
+            response.status === 404 ||
+            response.status === 405 ||
+            (response.status >= 400 &&
+              (/<(!DOCTYPE|html)/i.test(text) ||
+                /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+                /not found/i.test(String(json?.message || json?.error || text || '').trim())));
+
+          if (isRouteNotFound && i < submitCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          const sentPayloadPreview = isFormData
+            ? Object.fromEntries(
+                Array.from((body as FormData).entries()).map(([k, v]) => [
+                  k,
+                  typeof v === 'string' ? v : `[File/Blob]`,
+                ])
+              )
+            : body;
+          console.error('[smartDocsService.submitCommercialInvoice] Backend error:', {
+            url: candidate.url,
+            method: candidate.method,
+            status: response.status,
+            sentPayload: sentPayloadPreview,
+            response: json ?? text,
+          });
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit commercial invoice'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          break;
+        } catch (fetchErr: any) {
+          if (i < submitCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while submitting commercial invoice',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while submitting commercial invoice',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.submitCommercialInvoice] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while submitting commercial invoice'),
+      };
+    }
+  },
+
+  /**
    * Fetches Bill of Lading details by ID with authentication:
    * GET /bill-of-lading/:id?lang_code=en&source=web
    */
@@ -6408,14 +6858,17 @@ export const smartDocsService = {
     }
 
     // Determine candidate prefixes based on document type
-    const isCustomInvoice = /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isBillOfLading = !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
-    const isShipmentInstruction = !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(rawPrefix);
+    const isCustomInvoice = !isCommercialInvoice && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
+    const isBillOfLading = !isCommercialInvoice && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
+      : isCommercialInvoice
+      ? ['commercial_invoice', 'commercial-invoice', 'commercialInvoice', 'commercial', 'ci']
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
       : isBillOfLading
@@ -6521,7 +6974,15 @@ export const smartDocsService = {
 
     // Direct endpoint fallbacks if /dms-templates/preview-pdf was not found
     for (const curId of candidateIds) {
-      const directEndpoints = isCustomInvoice
+      const directEndpoints = isCommercialInvoice
+        ? [
+            `${baseUrl}/commercial-invoice/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/commercial-invoice/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/commercial-invoices/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/commercial-invoices/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/commercial-invoice/pdf/${encodeURIComponent(curId)}`,
+          ]
+        : isCustomInvoice
         ? [
             `${baseUrl}/custom-invoice/preview-pdf/${encodeURIComponent(curId)}`,
             `${baseUrl}/custom-invoice/preview/${encodeURIComponent(curId)}`,
@@ -6625,14 +7086,17 @@ export const smartDocsService = {
       };
     }
 
-    const isCustomInvoice = /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isBillOfLading = !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
-    const isShipmentInstruction = !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(rawPrefix);
+    const isCustomInvoice = !isCommercialInvoice && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
+    const isBillOfLading = !isCommercialInvoice && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
+      : isCommercialInvoice
+      ? ['commercial_invoice', 'commercial-invoice', 'commercialInvoice', 'commercial', 'ci']
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
       : isBillOfLading
@@ -6796,7 +7260,14 @@ export const smartDocsService = {
 
     // Direct endpoint fallbacks if /dms-templates/download-pdf was not found
     for (const curId of candidateIds) {
-      const directEndpoints = isCustomInvoice
+      const directEndpoints = isCommercialInvoice
+        ? [
+            `${baseUrl}/commercial-invoice/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/commercial-invoice/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/commercial-invoice/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/commercial-invoices/download-pdf/${encodeURIComponent(curId)}`,
+          ]
+        : isCustomInvoice
         ? [
             `${baseUrl}/custom-invoice/download-pdf/${encodeURIComponent(curId)}`,
             `${baseUrl}/custom-invoice/download/${encodeURIComponent(curId)}`,
@@ -9119,6 +9590,7 @@ export function getWorkflowSubmitButtonInfo({
       if (t.includes('proforma')) return isProformaStep(s, idx);
       if (t.includes('shipment') || t.includes('instruction')) return isShipmentInstructionStep(s, idx);
       if (t.includes('lading') || t.includes('bill_of_lading') || t.includes('bl')) return isBillOfLadingStep(s, idx);
+      if (t.includes('commercial')) return isCommercialInvoiceStep(s, idx);
       if (t.includes('custom') || t.includes('invoice')) return isCustomInvoiceStep(s, idx);
       return false;
     });
@@ -9437,12 +9909,64 @@ export function getBillOfLadingIdFromStepper(
 export function isCommercialInvoiceStep(step?: StepperDocumentItem | null, index?: number): boolean {
   if (step) {
     const id = String(step.id || step._id || '').toLowerCase();
-    const name = String(step.document_name || step.name || step.title || step.doc_name || '').toLowerCase();
-    const slug = String(step.slug || step.type || '').toLowerCase();
-    if (id.includes('commercial') || name.includes('commercial') || slug.includes('commercial')) return true;
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+    const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
+
+    if (
+      id.includes('commercial') ||
+      name.includes('commercial') ||
+      slug.includes('commercial') ||
+      redirect.includes('commercial-invoice') ||
+      redirect.includes('commercial_invoice')
+    ) {
+      return true;
+    }
+
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 7) return true;
+    }
     return false;
   }
   return typeof index === 'number' && index === 6;
+}
+
+export function getCommercialInvoiceStep(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isCommercialInvoiceStep(selectedStep)) return selectedStep;
+  if (steps && steps.length > 0) {
+    const found = steps.find((s) => isCommercialInvoiceStep(s));
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getCommercialInvoiceIdFromStepper(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getCommercialInvoiceStep(steps, selectedStep);
+  if (!step) return '';
+  return getStepSelfId(step);
 }
 
 export function isPackingListStep(step?: StepperDocumentItem | null, index?: number): boolean {
@@ -9584,6 +10108,7 @@ export function isSameWorkflowStep(
   if (isShipmentInstructionStep(a) && isShipmentInstructionStep(b)) return true;
   if (isBillOfLadingStep(a) && isBillOfLadingStep(b)) return true;
   if (isCustomInvoiceStep(a) && isCustomInvoiceStep(b)) return true;
+  if (isCommercialInvoiceStep(a) && isCommercialInvoiceStep(b)) return true;
 
   if (typeof a.step === 'number' && typeof b.step === 'number' && a.step === b.step) {
     return true;
@@ -9813,6 +10338,158 @@ export function isCompleteCustomInvoiceData(data: any): boolean {
     (data.custom_invoice && typeof data.custom_invoice === 'object' && (data.custom_invoice.custom_invoice_number || data.custom_invoice.id)) ||
     ((data.id || data._id) && (data.invoice_number || data.goods_description))
   );
+}
+
+export function extractLinkedCommercialInvoiceId(data: any): string {
+  if (!data) return '';
+  const d = data.data ?? data;
+  const candidates = [
+    d?.commercial_invoice_id,
+    d?.commercialInvoiceId,
+    d?.commercial_id,
+    d?.commercialId,
+    d?.commercial_invoice?.id,
+    d?.commercial_invoice?._id,
+    d?.commercial_invoice?.commercial_invoice_id,
+  ];
+  for (const c of candidates) {
+    if (c) {
+      const clean = sanitizeDocId(c);
+      if (clean && !/^(commercial|commercial-invoice|invoice|step-\d+)$/i.test(clean)) return clean;
+    }
+  }
+  return '';
+}
+
+export function extractCommercialInvoiceData(data: any): any {
+  if (!data || typeof data !== 'object') return null;
+  if (
+    data.success === false ||
+    data.status === false ||
+    (typeof data.statusCode === 'number' && data.statusCode >= 400)
+  ) {
+    return null;
+  }
+  const d = data.data !== undefined ? data.data : data;
+  if (!d || typeof d !== 'object') return null;
+
+  const raw =
+    d.commercial_invoice ||
+    d.commercialInvoice ||
+    d.invoice ||
+    d.document ||
+    d.details ||
+    d;
+
+  const merged: any = {
+    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  };
+
+  // Preserve non-empty Commercial Invoice fields across outer/nested payloads
+  const preserveKeys = [
+    'net_weight',
+    'vessel_name',
+    'voyage_number',
+    'place_of_delivery',
+    'packing_type_title',
+    'balance_payment',
+    'total_value',
+  ];
+  for (const key of preserveKeys) {
+    if (
+      (merged[key] === undefined || merged[key] === null || String(merged[key]).trim() === '') &&
+      d?.[key] !== undefined &&
+      d?.[key] !== null &&
+      String(d[key]).trim() !== ''
+    ) {
+      merged[key] = d[key];
+    }
+  }
+  if ((merged.any_advance === undefined || merged.any_advance === null) && d?.any_advance !== undefined && d?.any_advance !== null) {
+    merged.any_advance = d.any_advance;
+  }
+
+  if (
+    typeof d?.loading_port === 'object' &&
+    d.loading_port !== null &&
+    d.loading_port.country &&
+    (typeof merged.loading_port !== 'object' || merged.loading_port === null || !merged.loading_port.country)
+  ) {
+    merged.loading_port = d.loading_port;
+  }
+  if (
+    typeof d?.destination_port === 'object' &&
+    d.destination_port !== null &&
+    d.destination_port.country &&
+    (typeof merged.destination_port !== 'object' || merged.destination_port === null || !merged.destination_port.country)
+  ) {
+    merged.destination_port = d.destination_port;
+  }
+
+  merged.id = merged.id || merged._id || merged.commercial_invoice_id;
+  if (merged.id) merged.id = String(merged.id);
+
+  const hasCommercialMarkers = Boolean(
+    merged.commercial_invoice_number ||
+    merged.commercial_invoice_no ||
+    d?.commercial_invoice ||
+    d?.commercialInvoice ||
+    merged.commercial_invoice_id ||
+    merged._is_commercial_invoice_loaded ||
+    ((merged.id || merged._id) && (merged.invoice_number || merged.goods_description || merged.total_value || merged.total_amount)) ||
+    (d && (d.invoice_number || d.goods_description || d.id || d._id))
+  );
+  if (!hasCommercialMarkers) {
+    return null;
+  }
+
+  merged._is_commercial_invoice_loaded = true;
+  return merged;
+}
+
+export function isCompleteCommercialInvoiceData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  return Boolean(
+    data.commercial_invoice_number ||
+    data.commercial_invoice_no ||
+    data.commercial_invoice_date ||
+    data.commercial_invoice_status ||
+    data._is_commercial_invoice_loaded ||
+    (data.commercial_invoice && typeof data.commercial_invoice === 'object' && (data.commercial_invoice.commercial_invoice_number || data.commercial_invoice.id)) ||
+    ((data.id || data._id) && (data.invoice_number || data.goods_description))
+  );
+}
+
+export function extractCommercialInvoiceDocumentStatus(data?: any, stepItem?: StepperDocumentItem | null): string {
+  if (stepItem) {
+    const norm = normalizeStepStatus(stepItem.status || stepItem.document_status || stepItem.step_status);
+    if (norm === 'completed') return 'COMPLETED';
+    return 'PENDING';
+  }
+  if (!data) return 'PENDING';
+
+  const cStatus =
+    data.commercial_invoice_status ||
+    data.commercialInvoiceStatus ||
+    data.commercial_invoice?.status ||
+    data.commercial_invoice?.commercial_invoice_status;
+  if (cStatus) {
+    const norm = normalizeStepStatus(cStatus);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  const isPureCommercial = Boolean(
+    (data.commercial_invoice_id || data._is_commercial_invoice_loaded) &&
+    !data.contract_number &&
+    !data.confirmation_number
+  );
+  if (isPureCommercial && data.status) {
+    const norm = normalizeStepStatus(data.status);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  return 'PENDING';
 }
 
 export function extractLinkedBillOfLadingId(data: any): string {

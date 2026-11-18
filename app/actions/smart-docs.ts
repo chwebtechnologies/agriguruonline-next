@@ -52,6 +52,7 @@ import {
   extractConfirmationData,
   extractContractData,
   extractCustomInvoiceData,
+  extractCommercialInvoiceData,
   extractBillOfLadingData,
   extractProductDetailData,
   extractPaymentTermDetailData,
@@ -4640,6 +4641,364 @@ export async function submitConfirmationAction(
   }
 }
 
+export interface GetCommercialInvoiceActionResult {
+  success: boolean;
+  data: any | null;
+  error?: string;
+  message?: string;
+}
+
+export async function getCommercialInvoiceAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetCommercialInvoiceActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Commercial Invoice ID is required",
+        data: null,
+      };
+    }
+
+    const token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getCommercialInvoice(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch commercial invoice details",
+        data: null,
+      };
+    }
+
+    const extData = extractCommercialInvoiceData(rawRes);
+    return {
+      success: true,
+      data: extData || rawRes.data || rawRes,
+    };
+  } catch (error: any) {
+    console.error("[getCommercialInvoiceAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch commercial invoice details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveCommercialInvoiceDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+export async function saveCommercialInvoiceDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveCommercialInvoiceDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveCommercialInvoiceDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.saveCommercialInvoiceDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveCommercialInvoiceDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save commercial invoice draft",
+        message: "Failed to save commercial invoice draft",
+      };
+    }
+
+    const isSuccess = Boolean(rawRes.success !== false && rawRes.success !== 0 && rawRes.status !== false);
+    if (!isSuccess) {
+      let errorFields =
+        rawRes.error_fields ||
+        rawRes.data?.error_fields ||
+        rawRes.errors ||
+        rawRes.data?.errors ||
+        rawRes.raw?.error_fields ||
+        rawRes.raw?.errors ||
+        null;
+
+      const extracted = extractApiValidationErrors(rawRes);
+      if (!errorFields && extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = Object.keys(errMap).length > 0 ? errMap : null;
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        (extracted[0]?.message && extracted[0].message.trim()) ||
+        "";
+
+      const isPurelyGeneric =
+        !rawBackendMsg ||
+        /^(form validation error|validation error|bad request)$/i.test(rawBackendMsg) ||
+        isRawRoutingOrHtmlError(rawBackendMsg);
+
+      const msg = !isPurelyGeneric
+        ? rawBackendMsg
+        : extracted[0]?.message?.trim() ||
+          sanitizeActionErrorMessage(
+            rawRes.message || rawRes.error,
+            rawRes,
+            "Failed to save commercial invoice draft"
+          );
+
+      return {
+        success: false,
+        message: msg,
+        error: msg,
+        errors: errorFields,
+        error_fields: errorFields,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const savedId = String(
+      rawRes.id ||
+        rawRes.data?.id ||
+        rawRes.data?._id ||
+        rawRes.data?.commercial_invoice_id ||
+        id ||
+        ""
+    );
+
+    return {
+      success: true,
+      message: rawRes.message || "Commercial Invoice saved as draft!",
+      data: rawRes.data !== undefined ? rawRes.data : rawRes,
+      id: savedId || undefined,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[saveCommercialInvoiceDraftAction] Error:", error);
+    const msg = sanitizeActionErrorMessage(
+      error?.message,
+      error,
+      "Failed to save commercial invoice draft"
+    );
+    return {
+      success: false,
+      error: msg,
+      message: msg,
+    };
+  }
+}
+
+export async function submitCommercialInvoiceAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveCommercialInvoiceDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitCommercialInvoice(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitCommercialInvoice(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitCommercialInvoiceAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit commercial invoice",
+        message: "Failed to submit commercial invoice",
+      };
+    }
+
+    const isSuccess = Boolean(rawRes.success !== false && rawRes.success !== 0 && rawRes.status !== false);
+    if (!isSuccess) {
+      let errorFields =
+        rawRes.error_fields ||
+        rawRes.data?.error_fields ||
+        rawRes.errors ||
+        rawRes.data?.errors ||
+        rawRes.raw?.error_fields ||
+        rawRes.raw?.errors ||
+        null;
+
+      const extracted = extractApiValidationErrors(rawRes);
+      if (!errorFields && extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = Object.keys(errMap).length > 0 ? errMap : null;
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        (extracted[0]?.message && extracted[0].message.trim()) ||
+        "";
+
+      const isPurelyGeneric =
+        !rawBackendMsg ||
+        /^(form validation error|validation error|bad request)$/i.test(rawBackendMsg) ||
+        isRawRoutingOrHtmlError(rawBackendMsg);
+
+      const msg = !isPurelyGeneric
+        ? rawBackendMsg
+        : extracted[0]?.message?.trim() ||
+          sanitizeActionErrorMessage(
+            rawRes.message || rawRes.error,
+            rawRes,
+            "Failed to submit commercial invoice"
+          );
+
+      return {
+        success: false,
+        message: msg,
+        error: msg,
+        errors: errorFields,
+        error_fields: errorFields,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const savedId = String(
+      rawRes.id ||
+        rawRes.data?.id ||
+        rawRes.data?._id ||
+        rawRes.data?.commercial_invoice_id ||
+        id ||
+        ""
+    );
+
+    return {
+      success: true,
+      message: rawRes.message || "Commercial Invoice submitted successfully!",
+      data: rawRes.data !== undefined ? rawRes.data : rawRes,
+      id: savedId || undefined,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[submitCommercialInvoiceAction] Error:", error);
+    const msg = sanitizeActionErrorMessage(
+      error?.message,
+      error,
+      "Failed to submit commercial invoice"
+    );
+    return {
+      success: false,
+      error: msg,
+      message: msg,
+    };
+  }
+}
+
 export interface GetDocPreviewActionParams {
   prefix?: string;
   id: string;
@@ -4650,6 +5009,7 @@ export interface GetDocPreviewActionParams {
   proformaId?: string;
   shipmentInstructionId?: string;
   customInvoiceId?: string;
+  commercialInvoiceId?: string;
 }
 
 export interface GetDocPreviewActionResult {
@@ -4667,16 +5027,30 @@ export async function getDocPreviewAction(
   params: GetDocPreviewActionParams
 ): Promise<GetDocPreviewActionResult> {
   try {
-    const isCustomInvoice = /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
+    const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(params.prefix || "");
+    const isCustomInvoice = !isCommercialInvoice && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
+    const commercialId = String(params.commercialInvoiceId || "").trim();
     const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
-        (isCustomInvoice
+        (isCommercialInvoice
+          ? [
+              commercialId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isCustomInvoice
           ? [
               customId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              commercialId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
               String(params.contractId || "").trim(),
@@ -4685,6 +5059,7 @@ export async function getDocPreviewAction(
           : [
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -4695,7 +5070,7 @@ export async function getDocPreviewAction(
           (id): id is string =>
             Boolean(
               id &&
-                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
                   id
                 )
             )
@@ -4783,6 +5158,7 @@ export interface DownloadDocPdfActionParams {
   proformaId?: string;
   shipmentInstructionId?: string;
   customInvoiceId?: string;
+  commercialInvoiceId?: string;
 }
 
 export interface DownloadDocPdfActionResult {
@@ -4805,16 +5181,30 @@ export async function downloadDocPdfAction(
   params: DownloadDocPdfActionParams
 ): Promise<DownloadDocPdfActionResult> {
   try {
-    const isCustomInvoice = /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
+    const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(params.prefix || "");
+    const isCustomInvoice = !isCommercialInvoice && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
+    const commercialId = String(params.commercialInvoiceId || "").trim();
     const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
-        (isCustomInvoice
+        (isCommercialInvoice
+          ? [
+              commercialId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isCustomInvoice
           ? [
               customId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              commercialId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
               String(params.contractId || "").trim(),
@@ -4823,6 +5213,7 @@ export async function downloadDocPdfAction(
           : [
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -4833,7 +5224,7 @@ export async function downloadDocPdfAction(
           (id): id is string =>
             Boolean(
               id &&
-                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
                   id
                 )
             )

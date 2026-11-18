@@ -18,6 +18,7 @@ export interface DocPrintPreviewModalProps {
   proformaId?: string;
   shipmentInstructionId?: string;
   customInvoiceId?: string;
+  commercialInvoiceId?: string;
   billOfLadingId?: string;
 }
 
@@ -154,6 +155,7 @@ export default function DocPrintPreviewModal({
   proformaId,
   shipmentInstructionId,
   customInvoiceId,
+  commercialInvoiceId,
   billOfLadingId,
 }: DocPrintPreviewModalProps) {
   const [mounted, setMounted] = useState(false);
@@ -185,13 +187,14 @@ export default function DocPrintPreviewModal({
         [
           cleanId,
           ...(candidateIds || []).map((id) => String(id || '').trim()),
+          String(commercialInvoiceId || '').trim(),
           String(billOfLadingId || '').trim(),
           String(customInvoiceId || '').trim(),
           String(shipmentInstructionId || '').trim(),
           String(proformaId || '').trim(),
           String(contractId || '').trim(),
           String(confirmationId || '').trim(),
-        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|custom|custom-invoice|invoice|step-\d+)$/i.test(id)))
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(id)))
       )
     );
 
@@ -213,6 +216,7 @@ export default function DocPrintPreviewModal({
         proformaId,
         shipmentInstructionId,
         customInvoiceId,
+        commercialInvoiceId,
         lang,
       });
 
@@ -229,7 +233,7 @@ export default function DocPrintPreviewModal({
     } finally {
       setLoading(false);
     }
-  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, lang]);
+  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, commercialInvoiceId, billOfLadingId, lang]);
 
   useEffect(() => {
     if (!isOpen) {

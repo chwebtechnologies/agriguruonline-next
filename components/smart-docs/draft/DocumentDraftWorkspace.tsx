@@ -23,17 +23,20 @@ import {
   isShipmentInstructionStep,
   isBillOfLadingStep,
   isCustomInvoiceStep,
+  isCommercialInvoiceStep,
   getContractStep,
   getProformaStep,
   getShipmentInstructionStep,
   getBillOfLadingStep,
   getCustomInvoiceStep,
+  getCommercialInvoiceStep,
   getContractIdFromStepper,
   getProformaIdFromStepper,
   getConfirmationIdFromStepper,
   getShipmentInstructionIdFromStepper,
   getBillOfLadingIdFromStepper,
   getCustomInvoiceIdFromStepper,
+  getCommercialInvoiceIdFromStepper,
   extractShipmentInstructionData,
   extractBillOfLadingData,
   isCompleteBillOfLadingData,
@@ -41,6 +44,9 @@ import {
   extractCustomInvoiceData,
   isCompleteCustomInvoiceData,
   extractLinkedCustomInvoiceId,
+  extractCommercialInvoiceData,
+  isCompleteCommercialInvoiceData,
+  extractLinkedCommercialInvoiceId,
   sanitizeDocId,
   isRealStepperList,
   isStatusCompleted,
@@ -57,6 +63,7 @@ import ProformaDocumentForm from './form/ProformaDocumentForm';
 import ShipmentInstructionDocumentForm from './form/ShipmentInstructionDocumentForm';
 import BillOfLadingDocumentForm from './form/BillOfLadingDocumentForm';
 import CustomInvoiceDocumentForm from './form/CustomInvoiceDocumentForm';
+import CommercialInvoiceDocumentForm from './form/CommercialInvoiceDocumentForm';
 import DocumentDraftSkeleton from './DocumentDraftSkeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
@@ -79,6 +86,9 @@ import {
   getCustomInvoiceAction,
   saveCustomInvoiceDraftAction,
   submitCustomInvoiceAction,
+  getCommercialInvoiceAction,
+  saveCommercialInvoiceDraftAction,
+  submitCommercialInvoiceAction,
 } from '@/app/actions/smart-docs';
 
 export function getSafeDisplayString(val: any, fallback = 'N/A'): string {
@@ -216,6 +226,7 @@ export interface DocumentDraftWorkspaceProps {
   initialShipmentInstructionData?: any;
   initialBillOfLadingData?: any;
   initialCustomInvoiceData?: any;
+  initialCommercialInvoiceData?: any;
   initialConsignees?: any[];
   initialNotifyParties?: any[];
   initialConsigneesBuyerId?: string;
@@ -230,6 +241,7 @@ export function getStepSlug(step?: StepperDocumentItem | null, index?: number): 
   if (isShipmentInstructionStep(step)) return 'shipment';
   if (isBillOfLadingStep(step)) return 'bill-of-lading';
   if (isCustomInvoiceStep(step)) return 'custom-invoice';
+  if (isCommercialInvoiceStep(step)) return 'commercial-invoice';
 
   if (step) {
     const name = String(step.document_name || step.name || step.title || '').trim().toLowerCase();
@@ -251,6 +263,7 @@ export function getStepSlug(step?: StepperDocumentItem | null, index?: number): 
     if (index === 3) return 'shipment';
     if (index === 4) return 'bill-of-lading';
     if (index === 5) return 'custom-invoice';
+    if (index === 6) return 'commercial-invoice';
     return `step-${index + 1}`;
   }
   return 'confirmation';
@@ -303,6 +316,11 @@ export function resolveInitialStepIndex(
       const customIdx = stepList.findIndex((s) => isCustomInvoiceStep(s));
       return customIdx >= 0 ? customIdx : (stepList.length > 5 ? 5 : 0);
     }
+    if (clean === 'commercial-invoice' || clean === 'commercial_invoice' || clean === 'commercial' || clean === '7') {
+      if (!stepList || stepList.length === 0) return 0;
+      const commercialIdx = stepList.findIndex((s) => isCommercialInvoiceStep(s));
+      return commercialIdx >= 0 ? commercialIdx : (stepList.length > 6 ? 6 : 0);
+    }
     if (stepList && stepList.length > 0) {
       const matchedIdx = stepList.findIndex((s, i) => {
         const id = String(s.id || '').toLowerCase();
@@ -336,6 +354,7 @@ export function DocumentDraftWorkspace({
   initialShipmentInstructionData,
   initialBillOfLadingData,
   initialCustomInvoiceData,
+  initialCommercialInvoiceData,
   initialConsignees = [],
   initialNotifyParties = [],
   initialConsigneesBuyerId = '',
@@ -385,6 +404,8 @@ export function DocumentDraftWorkspace({
   const [isLoadingBillOfLading, setIsLoadingBillOfLading] = useState<boolean>(false);
   const [customInvoiceData, setCustomInvoiceData] = useState<any>(initialCustomInvoiceData || null);
   const [isLoadingCustomInvoice, setIsLoadingCustomInvoice] = useState<boolean>(false);
+  const [commercialInvoiceData, setCommercialInvoiceData] = useState<any>(initialCommercialInvoiceData || null);
+  const [isLoadingCommercialInvoice, setIsLoadingCommercialInvoice] = useState<boolean>(false);
 
   // Step data version counters to signal forms on stepper navigation and fresh API fetch
   const [confirmationVersion, setConfirmationVersion] = useState<number>(0);
@@ -393,6 +414,7 @@ export function DocumentDraftWorkspace({
   const [shipmentVersion, setShipmentVersion] = useState<number>(0);
   const [billOfLadingVersion, setBillOfLadingVersion] = useState<number>(0);
   const [customInvoiceVersion, setCustomInvoiceVersion] = useState<number>(0);
+  const [commercialInvoiceVersion, setCommercialInvoiceVersion] = useState<number>(0);
 
   // Compute initial selected step (honoring explicit URL param or defaulting to latest open step)
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(() =>
@@ -419,6 +441,7 @@ export function DocumentDraftWorkspace({
   const isShipmentInstruction = !isConfirmation && !isContract && !isProforma && isShipmentInstructionStep(fallbackStep);
   const isBillOfLading = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && isBillOfLadingStep(fallbackStep);
   const isCustomInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && isCustomInvoiceStep(fallbackStep);
+  const isCommercialInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && isCommercialInvoiceStep(fallbackStep);
 
   // Contract ID extracted strictly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
   const contractIdFromStepper = useMemo(() => {
@@ -998,6 +1021,112 @@ export function DocumentDraftWorkspace({
     initialId,
   ]);
 
+  // Canonical Commercial Invoice Document ID
+  const canonicalCommercialInvoiceId = useMemo(() => {
+    const hasCommercialMarkers = (data: any) =>
+      Boolean(
+        data &&
+        (data.commercial_invoice_number || data.commercial_invoice_id || data._is_commercial_invoice_loaded)
+      );
+
+    const directCommercialId = sanitizeDocId(
+      (hasCommercialMarkers(commercialInvoiceData) ? commercialInvoiceData?.id || commercialInvoiceData?._id : '') ||
+      commercialInvoiceData?.commercial_invoice_id ||
+      (hasCommercialMarkers(initialCommercialInvoiceData) ? initialCommercialInvoiceData?.id || initialCommercialInvoiceData?._id : '') ||
+      initialCommercialInvoiceData?.commercial_invoice_id
+    );
+    if (
+      directCommercialId &&
+      directCommercialId !== effectiveConfirmationId &&
+      directCommercialId !== canonicalContractId &&
+      directCommercialId !== canonicalProformaId &&
+      directCommercialId !== canonicalShipmentInstructionId &&
+      directCommercialId !== canonicalBillOfLadingId &&
+      directCommercialId !== canonicalCustomInvoiceId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(directCommercialId)
+    ) {
+      return directCommercialId;
+    }
+
+    const commercialStep = getCommercialInvoiceStep(steps, selectedStep);
+    const fromStepper = sanitizeDocId(
+      getStepSelfId(commercialStep) ||
+      getCommercialInvoiceIdFromStepper(steps, selectedStep) ||
+      commercialStep?.commercial_invoice_id ||
+      (commercialStep as any)?.commercialInvoiceId ||
+      commercialStep?.redirect_id ||
+      (commercialStep as any)?.redirectId
+    );
+    if (
+      fromStepper &&
+      !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(fromStepper)
+    ) {
+      return fromStepper;
+    }
+
+    const linkedCandidate = sanitizeDocId(
+      extractLinkedCommercialInvoiceId(commercialInvoiceData) ||
+      extractLinkedCommercialInvoiceId(initialCommercialInvoiceData) ||
+      extractLinkedCommercialInvoiceId(customInvoiceData) ||
+      extractLinkedCommercialInvoiceId(initialCustomInvoiceData) ||
+      extractLinkedCommercialInvoiceId(billOfLadingData) ||
+      extractLinkedCommercialInvoiceId(shipmentInstructionData) ||
+      extractLinkedCommercialInvoiceId(proformaData) ||
+      extractLinkedCommercialInvoiceId(contractData) ||
+      extractLinkedCommercialInvoiceId(confirmationData)
+    );
+    if (
+      linkedCandidate &&
+      linkedCandidate !== effectiveConfirmationId &&
+      linkedCandidate !== canonicalContractId &&
+      linkedCandidate !== canonicalProformaId &&
+      linkedCandidate !== canonicalShipmentInstructionId &&
+      linkedCandidate !== canonicalBillOfLadingId &&
+      linkedCandidate !== canonicalCustomInvoiceId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(linkedCandidate)
+    ) {
+      return linkedCandidate;
+    }
+
+    const cleanDraftId = sanitizeDocId(draftId);
+    if (
+      isCommercialInvoice &&
+      cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(cleanDraftId)
+    ) {
+      return cleanDraftId;
+    }
+
+    return '';
+  }, [
+    commercialInvoiceData,
+    initialCommercialInvoiceData,
+    steps,
+    selectedStep,
+    effectiveConfirmationId,
+    canonicalContractId,
+    canonicalProformaId,
+    canonicalShipmentInstructionId,
+    canonicalBillOfLadingId,
+    canonicalCustomInvoiceId,
+    customInvoiceData,
+    initialCustomInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    confirmationData,
+    isCommercialInvoice,
+    draftId,
+  ]);
+
   // Buyer Instruction ID for Shipment Instruction (passed to consignee and notify party APIs).
   // Strictly prioritizes buyer_instruction_id from the SI response, falling back only to this trade's Importer.
   const buyerInstructionIdForShipment = useMemo(() => {
@@ -1101,8 +1230,8 @@ export function DocumentDraftWorkspace({
   const workflowAnchorType = useMemo(() => {
     if (effectiveConfirmationId) return 'confirmation';
     if (canonicalContractId) return 'contract';
-    if (canonicalShipmentInstructionId || canonicalBillOfLadingId || canonicalCustomInvoiceId) return 'document';
-    if (isShipmentInstruction || isBillOfLading || isCustomInvoice) return 'document';
+    if (canonicalShipmentInstructionId || canonicalBillOfLadingId || canonicalCustomInvoiceId || canonicalCommercialInvoiceId) return 'document';
+    if (isShipmentInstruction || isBillOfLading || isCustomInvoice || isCommercialInvoice) return 'document';
     if (isContract) return 'contract';
     return 'confirmation';
   }, [
@@ -1111,9 +1240,11 @@ export function DocumentDraftWorkspace({
     canonicalShipmentInstructionId,
     canonicalBillOfLadingId,
     canonicalCustomInvoiceId,
+    canonicalCommercialInvoiceId,
     isShipmentInstruction,
     isBillOfLading,
     isCustomInvoice,
+    isCommercialInvoice,
     isContract,
   ]);
 
@@ -1124,6 +1255,7 @@ export function DocumentDraftWorkspace({
       canonicalShipmentInstructionId ||
       canonicalBillOfLadingId ||
       canonicalCustomInvoiceId ||
+      canonicalCommercialInvoiceId ||
       initialId ||
       draftId ||
       'new-confirmation'
@@ -1134,6 +1266,7 @@ export function DocumentDraftWorkspace({
     canonicalShipmentInstructionId,
     canonicalBillOfLadingId,
     canonicalCustomInvoiceId,
+    canonicalCommercialInvoiceId,
     initialId,
     draftId,
   ]);
@@ -1397,6 +1530,44 @@ export function DocumentDraftWorkspace({
           }
         }
 
+        // Step 6: Commercial Invoice
+        else if (isCommercialInvoiceStep(step)) {
+          const commercialId = sanitizeDocId(
+            commercialInvoiceData?.id ||
+            commercialInvoiceData?._id ||
+            commercialInvoiceData?.commercial_invoice_id ||
+            initialCommercialInvoiceData?.id ||
+            initialCommercialInvoiceData?._id ||
+            initialCommercialInvoiceData?.commercial_invoice_id
+          );
+          if (
+            commercialId &&
+            commercialId !== effectiveConfirmationId &&
+            commercialId !== canonicalContractId &&
+            commercialId !== canonicalProformaId &&
+            commercialId !== canonicalShipmentInstructionId &&
+            commercialId !== canonicalBillOfLadingId &&
+            commercialId !== canonicalCustomInvoiceId &&
+            (!step.redirect_id || step.redirect_id === 'new-confirmation' || step.redirect_id.startsWith('step-'))
+          ) {
+            newStep.redirect_id = commercialId;
+            newStep.redirectId = commercialId;
+            changed = true;
+          }
+          const isDone = isStatusCompleted(
+            commercialInvoiceData?.status ||
+            commercialInvoiceData?.document_status ||
+            commercialInvoiceData?.commercial_invoice_status ||
+            initialCommercialInvoiceData?.status ||
+            initialCommercialInvoiceData?.document_status ||
+            initialCommercialInvoiceData?.commercial_invoice_status
+          );
+          if (isDone && normalizeStepStatus(step.status) !== 'completed') {
+            newStep.status = 'completed';
+            changed = true;
+          }
+        }
+
         return newStep;
       });
 
@@ -1415,11 +1586,14 @@ export function DocumentDraftWorkspace({
     initialBillOfLadingData,
     customInvoiceData,
     initialCustomInvoiceData,
+    commercialInvoiceData,
+    initialCommercialInvoiceData,
     effectiveConfirmationId,
     canonicalContractId,
     canonicalProformaId,
     canonicalShipmentInstructionId,
     canonicalBillOfLadingId,
+    canonicalCustomInvoiceId,
   ]);
 
   // Active Step Self ID: strictly the current active step's own ID from redirect_id / stepper
@@ -1557,6 +1731,14 @@ export function DocumentDraftWorkspace({
       /custom/i.test(String(initialStepParam))
     )
   );
+  const attemptedCommercialInvoiceFetchRef = useRef<string | null>(null);
+  const isInitialCommercialInvoiceSsrFreshRef = useRef<boolean>(
+    Boolean(
+      initialCommercialInvoiceData &&
+      initialStepParam &&
+      /commercial/i.test(String(initialStepParam))
+    )
+  );
   const activeFetchSeqRef = useRef<number>(0);
 
   // Centralized step data fetcher: fetches the latest document data and refreshes stepper metadata
@@ -1568,6 +1750,7 @@ export function DocumentDraftWorkspace({
       const isTargetShipment = !isTargetConfirmation && !isTargetContract && !isTargetProforma && isShipmentInstructionStep(targetStep);
       const isTargetBillOfLading = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && isBillOfLadingStep(targetStep);
       const isTargetCustomInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && isCustomInvoiceStep(targetStep);
+      const isTargetCommercialInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && isCommercialInvoiceStep(targetStep);
 
       const stepSelfId = getStepSelfId(targetStep);
 
@@ -2082,6 +2265,109 @@ export function DocumentDraftWorkspace({
         }
         return;
       }
+
+      // COMMERCIAL INVOICE (Step 7)
+      if (isTargetCommercialInvoice) {
+        setIsLoadingCommercialInvoice(true);
+
+        const isPlaceholderCommercialId = (val?: string | null) =>
+          !val ||
+          (/^\d+$/.test(val) && Number(val) <= 20) ||
+          /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(val);
+
+        const candidateId = sanitizeDocId(
+          (!isPlaceholderCommercialId(stepSelfId) ? stepSelfId : '') ||
+          targetStep?.commercial_invoice_id ||
+          (targetStep as any)?.commercialInvoiceId ||
+          extractStepRedirectId(targetStep) ||
+          getCommercialInvoiceIdFromStepper(steps, targetStep) ||
+          canonicalCommercialInvoiceId ||
+          extractLinkedCommercialInvoiceId(commercialInvoiceData) ||
+          extractLinkedCommercialInvoiceId(customInvoiceData) ||
+          extractLinkedCommercialInvoiceId(billOfLadingData) ||
+          extractLinkedCommercialInvoiceId(shipmentInstructionData) ||
+          extractLinkedCommercialInvoiceId(proformaData) ||
+          extractLinkedCommercialInvoiceId(contractData)
+        );
+
+        const applyFreshCommercialInvoice = (rawData: any): boolean => {
+          if (!rawData || typeof rawData !== 'object') return false;
+          const extracted = extractCommercialInvoiceData(rawData) || {
+            ...rawData,
+            _is_commercial_invoice_loaded: true,
+          };
+          if (extracted) {
+            setCommercialInvoiceData(extracted);
+            setCommercialInvoiceVersion((v) => v + 1);
+            return true;
+          }
+          return false;
+        };
+
+        let didPrimaryFetchSucceed = false;
+
+        const stepperPromise = getStepperListAction({
+          action: workflowAnchorType,
+          step: String(workflowAnchorId),
+          lang,
+        })
+          .then(async (sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
+              const freshCommercialStep = getCommercialInvoiceStep(sRes.data);
+              const freshCommercialId = sanitizeDocId(
+                getStepSelfId(freshCommercialStep) ||
+                getCommercialInvoiceIdFromStepper(sRes.data, freshCommercialStep) ||
+                freshCommercialStep?.commercial_invoice_id ||
+                (freshCommercialStep as any)?.commercialInvoiceId ||
+                freshCommercialStep?.redirect_id ||
+                (freshCommercialStep as any)?.redirectId
+              );
+              if (
+                freshCommercialId &&
+                !isPlaceholderCommercialId(freshCommercialId) &&
+                freshCommercialId !== candidateId
+              ) {
+                try {
+                  const freshRes = await getCommercialInvoiceAction(freshCommercialId, lang);
+                  if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
+                    attemptedCommercialInvoiceFetchRef.current = freshCommercialId;
+                    applyFreshCommercialInvoice(freshRes.data);
+                  }
+                } catch (freshErr) {
+                  console.warn('[DocumentDraftWorkspace] Error fetching fresh commercial invoice from stepper:', freshErr);
+                }
+              }
+            }
+          })
+          .catch(() => {});
+
+        if (candidateId && !isPlaceholderCommercialId(candidateId)) {
+          try {
+            attemptedCommercialInvoiceFetchRef.current = candidateId;
+            const res = await getCommercialInvoiceAction(candidateId, lang);
+            if (activeFetchSeqRef.current === currentSeq && res?.success && res.data) {
+              didPrimaryFetchSucceed = applyFreshCommercialInvoice(res.data);
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest commercial invoice:', err);
+          } finally {
+            if (!didPrimaryFetchSucceed) {
+              await stepperPromise;
+            }
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingCommercialInvoice(false);
+            }
+          }
+        } else {
+          await stepperPromise;
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingCommercialInvoice(false);
+            setCommercialInvoiceVersion((v) => v + 1);
+          }
+        }
+        return;
+      }
     },
     [
       steps,
@@ -2091,11 +2377,13 @@ export function DocumentDraftWorkspace({
       shipmentInstructionData,
       billOfLadingData,
       customInvoiceData,
+      commercialInvoiceData,
       canonicalContractId,
       canonicalProformaId,
       canonicalShipmentInstructionId,
       canonicalBillOfLadingId,
       canonicalCustomInvoiceId,
+      canonicalCommercialInvoiceId,
       effectiveConfirmationId,
       rootWorkflowId,
       initialId,
@@ -2135,6 +2423,7 @@ export function DocumentDraftWorkspace({
       attemptedShipmentFetchRef.current = null;
       attemptedBillOfLadingFetchRef.current = null;
       attemptedCustomInvoiceFetchRef.current = null;
+      attemptedCommercialInvoiceFetchRef.current = null;
 
       const isSelectingConfirmation = isConfirmationStep(step);
       const isSelectingContract = !isSelectingConfirmation && isContractStep(step);
@@ -2142,6 +2431,7 @@ export function DocumentDraftWorkspace({
       const isSelectingShipment = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && isShipmentInstructionStep(step);
       const isSelectingBillOfLading = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && isBillOfLadingStep(step);
       const isSelectingCustomInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && isCustomInvoiceStep(step);
+      const isSelectingCommercialInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && isCommercialInvoiceStep(step);
 
       if (isSelectingConfirmation) {
         setConfirmationVersion((v) => v + 1);
@@ -2155,6 +2445,8 @@ export function DocumentDraftWorkspace({
         setBillOfLadingVersion((v) => v + 1);
       } else if (isSelectingCustomInvoice) {
         setCustomInvoiceVersion((v) => v + 1);
+      } else if (isSelectingCommercialInvoice) {
+        setCommercialInvoiceVersion((v) => v + 1);
       }
 
       const stepSelfId = getStepSelfId(step);
@@ -2177,11 +2469,16 @@ export function DocumentDraftWorkspace({
       if (isSelectingCustomInvoice && !isCompleteCustomInvoiceData(customInvoiceData) && !isCompleteCustomInvoiceData(initialCustomInvoiceData) && (stepSelfId || getCustomInvoiceIdFromStepper(steps, step) || canonicalCustomInvoiceId)) {
         setIsLoadingCustomInvoice(true);
       }
+      if (isSelectingCommercialInvoice && !isCompleteCommercialInvoiceData(commercialInvoiceData) && !isCompleteCommercialInvoiceData(initialCommercialInvoiceData) && (stepSelfId || getCommercialInvoiceIdFromStepper(steps, step) || canonicalCommercialInvoiceId)) {
+        setIsLoadingCommercialInvoice(true);
+      }
 
       const slug = getStepSlug(step, resolvedIndex);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        const specificDocId = isSelectingCustomInvoice
+        const specificDocId = isSelectingCommercialInvoice
+          ? canonicalCommercialInvoiceId
+          : isSelectingCustomInvoice
           ? canonicalCustomInvoiceId
           : isSelectingBillOfLading
           ? canonicalBillOfLadingId
@@ -2236,6 +2533,9 @@ export function DocumentDraftWorkspace({
       customInvoiceData,
       initialCustomInvoiceData,
       canonicalCustomInvoiceId,
+      commercialInvoiceData,
+      initialCommercialInvoiceData,
+      canonicalCommercialInvoiceId,
       rootWorkflowId,
       initialId,
       fetchLatestStepData,
@@ -2698,6 +2998,87 @@ export function DocumentDraftWorkspace({
     lang,
   ]);
 
+  // Fetch fresh commercial invoice data whenever Commercial Invoice step becomes active
+  useEffect(() => {
+    if (!isCommercialInvoice) {
+      attemptedCommercialInvoiceFetchRef.current = null;
+      isInitialCommercialInvoiceSsrFreshRef.current = false;
+      return;
+    }
+
+    const commercialStep = getCommercialInvoiceStep(steps, selectedStep);
+    const effectiveId = sanitizeDocId(
+      canonicalCommercialInvoiceId ||
+      commercialStep?.commercial_invoice_id ||
+      (commercialStep as any)?.commercialInvoiceId ||
+      getStepSelfId(commercialStep) ||
+      getCommercialInvoiceIdFromStepper(steps, selectedStep) ||
+      extractStepRedirectId(commercialStep) ||
+      extractLinkedCommercialInvoiceId(commercialInvoiceData) ||
+      extractLinkedCommercialInvoiceId(customInvoiceData) ||
+      extractLinkedCommercialInvoiceId(billOfLadingData) ||
+      extractLinkedCommercialInvoiceId(shipmentInstructionData) ||
+      extractLinkedCommercialInvoiceId(proformaData) ||
+      extractLinkedCommercialInvoiceId(contractData)
+    );
+
+    if (
+      !effectiveId ||
+      (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(effectiveId)
+    ) {
+      setIsLoadingCommercialInvoice(false);
+      return;
+    }
+
+    if (isInitialCommercialInvoiceSsrFreshRef.current) {
+      isInitialCommercialInvoiceSsrFreshRef.current = false;
+      attemptedCommercialInvoiceFetchRef.current = effectiveId;
+      return;
+    }
+
+    if (attemptedCommercialInvoiceFetchRef.current !== effectiveId) {
+      attemptedCommercialInvoiceFetchRef.current = effectiveId;
+      let cancelled = false;
+      setIsLoadingCommercialInvoice(true);
+      getCommercialInvoiceAction(effectiveId, lang)
+        .then((res) => {
+          if (cancelled) return;
+          if (res?.success && res.data && typeof res.data === 'object') {
+            const extracted =
+              extractCommercialInvoiceData(res.data) ||
+              { ...res.data, _is_commercial_invoice_loaded: true };
+            if (extracted) {
+              setCommercialInvoiceData(extracted);
+              setCommercialInvoiceVersion((v) => v + 1);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('[DocumentDraftWorkspace] Error fetching commercial invoice dynamically:', err);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoadingCommercialInvoice(false);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [
+    isCommercialInvoice,
+    canonicalCommercialInvoiceId,
+    steps,
+    selectedStep,
+    customInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    lang,
+  ]);
+
   const activeDocName =
     selectedStep?.document_name ||
     selectedStep?.name ||
@@ -2713,6 +3094,8 @@ export function DocumentDraftWorkspace({
       ? 'Bill of Lading'
       : isCustomInvoice
       ? 'Custom Invoice'
+      : isCommercialInvoice
+      ? 'Commercial Invoice'
       : dict?.smart_docs?.draft_title || 'Trade Confirmation');
 
   // Active document number and label resolution strictly matching the current step
@@ -2728,6 +3111,8 @@ export function DocumentDraftWorkspace({
     ? (billOfLadingData?.bl_no || initialBillOfLadingData?.bl_no || null)
     : isCustomInvoice
     ? (customInvoiceData?.custom_invoice_number || initialCustomInvoiceData?.custom_invoice_number || null)
+    : isCommercialInvoice
+    ? (commercialInvoiceData?.commercial_invoice_number || commercialInvoiceData?.invoice_number || initialCommercialInvoiceData?.commercial_invoice_number || null)
     : (resolvedContractNumber || resolvedConfirmationNumber);
 
   const mobileActiveDocLabel = isConfirmation
@@ -2742,6 +3127,8 @@ export function DocumentDraftWorkspace({
     ? 'B/L No.'
     : isCustomInvoice
     ? 'Custom Invoice No.'
+    : isCommercialInvoice
+    ? 'Commercial Invoice No.'
     : (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.');
 
   // Safe context inheritance for Shipment Instruction:
@@ -2874,6 +3261,75 @@ export function DocumentDraftWorkspace({
     billOfLadingData,
     initialCustomInvoiceData,
     customInvoiceData,
+  ]);
+
+  // Comprehensive data merge for Commercial Invoice so trade, consignee, and notify party context is inherited
+  const mergedCommercialInvoiceData = useMemo(() => {
+    const sources = [
+      initialData,
+      confirmationData,
+      initialContractData,
+      contractData,
+      initialProformaData,
+      proformaData,
+      initialShipmentInstructionData,
+      shipmentInstructionData,
+      initialBillOfLadingData,
+      billOfLadingData,
+      initialCustomInvoiceData,
+      customInvoiceData,
+      initialCommercialInvoiceData,
+      commercialInvoiceData,
+    ];
+    const merged: Record<string, any> = {};
+    for (const src of sources) {
+      if (!src || typeof src !== 'object') continue;
+      for (const [key, val] of Object.entries(src)) {
+        if (val === undefined || val === null || val === '') continue;
+        if (
+          src !== commercialInvoiceData &&
+          src !== initialCommercialInvoiceData &&
+          (key === 'id' ||
+            key === '_id' ||
+            key === 'status' ||
+            key === 'document_status' ||
+            key === 'title' ||
+            key === 'pdf_title' ||
+            key === 'document_title' ||
+            key === 'invoice_number' ||
+            key === 'invoice_no' ||
+            key === 'invoice_date')
+        ) {
+          continue;
+        }
+        if (
+          (key === 'loading_port' || key === 'destination_port') &&
+          typeof merged[key] === 'object' &&
+          merged[key] !== null &&
+          merged[key].country &&
+          (typeof val !== 'object' || val === null || !(val as any).country)
+        ) {
+          continue;
+        }
+        merged[key] = val;
+      }
+    }
+    return merged;
+  }, [
+    initialData,
+    confirmationData,
+    initialContractData,
+    contractData,
+    initialProformaData,
+    proformaData,
+    initialShipmentInstructionData,
+    shipmentInstructionData,
+    initialBillOfLadingData,
+    billOfLadingData,
+    initialCustomInvoiceData,
+    customInvoiceData,
+    initialCommercialInvoiceData,
+    commercialInvoiceData,
   ]);
 
   return (
@@ -4731,8 +5187,224 @@ export function DocumentDraftWorkspace({
             />
         </div>
 
-        {/* Subsequent Workflow Steps View (Post-Custom Invoice): Clean placeholder */}
-        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice ? 'flex' : 'hidden'}`} />
+        {/* Commercial Invoice Document Form: Visible when Commercial Invoice Step is active */}
+        <div className={`w-full h-full ${isCommercialInvoice ? 'flex flex-col' : 'hidden'}`}>
+          {isLoadingCommercialInvoice && !commercialInvoiceData && !initialCommercialInvoiceData ? (
+            <DocumentDraftSkeleton mode="contract" />
+          ) : (
+            <CommercialInvoiceDocumentForm
+              key={`commercial-invoice-${canonicalCommercialInvoiceId || (commercialInvoiceData?.id ? String(commercialInvoiceData.id) : 'default')}`}
+              dataVersion={commercialInvoiceVersion}
+              initialData={commercialInvoiceData || initialCommercialInvoiceData || mergedCommercialInvoiceData || null}
+              commercialInvoiceId={canonicalCommercialInvoiceId || ''}
+              customInvoiceId={canonicalCustomInvoiceId}
+              shipmentInstructionId={canonicalShipmentInstructionId}
+              proformaId={canonicalProformaId}
+              contractId={canonicalContractId}
+              confirmationId={effectiveConfirmationId}
+              steps={steps}
+              selectedStep={selectedStep}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
+              sellers={initialSellers}
+              buyers={initialBuyers}
+              products={initialProducts}
+              paymentTerms={initialPaymentTerms}
+              currencies={initialCurrencies}
+              shippingTerms={shippingTerms}
+              lang={lang}
+              dict={dict}
+              readOnly={false}
+              onSaveSuccess={(savedId, savedData) => {
+                if (savedId) {
+                  setCommercialInvoiceVersion((v) => v + 1);
+                  setCommercialInvoiceData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(savedData || {}),
+                    id: savedId,
+                    commercial_invoice_id: savedId,
+                  }));
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s) =>
+                      isCommercialInvoiceStep(s)
+                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                        : s
+                    )
+                  );
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
+                    if (targetWorkflowId) {
+                      url.searchParams.set('id', targetWorkflowId);
+                    }
+                    url.searchParams.set('step', 'commercial-invoice');
+                    window.history.replaceState(null, '', url.toString());
+                  }
+                }
+              }}
+              onSaveDraft={async (formData) => {
+                const commercialStep = getCommercialInvoiceStep(steps, selectedStep);
+                const activeDocId =
+                  canonicalCommercialInvoiceId ||
+                  sanitizeDocId(
+                    commercialInvoiceData?.commercial_invoice_id ||
+                    (commercialInvoiceData?.commercial_invoice_number ? commercialInvoiceData?.id : '')
+                  ) ||
+                  getStepSelfId(commercialStep) ||
+                  extractStepRedirectId(commercialStep) ||
+                  commercialStep?.redirect_id ||
+                  (commercialStep as any)?.redirectId ||
+                  extractLinkedCommercialInvoiceId(commercialInvoiceData) ||
+                  extractLinkedCommercialInvoiceId(customInvoiceData) ||
+                  canonicalCustomInvoiceId ||
+                  canonicalShipmentInstructionId ||
+                  canonicalProformaId ||
+                  canonicalContractId ||
+                  effectiveConfirmationId ||
+                  rootWorkflowId ||
+                  draftId;
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await saveCommercialInvoiceDraftAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.commercial_invoice_id;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isCommercialInvoiceStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
+                          : s
+                      )
+                    );
+                    let freshData = res.data;
+                    try {
+                      const freshRes = await getCommercialInvoiceAction(cleanNewId, lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    } catch (e) {
+                      console.warn('[DocumentDraftWorkspace] Re-fetch commercial invoice after save warning:', e);
+                    }
+                    setCommercialInvoiceData((prev: any) => ({
+                      ...(prev || {}),
+                      ...(freshData || {}),
+                      id: cleanNewId,
+                      commercial_invoice_id: cleanNewId,
+                    }));
+                    setCommercialInvoiceVersion((v) => v + 1);
+                  }
+                }
+                return res;
+              }}
+              onSubmitCommercialInvoice={async (formData, id, passedNextStep) => {
+                const cleanPassed = sanitizeDocId(id);
+                const commercialStep = getCommercialInvoiceStep(steps, selectedStep);
+                const activeDocId =
+                  cleanPassed ||
+                  canonicalCommercialInvoiceId ||
+                  sanitizeDocId(
+                    commercialInvoiceData?.commercial_invoice_id ||
+                    (commercialInvoiceData?.commercial_invoice_number ? commercialInvoiceData?.id : '')
+                  ) ||
+                  getStepSelfId(commercialStep) ||
+                  extractStepRedirectId(commercialStep) ||
+                  commercialStep?.redirect_id ||
+                  (commercialStep as any)?.redirectId ||
+                  extractLinkedCommercialInvoiceId(commercialInvoiceData) ||
+                  extractLinkedCommercialInvoiceId(customInvoiceData) ||
+                  canonicalCustomInvoiceId ||
+                  canonicalShipmentInstructionId ||
+                  canonicalProformaId ||
+                  canonicalContractId ||
+                  effectiveConfirmationId ||
+                  rootWorkflowId ||
+                  draftId;
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await submitCommercialInvoiceAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.commercial_invoice_id || validEffectiveId;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isCommercialInvoiceStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
+                          : s
+                      )
+                    );
+                  }
+                  let freshData = res.data;
+                  try {
+                    if (newId) {
+                      const freshRes = await getCommercialInvoiceAction(String(newId), lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('[DocumentDraftWorkspace] Re-fetch commercial invoice after submit warning:', e);
+                  }
+                  setCommercialInvoiceData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(freshData || {}),
+                    status: 'COMPLETED',
+                    document_status: 'COMPLETED',
+                    ...(newId ? { id: String(newId), commercial_invoice_id: String(newId) } : {}),
+                  }));
+                  setCommercialInvoiceVersion((v) => v + 1);
+
+                  try {
+                    const stepperRes = await getStepperListAction({
+                      action: workflowAnchorType,
+                      step: String(workflowAnchorId),
+                      lang,
+                    });
+                    let targetList = steps;
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                      setSteps(targetList);
+                    }
+                    const visibleList = targetList.filter(isVisibleWorkflowStep);
+                    let nextStepToSelect: StepperDocumentItem | null = null;
+                    let targetIdx = -1;
+                    if (passedNextStep) {
+                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                    }
+                    if (!nextStepToSelect || targetIdx === -1) {
+                      const commIndex = visibleList.findIndex((s) => isCommercialInvoiceStep(s));
+                      if (commIndex >= 0 && commIndex + 1 < visibleList.length) {
+                        targetIdx = commIndex + 1;
+                        nextStepToSelect = visibleList[targetIdx];
+                      }
+                    }
+                    if (nextStepToSelect && targetIdx >= 0) {
+                      handleSelectStep(nextStepToSelect, targetIdx);
+                    }
+                  } catch (stepErr) {
+                    console.error('[DocumentDraftWorkspace] Post-submit commercial invoice stepper error:', stepErr);
+                  }
+                }
+                return res;
+              }}
+            />
+          )}
+        </div>
+
+        {/* Subsequent Workflow Steps View (Post-Commercial Invoice): Clean placeholder */}
+        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice ? 'flex' : 'hidden'}`} />
       </div>
 
       {/* 
