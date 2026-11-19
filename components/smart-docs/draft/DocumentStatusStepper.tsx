@@ -318,8 +318,8 @@ export function DocumentStatusStepper({
     (safeSteps.length > selectedIndex && isContractStep(safeSteps[selectedIndex], selectedIndex));
 
   const getStepperContext = useCallback(() => {
-    // 1. Resolve stepper action/type
-    let sType = propConfirmationId ? 'confirmation' : propStepperType;
+    // 1. Resolve stepper action/type (strictly respect explicit propStepperType first)
+    let sType = propStepperType || (propConfirmationId ? 'confirmation' : undefined);
     if (!sType) {
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
@@ -355,8 +355,8 @@ export function DocumentStatusStepper({
       }
     }
 
-    // 2. The document ID passed from the button / URL is the primary document ID:
-    let sId = propConfirmationId || propStepId || propStepperId;
+    // 2. The document ID passed from the button / URL is the primary document ID (respect propStepperId first):
+    let sId = propStepperId || propStepId || propConfirmationId;
 
     if (typeof window !== 'undefined' && (!sId || sId === 'new-confirmation')) {
       try {

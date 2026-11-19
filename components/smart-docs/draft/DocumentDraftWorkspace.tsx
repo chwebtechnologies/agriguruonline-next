@@ -151,6 +151,39 @@ export function getSafeInstructionString(val: any): string {
   return '';
 }
 
+/**
+ * Extracts the contract number from any Smart Docs document API response.
+ * Follows backend property patterns across SI, BL, Custom Invoice, Commercial Invoice, Packing List, Contract, Confirmation.
+ */
+export function extractDocContractNumber(data: any): string | null {
+  if (!data || typeof data !== 'object') return null;
+  const raw =
+    data.contract_number ||
+    data.contractNumber ||
+    data.contract_no ||
+    data.sales_contract_number ||
+    data.sales_contract_no ||
+    data.contract?.contract_number ||
+    data.contract?.contractNumber ||
+    data.contract?.contract_no ||
+    data.contract?.sales_contract_number ||
+    data.contract?.sales_contract_no ||
+    data.shipment_instruction?.contract_number ||
+    data.shipment_instruction?.contract_no ||
+    data.shipment_instruction?.contractNumber ||
+    data.bill_of_lading?.contract_number ||
+    data.bill_of_lading?.contract_no ||
+    data.custom_invoice?.contract_number ||
+    data.custom_invoice?.contract_no ||
+    data.commercial_invoice?.contract_number ||
+    data.commercial_invoice?.contract_no ||
+    data.packing_list?.contract_number ||
+    data.packing_list?.contract_no ||
+    data.confirmation?.contract_number ||
+    data.confirmation?.contract_no;
+  return cleanDocNumber(raw);
+}
+
 export function isCompleteProformaData(data: any): boolean {
   if (!data || typeof data !== 'object') return false;
   return Boolean(
@@ -1359,55 +1392,100 @@ export function DocumentDraftWorkspace({
     );
   }, [contractData, initialContractData, steps]);
 
-  // Active document ID and type for stepper:
-  // "document id hi stepper me pass karo jis step se aaye hai form me button se si ki id contract ki id ya confirmation ki id vo hi stepper ki api me same pass karni hai"
-  // The true workflow root action and ID anchoring this entire document workflow.
-  // Confirmation ID is the primary root of the entire trade deal workflow.
-  // If the deal was started directly as a contract without confirmation, contract ID is the root.
-  const workflowAnchorType = useMemo(() => {
-    if (effectiveConfirmationId) return 'confirmation';
-    if (canonicalContractId) return 'contract';
-    if (canonicalShipmentInstructionId || canonicalBillOfLadingId || canonicalCustomInvoiceId || canonicalCommercialInvoiceId || canonicalPackingListId) return 'document';
-    if (isShipmentInstruction || isBillOfLading || isCustomInvoice || isCommercialInvoice || isPackingList) return 'document';
-    if (isContract) return 'contract';
-    return 'confirmation';
+  // Check if this workflow is for a specific partial shipment / document:
+  const isDocumentWorkflow = useMemo(() => {
+    const stepParam = (initialStepParam || '').toLowerCase().trim();
+    const isDocStepParam = [
+      'shipment',
+      'shipment_instruction',
+      'shipment-instruction',
+      'instruction',
+      'document',
+      'bill-of-lading',
+      'bill_of_lading',
+      'lading',
+      'bl',
+      'custom-invoice',
+      'custom_invoice',
+      'custom',
+      'commercial-invoice',
+      'commercial_invoice',
+      'commercial',
+      'packing-list',
+      'packing_list',
+      'packing',
+      'invoice',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+    ].includes(stepParam);
+
+    return Boolean(
+      isDocStepParam ||
+      isShipmentInstruction ||
+      isBillOfLading ||
+      isCustomInvoice ||
+      isCommercialInvoice ||
+      isPackingList ||
+      (canonicalShipmentInstructionId && !canonicalContractId && !effectiveConfirmationId)
+    );
   }, [
-    effectiveConfirmationId,
-    canonicalContractId,
-    canonicalShipmentInstructionId,
-    canonicalBillOfLadingId,
-    canonicalCustomInvoiceId,
-    canonicalCommercialInvoiceId,
-    canonicalPackingListId,
+    initialStepParam,
     isShipmentInstruction,
     isBillOfLading,
     isCustomInvoice,
     isCommercialInvoice,
     isPackingList,
-    isContract,
+    canonicalShipmentInstructionId,
+    canonicalContractId,
+    effectiveConfirmationId,
   ]);
 
+  // Active document ID and type for stepper:
+  // "document id hi stepper me pass karo jis step se aaye hai form me button se si ki id contract ki id ya confirmation ki id vo hi stepper ki api me same pass karni hai"
+  // If this is a document / partial shipment workflow, the specific partial's document ID anchors this workflow.
+  // This guarantees that contracts with multiple partials do not overwrite partial B's stepper with partial A's stepper!
+  const workflowAnchorType = useMemo(() => {
+    if (isDocumentWorkflow) return 'document';
+    if (isContract || (!effectiveConfirmationId && canonicalContractId)) return 'contract';
+    return effectiveConfirmationId ? 'confirmation' : canonicalContractId ? 'contract' : 'confirmation';
+  }, [isDocumentWorkflow, isContract, effectiveConfirmationId, canonicalContractId]);
+
   const workflowAnchorId = useMemo(() => {
+    if (isDocumentWorkflow) {
+      return (
+        canonicalShipmentInstructionId ||
+        canonicalBillOfLadingId ||
+        canonicalCustomInvoiceId ||
+        canonicalCommercialInvoiceId ||
+        canonicalPackingListId ||
+        initialId ||
+        draftId ||
+        'new-confirmation'
+      );
+    }
+    if (isContract || (!effectiveConfirmationId && canonicalContractId)) {
+      return canonicalContractId || initialId || draftId || 'new-confirmation';
+    }
     return (
       effectiveConfirmationId ||
       canonicalContractId ||
-      canonicalShipmentInstructionId ||
-      canonicalBillOfLadingId ||
-      canonicalCustomInvoiceId ||
-      canonicalCommercialInvoiceId ||
-      canonicalPackingListId ||
       initialId ||
       draftId ||
       'new-confirmation'
     );
   }, [
-    effectiveConfirmationId,
-    canonicalContractId,
+    isDocumentWorkflow,
+    isContract,
     canonicalShipmentInstructionId,
     canonicalBillOfLadingId,
     canonicalCustomInvoiceId,
     canonicalCommercialInvoiceId,
     canonicalPackingListId,
+    effectiveConfirmationId,
+    canonicalContractId,
     initialId,
     draftId,
   ]);
@@ -1989,7 +2067,7 @@ export function DocumentDraftWorkspace({
               if (
                 freshProformaId &&
                 !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(freshProformaId) &&
-                freshProformaId !== candidateId
+                (!candidateId || /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(candidateId))
               ) {
                 getProformaAction(freshProformaId, lang)
                   .then((freshRes) => {
@@ -2308,7 +2386,7 @@ export function DocumentDraftWorkspace({
               if (
                 freshLadingId &&
                 !isPlaceholderLadingId(freshLadingId) &&
-                freshLadingId !== candidateId
+                (!candidateId || isPlaceholderLadingId(candidateId))
               ) {
                 try {
                   const freshRes = await getBillOfLadingAction(freshLadingId, lang);
@@ -2415,7 +2493,7 @@ export function DocumentDraftWorkspace({
               if (
                 freshCustomId &&
                 !isPlaceholderCustomId(freshCustomId) &&
-                freshCustomId !== candidateId
+                (!candidateId || isPlaceholderCustomId(candidateId))
               ) {
                 try {
                   const freshRes = await getCustomInvoiceAction(freshCustomId, lang);
@@ -2518,7 +2596,7 @@ export function DocumentDraftWorkspace({
               if (
                 freshCommercialId &&
                 !isPlaceholderCommercialId(freshCommercialId) &&
-                freshCommercialId !== candidateId
+                (!candidateId || isPlaceholderCommercialId(candidateId))
               ) {
                 try {
                   const freshRes = await getCommercialInvoiceAction(freshCommercialId, lang);
@@ -2622,7 +2700,7 @@ export function DocumentDraftWorkspace({
               if (
                 freshPackingId &&
                 !isPlaceholderPackingId(freshPackingId) &&
-                freshPackingId !== candidateId
+                (!candidateId || isPlaceholderPackingId(candidateId))
               ) {
                 try {
                   const freshRes = await getPackingListAction(freshPackingId, lang);
@@ -2952,7 +3030,9 @@ export function DocumentDraftWorkspace({
   useEffect(() => {
     if (initialContractData) {
       setContractData((prev: any) => {
-        if (!prev) return initialContractData;
+        if (!prev || (prev.id && initialContractData.id && String(prev.id) !== String(initialContractData.id))) {
+          return initialContractData;
+        }
         return { ...initialContractData, ...prev };
       });
     }
@@ -2961,7 +3041,9 @@ export function DocumentDraftWorkspace({
   useEffect(() => {
     if (initialData) {
       setConfirmationData((prev: any) => {
-        if (!prev) return initialData;
+        if (!prev || (prev.id && initialData.id && String(prev.id) !== String(initialData.id))) {
+          return initialData;
+        }
         return { ...initialData, ...prev };
       });
     }
@@ -2970,7 +3052,9 @@ export function DocumentDraftWorkspace({
   useEffect(() => {
     if (initialProformaData) {
       setProformaData((prev: any) => {
-        if (!prev) return initialProformaData;
+        if (!prev || (prev.id && initialProformaData.id && String(prev.id) !== String(initialProformaData.id))) {
+          return initialProformaData;
+        }
         return { ...initialProformaData, ...prev };
       });
     }
@@ -2979,7 +3063,9 @@ export function DocumentDraftWorkspace({
   useEffect(() => {
     if (initialShipmentInstructionData) {
       setShipmentInstructionData((prev: any) => {
-        if (!prev) return initialShipmentInstructionData;
+        if (!prev || (prev.id && initialShipmentInstructionData.id && String(prev.id) !== String(initialShipmentInstructionData.id))) {
+          return initialShipmentInstructionData;
+        }
         return { ...initialShipmentInstructionData, ...prev };
       });
     }
@@ -2988,7 +3074,9 @@ export function DocumentDraftWorkspace({
   useEffect(() => {
     if (initialBillOfLadingData) {
       setBillOfLadingData((prev: any) => {
-        if (!prev) return initialBillOfLadingData;
+        if (!prev || (prev.id && initialBillOfLadingData.id && String(prev.id) !== String(initialBillOfLadingData.id))) {
+          return initialBillOfLadingData;
+        }
         return { ...initialBillOfLadingData, ...prev };
       });
     }
@@ -2997,7 +3085,9 @@ export function DocumentDraftWorkspace({
   useEffect(() => {
     if (initialCustomInvoiceData) {
       setCustomInvoiceData((prev: any) => {
-        if (!prev) return initialCustomInvoiceData;
+        if (!prev || (prev.id && initialCustomInvoiceData.id && String(prev.id) !== String(initialCustomInvoiceData.id))) {
+          return initialCustomInvoiceData;
+        }
         const merged: Record<string, any> = { ...initialCustomInvoiceData };
         for (const [k, v] of Object.entries(prev)) {
           if (v !== undefined && v !== null && v !== '') {
@@ -3009,6 +3099,30 @@ export function DocumentDraftWorkspace({
       setCustomInvoiceVersion((v) => v + 1);
     }
   }, [initialCustomInvoiceData]);
+
+  useEffect(() => {
+    if (initialCommercialInvoiceData) {
+      setCommercialInvoiceData((prev: any) => {
+        if (!prev || (prev.id && initialCommercialInvoiceData.id && String(prev.id) !== String(initialCommercialInvoiceData.id))) {
+          return initialCommercialInvoiceData;
+        }
+        return { ...initialCommercialInvoiceData, ...prev };
+      });
+      setCommercialInvoiceVersion((v) => v + 1);
+    }
+  }, [initialCommercialInvoiceData]);
+
+  useEffect(() => {
+    if (initialPackingListData) {
+      setPackingListData((prev: any) => {
+        if (!prev || (prev.id && initialPackingListData.id && String(prev.id) !== String(initialPackingListData.id))) {
+          return initialPackingListData;
+        }
+        return { ...initialPackingListData, ...prev };
+      });
+      setPackingListVersion((v) => v + 1);
+    }
+  }, [initialPackingListData]);
 
   // Fetch confirmation data dynamically if confirmation step is active and data not yet loaded
   useEffect(() => {
@@ -3490,43 +3604,6 @@ export function DocumentDraftWorkspace({
       ? 'Packing List'
       : dict?.smart_docs?.draft_title || 'Trade Confirmation');
 
-  // Active document number and label resolution strictly matching the current step
-  const mobileActiveDocNumber = isConfirmation
-    ? resolvedConfirmationNumber
-    : isContract
-    ? (resolvedContractNumber || resolvedConfirmationNumber)
-    : isProforma
-    ? (proformaData?.invoice_number || initialProformaData?.invoice_number || null)
-    : isShipmentInstruction
-    ? (shipmentInstructionData?.shipment_instruction_number || shipmentInstructionData?.booking_no || initialShipmentInstructionData?.shipment_instruction_number || null)
-    : isBillOfLading
-    ? (billOfLadingData?.bl_no || initialBillOfLadingData?.bl_no || null)
-    : isCustomInvoice
-    ? (customInvoiceData?.custom_invoice_number || initialCustomInvoiceData?.custom_invoice_number || null)
-    : isCommercialInvoice
-    ? (commercialInvoiceData?.commercial_invoice_number || commercialInvoiceData?.invoice_number || initialCommercialInvoiceData?.commercial_invoice_number || null)
-    : isPackingList
-    ? (packingListData?.packing_list_number || packingListData?.invoice_number || initialPackingListData?.packing_list_number || null)
-    : (resolvedContractNumber || resolvedConfirmationNumber);
-
-  const mobileActiveDocLabel = isConfirmation
-    ? (dict?.smart_docs?.confirmation_form?.confirmation_number || 'Confirmation No.')
-    : isContract
-    ? (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.')
-    : isProforma
-    ? (dict?.smart_docs?.proforma_form?.invoice_number || 'Invoice No.')
-    : isShipmentInstruction
-    ? 'Shipment Instruction No.'
-    : isBillOfLading
-    ? 'B/L No.'
-    : isCustomInvoice
-    ? 'Custom Invoice No.'
-    : isCommercialInvoice
-    ? 'Commercial Invoice No.'
-    : isPackingList
-    ? 'Packing List No.'
-    : (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.');
-
   // Safe context inheritance for Shipment Instruction:
   // Inherits only trade reference attributes (parties, product, contract references)
   // NEVER copies document IDs, statuses, or step-specific fields (consignee, notify parties, marks, freight)
@@ -3811,6 +3888,137 @@ export function DocumentDraftWorkspace({
     packingListData,
   ]);
 
+  // Active Contract Number strictly resolved from the currently open form's API response:
+  // "and SI se Stepper ke uper jo Contract number dikh raha hai vo jo bhi form open hai uski api resposen me se dikhana hai so make sure proper perfect karo isko bhi"
+  const activeStepContractNumber = useMemo(() => {
+    if (isShipmentInstruction) {
+      return (
+        extractDocContractNumber(shipmentInstructionData) ||
+        extractDocContractNumber(initialShipmentInstructionData) ||
+        extractDocContractNumber(mergedShipmentInstructionData) ||
+        resolvedContractNumber ||
+        resolvedConfirmationNumber
+      );
+    }
+    if (isBillOfLading) {
+      return (
+        extractDocContractNumber(billOfLadingData) ||
+        extractDocContractNumber(initialBillOfLadingData) ||
+        extractDocContractNumber(shipmentInstructionData) ||
+        extractDocContractNumber(initialShipmentInstructionData) ||
+        resolvedContractNumber ||
+        resolvedConfirmationNumber
+      );
+    }
+    if (isCustomInvoice) {
+      return (
+        extractDocContractNumber(customInvoiceData) ||
+        extractDocContractNumber(initialCustomInvoiceData) ||
+        extractDocContractNumber(mergedCustomInvoiceData) ||
+        extractDocContractNumber(billOfLadingData) ||
+        extractDocContractNumber(shipmentInstructionData) ||
+        resolvedContractNumber ||
+        resolvedConfirmationNumber
+      );
+    }
+    if (isCommercialInvoice) {
+      return (
+        extractDocContractNumber(commercialInvoiceData) ||
+        extractDocContractNumber(initialCommercialInvoiceData) ||
+        extractDocContractNumber(mergedCommercialInvoiceData) ||
+        extractDocContractNumber(customInvoiceData) ||
+        extractDocContractNumber(billOfLadingData) ||
+        extractDocContractNumber(shipmentInstructionData) ||
+        resolvedContractNumber ||
+        resolvedConfirmationNumber
+      );
+    }
+    if (isPackingList) {
+      return (
+        extractDocContractNumber(packingListData) ||
+        extractDocContractNumber(initialPackingListData) ||
+        extractDocContractNumber(mergedPackingListData) ||
+        extractDocContractNumber(commercialInvoiceData) ||
+        extractDocContractNumber(customInvoiceData) ||
+        extractDocContractNumber(billOfLadingData) ||
+        extractDocContractNumber(shipmentInstructionData) ||
+        resolvedContractNumber ||
+        resolvedConfirmationNumber
+      );
+    }
+    if (isContract) {
+      return (
+        extractDocContractNumber(contractData) ||
+        extractDocContractNumber(initialContractData) ||
+        resolvedContractNumber ||
+        resolvedConfirmationNumber
+      );
+    }
+    if (isProforma) {
+      return (
+        extractDocContractNumber(proformaData) ||
+        extractDocContractNumber(initialProformaData) ||
+        resolvedContractNumber ||
+        resolvedConfirmationNumber
+      );
+    }
+    return resolvedContractNumber || resolvedConfirmationNumber;
+  }, [
+    isShipmentInstruction,
+    isBillOfLading,
+    isCustomInvoice,
+    isCommercialInvoice,
+    isPackingList,
+    isContract,
+    isProforma,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    mergedShipmentInstructionData,
+    billOfLadingData,
+    initialBillOfLadingData,
+    customInvoiceData,
+    initialCustomInvoiceData,
+    mergedCustomInvoiceData,
+    commercialInvoiceData,
+    initialCommercialInvoiceData,
+    mergedCommercialInvoiceData,
+    packingListData,
+    initialPackingListData,
+    mergedPackingListData,
+    contractData,
+    initialContractData,
+    proformaData,
+    initialProformaData,
+    resolvedContractNumber,
+    resolvedConfirmationNumber,
+  ]);
+
+  // Number displayed on top of the Stepper card (both desktop and mobile):
+  // User instruction: From SI onwards, show the Contract number from the currently open form's API response!
+  const stepperHeaderDocNumber = isConfirmation
+    ? (resolvedConfirmationNumber || activeStepContractNumber)
+    : isContract
+    ? (activeStepContractNumber || resolvedConfirmationNumber)
+    : isProforma
+    ? (proformaData?.invoice_number || initialProformaData?.invoice_number || activeStepContractNumber)
+    : activeStepContractNumber;
+
+  const mobileActiveDocNumber = isConfirmation
+    ? resolvedConfirmationNumber
+    : isContract
+    ? (activeStepContractNumber || resolvedConfirmationNumber)
+    : isProforma
+    ? (proformaData?.invoice_number || initialProformaData?.invoice_number || activeStepContractNumber)
+    : activeStepContractNumber;
+
+  const mobileActiveDocLabel = isConfirmation
+    ? (dict?.smart_docs?.confirmation_form?.confirmation_number || 'Confirmation No.')
+    : isContract
+    ? (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.')
+    : isProforma
+    ? (dict?.smart_docs?.proforma_form?.invoice_number || 'Invoice No.')
+    : (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.');
+
   return (
     <div className="flex-1 min-h-fit lg:min-h-0 flex flex-col lg:overflow-hidden">
       {/* Permanent, Always-Visible Modern Custom Scrollbars */}
@@ -3922,8 +4130,8 @@ export function DocumentDraftWorkspace({
               lang={lang}
               dict={dict}
               confirmationNumber={resolvedConfirmationNumber}
-              contractNumber={resolvedContractNumber}
-              activeDocNumber={mobileActiveDocNumber}
+              contractNumber={activeStepContractNumber}
+              activeDocNumber={stepperHeaderDocNumber}
               isContractStep={isContract}
             />
           </div>
@@ -3944,6 +4152,7 @@ export function DocumentDraftWorkspace({
         {/* Confirmation Document Form: Visible when Confirmation Step is active */}
         <div className={`w-full h-full ${isConfirmation ? 'flex flex-col' : 'hidden'}`}>
           <ConfirmationDocumentForm
+            key={`confirmation-${effectiveConfirmationId || confirmationData?.id || 'default'}`}
             dataVersion={confirmationVersion}
             initialData={
               confirmationData || initialData
@@ -4070,6 +4279,7 @@ export function DocumentDraftWorkspace({
         {/* Contract Document Form: Visible when Contract Step is active */}
         <div className={`w-full h-full ${isContract ? 'flex flex-col' : 'hidden'}`}>
           <ContractDocumentForm
+            key={`contract-${canonicalContractId || contractData?.id || 'default'}`}
             dataVersion={contractVersion}
               initialData={
                 contractData || initialContractData || confirmationData || initialData || null
@@ -6129,13 +6339,13 @@ export function DocumentDraftWorkspace({
             initialSteps={steps}
             currentStepIndex={selectedStepIndex}
             selectedStep={selectedStep}
-            activeDocNumber={mobileActiveDocNumber}
+            activeDocNumber={stepperHeaderDocNumber}
             onSelectStep={handleSelectStep}
             onUpdateSteps={handleUpdateSteps}
             lang={lang}
             dict={dict}
             confirmationNumber={resolvedConfirmationNumber}
-            contractNumber={resolvedContractNumber}
+            contractNumber={activeStepContractNumber}
             isContractStep={isContract}
           />
         </div>

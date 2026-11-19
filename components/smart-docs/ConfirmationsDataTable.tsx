@@ -1664,16 +1664,29 @@ export function ConfirmationsDataTable({
           const isDocument = docType === 'Document';
           const config = getDocTypeColorConfig(docType);
 
-          const rowDocId = sanitizeDocId(
-            row.id ||
-            row._id ||
-            row.document_id ||
-            row.shipment_instruction_id ||
-            row.contract_id ||
-            row.confirmation_id ||
-            extractDocumentRowSelfId(row) ||
-            extractSmartDocId(row)
-          );
+          const rowDocId = isDocument
+            ? sanitizeDocId(
+                extractDocumentRowSelfId(row) ||
+                row.shipment_instruction_id ||
+                row.document_id ||
+                row.id ||
+                row._id ||
+                extractSmartDocId(row)
+              )
+            : isContract
+            ? sanitizeDocId(
+                extractContractDocId(row) ||
+                row.contract_id ||
+                row.id ||
+                row._id ||
+                extractSmartDocId(row)
+              )
+            : sanitizeDocId(
+                row.confirmation_id ||
+                row.id ||
+                row._id ||
+                extractSmartDocId(row)
+              );
 
           const targetUrl = isContract
             ? (rowDocId
