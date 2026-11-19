@@ -375,7 +375,11 @@ async function DraftPageDataLoader({
     let initialConfirmationData = extractConfirmationData(confirmationRes);
     let initialContractData: any = extractContractData(contractRes);
     let initialProformaData: any = extractProformaData(proformaRes);
-    let initialShipmentInstructionData: any = extractShipmentInstructionData(shipmentRes);
+    let initialShipmentInstructionData: any =
+      extractShipmentInstructionData(shipmentRes) ||
+      (shipmentRes?.data && typeof shipmentRes.data === 'object' && !Array.isArray(shipmentRes.data) && shipmentRes.success !== false
+        ? { ...shipmentRes.data, _is_shipment_loaded: true }
+        : null);
     let initialBillOfLadingData: any =
       extractBillOfLadingData(billOfLadingRes) ||
       (billOfLadingRes?.data &&
@@ -388,9 +392,21 @@ async function DraftPageDataLoader({
       !billOfLadingRes.error
         ? { ...billOfLadingRes.data, _is_lading_loaded: true }
         : null);
-    let initialCustomInvoiceData: any = extractCustomInvoiceData(customInvoiceRes);
-    let initialCommercialInvoiceData: any = extractCommercialInvoiceData(commercialInvoiceRes);
-    let initialPackingListData: any = extractPackingListData(packingListRes);
+    let initialCustomInvoiceData: any =
+      extractCustomInvoiceData(customInvoiceRes) ||
+      (customInvoiceRes?.data && typeof customInvoiceRes.data === 'object' && !Array.isArray(customInvoiceRes.data) && customInvoiceRes.success !== false
+        ? { ...customInvoiceRes.data, _is_custom_invoice_loaded: true }
+        : null);
+    let initialCommercialInvoiceData: any =
+      extractCommercialInvoiceData(commercialInvoiceRes) ||
+      (commercialInvoiceRes?.data && typeof commercialInvoiceRes.data === 'object' && !Array.isArray(commercialInvoiceRes.data) && commercialInvoiceRes.success !== false
+        ? { ...commercialInvoiceRes.data, _is_commercial_invoice_loaded: true }
+        : null);
+    let initialPackingListData: any =
+      extractPackingListData(packingListRes) ||
+      (packingListRes?.data && typeof packingListRes.data === 'object' && !Array.isArray(packingListRes.data) && packingListRes.success !== false
+        ? { ...packingListRes.data, _is_packing_list_loaded: true }
+        : null);
 
     // If initialShipmentInstructionData contains nested contract/confirmation/proforma objects, seed missing data
     if (!initialContractData && initialShipmentInstructionData?.contract && typeof initialShipmentInstructionData.contract === 'object') {
@@ -448,6 +464,29 @@ async function DraftPageDataLoader({
       extractLinkedPackingListId(initialProformaData) ||
       extractLinkedPackingListId(initialContractData) ||
       extractLinkedPackingListId(initialConfirmationData);
+
+    // If shipment instruction data was loaded for this draftId, ensure stepper is anchored to document!
+    if (initialShipmentInstructionData && stepperTarget && stepperTarget !== 'new-confirmation') {
+      try {
+        const docStepperRes = await smartDocsService
+          .getStepperList(
+            {
+              action: 'document',
+              step: stepperTarget,
+              lang,
+              source: 'web',
+            },
+            token
+          )
+          .catch(() => null);
+        const docSteps = extractStepperList(docStepperRes);
+        if (docSteps.length > 0 && isRealStepperList(docSteps)) {
+          initialSteps = docSteps;
+        }
+      } catch {
+        // non-blocking
+      }
+    }
 
     // If stepper returned empty/dummy, check if this workflow is document-rooted or contract-rooted
     if (!isRealStepperList(initialSteps) && stepperTarget && stepperTarget !== 'new-confirmation') {
@@ -678,7 +717,11 @@ async function DraftPageDataLoader({
       if (ext) initialProformaData = ext;
     }
     if (missingShipmentRes) {
-      const ext = extractShipmentInstructionData(missingShipmentRes);
+      const ext =
+        extractShipmentInstructionData(missingShipmentRes) ||
+        (missingShipmentRes?.data && typeof missingShipmentRes.data === 'object' && !Array.isArray(missingShipmentRes.data) && missingShipmentRes.success !== false
+          ? { ...missingShipmentRes.data, _is_shipment_loaded: true }
+          : null);
       if (ext) initialShipmentInstructionData = ext;
     }
     if (missingBillOfLadingRes) {

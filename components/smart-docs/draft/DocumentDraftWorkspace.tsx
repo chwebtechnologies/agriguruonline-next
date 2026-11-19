@@ -62,7 +62,7 @@ import {
   mergeStepperWithHidden,
   getWorkflowSubmitButtonInfo,
 } from '@/lib/api/smart-docs.service';
-import DocumentStatusStepper, { cleanDocNumber } from './DocumentStatusStepper';
+import DocumentStatusStepper, { cleanDocNumber, isPureDbId, isPlaceholderDocNumber, isLikelyInvoiceNumber } from './DocumentStatusStepper';
 import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
 import ContractDocumentForm from './form/ContractDocumentForm';
 import ProformaDocumentForm from './form/ProformaDocumentForm';
@@ -151,37 +151,290 @@ export function getSafeInstructionString(val: any): string {
   return '';
 }
 
+export { isPureDbId, isPlaceholderDocNumber, isLikelyInvoiceNumber };
+
+/**
+ * Extracts contract number or contract_id from Shipment Instruction response.
+ * "also SI ka form open hua to uske resposnse me contract_id mile vo dikhani hai"
+ */
+export function extractContractFromSiResponse(data: any): string | null {
+  if (!data || typeof data !== 'object') return null;
+  const d = data.data && typeof data.data === 'object' && !Array.isArray(data.data) ? data.data : data;
+  const rawSub = d.shipment_instruction || d.shipmentInstruction || d.document || d.details;
+
+  const rawSplit =
+    d.split_number ??
+    d.splitNumber ??
+    d.split_code ??
+    d.splitCode ??
+    d.partial_number ??
+    d.partialNumber ??
+    d.partial_code ??
+    d.split_letter ??
+    d.splitLetter ??
+    d.partial ??
+    d.split ??
+    (typeof rawSub === 'object' && rawSub !== null ? rawSub.split_number ?? rawSub.partial_number ?? rawSub.split : undefined) ??
+    data.split_number ??
+    data.split;
+
+  const formatWithSplit = (candidate: any): string | null => {
+    if (!candidate) return null;
+    const clean = cleanDocNumber(candidate);
+    if (!clean || isPlaceholderDocNumber(clean) || isLikelyInvoiceNumber(clean)) return null;
+    if (isPartialContractNumber(clean)) return clean;
+    if (rawSplit !== undefined && rawSplit !== null && String(rawSplit).trim()) {
+      const splitStr = String(rawSplit).trim();
+      const splitLetter = /^\d+$/.test(splitStr)
+        ? String.fromCharCode(65 + (parseInt(splitStr, 10) - 1))
+        : splitStr.toUpperCase();
+      return `${clean}/${splitLetter}`;
+    }
+    return clean;
+  };
+
+  // 1. Explicit partial
+  const explicitPartial =
+    d.partial_contract_number ||
+    d.partial_contract_no ||
+    d.partialContractNumber ||
+    d.split_contract_number ||
+    (typeof rawSub === 'object' && rawSub !== null ? rawSub.partial_contract_number || rawSub.partial_contract_no : undefined) ||
+    data.partial_contract_number ||
+    data.partial_contract_no;
+  if (explicitPartial) {
+    const formatted = formatWithSplit(explicitPartial);
+    if (formatted) return formatted;
+  }
+
+  // 2. Direct contract number fields
+  const directNum =
+    d.contract_number ||
+    d.contract_no ||
+    d.contractNumber ||
+    d.contractNo ||
+    d.sales_contract_number ||
+    d.contract?.contract_number ||
+    d.contract?.contract_no ||
+    d.contract?.contractNumber ||
+    (typeof rawSub === 'object' && rawSub !== null ? rawSub.contract_number || rawSub.contract_no || rawSub.contract?.contract_number : undefined) ||
+    data.contract_number ||
+    data.contract_no;
+  if (directNum) {
+    const formatted = formatWithSplit(directNum);
+    if (formatted) return formatted;
+  }
+
+  // 3. Response contract_id: "also SI ka form open hua to uske resposnse me contract_id mile vo dikhani hai"
+  const contractIdVal =
+    d.contract_id ||
+    d.contractId ||
+    d.contract?.contract_id ||
+    d.contract?.id ||
+    d.contract?._id ||
+    (typeof rawSub === 'object' && rawSub !== null ? rawSub.contract_id || rawSub.contractId || rawSub.contract?.id : undefined) ||
+    data.contract_id ||
+    data.contractId;
+  if (contractIdVal) {
+    const formatted = formatWithSplit(contractIdVal);
+    if (formatted) return formatted;
+  }
+
+  return null;
+}
+
+/**
+ * Checks if a contract number is a partial contract number with split letter suffix (e.g. CONT/00001/A, PO-100/B).
+ * Strictly requires alphabetic split letter (/A, /B, -A, -B) so main contracts ending in numbers (/00142) are NOT mistaken for partials.
+ */
+export function isPartialContractNumber(val?: string | null): boolean {
+  if (!val || typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  if (isPureDbId(trimmed)) return false;
+  if (isLikelyInvoiceNumber(trimmed)) return false;
+  return (
+    /\/[A-Za-z]{1,2}$/i.test(trimmed) ||
+    /-[A-Za-z]{1,2}$/i.test(trimmed) ||
+    /\/(?:partial|split)[ -]?[A-Za-z0-9]+$/i.test(trimmed)
+  );
+}
+
 /**
  * Extracts the contract number from any Smart Docs document API response.
  * Follows backend property patterns across SI, BL, Custom Invoice, Commercial Invoice, Packing List, Contract, Confirmation.
  */
 export function extractDocContractNumber(data: any): string | null {
   if (!data || typeof data !== 'object') return null;
-  const raw =
+
+  // Support both raw response ({ success: true, data: { ... } }) and extracted payload
+  const d =
+    data.data && typeof data.data === 'object' && !Array.isArray(data.data)
+      ? data.data
+      : data;
+
+  const rawSub =
+    d.shipment_instruction ||
+    d.shipmentInstruction ||
+    d.bill_of_lading ||
+    d.billOfLading ||
+    d.custom_invoice ||
+    d.customInvoice ||
+    d.commercial_invoice ||
+    d.commercialInvoice ||
+    d.packing_list ||
+    d.packingList ||
+    d.document ||
+    d.details;
+
+  // Split indicator (e.g. 'A', 'B', '1', '2')
+  const rawSplit =
+    d.split_number ??
+    d.splitNumber ??
+    d.split_code ??
+    d.splitCode ??
+    d.partial_number ??
+    d.partialNumber ??
+    d.partial_code ??
+    d.partialCode ??
+    d.split_letter ??
+    d.splitLetter ??
+    d.partial ??
+    d.split ??
+    (typeof rawSub === 'object' && rawSub !== null
+      ? rawSub.split_number ?? rawSub.split ?? rawSub.partial_number
+      : undefined) ??
+    data.split_number ??
+    data.split;
+
+  const formatWithSplit = (candidate: any): string | null => {
+    if (!candidate) return null;
+    const clean = cleanDocNumber(candidate);
+    if (!clean || isPureDbId(clean) || isLikelyInvoiceNumber(clean)) return null;
+
+    if (isPartialContractNumber(clean)) {
+      return clean;
+    }
+
+    if (rawSplit !== undefined && rawSplit !== null && String(rawSplit).trim()) {
+      const splitStr = String(rawSplit).trim();
+      const splitLetter = /^\d+$/.test(splitStr)
+        ? String.fromCharCode(65 + (parseInt(splitStr, 10) - 1))
+        : splitStr.toUpperCase();
+      return `${clean}/${splitLetter}`;
+    }
+
+    return clean;
+  };
+
+  // 1. Explicit partial contract number fields:
+  const explicitPartial =
+    d.partial_contract_number ||
+    d.partial_contract_no ||
+    d.partialContractNumber ||
+    d.partialContractNo ||
+    d.split_contract_number ||
+    d.split_contract_no ||
+    d.contract_split_number ||
+    d.contract_split_no ||
+    (typeof rawSub === 'object' && rawSub !== null
+      ? rawSub.partial_contract_number || rawSub.partial_contract_no || rawSub.split_contract_number
+      : undefined) ||
+    data.partial_contract_number ||
+    data.partial_contract_no;
+
+  if (explicitPartial) {
+    const formatted = formatWithSplit(explicitPartial);
+    if (formatted) return formatted;
+  }
+
+  // 2. Direct document-level contract number fields:
+  const directContract =
+    d.contract_number ||
+    d.contract_no ||
+    d.contractNumber ||
+    d.contractNo ||
+    d.sales_contract_number ||
+    d.sales_contract_no ||
+    (typeof rawSub === 'object' && rawSub !== null
+      ? rawSub.contract_number || rawSub.contract_no || rawSub.contractNumber || rawSub.sales_contract_number
+      : undefined) ||
     data.contract_number ||
-    data.contractNumber ||
     data.contract_no ||
-    data.sales_contract_number ||
-    data.sales_contract_no ||
-    data.contract?.contract_number ||
-    data.contract?.contractNumber ||
-    data.contract?.contract_no ||
-    data.contract?.sales_contract_number ||
-    data.contract?.sales_contract_no ||
-    data.shipment_instruction?.contract_number ||
-    data.shipment_instruction?.contract_no ||
-    data.shipment_instruction?.contractNumber ||
-    data.bill_of_lading?.contract_number ||
-    data.bill_of_lading?.contract_no ||
-    data.custom_invoice?.contract_number ||
-    data.custom_invoice?.contract_no ||
-    data.commercial_invoice?.contract_number ||
-    data.commercial_invoice?.contract_no ||
-    data.packing_list?.contract_number ||
-    data.packing_list?.contract_no ||
-    data.confirmation?.contract_number ||
-    data.confirmation?.contract_no;
-  return cleanDocNumber(raw);
+    data.contractNumber;
+
+  if (directContract) {
+    const cleanCand = cleanDocNumber(directContract);
+    const parentId = String(d.contract_id || d.contract?.id || data.contract_id || '').trim();
+    if (cleanCand && !isPureDbId(cleanCand) && !isLikelyInvoiceNumber(cleanCand) && (!parentId || cleanCand !== parentId)) {
+      const formatted = formatWithSplit(cleanCand);
+      if (formatted) return formatted;
+    }
+  }
+
+  // 3. Nested contract entity
+  const nestedContractPartial =
+    d.contract?.partial_contract_number ||
+    d.contract?.partial_contract_no ||
+    d.contract?.split_contract_number ||
+    (typeof rawSub === 'object' && rawSub !== null && rawSub.contract
+      ? rawSub.contract.partial_contract_number || rawSub.contract.partial_contract_no
+      : undefined);
+
+  if (nestedContractPartial) {
+    const formatted = formatWithSplit(nestedContractPartial);
+    if (formatted) return formatted;
+  }
+
+  const nestedContractDirect =
+    d.contract?.contract_number ||
+    d.contract?.contractNumber ||
+    d.contract?.contract_no ||
+    d.contract?.sales_contract_number ||
+    (typeof rawSub === 'object' && rawSub !== null && rawSub.contract
+      ? rawSub.contract.contract_number || rawSub.contract.contract_no
+      : undefined);
+
+  if (nestedContractDirect) {
+    const cleanCand = cleanDocNumber(nestedContractDirect);
+    const parentId = String(d.contract_id || d.contract?.id || data.contract_id || '').trim();
+    if (cleanCand && !isPureDbId(cleanCand) && !isLikelyInvoiceNumber(cleanCand) && (!parentId || cleanCand !== parentId)) {
+      const formatted = formatWithSplit(cleanCand);
+      if (formatted) return formatted;
+    }
+  }
+
+  // 4. Confirmation-level fallback
+  const confirmationContract =
+    d.confirmation?.contract_number ||
+    d.confirmation?.contract_no ||
+    data.confirmation?.contract_number;
+
+  if (confirmationContract) {
+    const cleanCand = cleanDocNumber(confirmationContract);
+    const parentId = String(d.contract_id || d.contract?.id || data.contract_id || '').trim();
+    if (cleanCand && !isPureDbId(cleanCand) && !isLikelyInvoiceNumber(cleanCand) && (!parentId || cleanCand !== parentId)) {
+      return formatWithSplit(cleanCand);
+    }
+  }
+
+  // 5. Response contract_id / contractId fallback
+  const fallbackContractId =
+    d.contract_id ||
+    d.contractId ||
+    d.contract?.contract_id ||
+    d.contract?.id ||
+    d.contract?._id ||
+    data.contract_id ||
+    data.contractId;
+
+  if (fallbackContractId) {
+    const cleanCand = cleanDocNumber(fallbackContractId);
+    if (cleanCand && !isPureDbId(cleanCand) && !isLikelyInvoiceNumber(cleanCand)) {
+      return formatWithSplit(cleanCand);
+    }
+  }
+
+  return null;
 }
 
 export function isCompleteProformaData(data: any): boolean {
@@ -460,6 +713,149 @@ export function DocumentDraftWorkspace({
   const [isLoadingCommercialInvoice, setIsLoadingCommercialInvoice] = useState<boolean>(false);
   const [packingListData, setPackingListData] = useState<any>(initialPackingListData || null);
   const [isLoadingPackingList, setIsLoadingPackingList] = useState<boolean>(false);
+
+  // Pinned workflow partial contract number:
+  // When a workflow is opened for a specific partial split (e.g. Split B's Shipment Instruction),
+  // lock that partial contract number (e.g. AGC/2024-25/00142/B) across the entire session!
+  // Prevents navigating to Contract or Proforma from resetting/falling back to Split A or main contract!
+  const [pinnedWorkflowContractNumber, setPinnedWorkflowContractNumber] = useState<string | null>(() => {
+    const initialCandidates = [
+      extractContractFromSiResponse(initialShipmentInstructionData),
+      extractDocContractNumber(initialShipmentInstructionData),
+      extractDocContractNumber(initialBillOfLadingData),
+      extractDocContractNumber(initialCustomInvoiceData),
+      extractDocContractNumber(initialCommercialInvoiceData),
+      extractDocContractNumber(initialPackingListData),
+      extractDocContractNumber(initialProformaData),
+      extractDocContractNumber(initialContractData),
+    ];
+    for (const c of initialCandidates) {
+      if (c && isPartialContractNumber(c)) return c;
+    }
+    for (const c of initialCandidates) {
+      if (c && !isPureDbId(c) && !isLikelyInvoiceNumber(c)) return c;
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    const liveCandidates = [
+      extractContractFromSiResponse(shipmentInstructionData),
+      extractContractFromSiResponse(initialShipmentInstructionData),
+      extractDocContractNumber(shipmentInstructionData),
+      extractDocContractNumber(initialShipmentInstructionData),
+      extractDocContractNumber(billOfLadingData),
+      extractDocContractNumber(initialBillOfLadingData),
+      extractDocContractNumber(customInvoiceData),
+      extractDocContractNumber(initialCustomInvoiceData),
+      extractDocContractNumber(commercialInvoiceData),
+      extractDocContractNumber(initialCommercialInvoiceData),
+      extractDocContractNumber(packingListData),
+      extractDocContractNumber(initialPackingListData),
+      extractDocContractNumber(proformaData),
+      extractDocContractNumber(initialProformaData),
+      extractDocContractNumber(contractData),
+      extractDocContractNumber(initialContractData),
+    ];
+    for (const c of liveCandidates) {
+      if (c && isPartialContractNumber(c)) {
+        setPinnedWorkflowContractNumber((prev) => (prev !== c ? c : prev));
+        return;
+      }
+    }
+    if (!pinnedWorkflowContractNumber) {
+      for (const c of liveCandidates) {
+        if (c && !isPureDbId(c) && !isLikelyInvoiceNumber(c)) {
+          setPinnedWorkflowContractNumber(c);
+          return;
+        }
+      }
+    }
+  }, [
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    billOfLadingData,
+    initialBillOfLadingData,
+    customInvoiceData,
+    initialCustomInvoiceData,
+    commercialInvoiceData,
+    initialCommercialInvoiceData,
+    packingListData,
+    initialPackingListData,
+    proformaData,
+    initialProformaData,
+    contractData,
+    initialContractData,
+    pinnedWorkflowContractNumber,
+  ]);
+
+  // Session Anchor Pinning:
+  // When a workflow is opened for a specific partial document (e.g. Split B's Shipment Instruction),
+  // lock the workflow anchor type to 'document' and anchor ID to that document's ID across the entire session!
+  // "har bar usme jo form hai us form pe vo nahi karna hai hume kya bolte hai id change nahi karni hai stepper me just vo har form move karne par refresh karavani hai properly"
+  // "and contract ke step me move hone par stepper me id change nahi karvani hai vaha sirf refresh hi karvana hai to solve proper ho jayega"
+  const isInitialDocWorkflow = useMemo(() => {
+    const stepParam = (initialStepParam || '').toLowerCase().trim();
+    const docSlugs = [
+      'shipment',
+      'shipment_instruction',
+      'shipment-instruction',
+      'instruction',
+      'document',
+      'bill-of-lading',
+      'bill_of_lading',
+      'lading',
+      'bl',
+      'custom-invoice',
+      'custom_invoice',
+      'custom',
+      'commercial-invoice',
+      'commercial_invoice',
+      'commercial',
+      'packing-list',
+      'packing_list',
+      'packing',
+      'invoice',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+    ];
+    if (docSlugs.includes(stepParam)) return true;
+    if (
+      initialShipmentInstructionData?.id ||
+      initialShipmentInstructionData?._id ||
+      initialShipmentInstructionData?.shipment_instruction_id
+    ) {
+      return true;
+    }
+    return false;
+  }, [initialStepParam, initialShipmentInstructionData]);
+
+  const [pinnedWorkflowAnchorId, setPinnedWorkflowAnchorId] = useState<string>(() => {
+    if (isInitialDocWorkflow && initialId && !isPureDbId(initialId)) {
+      return initialId;
+    }
+    const cand = sanitizeDocId(
+      initialShipmentInstructionData?.id ||
+      initialShipmentInstructionData?._id ||
+      initialShipmentInstructionData?.shipment_instruction_id ||
+      initialShipmentInstructionData?.shipment_id ||
+      initialContractData?.id ||
+      initialContractData?._id ||
+      initialData?.id ||
+      initialData?._id ||
+      initialId
+    );
+    return cand && !isPureDbId(cand) ? cand : '';
+  });
+
+  const [pinnedWorkflowAnchorType, setPinnedWorkflowAnchorType] = useState<string>(() => {
+    if (isInitialDocWorkflow) return 'document';
+    if (initialStepParam === 'contract' || initialStepParam === '2') return 'contract';
+    return 'confirmation';
+  });
 
   // Step data version counters to signal forms on stepper navigation and fresh API fetch
   const [confirmationVersion, setConfirmationVersion] = useState<number>(0);
@@ -839,7 +1235,7 @@ export function DocumentDraftWorkspace({
     // 4. Fallback to cleanDraftId ONLY if draftId is genuine shipment instruction ID
     const cleanDraftId = sanitizeDocId(draftId);
     if (
-      isShipmentInstruction &&
+      (isShipmentInstruction || isInitialDocWorkflow) &&
       cleanDraftId &&
       cleanDraftId !== effectiveConfirmationId &&
       cleanDraftId !== canonicalContractId &&
@@ -865,6 +1261,7 @@ export function DocumentDraftWorkspace({
     confirmationData,
     initialData,
     isShipmentInstruction,
+    isInitialDocWorkflow,
     draftId,
     initialId,
   ]);
@@ -1377,23 +1774,151 @@ export function DocumentDraftWorkspace({
   // Resolved Contract Number:
   // "and if contract vale hai to usme jab tak contract_number contract ke response me null aaye to tab tak confirmation number and contract number dikhe to tab se vaha contract number dikhana hai"
   const resolvedContractNumber = useMemo(() => {
-    return cleanDocNumber(
-      contractData?.contract_number ||
-      contractData?.contractNumber ||
-      contractData?.contract_no ||
-      contractData?.contract?.contract_number ||
-      contractData?.contract?.contract_no ||
-      initialContractData?.contract_number ||
-      initialContractData?.contractNumber ||
-      initialContractData?.contract_no ||
-      initialContractData?.contract?.contract_number ||
-      initialContractData?.contract?.contract_no ||
-      steps.find((s) => isContractStep(s))?.contract_number
+    if (pinnedWorkflowContractNumber && !isPureDbId(pinnedWorkflowContractNumber) && !isLikelyInvoiceNumber(pinnedWorkflowContractNumber)) {
+      return pinnedWorkflowContractNumber;
+    }
+    const candidates = [
+      extractDocContractNumber(contractData),
+      extractDocContractNumber(initialContractData),
+      cleanDocNumber(contractData?.contract_number),
+      cleanDocNumber(contractData?.contractNumber),
+      cleanDocNumber(contractData?.contract_no),
+      cleanDocNumber(contractData?.contract?.contract_number),
+      cleanDocNumber(contractData?.contract?.contract_no),
+      cleanDocNumber(initialContractData?.contract_number),
+      cleanDocNumber(initialContractData?.contractNumber),
+      cleanDocNumber(initialContractData?.contract_no),
+      cleanDocNumber(initialContractData?.contract?.contract_number),
+      cleanDocNumber(initialContractData?.contract?.contract_no),
+      cleanDocNumber(steps.find((s) => isContractStep(s))?.contract_number),
+    ];
+    for (const c of candidates) {
+      if (c && !isPureDbId(c) && !isLikelyInvoiceNumber(c)) {
+        return c;
+      }
+    }
+    return null;
+  }, [contractData, initialContractData, steps, pinnedWorkflowContractNumber]);
+
+  // Check if Shipment Instruction is completed:
+  // "if SI complete ho gya hai to si ki id use karke Stepper karna hai"
+  const isShipmentInstructionComplete = useMemo(() => {
+    const shipmentStep = steps.find((s) => isShipmentInstructionStep(s));
+    if (shipmentStep) {
+      const norm = normalizeStepStatus(
+        shipmentStep.status || (shipmentStep as any).document_status || (shipmentStep as any).step_status,
+        shipmentStep
+      );
+      if (norm === 'completed') return true;
+    }
+    const normData = normalizeStepStatus(
+      shipmentInstructionData?.status ||
+      shipmentInstructionData?.shipment_status ||
+      shipmentInstructionData?.document_status ||
+      shipmentInstructionData?.step_status,
+      shipmentInstructionData
     );
-  }, [contractData, initialContractData, steps]);
+    if (normData === 'completed') return true;
+    const normInit = normalizeStepStatus(
+      initialShipmentInstructionData?.status ||
+      initialShipmentInstructionData?.shipment_status ||
+      initialShipmentInstructionData?.document_status ||
+      initialShipmentInstructionData?.step_status,
+      initialShipmentInstructionData
+    );
+    if (normInit === 'completed') return true;
+    return false;
+  }, [steps, shipmentInstructionData, initialShipmentInstructionData]);
+
+  // The concrete Shipment Instruction ID:
+  const effectiveShipmentInstructionId = useMemo(() => {
+    const step = steps.find((s) => isShipmentInstructionStep(s));
+    const candStep = sanitizeDocId(
+      extractStepRedirectId(step) ||
+      getStepSelfId(step) ||
+      step?.shipment_instruction_id ||
+      (step as any)?.shipmentInstructionId ||
+      step?.shipment_id ||
+      (step as any)?.shipmentId ||
+      step?.redirect_id ||
+      (step as any)?.redirectId
+    );
+    if (candStep && !isPureDbId(candStep)) return candStep;
+
+    const candData = sanitizeDocId(
+      shipmentInstructionData?.shipment_instruction_id ||
+      shipmentInstructionData?.id ||
+      shipmentInstructionData?._id ||
+      shipmentInstructionData?.shipment_id ||
+      initialShipmentInstructionData?.shipment_instruction_id ||
+      initialShipmentInstructionData?.id ||
+      initialShipmentInstructionData?._id ||
+      initialShipmentInstructionData?.shipment_id
+    );
+    if (candData && !isPureDbId(candData)) return candData;
+
+    if (canonicalShipmentInstructionId && !isPureDbId(canonicalShipmentInstructionId)) {
+      return canonicalShipmentInstructionId;
+    }
+
+    if (isInitialDocWorkflow && initialId && !isPureDbId(initialId)) {
+      return initialId;
+    }
+
+    return '';
+  }, [
+    steps,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    canonicalShipmentInstructionId,
+    isInitialDocWorkflow,
+    initialId,
+  ]);
+
+  // Keep pinned anchor synchronized if SI completes or real doc ID becomes available
+  useEffect(() => {
+    if (isInitialDocWorkflow) {
+      const liveDocId = sanitizeDocId(
+        effectiveShipmentInstructionId ||
+        canonicalShipmentInstructionId ||
+        initialId ||
+        shipmentInstructionData?.id ||
+        shipmentInstructionData?._id ||
+        shipmentInstructionData?.shipment_instruction_id
+      );
+      if (liveDocId && !isPureDbId(liveDocId)) {
+        if (pinnedWorkflowAnchorId !== liveDocId) {
+          setPinnedWorkflowAnchorId(liveDocId);
+        }
+        if (pinnedWorkflowAnchorType !== 'document') {
+          setPinnedWorkflowAnchorType('document');
+        }
+      }
+    } else if (isShipmentInstructionComplete && effectiveShipmentInstructionId) {
+      // "if SI complete ho gya hai to si ki id use karke Stepper karna hai and har bar usme jo form hai us form pe id change nahi karni hai stepper me just vo har form move karne par refresh karavani hai properly"
+      if (pinnedWorkflowAnchorId !== effectiveShipmentInstructionId) {
+        setPinnedWorkflowAnchorId(effectiveShipmentInstructionId);
+      }
+      if (pinnedWorkflowAnchorType !== 'document') {
+        setPinnedWorkflowAnchorType('document');
+      }
+    }
+  }, [
+    isInitialDocWorkflow,
+    effectiveShipmentInstructionId,
+    canonicalShipmentInstructionId,
+    initialId,
+    shipmentInstructionData,
+    isShipmentInstructionComplete,
+    pinnedWorkflowAnchorId,
+    pinnedWorkflowAnchorType,
+  ]);
 
   // Check if this workflow is for a specific partial shipment / document:
   const isDocumentWorkflow = useMemo(() => {
+    if (pinnedWorkflowAnchorType === 'document' && pinnedWorkflowAnchorId) return true;
+    if (isInitialDocWorkflow) return true;
+
     const stepParam = (initialStepParam || '').toLowerCase().trim();
     const isDocStepParam = [
       'shipment',
@@ -1423,6 +1948,7 @@ export function DocumentDraftWorkspace({
     ].includes(stepParam);
 
     return Boolean(
+      (isShipmentInstructionComplete && effectiveShipmentInstructionId) ||
       isDocStepParam ||
       isShipmentInstruction ||
       isBillOfLading ||
@@ -1432,7 +1958,12 @@ export function DocumentDraftWorkspace({
       (canonicalShipmentInstructionId && !canonicalContractId && !effectiveConfirmationId)
     );
   }, [
+    pinnedWorkflowAnchorType,
+    pinnedWorkflowAnchorId,
+    isInitialDocWorkflow,
     initialStepParam,
+    isShipmentInstructionComplete,
+    effectiveShipmentInstructionId,
     isShipmentInstruction,
     isBillOfLading,
     isCustomInvoice,
@@ -1444,32 +1975,68 @@ export function DocumentDraftWorkspace({
   ]);
 
   // Active document ID and type for stepper:
-  // "document id hi stepper me pass karo jis step se aaye hai form me button se si ki id contract ki id ya confirmation ki id vo hi stepper ki api me same pass karni hai"
-  // If this is a document / partial shipment workflow, the specific partial's document ID anchors this workflow.
-  // This guarantees that contracts with multiple partials do not overwrite partial B's stepper with partial A's stepper!
+  // "if SI complete ho gya hai to si ki id use karke Stepper karna hai and har bar usme jo form hai us form pe vo nahi karna hai hume kya bolte hai id change nahi karni hai stepper me just vo har form move karne par refresh karavani hai properly and also SI ka form open hua to uske resposnse me contract_id mile vo dikhani hai and if contract vala status hai to vo to proper solve hi hai and contract ke step me move hone par stepper me id change nahi karvani hai vaha sirf refresh hi karvana hai"
   const workflowAnchorType = useMemo(() => {
-    if (isDocumentWorkflow) return 'document';
-    if (isContract || (!effectiveConfirmationId && canonicalContractId)) return 'contract';
-    return effectiveConfirmationId ? 'confirmation' : canonicalContractId ? 'contract' : 'confirmation';
-  }, [isDocumentWorkflow, isContract, effectiveConfirmationId, canonicalContractId]);
+    // 1. If pinned to a document workflow, strictly keep 'document'
+    if (pinnedWorkflowAnchorType === 'document' && pinnedWorkflowAnchorId) {
+      return 'document';
+    }
+    // 2. If SI is complete, strictly anchor stepper to 'document' (SI)
+    if (isShipmentInstructionComplete && effectiveShipmentInstructionId) {
+      return 'document';
+    }
+    // 3. If opened as a document workflow with an active SI ID
+    if (isDocumentWorkflow && (effectiveShipmentInstructionId || initialId)) {
+      return 'document';
+    }
+    // 4. If pinned to contract
+    if (pinnedWorkflowAnchorType === 'contract') {
+      return 'contract';
+    }
+    // 5. If contract workflow / contract status
+    if (canonicalContractId || isContract) {
+      return 'contract';
+    }
+    // 6. Default to confirmation
+    return effectiveConfirmationId ? 'confirmation' : 'confirmation';
+  }, [
+    pinnedWorkflowAnchorType,
+    pinnedWorkflowAnchorId,
+    isShipmentInstructionComplete,
+    effectiveShipmentInstructionId,
+    isDocumentWorkflow,
+    initialId,
+    canonicalContractId,
+    isContract,
+    effectiveConfirmationId,
+  ]);
 
   const workflowAnchorId = useMemo(() => {
-    if (isDocumentWorkflow) {
-      return (
-        canonicalShipmentInstructionId ||
-        canonicalBillOfLadingId ||
-        canonicalCustomInvoiceId ||
-        canonicalCommercialInvoiceId ||
-        canonicalPackingListId ||
-        initialId ||
-        draftId ||
-        'new-confirmation'
-      );
+    // 1. If pinned to a document workflow, strictly keep pinnedWorkflowAnchorId
+    if (pinnedWorkflowAnchorType === 'document' && pinnedWorkflowAnchorId) {
+      return pinnedWorkflowAnchorId;
     }
-    if (isContract || (!effectiveConfirmationId && canonicalContractId)) {
+    // 2. If SI is complete, stepper strictly uses SI's ID
+    if (isShipmentInstructionComplete && effectiveShipmentInstructionId) {
+      return effectiveShipmentInstructionId;
+    }
+    // 3. If opened as a document workflow with an active SI ID
+    if (isDocumentWorkflow && (effectiveShipmentInstructionId || initialId)) {
+      return effectiveShipmentInstructionId || initialId;
+    }
+    // 4. If pinned to contract
+    if (pinnedWorkflowAnchorType === 'contract' && pinnedWorkflowAnchorId) {
+      return pinnedWorkflowAnchorId;
+    }
+    if (canonicalContractId) {
+      return canonicalContractId;
+    }
+    if (isContract) {
       return canonicalContractId || initialId || draftId || 'new-confirmation';
     }
+    // 5. Confirmation
     return (
+      pinnedWorkflowAnchorId ||
       effectiveConfirmationId ||
       canonicalContractId ||
       initialId ||
@@ -1477,15 +2044,14 @@ export function DocumentDraftWorkspace({
       'new-confirmation'
     );
   }, [
+    pinnedWorkflowAnchorType,
+    pinnedWorkflowAnchorId,
+    isShipmentInstructionComplete,
+    effectiveShipmentInstructionId,
     isDocumentWorkflow,
-    isContract,
-    canonicalShipmentInstructionId,
-    canonicalBillOfLadingId,
-    canonicalCustomInvoiceId,
-    canonicalCommercialInvoiceId,
-    canonicalPackingListId,
-    effectiveConfirmationId,
     canonicalContractId,
+    isContract,
+    effectiveConfirmationId,
     initialId,
     draftId,
   ]);
@@ -2074,6 +2640,16 @@ export function DocumentDraftWorkspace({
                     if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
                       const extracted = extractProformaData(freshRes.data) || freshRes.data;
                       if (extracted) {
+                        if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+                          extracted.contract_number = pinnedWorkflowContractNumber;
+                          extracted.contractNumber = pinnedWorkflowContractNumber;
+                          extracted.contract_no = pinnedWorkflowContractNumber;
+                          if (extracted.contract && typeof extracted.contract === 'object') {
+                            extracted.contract.contract_number = pinnedWorkflowContractNumber;
+                            extracted.contract.contractNumber = pinnedWorkflowContractNumber;
+                            extracted.contract.contract_no = pinnedWorkflowContractNumber;
+                          }
+                        }
                         setProformaData(extracted);
                       }
                       setIsLoadingProforma(false);
@@ -2094,6 +2670,16 @@ export function DocumentDraftWorkspace({
               if (res?.success && res.data) {
                 const extracted = extractProformaData(res.data) || res.data;
                 if (extracted) {
+                  if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+                    extracted.contract_number = pinnedWorkflowContractNumber;
+                    extracted.contractNumber = pinnedWorkflowContractNumber;
+                    extracted.contract_no = pinnedWorkflowContractNumber;
+                    if (extracted.contract && typeof extracted.contract === 'object') {
+                      extracted.contract.contract_number = pinnedWorkflowContractNumber;
+                      extracted.contract.contractNumber = pinnedWorkflowContractNumber;
+                      extracted.contract.contract_no = pinnedWorkflowContractNumber;
+                    }
+                  }
                   setProformaData(extracted);
                   setProformaVersion((v) => v + 1);
                 }
@@ -2154,6 +2740,16 @@ export function DocumentDraftWorkspace({
               if (res?.success && res.data) {
                 const extracted = extractContractData(res.data) || res.data;
                 if (extracted) {
+                  if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+                    extracted.contract_number = pinnedWorkflowContractNumber;
+                    extracted.contractNumber = pinnedWorkflowContractNumber;
+                    extracted.contract_no = pinnedWorkflowContractNumber;
+                    if (extracted.contract && typeof extracted.contract === 'object') {
+                      extracted.contract.contract_number = pinnedWorkflowContractNumber;
+                      extracted.contract.contractNumber = pinnedWorkflowContractNumber;
+                      extracted.contract.contract_no = pinnedWorkflowContractNumber;
+                    }
+                  }
                   setContractData(extracted);
                   setContractVersion((v) => v + 1);
                 }
@@ -2187,6 +2783,25 @@ export function DocumentDraftWorkspace({
           initialId ||
           (confirmationData?.id || confirmationData?.confirmation_id)
         );
+
+        if (
+          isDocumentWorkflow &&
+          (candidateId === pinnedWorkflowAnchorId ||
+            candidateId === effectiveShipmentInstructionId ||
+            candidateId === canonicalShipmentInstructionId)
+        ) {
+          candidateId = sanitizeDocId(
+            stepSelfId ||
+            targetStep?.redirect_id ||
+            (targetStep as any)?.redirectId ||
+            getConfirmationIdFromStepper(steps, targetStep) ||
+            extractLinkedConfirmationId(shipmentInstructionData) ||
+            extractLinkedConfirmationId(initialShipmentInstructionData) ||
+            extractLinkedConfirmationId(contractData) ||
+            extractLinkedConfirmationId(initialContractData) ||
+            effectiveConfirmationId
+          );
+        }
 
         if (/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(candidateId)) {
           candidateId = '';
@@ -2277,14 +2892,11 @@ export function DocumentDraftWorkspace({
             const res = await getShipmentInstructionAction(candidateId, lang);
             if (activeFetchSeqRef.current === currentSeq) {
               if (res?.success && res.data) {
-                const extracted = extractShipmentInstructionData(res.data);
-                if (extracted && isCompleteShipmentInstructionData(extracted)) {
-                  setShipmentInstructionData(extracted);
-                  setShipmentVersion((v) => v + 1);
-                } else if (extracted) {
-                  setShipmentInstructionData(extracted);
-                  setShipmentVersion((v) => v + 1);
-                }
+                const extracted =
+                  extractShipmentInstructionData(res.data) ||
+                  { ...res.data, _is_shipment_loaded: true };
+                setShipmentInstructionData(extracted);
+                setShipmentVersion((v) => v + 1);
 
                 // If shipment instruction response contains linked contract / proforma / confirmation, seed missing states
                 if (extracted?.contract && typeof extracted.contract === 'object') {
@@ -2762,6 +3374,9 @@ export function DocumentDraftWorkspace({
       canonicalPackingListId,
       effectiveConfirmationId,
       rootWorkflowId,
+      workflowAnchorId,
+      workflowAnchorType,
+      pinnedWorkflowContractNumber,
       initialId,
       draftId,
       lang,
@@ -2859,29 +3474,30 @@ export function DocumentDraftWorkspace({
       const slug = getStepSlug(step, resolvedIndex);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        const specificDocId = isSelectingPackingList
-          ? canonicalPackingListId
-          : isSelectingCommercialInvoice
-          ? canonicalCommercialInvoiceId
-          : isSelectingCustomInvoice
-          ? canonicalCustomInvoiceId
-          : isSelectingBillOfLading
-          ? canonicalBillOfLadingId
-          : isSelectingShipment
-          ? canonicalShipmentInstructionId
-          : isSelectingContract
-          ? canonicalContractId
-          : isSelectingProforma
-          ? canonicalProformaId
-          : effectiveConfirmationId;
-
-        const targetStepDocId = specificDocId || effectiveConfirmationId || rootWorkflowId || initialId;
-
-        if (targetStepDocId) {
+        // "har bar usme jo form hai us form pe vo nahi karna hai hume kya bolte hai id change nahi karni hai stepper me just vo har form move karne par refresh karavani hai properly"
+        // "and contract ke step me move hone par stepper me id change nahi karvani hai vaha sirf refresh hi karvana hai to solve proper ho jayega"
+        const targetStepDocId = workflowAnchorId || initialId || draftId;
+        if (targetStepDocId && targetStepDocId !== 'new-confirmation') {
           url.searchParams.set('id', targetStepDocId);
         }
         url.searchParams.set('step', slug);
         window.history.replaceState(null, '', url.toString());
+      }
+
+      // Concurrently refresh the stepper list so step statuses are updated without changing stepper ID
+      const targetStepperId = workflowAnchorId || initialId;
+      if (targetStepperId && targetStepperId !== 'new-confirmation') {
+        getStepperListAction({
+          action: workflowAnchorType,
+          step: String(targetStepperId),
+          lang,
+        })
+          .then((sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
+            }
+          })
+          .catch(() => {});
       }
 
       // Seamlessly reset scroll position to top of document on step transition
@@ -2922,6 +3538,8 @@ export function DocumentDraftWorkspace({
       initialCommercialInvoiceData,
       canonicalCommercialInvoiceId,
       rootWorkflowId,
+      workflowAnchorId,
+      workflowAnchorType,
       initialId,
       fetchLatestStepData,
     ]
@@ -3177,8 +3795,21 @@ export function DocumentDraftWorkspace({
       getContractAction(effectiveContractId, lang)
         .then((res) => {
           if (res?.success && res.data) {
-            setContractData(extractContractData(res.data) || res.data);
-            setContractVersion((v) => v + 1);
+            const extracted = extractContractData(res.data) || res.data;
+            if (extracted) {
+              if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+                extracted.contract_number = pinnedWorkflowContractNumber;
+                extracted.contractNumber = pinnedWorkflowContractNumber;
+                extracted.contract_no = pinnedWorkflowContractNumber;
+                if (extracted.contract && typeof extracted.contract === 'object') {
+                  extracted.contract.contract_number = pinnedWorkflowContractNumber;
+                  extracted.contract.contractNumber = pinnedWorkflowContractNumber;
+                  extracted.contract.contract_no = pinnedWorkflowContractNumber;
+                }
+              }
+              setContractData(extracted);
+              setContractVersion((v) => v + 1);
+            }
           }
         })
         .catch((err) => {
@@ -3190,7 +3821,7 @@ export function DocumentDraftWorkspace({
     } else if (!effectiveContractId) {
       setIsLoadingContract(false);
     }
-  }, [canonicalContractId, contractIdFromStepper, steps, contractData, initialContractData, lang]);
+  }, [canonicalContractId, contractIdFromStepper, steps, contractData, initialContractData, pinnedWorkflowContractNumber, lang]);
 
   // Fetch proforma data dynamically if a REAL proforma ID exists and not yet loaded
   useEffect(() => {
@@ -3209,6 +3840,16 @@ export function DocumentDraftWorkspace({
           if (res?.success && res.data) {
             const extracted = extractProformaData(res.data) || res.data;
             if (extracted) {
+              if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+                extracted.contract_number = pinnedWorkflowContractNumber;
+                extracted.contractNumber = pinnedWorkflowContractNumber;
+                extracted.contract_no = pinnedWorkflowContractNumber;
+                if (extracted.contract && typeof extracted.contract === 'object') {
+                  extracted.contract.contract_number = pinnedWorkflowContractNumber;
+                  extracted.contract.contractNumber = pinnedWorkflowContractNumber;
+                  extracted.contract.contract_no = pinnedWorkflowContractNumber;
+                }
+              }
               setProformaData(extracted);
               setProformaVersion((v) => v + 1);
             }
@@ -3223,7 +3864,7 @@ export function DocumentDraftWorkspace({
     } else if (!effectiveProformaId) {
       setIsLoadingProforma(false);
     }
-  }, [canonicalProformaId, proformaData, initialProformaData, lang]);
+  }, [canonicalProformaId, proformaData, initialProformaData, pinnedWorkflowContractNumber, lang]);
 
   // Fetch shipment instruction data dynamically if a REAL shipment instruction ID exists and not yet loaded
   useEffect(() => {
@@ -3890,79 +4531,189 @@ export function DocumentDraftWorkspace({
 
   // Active Contract Number strictly resolved from the currently open form's API response:
   // "and SI se Stepper ke uper jo Contract number dikh raha hai vo jo bhi form open hai uski api resposen me se dikhana hai so make sure proper perfect karo isko bhi"
+  // "Sab me contract_number aayega shipment instructions and uske bad ke sabhi forms me same vo hi dikhana hai... abhi aa raha hai vo main contract id hai proper karo isko jo bhi jis step me hai vaha se aaye uska dikhao properly achhe se"
   const activeStepContractNumber = useMemo(() => {
+    // Helper to find a partial contract number (having split suffix /A, /B, etc.) from known partial documents
+    const findPartialFromSiblings = (): string | null => {
+      if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+        return pinnedWorkflowContractNumber;
+      }
+      const candidates = [
+        extractDocContractNumber(shipmentInstructionData),
+        extractDocContractNumber(initialShipmentInstructionData),
+        extractDocContractNumber(billOfLadingData),
+        extractDocContractNumber(initialBillOfLadingData),
+        extractDocContractNumber(customInvoiceData),
+        extractDocContractNumber(initialCustomInvoiceData),
+        extractDocContractNumber(commercialInvoiceData),
+        extractDocContractNumber(initialCommercialInvoiceData),
+        extractDocContractNumber(packingListData),
+        extractDocContractNumber(initialPackingListData),
+        extractDocContractNumber(proformaData),
+        extractDocContractNumber(initialProformaData),
+        extractDocContractNumber(contractData),
+        extractDocContractNumber(initialContractData),
+      ];
+      // 1. First look for candidate with explicit partial split suffix (/A, /B)
+      for (const cand of candidates) {
+        if (cand && isPartialContractNumber(cand)) {
+          return cand;
+        }
+      }
+      if (
+        pinnedWorkflowContractNumber &&
+        !isPureDbId(pinnedWorkflowContractNumber) &&
+        !isLikelyInvoiceNumber(pinnedWorkflowContractNumber)
+      ) {
+        return pinnedWorkflowContractNumber;
+      }
+      // 2. Otherwise return first non-null candidate from real document data
+      for (const cand of candidates) {
+        if (cand && !isPureDbId(cand) && !isLikelyInvoiceNumber(cand)) return cand;
+      }
+      return null;
+    };
+
+    const activePartial = findPartialFromSiblings();
+
+    const getValidDocContract = (data: any, initialData?: any): string | null => {
+      const fromActive =
+        extractContractFromSiResponse(data) ||
+        extractContractFromSiResponse(initialData) ||
+        extractDocContractNumber(data) ||
+        extractDocContractNumber(initialData);
+      if (fromActive && !isPureDbId(fromActive) && !isLikelyInvoiceNumber(fromActive)) {
+        if (isPartialContractNumber(fromActive)) return fromActive;
+        if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+          return pinnedWorkflowContractNumber;
+        }
+        return fromActive;
+      }
+      if (
+        pinnedWorkflowContractNumber &&
+        !isPureDbId(pinnedWorkflowContractNumber) &&
+        !isLikelyInvoiceNumber(pinnedWorkflowContractNumber)
+      ) {
+        return pinnedWorkflowContractNumber;
+      }
+      if (activePartial) return activePartial;
+      return null;
+    };
+
     if (isShipmentInstruction) {
-      return (
-        extractDocContractNumber(shipmentInstructionData) ||
-        extractDocContractNumber(initialShipmentInstructionData) ||
-        extractDocContractNumber(mergedShipmentInstructionData) ||
-        resolvedContractNumber ||
-        resolvedConfirmationNumber
-      );
+      // 1. Check SI response contract_number or contract_id: "also SI ka form open hua to uske resposnse me contract_id mile vo dikhani hai"
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
+
+      return getValidDocContract(shipmentInstructionData, initialShipmentInstructionData);
     }
+
     if (isBillOfLading) {
-      return (
-        extractDocContractNumber(billOfLadingData) ||
-        extractDocContractNumber(initialBillOfLadingData) ||
-        extractDocContractNumber(shipmentInstructionData) ||
-        extractDocContractNumber(initialShipmentInstructionData) ||
-        resolvedContractNumber ||
-        resolvedConfirmationNumber
-      );
+      const direct = getValidDocContract(billOfLadingData, initialBillOfLadingData);
+      if (direct) return direct;
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
     }
+
     if (isCustomInvoice) {
-      return (
-        extractDocContractNumber(customInvoiceData) ||
-        extractDocContractNumber(initialCustomInvoiceData) ||
-        extractDocContractNumber(mergedCustomInvoiceData) ||
-        extractDocContractNumber(billOfLadingData) ||
-        extractDocContractNumber(shipmentInstructionData) ||
-        resolvedContractNumber ||
-        resolvedConfirmationNumber
-      );
+      const direct = getValidDocContract(customInvoiceData, initialCustomInvoiceData);
+      if (direct) return direct;
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
     }
+
     if (isCommercialInvoice) {
-      return (
-        extractDocContractNumber(commercialInvoiceData) ||
-        extractDocContractNumber(initialCommercialInvoiceData) ||
-        extractDocContractNumber(mergedCommercialInvoiceData) ||
-        extractDocContractNumber(customInvoiceData) ||
-        extractDocContractNumber(billOfLadingData) ||
-        extractDocContractNumber(shipmentInstructionData) ||
-        resolvedContractNumber ||
-        resolvedConfirmationNumber
-      );
+      const direct = getValidDocContract(commercialInvoiceData, initialCommercialInvoiceData);
+      if (direct) return direct;
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
     }
+
     if (isPackingList) {
-      return (
-        extractDocContractNumber(packingListData) ||
-        extractDocContractNumber(initialPackingListData) ||
-        extractDocContractNumber(mergedPackingListData) ||
-        extractDocContractNumber(commercialInvoiceData) ||
-        extractDocContractNumber(customInvoiceData) ||
-        extractDocContractNumber(billOfLadingData) ||
-        extractDocContractNumber(shipmentInstructionData) ||
-        resolvedContractNumber ||
-        resolvedConfirmationNumber
-      );
+      const direct = getValidDocContract(packingListData, initialPackingListData);
+      if (direct) return direct;
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
     }
+
     if (isContract) {
-      return (
-        extractDocContractNumber(contractData) ||
-        extractDocContractNumber(initialContractData) ||
-        resolvedContractNumber ||
-        resolvedConfirmationNumber
-      );
+      // If the workflow was opened for a specific partial (e.g. Split B's SI),
+      // maintain that exact partial contract number (B) when viewing the Contract!
+      // "and if user confirmainon lisgin se B wali ke Shipment Instruction ko open kiya hai to Contract me jane par A wala continue nahi hona chahiye make sure SI se B wala hi aana chahiye"
+      if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+        return pinnedWorkflowContractNumber;
+      }
+      if (activePartial && isPartialContractNumber(activePartial)) {
+        return activePartial;
+      }
+      const direct = extractDocContractNumber(contractData) || extractDocContractNumber(initialContractData);
+      if (direct && !isPureDbId(direct) && !isLikelyInvoiceNumber(direct)) {
+        return direct;
+      }
+      if (
+        pinnedWorkflowContractNumber &&
+        !isPureDbId(pinnedWorkflowContractNumber) &&
+        !isLikelyInvoiceNumber(pinnedWorkflowContractNumber)
+      ) {
+        return pinnedWorkflowContractNumber;
+      }
+      if (activePartial) return activePartial;
+      if (
+        resolvedContractNumber &&
+        !isPureDbId(resolvedContractNumber) &&
+        !isLikelyInvoiceNumber(resolvedContractNumber)
+      ) {
+        return resolvedContractNumber;
+      }
+      return null;
     }
+
     if (isProforma) {
-      return (
-        extractDocContractNumber(proformaData) ||
-        extractDocContractNumber(initialProformaData) ||
-        resolvedContractNumber ||
-        resolvedConfirmationNumber
-      );
+      // Similarly for Proforma, maintain the active partial contract number (B)
+      if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
+        return pinnedWorkflowContractNumber;
+      }
+      if (activePartial && isPartialContractNumber(activePartial)) {
+        return activePartial;
+      }
+      const direct = extractDocContractNumber(proformaData) || extractDocContractNumber(initialProformaData);
+      if (direct && !isPureDbId(direct) && !isLikelyInvoiceNumber(direct)) {
+        return direct;
+      }
+      if (
+        pinnedWorkflowContractNumber &&
+        !isPureDbId(pinnedWorkflowContractNumber) &&
+        !isLikelyInvoiceNumber(pinnedWorkflowContractNumber)
+      ) {
+        return pinnedWorkflowContractNumber;
+      }
+      if (activePartial) return activePartial;
+      if (
+        resolvedContractNumber &&
+        !isPureDbId(resolvedContractNumber) &&
+        !isLikelyInvoiceNumber(resolvedContractNumber)
+      ) {
+        return resolvedContractNumber;
+      }
+      return null;
     }
-    return resolvedContractNumber || resolvedConfirmationNumber;
+
+    if (
+      pinnedWorkflowContractNumber &&
+      !isPureDbId(pinnedWorkflowContractNumber) &&
+      !isLikelyInvoiceNumber(pinnedWorkflowContractNumber)
+    ) {
+      return pinnedWorkflowContractNumber;
+    }
+    if (activePartial) return activePartial;
+    if (
+      resolvedContractNumber &&
+      !isPureDbId(resolvedContractNumber) &&
+      !isLikelyInvoiceNumber(resolvedContractNumber)
+    ) {
+      return resolvedContractNumber;
+    }
+    return null;
   }, [
     isShipmentInstruction,
     isBillOfLading,
@@ -3971,53 +4722,129 @@ export function DocumentDraftWorkspace({
     isPackingList,
     isContract,
     isProforma,
+    pinnedWorkflowContractNumber,
     shipmentInstructionData,
     initialShipmentInstructionData,
-    mergedShipmentInstructionData,
     billOfLadingData,
     initialBillOfLadingData,
     customInvoiceData,
     initialCustomInvoiceData,
-    mergedCustomInvoiceData,
     commercialInvoiceData,
     initialCommercialInvoiceData,
-    mergedCommercialInvoiceData,
     packingListData,
     initialPackingListData,
-    mergedPackingListData,
     contractData,
     initialContractData,
     proformaData,
     initialProformaData,
     resolvedContractNumber,
-    resolvedConfirmationNumber,
   ]);
 
   // Number displayed on top of the Stepper card (both desktop and mobile):
-  // User instruction: From SI onwards, show the Contract number from the currently open form's API response!
+  // User instruction: From Contract/SI onwards, show the Contract number from the currently open form's API response!
+  // Never show invoice number!
   const stepperHeaderDocNumber = isConfirmation
     ? (resolvedConfirmationNumber || activeStepContractNumber)
-    : isContract
-    ? (activeStepContractNumber || resolvedConfirmationNumber)
-    : isProforma
-    ? (proformaData?.invoice_number || initialProformaData?.invoice_number || activeStepContractNumber)
     : activeStepContractNumber;
 
   const mobileActiveDocNumber = isConfirmation
     ? resolvedConfirmationNumber
-    : isContract
-    ? (activeStepContractNumber || resolvedConfirmationNumber)
-    : isProforma
-    ? (proformaData?.invoice_number || initialProformaData?.invoice_number || activeStepContractNumber)
     : activeStepContractNumber;
 
   const mobileActiveDocLabel = isConfirmation
     ? (dict?.smart_docs?.confirmation_form?.confirmation_number || 'Confirmation No.')
-    : isContract
-    ? (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.')
-    : isProforma
-    ? (dict?.smart_docs?.proforma_form?.invoice_number || 'Invoice No.')
     : (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.');
+
+  // Effective initial data for Contract and Proforma forms:
+  // When a user enters the workflow from a specific partial (e.g. Split B's Shipment Instruction)
+  // or a partial contract number is detected, ensure the Contract and Proforma forms maintain Split B's contract number
+  // instead of reverting/defaulting back to Split A's contract number!
+  const effectiveContractInitialData = useMemo(() => {
+    const base = contractData || initialContractData || confirmationData || initialData || null;
+    if (!base) return null;
+    const activeDocContNum =
+      (pinnedWorkflowContractNumber && !isPureDbId(pinnedWorkflowContractNumber) && !isLikelyInvoiceNumber(pinnedWorkflowContractNumber) ? pinnedWorkflowContractNumber : null) ||
+      extractDocContractNumber(shipmentInstructionData) ||
+      extractDocContractNumber(initialShipmentInstructionData) ||
+      activeStepContractNumber;
+    if (activeDocContNum && !isPureDbId(activeDocContNum) && !isLikelyInvoiceNumber(activeDocContNum)) {
+      const updatedContractObj =
+        base.contract && typeof base.contract === 'object'
+          ? {
+              ...base.contract,
+              contract_number: activeDocContNum,
+              contractNumber: activeDocContNum,
+              contract_no: activeDocContNum,
+            }
+          : undefined;
+
+      return {
+        ...base,
+        contract_number: activeDocContNum,
+        contractNumber: activeDocContNum,
+        contract_no: activeDocContNum,
+        ...(updatedContractObj ? { contract: updatedContractObj } : {}),
+      };
+    }
+    return base;
+  }, [
+    contractData,
+    initialContractData,
+    confirmationData,
+    initialData,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    pinnedWorkflowContractNumber,
+    activeStepContractNumber,
+  ]);
+
+  const effectiveProformaInitialData = useMemo(() => {
+    const base =
+      proformaData ||
+      initialProformaData ||
+      contractData ||
+      initialContractData ||
+      confirmationData ||
+      initialData ||
+      null;
+    if (!base) return null;
+    const activeDocContNum =
+      (pinnedWorkflowContractNumber && !isPureDbId(pinnedWorkflowContractNumber) && !isLikelyInvoiceNumber(pinnedWorkflowContractNumber) ? pinnedWorkflowContractNumber : null) ||
+      extractDocContractNumber(shipmentInstructionData) ||
+      extractDocContractNumber(initialShipmentInstructionData) ||
+      activeStepContractNumber;
+    if (activeDocContNum && !isPureDbId(activeDocContNum) && !isLikelyInvoiceNumber(activeDocContNum)) {
+      const updatedContractObj =
+        base.contract && typeof base.contract === 'object'
+          ? {
+              ...base.contract,
+              contract_number: activeDocContNum,
+              contractNumber: activeDocContNum,
+              contract_no: activeDocContNum,
+            }
+          : undefined;
+
+      return {
+        ...base,
+        contract_number: activeDocContNum,
+        contractNumber: activeDocContNum,
+        contract_no: activeDocContNum,
+        ...(updatedContractObj ? { contract: updatedContractObj } : {}),
+      };
+    }
+    return base;
+  }, [
+    proformaData,
+    initialProformaData,
+    contractData,
+    initialContractData,
+    confirmationData,
+    initialData,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    pinnedWorkflowContractNumber,
+    activeStepContractNumber,
+  ]);
 
   return (
     <div className="flex-1 min-h-fit lg:min-h-0 flex flex-col lg:overflow-hidden">
@@ -4184,7 +5011,12 @@ export function DocumentDraftWorkspace({
                 }));
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
-                  url.searchParams.set('id', savedId);
+                  const targetWorkflowId = isDocumentWorkflow
+                    ? (workflowAnchorId || initialId || rootWorkflowId || savedId)
+                    : (rootWorkflowId || effectiveConfirmationId || savedId);
+                  if (targetWorkflowId) {
+                    url.searchParams.set('id', targetWorkflowId);
+                  }
                   if (!url.searchParams.get('step')) {
                     url.searchParams.set('step', 'confirmation');
                   }
@@ -4239,7 +5071,7 @@ export function DocumentDraftWorkspace({
 
                 // Update stepper to reflect completion and switch to next step
                 try {
-                  const stepperParam = newId || workflowAnchorId;
+                  const stepperParam = isDocumentWorkflow ? workflowAnchorId : (newId || workflowAnchorId);
                   const stepperRes = await getStepperListAction({
                     action: workflowAnchorType,
                     step: String(stepperParam),
@@ -4279,64 +5111,65 @@ export function DocumentDraftWorkspace({
         {/* Contract Document Form: Visible when Contract Step is active */}
         <div className={`w-full h-full ${isContract ? 'flex flex-col' : 'hidden'}`}>
           <ContractDocumentForm
-            key={`contract-${canonicalContractId || contractData?.id || 'default'}`}
+            key={`contract-${canonicalContractId || contractData?.id || 'default'}-${activeStepContractNumber || ''}`}
             dataVersion={contractVersion}
-              initialData={
-                contractData || initialContractData || confirmationData || initialData || null
-              }
-              contractId={contractIdFromStepper || canonicalContractId}
-              steps={steps}
-              selectedStep={selectedStep}
-              onUpdateSteps={handleUpdateSteps}
-              onSelectStep={handleSelectStep}
-              lang={lang}
-              dict={dict}
-              sellers={initialSellers}
-              buyers={initialBuyers}
-              products={initialProducts}
-              paymentTerms={initialPaymentTerms}
-              currencies={initialCurrencies}
-              shippingTerms={shippingTerms}
-              documentsList={initialDocumentList}
-              onSaveSuccess={(savedId: string, savedData?: any) => {
-                if (savedId) {
-                  setContractVersion((v) => v + 1);
-                  if (!effectiveConfirmationId) {
-                    setDraftId(savedId);
-                  }
-                  const contNum =
-                    savedData?.contract_number ||
-                    savedData?.contractNumber ||
-                    savedData?.contract_no ||
-                    savedData?.contract?.contract_number;
-                  setContractData((prev: any) => ({
-                    ...(prev || {}),
-                    ...(savedData || {}),
-                    ...(contNum ? { contract_number: contNum } : {}),
-                    id: savedId,
-                    contract_id: savedId,
-                  }));
-                  // Update stepper item for contract so checkmark and redirect_id reflect the saved contract
-                  setSteps((prevSteps) =>
-                    prevSteps.map((s) =>
-                      isContractStep(s)
-                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
-                        : s
-                    )
-                  );
-                  if (typeof window !== 'undefined') {
-                    const url = new URL(window.location.href);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || savedId;
-                    if (targetWorkflowId) {
-                      url.searchParams.set('id', targetWorkflowId);
-                    }
-                    if (url.searchParams.get('step') !== 'proforma') {
-                      url.searchParams.set('step', 'contract');
-                    }
-                    window.history.replaceState(null, '', url.toString());
-                  }
+            initialData={effectiveContractInitialData}
+            contractId={contractIdFromStepper || canonicalContractId}
+            steps={steps}
+            selectedStep={selectedStep}
+            onUpdateSteps={handleUpdateSteps}
+            onSelectStep={handleSelectStep}
+            lang={lang}
+            dict={dict}
+            sellers={initialSellers}
+            buyers={initialBuyers}
+            products={initialProducts}
+            paymentTerms={initialPaymentTerms}
+            currencies={initialCurrencies}
+            shippingTerms={shippingTerms}
+            documentsList={initialDocumentList}
+            onSaveSuccess={(savedId: string, savedData?: any) => {
+              if (savedId) {
+                setContractVersion((v) => v + 1);
+                if (!effectiveConfirmationId) {
+                  setDraftId(savedId);
                 }
-              }}
+                const contNum =
+                  (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber) ? pinnedWorkflowContractNumber : null) ||
+                  savedData?.contract_number ||
+                  savedData?.contractNumber ||
+                  savedData?.contract_no ||
+                  savedData?.contract?.contract_number;
+                setContractData((prev: any) => ({
+                  ...(prev || {}),
+                  ...(savedData || {}),
+                  ...(contNum ? { contract_number: contNum } : {}),
+                  id: savedId,
+                  contract_id: savedId,
+                }));
+                // Update stepper item for contract so checkmark and redirect_id reflect the saved contract
+                setSteps((prevSteps) =>
+                  prevSteps.map((s) =>
+                    isContractStep(s)
+                      ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                      : s
+                  )
+                );
+                if (typeof window !== 'undefined') {
+                  const url = new URL(window.location.href);
+                  const targetWorkflowId = isDocumentWorkflow
+                    ? (workflowAnchorId || initialId || rootWorkflowId || canonicalContractId || savedId)
+                    : (rootWorkflowId || effectiveConfirmationId || canonicalContractId || savedId);
+                  if (targetWorkflowId) {
+                    url.searchParams.set('id', targetWorkflowId);
+                  }
+                  if (url.searchParams.get('step') !== 'proforma') {
+                    url.searchParams.set('step', 'contract');
+                  }
+                  window.history.replaceState(null, '', url.toString());
+                }
+              }
+            }}
               onSaveDraft={async (formData) => {
                 const activeDocId =
                   canonicalContractId ||
@@ -4578,54 +5411,54 @@ export function DocumentDraftWorkspace({
         {/* Proforma Invoice Document Form: Visible when Proforma Step is active */}
         <div className={`w-full h-full ${isProforma ? 'flex flex-col' : 'hidden'}`}>
           <ProformaDocumentForm
-            key={`proforma-${canonicalProformaId || (proformaData?.id ? String(proformaData.id) : 'default')}`}
+            key={`proforma-${canonicalProformaId || (proformaData?.id ? String(proformaData.id) : 'default')}-${activeStepContractNumber || ''}`}
             dataVersion={proformaVersion}
-              initialData={
-                proformaData || initialProformaData || contractData || initialContractData || confirmationData || initialData || null
-              }
-              proformaId={canonicalProformaId}
-              contractId={canonicalContractId}
-              confirmationId={effectiveConfirmationId}
-              steps={steps}
-              selectedStep={selectedStep}
-              onUpdateSteps={handleUpdateSteps}
-              onSelectStep={handleSelectStep}
-              lang={lang}
-              dict={dict}
-              sellers={initialSellers}
-              buyers={initialBuyers}
-              products={initialProducts}
-              paymentTerms={initialPaymentTerms}
-              currencies={initialCurrencies}
-              shippingTerms={shippingTerms}
-              onSaveSuccess={(savedId: string, savedData?: any) => {
-                if (savedId) {
-                  setProformaVersion((v) => v + 1);
-                  setProformaData((prev: any) => ({
-                    ...(prev || {}),
-                    ...(savedData || {}),
-                    id: savedId,
-                    proforma_id: savedId,
-                  }));
-                  // Update stepper item for proforma so checkmark and redirect_id reflect the saved proforma
-                  setSteps((prevSteps) =>
-                    prevSteps.map((s) =>
-                      isProformaStep(s)
-                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
-                        : s
-                    )
-                  );
-                  if (typeof window !== 'undefined') {
-                    const url = new URL(window.location.href);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
-                    if (targetWorkflowId) {
-                      url.searchParams.set('id', targetWorkflowId);
-                    }
-                    url.searchParams.set('step', 'proforma');
-                    window.history.replaceState(null, '', url.toString());
+            initialData={effectiveProformaInitialData}
+            proformaId={canonicalProformaId}
+            contractId={canonicalContractId}
+            confirmationId={effectiveConfirmationId}
+            steps={steps}
+            selectedStep={selectedStep}
+            onUpdateSteps={handleUpdateSteps}
+            onSelectStep={handleSelectStep}
+            lang={lang}
+            dict={dict}
+            sellers={initialSellers}
+            buyers={initialBuyers}
+            products={initialProducts}
+            paymentTerms={initialPaymentTerms}
+            currencies={initialCurrencies}
+            shippingTerms={shippingTerms}
+            onSaveSuccess={(savedId: string, savedData?: any) => {
+              if (savedId) {
+                setProformaVersion((v) => v + 1);
+                setProformaData((prev: any) => ({
+                  ...(prev || {}),
+                  ...(savedData || {}),
+                  id: savedId,
+                  proforma_id: savedId,
+                }));
+                // Update stepper item for proforma so checkmark and redirect_id reflect the saved proforma
+                setSteps((prevSteps) =>
+                  prevSteps.map((s) =>
+                    isProformaStep(s)
+                      ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                      : s
+                  )
+                );
+                if (typeof window !== 'undefined') {
+                  const url = new URL(window.location.href);
+                  const targetWorkflowId = isDocumentWorkflow
+                    ? (workflowAnchorId || initialId || rootWorkflowId || canonicalContractId)
+                    : (rootWorkflowId || effectiveConfirmationId || canonicalContractId);
+                  if (targetWorkflowId) {
+                    url.searchParams.set('id', targetWorkflowId);
                   }
+                  url.searchParams.set('step', 'proforma');
+                  window.history.replaceState(null, '', url.toString());
                 }
-              }}
+              }
+            }}
               onSaveDraft={async (formData) => {
                 const activeDocId =
                   canonicalProformaId ||
@@ -5067,6 +5900,8 @@ export function DocumentDraftWorkspace({
                       id: String(newId),
                       shipment_instruction_id: String(newId),
                     }));
+                    setPinnedWorkflowAnchorId(String(newId));
+                    setPinnedWorkflowAnchorType('document');
                   }
                 }
                 return res;
@@ -5162,10 +5997,12 @@ export function DocumentDraftWorkspace({
                   }));
 
                   try {
-                    const stepperParam = workflowAnchorId;
+                    const siCompletedId = String(newId || effectiveShipmentInstructionId || workflowAnchorId);
+                    setPinnedWorkflowAnchorId(siCompletedId);
+                    setPinnedWorkflowAnchorType('document');
                     const stepperRes = await getStepperListAction({
-                      action: workflowAnchorType,
-                      step: String(stepperParam),
+                      action: 'document',
+                      step: siCompletedId,
                       lang,
                     });
                     let targetList = steps;

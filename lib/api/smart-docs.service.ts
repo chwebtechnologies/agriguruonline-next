@@ -9140,6 +9140,8 @@ export function extractShipmentInstructionData(data: any): any {
   const hasShipmentMarkers = Boolean(
     merged.shipment_instruction_number ||
     merged.instruction_number ||
+    merged.contract_number ||
+    merged.contract_no ||
     merged.booking_number ||
     merged.booking_no ||
     merged.shipping_bill_number ||
@@ -9148,11 +9150,13 @@ export function extractShipmentInstructionData(data: any): any {
     merged.vessel_name ||
     merged.port_of_loading ||
     merged.port_of_discharge ||
+    d?.contract_number ||
+    d?.contract_no ||
     d?.shipment_instruction ||
     d?.shipmentInstruction ||
     merged._is_shipment_loaded ||
-    ((merged.id || merged._id) && (merged.consignee_id || merged.buyer_id || merged.booking_no || merged.vessel_name)) ||
-    (d && (d.booking_no || d.vessel_name || d.id || d._id))
+    ((merged.id || merged._id) && (merged.consignee_id || merged.buyer_id || merged.booking_no || merged.vessel_name || merged.contract_number || merged.contract_no)) ||
+    (d && (d.booking_no || d.vessel_name || d.id || d._id || d.contract_number || d.contract_no))
   );
   if (!hasShipmentMarkers) {
     return null;
@@ -10828,8 +10832,12 @@ export function extractCustomInvoiceData(data: any): any {
   const hasCustomMarkers = Boolean(
     merged.custom_invoice_number ||
     merged.custom_invoice_no ||
+    merged.contract_number ||
+    merged.contract_no ||
     d?.custom_invoice ||
     d?.customInvoice ||
+    d?.contract_number ||
+    d?.contract_no ||
     merged.custom_invoice_id ||
     merged._is_custom_invoice_loaded ||
     merged.gross_weight !== undefined ||
@@ -10838,8 +10846,8 @@ export function extractCustomInvoiceData(data: any): any {
     merged.freight_rate !== undefined ||
     merged.commission_rate !== undefined ||
     merged.price_per_bag !== undefined ||
-    ((merged.id || merged._id) && (merged.invoice_number || merged.goods_description || merged.total_value)) ||
-    (d && (d.invoice_number || d.goods_description || d.id || d._id))
+    ((merged.id || merged._id) && (merged.invoice_number || merged.goods_description || merged.total_value || merged.contract_number || merged.contract_no)) ||
+    (d && (d.invoice_number || d.goods_description || d.id || d._id || d.contract_number || d.contract_no))
   );
   if (!hasCustomMarkers) {
     return null;
@@ -10955,12 +10963,16 @@ export function extractCommercialInvoiceData(data: any): any {
   const hasCommercialMarkers = Boolean(
     merged.commercial_invoice_number ||
     merged.commercial_invoice_no ||
+    merged.contract_number ||
+    merged.contract_no ||
     d?.commercial_invoice ||
     d?.commercialInvoice ||
+    d?.contract_number ||
+    d?.contract_no ||
     merged.commercial_invoice_id ||
     merged._is_commercial_invoice_loaded ||
-    ((merged.id || merged._id) && (merged.invoice_number || merged.goods_description || merged.total_value || merged.total_amount)) ||
-    (d && (d.invoice_number || d.goods_description || d.id || d._id))
+    ((merged.id || merged._id) && (merged.invoice_number || merged.goods_description || merged.total_value || merged.total_amount || merged.contract_number || merged.contract_no)) ||
+    (d && (d.invoice_number || d.goods_description || d.id || d._id || d.contract_number || d.contract_no))
   );
   if (!hasCommercialMarkers) {
     return null;
@@ -11131,7 +11143,7 @@ export function extractPackingListData(data: any): any {
     merged._is_packing_list_loaded ||
     merged.document_type === 'packing_list' ||
     merged.doc_type === 'packing_list' ||
-    ((merged.id || merged._id) && (merged.goods_description || merged.containers || merged.net_weight) && !hasCommercialMarkers)
+    ((merged.id || merged._id) && (merged.goods_description || merged.containers || merged.net_weight || merged.contract_number || merged.contract_no) && !hasCommercialMarkers)
   );
   if (!hasPackingMarkers) {
     return null;

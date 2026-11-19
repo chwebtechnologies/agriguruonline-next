@@ -43,6 +43,39 @@ export function cleanDocNumber(val: any): string | null {
   return str;
 }
 
+export function isPlaceholderDocNumber(val: any): boolean {
+  if (val === null || val === undefined) return true;
+  const str = String(val).trim().toLowerCase();
+  if (
+    !str ||
+    str === '-' ||
+    str === 'n/a' ||
+    str === '[object object]' ||
+    str === 'null' ||
+    str === 'undefined' ||
+    str === 'nan'
+  ) {
+    return true;
+  }
+  return /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|invoice|step-\d+)$/i.test(str);
+}
+
+export function isPureDbId(val: any): boolean {
+  if (val === null || val === undefined) return false;
+  const str = String(val).trim();
+  if (!str) return false;
+  return isPlaceholderDocNumber(str);
+}
+
+export function isLikelyInvoiceNumber(val: any): boolean {
+  if (val === null || val === undefined) return false;
+  const str = String(val).trim();
+  if (!str) return false;
+  if (/^(inv|pi|ci|cust|comm|pl)[ -_\/]/i.test(str)) return true;
+  if (/^invoice[ -_\/]/i.test(str)) return true;
+  return false;
+}
+
 export type NormalizedStatus = 'completed' | 'in_progress' | 'pending' | 'locked';
 
 export function normalizeStepStatus(rawStatus?: string | boolean, step?: any): NormalizedStatus {
@@ -147,7 +180,7 @@ export function DocumentStatusStepper({
     }
 
     const { stepperId, stepperType } = getStepperContext();
-    const targetStep = propConfirmationId || stepperId || stepId || '';
+    const targetStep = stepperId || propConfirmationId || stepId || '';
 
     if (!targetStep || targetStep === 'new-confirmation') {
       setSteps(DEFAULT_WORKFLOW_STEPPER_ITEMS);
@@ -167,7 +200,7 @@ export function DocumentStatusStepper({
       setIsLoading(true);
       setError(null);
       try {
-        const actionToUse = propConfirmationId ? 'confirmation' : ((stepperType as any) || 'confirmation');
+        const actionToUse = (stepperType as any) || (propConfirmationId ? 'confirmation' : 'confirmation');
         const res = await getStepperListAction({
           action: actionToUse,
           step: targetStep || 'new-confirmation',
@@ -553,8 +586,8 @@ export function DocumentStatusStepper({
       setError(null);
       try {
         const { stepperId, stepperType } = getStepperContext();
-        const actionToUse = propConfirmationId ? 'confirmation' : ((stepperType as any) || 'confirmation');
-        const targetStep = propConfirmationId || stepperId || stepId || 'new-confirmation';
+        const actionToUse = (stepperType as any) || (propConfirmationId ? 'confirmation' : 'confirmation');
+        const targetStep = stepperId || propConfirmationId || stepId || 'new-confirmation';
         let res = await getStepperListAction({
           action: actionToUse,
           step: targetStep,
@@ -663,27 +696,56 @@ export function DocumentStatusStepper({
     }
   };
 
+  const currentStep =
+    (typeof currentStepIndex === 'number' && safeSteps[currentStepIndex])
+      ? safeSteps[currentStepIndex]
+      : propSelectedStep;
+
+  const isCurrentConfirmation = isConfirmationStep(currentStep, currentStepIndex);
+  const isCurrentContract = !isCurrentConfirmation && isContractStep(currentStep, currentStepIndex);
+  const isCurrentDocumentStep = !isCurrentConfirmation && !isCurrentContract;
+
+  const currentStepDocNumber = cleanDocNumber(
+    currentStep?.partial_contract_number ||
+    currentStep?.partial_contract_no ||
+    currentStep?.contract_number ||
+    currentStep?.contract_no
+  );
+
   const cleanConf = cleanDocNumber(
     confirmationNumber ||
     safeSteps[0]?.confirmation_number ||
     safeSteps.find((s, i) => isConfirmationStep(s, i))?.confirmation_number
   );
 
-  const cleanCont = cleanDocNumber(
+  const rawCandidateContract =
     contractNumber ||
-    safeSteps[1]?.contract_number ||
-    safeSteps.find((s, i) => isContractStep(s, i))?.contract_number
-  );
+    (!isCurrentDocumentStep
+      ? (safeSteps[1]?.contract_number || safeSteps.find((s, i) => isContractStep(s, i))?.contract_number)
+      : null);
+
+  const cleanCont = cleanDocNumber(rawCandidateContract);
 
   let activeDocNumber: string | null = null;
-  if (propActiveDocNumber) {
-    activeDocNumber = cleanDocNumber(propActiveDocNumber);
+  const cleanProp = cleanDocNumber(propActiveDocNumber);
+  if (cleanProp && !isPlaceholderDocNumber(cleanProp) && !isLikelyInvoiceNumber(cleanProp)) {
+    activeDocNumber = cleanProp;
   }
-  if (!activeDocNumber) {
-    if (cleanCont) {
+
+  const cleanContractProp = cleanDocNumber(contractNumber);
+  if (!activeDocNumber && cleanContractProp && !isPlaceholderDocNumber(cleanContractProp) && !isLikelyInvoiceNumber(cleanContractProp)) {
+    activeDocNumber = cleanContractProp;
+  }
+
+  if (isCurrentConfirmation) {
+    activeDocNumber = cleanConf || activeDocNumber;
+  } else {
+    // For all document steps (Contract, Proforma, SI, BL, Custom, Commercial, Packing):
+    if (!activeDocNumber && currentStepDocNumber && !isPlaceholderDocNumber(currentStepDocNumber) && !isLikelyInvoiceNumber(currentStepDocNumber)) {
+      activeDocNumber = currentStepDocNumber;
+    }
+    if (!activeDocNumber && cleanCont && !isPlaceholderDocNumber(cleanCont) && !isLikelyInvoiceNumber(cleanCont)) {
       activeDocNumber = cleanCont;
-    } else if (cleanConf) {
-      activeDocNumber = cleanConf;
     }
   }
 
