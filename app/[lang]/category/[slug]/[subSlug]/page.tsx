@@ -257,7 +257,7 @@ async function SubCategoryProductsContent({ lang, slug, subSlug }: { lang: strin
                 id: product.category.id || '',
                 name: product.category.name || ''
               } : undefined,
-              country: product.country ? {
+              country: product.country && typeof product.country === 'object' ? {
                 id: product.country.id || '',
                 name: product.country.name || '',
                 flag: product.country.flag || '',

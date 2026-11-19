@@ -85,13 +85,17 @@ function ProfilePageSkeleton() {
   )
 }
 
-async function ProfilePageContent({ lang, token }: { lang: string, token: string }) {
+async function ProfilePageContent({ lang, token }: { lang: string; token: string }) {
   // Parallel Fetching for Dictionary and Profile
   const [dict, userResult] = await Promise.all([
     getDictionary(lang),
-    withTimeout(getUserProfile(token, lang), 8000, { userProfile: null, shouldLogout: false })
+    withTimeout(getUserProfile(token, lang), 8000, { userProfile: null, shouldLogout: false }),
   ]);
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
+
+  if (userResult.shouldLogout) {
+    redirect(`/${lang}/login?redirectUrl=/${lang}/profile`);
+  }
 
   let { userProfile: profileData } = userResult;
 
@@ -106,16 +110,9 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
     } catch (e) {}
   }
 
-  // Safe fallback profile structure so page never crashes or kicks user to login
-  if (!profileData) {
-    profileData = {
-      id: '',
-      first_name: 'User',
-      last_name: '',
-      user_type: 'buyer',
-      email: '',
-      mobile_number: '',
-    } as any;
+  // Strictly require user session for profile page
+  if (!profileData || (!profileData.id && !profileData._id && !profileData.customer_id)) {
+    redirect(`/${lang}/login?redirectUrl=/${lang}/profile`);
   }
 
   // Regular users cannot access the trader profile page -> Redirect to membership
@@ -213,7 +210,9 @@ async function ProfilePageContent({ lang, token }: { lang: string, token: string
     user_type: typeof profileData.user_type === 'object' && profileData.user_type !== null ? { name: profileData.user_type.name, title: profileData.user_type.title } : profileData.user_type,
     company_name: profileData.company_name,
     business_name: profileData.business_name,
-    country: profileData.country ? { iso2: profileData.country.iso2, id: profileData.country.id } : undefined,
+    country: (profileData.country && typeof profileData.country === 'object')
+      ? { iso2: profileData.country.iso2 || '', id: profileData.country.id || '' }
+      : (typeof profileData.country === 'string' ? { iso2: profileData.country, id: '' } : undefined),
     country_id: profileData.country_id,
     profile_image: profileData.profile_image,
     profile_picture: profileData.profile_picture,

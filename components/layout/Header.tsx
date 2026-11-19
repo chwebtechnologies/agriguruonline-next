@@ -13,15 +13,6 @@ interface HeaderProps {
 }
 
 export default async function Header(props?: HeaderProps) {
-  try {
-    const { headers } = await import('next/headers');
-    const headerStore = await headers();
-    const serverPath = headerStore.get('x-pathname') || '';
-    if (serverPath.includes('/smart-docs')) return null;
-  } catch (e) {
-    // fallback
-  }
-
   const activeLang = props?.activeLang || getSafeLanguage(await lang())
 
   let dict = props?.dict
@@ -124,9 +115,10 @@ export default async function Header(props?: HeaderProps) {
   try {
     const cookieStore = await import('next/headers').then(m => m.cookies());
     const userInfoCookie = cookieStore.get("user_info");
-    const authTokenCookie = cookieStore.get("auth_token");
+    const authTokenCookie = cookieStore.get("auth_token") || cookieStore.get("__Secure-uid");
+    const refreshTokenCookie = cookieStore.get("refresh_token") || cookieStore.get("web_refresh_token");
 
-    if (userInfoCookie || authTokenCookie) {
+    if (userInfoCookie || authTokenCookie || refreshTokenCookie) {
       const { getClientAuthData } = await import('@/app/actions/authData');
       authState = await getClientAuthData(activeLang);
     }

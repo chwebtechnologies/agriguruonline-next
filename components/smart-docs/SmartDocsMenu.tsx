@@ -292,10 +292,10 @@ export function SmartDocsMenu({
                   </span>
                 </Link>
               )}
-              <Link
+              <a
                 onClick={() => setIsOpen(false)}
                 href={`/${lang}`}
-                className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden"
+                className="flex items-center justify-center gap-1.5 px-1.5 min-[390px]:px-2.5 h-10 min-[390px]:h-11 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all overflow-hidden cursor-pointer"
               >
                 <div className="flex items-center justify-center w-5 h-5 min-[390px]:w-6 min-[390px]:h-6 rounded shrink-0 bg-blue-500 shadow-[0_1px_2px_rgba(0,0,0,0.1)]">
                   <i className="fa-solid fa-house text-[10px] min-[390px]:text-[11px] text-white"></i>
@@ -303,7 +303,7 @@ export function SmartDocsMenu({
                 <span className="text-[11.5px] min-[375px]:text-[13px] font-semibold text-foreground tracking-tight truncate whitespace-nowrap">
                   {dict?.header?.home_menu || 'Home'}
                 </span>
-              </Link>
+              </a>
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -325,10 +325,10 @@ export function SmartDocsMenu({
 
             {/* Premium Upgrade Banner (Mobile & Tablet) */}
             <div className="lg:hidden flex justify-center my-1.5 mb-3.5">
-              <Link
+              <a
                 onClick={() => setIsOpen(false)}
                 href={`/${lang}/membership`}
-                className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden"
+                className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer"
               >
                 <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
                 <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[13px] min-[390px]:text-[14px]"></i>
@@ -336,7 +336,7 @@ export function SmartDocsMenu({
                   {profile && !isRegular ? 'Upgrade Plan' : 'Membership Plan'}
                 </span>
                 <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-[14px] min-[390px]:text-[16px]"></i>
-              </Link>
+              </a>
             </div>
 
             {/* Unified Menu Links */}
@@ -402,7 +402,7 @@ export function SmartDocsMenu({
                               </div>
                               <i className="hidden lg:block fa-solid fa-chevron-right text-[9px] text-muted-foreground font-bold group-hover:translate-x-0.5 transition-transform"></i>
                             </button>
-                          ) : (
+                          ) : item.href.includes('/smart-docs') ? (
                             <Link
                               href={item.href}
                               onClick={handleItemClick}
@@ -426,6 +426,30 @@ export function SmartDocsMenu({
                               </div>
                               <i className={`hidden lg:block fa-solid fa-chevron-right text-[9px] font-bold group-hover:translate-x-0.5 transition-transform ${active ? 'text-primary' : 'text-muted-foreground'}`}></i>
                             </Link>
+                          ) : (
+                            <a
+                              href={item.href}
+                              onClick={handleItemClick}
+                              className={`
+                                flex items-center gap-2 min-[390px]:gap-2.5 p-2.5 min-[390px]:p-3 bg-background rounded-lg shadow-sm border border-border active:bg-muted active:scale-95 transition-all min-w-0 overflow-hidden cursor-pointer
+                                lg:justify-between lg:px-3 lg:py-1.5 lg:hover:bg-muted lg:border-none lg:rounded-none lg:shadow-none
+                                ${active ? 'bg-muted/60 lg:bg-muted/70 font-semibold ring-1 ring-primary/30 lg:ring-0' : ''}
+                              `}
+                            >
+                              <div className="flex items-center gap-2 min-[390px]:gap-2.5 lg:gap-3 min-w-0">
+                                <div
+                                  className={`flex items-center justify-center w-6.5 h-6.5 min-[390px]:w-7 min-[390px]:h-7 lg:w-6 lg:h-6 rounded-md lg:rounded-[5px] shrink-0 ${item.iconBg} shadow-[0_1px_2px_rgba(0,0,0,0.1)]`}
+                                >
+                                  <i className={`${item.icon} text-[12px] min-[390px]:text-[13px] lg:text-[12px] text-white`}></i>
+                                </div>
+                                <span
+                                  className={`font-semibold text-[12.5px] min-[375px]:text-[13.5px] lg:text-[13.5px] lg:tracking-tight ${active ? 'text-primary' : item.textColor || 'text-foreground'} tracking-tight leading-tight truncate whitespace-nowrap flex-1 min-w-0`}
+                                >
+                                  {item.label}
+                                </span>
+                              </div>
+                              <i className={`hidden lg:block fa-solid fa-chevron-right text-[9px] font-bold group-hover:translate-x-0.5 transition-transform ${active ? 'text-primary' : 'text-muted-foreground'}`}></i>
+                            </a>
                           )}
                           {index !== group.items.length - 1 && (
                             <div className="hidden lg:block absolute bottom-0 left-[2.75rem] right-0 h-[1px] bg-muted"></div>

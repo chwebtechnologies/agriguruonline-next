@@ -7,6 +7,7 @@ import { cookies } from 'next/headers';
 import { getSafeLang, getAssetsUrl, withTimeout } from '@/lib/api-utils';
 import { tradingService } from '@/lib/api/trading.service';
 import { getUserProfile } from '@/lib/user-data';
+import { getValidAuthToken } from '@/lib/auth-token';
 import { decryptData } from '@/lib/crypto-utils';
 import { formatHistoryItem } from '@/components/product-charts/MobileCommodityChart';
 
@@ -103,10 +104,9 @@ export async function generateMetadata(
 const getChartProductData = cache(async (id: string, lang: string = 'en', dict: any = {}) => {
   let token = '';
   try {
-    const cookieStore = await cookies();
-    token = cookieStore.get('auth_token')?.value || '';
+    token = (await getValidAuthToken()) || '';
   } catch (e) {
-    console.error('Error reading cookies:', e);
+    console.error('Error reading auth token:', e);
   }
 
   const safeLang = getSafeLang(lang);
@@ -193,10 +193,9 @@ export default async function DedicatedChartPage(props: { params: Promise<{ lang
   
   let token = '';
   try {
-    const cookieStore = await cookies();
-    token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value || '';
+    token = (await getValidAuthToken()) || '';
   } catch (e) {
-    // Ignore cookie read error
+    // Ignore auth error
   }
   const safeLang = getSafeLang(lang);
 

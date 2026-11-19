@@ -67,7 +67,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
   const [country, setCountry] = useState(() => {
     // 1. If profileData already has country.iso2, use it directly
     if (profileData?.country?.iso2) {
-      return profileData.country.iso2.toUpperCase();
+      return String(profileData.country.iso2).toUpperCase();
     }
 
     // 2. Resolve ISO code from DB country_id by searching countries list
@@ -95,7 +95,7 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
     } catch (e) {}
 
     // 3. Fallback to raw code or AE
-    return profileData?.country_code && !profileData.country_code.startsWith('+') 
+    return profileData?.country_code && typeof profileData.country_code === 'string' && !profileData.country_code.startsWith('+') 
       ? profileData.country_code 
       : "AE";
   });

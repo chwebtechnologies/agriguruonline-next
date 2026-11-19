@@ -273,7 +273,7 @@ export const userService = {
         userProfileMemoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
         return result;
       } else {
-        return { userProfile: null, shouldLogout: false };
+        return { userProfile: null, shouldLogout: res.status === 401 };
       }
     } catch (err) {
       console.error('[userService.getUserProfile] Fetch error:', err);
@@ -395,7 +395,9 @@ export const userService = {
         user_type: typeof profileRes.userProfile.user_type === 'object' && profileRes.userProfile.user_type !== null ? { name: profileRes.userProfile.user_type.name, title: profileRes.userProfile.user_type.title } : profileRes.userProfile.user_type,
         company_name: profileRes.userProfile.company_name,
         business_name: profileRes.userProfile.business_name,
-        country: profileRes.userProfile.country ? { iso2: profileRes.userProfile.country.iso2, id: profileRes.userProfile.country.id } : undefined,
+        country: (profileRes.userProfile.country && typeof profileRes.userProfile.country === 'object')
+          ? { iso2: profileRes.userProfile.country.iso2 || '', id: profileRes.userProfile.country.id || '' }
+          : (typeof profileRes.userProfile.country === 'string' ? { iso2: profileRes.userProfile.country, id: '' } : undefined),
         country_id: profileRes.userProfile.country_id,
         profile_image: profileRes.userProfile.profile_image,
         profile_picture: profileRes.userProfile.profile_picture,

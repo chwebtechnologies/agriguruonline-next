@@ -20,6 +20,7 @@ import { AIPredictProductCard } from '@/components/alerts/AIPredictProductCard'
 import { AIPredictFreightCard } from '@/components/alerts/AIPredictFreightCard'
 import { ChartBottomSheetContainer, ChartBottomSheetItem } from '@/components/ui/charts/ChartBottomSheetContainer'
 import BecomeMemberModal from '@/components/membership/BecomeMemberModal'
+import { isJwtExpired } from '@/lib/jwt-utils'
 
 import { SearchProduct } from '@/types/search'
 
@@ -413,8 +414,8 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     };
   }, [token, activeLang, setHasUnread]);
 
-  // Active session silent refresh: backend tokens expire in 30 seconds.
-  // Refresh token every 20 seconds and on tab focus/visibility to ensure seamless UX.
+  // Active session silent refresh: check token expiry periodically and on tab focus/visibility.
+  // Only triggers refresh when the token is actually expiring (<60s) to prevent redundant token rotations.
   const tokenRef = useRef(currentToken);
   useEffect(() => {
     tokenRef.current = currentToken;
@@ -424,13 +425,21 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
     if (!token && !currentToken) return;
     let isCancelled = false;
 
-    const performSilentRefresh = async () => {
-      if (!tokenRef.current) return;
+    const performSilentRefresh = async (force = false) => {
+      const activeToken = tokenRef.current;
+      if (!activeToken) return;
+
+      // Only refresh if token is expiring within 60s or already expired
+      if (!force && !isJwtExpired(activeToken, 60)) {
+        return;
+      }
+
       try {
         const { refreshTokensAction } = await import('@/app/actions/auth');
         const res = await refreshTokensAction();
         if (res.success && res.access_token && !isCancelled) {
           setCurrentToken(res.access_token);
+          tokenRef.current = res.access_token;
           window.dispatchEvent(
             new CustomEvent('auth-token-refreshed', { detail: { token: res.access_token } })
           );
@@ -440,11 +449,13 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
       }
     };
 
-    const interval = setInterval(performSilentRefresh, 20000);
+    // Check every 30 seconds; only refreshes if token has <60s remaining
+    const interval = setInterval(() => performSilentRefresh(false), 30000);
 
     const handleActive = () => {
       if (document.visibilityState === 'visible') {
-        performSilentRefresh();
+        // When tab is re-focused / woken from sleep, only refresh if token is expiring (<60s)
+        performSilentRefresh(false);
       }
     };
 

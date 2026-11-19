@@ -9,7 +9,7 @@ import { getValidAuthToken } from "@/lib/auth-token";
 /**
  * Robust helper to obtain a guaranteed non-expired auth token for server actions.
  */
-async function getActionToken(): Promise<string | null> {
+async function getActionToken(): Promise<string | undefined> {
   const token = await getValidAuthToken();
   if (token) return token;
   try {
@@ -19,10 +19,10 @@ async function getActionToken(): Promise<string | null> {
       cookieStore.get("__Secure-uid")?.value ||
       cookieStore.get("access_token")?.value ||
       cookieStore.get("token")?.value ||
-      null
+      undefined
     );
   } catch {
-    return null;
+    return undefined;
   }
 }
 import {
@@ -53,6 +53,7 @@ import {
   extractContractData,
   extractCustomInvoiceData,
   extractCommercialInvoiceData,
+  extractPackingListData,
   extractBillOfLadingData,
   extractProductDetailData,
   extractPaymentTermDetailData,
@@ -169,10 +170,7 @@ export async function getSmartDocsListAction(
   params: GetSmartDocsListActionParams = {}
 ): Promise<GetSmartDocsActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     const page = params.page ?? 1;
     const limit = params.limit ?? 25;
@@ -251,10 +249,7 @@ export async function deleteSmartDocAction(
   params: DeleteSmartDocActionParams
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -317,10 +312,7 @@ export async function getStepperListAction(
   params: GetStepperListActionParams = {}
 ): Promise<GetStepperListActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -440,23 +432,7 @@ export async function getStepperDocsListAction(
       };
     }
 
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value ||
-      cookieStore.get("access_token")?.value ||
-      cookieStore.get("token")?.value;
-
-    if (!token) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[getStepperDocsListAction] Initial token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     const safeLang = getSafeLang(params.lang || "en");
     let rawRes = await smartDocsService.getStepperDocsList(
@@ -581,23 +557,7 @@ export async function saveStepperDocsListAction(
       };
     }
 
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value ||
-      cookieStore.get("access_token")?.value ||
-      cookieStore.get("token")?.value;
-
-    if (!token) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[saveStepperDocsListAction] Initial token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     const safeLang = getSafeLang(params.lang || "en");
     const rawDocs = Array.isArray(params?.stepper_docs)
@@ -693,10 +653,7 @@ export async function getSmartDocsInstructionsAction(
   params: GetSmartDocsInstructionsActionParams = {}
 ): Promise<GetSmartDocsInstructionsActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -754,10 +711,7 @@ export async function getSmartDocsProductsAction(
   params: GetSmartDocsProductsActionParams = {}
 ): Promise<GetSmartDocsProductsActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -818,10 +772,7 @@ export async function getSmartDocsProductDetailsAction(
       };
     }
 
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -977,10 +928,7 @@ export async function getSmartDocsPaymentTermsAction(
   params: GetSmartDocsPaymentTermsActionParams = {}
 ): Promise<GetSmartDocsPaymentTermsActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -1032,10 +980,7 @@ export async function getSmartDocsCurrenciesAction(
   params: GetSmartDocsCurrenciesActionParams = {}
 ): Promise<GetSmartDocsCurrenciesActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     const safeLang = getSafeLang(params.lang || "en");
     const rawRes = await smartDocsService.getCurrencies(
@@ -1078,21 +1023,7 @@ export async function getSmartDocsDocumentListAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<GetSmartDocsDocumentListActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes?.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[getSmartDocsDocumentListAction] Token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -1148,21 +1079,7 @@ export async function saveConfirmationDraftAction(
   lang: string = "en"
 ): Promise<SaveConfirmationDraftActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[saveConfirmationDraftAction] Token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -1315,21 +1232,7 @@ export async function getConfirmationAction(
       };
     }
 
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[getConfirmationAction] Token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -1422,21 +1325,7 @@ export async function getContractAction(
       };
     }
 
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[getContractAction] Token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -1526,21 +1415,7 @@ export async function saveContractDraftAction(
   id?: string
 ): Promise<SaveContractDraftActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[saveContractDraftAction] Token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -1801,21 +1676,7 @@ export async function submitContractAction(
   id?: string
 ): Promise<SubmitContractActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[submitContractAction] Token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -2080,7 +1941,7 @@ export async function getProformaAction(
       };
     }
 
-    const token = await getActionToken();
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -2696,7 +2557,7 @@ export async function getShipmentInstructionAction(
       };
     }
 
-    const token = await getActionToken();
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -3300,7 +3161,7 @@ export async function getCustomInvoiceAction(
       };
     }
 
-    const token = await getActionToken();
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -3945,7 +3806,7 @@ export async function getBillOfLadingAction(
       };
     }
 
-    const token = await getActionToken();
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -4496,21 +4357,7 @@ export async function submitConfirmationAction(
   lang: string = "en"
 ): Promise<SubmitConfirmationActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
-
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[submitConfirmationAction] Token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -4661,7 +4508,7 @@ export async function getCommercialInvoiceAction(
       };
     }
 
-    const token = await getActionToken();
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -4999,6 +4846,328 @@ export async function submitCommercialInvoiceAction(
   }
 }
 
+export interface GetPackingListActionResult {
+  success: boolean;
+  data: any | null;
+  error?: string;
+  message?: string;
+}
+
+export async function getPackingListAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetPackingListActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Packing List ID is required",
+        data: null,
+      };
+    }
+
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getPackingList(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch packing list details",
+        data: null,
+      };
+    }
+
+    const extData = extractPackingListData(rawRes);
+    return {
+      success: true,
+      data: extData || rawRes.data || rawRes,
+    };
+  } catch (error: any) {
+    console.error("[getPackingListAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch packing list details",
+      data: null,
+    };
+  }
+}
+
+export interface SavePackingListDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+export async function savePackingListDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SavePackingListDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.savePackingListDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.savePackingListDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[savePackingListDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save packing list draft",
+        message: "Failed to save packing list draft",
+      };
+    }
+
+    const isSuccess = Boolean(rawRes.success !== false && rawRes.success !== 0 && rawRes.status !== false);
+    if (!isSuccess) {
+      let errorFields =
+        rawRes.error_fields ||
+        rawRes.data?.error_fields ||
+        rawRes.errors ||
+        rawRes.data?.errors ||
+        rawRes.raw?.error_fields ||
+        rawRes.raw?.errors ||
+        null;
+
+      const extracted = extractApiValidationErrors(rawRes);
+      if (!errorFields && extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = Object.keys(errMap).length > 0 ? errMap : null;
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        "Failed to save packing list draft";
+      const cleanMessage = isRawRoutingOrHtmlError(rawBackendMsg)
+        ? "Failed to save packing list draft"
+        : rawBackendMsg;
+
+      return {
+        success: false,
+        error: cleanMessage,
+        message: cleanMessage,
+        error_fields: errorFields,
+        errors: errorFields,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const resolvedId =
+      rawRes.id ||
+      rawRes.data?.id ||
+      rawRes.data?._id ||
+      rawRes.data?.packing_list_id ||
+      rawRes._id ||
+      id;
+
+    return {
+      success: true,
+      message: rawRes.message || "Packing list draft saved successfully",
+      id: resolvedId ? String(resolvedId) : undefined,
+      data: rawRes.data !== undefined ? rawRes.data : rawRes,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[savePackingListDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving packing list draft",
+      message: error?.message || "Internal error occurred while saving packing list draft",
+    };
+  }
+}
+
+export async function submitPackingListAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SavePackingListDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitPackingList(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitPackingList(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitPackingListAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit packing list",
+        message: "Failed to submit packing list",
+      };
+    }
+
+    const isSuccess = Boolean(rawRes.success !== false && rawRes.success !== 0 && rawRes.status !== false);
+    if (!isSuccess) {
+      let errorFields =
+        rawRes.error_fields ||
+        rawRes.data?.error_fields ||
+        rawRes.errors ||
+        rawRes.data?.errors ||
+        rawRes.raw?.error_fields ||
+        rawRes.raw?.errors ||
+        null;
+
+      const extracted = extractApiValidationErrors(rawRes);
+      if (!errorFields && extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = Object.keys(errMap).length > 0 ? errMap : null;
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        "Failed to submit packing list";
+      const cleanMessage = isRawRoutingOrHtmlError(rawBackendMsg)
+        ? "Failed to submit packing list"
+        : rawBackendMsg;
+
+      return {
+        success: false,
+        error: cleanMessage,
+        message: cleanMessage,
+        error_fields: errorFields,
+        errors: errorFields,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const resolvedId =
+      rawRes.id ||
+      rawRes.data?.id ||
+      rawRes.data?._id ||
+      rawRes.data?.packing_list_id ||
+      rawRes._id ||
+      id;
+
+    return {
+      success: true,
+      message: rawRes.message || "Packing list submitted successfully",
+      id: resolvedId ? String(resolvedId) : undefined,
+      data: rawRes.data !== undefined ? rawRes.data : rawRes,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[submitPackingListAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to submit packing list",
+      message: error?.message || "Failed to submit packing list",
+    };
+  }
+}
+
 export interface GetDocPreviewActionParams {
   prefix?: string;
   id: string;
@@ -5010,6 +5179,7 @@ export interface GetDocPreviewActionParams {
   shipmentInstructionId?: string;
   customInvoiceId?: string;
   commercialInvoiceId?: string;
+  packingListId?: string;
 }
 
 export interface GetDocPreviewActionResult {
@@ -5028,9 +5198,11 @@ export async function getDocPreviewAction(
 ): Promise<GetDocPreviewActionResult> {
   try {
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(params.prefix || "");
-    const isCustomInvoice = !isCommercialInvoice && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
+    const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(params.prefix || "");
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
     const commercialId = String(params.commercialInvoiceId || "").trim();
+    const packingListId = String(params.packingListId || "").trim();
     const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
@@ -5039,6 +5211,19 @@ export async function getDocPreviewAction(
               commercialId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              packingListId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isPackingList
+          ? [
+              packingListId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5050,6 +5235,7 @@ export async function getDocPreviewAction(
               customId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              packingListId,
               commercialId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5059,6 +5245,7 @@ export async function getDocPreviewAction(
           : [
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              packingListId,
               commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
@@ -5070,7 +5257,7 @@ export async function getDocPreviewAction(
           (id): id is string =>
             Boolean(
               id &&
-                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
                   id
                 )
             )
@@ -5159,6 +5346,7 @@ export interface DownloadDocPdfActionParams {
   shipmentInstructionId?: string;
   customInvoiceId?: string;
   commercialInvoiceId?: string;
+  packingListId?: string;
 }
 
 export interface DownloadDocPdfActionResult {
@@ -5182,9 +5370,11 @@ export async function downloadDocPdfAction(
 ): Promise<DownloadDocPdfActionResult> {
   try {
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(params.prefix || "");
-    const isCustomInvoice = !isCommercialInvoice && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
+    const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(params.prefix || "");
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
     const commercialId = String(params.commercialInvoiceId || "").trim();
+    const packingListId = String(params.packingListId || "").trim();
     const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
@@ -5193,6 +5383,19 @@ export async function downloadDocPdfAction(
               commercialId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              packingListId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isPackingList
+          ? [
+              packingListId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5204,6 +5407,7 @@ export async function downloadDocPdfAction(
               customId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              packingListId,
               commercialId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5213,6 +5417,7 @@ export async function downloadDocPdfAction(
           : [
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              packingListId,
               commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
@@ -5224,7 +5429,7 @@ export async function downloadDocPdfAction(
           (id): id is string =>
             Boolean(
               id &&
-                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
                   id
                 )
             )
@@ -5340,10 +5545,7 @@ export async function fetchSignatureAsDataUrlAction(
       targetUrl = `${assetsUrl}/${targetUrl.replace(/^\/+/, "")}`;
     }
 
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     const headers: Record<string, string> = {};
     if (token) {
@@ -5397,10 +5599,7 @@ export async function getProductListingAction(
   params: GetProductListingParams = {}
 ): Promise<GetProductListingResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     const page = params.page ?? 1;
     const limit = params.limit ?? 10;
@@ -5469,10 +5668,7 @@ export async function deleteProductAction(
   lang: string = "en"
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -5494,10 +5690,7 @@ export async function saveProductAction(
   productData: any
 ): Promise<{ success: boolean; message: string; data?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -5523,10 +5716,7 @@ export async function getProductByIdAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<GetProductByIdResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -5588,10 +5778,7 @@ export async function updateProductAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[] }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -5649,10 +5836,7 @@ export async function getPaymentTermListingAction(
   params: GetPaymentTermListingActionParams = {}
 ): Promise<GetPaymentTermListingActionResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -5720,10 +5904,7 @@ export async function deletePaymentTermAction(
   lang: string = "en"
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -5745,10 +5926,7 @@ export async function savePaymentTermAction(
   termData: any
 ): Promise<{ success: boolean; message: string; data?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -5774,10 +5952,7 @@ export async function getPaymentTermByIdAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<GetPaymentTermByIdResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -5839,10 +6014,7 @@ export async function updatePaymentTermAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[] }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -5884,10 +6056,7 @@ export async function togglePaymentTermStatusAction(
   lang: string = "en"
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -5950,10 +6119,7 @@ export async function getSellerListingAction(
   params: GetSellerListingParams = {}
 ): Promise<GetSellerListingResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -6021,10 +6187,7 @@ export async function getSellerByIdAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<GetSellerByIdResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -6271,10 +6434,7 @@ export async function saveSellerAction(
   sellerData: any
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -6295,10 +6455,7 @@ export async function updateSellerAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -6335,10 +6492,7 @@ export async function deleteSellerAction(
   lang: string = "en"
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -6511,7 +6665,7 @@ export async function updateSellerBankDetailsAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
-    const token = await getActionToken();
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -6555,23 +6709,7 @@ export async function deleteSellerBankDetailAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value ||
-      cookieStore.get("access_token")?.value ||
-      cookieStore.get("token")?.value;
-
-    if (!token && cookieStore.get("refresh_token")?.value) {
-      try {
-        const refreshRes = await refreshTokensAction();
-        if (refreshRes?.success && refreshRes.access_token) {
-          token = refreshRes.access_token;
-        }
-      } catch (refErr) {
-        console.warn("[deleteSellerBankDetailAction] Token refresh failed:", refErr);
-      }
-    }
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -6628,10 +6766,7 @@ export async function getBuyerListingAction(
   params: GetBuyerListingParams = {}
 ): Promise<GetBuyerListingResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -6699,10 +6834,7 @@ export async function getBuyerByIdAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<GetBuyerByIdResult> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return {
@@ -6895,10 +7027,7 @@ export async function saveBuyerAction(
   buyerData: any
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -6919,10 +7048,7 @@ export async function updateBuyerAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any; errors?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized", error_fields: [] };
@@ -6959,10 +7085,7 @@ export async function deleteBuyerAction(
   lang: string = "en"
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) {
       return { success: false, message: "Unauthorized" };
@@ -6995,15 +7118,6 @@ export async function getBuyerConsigneesAction(
 ): Promise<{ success: boolean; data?: any[]; message?: string }> {
   try {
     let token = await getActionToken();
-    if (!token) {
-      const cookieStore = await cookies();
-      token =
-        cookieStore.get("auth_token")?.value ||
-        cookieStore.get("__Secure-uid")?.value ||
-        cookieStore.get("access_token")?.value ||
-        cookieStore.get("token")?.value ||
-        null;
-    }
 
     if (!token) return { success: false, message: "Unauthorized", data: [] };
     const cleanId = sanitizeDocId(buyerId);
@@ -7043,10 +7157,7 @@ export async function saveBuyerConsigneesAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) return { success: false, message: "Unauthorized", error_fields: [] };
     const cleanId = sanitizeDocId(buyerId);
@@ -7074,10 +7185,7 @@ export async function deleteBuyerConsigneeAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) return { success: false, message: "Unauthorized" };
     const cleanId = sanitizeDocId(consigneeId);
@@ -7108,15 +7216,6 @@ export async function getBuyerNotifyPartiesAction(
 ): Promise<{ success: boolean; data?: any[]; message?: string }> {
   try {
     let token = await getActionToken();
-    if (!token) {
-      const cookieStore = await cookies();
-      token =
-        cookieStore.get("auth_token")?.value ||
-        cookieStore.get("__Secure-uid")?.value ||
-        cookieStore.get("access_token")?.value ||
-        cookieStore.get("token")?.value ||
-        null;
-    }
 
     if (!token) return { success: false, message: "Unauthorized", data: [] };
     const cleanId = sanitizeDocId(buyerId);
@@ -7158,10 +7257,7 @@ export async function saveBuyerNotifyPartiesAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string; data?: any; error_fields?: any[]; errors?: any }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) return { success: false, message: "Unauthorized", error_fields: [] };
     const cleanId = sanitizeDocId(buyerId);
@@ -7189,10 +7285,7 @@ export async function deleteBuyerNotifyPartyAction(
   params: { lang?: string; source?: string } = {}
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const cookieStore = await cookies();
-    let token =
-      cookieStore.get("auth_token")?.value ||
-      cookieStore.get("__Secure-uid")?.value;
+    let token = await getActionToken();
 
     if (!token) return { success: false, message: "Unauthorized" };
     const cleanId = sanitizeDocId(notifyPartyId);

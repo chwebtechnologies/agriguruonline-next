@@ -266,23 +266,23 @@ export function SmartDocsHeader({
               </div>
 
               {/* Logo - unified 32px / 36px sizing */}
-              <Link
+              <a
                 href={`/${activeLang}`}
                 aria-label="AgriGuru Online Home"
-                className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 focus:outline-none rounded shrink-0"
+                className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 focus:outline-none rounded shrink-0 cursor-pointer"
               >
                 <AgriGuruLogo size={36} className="!w-8 !h-8 sm:!w-9 sm:!h-9" />
-              </Link>
+              </a>
 
               {/* AgriGuru Online Text: Visible on sm+ screens */}
-              <Link
+              <a
                 href={`/${activeLang}`}
-                className="hidden sm:inline-flex items-center focus:outline-none shrink-0"
+                className="hidden sm:inline-flex items-center focus:outline-none shrink-0 cursor-pointer"
               >
                 <span className="font-extrabold text-sm sm:text-base lg:text-lg tracking-tight text-foreground whitespace-nowrap">
                   AgriGuru Online
                 </span>
-              </Link>
+              </a>
 
               {/* Priority #1: Smart Docs Title - Clean gradient typography, no icon, seamless brand look */}
               <Link
@@ -300,14 +300,14 @@ export function SmartDocsHeader({
             <div className="flex items-center gap-1 sm:gap-2 select-none sm:border-s sm:border-border/60 sm:ps-2.5 dir-none shrink-0">
               
               {/* 1. Marketplace Button - unified h-8 / h-9 */}
-              <Link
+              <a
                 href={`/${activeLang}`}
                 className="h-8 sm:h-9 px-2 sm:px-3 rounded-lg inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-primary-gradient text-xs sm:text-sm font-bold text-white shadow-xs hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer"
                 title="Go to Marketplace"
               >
                 <i className="fa-solid fa-store text-xs sm:text-sm"></i>
                 <span className="hidden sm:inline">{dict?.header?.marketplace || 'Marketplace'}</span>
-              </Link>
+              </a>
 
               {/* 2. Language Change Option - unified h-8 / h-9 */}
               <div className="relative inline-block text-left shrink-0" ref={langRef}>
@@ -607,32 +607,32 @@ export function SmartDocsHeader({
 
                     {/* Menu Items */}
                     <div className="flex flex-col space-y-1">
-                      <Link
+                      <a
                         href={`/${activeLang}/profile`}
                         onClick={() => setIsProfileOpen(false)}
-                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
+                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
                       >
                         <i className="fa-solid fa-circle-user text-primary w-4" />
                         <span>{dict?.header?.my_profile || 'My Profile'}</span>
-                      </Link>
+                      </a>
 
-                      <Link
+                      <a
                         href={`/${activeLang}/dashboard`}
                         onClick={() => setIsProfileOpen(false)}
-                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
+                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
                       >
                         <i className="fa-solid fa-table-cells-large text-emerald-600 dark:text-emerald-400 w-4" />
                         <span>{dict?.header?.dashboard || 'Dashboard'}</span>
-                      </Link>
+                      </a>
 
-                      <Link
+                      <a
                         href={`/${activeLang}/my-settings`}
                         onClick={() => setIsProfileOpen(false)}
-                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
+                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
                       >
                         <i className="fa-solid fa-gear text-slate-500 w-4" />
                         <span>{dict?.header?.my_settings || 'Settings'}</span>
-                      </Link>
+                      </a>
 
                       {/* Theme switcher inside profile dropdown for mobile */}
                       <button

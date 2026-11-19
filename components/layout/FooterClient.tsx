@@ -99,7 +99,7 @@ export default function FooterClient({ dict, activeLang, footerData }: FooterPro
       ],
       'Trade Services': [
         { name: dict.footer.user_manual, title: dict.footer.user_manual, link_type: 'PAGE', slug: 'user-manual', url: '' },
-        { name: dict.footer.user_guide, title: dict.footer.user_guide, link_type: 'PAGE', slug: 'agriguru-user-guide', url: '' },
+        { name: dict.footer.user_guide, title: dict.footer.user_guide, link_type: 'PAGE', slug: 'user-guide', url: '' },
         { name: dict.footer.disclaimer, title: dict.footer.disclaimer, link_type: 'PAGE', slug: 'disclaimer', url: '' },
         { name: dict.footer.terms_conditions, title: dict.footer.terms_conditions, link_type: 'PAGE', slug: 'terms-conditions', url: '' },
         { name: dict.footer.refund_cancellation, title: dict.footer.refund_cancellation, link_type: 'PAGE', slug: 'refund-cancellation-policy', url: '' },
@@ -169,8 +169,8 @@ export default function FooterClient({ dict, activeLang, footerData }: FooterPro
     if (slug === 'career') {
       return { href: `/${activeLang}/career`, isExternal: false }
     }
-    if (slug === 'user-guide') {
-      return { href: `/${activeLang}/agriguru-user-guide`, isExternal: false }
+    if (slug === 'user-guide' || slug === 'agriguru-user-guide') {
+      return { href: `/${activeLang}/user-guide`, isExternal: false }
     }
 
     // 2. Generic CMS Page

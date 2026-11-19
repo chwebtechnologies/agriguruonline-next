@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { authService, userService, invalidateUserAuthCache } from "@/lib/api";
 import { getUserApiUrl } from "@/lib/api-utils";
 import { getIsSecureCookie, extractRefreshTokenFromResponse } from "@/lib/auth-cookie";
-import { executeRefreshToken } from "@/lib/auth-token";
+import { executeRefreshToken, getValidAuthToken } from "@/lib/auth-token";
 
 /**
  * Internal timeout wrapper for auth requests to prevent hanging when User API is slow.
@@ -321,7 +321,7 @@ export async function deleteAccount(userId?: string, lang: string = 'en'): Promi
   message: string;
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+  const token = (await getValidAuthToken()) || cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
 
   if (!token) {
     return { success: false, status: 401, message: "Authentication required. Please log in again." };
@@ -451,7 +451,7 @@ export async function refreshTokensAction() {
 export async function syncFcmTokenAction(fcmToken: string): Promise<{ success: boolean; message?: string }> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
+    const token = (await getValidAuthToken()) || cookieStore.get("auth_token")?.value || cookieStore.get("__Secure-uid")?.value;
     if (!token) {
       return { success: false, message: "User is not authenticated" };
     }

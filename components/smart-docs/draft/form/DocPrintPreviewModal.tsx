@@ -19,6 +19,7 @@ export interface DocPrintPreviewModalProps {
   shipmentInstructionId?: string;
   customInvoiceId?: string;
   commercialInvoiceId?: string;
+  packingListId?: string;
   billOfLadingId?: string;
 }
 
@@ -156,6 +157,7 @@ export default function DocPrintPreviewModal({
   shipmentInstructionId,
   customInvoiceId,
   commercialInvoiceId,
+  packingListId,
   billOfLadingId,
 }: DocPrintPreviewModalProps) {
   const [mounted, setMounted] = useState(false);
@@ -187,6 +189,7 @@ export default function DocPrintPreviewModal({
         [
           cleanId,
           ...(candidateIds || []).map((id) => String(id || '').trim()),
+          String(packingListId || '').trim(),
           String(commercialInvoiceId || '').trim(),
           String(billOfLadingId || '').trim(),
           String(customInvoiceId || '').trim(),
@@ -194,7 +197,7 @@ export default function DocPrintPreviewModal({
           String(proformaId || '').trim(),
           String(contractId || '').trim(),
           String(confirmationId || '').trim(),
-        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(id)))
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(id)))
       )
     );
 
@@ -217,6 +220,7 @@ export default function DocPrintPreviewModal({
         shipmentInstructionId,
         customInvoiceId,
         commercialInvoiceId,
+        packingListId,
         lang,
       });
 
@@ -233,7 +237,7 @@ export default function DocPrintPreviewModal({
     } finally {
       setLoading(false);
     }
-  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, commercialInvoiceId, billOfLadingId, lang]);
+  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, commercialInvoiceId, packingListId, billOfLadingId, lang]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -244,7 +248,7 @@ export default function DocPrintPreviewModal({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen && docId) {
+    if (isOpen) {
       fetchPreview();
     }
   }, [isOpen, docId, fetchPreview]);

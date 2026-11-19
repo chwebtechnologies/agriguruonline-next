@@ -474,11 +474,34 @@ export const cmsService = {
       if (json?.success === 1 && json.data) {
         return json.data;
       }
-      return null;
     } catch (err) {
       console.error(`[cmsService.getContentBySlug] error for slug '${slug}':`, err);
-      return null;
     }
+
+    // Fallback alias lookup if backend has different naming across environments
+    const fallbackSlugMap: Record<string, string> = {
+      'user-guide': 'agriguru-user-guide',
+      'agriguru-user-guide': 'user-guide',
+      'refund-cancellation': 'refund-cancellation-policy',
+      'refund-cancellation-policy': 'refund-cancellation',
+    };
+
+    const fallbackSlug = fallbackSlugMap[slug];
+    if (fallbackSlug) {
+      try {
+        const fallbackUrl = `${cmsApiUrl}/content/${fallbackSlug}`;
+        const fallbackJson = await customFetchJSON<CmsContentResponse>(fallbackUrl, {
+          params: { lang_code: lang, source: 'web' },
+        });
+        if (fallbackJson?.success === 1 && fallbackJson.data) {
+          return fallbackJson.data;
+        }
+      } catch (fallbackErr) {
+        // ignore fallback error
+      }
+    }
+
+    return null;
   }),
 
   /**

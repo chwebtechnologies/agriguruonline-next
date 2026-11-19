@@ -20,6 +20,7 @@ import WatchlistSectionSkeleton from '@/components/home/WatchlistSectionSkeleton
 import WatchlistScrollHandler from '@/components/home/WatchlistScrollHandler'
 import { cookies } from 'next/headers'
 import { getUserProfile } from '@/lib/user-data'
+import { getValidAuthToken } from '@/lib/auth-token'
 import { Suspense } from 'react'
 
 function OrganizationSchema({ lang }: { lang: string }) {
@@ -132,7 +133,7 @@ async function HomeFeed({ activeLang, dict }: { activeLang: string; dict: any })
 
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
+    const token = await getValidAuthToken();
     if (token) {
       const userResult = await withTimeout(getUserProfile(token, activeLang), 2000, { userProfile: null, shouldLogout: false });
       if (userResult.userProfile) {

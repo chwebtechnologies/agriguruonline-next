@@ -14,6 +14,7 @@ import { ProductActionButtons } from '@/components/marketed-products/ProductActi
 
 import { cookies } from 'next/headers'
 import { getUserProfile } from '@/lib/user-data'
+import { getValidAuthToken } from '@/lib/auth-token'
 
 export const revalidate = 60;
 
@@ -261,7 +262,7 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
   let userType: string | null = null;
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
+    const token = await getValidAuthToken();
     if (token) {
       const userResult = await withTimeout(getUserProfile(token, lang), 2000, { userProfile: null, shouldLogout: false });
       if (userResult.userProfile) {

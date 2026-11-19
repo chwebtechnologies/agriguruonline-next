@@ -37,7 +37,7 @@ export const STATIC_ROUTES_CONFIG: StaticRouteConfig[] = [
   { path: '/disclaimer', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/terms-conditions', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/user-manual', changeFrequency: 'monthly', priority: 0.6 },
-  { path: '/agriguru-user-guide', changeFrequency: 'monthly', priority: 0.6 },
+  { path: '/user-guide', changeFrequency: 'monthly', priority: 0.6 },
 ]
 
 export function escapeXml(unsafe: string): string {

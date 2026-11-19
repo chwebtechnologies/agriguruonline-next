@@ -79,27 +79,6 @@ export function extractRefreshTokenFromResponse(response: Response, data?: any):
   return null;
 }
 
-/**
- * Checks whether a JWT token is expired or will expire within bufferSeconds.
- * Works seamlessly in both Node.js and Edge Runtime (using atob / Buffer fallback).
- */
-export function isJwtExpired(token: string | undefined | null, bufferSeconds = 5): boolean {
-  if (!token || typeof token !== 'string') return true;
-  try {
-    const parts = token.trim().replace(/^Bearer\s+/i, '').split('.');
-    if (parts.length !== 3) return false; // Non-JWT token format, assume valid
-    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const pad = payloadBase64.length % 4;
-    const padded = pad ? payloadBase64 + '='.repeat(4 - pad) : payloadBase64;
-    const decoded = typeof atob === 'function' 
-      ? atob(padded) 
-      : Buffer.from(padded, 'base64').toString('utf8');
-    const payload = JSON.parse(decoded);
-    if (!payload.exp) return false;
-    const nowSec = Math.floor(Date.now() / 1000);
-    return nowSec >= (payload.exp - bufferSeconds);
-  } catch {
-    return false;
-  }
-}
+export { parseJwtPayload, isJwtExpired } from './jwt-utils';
+
 

@@ -6278,6 +6278,430 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches Packing List details by ID with authentication:
+   * GET /packing-list/:id?lang_code=en&source=web
+   */
+  getPackingList: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/packing-list/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+
+      const fallbackUrl = `${baseUrl}/packing-lists/${encodeURIComponent(cleanId)}`;
+      try {
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch {
+        return response;
+      }
+    } catch (error) {
+      console.warn('[smartDocsService.getPackingList] /packing-list error, attempting fallback:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/packing-lists/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackErr) {
+        console.error('[smartDocsService.getPackingList] error:', fallbackErr);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves Packing List as draft:
+   * PATCH /packing-list/save/:id?lang_code=en&source=web
+   */
+  savePackingListDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const candidateId = sanitizeDocId(
+      id ||
+        (isFormData
+          ? (payload.get('packing_list_id') ||
+            payload.get('packingListId') ||
+            payload.get('id') ||
+            payload.get('commercial_invoice_id') ||
+            payload.get('custom_invoice_id') ||
+            payload.get('shipment_instruction_id') ||
+            payload.get('proforma_id') ||
+            payload.get('contract_id') ||
+            payload.get('confirmation_id'))
+          : (payload?.packing_list_id ||
+            payload?.packingListId ||
+            payload?.id ||
+            payload?.commercial_invoice_id ||
+            payload?.custom_invoice_id ||
+            payload?.shipment_instruction_id ||
+            payload?.proforma_id ||
+            payload?.contract_id ||
+            payload?.confirmation_id))
+    );
+
+    const isPlaceholder =
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        candidateId
+      );
+    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+    if (cleanId) {
+      const encId = encodeURIComponent(cleanId);
+      saveCandidates.push(
+        { url: `${baseUrl}/packing-list/save/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/packing-list/save/${encId}`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/packing-lists/save/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/packing-lists/save/${encId}`, method: 'POST', id: cleanId }
+      );
+    }
+    saveCandidates.push(
+      { url: `${baseUrl}/packing-list/save`, method: 'PATCH' },
+      { url: `${baseUrl}/packing-list/save`, method: 'POST' },
+      { url: `${baseUrl}/packing-lists/save`, method: 'PATCH' },
+      { url: `${baseUrl}/packing-lists/save`, method: 'POST' }
+    );
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id) {
+            clonedFd.set('packing_list_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('packing_list_id');
+          }
+          body = clonedFd;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id) {
+            cleaned.packing_list_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.packing_list_id;
+          }
+          body = JSON.stringify(cleaned);
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text();
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = { message: text };
+          }
+
+          if (response.ok && json?.success !== false && json?.success !== 0 && json?.status !== false) {
+            return {
+              ...json,
+              success: true,
+              data: json?.data !== undefined ? json.data : json,
+              id:
+                json?.data?.id ||
+                json?.data?._id ||
+                json?.data?.packing_list_id ||
+                json?.id ||
+                json?._id ||
+                candidate.id,
+            };
+          }
+
+          const isRouteNotFound =
+            response.status === 404 ||
+            response.status === 405 ||
+            (response.status >= 400 &&
+              (/<(!DOCTYPE|html)/i.test(text) ||
+                /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+                /not found/i.test(String(json?.message || json?.error || text || '').trim())));
+
+          if (isRouteNotFound && i < saveCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to save packing list draft'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          break;
+        } catch (fetchErr: any) {
+          if (i < saveCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while saving packing list draft',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while saving packing list draft',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.savePackingListDraft] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while saving packing list draft'),
+      };
+    }
+  },
+
+  /**
+   * Submits Packing List:
+   * PATCH /packing-list/submit/:id?lang_code=en&source=web
+   */
+  submitPackingList: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const candidateId = sanitizeDocId(
+      id ||
+        (isFormData
+          ? (payload.get('packing_list_id') ||
+            payload.get('packingListId') ||
+            payload.get('id') ||
+            payload.get('commercial_invoice_id') ||
+            payload.get('custom_invoice_id') ||
+            payload.get('shipment_instruction_id') ||
+            payload.get('proforma_id') ||
+            payload.get('contract_id') ||
+            payload.get('confirmation_id'))
+          : (payload?.packing_list_id ||
+            payload?.packingListId ||
+            payload?.id ||
+            payload?.commercial_invoice_id ||
+            payload?.custom_invoice_id ||
+            payload?.shipment_instruction_id ||
+            payload?.proforma_id ||
+            payload?.contract_id ||
+            payload?.confirmation_id))
+    );
+
+    const isPlaceholder =
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        candidateId
+      );
+    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+    if (cleanId) {
+      const encId = encodeURIComponent(cleanId);
+      submitCandidates.push(
+        { url: `${baseUrl}/packing-list/submit/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/packing-list/submit/${encId}`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/packing-lists/submit/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/packing-lists/submit/${encId}`, method: 'POST', id: cleanId }
+      );
+    }
+    submitCandidates.push(
+      { url: `${baseUrl}/packing-list/submit`, method: 'POST' },
+      { url: `${baseUrl}/packing-list/submit`, method: 'PATCH' },
+      { url: `${baseUrl}/packing-lists/submit`, method: 'POST' },
+      { url: `${baseUrl}/packing-lists/submit`, method: 'PATCH' }
+    );
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < submitCandidates.length; i++) {
+        const candidate = submitCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id) {
+            clonedFd.set('packing_list_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('packing_list_id');
+          }
+          body = clonedFd;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id) {
+            cleaned.packing_list_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.packing_list_id;
+          }
+          body = JSON.stringify(cleaned);
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text();
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = { message: text };
+          }
+
+          if (response.ok && json?.success !== false && json?.success !== 0 && json?.status !== false) {
+            return {
+              ...json,
+              success: true,
+              data: json?.data !== undefined ? json.data : json,
+              id:
+                json?.data?.id ||
+                json?.data?._id ||
+                json?.data?.packing_list_id ||
+                json?.id ||
+                json?._id ||
+                candidate.id,
+            };
+          }
+
+          const isRouteNotFound =
+            response.status === 404 ||
+            response.status === 405 ||
+            (response.status >= 400 &&
+              (/<(!DOCTYPE|html)/i.test(text) ||
+                /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+                /not found/i.test(String(json?.message || json?.error || text || '').trim())));
+
+          if (isRouteNotFound && i < submitCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit packing list'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          break;
+        } catch (fetchErr: any) {
+          if (i < submitCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while submitting packing list',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while submitting packing list',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.submitPackingList] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while submitting packing list'),
+      };
+    }
+  },
+
+  /**
    * Fetches Bill of Lading details by ID with authentication:
    * GET /bill-of-lading/:id?lang_code=en&source=web
    */
@@ -6859,16 +7283,19 @@ export const smartDocsService = {
 
     // Determine candidate prefixes based on document type
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(rawPrefix);
-    const isCustomInvoice = !isCommercialInvoice && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isBillOfLading = !isCommercialInvoice && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
-    const isShipmentInstruction = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(rawPrefix);
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
+    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
       : isCommercialInvoice
       ? ['commercial_invoice', 'commercial-invoice', 'commercialInvoice', 'commercial', 'ci']
+      : isPackingList
+      ? ['packing_list', 'packing-list', 'packingList', 'packinglist', 'packing', 'pl', 'packing_lists', 'packing-lists']
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
       : isBillOfLading
@@ -6982,6 +7409,18 @@ export const smartDocsService = {
             `${baseUrl}/commercial-invoices/preview/${encodeURIComponent(curId)}`,
             `${baseUrl}/commercial-invoice/pdf/${encodeURIComponent(curId)}`,
           ]
+        : isPackingList
+        ? [
+            `${baseUrl}/packing-list/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-list/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-lists/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-lists/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-list/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-lists/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing/pdf/${encodeURIComponent(curId)}`,
+          ]
         : isCustomInvoice
         ? [
             `${baseUrl}/custom-invoice/preview-pdf/${encodeURIComponent(curId)}`,
@@ -7087,16 +7526,19 @@ export const smartDocsService = {
     }
 
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(rawPrefix);
-    const isCustomInvoice = !isCommercialInvoice && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isBillOfLading = !isCommercialInvoice && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
-    const isShipmentInstruction = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCommercialInvoice && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(rawPrefix);
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
+    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
       : isCommercialInvoice
       ? ['commercial_invoice', 'commercial-invoice', 'commercialInvoice', 'commercial', 'ci']
+      : isPackingList
+      ? ['packing_list', 'packing-list', 'packingList', 'packinglist', 'packing', 'pl', 'packing_lists', 'packing-lists']
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
       : isBillOfLading
@@ -7266,6 +7708,18 @@ export const smartDocsService = {
             `${baseUrl}/commercial-invoice/download/${encodeURIComponent(curId)}`,
             `${baseUrl}/commercial-invoice/pdf/${encodeURIComponent(curId)}`,
             `${baseUrl}/commercial-invoices/download-pdf/${encodeURIComponent(curId)}`,
+          ]
+        : isPackingList
+        ? [
+            `${baseUrl}/packing-list/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-list/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-list/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-lists/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-lists/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing-lists/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/packing/pdf/${encodeURIComponent(curId)}`,
           ]
         : isCustomInvoice
         ? [
@@ -9591,6 +10045,7 @@ export function getWorkflowSubmitButtonInfo({
       if (t.includes('shipment') || t.includes('instruction')) return isShipmentInstructionStep(s, idx);
       if (t.includes('lading') || t.includes('bill_of_lading') || t.includes('bl')) return isBillOfLadingStep(s, idx);
       if (t.includes('commercial')) return isCommercialInvoiceStep(s, idx);
+      if (t.includes('packing')) return isPackingListStep(s, idx);
       if (t.includes('custom') || t.includes('invoice')) return isCustomInvoiceStep(s, idx);
       return false;
     });
@@ -9972,12 +10427,78 @@ export function getCommercialInvoiceIdFromStepper(
 export function isPackingListStep(step?: StepperDocumentItem | null, index?: number): boolean {
   if (step) {
     const id = String(step.id || step._id || '').toLowerCase();
-    const name = String(step.document_name || step.name || step.title || step.doc_name || '').toLowerCase();
-    const slug = String(step.slug || step.type || '').toLowerCase();
-    if (id.includes('packing') || name.includes('packing') || slug.includes('packing')) return true;
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+    const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
+
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || slug.includes('shipment')) return false;
+    if (id.includes('lading') || name.includes('lading') || id.includes('bill_of_lading') || name.includes('bill of lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
+
+    if (
+      id.includes('packing') ||
+      name.includes('packing') ||
+      slug.includes('packing') ||
+      redirect.includes('packing-list') ||
+      redirect.includes('packing_list') ||
+      redirect.includes('packing')
+    ) {
+      return true;
+    }
+
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 8) return true;
+    }
+
     return false;
   }
   return typeof index === 'number' && index === 7;
+}
+
+export function getPackingListStep(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isPackingListStep(selectedStep)) return selectedStep;
+  if (steps && steps.length > 0) {
+    const found = steps.find((s) => isPackingListStep(s));
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getPackingListIdFromStepper(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getPackingListStep(steps, selectedStep);
+  if (!step) return '';
+  return getStepSelfId(step);
 }
 
 export function getShipmentInstructionStep(
@@ -10109,6 +10630,7 @@ export function isSameWorkflowStep(
   if (isBillOfLadingStep(a) && isBillOfLadingStep(b)) return true;
   if (isCustomInvoiceStep(a) && isCustomInvoiceStep(b)) return true;
   if (isCommercialInvoiceStep(a) && isCommercialInvoiceStep(b)) return true;
+  if (isPackingListStep(a) && isPackingListStep(b)) return true;
 
   if (typeof a.step === 'number' && typeof b.step === 'number' && a.step === b.step) {
     return true;
@@ -10129,7 +10651,7 @@ export function mergeStepperWithHidden(
   if (!existingSteps || existingSteps.length === 0) return newSteps;
 
   return newSteps.map((newStep) => {
-    let mergedStep: StepperDocumentItem = { ...newStep };
+    const mergedStep: StepperDocumentItem = { ...newStep };
     const matchedPrev = existingSteps.find((prev) => isSameWorkflowStep(newStep, prev));
 
     if (matchedPrev) {
@@ -10485,6 +11007,194 @@ export function extractCommercialInvoiceDocumentStatus(data?: any, stepItem?: St
     !data.confirmation_number
   );
   if (isPureCommercial && data.status) {
+    const norm = normalizeStepStatus(data.status);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  return 'PENDING';
+}
+
+export function extractLinkedPackingListId(data: any): string {
+  if (!data) return '';
+  const d = data.data ?? data;
+  const commercialId = sanitizeDocId(
+    d?.commercial_invoice_id ||
+      d?.commercialInvoiceId ||
+      (d?.commercial_invoice_number || d?.commercial_invoice_no ? d?.id || d?._id : '')
+  );
+  const candidates = [
+    d?.packing_list_id,
+    d?.packingListId,
+    d?.packing_id,
+    d?.packingId,
+    d?.packing_list?.id,
+    d?.packing_list?._id,
+    d?.packing_list?.packing_list_id,
+  ];
+  for (const c of candidates) {
+    if (c) {
+      const clean = sanitizeDocId(c);
+      if (
+        clean &&
+        clean !== commercialId &&
+        !/^(packing|packing-list|packing_list|invoice|commercial|commercial-invoice|step-\d+)$/i.test(clean)
+      ) {
+        return clean;
+      }
+    }
+  }
+  return '';
+}
+
+export function extractPackingListData(data: any): any {
+  if (!data || typeof data !== 'object') return null;
+  if (
+    data.success === false ||
+    data.status === false ||
+    (typeof data.statusCode === 'number' && data.statusCode >= 400)
+  ) {
+    return null;
+  }
+  const d = data.data !== undefined ? data.data : data;
+  if (!d || typeof d !== 'object') return null;
+
+  // STRICT GUARD: If this payload is a Commercial Invoice without packing markers, reject it!
+  const hasCommercialMarkers = Boolean(
+    d.commercial_invoice_number ||
+    d.commercial_invoice_no ||
+    d.commercial_invoice_id ||
+    d.commercial_invoice ||
+    d.commercialInvoice ||
+    d.document_type === 'commercial_invoice' ||
+    d.doc_type === 'commercial_invoice'
+  );
+  const hasDirectPackingMarkers = Boolean(
+    d.packing_list_number ||
+    d.packing_list_no ||
+    d.packing_list_id ||
+    d.packing_list ||
+    d.packingList ||
+    d.document_type === 'packing_list' ||
+    d.doc_type === 'packing_list' ||
+    d._is_packing_list_loaded
+  );
+
+  if (hasCommercialMarkers && !hasDirectPackingMarkers) {
+    return null;
+  }
+
+  const raw =
+    d.packing_list ||
+    d.packingList ||
+    d.packing ||
+    d.document ||
+    d.details ||
+    d;
+
+  const merged: any = {
+    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  };
+
+  // Preserve non-empty fields across outer/nested payloads
+  const preserveKeys = [
+    'net_weight',
+    'gross_weight',
+    'total_bags',
+    'vessel_name',
+    'voyage_number',
+    'place_of_delivery',
+    'packing_type_title',
+    'containers',
+  ];
+  for (const key of preserveKeys) {
+    if (
+      (merged[key] === undefined || merged[key] === null || String(merged[key]).trim() === '') &&
+      d?.[key] !== undefined &&
+      d?.[key] !== null &&
+      String(d[key]).trim() !== ''
+    ) {
+      merged[key] = d[key];
+    }
+  }
+
+  merged.id = merged.id || merged._id || merged.packing_list_id || merged.packingListId;
+  if (merged.id) merged.id = String(merged.id);
+
+  const hasPackingMarkers = Boolean(
+    merged.packing_list_number ||
+    merged.packing_list_no ||
+    d?.packing_list ||
+    d?.packingList ||
+    merged.packing_list_id ||
+    merged.packingListId ||
+    merged._is_packing_list_loaded ||
+    merged.document_type === 'packing_list' ||
+    merged.doc_type === 'packing_list' ||
+    ((merged.id || merged._id) && (merged.goods_description || merged.containers || merged.net_weight) && !hasCommercialMarkers)
+  );
+  if (!hasPackingMarkers) {
+    return null;
+  }
+
+  // Strip any accidental commercial invoice fields from merged packing list data
+  delete merged.commercial_invoice;
+  delete merged.commercialInvoice;
+  delete merged.commercial_invoice_id;
+  delete merged.commercial_invoice_number;
+  delete merged.commercial_invoice_date;
+  delete merged.commercial_invoice_no;
+
+  merged._is_packing_list_loaded = true;
+  return merged;
+}
+
+export function isCompletePackingListData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  if (
+    (data.commercial_invoice_number || data.commercial_invoice_id) &&
+    !data.packing_list_number &&
+    !data.packing_list_no &&
+    !data.packing_list_id &&
+    !data.packing_list
+  ) {
+    return false;
+  }
+  return Boolean(
+    data.packing_list_number ||
+    data.packing_list_no ||
+    data.packing_list_date ||
+    data.packing_list_status ||
+    data._is_packing_list_loaded ||
+    (data.packing_list && typeof data.packing_list === 'object' && (data.packing_list.packing_list_number || data.packing_list.id))
+  );
+}
+
+export function extractPackingListDocumentStatus(data?: any, stepItem?: StepperDocumentItem | null): string {
+  if (stepItem) {
+    const norm = normalizeStepStatus(stepItem.status || stepItem.document_status || stepItem.step_status);
+    if (norm === 'completed') return 'COMPLETED';
+    return 'PENDING';
+  }
+  if (!data) return 'PENDING';
+
+  const pStatus =
+    data.packing_list_status ||
+    data.packingListStatus ||
+    data.packing_status ||
+    data.packing_list?.status ||
+    data.packing_list?.packing_list_status;
+  if (pStatus) {
+    const norm = normalizeStepStatus(pStatus);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  const isPurePacking = Boolean(
+    (data.packing_list_id || data._is_packing_list_loaded) &&
+    !data.contract_number &&
+    !data.confirmation_number
+  );
+  if (isPurePacking && data.status) {
     const norm = normalizeStepStatus(data.status);
     return norm === 'completed' ? 'COMPLETED' : 'PENDING';
   }

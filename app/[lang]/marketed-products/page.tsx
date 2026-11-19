@@ -169,11 +169,11 @@ async function MarketedProductsContent({ lang, page }: { lang: string; page: num
               id: product.category.id,
               name: product.category.name
             } : undefined,
-            country: product.country ? {
-              id: product.country.id,
-              name: product.country.name,
-              flag: product.country.flag,
-              iso2: product.country.iso2
+            country: product.country && typeof product.country === 'object' ? {
+              id: product.country.id || '',
+              name: product.country.name || '',
+              flag: product.country.flag || '',
+              iso2: product.country.iso2 || ''
             } : undefined,
             loading_ports: product.loading_ports?.map(lp => ({
               price: lp.price,

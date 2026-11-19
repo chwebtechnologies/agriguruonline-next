@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { getDictionary } from '@/app/[lang]/dictionaries';
 import { userService } from '@/lib/api/user.service';
 import { withTimeout } from '@/lib/api-utils';
+import { getValidAuthToken } from '@/lib/auth-token';
 import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
 import MembershipPlansClient from '@/components/membership/MembershipPlansClient';
 import MembershipLoading, { MembershipInnerSkeleton } from './loading';
@@ -83,8 +84,7 @@ export default async function MembershipPage(props: { params: Promise<{ lang: st
   const common = (dict as any)?.common || {};
   const membershipDict = (dict as any)?.membership || {};
 
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value || cookieStore.get('__Secure-uid')?.value;
+  const token = await getValidAuthToken();
 
   const pageTitle = membershipDict.page_title || 'Membership Plans';
 
@@ -98,7 +98,7 @@ export default async function MembershipPage(props: { params: Promise<{ lang: st
             backText={common.back || 'Back'}
           />
           <Suspense fallback={<MembershipInnerSkeleton />}>
-            <MembershipContent lang={lang} token={token} dict={dict} />
+            <MembershipContent lang={lang} token={token || undefined} dict={dict} />
           </Suspense>
         </div>
       </div>

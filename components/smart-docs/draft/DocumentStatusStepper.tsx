@@ -13,6 +13,7 @@ import {
   isBillOfLadingStep,
   isCustomInvoiceStep,
   isCommercialInvoiceStep,
+  isPackingListStep,
   extractStepRedirectId,
   extractStepId,
   getStepSelfId,
@@ -338,6 +339,9 @@ export function DocumentStatusStepper({
           stepParam === 'commercial-invoice' ||
           stepParam === 'commercial_invoice' ||
           stepParam === 'commercial' ||
+          stepParam === 'packing-list' ||
+          stepParam === 'packing_list' ||
+          stepParam === 'packing' ||
           stepParam === 'invoice'
         ) {
           sType = 'document';
@@ -497,17 +501,19 @@ export function DocumentStatusStepper({
       ).toLowerCase();
       const isBillOfLading = isBillOfLadingStep(step) || stepName.includes('lading') || step.step === 5;
       const isCommercialInvoice = !isBillOfLading && (isCommercialInvoiceStep(step) || stepName.includes('commercial') || step.step === 7);
-      const isCustomInvoice = !isBillOfLading && !isCommercialInvoice && (isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 6);
-      const isShipment = !isBillOfLading && !isCommercialInvoice && !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
-      const isContract = !isBillOfLading && !isCommercialInvoice && !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
-      const isProforma = !isBillOfLading && !isCommercialInvoice && !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
-      const prefix = isBillOfLading ? 'bill_of_lading' : isCommercialInvoice ? 'commercial_invoice' : isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
+      const isPackingList = !isBillOfLading && !isCommercialInvoice && (isPackingListStep(step) || stepName.includes('packing') || step.step === 8);
+      const isCustomInvoice = !isBillOfLading && !isCommercialInvoice && !isPackingList && (isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 6);
+      const isShipment = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
+      const isContract = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
+      const isProforma = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
+      const prefix = isBillOfLading ? 'bill_of_lading' : isCommercialInvoice ? 'commercial_invoice' : isPackingList ? 'packing_list' : isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
 
       const res = await downloadDocPdfAction({
         prefix,
         id: cleanId,
         customInvoiceId: isCustomInvoice ? cleanId : undefined,
         commercialInvoiceId: isCommercialInvoice ? cleanId : undefined,
+        packingListId: isPackingList ? cleanId : undefined,
         lang,
       });
 
@@ -536,6 +542,7 @@ export function DocumentStatusStepper({
     if (isBillOfLadingStep(stepItem) && isBillOfLadingStep(docConfig as any)) return true;
     if (isCustomInvoiceStep(stepItem) && isCustomInvoiceStep(docConfig as any)) return true;
     if (isCommercialInvoiceStep(stepItem) && isCommercialInvoiceStep(docConfig as any)) return true;
+    if (isPackingListStep(stepItem) && isPackingListStep(docConfig as any)) return true;
 
     return false;
   }, []);

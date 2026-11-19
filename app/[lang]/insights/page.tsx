@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import type { Metadata } from 'next'
 import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
 import { cookies } from 'next/headers'
+import { getValidAuthToken } from '@/lib/auth-token'
 import { Suspense } from 'react'
 
 export const revalidate = 60;
@@ -113,8 +114,7 @@ async function InsightsFeed({ activeLang, dict }: { activeLang: string; dict: an
   // Read auth token for reports modal/access if required
   let token: string | undefined;
   try {
-    const cookieStore = await cookies();
-    token = cookieStore.get('auth_token')?.value;
+    token = (await getValidAuthToken()) || undefined;
   } catch {}
 
   const [

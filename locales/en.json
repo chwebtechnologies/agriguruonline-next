@@ -671,6 +671,8 @@
     "draft_shipment_instruction_title": "Draft Shipment Instruction",
     "draft_bill_of_lading_title": "Draft Bill of Lading",
     "draft_custom_invoice_title": "Draft Custom Invoice",
+    "draft_commercial_invoice_title": "Draft Commercial Invoice",
+    "draft_packing_list_title": "Draft Packing List",
     "draft_description": "Create and configure smart trade confirmation drafts.",
     "draft_form_shell": "Draft Document Form",
     "stepper_shell": "Document Stepper",

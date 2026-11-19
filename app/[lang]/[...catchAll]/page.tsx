@@ -12,7 +12,7 @@ import type { CmsContentItem } from '@/types/cms';
 export const revalidate = 3600;
 
 const SLUG_ALIASES: Record<string, string> = {
-  'user-guide': 'agriguru-user-guide',
+  'agriguru-user-guide': 'user-guide',
   'refund-cancellation': 'refund-cancellation-policy',
   'privacy': 'privacy-policy',
   'terms': 'terms-conditions',
@@ -43,6 +43,7 @@ export async function generateStaticParams() {
       'founder-profile',
       'our-team',
       'user-manual',
+      'user-guide',
       'agriguru-user-guide',
       'disclaimer',
       'terms-conditions',
@@ -153,6 +154,11 @@ export default async function DynamicCmsCatchAllPage(props: {
   }
 
   const rawSlug = segments[0];
+
+  if (rawSlug === 'agriguru-user-guide') {
+    redirect(`/${lang}/user-guide`);
+  }
+
   const slug = resolveSlug(rawSlug);
 
   // Dedicated routes safety check

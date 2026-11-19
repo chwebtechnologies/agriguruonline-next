@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getTradingApiUrl } from '@/lib/api-utils';
+import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get('auth_token')?.value;
-    if (!token) token = cookieStore.get('__Secure-uid')?.value;
+    const token = await getValidAuthToken();
     
     if (!token) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
@@ -53,9 +52,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    let token = cookieStore.get('auth_token')?.value;
-    if (!token) token = cookieStore.get('__Secure-uid')?.value;
+    const token = await getValidAuthToken();
     
     if (!token) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });

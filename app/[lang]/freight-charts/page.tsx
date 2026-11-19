@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { getSafeLang, withTimeout } from '@/lib/api-utils'
 import { tradingService } from '@/lib/api/trading.service'
 import { getUserProfile } from '@/lib/user-data'
+import { getValidAuthToken } from '@/lib/auth-token'
 import { Suspense } from 'react'
 
 import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo';
@@ -24,8 +25,7 @@ export async function generateMetadata(
 }
 
 async function getFreightInitialData(lang: string = 'en') {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('auth_token')?.value || ''
+  const token = (await getValidAuthToken()) || ''
   const safeLang = getSafeLang(lang)
 
   let shippingContainers: any[] = []

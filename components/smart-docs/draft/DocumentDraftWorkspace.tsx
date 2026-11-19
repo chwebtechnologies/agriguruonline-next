@@ -24,12 +24,14 @@ import {
   isBillOfLadingStep,
   isCustomInvoiceStep,
   isCommercialInvoiceStep,
+  isPackingListStep,
   getContractStep,
   getProformaStep,
   getShipmentInstructionStep,
   getBillOfLadingStep,
   getCustomInvoiceStep,
   getCommercialInvoiceStep,
+  getPackingListStep,
   getContractIdFromStepper,
   getProformaIdFromStepper,
   getConfirmationIdFromStepper,
@@ -37,6 +39,7 @@ import {
   getBillOfLadingIdFromStepper,
   getCustomInvoiceIdFromStepper,
   getCommercialInvoiceIdFromStepper,
+  getPackingListIdFromStepper,
   extractShipmentInstructionData,
   extractBillOfLadingData,
   isCompleteBillOfLadingData,
@@ -47,6 +50,9 @@ import {
   extractCommercialInvoiceData,
   isCompleteCommercialInvoiceData,
   extractLinkedCommercialInvoiceId,
+  extractPackingListData,
+  isCompletePackingListData,
+  extractLinkedPackingListId,
   sanitizeDocId,
   isRealStepperList,
   isStatusCompleted,
@@ -64,6 +70,7 @@ import ShipmentInstructionDocumentForm from './form/ShipmentInstructionDocumentF
 import BillOfLadingDocumentForm from './form/BillOfLadingDocumentForm';
 import CustomInvoiceDocumentForm from './form/CustomInvoiceDocumentForm';
 import CommercialInvoiceDocumentForm from './form/CommercialInvoiceDocumentForm';
+import PackingListDocumentForm from './form/PackingListDocumentForm';
 import DocumentDraftSkeleton from './DocumentDraftSkeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
@@ -89,6 +96,9 @@ import {
   getCommercialInvoiceAction,
   saveCommercialInvoiceDraftAction,
   submitCommercialInvoiceAction,
+  getPackingListAction,
+  savePackingListDraftAction,
+  submitPackingListAction,
 } from '@/app/actions/smart-docs';
 
 export function getSafeDisplayString(val: any, fallback = 'N/A'): string {
@@ -227,6 +237,7 @@ export interface DocumentDraftWorkspaceProps {
   initialBillOfLadingData?: any;
   initialCustomInvoiceData?: any;
   initialCommercialInvoiceData?: any;
+  initialPackingListData?: any;
   initialConsignees?: any[];
   initialNotifyParties?: any[];
   initialConsigneesBuyerId?: string;
@@ -242,6 +253,7 @@ export function getStepSlug(step?: StepperDocumentItem | null, index?: number): 
   if (isBillOfLadingStep(step)) return 'bill-of-lading';
   if (isCustomInvoiceStep(step)) return 'custom-invoice';
   if (isCommercialInvoiceStep(step)) return 'commercial-invoice';
+  if (isPackingListStep(step)) return 'packing-list';
 
   if (step) {
     const name = String(step.document_name || step.name || step.title || '').trim().toLowerCase();
@@ -264,6 +276,7 @@ export function getStepSlug(step?: StepperDocumentItem | null, index?: number): 
     if (index === 4) return 'bill-of-lading';
     if (index === 5) return 'custom-invoice';
     if (index === 6) return 'commercial-invoice';
+    if (index === 7) return 'packing-list';
     return `step-${index + 1}`;
   }
   return 'confirmation';
@@ -321,6 +334,11 @@ export function resolveInitialStepIndex(
       const commercialIdx = stepList.findIndex((s) => isCommercialInvoiceStep(s));
       return commercialIdx >= 0 ? commercialIdx : (stepList.length > 6 ? 6 : 0);
     }
+    if (clean === 'packing-list' || clean === 'packing_list' || clean === 'packing' || clean === '8') {
+      if (!stepList || stepList.length === 0) return 0;
+      const packingIdx = stepList.findIndex((s) => isPackingListStep(s));
+      return packingIdx >= 0 ? packingIdx : (stepList.length > 7 ? 7 : 0);
+    }
     if (stepList && stepList.length > 0) {
       const matchedIdx = stepList.findIndex((s, i) => {
         const id = String(s.id || '').toLowerCase();
@@ -355,6 +373,7 @@ export function DocumentDraftWorkspace({
   initialBillOfLadingData,
   initialCustomInvoiceData,
   initialCommercialInvoiceData,
+  initialPackingListData,
   initialConsignees = [],
   initialNotifyParties = [],
   initialConsigneesBuyerId = '',
@@ -406,6 +425,8 @@ export function DocumentDraftWorkspace({
   const [isLoadingCustomInvoice, setIsLoadingCustomInvoice] = useState<boolean>(false);
   const [commercialInvoiceData, setCommercialInvoiceData] = useState<any>(initialCommercialInvoiceData || null);
   const [isLoadingCommercialInvoice, setIsLoadingCommercialInvoice] = useState<boolean>(false);
+  const [packingListData, setPackingListData] = useState<any>(initialPackingListData || null);
+  const [isLoadingPackingList, setIsLoadingPackingList] = useState<boolean>(false);
 
   // Step data version counters to signal forms on stepper navigation and fresh API fetch
   const [confirmationVersion, setConfirmationVersion] = useState<number>(0);
@@ -415,6 +436,7 @@ export function DocumentDraftWorkspace({
   const [billOfLadingVersion, setBillOfLadingVersion] = useState<number>(0);
   const [customInvoiceVersion, setCustomInvoiceVersion] = useState<number>(0);
   const [commercialInvoiceVersion, setCommercialInvoiceVersion] = useState<number>(0);
+  const [packingListVersion, setPackingListVersion] = useState<number>(0);
 
   // Compute initial selected step (honoring explicit URL param or defaulting to latest open step)
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(() =>
@@ -442,6 +464,7 @@ export function DocumentDraftWorkspace({
   const isBillOfLading = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && isBillOfLadingStep(fallbackStep);
   const isCustomInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && isCustomInvoiceStep(fallbackStep);
   const isCommercialInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && isCommercialInvoiceStep(fallbackStep);
+  const isPackingList = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && isPackingListStep(fallbackStep);
 
   // Contract ID extracted strictly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
   const contractIdFromStepper = useMemo(() => {
@@ -1127,6 +1150,120 @@ export function DocumentDraftWorkspace({
     draftId,
   ]);
 
+  // Canonical Packing List ID
+  const canonicalPackingListId = useMemo(() => {
+    const hasPackingMarkers = (d: any) =>
+      Boolean(
+        d?.packing_list_number ||
+        d?.packing_list_no ||
+        d?.packing_list ||
+        d?.packingList ||
+        d?.packing_list_id ||
+        d?._is_packing_list_loaded
+      );
+
+    const directPackingId = sanitizeDocId(
+      (hasPackingMarkers(packingListData) ? packingListData?.id || packingListData?._id : '') ||
+      packingListData?.packing_list_id ||
+      (hasPackingMarkers(initialPackingListData) ? initialPackingListData?.id || initialPackingListData?._id : '') ||
+      initialPackingListData?.packing_list_id
+    );
+    if (
+      directPackingId &&
+      directPackingId !== effectiveConfirmationId &&
+      directPackingId !== canonicalContractId &&
+      directPackingId !== canonicalProformaId &&
+      directPackingId !== canonicalShipmentInstructionId &&
+      directPackingId !== canonicalBillOfLadingId &&
+      directPackingId !== canonicalCustomInvoiceId &&
+      directPackingId !== canonicalCommercialInvoiceId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(directPackingId)
+    ) {
+      return directPackingId;
+    }
+
+    const packingStep = getPackingListStep(steps, selectedStep);
+    const fromStepper = sanitizeDocId(
+      getStepSelfId(packingStep) ||
+      getPackingListIdFromStepper(steps, selectedStep) ||
+      packingStep?.packing_list_id ||
+      (packingStep as any)?.packingListId ||
+      packingStep?.redirect_id ||
+      (packingStep as any)?.redirectId
+    );
+    if (
+      fromStepper &&
+      !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(fromStepper)
+    ) {
+      return fromStepper;
+    }
+
+    const linkedCandidate = sanitizeDocId(
+      extractLinkedPackingListId(packingListData) ||
+      extractLinkedPackingListId(initialPackingListData) ||
+      extractLinkedPackingListId(commercialInvoiceData) ||
+      extractLinkedPackingListId(customInvoiceData) ||
+      extractLinkedPackingListId(billOfLadingData) ||
+      extractLinkedPackingListId(shipmentInstructionData) ||
+      extractLinkedPackingListId(proformaData) ||
+      extractLinkedPackingListId(contractData) ||
+      extractLinkedPackingListId(confirmationData)
+    );
+    if (
+      linkedCandidate &&
+      linkedCandidate !== effectiveConfirmationId &&
+      linkedCandidate !== canonicalContractId &&
+      linkedCandidate !== canonicalProformaId &&
+      linkedCandidate !== canonicalShipmentInstructionId &&
+      linkedCandidate !== canonicalBillOfLadingId &&
+      linkedCandidate !== canonicalCustomInvoiceId &&
+      linkedCandidate !== canonicalCommercialInvoiceId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(linkedCandidate)
+    ) {
+      return linkedCandidate;
+    }
+
+    const cleanDraftId = sanitizeDocId(draftId);
+    if (
+      isPackingList &&
+      cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
+      cleanDraftId !== canonicalCommercialInvoiceId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(cleanDraftId)
+    ) {
+      return cleanDraftId;
+    }
+
+    return '';
+  }, [
+    packingListData,
+    initialPackingListData,
+    steps,
+    selectedStep,
+    effectiveConfirmationId,
+    canonicalContractId,
+    canonicalProformaId,
+    canonicalShipmentInstructionId,
+    canonicalBillOfLadingId,
+    canonicalCustomInvoiceId,
+    canonicalCommercialInvoiceId,
+    commercialInvoiceData,
+    customInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    confirmationData,
+    isPackingList,
+    draftId,
+  ]);
+
   // Buyer Instruction ID for Shipment Instruction (passed to consignee and notify party APIs).
   // Strictly prioritizes buyer_instruction_id from the SI response, falling back only to this trade's Importer.
   const buyerInstructionIdForShipment = useMemo(() => {
@@ -1230,8 +1367,8 @@ export function DocumentDraftWorkspace({
   const workflowAnchorType = useMemo(() => {
     if (effectiveConfirmationId) return 'confirmation';
     if (canonicalContractId) return 'contract';
-    if (canonicalShipmentInstructionId || canonicalBillOfLadingId || canonicalCustomInvoiceId || canonicalCommercialInvoiceId) return 'document';
-    if (isShipmentInstruction || isBillOfLading || isCustomInvoice || isCommercialInvoice) return 'document';
+    if (canonicalShipmentInstructionId || canonicalBillOfLadingId || canonicalCustomInvoiceId || canonicalCommercialInvoiceId || canonicalPackingListId) return 'document';
+    if (isShipmentInstruction || isBillOfLading || isCustomInvoice || isCommercialInvoice || isPackingList) return 'document';
     if (isContract) return 'contract';
     return 'confirmation';
   }, [
@@ -1241,10 +1378,12 @@ export function DocumentDraftWorkspace({
     canonicalBillOfLadingId,
     canonicalCustomInvoiceId,
     canonicalCommercialInvoiceId,
+    canonicalPackingListId,
     isShipmentInstruction,
     isBillOfLading,
     isCustomInvoice,
     isCommercialInvoice,
+    isPackingList,
     isContract,
   ]);
 
@@ -1256,6 +1395,7 @@ export function DocumentDraftWorkspace({
       canonicalBillOfLadingId ||
       canonicalCustomInvoiceId ||
       canonicalCommercialInvoiceId ||
+      canonicalPackingListId ||
       initialId ||
       draftId ||
       'new-confirmation'
@@ -1267,6 +1407,7 @@ export function DocumentDraftWorkspace({
     canonicalBillOfLadingId,
     canonicalCustomInvoiceId,
     canonicalCommercialInvoiceId,
+    canonicalPackingListId,
     initialId,
     draftId,
   ]);
@@ -1568,6 +1709,45 @@ export function DocumentDraftWorkspace({
           }
         }
 
+        // Step 8: Packing List
+        else if (isPackingListStep(step)) {
+          const packingId = sanitizeDocId(
+            packingListData?.id ||
+            packingListData?._id ||
+            packingListData?.packing_list_id ||
+            initialPackingListData?.id ||
+            initialPackingListData?._id ||
+            initialPackingListData?.packing_list_id
+          );
+          if (
+            packingId &&
+            packingId !== effectiveConfirmationId &&
+            packingId !== canonicalContractId &&
+            packingId !== canonicalProformaId &&
+            packingId !== canonicalShipmentInstructionId &&
+            packingId !== canonicalBillOfLadingId &&
+            packingId !== canonicalCustomInvoiceId &&
+            packingId !== canonicalCommercialInvoiceId &&
+            (!step.redirect_id || step.redirect_id === 'new-confirmation' || step.redirect_id.startsWith('step-'))
+          ) {
+            newStep.redirect_id = packingId;
+            newStep.redirectId = packingId;
+            changed = true;
+          }
+          const isDone = isStatusCompleted(
+            packingListData?.status ||
+            packingListData?.document_status ||
+            packingListData?.packing_list_status ||
+            initialPackingListData?.status ||
+            initialPackingListData?.document_status ||
+            initialPackingListData?.packing_list_status
+          );
+          if (isDone && normalizeStepStatus(step.status) !== 'completed') {
+            newStep.status = 'completed';
+            changed = true;
+          }
+        }
+
         return newStep;
       });
 
@@ -1588,12 +1768,15 @@ export function DocumentDraftWorkspace({
     initialCustomInvoiceData,
     commercialInvoiceData,
     initialCommercialInvoiceData,
+    packingListData,
+    initialPackingListData,
     effectiveConfirmationId,
     canonicalContractId,
     canonicalProformaId,
     canonicalShipmentInstructionId,
     canonicalBillOfLadingId,
     canonicalCustomInvoiceId,
+    canonicalCommercialInvoiceId,
   ]);
 
   // Active Step Self ID: strictly the current active step's own ID from redirect_id / stepper
@@ -1739,6 +1922,14 @@ export function DocumentDraftWorkspace({
       /commercial/i.test(String(initialStepParam))
     )
   );
+  const attemptedPackingListFetchRef = useRef<string | null>(null);
+  const isInitialPackingListSsrFreshRef = useRef<boolean>(
+    Boolean(
+      initialPackingListData &&
+      initialStepParam &&
+      /packing/i.test(String(initialStepParam))
+    )
+  );
   const activeFetchSeqRef = useRef<number>(0);
 
   // Centralized step data fetcher: fetches the latest document data and refreshes stepper metadata
@@ -1751,6 +1942,7 @@ export function DocumentDraftWorkspace({
       const isTargetBillOfLading = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && isBillOfLadingStep(targetStep);
       const isTargetCustomInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && isCustomInvoiceStep(targetStep);
       const isTargetCommercialInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && isCommercialInvoiceStep(targetStep);
+      const isTargetPackingList = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && isPackingListStep(targetStep);
 
       const stepSelfId = getStepSelfId(targetStep);
 
@@ -2368,6 +2560,110 @@ export function DocumentDraftWorkspace({
         }
         return;
       }
+
+      // PACKING LIST (Step 8)
+      if (isTargetPackingList) {
+        setIsLoadingPackingList(true);
+
+        const isPlaceholderPackingId = (val?: string | null) =>
+          !val ||
+          (/^\d+$/.test(val) && Number(val) <= 20) ||
+          /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(val);
+
+        const candidateId = sanitizeDocId(
+          (!isPlaceholderPackingId(stepSelfId) ? stepSelfId : '') ||
+          targetStep?.packing_list_id ||
+          (targetStep as any)?.packingListId ||
+          extractStepRedirectId(targetStep) ||
+          getPackingListIdFromStepper(steps, targetStep) ||
+          canonicalPackingListId ||
+          extractLinkedPackingListId(packingListData) ||
+          extractLinkedPackingListId(commercialInvoiceData) ||
+          extractLinkedPackingListId(customInvoiceData) ||
+          extractLinkedPackingListId(billOfLadingData) ||
+          extractLinkedPackingListId(shipmentInstructionData) ||
+          extractLinkedPackingListId(proformaData) ||
+          extractLinkedPackingListId(contractData)
+        );
+
+        const applyFreshPackingList = (rawData: any): boolean => {
+          if (!rawData || typeof rawData !== 'object') return false;
+          const extracted = extractPackingListData(rawData) || {
+            ...rawData,
+            _is_packing_list_loaded: true,
+          };
+          if (extracted) {
+            setPackingListData(extracted);
+            setPackingListVersion((v) => v + 1);
+            return true;
+          }
+          return false;
+        };
+
+        let didPrimaryFetchSucceed = false;
+
+        const stepperPromise = getStepperListAction({
+          action: workflowAnchorType,
+          step: String(workflowAnchorId),
+          lang,
+        })
+          .then(async (sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
+              const freshPackingStep = getPackingListStep(sRes.data);
+              const freshPackingId = sanitizeDocId(
+                getStepSelfId(freshPackingStep) ||
+                getPackingListIdFromStepper(sRes.data, freshPackingStep) ||
+                freshPackingStep?.packing_list_id ||
+                (freshPackingStep as any)?.packingListId ||
+                freshPackingStep?.redirect_id ||
+                (freshPackingStep as any)?.redirectId
+              );
+              if (
+                freshPackingId &&
+                !isPlaceholderPackingId(freshPackingId) &&
+                freshPackingId !== candidateId
+              ) {
+                try {
+                  const freshRes = await getPackingListAction(freshPackingId, lang);
+                  if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
+                    attemptedPackingListFetchRef.current = freshPackingId;
+                    applyFreshPackingList(freshRes.data);
+                  }
+                } catch (freshErr) {
+                  console.warn('[DocumentDraftWorkspace] Error fetching fresh packing list from stepper:', freshErr);
+                }
+              }
+            }
+          })
+          .catch(() => {});
+
+        if (candidateId && !isPlaceholderPackingId(candidateId)) {
+          try {
+            attemptedPackingListFetchRef.current = candidateId;
+            const res = await getPackingListAction(candidateId, lang);
+            if (activeFetchSeqRef.current === currentSeq && res?.success && res.data) {
+              didPrimaryFetchSucceed = applyFreshPackingList(res.data);
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest packing list:', err);
+          } finally {
+            if (!didPrimaryFetchSucceed) {
+              await stepperPromise;
+            }
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingPackingList(false);
+            }
+          }
+        } else {
+          await stepperPromise;
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingPackingList(false);
+            setPackingListVersion((v) => v + 1);
+          }
+        }
+        return;
+      }
     },
     [
       steps,
@@ -2378,12 +2674,14 @@ export function DocumentDraftWorkspace({
       billOfLadingData,
       customInvoiceData,
       commercialInvoiceData,
+      packingListData,
       canonicalContractId,
       canonicalProformaId,
       canonicalShipmentInstructionId,
       canonicalBillOfLadingId,
       canonicalCustomInvoiceId,
       canonicalCommercialInvoiceId,
+      canonicalPackingListId,
       effectiveConfirmationId,
       rootWorkflowId,
       initialId,
@@ -2424,6 +2722,7 @@ export function DocumentDraftWorkspace({
       attemptedBillOfLadingFetchRef.current = null;
       attemptedCustomInvoiceFetchRef.current = null;
       attemptedCommercialInvoiceFetchRef.current = null;
+      attemptedPackingListFetchRef.current = null;
 
       const isSelectingConfirmation = isConfirmationStep(step);
       const isSelectingContract = !isSelectingConfirmation && isContractStep(step);
@@ -2432,6 +2731,7 @@ export function DocumentDraftWorkspace({
       const isSelectingBillOfLading = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && isBillOfLadingStep(step);
       const isSelectingCustomInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && isCustomInvoiceStep(step);
       const isSelectingCommercialInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && isCommercialInvoiceStep(step);
+      const isSelectingPackingList = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && !isSelectingCommercialInvoice && isPackingListStep(step);
 
       if (isSelectingConfirmation) {
         setConfirmationVersion((v) => v + 1);
@@ -2447,6 +2747,8 @@ export function DocumentDraftWorkspace({
         setCustomInvoiceVersion((v) => v + 1);
       } else if (isSelectingCommercialInvoice) {
         setCommercialInvoiceVersion((v) => v + 1);
+      } else if (isSelectingPackingList) {
+        setPackingListVersion((v) => v + 1);
       }
 
       const stepSelfId = getStepSelfId(step);
@@ -2472,11 +2774,16 @@ export function DocumentDraftWorkspace({
       if (isSelectingCommercialInvoice && !isCompleteCommercialInvoiceData(commercialInvoiceData) && !isCompleteCommercialInvoiceData(initialCommercialInvoiceData) && (stepSelfId || getCommercialInvoiceIdFromStepper(steps, step) || canonicalCommercialInvoiceId)) {
         setIsLoadingCommercialInvoice(true);
       }
+      if (isSelectingPackingList && !isCompletePackingListData(packingListData) && !isCompletePackingListData(initialPackingListData) && (stepSelfId || getPackingListIdFromStepper(steps, step) || canonicalPackingListId)) {
+        setIsLoadingPackingList(true);
+      }
 
       const slug = getStepSlug(step, resolvedIndex);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        const specificDocId = isSelectingCommercialInvoice
+        const specificDocId = isSelectingPackingList
+          ? canonicalPackingListId
+          : isSelectingCommercialInvoice
           ? canonicalCommercialInvoiceId
           : isSelectingCustomInvoice
           ? canonicalCustomInvoiceId
@@ -3079,6 +3386,89 @@ export function DocumentDraftWorkspace({
     lang,
   ]);
 
+  // Fetch fresh packing list data whenever Packing List step becomes active
+  useEffect(() => {
+    if (!isPackingList) {
+      attemptedPackingListFetchRef.current = null;
+      isInitialPackingListSsrFreshRef.current = false;
+      return;
+    }
+
+    const packingStep = getPackingListStep(steps, selectedStep);
+    const effectiveId = sanitizeDocId(
+      canonicalPackingListId ||
+      packingStep?.packing_list_id ||
+      (packingStep as any)?.packingListId ||
+      getStepSelfId(packingStep) ||
+      getPackingListIdFromStepper(steps, selectedStep) ||
+      extractStepRedirectId(packingStep) ||
+      extractLinkedPackingListId(packingListData) ||
+      extractLinkedPackingListId(commercialInvoiceData) ||
+      extractLinkedPackingListId(customInvoiceData) ||
+      extractLinkedPackingListId(billOfLadingData) ||
+      extractLinkedPackingListId(shipmentInstructionData) ||
+      extractLinkedPackingListId(proformaData) ||
+      extractLinkedPackingListId(contractData)
+    );
+
+    if (
+      !effectiveId ||
+      (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(effectiveId)
+    ) {
+      setIsLoadingPackingList(false);
+      return;
+    }
+
+    if (isInitialPackingListSsrFreshRef.current) {
+      isInitialPackingListSsrFreshRef.current = false;
+      attemptedPackingListFetchRef.current = effectiveId;
+      return;
+    }
+
+    if (attemptedPackingListFetchRef.current !== effectiveId) {
+      attemptedPackingListFetchRef.current = effectiveId;
+      let cancelled = false;
+      setIsLoadingPackingList(true);
+      getPackingListAction(effectiveId, lang)
+        .then((res) => {
+          if (cancelled) return;
+          if (res?.success && res.data && typeof res.data === 'object') {
+            const extracted =
+              extractPackingListData(res.data) ||
+              { ...res.data, _is_packing_list_loaded: true };
+            if (extracted) {
+              setPackingListData(extracted);
+              setPackingListVersion((v) => v + 1);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('[DocumentDraftWorkspace] Error fetching packing list dynamically:', err);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoadingPackingList(false);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [
+    isPackingList,
+    canonicalPackingListId,
+    steps,
+    selectedStep,
+    commercialInvoiceData,
+    customInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    lang,
+  ]);
+
   const activeDocName =
     selectedStep?.document_name ||
     selectedStep?.name ||
@@ -3096,6 +3486,8 @@ export function DocumentDraftWorkspace({
       ? 'Custom Invoice'
       : isCommercialInvoice
       ? 'Commercial Invoice'
+      : isPackingList
+      ? 'Packing List'
       : dict?.smart_docs?.draft_title || 'Trade Confirmation');
 
   // Active document number and label resolution strictly matching the current step
@@ -3113,6 +3505,8 @@ export function DocumentDraftWorkspace({
     ? (customInvoiceData?.custom_invoice_number || initialCustomInvoiceData?.custom_invoice_number || null)
     : isCommercialInvoice
     ? (commercialInvoiceData?.commercial_invoice_number || commercialInvoiceData?.invoice_number || initialCommercialInvoiceData?.commercial_invoice_number || null)
+    : isPackingList
+    ? (packingListData?.packing_list_number || packingListData?.invoice_number || initialPackingListData?.packing_list_number || null)
     : (resolvedContractNumber || resolvedConfirmationNumber);
 
   const mobileActiveDocLabel = isConfirmation
@@ -3129,6 +3523,8 @@ export function DocumentDraftWorkspace({
     ? 'Custom Invoice No.'
     : isCommercialInvoice
     ? 'Commercial Invoice No.'
+    : isPackingList
+    ? 'Packing List No.'
     : (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.');
 
   // Safe context inheritance for Shipment Instruction:
@@ -3330,6 +3726,89 @@ export function DocumentDraftWorkspace({
     customInvoiceData,
     initialCommercialInvoiceData,
     commercialInvoiceData,
+  ]);
+
+  // Comprehensive data merge for Packing List so trade, consignee, containers, and notify party context is inherited.
+  // CRITICAL: Commercial invoice data is NEVER merged into packing list! Packing list data must strictly come from packing list API.
+  const mergedPackingListData = useMemo(() => {
+    const sources = [
+      initialData,
+      confirmationData,
+      initialContractData,
+      contractData,
+      initialProformaData,
+      proformaData,
+      initialShipmentInstructionData,
+      shipmentInstructionData,
+      initialBillOfLadingData,
+      billOfLadingData,
+      initialCustomInvoiceData,
+      customInvoiceData,
+      initialPackingListData,
+      packingListData,
+    ];
+    const merged: Record<string, any> = {};
+    for (const src of sources) {
+      if (!src || typeof src !== 'object') continue;
+      for (const [key, val] of Object.entries(src)) {
+        if (val === undefined || val === null || val === '') continue;
+        // Never allow commercial invoice properties into packing list
+        if (key.includes('commercial')) continue;
+        if (
+          src !== packingListData &&
+          src !== initialPackingListData &&
+          (key === 'id' ||
+            key === '_id' ||
+            key === 'status' ||
+            key === 'document_status' ||
+            key === 'title' ||
+            key === 'pdf_title' ||
+            key === 'document_title' ||
+            key === 'packing_list_number' ||
+            key === 'packing_list_no' ||
+            key === 'packing_list_date' ||
+            key === 'invoice_number' ||
+            key === 'invoice_no' ||
+            key === 'invoice_date')
+        ) {
+          continue;
+        }
+        if (
+          (key === 'loading_port' || key === 'destination_port') &&
+          typeof merged[key] === 'object' &&
+          merged[key] !== null &&
+          merged[key].country &&
+          (typeof val !== 'object' || val === null || !(val as any).country)
+        ) {
+          continue;
+        }
+        merged[key] = val;
+      }
+    }
+    // Clean any accidental commercial invoice fields
+    delete merged.commercial_invoice;
+    delete merged.commercialInvoice;
+    delete merged.commercial_invoice_id;
+    delete merged.commercial_invoice_number;
+    delete merged.commercial_invoice_date;
+    delete merged.commercial_invoice_no;
+
+    return merged;
+  }, [
+    initialData,
+    confirmationData,
+    initialContractData,
+    contractData,
+    initialProformaData,
+    proformaData,
+    initialShipmentInstructionData,
+    shipmentInstructionData,
+    initialBillOfLadingData,
+    billOfLadingData,
+    initialCustomInvoiceData,
+    customInvoiceData,
+    initialPackingListData,
+    packingListData,
   ]);
 
   return (
@@ -5403,8 +5882,233 @@ export function DocumentDraftWorkspace({
           )}
         </div>
 
-        {/* Subsequent Workflow Steps View (Post-Commercial Invoice): Clean placeholder */}
-        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice ? 'flex' : 'hidden'}`} />
+        {/* Packing List Document Form: Visible when Packing List Step is active */}
+        <div className={`w-full h-full ${isPackingList ? 'flex flex-col' : 'hidden'}`}>
+          {isLoadingPackingList && !packingListData && !initialPackingListData ? (
+            <DocumentDraftSkeleton mode="contract" />
+          ) : (
+            <PackingListDocumentForm
+              key={`packing-list-${canonicalPackingListId || (packingListData?.id ? String(packingListData.id) : 'default')}`}
+              dataVersion={packingListVersion}
+              initialData={
+                packingListData && Object.keys(packingListData).length > 2
+                  ? { ...mergedPackingListData, ...packingListData }
+                  : initialPackingListData && Object.keys(initialPackingListData).length > 2
+                  ? { ...mergedPackingListData, ...initialPackingListData }
+                  : mergedPackingListData || packingListData || initialPackingListData || null
+              }
+              packingListId={canonicalPackingListId || ''}
+              commercialInvoiceId={canonicalCommercialInvoiceId}
+              customInvoiceId={canonicalCustomInvoiceId}
+              shipmentInstructionId={canonicalShipmentInstructionId}
+              proformaId={canonicalProformaId}
+              contractId={canonicalContractId}
+              confirmationId={effectiveConfirmationId}
+              steps={steps}
+              selectedStep={selectedStep}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
+              sellers={initialSellers}
+              buyers={initialBuyers}
+              products={initialProducts}
+              paymentTerms={initialPaymentTerms}
+              currencies={initialCurrencies}
+              shippingTerms={shippingTerms}
+              lang={lang}
+              dict={dict}
+              readOnly={false}
+              onSaveSuccess={(savedId, savedData) => {
+                if (savedId) {
+                  setPackingListVersion((v) => v + 1);
+                  setPackingListData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(savedData || {}),
+                    id: savedId,
+                    packing_list_id: savedId,
+                  }));
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s) =>
+                      isPackingListStep(s)
+                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                        : s
+                    )
+                  );
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
+                    if (targetWorkflowId) {
+                      url.searchParams.set('id', targetWorkflowId);
+                    }
+                    url.searchParams.set('step', 'packing-list');
+                    window.history.replaceState(null, '', url.toString());
+                  }
+                }
+              }}
+              onSaveDraft={async (formData) => {
+                const packingStep = getPackingListStep(steps, selectedStep);
+                const activeDocId =
+                  canonicalPackingListId ||
+                  sanitizeDocId(
+                    packingListData?.packing_list_id ||
+                    (packingListData?.packing_list_number ? packingListData?.id : '')
+                  ) ||
+                  getStepSelfId(packingStep) ||
+                  extractStepRedirectId(packingStep) ||
+                  packingStep?.redirect_id ||
+                  (packingStep as any)?.redirectId ||
+                  extractLinkedPackingListId(packingListData) ||
+                  extractLinkedPackingListId(commercialInvoiceData) ||
+                  canonicalCommercialInvoiceId ||
+                  canonicalCustomInvoiceId ||
+                  canonicalShipmentInstructionId ||
+                  canonicalProformaId ||
+                  canonicalContractId ||
+                  effectiveConfirmationId ||
+                  rootWorkflowId ||
+                  draftId;
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await savePackingListDraftAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.packing_list_id;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isPackingListStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
+                          : s
+                      )
+                    );
+                    let freshData = res.data;
+                    try {
+                      const freshRes = await getPackingListAction(cleanNewId, lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    } catch (e) {
+                      console.warn('[DocumentDraftWorkspace] Re-fetch packing list after save warning:', e);
+                    }
+                    setPackingListData((prev: any) => ({
+                      ...(prev || {}),
+                      ...(freshData || {}),
+                      id: cleanNewId,
+                      packing_list_id: cleanNewId,
+                    }));
+                    setPackingListVersion((v) => v + 1);
+                  }
+                }
+                return res;
+              }}
+              onSubmitPackingList={async (formData, id, passedNextStep) => {
+                const cleanPassed = sanitizeDocId(id);
+                const packingStep = getPackingListStep(steps, selectedStep);
+                const activeDocId =
+                  cleanPassed ||
+                  canonicalPackingListId ||
+                  sanitizeDocId(
+                    packingListData?.packing_list_id ||
+                    (packingListData?.packing_list_number ? packingListData?.id : '')
+                  ) ||
+                  getStepSelfId(packingStep) ||
+                  extractStepRedirectId(packingStep) ||
+                  packingStep?.redirect_id ||
+                  (packingStep as any)?.redirectId ||
+                  extractLinkedPackingListId(packingListData) ||
+                  extractLinkedPackingListId(commercialInvoiceData) ||
+                  canonicalCommercialInvoiceId ||
+                  canonicalCustomInvoiceId ||
+                  canonicalShipmentInstructionId ||
+                  canonicalProformaId ||
+                  canonicalContractId ||
+                  effectiveConfirmationId ||
+                  rootWorkflowId ||
+                  draftId;
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await submitPackingListAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.packing_list_id || validEffectiveId;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isPackingListStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
+                          : s
+                      )
+                    );
+                  }
+                  let freshData = res.data;
+                  try {
+                    if (newId) {
+                      const freshRes = await getPackingListAction(String(newId), lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('[DocumentDraftWorkspace] Re-fetch packing list after submit warning:', e);
+                  }
+                  setPackingListData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(freshData || {}),
+                    status: 'COMPLETED',
+                    document_status: 'COMPLETED',
+                    ...(newId ? { id: String(newId), packing_list_id: String(newId) } : {}),
+                  }));
+                  setPackingListVersion((v) => v + 1);
+
+                  try {
+                    const stepperRes = await getStepperListAction({
+                      action: workflowAnchorType,
+                      step: String(workflowAnchorId),
+                      lang,
+                    });
+                    let targetList = steps;
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                      setSteps(targetList);
+                    }
+                    const visibleList = targetList.filter(isVisibleWorkflowStep);
+                    let nextStepToSelect: StepperDocumentItem | null = null;
+                    let targetIdx = -1;
+                    if (passedNextStep) {
+                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                    }
+                    if (!nextStepToSelect || targetIdx === -1) {
+                      const packingIndex = visibleList.findIndex((s) => isPackingListStep(s));
+                      if (packingIndex >= 0 && packingIndex + 1 < visibleList.length) {
+                        targetIdx = packingIndex + 1;
+                        nextStepToSelect = visibleList[targetIdx];
+                      }
+                    }
+                    if (nextStepToSelect && targetIdx >= 0) {
+                      handleSelectStep(nextStepToSelect, targetIdx);
+                    }
+                  } catch (stepErr) {
+                    console.error('[DocumentDraftWorkspace] Post-submit packing list stepper error:', stepErr);
+                  }
+                }
+                return res;
+              }}
+            />
+          )}
+        </div>
+
+        {/* Subsequent Workflow Steps View (Post-Packing List): Clean placeholder */}
+        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList ? 'flex' : 'hidden'}`} />
       </div>
 
       {/* 
