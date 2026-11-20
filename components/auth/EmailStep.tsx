@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { authService } from "@/lib/api";
+import { validateEmailDomain } from "@/app/actions/auth";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import GoogleLoginButton from "./GoogleLoginButton";
 import AppleLoginButton from "./AppleLoginButton";
@@ -12,16 +13,9 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function checkEmailDomain(email: string): Promise<{ isValid: boolean; error?: string }> {
   try {
-    const res = await fetch("/api/auth/validate-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    if (res.ok) {
-      return await res.json();
-    }
+    return await validateEmailDomain(email);
   } catch (e) {
-    // If validation endpoint is temporarily unreachable, fallback to allow
+    // If validation is temporarily unreachable, fallback to allow
   }
   return { isValid: true };
 }

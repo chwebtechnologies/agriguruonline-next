@@ -727,9 +727,10 @@ export const tradingService = {
       const isSuccess = data?.success === 1 || data?.success === true || (res.ok && data?.success !== 0 && data?.success !== false);
 
       if (!res.ok || !isSuccess) {
+        const { sanitizeErrorMessage } = await import('@/lib/api-utils');
         return {
           success: false,
-          error: data?.message || data?.error || 'Failed to submit freight inquiry'
+          error: sanitizeErrorMessage(data?.message || data?.error, 'Failed to submit freight inquiry')
         };
       }
 
@@ -1330,25 +1331,102 @@ export const tradingService = {
   /**
    * AI Price Analysis: Create background job
    */
-  createPriceAnalysis: async (formData: FormData, lang: string = 'en') => {
-    return await fetch(`/api/price-analysis?lang_code=${lang}`, {
+  createPriceAnalysis: async (formData: FormData, lang: string = 'en'): Promise<Response> => {
+    try {
+      const { createPriceAnalysisAction } = await import('@/app/actions/charts');
+      const actionRes = await createPriceAnalysisAction(formData, lang);
+      if (actionRes) {
+        const isOk = Boolean(actionRes.success);
+        const status = isOk ? 200 : (actionRes.error?.includes('Unauthorized') ? 401 : 400);
+        const responseData = {
+          success: isOk,
+          message: actionRes.message || (isOk ? 'Price analysis generated successfully' : actionRes.error),
+          data: actionRes.data || {
+            is_cached: true,
+            details: '',
+            status: isOk ? 'COMPLETED' : 'FAILED',
+          },
+          ...(actionRes.data || {}),
+          error: actionRes.error,
+          response_indication: actionRes.response_indication,
+        };
+        return {
+          ok: isOk,
+          status,
+          statusText: isOk ? 'OK' : (actionRes.error || 'Bad Request'),
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => responseData,
+          text: async () => JSON.stringify(responseData),
+        } as unknown as Response;
+      }
+    } catch (err) {
+      console.warn('[tradingService.createPriceAnalysis] Server Action error, falling back to proxy:', err);
+    }
+
+    const tradingUrl = getTradingApiUrl();
+    const url = `${tradingUrl}/price-analysis?lang_code=${encodeURIComponent(lang)}&source=web`;
+    const res = await fetch(url, {
       method: 'POST',
       body: formData,
     });
+    if (!res.ok) {
+      const rawText = await res.text().catch(() => '');
+      let data: any = null;
+      try { data = JSON.parse(rawText); } catch {}
+      const { sanitizeErrorMessage } = await import('@/lib/api-utils');
+      const cleanMsg = sanitizeErrorMessage(data?.message || data?.error, 'AI Price Analysis is temporarily unavailable. Please try again shortly.');
+      const safeData = data ? { ...data, message: cleanMsg, error: cleanMsg } : { success: false, message: cleanMsg, error: cleanMsg };
+      return {
+        ok: false,
+        status: res.status,
+        statusText: cleanMsg,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => safeData,
+        text: async () => JSON.stringify(safeData),
+      } as unknown as Response;
+    }
+    return res;
   },
 
   /**
    * AI Price Analysis: Check job status
    */
-  getPriceAnalysisStatus: async (type: string, jobId: string, lang: string = 'en') => {
-    return await fetch(`/api/price-analysis?action=status&lang_code=${lang}&type=${type}&job_id=${jobId}`);
+  getPriceAnalysisStatus: async (type: string, jobId: string, lang: string = 'en'): Promise<Response> => {
+    try {
+      const { getPriceAnalysisStatusAction } = await import('@/app/actions/charts');
+      const actionRes = await getPriceAnalysisStatusAction(type, jobId, lang);
+      if (actionRes) {
+        const isOk = Boolean(actionRes.success);
+        const status = isOk ? 200 : (actionRes.error?.includes('Unauthorized') ? 401 : 400);
+        const responseData = actionRes.data || {
+          success: actionRes.success,
+          error: actionRes.error,
+        };
+        return {
+          ok: isOk,
+          status,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => responseData,
+          text: async () => JSON.stringify(responseData),
+        } as unknown as Response;
+      }
+    } catch (err) {
+      console.warn('[tradingService.getPriceAnalysisStatus] Server Action error, falling back to proxy:', err);
+    }
+
+    const safeType = type.toLowerCase().includes('freight') ? 'freight' : 'product';
+    const tradingUrl = getTradingApiUrl();
+    const url = `${tradingUrl}/price-analysis/status/${safeType}/${encodeURIComponent(jobId)}?lang_code=${encodeURIComponent(lang)}&source=web`;
+    return await fetch(url);
   },
 
   /**
    * AI Price Analysis: Get SSE streaming URL
    */
   getPriceAnalysisStreamUrl: (type: string, jobId: string, lang: string = 'en') => {
-    return `/api/price-analysis?action=stream&lang_code=${lang}&type=${type}&job_id=${jobId}`;
+    const safeType = type.toLowerCase().includes('freight') ? 'freight' : 'product';
+    const tradingUrl = getTradingApiUrl();
+    return `${tradingUrl}/price-analysis/stream/${safeType}/${encodeURIComponent(jobId)}?lang_code=${encodeURIComponent(lang)}&source=web`;
   },
 
   /**

@@ -473,18 +473,7 @@ export default function FreightChartClient({
     setBookingLoadingId(triggerId || (item ? item.id : 'bottom'));
 
     try {
-      let kycResponse: any = null;
-      try {
-        const abortCtrl = new AbortController();
-        const timeoutId = setTimeout(() => abortCtrl.abort(), 8000);
-        const kycResRaw = await fetch(`/api/freight-options?type=check-kyc&favFreightId=${encodeURIComponent(favFreightId)}&lang=${lang}`, {
-          signal: abortCtrl.signal
-        });
-        clearTimeout(timeoutId);
-        kycResponse = await kycResRaw.json();
-      } catch {
-        kycResponse = await checkFreightKYCStatus(favFreightId, lang).catch(() => null);
-      }
+      const kycResponse: any = await checkFreightKYCStatus(favFreightId, lang).catch(() => null);
 
       if (kycResponse?.isUnauthorized) {
         toast.error('Session expired. Please log in.');

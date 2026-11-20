@@ -397,15 +397,15 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/proxy-trading/:path*',
-        destination: `${tradingUrl.replace(/\/$/, '')}/:path*`,
+        destination: `${tradingUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')}/:path*`,
       },
       {
         source: '/api/proxy-cms/:path*',
-        destination: `${cmsUrl.replace(/\/$/, '')}/:path*`,
+        destination: `${cmsUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')}/:path*`,
       },
       {
         source: '/api/proxy-user/:path*',
-        destination: `${userUrl.replace(/\/$/, '')}/:path*`,
+        destination: `${userUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')}/:path*`,
       },
       {
         source: '/api/proxy-smart-docs/:path*',

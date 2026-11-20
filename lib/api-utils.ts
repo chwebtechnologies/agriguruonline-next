@@ -3,35 +3,36 @@ export function getSafeLang(lang: string, fallback: string = "en"): string {
 }
 
 export function getUserApiUrl(): string {
-  if (typeof window !== 'undefined') {
-    return '/api/proxy-user';
-  }
-  const url = process.env.NEXT_PUBLIC_USER_API_URL || process.env.USER_API_URL || "";
-  return url.replace(/\/$/, "");
+  const url = process.env.NEXT_PUBLIC_USER_API_URL || process.env.USER_API_URL || "https://user-api.agriguruonline.cloud";
+  return url.replace(/\/api\/?$/, "").replace(/\/$/, "");
 }
 
 export function getTradingApiUrl(): string {
-  if (typeof window !== 'undefined') {
-    return '/api/proxy-trading';
-  }
-  const url = process.env.NEXT_PUBLIC_TRADING_API_URL || process.env.TRADING_API_URL || "";
-  return url.replace(/\/$/, "");
+  const url = process.env.NEXT_PUBLIC_TRADING_API_URL || process.env.TRADING_API_URL || "https://trading-api.agriguruonline.cloud";
+  return url.replace(/\/api\/?$/, "").replace(/\/$/, "");
 }
 
 export function getCmsApiUrl(): string {
-  if (typeof window !== 'undefined') {
-    return '/api/proxy-cms';
-  }
-  const url = process.env.NEXT_PUBLIC_CMS_API_URL || process.env.CMS_API_URL || "";
-  return url.replace(/\/$/, "");
+  const url = process.env.NEXT_PUBLIC_CMS_API_URL || process.env.CMS_API_URL || "https://cms-api.agriguruonline.cloud";
+  return url.replace(/\/api\/?$/, "").replace(/\/$/, "");
 }
 
 export function getSmartDocsApiUrl(): string {
-  if (typeof window !== 'undefined') {
-    return '/api/proxy-smart-docs';
-  }
-  const url = process.env.NEXT_PUBLIC_SMART_DOCS_API_URL || process.env.SMART_DOCS_API_URL || "";
+  const url = process.env.NEXT_PUBLIC_SMART_DOCS_API_URL || process.env.SMART_DOCS_API_URL || "https://smart-docs-api.agriguruonline.cloud";
   return url.replace(/\/api\/?$/, "").replace(/\/$/, "");
+}
+
+/**
+ * Sanitizes raw backend / Express router errors (e.g. "Cannot POST /api/...", "Cannot GET /api/...")
+ * so internal routing errors or missing endpoints are never leaked to users.
+ */
+export function sanitizeErrorMessage(rawMsg?: any, fallback: string = "Service temporarily unavailable. Please try again."): string {
+  if (!rawMsg || typeof rawMsg !== "string") return fallback;
+  const s = rawMsg.trim();
+  if (/^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(s) || /<(!DOCTYPE|html)/i.test(s) || /^\/api\//i.test(s)) {
+    return fallback;
+  }
+  return s;
 }
 
 export function getAssetsUrl(): string {

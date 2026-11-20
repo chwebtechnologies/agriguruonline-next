@@ -208,7 +208,8 @@ export async function fetchFreightPriceAction(params: {
     return { success: true, data: data?.data || data };
   } catch (err: any) {
     console.error("fetchFreightPriceAction error:", err);
-    return { success: false, error: err.message || "Failed to fetch freight price", data: null };
+    const { sanitizeErrorMessage } = await import("@/lib/api-utils");
+    return { success: false, error: sanitizeErrorMessage(err?.message, "Failed to fetch freight price"), data: null };
   }
 }
 
@@ -271,7 +272,8 @@ export async function submitFreightInquiryAction(
     return res;
   } catch (err: any) {
     console.error("submitFreightInquiryAction error:", err);
-    return { success: false, error: err.message || "Failed to submit freight inquiry" };
+    const { sanitizeErrorMessage } = await import("@/lib/api-utils");
+    return { success: false, error: sanitizeErrorMessage(err?.message, "Failed to submit freight inquiry") };
   }
 }
 
@@ -407,5 +409,53 @@ export async function checkFreightInquiryStatus(
   langCode?: string
 ) {
   return checkFreightKYCStatus(favouriteFreightIdOrLang, langCode);
+}
+
+/**
+ * Fetch freight inquiry dropdown options (shipping-terms, payment-terms, products, liner-terms) on server side
+ */
+export async function getFreightDropdownAction(
+  type: 'shipping-terms' | 'payment-terms' | 'products' | 'liner-terms',
+  lang: string = 'en'
+) {
+  try {
+    const safeLang = getSafeLang(lang);
+    const tradingApiUrl = getTradingApiUrl();
+    const token = await getValidAuthToken();
+
+    let endpoint = '';
+    if (type === 'shipping-terms') {
+      endpoint = `${tradingApiUrl}/shipping-term?lang_code=${safeLang}&source=web`;
+    } else if (type === 'payment-terms') {
+      endpoint = `${tradingApiUrl}/freight-inquiry/payment-terms?lang_code=${safeLang}&source=web`;
+    } else if (type === 'products') {
+      endpoint = `${tradingApiUrl}/freight-inquiry/product?lang_code=${safeLang}&source=web`;
+    } else if (type === 'liner-terms') {
+      endpoint = `${tradingApiUrl}/liner-terms?lang_code=${safeLang}&source=web`;
+    }
+
+    if (!endpoint) return { success: false, data: [] };
+
+    const headers: Record<string, string> = {
+      'x-app-source': 'web',
+      source: 'web',
+      Accept: 'application/json',
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(endpoint, {
+      headers,
+      next: { revalidate: 3600 },
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, data: [] };
+    }
+    return { success: true, data: data?.data || data || [] };
+  } catch (error: any) {
+    console.error(`getFreightDropdownAction (${type}) error:`, error);
+    return { success: false, data: [] };
+  }
 }
 

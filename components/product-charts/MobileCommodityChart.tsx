@@ -700,6 +700,14 @@ export default function MobileCommodityChart({
       formData.append('favourite_record_id', String(targetFavId));
       formData.append('type', type);
       formData.append('chart', chartBlob, 'chart.png');
+      formData.append('commodity_name', String(item.product || (item as any).name || (item as any).title || ''));
+      formData.append('category_name', String(item.category || ''));
+      formData.append('current_price', String(item.price || (item as any).current_price || ''));
+      formData.append('loading_port', String(item.pol || (item as any).originPort || ''));
+      formData.append('destination_port', String(item.pod || (item as any).destinationPort || ''));
+      formData.append('incoterm', String(item.term || 'FOB'));
+      formData.append('shipping_container', String(item.shipBy || ''));
+      formData.append('country', String(item.country || ''));
       
       const response = await tradingService.createPriceAnalysis(formData, lang);
       
@@ -711,7 +719,10 @@ export default function MobileCommodityChart({
         }
 
         const errorJson = await response.json().catch(() => ({}));
-        const errorMsg = errorJson.message || errorJson.error || 'Failed to get AI prediction';
+        const rawErrorMsg = errorJson.message || errorJson.error || '';
+        const errorMsg = /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(rawErrorMsg) || /^\/api\//i.test(rawErrorMsg)
+          ? 'AI Price Analysis is temporarily unavailable. Please try again later.'
+          : (rawErrorMsg || 'Failed to get AI prediction');
         
         const isMembershipRestricted = 
           /become a member/i.test(errorMsg) ||

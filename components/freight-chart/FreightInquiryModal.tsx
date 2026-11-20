@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useScrollLock } from '@/lib/scroll-lock';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
-import { submitFreightInquiryAction } from '@/app/actions/freight';
+import { submitFreightInquiryAction, fetchFreightPriceAction, getFreightDropdownAction } from '@/app/actions/freight';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
@@ -225,14 +225,17 @@ export function FreightInquiryModal({
       lang: lang
     });
 
-    const priceAbort = new AbortController();
-    const priceTimer = setTimeout(() => priceAbort.abort(), 8000);
-    fetch(`/api/freight-options?${query.toString()}`, { signal: priceAbort.signal })
-      .then((res) => {
-        clearTimeout(priceTimer);
-        return res.json();
-      })
-      .then((res) => {
+    fetchFreightPriceAction({
+      favourite_freight_id: String(favouriteFreightId || ''),
+      shipping_container_id: String(shippingContainerId || ''),
+      loading_port_id: String(loadingPortId || ''),
+      destination_port_id: String(destinationPortId || ''),
+      shipping_term_id: String(formData.shippingTerm || ''),
+      liner_term_id: String(formData.linerTerm || ''),
+      product_id: String(formData.productName || ''),
+      lang_code: lang,
+    })
+      .then((res: any) => {
         if (!isMounted) return;
         if (res && (res.success === 1 || res.success === true || res.data)) {
           const d = res.data || res;
@@ -305,14 +308,8 @@ export function FreightInquiryModal({
     if (hasFetchedShippingTermsRef.current) return;
     hasFetchedShippingTermsRef.current = true;
 
-    const stAbort = new AbortController();
-    const stTimer = setTimeout(() => stAbort.abort(), 8000);
-    fetch(`/api/freight-options?type=shipping-terms&lang=${lang}`, { signal: stAbort.signal })
-      .then((res) => {
-        clearTimeout(stTimer);
-        return res.json();
-      })
-      .then((res) => {
+    getFreightDropdownAction('shipping-terms', lang)
+      .then((res: any) => {
         if (res && res.success && res.data) {
           const list = res.data.shipping_term || res.data || [];
           if (Array.isArray(list) && list.length > 0) {
@@ -356,14 +353,8 @@ export function FreightInquiryModal({
     if (hasFetchedPaymentTermsRef.current) return;
     hasFetchedPaymentTermsRef.current = true;
 
-    const ptAbort = new AbortController();
-    const ptTimer = setTimeout(() => ptAbort.abort(), 8000);
-    fetch(`/api/freight-options?type=payment-terms&lang=${lang}`, { signal: ptAbort.signal })
-      .then((res) => {
-        clearTimeout(ptTimer);
-        return res.json();
-      })
-      .then((res) => {
+    getFreightDropdownAction('payment-terms', lang)
+      .then((res: any) => {
         if (res && res.success && res.data) {
           const list = res.data.payment_term || res.data || [];
           if (Array.isArray(list) && list.length > 0) {
@@ -411,13 +402,8 @@ export function FreightInquiryModal({
     hasFetchedProductsRef.current = true;
 
     setIsLoadingProducts(true);
-    const prodAbort = new AbortController();
-    const prodTimer = setTimeout(() => prodAbort.abort(), 4000);
-
-    fetch(`/api/freight-options?type=products&lang=${lang}`, { signal: prodAbort.signal })
-      .then((res) => res.json())
-      .then((res) => {
-        clearTimeout(prodTimer);
+    getFreightDropdownAction('products', lang)
+      .then((res: any) => {
         if (res && res.success && res.data) {
           const list = Array.isArray(res.data) ? res.data : (res.data?.products || []);
           if (Array.isArray(list) && list.length > 0) {
@@ -436,7 +422,6 @@ export function FreightInquiryModal({
         setProductOptions(DEFAULT_PRODUCTS);
       })
       .catch((err) => {
-        clearTimeout(prodTimer);
         console.error('Error fetching freight products:', err);
         cachedProducts = DEFAULT_PRODUCTS;
         setProductOptions(DEFAULT_PRODUCTS);
@@ -470,13 +455,8 @@ export function FreightInquiryModal({
     hasFetchedLinerTermsRef.current = true;
 
     setIsLoadingLinerTerms(true);
-    const linerAbort = new AbortController();
-    const linerTimer = setTimeout(() => linerAbort.abort(), 4000);
-
-    fetch(`/api/freight-options?type=liner-terms&lang=${lang}`, { signal: linerAbort.signal })
-      .then((res) => res.json())
-      .then((res) => {
-        clearTimeout(linerTimer);
+    getFreightDropdownAction('liner-terms', lang)
+      .then((res: any) => {
         if (res && res.success && res.data) {
           const list = Array.isArray(res.data) ? res.data : (res.data?.liner_term || res.data?.liner_terms || []);
           if (Array.isArray(list) && list.length > 0) {
@@ -493,7 +473,6 @@ export function FreightInquiryModal({
         setLinerTermOptions(DEFAULT_LINER_TERMS);
       })
       .catch((err) => {
-        clearTimeout(linerTimer);
         console.error('Error fetching freight liner terms:', err);
         cachedLinerTerms = DEFAULT_LINER_TERMS;
         setLinerTermOptions(DEFAULT_LINER_TERMS);
@@ -701,23 +680,9 @@ export function FreightInquiryModal({
         comment: formData.comments ? formData.comments.trim() : ''
       };
 
-      let res: any = null;
-      try {
-        const submitAbort = new AbortController();
-        const submitTimer = setTimeout(() => submitAbort.abort(), 15000);
-        const submitRaw = await fetch(`/api/freight-options?type=submit-inquiry&lang=${lang}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: submitAbort.signal
-        });
-        clearTimeout(submitTimer);
-        res = await submitRaw.json();
-      } catch {
-        res = await submitFreightInquiryAction(payload, lang);
-      }
+      const res = await submitFreightInquiryAction(payload, lang);
 
-      if (res && (res.success === 1 || res.success === true)) {
+      if (res && res.success) {
         toast.success(res.message || 'Freight inquiry created successfully!');
         onSuccess?.();
         onClose();

@@ -50,9 +50,10 @@ export async function initiateUpgradeAction(
     const json = await res.json().catch(() => ({}));
 
     if (!res.ok || json.success === 0 || json.success === false) {
+      const { sanitizeErrorMessage } = await import('@/lib/api-utils');
       return {
         success: false,
-        error: json.message || json.error || `Upgrade initiation failed (HTTP ${res.status})`,
+        error: sanitizeErrorMessage(json.message || json.error, `Upgrade initiation failed (HTTP ${res.status})`),
       };
     }
 
@@ -193,9 +194,10 @@ export async function createSubscriptionAction(
     const json = await res.json().catch(() => ({}));
 
     if (!res.ok || json.success === 0 || json.success === false) {
+      const { sanitizeErrorMessage } = await import('@/lib/api-utils');
       return {
         success: false,
-        error: json.message || json.error || `Failed to initialize subscription (HTTP ${res.status})`,
+        error: sanitizeErrorMessage(json.message || json.error, `Failed to initialize subscription (HTTP ${res.status})`),
       };
     }
 
@@ -327,9 +329,10 @@ export async function captureSubscriptionAction(
           }
         } catch {}
 
+        const { sanitizeErrorMessage } = await import('@/lib/api-utils');
         return {
           success: false,
-          error: json.message || json.error || `Payment verification failed (HTTP ${res.status})`,
+          error: sanitizeErrorMessage(json.message || json.error, `Payment verification failed (HTTP ${res.status})`),
         };
       }
     }

@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 import { getSubscriptionInvoiceAction } from '@/app/actions/membership';
+import { getDashboardStatsAction } from '@/app/actions/charts';
 
 import type { DashboardStats } from '@/lib/api/trading.service';
 
@@ -135,18 +136,16 @@ export default function DashboardClient({
     // Check if current stats has non-zero counts
     const hasCounts = stats && Object.entries(stats).some(([k, v]) => !k.includes('limit') && typeof v === 'number' && v > 0);
     
-    // Always fetch from API route if initial counts are zero or null
+    // Always fetch stats via Server Action if initial counts are zero or null
     if (!hasCounts) {
-      fetch(`/api/dashboard/stats?lang=${lang}`)
-        .then(res => res.json())
-        .then(resData => {
-          console.log('[DashboardClient] /api/dashboard/stats response:', resData);
+      getDashboardStatsAction(lang)
+        .then((resData) => {
           if (resData?.success && resData?.data) {
             setStats(resData.data);
           }
         })
-        .catch(err => {
-          console.error('[DashboardClient] fetch stats error:', err);
+        .catch((err) => {
+          console.error('[DashboardClient] getDashboardStatsAction error:', err);
         });
     }
   }, [lang]);

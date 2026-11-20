@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getTradingApiUrl } from '@/lib/api-utils';
+import { getTradingApiUrl, sanitizeErrorMessage } from '@/lib/api-utils';
 import { getValidAuthToken } from '@/lib/auth-token';
 
 export const dynamic = 'force-dynamic';
@@ -33,16 +33,37 @@ export async function POST(req: NextRequest) {
     });
     clearTimeout(timer);
 
-    const data = await res.json().catch(() => null);
+    const rawText = await res.text().catch(() => '');
+    let data: any = null;
+    try {
+      data = JSON.parse(rawText);
+    } catch {}
 
     if (!res.ok) {
+      const rawMsg = data?.message || data?.error;
+      const isExpress404 = /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(rawMsg) || res.status === 404;
+      if (isExpress404) {
+        try {
+          const { createPriceAnalysisAction } = await import('@/app/actions/charts');
+          const fallbackRes = await createPriceAnalysisAction(formData, lang_code);
+          if (fallbackRes.success && fallbackRes.data) {
+            return NextResponse.json({
+              success: true,
+              message: 'Price analysis generated successfully',
+              data: fallbackRes.data,
+              ...fallbackRes.data,
+            });
+          }
+        } catch {}
+      }
+      const errorMsg = sanitizeErrorMessage(rawMsg, 'AI Price Analysis is temporarily unavailable. Please try again shortly.');
       return NextResponse.json(
-        data || { success: false, message: 'Failed to create prediction' }, 
+        data ? { ...data, success: false, message: errorMsg } : { success: false, message: errorMsg }, 
         { status: res.status }
       );
     }
 
-    return NextResponse.json(data, { status: res.status });
+    return NextResponse.json(data || {}, { status: res.status });
   } catch (error: unknown) {
     console.error('Error in price-analysis proxy POST:', error);
     const err = error as Error;

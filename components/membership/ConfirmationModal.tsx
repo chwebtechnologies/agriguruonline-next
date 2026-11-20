@@ -99,82 +99,40 @@ interface PaymentCallResult {
 }
 
 /**
- * Resilient subscription creation with API route fallback
+ * Resilient subscription creation using Server Action
  */
 async function callCreateSubscription(payload: any, lang: string): Promise<PaymentCallResult> {
   try {
     const res = await createSubscriptionAction(payload, lang);
-    if (res && res.success) return { success: true, data: (res as any).data, message: res.message };
-    // Fallback to API route if server action failed
-    const apiRes = await fetch(`/api/membership/create-subscription?lang_code=${lang}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const json = await apiRes.json().catch(() => ({}));
-    if (apiRes.ok && json.success) {
-      return { success: true, data: json.data || json, message: json.message };
+    if (res && res.success) {
+      return { success: true, data: (res as any).data, message: res.message };
     }
     return {
       success: false,
-      error: json.error || json.message || (res && !res.success ? res.error : 'Payment initialization failed'),
+      error: res?.error || res?.message || 'Payment initialization failed',
     };
   } catch (err: any) {
-    console.warn('[ConfirmationModal] Server action createSubscription threw error, falling back to API:', err);
-    try {
-      const apiRes = await fetch(`/api/membership/create-subscription?lang_code=${lang}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const json = await apiRes.json().catch(() => ({}));
-      if (apiRes.ok && json.success) {
-        return { success: true, data: json.data || json, message: json.message };
-      }
-      return { success: false, error: json.error || json.message || err?.message || 'Payment initialization failed' };
-    } catch (fallbackErr: any) {
-      return { success: false, error: fallbackErr?.message || err?.message || 'Network error' };
-    }
+    console.error('[ConfirmationModal] Server action createSubscription threw error:', err);
+    return { success: false, error: err?.message || 'Payment initialization failed' };
   }
 }
 
 /**
- * Resilient payment verification with API route fallback
+ * Resilient payment verification using Server Action
  */
 async function callCaptureSubscription(payload: any, lang: string): Promise<PaymentCallResult> {
   try {
     const res = await captureSubscriptionAction(payload, lang);
-    if (res && res.success) return { success: true, message: res.message, data: (res as any).data };
-    // Fallback to API route
-    const apiRes = await fetch(`/api/membership/capture-subscription?lang_code=${lang}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const json = await apiRes.json().catch(() => ({}));
-    if (apiRes.ok && json.success) {
-      return { success: true, message: json.message || 'Payment verified successfully', data: json.data || json };
+    if (res && res.success) {
+      return { success: true, message: res.message, data: (res as any).data };
     }
     return {
       success: false,
-      error: json.error || json.message || (res && !res.success ? res.error : 'Payment capture failed'),
+      error: res?.error || res?.message || 'Payment capture failed',
     };
   } catch (err: any) {
-    console.warn('[ConfirmationModal] Server action captureSubscription threw error, falling back to API:', err);
-    try {
-      const apiRes = await fetch(`/api/membership/capture-subscription?lang_code=${lang}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const json = await apiRes.json().catch(() => ({}));
-      if (apiRes.ok && json.success) {
-        return { success: true, message: json.message || 'Payment verified successfully', data: json.data || json };
-      }
-      return { success: false, error: json.error || json.message || err?.message || 'Payment capture failed' };
-    } catch (fallbackErr: any) {
-      return { success: false, error: fallbackErr?.message || err?.message || 'Network error' };
-    }
+    console.error('[ConfirmationModal] Server action captureSubscription threw error:', err);
+    return { success: false, error: err?.message || 'Payment capture failed' };
   }
 }
 

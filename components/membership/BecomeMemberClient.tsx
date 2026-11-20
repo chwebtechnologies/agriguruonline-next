@@ -271,26 +271,8 @@ export default function BecomeMemberClient({
           lang
         );
       } catch (actionErr: any) {
-        console.warn('[BecomeMemberClient] Server action call threw error, attempting API route fallback:', actionErr);
-        try {
-          const apiRes = await fetch(`/api/membership/initiate-upgrade?lang_code=${lang}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              membership_id: storedPlan.planId,
-              membership_duration: safeDuration,
-              type: 'BECOME_A_MEMBER',
-            }),
-          });
-          const json = await apiRes.json().catch(() => ({}));
-          if (apiRes.ok && json.success) {
-            res = { success: true, data: json.data };
-          } else {
-            throw actionErr;
-          }
-        } catch {
-          throw actionErr;
-        }
+        console.error('[BecomeMemberClient] initiateUpgradeAction error:', actionErr);
+        res = { success: false, error: actionErr?.message || 'Failed to initiate membership' };
       }
 
       if (!res?.success || !res?.data) {
