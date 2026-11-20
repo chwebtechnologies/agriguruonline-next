@@ -196,6 +196,7 @@ export async function proxy(request: NextRequest) {
 
   // Helper to apply new cookies to any NextResponse
   const applyNewCookies = (res: NextResponse) => {
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
     const isSecure = isSecureRequest(request);
     const newAuthToken = request.headers.get('x-new-auth-token') || request.headers.get('x-auth-token');
     if (newAuthToken) {

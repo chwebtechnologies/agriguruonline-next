@@ -944,7 +944,7 @@ export function getStandardMetadata({
     title,
     description,
     keywords,
-    robots: noIndex
+    robots: (noIndex || process.env.NEXT_PUBLIC_ALLOW_INDEXING !== 'true')
       ? {
           index: false,
           follow: false,
