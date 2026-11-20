@@ -4546,7 +4546,7 @@ export function ConfirmationDocumentForm({
 
           {/* ROW 14: CONFIRMATION COMMENTS (comment_label & comment_value) */}
           <div
-            className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border"
+            className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border"
             data-field="commentSection"
           >
             <div className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0" data-field="commentLabel">
@@ -4567,10 +4567,11 @@ export function ConfirmationDocumentForm({
                   'Enter Title'
                 }
                 uppercase={false}
+                inputClassName="text-[14px] font-semibold"
               />
             </div>
             <div
-              className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 md:col-span-2"
+              className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 sm:col-span-2"
               data-field="commentValue"
             >
               <DocUnderlineInput

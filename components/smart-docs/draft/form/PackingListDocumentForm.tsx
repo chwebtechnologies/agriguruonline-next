@@ -1996,7 +1996,7 @@ export function PackingListDocumentForm({
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                   EXPORTER / SELLER:
                 </label>
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
                   {formatPartyDetails(companyName, sellerDetails) || '-'}
                 </div>
               </div>
@@ -2010,7 +2010,7 @@ export function PackingListDocumentForm({
                 <label className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5">
                   CONSIGNEE / BUYER:
                 </label>
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide px-0.5 whitespace-pre-line leading-relaxed select-all">
                   {consigneeDisplayText || '-'}
                 </div>
               </div>
@@ -2064,7 +2064,7 @@ export function PackingListDocumentForm({
                   <span className="font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider px-0.5 leading-tight">
                     GST NUMBER:
                   </span>
-                  <div className="text-[13px] sm:text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line break-words leading-relaxed px-0.5 select-all">
+                  <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line break-words leading-relaxed px-0.5 select-all">
                     {displayGstValue || '-'}
                   </div>
                 </div>
@@ -2156,17 +2156,17 @@ export function PackingListDocumentForm({
             {/* Notify Parties 1 - 3 Values */}
             <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty1 || '-'}
                 </div>
               </div>
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty2 || '-'}
                 </div>
               </div>
               <div className="p-2.5 sm:p-3 min-h-[72px] flex flex-col justify-start text-left">
-                <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
                   {notifyParty3 || '-'}
                 </div>
               </div>
@@ -2189,17 +2189,17 @@ export function PackingListDocumentForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card">
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty4 || '-'}
                     </div>
                   </div>
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty5 || '-'}
                     </div>
                   </div>
                   <div className="p-2.5 sm:p-3 min-h-[56px] flex flex-col justify-start text-left">
-                    <div className="text-[13px] sm:text-[14px] font-medium text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
+                    <div className="text-[14px] font-semibold text-foreground uppercase tracking-wide whitespace-pre-line leading-relaxed select-all">
                       {notifyParty6 || '-'}
                     </div>
                   </div>
@@ -2428,32 +2428,32 @@ export function PackingListDocumentForm({
                         className="divide-x divide-border border-b border-border hover:bg-muted/10 transition-colors"
                       >
                         {/* SR NO */}
-                        <td className="py-2.5 px-2 text-center font-medium text-[13px] sm:text-[14px] text-foreground border-b border-border">
+                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground border-b border-border">
                           {idx + 1}
                         </td>
 
                         {/* CONTAINER NO */}
-                        <td className="py-2.5 px-2 text-center font-medium text-[13px] sm:text-[14px] text-foreground uppercase tracking-wide select-all border-b border-border">
+                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground uppercase tracking-wide select-all border-b border-border">
                           {safeString(c.container_no) || '-'}
                         </td>
 
                         {/* SEAL NO */}
-                        <td className="py-2.5 px-2 text-center font-medium text-[13px] sm:text-[14px] text-foreground uppercase tracking-wide select-all border-b border-border">
+                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground uppercase tracking-wide select-all border-b border-border">
                           {safeString(c.seal_no) || '-'}
                         </td>
 
                         {/* BAGS */}
-                        <td className="py-2.5 px-2 text-center font-medium text-[13px] sm:text-[14px] text-foreground tabular-nums select-all border-b border-border">
+                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground tabular-nums select-all border-b border-border">
                           {formatContainerBags(c.bags)}
                         </td>
 
                         {/* GROSS WT (KG) */}
-                        <td className="py-2.5 px-2 text-center font-medium text-[13px] sm:text-[14px] text-foreground tabular-nums select-all border-b border-border">
+                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground tabular-nums select-all border-b border-border">
                           {formatContainerWeightKg(c.gross_weight)}
                         </td>
 
                         {/* NET WT (KG) */}
-                        <td className="py-2.5 px-2 text-center font-medium text-[13px] sm:text-[14px] text-foreground tabular-nums select-all border-b border-border">
+                        <td className="py-2.5 px-2 text-center font-semibold text-[14px] text-foreground tabular-nums select-all border-b border-border">
                           {formatContainerWeightKg(c.net_weight)}
                         </td>
                       </tr>
@@ -2548,7 +2548,7 @@ export function PackingListDocumentForm({
             ROW 9: COMMENTS (Enter Title 1/3 & Enter Comment 2/3 - Standard across all forms)
           */}
           <div
-            className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border"
+            className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border"
             data-field="commentSection"
           >
             <div
@@ -2582,7 +2582,7 @@ export function PackingListDocumentForm({
               />
             </div>
             <div
-              className="md:col-span-2 py-2.5 px-2.5 sm:px-3 flex items-center min-w-0"
+              className="sm:col-span-2 py-2.5 px-2.5 sm:px-3 flex items-center min-w-0"
               data-field="commentValue"
               id="field-commentValue"
             >

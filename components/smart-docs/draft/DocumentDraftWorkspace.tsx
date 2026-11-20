@@ -25,6 +25,7 @@ import {
   isCustomInvoiceStep,
   isCommercialInvoiceStep,
   isPackingListStep,
+  isPhytoCertificateStep,
   getContractStep,
   getProformaStep,
   getShipmentInstructionStep,
@@ -32,6 +33,7 @@ import {
   getCustomInvoiceStep,
   getCommercialInvoiceStep,
   getPackingListStep,
+  getPhytoCertificateStep,
   getContractIdFromStepper,
   getProformaIdFromStepper,
   getConfirmationIdFromStepper,
@@ -40,6 +42,7 @@ import {
   getCustomInvoiceIdFromStepper,
   getCommercialInvoiceIdFromStepper,
   getPackingListIdFromStepper,
+  getPhytoCertificateIdFromStepper,
   extractShipmentInstructionData,
   extractBillOfLadingData,
   isCompleteBillOfLadingData,
@@ -53,6 +56,9 @@ import {
   extractPackingListData,
   isCompletePackingListData,
   extractLinkedPackingListId,
+  extractPhytoCertificateData,
+  isCompletePhytoCertificateData,
+  extractLinkedPhytoCertificateId,
   sanitizeDocId,
   isRealStepperList,
   isStatusCompleted,
@@ -71,6 +77,7 @@ import BillOfLadingDocumentForm from './form/BillOfLadingDocumentForm';
 import CustomInvoiceDocumentForm from './form/CustomInvoiceDocumentForm';
 import CommercialInvoiceDocumentForm from './form/CommercialInvoiceDocumentForm';
 import PackingListDocumentForm from './form/PackingListDocumentForm';
+import PhytoCertificateDocumentForm from './form/PhytoCertificateDocumentForm';
 import DocumentDraftSkeleton from './DocumentDraftSkeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
@@ -99,6 +106,9 @@ import {
   getPackingListAction,
   savePackingListDraftAction,
   submitPackingListAction,
+  getPhytoCertificateAction,
+  savePhytoCertificateDraftAction,
+  submitPhytoCertificateAction,
 } from '@/app/actions/smart-docs';
 
 export function getSafeDisplayString(val: any, fallback = 'N/A'): string {
@@ -132,9 +142,16 @@ export function getSafeDisplayString(val: any, fallback = 'N/A'): string {
     if (typeof text === 'string' && text.trim()) {
       return text.trim();
     }
+    if (typeof text === 'object' && text !== null) {
+      return getSafeDisplayString(text, fallback);
+    }
     return fallback;
   }
   return String(val) || fallback;
+}
+
+export function safeString(val: any, fallback = ''): string {
+  return getSafeDisplayString(val, fallback);
 }
 
 export function getSafeInstructionString(val: any): string {
@@ -524,6 +541,7 @@ export interface DocumentDraftWorkspaceProps {
   initialCustomInvoiceData?: any;
   initialCommercialInvoiceData?: any;
   initialPackingListData?: any;
+  initialPhytoCertificateData?: any;
   initialConsignees?: any[];
   initialNotifyParties?: any[];
   initialConsigneesBuyerId?: string;
@@ -540,6 +558,7 @@ export function getStepSlug(step?: StepperDocumentItem | null, index?: number): 
   if (isCustomInvoiceStep(step)) return 'custom-invoice';
   if (isCommercialInvoiceStep(step)) return 'commercial-invoice';
   if (isPackingListStep(step)) return 'packing-list';
+  if (isPhytoCertificateStep(step)) return 'phyto-certificate';
 
   if (step) {
     const name = String(step.document_name || step.name || step.title || '').trim().toLowerCase();
@@ -563,6 +582,7 @@ export function getStepSlug(step?: StepperDocumentItem | null, index?: number): 
     if (index === 5) return 'custom-invoice';
     if (index === 6) return 'commercial-invoice';
     if (index === 7) return 'packing-list';
+    if (index === 8) return 'phyto-certificate';
     return `step-${index + 1}`;
   }
   return 'confirmation';
@@ -625,6 +645,11 @@ export function resolveInitialStepIndex(
       const packingIdx = stepList.findIndex((s) => isPackingListStep(s));
       return packingIdx >= 0 ? packingIdx : (stepList.length > 7 ? 7 : 0);
     }
+    if (clean === 'phyto-certificate' || clean === 'phyto_certificate' || clean === 'phyto' || clean === 'phytosanitary' || clean === '9') {
+      if (!stepList || stepList.length === 0) return 0;
+      const phytoIdx = stepList.findIndex((s) => isPhytoCertificateStep(s));
+      return phytoIdx >= 0 ? phytoIdx : (stepList.length > 8 ? 8 : 0);
+    }
     if (stepList && stepList.length > 0) {
       const matchedIdx = stepList.findIndex((s, i) => {
         const id = String(s.id || '').toLowerCase();
@@ -660,6 +685,7 @@ export function DocumentDraftWorkspace({
   initialCustomInvoiceData,
   initialCommercialInvoiceData,
   initialPackingListData,
+  initialPhytoCertificateData,
   initialConsignees = [],
   initialNotifyParties = [],
   initialConsigneesBuyerId = '',
@@ -713,6 +739,9 @@ export function DocumentDraftWorkspace({
   const [isLoadingCommercialInvoice, setIsLoadingCommercialInvoice] = useState<boolean>(false);
   const [packingListData, setPackingListData] = useState<any>(initialPackingListData || null);
   const [isLoadingPackingList, setIsLoadingPackingList] = useState<boolean>(false);
+  const [phytoCertificateData, setPhytoCertificateData] = useState<any>(initialPhytoCertificateData || null);
+  const [isLoadingPhytoCertificate, setIsLoadingPhytoCertificate] = useState<boolean>(false);
+  const [phytoCertificateVersion, setPhytoCertificateVersion] = useState<number>(0);
 
   // Pinned workflow partial contract number:
   // When a workflow is opened for a specific partial split (e.g. Split B's Shipment Instruction),
@@ -894,6 +923,7 @@ export function DocumentDraftWorkspace({
   const isCustomInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && isCustomInvoiceStep(fallbackStep);
   const isCommercialInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && isCommercialInvoiceStep(fallbackStep);
   const isPackingList = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && isPackingListStep(fallbackStep);
+  const isPhytoCertificate = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList && isPhytoCertificateStep(fallbackStep);
 
   // Contract ID extracted strictly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
   const contractIdFromStepper = useMemo(() => {
@@ -1694,6 +1724,127 @@ export function DocumentDraftWorkspace({
     draftId,
   ]);
 
+  // Canonical Phyto Certificate ID
+  const canonicalPhytoCertificateId = useMemo(() => {
+    const hasPhytoMarkers = (d: any) =>
+      Boolean(
+        d?.phyto_certificate_number ||
+        d?.phyto_certificate_no ||
+        d?.phyto_number ||
+        d?.phyto_certificate ||
+        d?.phytoCertificate ||
+        d?.phyto_certificate_id ||
+        d?._is_phyto_certificate_loaded
+      );
+
+    const directPhytoId = sanitizeDocId(
+      (hasPhytoMarkers(phytoCertificateData) ? phytoCertificateData?.id || phytoCertificateData?._id : '') ||
+      phytoCertificateData?.phyto_certificate_id ||
+      (hasPhytoMarkers(initialPhytoCertificateData) ? initialPhytoCertificateData?.id || initialPhytoCertificateData?._id : '') ||
+      initialPhytoCertificateData?.phyto_certificate_id
+    );
+    if (
+      directPhytoId &&
+      directPhytoId !== effectiveConfirmationId &&
+      directPhytoId !== canonicalContractId &&
+      directPhytoId !== canonicalProformaId &&
+      directPhytoId !== canonicalShipmentInstructionId &&
+      directPhytoId !== canonicalBillOfLadingId &&
+      directPhytoId !== canonicalCustomInvoiceId &&
+      directPhytoId !== canonicalCommercialInvoiceId &&
+      directPhytoId !== canonicalPackingListId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(directPhytoId)
+    ) {
+      return directPhytoId;
+    }
+
+    const phytoStep = getPhytoCertificateStep(steps, selectedStep);
+    const fromStepper = sanitizeDocId(
+      getStepSelfId(phytoStep) ||
+      getPhytoCertificateIdFromStepper(steps, selectedStep) ||
+      phytoStep?.phyto_certificate_id ||
+      (phytoStep as any)?.phytoCertificateId ||
+      phytoStep?.redirect_id ||
+      (phytoStep as any)?.redirectId
+    );
+    if (
+      fromStepper &&
+      !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(fromStepper)
+    ) {
+      return fromStepper;
+    }
+
+    const linkedCandidate = sanitizeDocId(
+      extractLinkedPhytoCertificateId(phytoCertificateData) ||
+      extractLinkedPhytoCertificateId(initialPhytoCertificateData) ||
+      extractLinkedPhytoCertificateId(packingListData) ||
+      extractLinkedPhytoCertificateId(commercialInvoiceData) ||
+      extractLinkedPhytoCertificateId(customInvoiceData) ||
+      extractLinkedPhytoCertificateId(billOfLadingData) ||
+      extractLinkedPhytoCertificateId(shipmentInstructionData) ||
+      extractLinkedPhytoCertificateId(proformaData) ||
+      extractLinkedPhytoCertificateId(contractData) ||
+      extractLinkedPhytoCertificateId(confirmationData)
+    );
+    if (
+      linkedCandidate &&
+      linkedCandidate !== effectiveConfirmationId &&
+      linkedCandidate !== canonicalContractId &&
+      linkedCandidate !== canonicalProformaId &&
+      linkedCandidate !== canonicalShipmentInstructionId &&
+      linkedCandidate !== canonicalBillOfLadingId &&
+      linkedCandidate !== canonicalCustomInvoiceId &&
+      linkedCandidate !== canonicalCommercialInvoiceId &&
+      linkedCandidate !== canonicalPackingListId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(linkedCandidate)
+    ) {
+      return linkedCandidate;
+    }
+
+    const cleanDraftId = sanitizeDocId(draftId);
+    if (
+      isPhytoCertificate &&
+      cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
+      cleanDraftId !== canonicalCommercialInvoiceId &&
+      cleanDraftId !== canonicalPackingListId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(cleanDraftId)
+    ) {
+      return cleanDraftId;
+    }
+
+    return '';
+  }, [
+    phytoCertificateData,
+    initialPhytoCertificateData,
+    steps,
+    selectedStep,
+    effectiveConfirmationId,
+    canonicalContractId,
+    canonicalProformaId,
+    canonicalShipmentInstructionId,
+    canonicalBillOfLadingId,
+    canonicalCustomInvoiceId,
+    canonicalCommercialInvoiceId,
+    canonicalPackingListId,
+    packingListData,
+    commercialInvoiceData,
+    customInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    confirmationData,
+    isPhytoCertificate,
+    draftId,
+  ]);
+
   // Buyer Instruction ID for Shipment Instruction (passed to consignee and notify party APIs).
   // Strictly prioritizes buyer_instruction_id from the SI response, falling back only to this trade's Importer.
   const buyerInstructionIdForShipment = useMemo(() => {
@@ -1939,12 +2090,16 @@ export function DocumentDraftWorkspace({
       'packing-list',
       'packing_list',
       'packing',
+      'phyto-certificate',
+      'phyto_certificate',
+      'phyto',
       'invoice',
       '4',
       '5',
       '6',
       '7',
       '8',
+      '9',
     ].includes(stepParam);
 
     return Boolean(
@@ -1955,6 +2110,7 @@ export function DocumentDraftWorkspace({
       isCustomInvoice ||
       isCommercialInvoice ||
       isPackingList ||
+      isPhytoCertificate ||
       (canonicalShipmentInstructionId && !canonicalContractId && !effectiveConfirmationId)
     );
   }, [
@@ -1969,6 +2125,7 @@ export function DocumentDraftWorkspace({
     isCustomInvoice,
     isCommercialInvoice,
     isPackingList,
+    isPhytoCertificate,
     canonicalShipmentInstructionId,
     canonicalContractId,
     effectiveConfirmationId,
@@ -2392,6 +2549,48 @@ export function DocumentDraftWorkspace({
           }
         }
 
+        // Step 9: Phyto Certificate
+        else if (isPhytoCertificateStep(step)) {
+          const phytoId = sanitizeDocId(
+            phytoCertificateData?.id ||
+            phytoCertificateData?._id ||
+            phytoCertificateData?.phyto_certificate_id ||
+            phytoCertificateData?.phyto_id ||
+            initialPhytoCertificateData?.id ||
+            initialPhytoCertificateData?._id ||
+            initialPhytoCertificateData?.phyto_certificate_id ||
+            initialPhytoCertificateData?.phyto_id
+          );
+          if (
+            phytoId &&
+            phytoId !== effectiveConfirmationId &&
+            phytoId !== canonicalContractId &&
+            phytoId !== canonicalProformaId &&
+            phytoId !== canonicalShipmentInstructionId &&
+            phytoId !== canonicalBillOfLadingId &&
+            phytoId !== canonicalCustomInvoiceId &&
+            phytoId !== canonicalCommercialInvoiceId &&
+            phytoId !== canonicalPackingListId &&
+            (!step.redirect_id || step.redirect_id === 'new-confirmation' || step.redirect_id.startsWith('step-'))
+          ) {
+            newStep.redirect_id = phytoId;
+            newStep.redirectId = phytoId;
+            changed = true;
+          }
+          const isDone = isStatusCompleted(
+            phytoCertificateData?.status ||
+            phytoCertificateData?.document_status ||
+            phytoCertificateData?.phyto_certificate_status ||
+            initialPhytoCertificateData?.status ||
+            initialPhytoCertificateData?.document_status ||
+            initialPhytoCertificateData?.phyto_certificate_status
+          );
+          if (isDone && normalizeStepStatus(step.status) !== 'completed') {
+            newStep.status = 'completed';
+            changed = true;
+          }
+        }
+
         return newStep;
       });
 
@@ -2414,6 +2613,8 @@ export function DocumentDraftWorkspace({
     initialCommercialInvoiceData,
     packingListData,
     initialPackingListData,
+    phytoCertificateData,
+    initialPhytoCertificateData,
     effectiveConfirmationId,
     canonicalContractId,
     canonicalProformaId,
@@ -2421,6 +2622,8 @@ export function DocumentDraftWorkspace({
     canonicalBillOfLadingId,
     canonicalCustomInvoiceId,
     canonicalCommercialInvoiceId,
+    canonicalPackingListId,
+    canonicalPhytoCertificateId,
   ]);
 
   // Active Step Self ID: strictly the current active step's own ID from redirect_id / stepper
@@ -2479,6 +2682,34 @@ export function DocumentDraftWorkspace({
         ''
       );
     }
+    if (isCommercialInvoice) {
+      return (
+        canonicalCommercialInvoiceId ||
+        commercialInvoiceData?.commercial_invoice_id ||
+        commercialInvoiceData?.id ||
+        commercialInvoiceData?._id ||
+        ''
+      );
+    }
+    if (isPackingList) {
+      return (
+        canonicalPackingListId ||
+        packingListData?.packing_list_id ||
+        packingListData?.id ||
+        packingListData?._id ||
+        ''
+      );
+    }
+    if (isPhytoCertificate) {
+      return (
+        canonicalPhytoCertificateId ||
+        phytoCertificateData?.phyto_certificate_id ||
+        phytoCertificateData?.phyto_id ||
+        phytoCertificateData?.id ||
+        phytoCertificateData?._id ||
+        ''
+      );
+    }
     return '';
   }, [
     selectedStep,
@@ -2488,6 +2719,9 @@ export function DocumentDraftWorkspace({
     isShipmentInstruction,
     isBillOfLading,
     isCustomInvoice,
+    isCommercialInvoice,
+    isPackingList,
+    isPhytoCertificate,
     effectiveConfirmationId,
     confirmationData,
     canonicalContractId,
@@ -2500,6 +2734,12 @@ export function DocumentDraftWorkspace({
     billOfLadingData,
     canonicalCustomInvoiceId,
     customInvoiceData,
+    canonicalCommercialInvoiceId,
+    commercialInvoiceData,
+    canonicalPackingListId,
+    packingListData,
+    canonicalPhytoCertificateId,
+    phytoCertificateData,
   ]);
 
   // Ensure the browser URL query parameter 'step' mirrors the current view
@@ -2574,6 +2814,14 @@ export function DocumentDraftWorkspace({
       /packing/i.test(String(initialStepParam))
     )
   );
+  const attemptedPhytoCertificateFetchRef = useRef<string | null>(null);
+  const isInitialPhytoCertificateSsrFreshRef = useRef<boolean>(
+    Boolean(
+      initialPhytoCertificateData &&
+      initialStepParam &&
+      /phyto/i.test(String(initialStepParam))
+    )
+  );
   const activeFetchSeqRef = useRef<number>(0);
 
   // Centralized step data fetcher: fetches the latest document data and refreshes stepper metadata
@@ -2587,6 +2835,7 @@ export function DocumentDraftWorkspace({
       const isTargetCustomInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && isCustomInvoiceStep(targetStep);
       const isTargetCommercialInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && isCommercialInvoiceStep(targetStep);
       const isTargetPackingList = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && isPackingListStep(targetStep);
+      const isTargetPhytoCertificate = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && isPhytoCertificateStep(targetStep);
 
       const stepSelfId = getStepSelfId(targetStep);
 
@@ -3354,6 +3603,110 @@ export function DocumentDraftWorkspace({
         }
         return;
       }
+
+      if (isTargetPhytoCertificate) {
+        setIsLoadingPhytoCertificate(true);
+
+        const isPlaceholderPhytoId = (val?: string | null) =>
+          !val ||
+          (/^\d+$/.test(val) && Number(val) <= 20) ||
+          /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(val);
+
+        const candidateId = sanitizeDocId(
+          (!isPlaceholderPhytoId(stepSelfId) ? stepSelfId : '') ||
+          targetStep?.phyto_certificate_id ||
+          (targetStep as any)?.phytoCertificateId ||
+          extractStepRedirectId(targetStep) ||
+          getPhytoCertificateIdFromStepper(steps, targetStep) ||
+          canonicalPhytoCertificateId ||
+          extractLinkedPhytoCertificateId(phytoCertificateData) ||
+          extractLinkedPhytoCertificateId(packingListData) ||
+          extractLinkedPhytoCertificateId(commercialInvoiceData) ||
+          extractLinkedPhytoCertificateId(customInvoiceData) ||
+          extractLinkedPhytoCertificateId(billOfLadingData) ||
+          extractLinkedPhytoCertificateId(shipmentInstructionData) ||
+          extractLinkedPhytoCertificateId(proformaData) ||
+          extractLinkedPhytoCertificateId(contractData)
+        );
+
+        const applyFreshPhytoCertificate = (rawData: any): boolean => {
+          if (!rawData || typeof rawData !== 'object') return false;
+          const extracted = extractPhytoCertificateData(rawData) || {
+            ...rawData,
+            _is_phyto_certificate_loaded: true,
+          };
+          if (extracted) {
+            setPhytoCertificateData(extracted);
+            setPhytoCertificateVersion((v) => v + 1);
+            return true;
+          }
+          return false;
+        };
+
+        let didPrimaryFetchSucceed = false;
+
+        const stepperPromise = getStepperListAction({
+          action: workflowAnchorType,
+          step: String(workflowAnchorId),
+          lang,
+        })
+          .then(async (sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
+              const freshPhytoStep = getPhytoCertificateStep(sRes.data);
+              const freshPhytoId = sanitizeDocId(
+                getStepSelfId(freshPhytoStep) ||
+                getPhytoCertificateIdFromStepper(sRes.data, freshPhytoStep) ||
+                freshPhytoStep?.phyto_certificate_id ||
+                (freshPhytoStep as any)?.phytoCertificateId ||
+                freshPhytoStep?.redirect_id ||
+                (freshPhytoStep as any)?.redirectId
+              );
+              if (
+                freshPhytoId &&
+                !isPlaceholderPhytoId(freshPhytoId) &&
+                (!candidateId || isPlaceholderPhytoId(candidateId))
+              ) {
+                try {
+                  const freshRes = await getPhytoCertificateAction(freshPhytoId, lang);
+                  if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
+                    attemptedPhytoCertificateFetchRef.current = freshPhytoId;
+                    applyFreshPhytoCertificate(freshRes.data);
+                  }
+                } catch (freshErr) {
+                  console.warn('[DocumentDraftWorkspace] Error fetching fresh phyto certificate from stepper:', freshErr);
+                }
+              }
+            }
+          })
+          .catch(() => {});
+
+        if (candidateId && !isPlaceholderPhytoId(candidateId)) {
+          try {
+            attemptedPhytoCertificateFetchRef.current = candidateId;
+            const res = await getPhytoCertificateAction(candidateId, lang);
+            if (activeFetchSeqRef.current === currentSeq && res?.success && res.data) {
+              didPrimaryFetchSucceed = applyFreshPhytoCertificate(res.data);
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest phyto certificate:', err);
+          } finally {
+            if (!didPrimaryFetchSucceed) {
+              await stepperPromise;
+            }
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingPhytoCertificate(false);
+            }
+          }
+        } else {
+          await stepperPromise;
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingPhytoCertificate(false);
+            setPhytoCertificateVersion((v) => v + 1);
+          }
+        }
+        return;
+      }
     },
     [
       steps,
@@ -3365,6 +3718,7 @@ export function DocumentDraftWorkspace({
       customInvoiceData,
       commercialInvoiceData,
       packingListData,
+      phytoCertificateData,
       canonicalContractId,
       canonicalProformaId,
       canonicalShipmentInstructionId,
@@ -3372,6 +3726,7 @@ export function DocumentDraftWorkspace({
       canonicalCustomInvoiceId,
       canonicalCommercialInvoiceId,
       canonicalPackingListId,
+      canonicalPhytoCertificateId,
       effectiveConfirmationId,
       rootWorkflowId,
       workflowAnchorId,
@@ -3416,6 +3771,7 @@ export function DocumentDraftWorkspace({
       attemptedCustomInvoiceFetchRef.current = null;
       attemptedCommercialInvoiceFetchRef.current = null;
       attemptedPackingListFetchRef.current = null;
+      attemptedPhytoCertificateFetchRef.current = null;
 
       const isSelectingConfirmation = isConfirmationStep(step);
       const isSelectingContract = !isSelectingConfirmation && isContractStep(step);
@@ -3425,6 +3781,7 @@ export function DocumentDraftWorkspace({
       const isSelectingCustomInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && isCustomInvoiceStep(step);
       const isSelectingCommercialInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && isCommercialInvoiceStep(step);
       const isSelectingPackingList = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && !isSelectingCommercialInvoice && isPackingListStep(step);
+      const isSelectingPhytoCertificate = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && !isSelectingCommercialInvoice && !isSelectingPackingList && isPhytoCertificateStep(step);
 
       if (isSelectingConfirmation) {
         setConfirmationVersion((v) => v + 1);
@@ -3442,6 +3799,8 @@ export function DocumentDraftWorkspace({
         setCommercialInvoiceVersion((v) => v + 1);
       } else if (isSelectingPackingList) {
         setPackingListVersion((v) => v + 1);
+      } else if (isSelectingPhytoCertificate) {
+        setPhytoCertificateVersion((v) => v + 1);
       }
 
       const stepSelfId = getStepSelfId(step);
@@ -3469,6 +3828,9 @@ export function DocumentDraftWorkspace({
       }
       if (isSelectingPackingList && !isCompletePackingListData(packingListData) && !isCompletePackingListData(initialPackingListData) && (stepSelfId || getPackingListIdFromStepper(steps, step) || canonicalPackingListId)) {
         setIsLoadingPackingList(true);
+      }
+      if (isSelectingPhytoCertificate && !isCompletePhytoCertificateData(phytoCertificateData) && !isCompletePhytoCertificateData(initialPhytoCertificateData) && (stepSelfId || getPhytoCertificateIdFromStepper(steps, step) || canonicalPhytoCertificateId)) {
+        setIsLoadingPhytoCertificate(true);
       }
 
       const slug = getStepSlug(step, resolvedIndex);
@@ -3604,6 +3966,28 @@ export function DocumentDraftWorkspace({
           initialStepParam === 'invoice' ||
           initialStepParam === '6'))
     ? dict?.smart_docs?.draft_custom_invoice_title || 'Draft Custom Invoice'
+    : isCommercialInvoice ||
+      (!selectedStep &&
+        (initialStepParam === 'commercial-invoice' ||
+          initialStepParam === 'commercial_invoice' ||
+          initialStepParam === 'commercial' ||
+          initialStepParam === '7'))
+    ? dict?.smart_docs?.draft_commercial_invoice_title || 'Draft Commercial Invoice'
+    : isPackingList ||
+      (!selectedStep &&
+        (initialStepParam === 'packing-list' ||
+          initialStepParam === 'packing_list' ||
+          initialStepParam === 'packing' ||
+          initialStepParam === '8'))
+    ? dict?.smart_docs?.draft_packing_list_title || 'Draft Packing List'
+    : isPhytoCertificate ||
+      (!selectedStep &&
+        (initialStepParam === 'phyto-certificate' ||
+          initialStepParam === 'phyto_certificate' ||
+          initialStepParam === 'phyto' ||
+          initialStepParam === 'phytosanitary' ||
+          initialStepParam === '9'))
+    ? dict?.smart_docs?.draft_phyto_certificate_title || 'Draft Phyto Certificate'
     : isConfirmation || !selectedStep
     ? dict?.smart_docs?.draft_confirmation_title ||
       dict?.smart_docs?.draft_title ||
@@ -3611,7 +3995,7 @@ export function DocumentDraftWorkspace({
       dict?.smart_docs?.add_confirmation ||
       'Draft Confirmation'
     : (() => {
-        const rawName = (
+        const rawName = safeString(
           selectedStep?.document_name ||
           selectedStep?.name ||
           selectedStep?.title ||
@@ -4224,7 +4608,92 @@ export function DocumentDraftWorkspace({
     lang,
   ]);
 
-  const activeDocName =
+  // Fetch fresh phyto certificate data whenever Phyto Certificate step becomes active
+  useEffect(() => {
+    if (!isPhytoCertificate) {
+      attemptedPhytoCertificateFetchRef.current = null;
+      isInitialPhytoCertificateSsrFreshRef.current = false;
+      return;
+    }
+
+    const phytoStep = getPhytoCertificateStep(steps, selectedStep);
+    const effectiveId = sanitizeDocId(
+      canonicalPhytoCertificateId ||
+      phytoStep?.phyto_certificate_id ||
+      (phytoStep as any)?.phytoCertificateId ||
+      getStepSelfId(phytoStep) ||
+      getPhytoCertificateIdFromStepper(steps, selectedStep) ||
+      extractStepRedirectId(phytoStep) ||
+      extractLinkedPhytoCertificateId(phytoCertificateData) ||
+      extractLinkedPhytoCertificateId(packingListData) ||
+      extractLinkedPhytoCertificateId(commercialInvoiceData) ||
+      extractLinkedPhytoCertificateId(customInvoiceData) ||
+      extractLinkedPhytoCertificateId(billOfLadingData) ||
+      extractLinkedPhytoCertificateId(shipmentInstructionData) ||
+      extractLinkedPhytoCertificateId(proformaData) ||
+      extractLinkedPhytoCertificateId(contractData)
+    );
+
+    if (
+      !effectiveId ||
+      (/^\d+$/.test(effectiveId) && Number(effectiveId) <= 20) ||
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(effectiveId)
+    ) {
+      setIsLoadingPhytoCertificate(false);
+      return;
+    }
+
+    if (isInitialPhytoCertificateSsrFreshRef.current) {
+      isInitialPhytoCertificateSsrFreshRef.current = false;
+      attemptedPhytoCertificateFetchRef.current = effectiveId;
+      return;
+    }
+
+    if (attemptedPhytoCertificateFetchRef.current !== effectiveId) {
+      attemptedPhytoCertificateFetchRef.current = effectiveId;
+      let cancelled = false;
+      setIsLoadingPhytoCertificate(true);
+      getPhytoCertificateAction(effectiveId, lang)
+        .then((res) => {
+          if (cancelled) return;
+          if (res?.success && res.data && typeof res.data === 'object') {
+            const extracted =
+              extractPhytoCertificateData(res.data) ||
+              { ...res.data, _is_phyto_certificate_loaded: true };
+            if (extracted) {
+              setPhytoCertificateData(extracted);
+              setPhytoCertificateVersion((v) => v + 1);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('[DocumentDraftWorkspace] Error fetching phyto certificate dynamically:', err);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoadingPhytoCertificate(false);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [
+    isPhytoCertificate,
+    canonicalPhytoCertificateId,
+    steps,
+    selectedStep,
+    packingListData,
+    commercialInvoiceData,
+    customInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    lang,
+  ]);
+
+  const activeDocName = safeString(
     selectedStep?.document_name ||
     selectedStep?.name ||
     selectedStep?.title ||
@@ -4243,7 +4712,10 @@ export function DocumentDraftWorkspace({
       ? 'Commercial Invoice'
       : isPackingList
       ? 'Packing List'
-      : dict?.smart_docs?.draft_title || 'Trade Confirmation');
+      : isPhytoCertificate
+      ? 'Phyto Certificate'
+      : dict?.smart_docs?.draft_title || 'Trade Confirmation')
+  );
 
   // Safe context inheritance for Shipment Instruction:
   // Inherits only trade reference attributes (parties, product, contract references)
@@ -4529,6 +5001,89 @@ export function DocumentDraftWorkspace({
     packingListData,
   ]);
 
+  // Comprehensive data merge for Phyto Certificate so trade, parties, and container context is inherited if creating new.
+  // CRITICAL: When real phyto data is loaded from API (_is_phyto_certificate_loaded: true), it takes absolute precedence!
+  const mergedPhytoCertificateData = useMemo(() => {
+    if (phytoCertificateData && phytoCertificateData._is_phyto_certificate_loaded) {
+      return phytoCertificateData;
+    }
+    const sources = [
+      initialData,
+      confirmationData,
+      initialContractData,
+      contractData,
+      initialProformaData,
+      proformaData,
+      initialShipmentInstructionData,
+      shipmentInstructionData,
+      initialBillOfLadingData,
+      billOfLadingData,
+      initialCustomInvoiceData,
+      customInvoiceData,
+      initialCommercialInvoiceData,
+      commercialInvoiceData,
+      initialPackingListData,
+      packingListData,
+      initialPhytoCertificateData,
+      phytoCertificateData,
+    ];
+    const merged: Record<string, any> = {};
+    for (const src of sources) {
+      if (!src || typeof src !== 'object') continue;
+      for (const [key, val] of Object.entries(src)) {
+        if (val === undefined || val === null || val === '') continue;
+        if (
+          src !== phytoCertificateData &&
+          src !== initialPhytoCertificateData &&
+          (key === 'id' ||
+            key === '_id' ||
+            key === 'status' ||
+            key === 'document_status' ||
+            key === 'title' ||
+            key === 'pdf_title' ||
+            key === 'document_title' ||
+            key === 'phyto_certificate_number' ||
+            key === 'phyto_certificate_no' ||
+            key === 'phyto_number' ||
+            key === 'phyto_certificate_date' ||
+            key === 'phyto_date')
+        ) {
+          continue;
+        }
+        if (
+          (key === 'loading_port' || key === 'destination_port') &&
+          typeof merged[key] === 'object' &&
+          merged[key] !== null &&
+          merged[key].country &&
+          (typeof val !== 'object' || val === null || !(val as any).country)
+        ) {
+          continue;
+        }
+        merged[key] = val;
+      }
+    }
+    return merged;
+  }, [
+    initialData,
+    confirmationData,
+    initialContractData,
+    contractData,
+    initialProformaData,
+    proformaData,
+    initialShipmentInstructionData,
+    shipmentInstructionData,
+    initialBillOfLadingData,
+    billOfLadingData,
+    initialCustomInvoiceData,
+    customInvoiceData,
+    initialCommercialInvoiceData,
+    commercialInvoiceData,
+    initialPackingListData,
+    packingListData,
+    initialPhytoCertificateData,
+    phytoCertificateData,
+  ]);
+
   // Active Contract Number strictly resolved from the currently open form's API response:
   // "and SI se Stepper ke uper jo Contract number dikh raha hai vo jo bhi form open hai uski api resposen me se dikhana hai so make sure proper perfect karo isko bhi"
   // "Sab me contract_number aayega shipment instructions and uske bad ke sabhi forms me same vo hi dikhana hai... abhi aa raha hai vo main contract id hai proper karo isko jo bhi jis step me hai vaha se aaye uska dikhao properly achhe se"
@@ -4539,16 +5094,18 @@ export function DocumentDraftWorkspace({
         return pinnedWorkflowContractNumber;
       }
       const candidates = [
-        extractDocContractNumber(shipmentInstructionData),
-        extractDocContractNumber(initialShipmentInstructionData),
-        extractDocContractNumber(billOfLadingData),
-        extractDocContractNumber(initialBillOfLadingData),
-        extractDocContractNumber(customInvoiceData),
-        extractDocContractNumber(initialCustomInvoiceData),
-        extractDocContractNumber(commercialInvoiceData),
-        extractDocContractNumber(initialCommercialInvoiceData),
+        extractDocContractNumber(phytoCertificateData),
+        extractDocContractNumber(initialPhytoCertificateData),
         extractDocContractNumber(packingListData),
         extractDocContractNumber(initialPackingListData),
+        extractDocContractNumber(commercialInvoiceData),
+        extractDocContractNumber(initialCommercialInvoiceData),
+        extractDocContractNumber(customInvoiceData),
+        extractDocContractNumber(initialCustomInvoiceData),
+        extractDocContractNumber(billOfLadingData),
+        extractDocContractNumber(initialBillOfLadingData),
+        extractDocContractNumber(shipmentInstructionData),
+        extractDocContractNumber(initialShipmentInstructionData),
         extractDocContractNumber(proformaData),
         extractDocContractNumber(initialProformaData),
         extractDocContractNumber(contractData),
@@ -4631,6 +5188,13 @@ export function DocumentDraftWorkspace({
 
     if (isPackingList) {
       const direct = getValidDocContract(packingListData, initialPackingListData);
+      if (direct) return direct;
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
+    }
+
+    if (isPhytoCertificate) {
+      const direct = getValidDocContract(phytoCertificateData, initialPhytoCertificateData);
       if (direct) return direct;
       const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
       if (fromSi) return fromSi;
@@ -4720,6 +5284,7 @@ export function DocumentDraftWorkspace({
     isCustomInvoice,
     isCommercialInvoice,
     isPackingList,
+    isPhytoCertificate,
     isContract,
     isProforma,
     pinnedWorkflowContractNumber,
@@ -4733,6 +5298,8 @@ export function DocumentDraftWorkspace({
     initialCommercialInvoiceData,
     packingListData,
     initialPackingListData,
+    phytoCertificateData,
+    initialPhytoCertificateData,
     contractData,
     initialContractData,
     proformaData,
@@ -4915,9 +5482,9 @@ export function DocumentDraftWorkspace({
               {mobileActiveDocNumber && (
                 <div className="flex items-center gap-1 min-w-0 text-[10px] text-foreground font-bold tracking-tight">
                   <span className="text-muted-foreground font-semibold text-[9px] uppercase">
-                    {mobileActiveDocLabel}:
+                    {safeString(mobileActiveDocLabel)}:
                   </span>
-                  <span className="truncate font-mono">{mobileActiveDocNumber}</span>
+                  <span className="truncate font-mono">{safeString(mobileActiveDocNumber)}</span>
                 </div>
               )}
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -4925,7 +5492,7 @@ export function DocumentDraftWorkspace({
                 {steps.length > 0 ? ` (${selectedStepIndex + 1}/${steps.length})` : ''}
               </span>
               <span className="text-xs font-bold text-foreground truncate">
-                {activeDocName}
+                {safeString(activeDocName)}
               </span>
             </div>
           </div>
@@ -7222,8 +7789,234 @@ export function DocumentDraftWorkspace({
           )}
         </div>
 
-        {/* Subsequent Workflow Steps View (Post-Packing List): Clean placeholder */}
-        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList ? 'flex' : 'hidden'}`} />
+        {/* Phyto Certificate Document Form: Visible when Phyto Certificate Step is active */}
+        <div className={`w-full h-full ${isPhytoCertificate ? 'flex flex-col' : 'hidden'}`}>
+          {isLoadingPhytoCertificate && !phytoCertificateData && !initialPhytoCertificateData ? (
+            <DocumentDraftSkeleton mode="contract" />
+          ) : (
+            <PhytoCertificateDocumentForm
+              key={`phyto-certificate-${canonicalPhytoCertificateId || (phytoCertificateData?.id ? String(phytoCertificateData.id) : 'default')}`}
+              dataVersion={phytoCertificateVersion}
+              initialData={
+                phytoCertificateData && Object.keys(phytoCertificateData).length > 2
+                  ? { ...mergedPhytoCertificateData, ...phytoCertificateData }
+                  : initialPhytoCertificateData && Object.keys(initialPhytoCertificateData).length > 2
+                  ? { ...mergedPhytoCertificateData, ...initialPhytoCertificateData }
+                  : mergedPhytoCertificateData || phytoCertificateData || initialPhytoCertificateData || null
+              }
+              phytoCertificateId={canonicalPhytoCertificateId || ''}
+              packingListId={canonicalPackingListId}
+              commercialInvoiceId={canonicalCommercialInvoiceId}
+              customInvoiceId={canonicalCustomInvoiceId}
+              shipmentInstructionId={canonicalShipmentInstructionId}
+              proformaId={canonicalProformaId}
+              contractId={canonicalContractId}
+              confirmationId={effectiveConfirmationId}
+              steps={steps}
+              selectedStep={selectedStep}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
+              sellers={initialSellers}
+              buyers={initialBuyers}
+              products={initialProducts}
+              paymentTerms={initialPaymentTerms}
+              currencies={initialCurrencies}
+              shippingTerms={shippingTerms}
+              lang={lang}
+              dict={dict}
+              readOnly={false}
+              onSaveSuccess={(savedId, savedData) => {
+                if (savedId) {
+                  setPhytoCertificateVersion((v) => v + 1);
+                  setPhytoCertificateData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(savedData || {}),
+                    id: savedId,
+                    phyto_certificate_id: savedId,
+                  }));
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s) =>
+                      isPhytoCertificateStep(s)
+                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                        : s
+                    )
+                  );
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
+                    if (targetWorkflowId) {
+                      url.searchParams.set('id', targetWorkflowId);
+                    }
+                    url.searchParams.set('step', 'phyto-certificate');
+                    window.history.replaceState(null, '', url.toString());
+                  }
+                }
+              }}
+              onSaveDraft={async (formData) => {
+                const phytoStep = getPhytoCertificateStep(steps, selectedStep);
+                const activeDocId =
+                  canonicalPhytoCertificateId ||
+                  sanitizeDocId(
+                    phytoCertificateData?.phyto_certificate_id ||
+                    (phytoCertificateData?.phyto_certificate_number ? phytoCertificateData?.id : '')
+                  ) ||
+                  getStepSelfId(phytoStep) ||
+                  extractStepRedirectId(phytoStep) ||
+                  phytoStep?.redirect_id ||
+                  (phytoStep as any)?.redirectId ||
+                  extractLinkedPhytoCertificateId(phytoCertificateData) ||
+                  canonicalPackingListId ||
+                  canonicalCommercialInvoiceId ||
+                  canonicalCustomInvoiceId ||
+                  canonicalShipmentInstructionId ||
+                  canonicalProformaId ||
+                  canonicalContractId ||
+                  effectiveConfirmationId ||
+                  rootWorkflowId ||
+                  draftId;
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await savePhytoCertificateDraftAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.phyto_certificate_id;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isPhytoCertificateStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
+                          : s
+                      )
+                    );
+                    let freshData = res.data;
+                    try {
+                      const freshRes = await getPhytoCertificateAction(cleanNewId, lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    } catch (e) {
+                      console.warn('[DocumentDraftWorkspace] Re-fetch phyto certificate after save warning:', e);
+                    }
+                    setPhytoCertificateData((prev: any) => ({
+                      ...(prev || {}),
+                      ...(freshData || {}),
+                      id: cleanNewId,
+                      phyto_certificate_id: cleanNewId,
+                    }));
+                    setPhytoCertificateVersion((v) => v + 1);
+                  }
+                }
+                return res;
+              }}
+              onSubmitPhytoCertificate={async (formData, id, passedNextStep) => {
+                const cleanPassed = sanitizeDocId(id);
+                const phytoStep = getPhytoCertificateStep(steps, selectedStep);
+                const activeDocId =
+                  cleanPassed ||
+                  canonicalPhytoCertificateId ||
+                  sanitizeDocId(
+                    phytoCertificateData?.phyto_certificate_id ||
+                    (phytoCertificateData?.phyto_certificate_number ? phytoCertificateData?.id : '')
+                  ) ||
+                  getStepSelfId(phytoStep) ||
+                  extractStepRedirectId(phytoStep) ||
+                  phytoStep?.redirect_id ||
+                  (phytoStep as any)?.redirectId ||
+                  extractLinkedPhytoCertificateId(phytoCertificateData) ||
+                  canonicalPackingListId ||
+                  canonicalCommercialInvoiceId ||
+                  canonicalCustomInvoiceId ||
+                  canonicalShipmentInstructionId ||
+                  canonicalProformaId ||
+                  canonicalContractId ||
+                  effectiveConfirmationId ||
+                  rootWorkflowId ||
+                  draftId;
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await submitPhytoCertificateAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.phyto_certificate_id || validEffectiveId;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isPhytoCertificateStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
+                          : s
+                      )
+                    );
+                  }
+                  let freshData = res.data;
+                  try {
+                    if (newId) {
+                      const freshRes = await getPhytoCertificateAction(String(newId), lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('[DocumentDraftWorkspace] Re-fetch phyto certificate after submit warning:', e);
+                  }
+                  setPhytoCertificateData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(freshData || {}),
+                    status: 'COMPLETED',
+                    document_status: 'COMPLETED',
+                    ...(newId ? { id: String(newId), phyto_certificate_id: String(newId) } : {}),
+                  }));
+                  setPhytoCertificateVersion((v) => v + 1);
+
+                  try {
+                    const stepperRes = await getStepperListAction({
+                      action: workflowAnchorType,
+                      step: String(workflowAnchorId),
+                      lang,
+                    });
+                    let targetList = steps;
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                      setSteps(targetList);
+                    }
+                    const visibleList = targetList.filter(isVisibleWorkflowStep);
+                    let nextStepToSelect: StepperDocumentItem | null = null;
+                    let targetIdx = -1;
+                    if (passedNextStep) {
+                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                    }
+                    if (!nextStepToSelect || targetIdx === -1) {
+                      const phytoIndex = visibleList.findIndex((s) => isPhytoCertificateStep(s));
+                      if (phytoIndex >= 0 && phytoIndex + 1 < visibleList.length) {
+                        targetIdx = phytoIndex + 1;
+                        nextStepToSelect = visibleList[targetIdx];
+                      }
+                    }
+                    if (nextStepToSelect && targetIdx >= 0) {
+                      handleSelectStep(nextStepToSelect, targetIdx);
+                    }
+                  } catch (stepErr) {
+                    console.error('[DocumentDraftWorkspace] Post-submit phyto certificate stepper error:', stepErr);
+                  }
+                }
+                return res;
+              }}
+            />
+          )}
+        </div>
+
+        {/* Subsequent Workflow Steps View (Post-Phyto Certificate): Clean placeholder */}
+        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList && !isPhytoCertificate ? 'flex' : 'hidden'}`} />
       </div>
 
       {/* 

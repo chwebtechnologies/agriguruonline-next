@@ -3947,7 +3947,7 @@ export function CustomInvoiceDocumentForm({
             Matching 3-column layout (1/3 Title & 2/3 Comment) across Smart Docs forms
            ======================================================== */}
         <div
-          className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card"
+          className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border bg-card"
           data-field="commentSection"
         >
           <div
@@ -3994,7 +3994,7 @@ export function CustomInvoiceDocumentForm({
           </div>
 
           <div
-            className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 md:col-span-2"
+            className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 sm:col-span-2"
             id="field-notes_comment"
             data-field="notes_comment"
           >

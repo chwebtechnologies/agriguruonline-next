@@ -7570,9 +7570,7 @@ export function ContractDocumentForm({
 
           {/* ROW 35: CONTRACT COMMENTS (comment_label & comment_value) */}
           <div
-            className={`grid grid-cols-1 ${
-              isSalesBrokerAllowed === true ? 'md:grid-cols-3' : 'md:grid-cols-2'
-            } divide-y md:divide-y-0 md:divide-x divide-border`}
+            className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border"
             data-field="commentSection"
           >
             <div className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0" data-field="commentLabel">
@@ -7589,12 +7587,11 @@ export function ContractDocumentForm({
                 disabled={readOnly}
                 placeholder={dict?.smart_docs?.contract_form?.enter_title || 'Enter Title'}
                 uppercase={false}
+                inputClassName="text-[14px] font-semibold"
               />
             </div>
             <div
-              className={`py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 ${
-                isSalesBrokerAllowed ? 'md:col-span-2' : 'md:col-span-1'
-              }`}
+              className="sm:col-span-2 py-2.5 px-2.5 sm:px-3 flex items-center min-w-0"
               data-field="commentValue"
             >
               <DocUnderlineInput
@@ -7610,6 +7607,7 @@ export function ContractDocumentForm({
                 disabled={readOnly}
                 placeholder={dict?.smart_docs?.contract_form?.enter_comment || 'Enter Comment'}
                 uppercase={false}
+                inputClassName="text-[14px] font-semibold"
               />
             </div>
           </div>

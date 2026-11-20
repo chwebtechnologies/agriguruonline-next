@@ -54,6 +54,7 @@ import {
   extractCustomInvoiceData,
   extractCommercialInvoiceData,
   extractPackingListData,
+  extractPhytoCertificateData,
   extractBillOfLadingData,
   extractProductDetailData,
   extractPaymentTermDetailData,
@@ -5168,6 +5169,328 @@ export async function submitPackingListAction(
   }
 }
 
+export interface GetPhytoCertificateActionResult {
+  success: boolean;
+  data: any | null;
+  error?: string;
+  message?: string;
+}
+
+export async function getPhytoCertificateAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetPhytoCertificateActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Phyto Certificate ID is required",
+        data: null,
+      };
+    }
+
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getPhytoCertificate(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch phyto certificate details",
+        data: null,
+      };
+    }
+
+    const extData = extractPhytoCertificateData(rawRes);
+    return {
+      success: true,
+      data: extData || rawRes.data || rawRes,
+    };
+  } catch (error: any) {
+    console.error("[getPhytoCertificateAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch phyto certificate details",
+      data: null,
+    };
+  }
+}
+
+export interface SavePhytoCertificateDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  raw?: any;
+}
+
+export async function savePhytoCertificateDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SavePhytoCertificateDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.savePhytoCertificateDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.savePhytoCertificateDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[savePhytoCertificateDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save phyto certificate draft",
+        message: "Failed to save phyto certificate draft",
+      };
+    }
+
+    const isSuccess = Boolean(rawRes.success !== false && rawRes.success !== 0 && rawRes.status !== false);
+    if (!isSuccess) {
+      let errorFields =
+        rawRes.error_fields ||
+        rawRes.data?.error_fields ||
+        rawRes.errors ||
+        rawRes.data?.errors ||
+        rawRes.raw?.error_fields ||
+        rawRes.raw?.errors ||
+        null;
+
+      const extracted = extractApiValidationErrors(rawRes);
+      if (!errorFields && extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = Object.keys(errMap).length > 0 ? errMap : null;
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        "Failed to save phyto certificate draft";
+      const cleanMessage = isRawRoutingOrHtmlError(rawBackendMsg)
+        ? "Failed to save phyto certificate draft"
+        : rawBackendMsg;
+
+      return {
+        success: false,
+        error: cleanMessage,
+        message: cleanMessage,
+        error_fields: errorFields,
+        errors: errorFields,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const resolvedId =
+      rawRes.id ||
+      rawRes.data?.id ||
+      rawRes.data?._id ||
+      rawRes.data?.phyto_certificate_id ||
+      rawRes._id ||
+      id;
+
+    return {
+      success: true,
+      message: rawRes.message || "Phyto certificate draft saved successfully",
+      id: resolvedId ? String(resolvedId) : undefined,
+      data: rawRes.data !== undefined ? rawRes.data : rawRes,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[savePhytoCertificateDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving phyto certificate draft",
+      message: error?.message || "Internal error occurred while saving phyto certificate draft",
+    };
+  }
+}
+
+export async function submitPhytoCertificateAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SavePhytoCertificateDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitPhytoCertificate(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitPhytoCertificate(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitPhytoCertificateAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit phyto certificate",
+        message: "Failed to submit phyto certificate",
+      };
+    }
+
+    const isSuccess = Boolean(rawRes.success !== false && rawRes.success !== 0 && rawRes.status !== false);
+    if (!isSuccess) {
+      let errorFields =
+        rawRes.error_fields ||
+        rawRes.data?.error_fields ||
+        rawRes.errors ||
+        rawRes.data?.errors ||
+        rawRes.raw?.error_fields ||
+        rawRes.raw?.errors ||
+        null;
+
+      const extracted = extractApiValidationErrors(rawRes);
+      if (!errorFields && extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = Object.keys(errMap).length > 0 ? errMap : null;
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        "Failed to submit phyto certificate";
+      const cleanMessage = isRawRoutingOrHtmlError(rawBackendMsg)
+        ? "Failed to submit phyto certificate"
+        : rawBackendMsg;
+
+      return {
+        success: false,
+        error: cleanMessage,
+        message: cleanMessage,
+        error_fields: errorFields,
+        errors: errorFields,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const resolvedId =
+      rawRes.id ||
+      rawRes.data?.id ||
+      rawRes.data?._id ||
+      rawRes.data?.phyto_certificate_id ||
+      rawRes._id ||
+      id;
+
+    return {
+      success: true,
+      message: rawRes.message || "Phyto certificate submitted successfully",
+      id: resolvedId ? String(resolvedId) : undefined,
+      data: rawRes.data !== undefined ? rawRes.data : rawRes,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[submitPhytoCertificateAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to submit phyto certificate",
+      message: error?.message || "Failed to submit phyto certificate",
+    };
+  }
+}
+
 export interface GetDocPreviewActionParams {
   prefix?: string;
   id: string;
@@ -5180,6 +5503,7 @@ export interface GetDocPreviewActionParams {
   customInvoiceId?: string;
   commercialInvoiceId?: string;
   packingListId?: string;
+  phytoCertificateId?: string;
 }
 
 export interface GetDocPreviewActionResult {
@@ -5199,19 +5523,35 @@ export async function getDocPreviewAction(
   try {
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(params.prefix || "");
     const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(params.prefix || "");
-    const isCustomInvoice = !isCommercialInvoice && !isPackingList && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
+    const isPhytoCertificate = !isCommercialInvoice && !isPackingList && /phyto/i.test(params.prefix || "");
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
     const commercialId = String(params.commercialInvoiceId || "").trim();
     const packingListId = String(params.packingListId || "").trim();
+    const phytoId = String(params.phytoCertificateId || "").trim();
     const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
-        (isCommercialInvoice
+        (isPhytoCertificate
+          ? [
+              phytoId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              packingListId,
+              commercialId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isCommercialInvoice
           ? [
               commercialId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
+              phytoId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5224,6 +5564,7 @@ export async function getDocPreviewAction(
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               commercialId,
+              phytoId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5236,6 +5577,7 @@ export async function getDocPreviewAction(
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
+              phytoId,
               commercialId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5246,6 +5588,7 @@ export async function getDocPreviewAction(
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
+              phytoId,
               commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
@@ -5257,7 +5600,7 @@ export async function getDocPreviewAction(
           (id): id is string =>
             Boolean(
               id &&
-                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
                   id
                 )
             )
@@ -5347,6 +5690,7 @@ export interface DownloadDocPdfActionParams {
   customInvoiceId?: string;
   commercialInvoiceId?: string;
   packingListId?: string;
+  phytoCertificateId?: string;
 }
 
 export interface DownloadDocPdfActionResult {
@@ -5371,19 +5715,35 @@ export async function downloadDocPdfAction(
   try {
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(params.prefix || "");
     const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(params.prefix || "");
-    const isCustomInvoice = !isCommercialInvoice && !isPackingList && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
+    const isPhytoCertificate = !isCommercialInvoice && !isPackingList && /phyto/i.test(params.prefix || "");
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
     const commercialId = String(params.commercialInvoiceId || "").trim();
     const packingListId = String(params.packingListId || "").trim();
+    const phytoId = String(params.phytoCertificateId || "").trim();
     const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
-        (isCommercialInvoice
+        (isPhytoCertificate
+          ? [
+              phytoId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              packingListId,
+              commercialId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isCommercialInvoice
           ? [
               commercialId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
+              phytoId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5396,6 +5756,7 @@ export async function downloadDocPdfAction(
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               commercialId,
+              phytoId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5408,6 +5769,7 @@ export async function downloadDocPdfAction(
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
+              phytoId,
               commercialId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -5418,6 +5780,7 @@ export async function downloadDocPdfAction(
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
+              phytoId,
               commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
@@ -5429,7 +5792,7 @@ export async function downloadDocPdfAction(
           (id): id is string =>
             Boolean(
               id &&
-                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
                   id
                 )
             )

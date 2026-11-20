@@ -20,6 +20,7 @@ export interface DocPrintPreviewModalProps {
   customInvoiceId?: string;
   commercialInvoiceId?: string;
   packingListId?: string;
+  phytoCertificateId?: string;
   billOfLadingId?: string;
 }
 
@@ -158,6 +159,7 @@ export default function DocPrintPreviewModal({
   customInvoiceId,
   commercialInvoiceId,
   packingListId,
+  phytoCertificateId,
   billOfLadingId,
 }: DocPrintPreviewModalProps) {
   const [mounted, setMounted] = useState(false);
@@ -189,6 +191,7 @@ export default function DocPrintPreviewModal({
         [
           cleanId,
           ...(candidateIds || []).map((id) => String(id || '').trim()),
+          String(phytoCertificateId || '').trim(),
           String(packingListId || '').trim(),
           String(commercialInvoiceId || '').trim(),
           String(billOfLadingId || '').trim(),
@@ -197,7 +200,7 @@ export default function DocPrintPreviewModal({
           String(proformaId || '').trim(),
           String(contractId || '').trim(),
           String(confirmationId || '').trim(),
-        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(id)))
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(id)))
       )
     );
 
@@ -221,6 +224,7 @@ export default function DocPrintPreviewModal({
         customInvoiceId,
         commercialInvoiceId,
         packingListId,
+        phytoCertificateId,
         lang,
       });
 
@@ -237,7 +241,7 @@ export default function DocPrintPreviewModal({
     } finally {
       setLoading(false);
     }
-  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, commercialInvoiceId, packingListId, billOfLadingId, lang]);
+  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, commercialInvoiceId, packingListId, phytoCertificateId, billOfLadingId, lang]);
 
   useEffect(() => {
     if (!isOpen) {

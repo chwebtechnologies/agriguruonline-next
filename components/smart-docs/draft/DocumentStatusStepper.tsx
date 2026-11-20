@@ -14,6 +14,7 @@ import {
   isCustomInvoiceStep,
   isCommercialInvoiceStep,
   isPackingListStep,
+  isPhytoCertificateStep,
   extractStepRedirectId,
   extractStepId,
   getStepSelfId,
@@ -535,11 +536,12 @@ export function DocumentStatusStepper({
       const isBillOfLading = isBillOfLadingStep(step) || stepName.includes('lading') || step.step === 5;
       const isCommercialInvoice = !isBillOfLading && (isCommercialInvoiceStep(step) || stepName.includes('commercial') || step.step === 7);
       const isPackingList = !isBillOfLading && !isCommercialInvoice && (isPackingListStep(step) || stepName.includes('packing') || step.step === 8);
-      const isCustomInvoice = !isBillOfLading && !isCommercialInvoice && !isPackingList && (isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 6);
-      const isShipment = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
-      const isContract = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
-      const isProforma = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
-      const prefix = isBillOfLading ? 'bill_of_lading' : isCommercialInvoice ? 'commercial_invoice' : isPackingList ? 'packing_list' : isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
+      const isPhyto = !isBillOfLading && !isCommercialInvoice && !isPackingList && (isPhytoCertificateStep(step) || stepName.includes('phyto') || step.step === 9);
+      const isCustomInvoice = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && (isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 6);
+      const isShipment = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
+      const isContract = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
+      const isProforma = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
+      const prefix = isBillOfLading ? 'bill_of_lading' : isCommercialInvoice ? 'commercial_invoice' : isPackingList ? 'packing_list' : isPhyto ? 'phyto_certificate' : isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
 
       const res = await downloadDocPdfAction({
         prefix,
@@ -547,6 +549,7 @@ export function DocumentStatusStepper({
         customInvoiceId: isCustomInvoice ? cleanId : undefined,
         commercialInvoiceId: isCommercialInvoice ? cleanId : undefined,
         packingListId: isPackingList ? cleanId : undefined,
+        phytoCertificateId: isPhyto ? cleanId : undefined,
         lang,
       });
 
@@ -576,6 +579,7 @@ export function DocumentStatusStepper({
     if (isCustomInvoiceStep(stepItem) && isCustomInvoiceStep(docConfig as any)) return true;
     if (isCommercialInvoiceStep(stepItem) && isCommercialInvoiceStep(docConfig as any)) return true;
     if (isPackingListStep(stepItem) && isPackingListStep(docConfig as any)) return true;
+    if (isPhytoCertificateStep(stepItem) && isPhytoCertificateStep(docConfig as any)) return true;
 
     return false;
   }, []);
@@ -925,9 +929,9 @@ export function DocumentStatusStepper({
                             ? 'font-semibold text-foreground'
                             : 'font-normal text-muted-foreground/75'
                         }`}
-                        title={doc.name}
+                        title={typeof doc.name === 'string' ? doc.name : (doc.name as any)?.name || 'Document'}
                       >
-                        {doc.name}
+                        {typeof doc.name === 'string' ? doc.name : (doc.name as any)?.name || 'Document'}
                       </span>
                     </div>
 
@@ -1042,11 +1046,12 @@ export function DocumentStatusStepper({
             <div className="relative flex flex-col space-y-0.5">
               {visibleSteps.map((step, index) => {
                 const docName =
-                  step.document_name ||
-                  step.name ||
-                  step.title ||
-                  step.doc_name ||
-                  step.step_name ||
+                  (typeof step.document_name === 'string' && step.document_name.trim()) ||
+                  (typeof step.name === 'string' && step.name.trim()) ||
+                  (typeof (step as any)?.name === 'object' && typeof (step as any)?.name?.name === 'string' ? (step as any).name.name.trim() : '') ||
+                  (typeof step.title === 'string' && step.title.trim()) ||
+                  (typeof step.doc_name === 'string' && step.doc_name.trim()) ||
+                  (typeof step.step_name === 'string' && step.step_name.trim()) ||
                   `${dict?.smart_docs?.step_prefix || 'Document'} ${index + 1}`;
 
                 const rawStatus = step.status || step.document_status || step.step_status;

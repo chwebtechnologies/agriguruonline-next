@@ -21,6 +21,7 @@ import {
   extractCustomInvoiceData,
   extractCommercialInvoiceData,
   extractPackingListData,
+  extractPhytoCertificateData,
   extractDocumentListData,
   isConfirmationStep,
   isContractStep,
@@ -30,6 +31,7 @@ import {
   isCustomInvoiceStep,
   isCommercialInvoiceStep,
   isPackingListStep,
+  isPhytoCertificateStep,
   extractStepId,
   extractStepRedirectId,
   getStepSelfId,
@@ -38,6 +40,7 @@ import {
   getCustomInvoiceIdFromStepper,
   getCommercialInvoiceIdFromStepper,
   getPackingListIdFromStepper,
+  getPhytoCertificateIdFromStepper,
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
   isRealStepperList,
   normalizeStepStatus,
@@ -50,6 +53,7 @@ import {
   extractLinkedCustomInvoiceId,
   extractLinkedCommercialInvoiceId,
   extractLinkedPackingListId,
+  extractLinkedPhytoCertificateId,
   mergeStepperWithHidden,
   DEFAULT_CURRENCIES,
   sanitizeDocId,
@@ -96,6 +100,11 @@ export async function generateMetadata(props: {
       searchParams?.step === 'packing_list' ||
       searchParams?.step === 'packing' ||
       searchParams?.step === '8';
+    const isPhytoCertificateRequested =
+      searchParams?.step === 'phyto-certificate' ||
+      searchParams?.step === 'phyto_certificate' ||
+      searchParams?.step === 'phyto' ||
+      searchParams?.step === '9';
     const queryParts = [];
     if (searchParams?.id) queryParts.push(`id=${encodeURIComponent(String(searchParams.id))}`);
     if (searchParams?.step) queryParts.push(`step=${encodeURIComponent(String(searchParams.step))}`);
@@ -108,6 +117,8 @@ export async function generateMetadata(props: {
       pageTitle = dict?.smart_docs?.draft_bill_of_lading_title || 'Draft Bill of Lading';
     } else if (isPackingListRequested) {
       pageTitle = dict?.smart_docs?.draft_packing_list_title || 'Draft Packing List';
+    } else if (isPhytoCertificateRequested) {
+      pageTitle = dict?.smart_docs?.draft_phyto_certificate_title || 'Draft Phyto Certificate';
     } else if (isCommercialInvoiceRequested) {
       pageTitle = dict?.smart_docs?.draft_commercial_invoice_title || 'Draft Commercial Invoice';
     } else if (isCustomInvoiceRequested) {
@@ -197,6 +208,11 @@ export default async function SmartDocsDraftPage(props: {
     initialStepParam === 'packing_list' ||
     initialStepParam === 'packing' ||
     initialStepParam === '8';
+  const isPhytoCertificateRequested =
+    initialStepParam === 'phyto-certificate' ||
+    initialStepParam === 'phyto_certificate' ||
+    initialStepParam === 'phyto' ||
+    initialStepParam === '9';
 
   // Secure token verification at top page level BEFORE Suspense boundary
   const token = await getValidAuthToken();
@@ -214,7 +230,7 @@ export default async function SmartDocsDraftPage(props: {
       fallback={
         <DocumentDraftSkeleton
           mode={
-            isPackingListRequested || isCommercialInvoiceRequested || isCustomInvoiceRequested || isBillOfLadingRequested || isShipmentRequested || isProformaRequested || isContractRequested
+            isPhytoCertificateRequested || isPackingListRequested || isCommercialInvoiceRequested || isCustomInvoiceRequested || isBillOfLadingRequested || isShipmentRequested || isProformaRequested || isContractRequested
               ? 'contract'
               : 'confirmation'
           }
@@ -275,11 +291,16 @@ async function DraftPageDataLoader({
     initialStepParam === 'packing_list' ||
     initialStepParam === 'packing' ||
     initialStepParam === '8';
+  const isPhytoCertificateRequested =
+    initialStepParam === 'phyto-certificate' ||
+    initialStepParam === 'phyto_certificate' ||
+    initialStepParam === 'phyto' ||
+    initialStepParam === '9';
 
   try {
     const targetAction = isContractRequested
       ? 'contract'
-      : isShipmentRequested || isBillOfLadingRequested || isCustomInvoiceRequested || isCommercialInvoiceRequested || isPackingListRequested
+      : isShipmentRequested || isBillOfLadingRequested || isCustomInvoiceRequested || isCommercialInvoiceRequested || isPackingListRequested || isPhytoCertificateRequested
       ? 'document'
       : 'confirmation';
 
@@ -303,6 +324,7 @@ async function DraftPageDataLoader({
       customInvoiceRes,
       commercialInvoiceRes,
       packingListRes,
+      phytoCertificateRes,
     ] = await Promise.all([
       getDictionary(lang).catch(() => ({})),
       smartDocsService
@@ -363,6 +385,9 @@ async function DraftPageDataLoader({
       (isPackingListRequested || draftId)
         ? smartDocsService.getPackingList(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
+      (isPhytoCertificateRequested || draftId)
+        ? smartDocsService.getPhytoCertificate(draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
     ]);
 
     const dict = rawDict as any;
@@ -406,6 +431,11 @@ async function DraftPageDataLoader({
       extractPackingListData(packingListRes) ||
       (packingListRes?.data && typeof packingListRes.data === 'object' && !Array.isArray(packingListRes.data) && packingListRes.success !== false
         ? { ...packingListRes.data, _is_packing_list_loaded: true }
+        : null);
+    let initialPhytoCertificateData: any =
+      extractPhytoCertificateData(phytoCertificateRes) ||
+      (phytoCertificateRes?.data && typeof phytoCertificateRes.data === 'object' && !Array.isArray(phytoCertificateRes.data) && phytoCertificateRes.success !== false
+        ? { ...phytoCertificateRes.data, _is_phyto_certificate_loaded: true }
         : null);
 
     // If initialShipmentInstructionData contains nested contract/confirmation/proforma objects, seed missing data
@@ -464,6 +494,17 @@ async function DraftPageDataLoader({
       extractLinkedPackingListId(initialProformaData) ||
       extractLinkedPackingListId(initialContractData) ||
       extractLinkedPackingListId(initialConfirmationData);
+
+    const discoveredPhytoCertificateId =
+      extractLinkedPhytoCertificateId(initialPhytoCertificateData) ||
+      extractLinkedPhytoCertificateId(initialPackingListData) ||
+      extractLinkedPhytoCertificateId(initialCommercialInvoiceData) ||
+      extractLinkedPhytoCertificateId(initialCustomInvoiceData) ||
+      extractLinkedPhytoCertificateId(initialBillOfLadingData) ||
+      extractLinkedPhytoCertificateId(initialShipmentInstructionData) ||
+      extractLinkedPhytoCertificateId(initialProformaData) ||
+      extractLinkedPhytoCertificateId(initialContractData) ||
+      extractLinkedPhytoCertificateId(initialConfirmationData);
 
     // If shipment instruction data was loaded for this draftId, ensure stepper is anchored to document!
     if (initialShipmentInstructionData && stepperTarget && stepperTarget !== 'new-confirmation') {
@@ -676,8 +717,18 @@ async function DraftPageDataLoader({
       extractLinkedPackingListId(initialContractData) ||
       extractLinkedPackingListId(initialConfirmationData);
 
+    const stepperPhytoCertificateStep = initialSteps.find((s) => isPhytoCertificateStep(s)) || null;
+    const phytoCertificateId =
+      (isPhytoCertificateRequested ? draftId : '') ||
+      stepperPhytoCertificateStep?.phyto_certificate_id ||
+      (stepperPhytoCertificateStep as any)?.phytoCertificateId ||
+      getStepSelfId(stepperPhytoCertificateStep) ||
+      getPhytoCertificateIdFromStepper(initialSteps) ||
+      extractStepRedirectId(stepperPhytoCertificateStep) ||
+      discoveredPhytoCertificateId;
+
     // Phase 2: Fetch any missing documents in ONE clean parallel round trip!
-    const [missingConfRes, missingContractRes, missingProformaRes, missingShipmentRes, missingBillOfLadingRes, missingCustomInvoiceRes, missingCommercialInvoiceRes, missingPackingListRes] = await Promise.all([
+    const [missingConfRes, missingContractRes, missingProformaRes, missingShipmentRes, missingBillOfLadingRes, missingCustomInvoiceRes, missingCommercialInvoiceRes, missingPackingListRes, missingPhytoCertificateRes] = await Promise.all([
       !initialConfirmationData && confId && confId !== draftId
         ? smartDocsService.getConfirmation(confId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
@@ -701,6 +752,9 @@ async function DraftPageDataLoader({
         : Promise.resolve(null),
       !initialPackingListData && packingListId && packingListId !== draftId
         ? smartDocsService.getPackingList(packingListId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      !initialPhytoCertificateData && phytoCertificateId && phytoCertificateId !== draftId
+        ? smartDocsService.getPhytoCertificate(phytoCertificateId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
     ]);
 
@@ -762,6 +816,14 @@ async function DraftPageDataLoader({
           ? { ...missingPackingListRes.data, _is_packing_list_loaded: true }
           : null);
       if (ext) initialPackingListData = ext;
+    }
+    if (missingPhytoCertificateRes) {
+      const ext =
+        extractPhytoCertificateData(missingPhytoCertificateRes) ||
+        (missingPhytoCertificateRes?.data && typeof missingPhytoCertificateRes.data === 'object'
+          ? { ...missingPhytoCertificateRes.data, _is_phyto_certificate_loaded: true }
+          : null);
+      if (ext) initialPhytoCertificateData = ext;
     }
 
     // Pre-fetch buyer consignees and notify parties strictly for this trade's Importer (buyer_instruction_id).
@@ -943,14 +1005,29 @@ async function DraftPageDataLoader({
         } else if (s.status) {
           updated.status = s.status;
         }
+      } else if (isPhytoCertificateStep(s)) {
+        if (phytoCertificateId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
+          updated.redirect_id = phytoCertificateId;
+          updated.redirectId = phytoCertificateId;
+        }
+        const isPhytoDone =
+          normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
+          isStatusCompleted(initialPhytoCertificateData?.status || initialPhytoCertificateData?.document_status || initialPhytoCertificateData?.phyto_certificate_status);
+        if (isPhytoDone) {
+          updated.status = 'completed';
+        } else if (s.status) {
+          updated.status = s.status;
+        }
       }
       return updated;
     });
 
-    // If this ID is a Contract or Proforma or Shipment or Bill of Lading or Custom Invoice or Commercial Invoice or Packing List (or step requested), ensure initialStepParam defaults accordingly
+    // If this ID is a Contract or Proforma or Shipment or Bill of Lading or Custom Invoice or Commercial Invoice or Packing List or Phyto Certificate (or step requested), ensure initialStepParam defaults accordingly
     const effectiveStepParam =
       initialStepParam ||
-      (isPackingListRequested
+      (isPhytoCertificateRequested
+        ? 'phyto-certificate'
+        : isPackingListRequested
         ? 'packing-list'
         : isCommercialInvoiceRequested
         ? 'commercial-invoice'
@@ -1011,6 +1088,7 @@ async function DraftPageDataLoader({
               initialCustomInvoiceData={initialCustomInvoiceData}
               initialCommercialInvoiceData={initialCommercialInvoiceData}
               initialPackingListData={initialPackingListData}
+              initialPhytoCertificateData={initialPhytoCertificateData}
               initialConsignees={initialConsignees}
               initialNotifyParties={initialNotifyParties}
               initialConsigneesBuyerId={effectiveBuyerId}
@@ -1049,6 +1127,7 @@ async function DraftPageDataLoader({
               initialCustomInvoiceData={null}
               initialCommercialInvoiceData={null}
               initialPackingListData={null}
+              initialPhytoCertificateData={null}
               initialId={draftId}
               initialStepParam={initialStepParam}
             />

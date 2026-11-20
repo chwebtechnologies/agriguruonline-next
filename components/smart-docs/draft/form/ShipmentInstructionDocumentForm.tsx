@@ -3978,7 +3978,7 @@ export function ShipmentInstructionDocumentForm({
               ROW 6: COMMENTS / REMARKS (Title & Comment - 100% identical to Proforma & Confirmation)
              ======================================================== */}
           <div
-            className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border bg-card"
+            className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border bg-card"
             data-field="commentSection"
           >
             {/* Enter Title (EDITABLE INPUT with pencil & dotted line: 1 of 3 columns) */}
@@ -4019,7 +4019,7 @@ export function ShipmentInstructionDocumentForm({
 
             {/* Enter Comment (EDITABLE INPUT with pencil & dotted line: 2 of 3 columns) */}
             <div
-              className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 md:col-span-2"
+              className="py-2.5 px-2.5 sm:px-3 flex items-center min-w-0 sm:col-span-2"
               id="field-remarksComment"
               data-field="remarksComment"
             >

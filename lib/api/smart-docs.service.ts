@@ -6702,6 +6702,434 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches Phyto Certificate details by ID with authentication:
+   * GET /phyto-certificate/:id?lang_code=en&source=web
+   */
+  getPhytoCertificate: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/phyto-certificate/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+
+      const fallbackUrl = `${baseUrl}/phyto-certificates/${encodeURIComponent(cleanId)}`;
+      try {
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch {
+        return response;
+      }
+    } catch (error) {
+      console.warn('[smartDocsService.getPhytoCertificate] /phyto-certificate error, attempting fallback:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/phyto-certificates/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackErr) {
+        console.error('[smartDocsService.getPhytoCertificate] error:', fallbackErr);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves Phyto Certificate as draft:
+   * PATCH /phyto-certificate/save/:id?lang_code=en&source=web
+   */
+  savePhytoCertificateDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const candidateId = sanitizeDocId(
+      id ||
+        (isFormData
+          ? (payload.get('phyto_certificate_id') ||
+            payload.get('phytoCertificateId') ||
+            payload.get('id') ||
+            payload.get('packing_list_id') ||
+            payload.get('commercial_invoice_id') ||
+            payload.get('custom_invoice_id') ||
+            payload.get('shipment_instruction_id') ||
+            payload.get('proforma_id') ||
+            payload.get('contract_id') ||
+            payload.get('confirmation_id'))
+          : (payload?.phyto_certificate_id ||
+            payload?.phytoCertificateId ||
+            payload?.id ||
+            payload?.packing_list_id ||
+            payload?.commercial_invoice_id ||
+            payload?.custom_invoice_id ||
+            payload?.shipment_instruction_id ||
+            payload?.proforma_id ||
+            payload?.contract_id ||
+            payload?.confirmation_id))
+    );
+
+    const isPlaceholder =
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        candidateId
+      );
+    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+    if (cleanId) {
+      const encId = encodeURIComponent(cleanId);
+      saveCandidates.push(
+        { url: `${baseUrl}/phyto-certificate/save/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/phyto-certificate/save/${encId}`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/phyto-certificates/save/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/phyto-certificates/save/${encId}`, method: 'POST', id: cleanId }
+      );
+    }
+    saveCandidates.push(
+      { url: `${baseUrl}/phyto-certificate/save`, method: 'PATCH' },
+      { url: `${baseUrl}/phyto-certificate/save`, method: 'POST' },
+      { url: `${baseUrl}/phyto-certificates/save`, method: 'PATCH' },
+      { url: `${baseUrl}/phyto-certificates/save`, method: 'POST' }
+    );
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id) {
+            clonedFd.set('phyto_certificate_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('phyto_certificate_id');
+          }
+          body = clonedFd;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id) {
+            cleaned.phyto_certificate_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.phyto_certificate_id;
+          }
+          body = JSON.stringify(cleaned);
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text();
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = { message: text };
+          }
+
+          if (response.ok && json?.success !== false && json?.success !== 0 && json?.status !== false) {
+            return {
+              ...json,
+              success: true,
+              data: json?.data !== undefined ? json.data : json,
+              id:
+                json?.data?.id ||
+                json?.data?._id ||
+                json?.data?.phyto_certificate_id ||
+                json?.id ||
+                json?._id ||
+                candidate.id,
+            };
+          }
+
+          const isRouteNotFound =
+            response.status === 404 ||
+            response.status === 405 ||
+            (response.status >= 400 &&
+              (/<(!DOCTYPE|html)/i.test(text) ||
+                /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+                /not found/i.test(String(json?.message || json?.error || text || '').trim())));
+
+          if (isRouteNotFound && i < saveCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to save phyto certificate draft'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          break;
+        } catch (fetchErr: any) {
+          if (i < saveCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while saving phyto certificate draft',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while saving phyto certificate draft',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.savePhytoCertificateDraft] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while saving phyto certificate draft'),
+      };
+    }
+  },
+
+  /**
+   * Submits Phyto Certificate:
+   * PATCH /phyto-certificate/submit/:id?lang_code=en&source=web
+   */
+  submitPhytoCertificate: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const candidateId = sanitizeDocId(
+      id ||
+        (isFormData
+          ? (payload.get('phyto_certificate_id') ||
+            payload.get('phytoCertificateId') ||
+            payload.get('id') ||
+            payload.get('packing_list_id') ||
+            payload.get('commercial_invoice_id') ||
+            payload.get('custom_invoice_id') ||
+            payload.get('shipment_instruction_id') ||
+            payload.get('proforma_id') ||
+            payload.get('contract_id') ||
+            payload.get('confirmation_id'))
+          : (payload?.phyto_certificate_id ||
+            payload?.phytoCertificateId ||
+            payload?.id ||
+            payload?.packing_list_id ||
+            payload?.commercial_invoice_id ||
+            payload?.custom_invoice_id ||
+            payload?.shipment_instruction_id ||
+            payload?.proforma_id ||
+            payload?.contract_id ||
+            payload?.confirmation_id))
+    );
+
+    const isPlaceholder =
+      /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+        candidateId
+      );
+    const cleanId = candidateId && !isPlaceholder ? candidateId : '';
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+    if (cleanId) {
+      const encId = encodeURIComponent(cleanId);
+      submitCandidates.push(
+        { url: `${baseUrl}/phyto-certificate/submit/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/phyto-certificate/submit/${encId}`, method: 'POST', id: cleanId },
+        { url: `${baseUrl}/phyto-certificates/submit/${encId}`, method: 'PATCH', id: cleanId },
+        { url: `${baseUrl}/phyto-certificates/submit/${encId}`, method: 'POST', id: cleanId }
+      );
+    }
+    submitCandidates.push(
+      { url: `${baseUrl}/phyto-certificate/submit`, method: 'POST' },
+      { url: `${baseUrl}/phyto-certificate/submit`, method: 'PATCH' },
+      { url: `${baseUrl}/phyto-certificates/submit`, method: 'POST' },
+      { url: `${baseUrl}/phyto-certificates/submit`, method: 'PATCH' }
+    );
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < submitCandidates.length; i++) {
+        const candidate = submitCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id) {
+            clonedFd.set('phyto_certificate_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('phyto_certificate_id');
+          }
+          body = clonedFd;
+        } else {
+          headers['Content-Type'] = 'application/json';
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id) {
+            cleaned.phyto_certificate_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.phyto_certificate_id;
+          }
+          body = JSON.stringify(cleaned);
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const text = await response.text();
+          let json: any = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch {
+            json = { message: text };
+          }
+
+          if (response.ok && json?.success !== false && json?.success !== 0 && json?.status !== false) {
+            return {
+              ...json,
+              success: true,
+              data: json?.data !== undefined ? json.data : json,
+              id:
+                json?.data?.id ||
+                json?.data?._id ||
+                json?.data?.phyto_certificate_id ||
+                json?.id ||
+                json?._id ||
+                candidate.id,
+            };
+          }
+
+          const isRouteNotFound =
+            response.status === 404 ||
+            response.status === 405 ||
+            (response.status >= 400 &&
+              (/<(!DOCTYPE|html)/i.test(text) ||
+                /^Cannot (POST|PATCH|GET|PUT|DELETE)\b/i.test(String(json?.message || json?.error || '').trim()) ||
+                /not found/i.test(String(json?.message || json?.error || text || '').trim())));
+
+          if (isRouteNotFound && i < submitCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit phyto certificate'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          break;
+        } catch (fetchErr: any) {
+          if (i < submitCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while submitting phyto certificate',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while submitting phyto certificate',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.submitPhytoCertificate] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while submitting phyto certificate'),
+      };
+    }
+  },
+
+  /**
    * Fetches Bill of Lading details by ID with authentication:
    * GET /bill-of-lading/:id?lang_code=en&source=web
    */
@@ -7284,11 +7712,12 @@ export const smartDocsService = {
     // Determine candidate prefixes based on document type
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(rawPrefix);
     const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(rawPrefix);
-    const isCustomInvoice = !isCommercialInvoice && !isPackingList && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
-    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isPhytoCertificate = !isCommercialInvoice && !isPackingList && /phyto/i.test(rawPrefix);
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
+    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
@@ -7296,6 +7725,8 @@ export const smartDocsService = {
       ? ['commercial_invoice', 'commercial-invoice', 'commercialInvoice', 'commercial', 'ci']
       : isPackingList
       ? ['packing_list', 'packing-list', 'packingList', 'packinglist', 'packing', 'pl', 'packing_lists', 'packing-lists']
+      : isPhytoCertificate
+      ? ['phyto_certificate', 'phyto-certificate', 'phytoCertificate', 'phyto', 'phytosanitary', 'phytosanitary_certificate', 'phytosanitary-certificate']
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
       : isBillOfLading
@@ -7421,6 +7852,17 @@ export const smartDocsService = {
             `${baseUrl}/packing/preview/${encodeURIComponent(curId)}`,
             `${baseUrl}/packing/pdf/${encodeURIComponent(curId)}`,
           ]
+        : isPhytoCertificate
+        ? [
+            `${baseUrl}/phyto-certificate/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificate/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificates/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificates/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificate/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto/preview-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto/preview/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto/pdf/${encodeURIComponent(curId)}`,
+          ]
         : isCustomInvoice
         ? [
             `${baseUrl}/custom-invoice/preview-pdf/${encodeURIComponent(curId)}`,
@@ -7527,11 +7969,12 @@ export const smartDocsService = {
 
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(rawPrefix);
     const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(rawPrefix);
-    const isCustomInvoice = !isCommercialInvoice && !isPackingList && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
-    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCommercialInvoice && !isPackingList && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isPhytoCertificate = !isCommercialInvoice && !isPackingList && /phyto/i.test(rawPrefix);
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
+    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
@@ -7539,6 +7982,8 @@ export const smartDocsService = {
       ? ['commercial_invoice', 'commercial-invoice', 'commercialInvoice', 'commercial', 'ci']
       : isPackingList
       ? ['packing_list', 'packing-list', 'packingList', 'packinglist', 'packing', 'pl', 'packing_lists', 'packing-lists']
+      : isPhytoCertificate
+      ? ['phyto_certificate', 'phyto-certificate', 'phytoCertificate', 'phyto', 'phytosanitary', 'phytosanitary_certificate', 'phytosanitary-certificate']
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
       : isBillOfLading
@@ -7720,6 +8165,18 @@ export const smartDocsService = {
             `${baseUrl}/packing/download-pdf/${encodeURIComponent(curId)}`,
             `${baseUrl}/packing/download/${encodeURIComponent(curId)}`,
             `${baseUrl}/packing/pdf/${encodeURIComponent(curId)}`,
+          ]
+        : isPhytoCertificate
+        ? [
+            `${baseUrl}/phyto-certificate/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificate/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificate/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificates/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificates/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto-certificates/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/phyto/pdf/${encodeURIComponent(curId)}`,
           ]
         : isCustomInvoice
         ? [
@@ -10050,6 +10507,7 @@ export function getWorkflowSubmitButtonInfo({
       if (t.includes('lading') || t.includes('bill_of_lading') || t.includes('bl')) return isBillOfLadingStep(s, idx);
       if (t.includes('commercial')) return isCommercialInvoiceStep(s, idx);
       if (t.includes('packing')) return isPackingListStep(s, idx);
+      if (t.includes('phyto')) return isPhytoCertificateStep(s, idx);
       if (t.includes('custom') || t.includes('invoice')) return isCustomInvoiceStep(s, idx);
       return false;
     });
@@ -10505,6 +10963,83 @@ export function getPackingListIdFromStepper(
   return getStepSelfId(step);
 }
 
+export function isPhytoCertificateStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+    const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
+
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || slug.includes('shipment')) return false;
+    if (id.includes('lading') || name.includes('lading') || id.includes('bill_of_lading') || name.includes('bill of lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
+
+    if (
+      id.includes('phyto') ||
+      name.includes('phyto') ||
+      slug.includes('phyto') ||
+      redirect.includes('phyto') ||
+      id.includes('phytosanitary') ||
+      name.includes('phytosanitary')
+    ) {
+      return true;
+    }
+
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 9) return true;
+    }
+
+    return false;
+  }
+  return typeof index === 'number' && index === 8;
+}
+
+export function getPhytoCertificateStep(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isPhytoCertificateStep(selectedStep)) return selectedStep;
+  if (steps && steps.length > 0) {
+    const found = steps.find((s) => isPhytoCertificateStep(s));
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getPhytoCertificateIdFromStepper(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getPhytoCertificateStep(steps, selectedStep);
+  if (!step) return '';
+  return getStepSelfId(step);
+}
+
 export function getShipmentInstructionStep(
   steps?: StepperDocumentItem[],
   selectedStep?: StepperDocumentItem | null
@@ -10635,6 +11170,7 @@ export function isSameWorkflowStep(
   if (isCustomInvoiceStep(a) && isCustomInvoiceStep(b)) return true;
   if (isCommercialInvoiceStep(a) && isCommercialInvoiceStep(b)) return true;
   if (isPackingListStep(a) && isPackingListStep(b)) return true;
+  if (isPhytoCertificateStep(a) && isPhytoCertificateStep(b)) return true;
 
   if (typeof a.step === 'number' && typeof b.step === 'number' && a.step === b.step) {
     return true;
@@ -11207,6 +11743,108 @@ export function extractPackingListDocumentStatus(data?: any, stepItem?: StepperD
     !data.confirmation_number
   );
   if (isPurePacking && data.status) {
+    const norm = normalizeStepStatus(data.status);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  return 'PENDING';
+}
+
+export function extractLinkedPhytoCertificateId(data: any): string {
+  if (!data) return '';
+  const d = data.data ?? data;
+  const candidates = [
+    d?.phyto_certificate_id,
+    d?.phytoCertificateId,
+    d?.phyto_id,
+    d?.phytoId,
+    d?.phytosanitary_id,
+    d?.phyto_certificate?.id,
+    d?.phyto_certificate?._id,
+    d?.phyto?.id,
+    d?.phyto?._id,
+  ];
+  for (const c of candidates) {
+    if (c) {
+      const clean = sanitizeDocId(c);
+      if (clean && !/^(phyto|phyto-certificate|phyto_certificate|phytosanitary|step-\d+)$/i.test(clean)) return clean;
+    }
+  }
+  return '';
+}
+
+export function extractPhytoCertificateData(data: any): any {
+  if (!data || typeof data !== 'object') return null;
+  if (
+    data.success === false ||
+    data.status === false ||
+    (typeof data.statusCode === 'number' && data.statusCode >= 400)
+  ) {
+    return null;
+  }
+  const d = data.data !== undefined ? data.data : data;
+  if (!d || typeof d !== 'object') return null;
+
+  const raw =
+    d.phyto_certificate ||
+    d.phytoCertificate ||
+    d.phytosanitary_certificate ||
+    d.phyto ||
+    d.document ||
+    d.details ||
+    d;
+
+  const merged: any = {
+    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  };
+
+  merged.id = merged.id || merged._id || merged.phyto_certificate_id || merged.phytoCertificateId || merged.phyto_id;
+  if (merged.id) merged.id = String(merged.id);
+
+  merged._is_phyto_certificate_loaded = true;
+  return merged;
+}
+
+export function isCompletePhytoCertificateData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  return Boolean(
+    data.phyto_certificate_number ||
+    data.phyto_certificate_no ||
+    data.phyto_number ||
+    data.phyto_date ||
+    data.phyto_certificate_date ||
+    data.phyto_certificate_status ||
+    data._is_phyto_certificate_loaded ||
+    (data.phyto_certificate && typeof data.phyto_certificate === 'object' && (data.phyto_certificate.phyto_certificate_number || data.phyto_certificate.id))
+  );
+}
+
+export function extractPhytoCertificateDocumentStatus(data?: any, stepItem?: StepperDocumentItem | null): string {
+  if (stepItem) {
+    const norm = normalizeStepStatus(stepItem.status || stepItem.document_status || stepItem.step_status);
+    if (norm === 'completed') return 'COMPLETED';
+    return 'PENDING';
+  }
+  if (!data) return 'PENDING';
+
+  const pStatus =
+    data.phyto_certificate_status ||
+    data.phytoCertificateStatus ||
+    data.phyto_status ||
+    data.phyto_certificate?.status ||
+    data.phyto_certificate?.phyto_certificate_status;
+  if (pStatus) {
+    const norm = normalizeStepStatus(pStatus);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  const isPurePhyto = Boolean(
+    (data.phyto_certificate_id || data._is_phyto_certificate_loaded) &&
+    !data.contract_number &&
+    !data.confirmation_number
+  );
+  if (isPurePhyto && data.status) {
     const norm = normalizeStepStatus(data.status);
     return norm === 'completed' ? 'COMPLETED' : 'PENDING';
   }
