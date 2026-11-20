@@ -5239,6 +5239,7 @@ export function DocumentDraftWorkspace({
                         updated.required_documents = submittedDocs;
                       }
                       const isFormData = typeof formData?.get === 'function';
+                      const getVal = (key: string) => isFormData ? formData.get(key) : (formData as any)?.[key];
                       if (isFormData && (formData.get('remove_seller_signature') === 'true' || formData.get('seller_signature') === '')) {
                         updated.seller_signature = null;
                         updated.seller_signature_url = null;
@@ -5251,11 +5252,44 @@ export function DocumentDraftWorkspace({
                         updated.importer_signature = null;
                         updated.importer_signature_url = null;
                       }
-                      if (isFormData && (formData.get('remove_broker_signature') === 'true' || formData.get('broker_signature') === '')) {
+                      const brokerAllowedVal = String(getVal('sales_broker_allowed') ?? getVal('is_broker') ?? '');
+                      if (
+                        brokerAllowedVal === 'false' ||
+                        getVal('remove_broker_signature') === 'true' ||
+                        getVal('remove_sales_broker_signature') === 'true' ||
+                        getVal('broker_signature') === ''
+                      ) {
                         updated.broker_signature = null;
                         updated.broker_signature_url = null;
                         updated.sales_broker_signature = null;
                         updated.sales_broker_signature_url = null;
+                      }
+                      if (brokerAllowedVal === 'false') {
+                        updated.is_broker = false;
+                        updated.sales_broker_allowed = false;
+                        updated.broker_commission_type = null;
+                        updated.sales_broker_type = null;
+                        updated.broker_commission = null;
+                        updated.sales_broker_commission = null;
+                        updated.broker_commission_amt = null;
+                        updated.broker_commission_amount = null;
+                        updated.sales_broker_amount = null;
+                        updated.broker_name = null;
+                        updated.sales_broker_name = null;
+                      }
+                      const advanceVal = String(getVal('any_advance') ?? getVal('has_advance') ?? '');
+                      if (advanceVal === 'false') {
+                        updated.any_advance = false;
+                        updated.has_advance = false;
+                        updated.advance = false;
+                        updated.advance_payment_type = null;
+                        updated.advance_type = null;
+                        updated.advance_payment_amt = null;
+                        updated.advance_amount = null;
+                        updated.advance_payment = null;
+                        updated.advance_payment_pct = null;
+                        updated.advance_percentage = null;
+                        updated.advance_pct = null;
                       }
                       return updated;
                     });
@@ -5348,6 +5382,7 @@ export function DocumentDraftWorkspace({
                         updated.required_documents = submittedDocs;
                       }
                       const isFormData = typeof formData?.get === 'function';
+                      const getVal = (key: string) => isFormData ? formData.get(key) : (formData as any)?.[key];
                       if (isFormData && (formData.get('remove_seller_signature') === 'true' || formData.get('seller_signature') === '')) {
                         updated.seller_signature = null;
                         updated.seller_signature_url = null;
@@ -5360,11 +5395,44 @@ export function DocumentDraftWorkspace({
                         updated.importer_signature = null;
                         updated.importer_signature_url = null;
                       }
-                      if (isFormData && (formData.get('remove_broker_signature') === 'true' || formData.get('broker_signature') === '')) {
+                      const brokerAllowedVal = String(getVal('sales_broker_allowed') ?? getVal('is_broker') ?? '');
+                      if (
+                        brokerAllowedVal === 'false' ||
+                        getVal('remove_broker_signature') === 'true' ||
+                        getVal('remove_sales_broker_signature') === 'true' ||
+                        getVal('broker_signature') === ''
+                      ) {
                         updated.broker_signature = null;
                         updated.broker_signature_url = null;
                         updated.sales_broker_signature = null;
                         updated.sales_broker_signature_url = null;
+                      }
+                      if (brokerAllowedVal === 'false') {
+                        updated.is_broker = false;
+                        updated.sales_broker_allowed = false;
+                        updated.broker_commission_type = null;
+                        updated.sales_broker_type = null;
+                        updated.broker_commission = null;
+                        updated.sales_broker_commission = null;
+                        updated.broker_commission_amt = null;
+                        updated.broker_commission_amount = null;
+                        updated.sales_broker_amount = null;
+                        updated.broker_name = null;
+                        updated.sales_broker_name = null;
+                      }
+                      const advanceVal = String(getVal('any_advance') ?? getVal('has_advance') ?? '');
+                      if (advanceVal === 'false') {
+                        updated.any_advance = false;
+                        updated.has_advance = false;
+                        updated.advance = false;
+                        updated.advance_payment_type = null;
+                        updated.advance_type = null;
+                        updated.advance_payment_amt = null;
+                        updated.advance_amount = null;
+                        updated.advance_payment = null;
+                        updated.advance_payment_pct = null;
+                        updated.advance_percentage = null;
+                        updated.advance_pct = null;
                       }
                       return updated;
                     });

@@ -2741,12 +2741,18 @@ export function ContractDocumentForm({
     parseInitialIsBroker(initialData)
   );
   const userToggledBrokerRef = useRef<boolean>(false);
+  const userClearedBrokerRef = useRef<boolean>(false);
+  const userToggledAdvanceRef = useRef<boolean>(false);
+  const userClearedAdvanceRef = useRef<boolean>(false);
   const currentContractKey = String(contractIdProp || draftId || confirmationId || '');
   const prevContractKeyRef = useRef<string>(currentContractKey);
   useEffect(() => {
     if (currentContractKey && prevContractKeyRef.current !== currentContractKey) {
       prevContractKeyRef.current = currentContractKey;
       userToggledBrokerRef.current = false;
+      userClearedBrokerRef.current = false;
+      userToggledAdvanceRef.current = false;
+      userClearedAdvanceRef.current = false;
     }
   }, [currentContractKey]);
   const [brokerCommissionType, setBrokerCommissionType] = useState<'PERCENTAGE' | 'PMT' | null>(() => {
@@ -4083,7 +4089,7 @@ export function ContractDocumentForm({
         'sales_broker_signature',
         'salesBrokerSignature',
       ]);
-      if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
+      if (hasUserClearedBrokerSigRef.current || !brokerSignature || userClearedBrokerRef.current || isSalesBrokerAllowed !== true) {
         setBrokerSignature('');
       } else if (brSig) {
         const formatted = formatSignatureUrl(brSig);
@@ -4285,49 +4291,68 @@ export function ContractDocumentForm({
     setIsTransitClauseAllowed(transitVal);
 
     const advVal = parseNullableBoolean(initialData.any_advance ?? initialData.has_advance ?? initialData.advance);
-    setHasAdvance(advVal);
+    if (!userToggledAdvanceRef.current) {
+      setHasAdvance(advVal);
+    }
 
-    const parsedAdvType = parseInitialAdvanceType(initialData);
-    setAdvanceType(parsedAdvType);
+    if (userClearedAdvanceRef.current) {
+      setAdvanceType(null);
+      setAdvanceAmount('');
+      setAdvancePercentage('');
+    } else if (!userToggledAdvanceRef.current) {
+      const parsedAdvType = parseInitialAdvanceType(initialData);
+      setAdvanceType(parsedAdvType);
 
-    const advAmt =
-      initialData.advance_payment_amt ??
-      initialData.advance_payment ??
-      initialData.advance_amount ??
-      initialData.advanceAmount;
-    if (advAmt !== undefined && advAmt !== null && advAmt !== '') setAdvanceAmount(advAmt);
+      const advAmt =
+        initialData.advance_payment_amt ??
+        initialData.advance_payment ??
+        initialData.advance_amount ??
+        initialData.advanceAmount;
+      if (advAmt !== undefined && advAmt !== null && advAmt !== '') setAdvanceAmount(advAmt);
 
-    const advPct =
-      initialData.advance_payment_pct ??
-      initialData.advance_percentage ??
-      initialData.advancePercentage ??
-      initialData.advance_pct;
-    if (advPct !== undefined && advPct !== null && advPct !== '') setAdvancePercentage(advPct);
+      const advPct =
+        initialData.advance_payment_pct ??
+        initialData.advance_percentage ??
+        initialData.advancePercentage ??
+        initialData.advance_pct;
+      if (advPct !== undefined && advPct !== null && advPct !== '') setAdvancePercentage(advPct);
+    }
 
     const brokerVal = parseInitialIsBroker(initialData);
     if (!userToggledBrokerRef.current) {
       setIsSalesBrokerAllowed(brokerVal);
     }
 
-    const bType = parseBrokerCommissionType(
-      initialData.broker_commission_type ??
-      initialData.sales_broker_type ??
-      initialData.brokerCommissionType
-    );
-    setBrokerCommissionType(bType);
+    if (userClearedBrokerRef.current) {
+      setBrokerCommissionType(null);
+      setBrokerCommission('');
+      setBrokerCommissionAmt('');
+      setBrokerName('');
+      setBrokerSignature('');
+      setBrokerTitle('BROKER SIGNATURE');
+      setBrokerAuthorityTitle('AUTHORISED SIGNATURE');
+      hasUserClearedBrokerSigRef.current = true;
+    } else if (!userToggledBrokerRef.current) {
+      const bType = parseBrokerCommissionType(
+        initialData.broker_commission_type ??
+        initialData.sales_broker_type ??
+        initialData.brokerCommissionType
+      );
+      setBrokerCommissionType(bType);
 
-    const bComm = initialData.broker_commission ?? initialData.sales_broker_commission ?? initialData.brokerCommission;
-    if (bComm !== undefined && bComm !== null && bComm !== '') setBrokerCommission(String(bComm));
+      const bComm = initialData.broker_commission ?? initialData.sales_broker_commission ?? initialData.brokerCommission;
+      if (bComm !== undefined && bComm !== null && bComm !== '') setBrokerCommission(String(bComm));
 
-    const bAmt =
-      initialData.broker_commission_amt ??
-      initialData.broker_commission_amount ??
-      initialData.sales_broker_amount ??
-      initialData.sales_broker_commission_amount;
-    if (bAmt !== undefined && bAmt !== null && bAmt !== '') setBrokerCommissionAmt(String(bAmt));
+      const bAmt =
+        initialData.broker_commission_amt ??
+        initialData.broker_commission_amount ??
+        initialData.sales_broker_amount ??
+        initialData.sales_broker_commission_amount;
+      if (bAmt !== undefined && bAmt !== null && bAmt !== '') setBrokerCommissionAmt(String(bAmt));
 
-    const bName = toCleanLabel(initialData.broker_name || initialData.sales_broker_name || initialData.brokerName);
-    if (bName) setBrokerName(bName);
+      const bName = toCleanLabel(initialData.broker_name || initialData.sales_broker_name || initialData.brokerName);
+      if (bName) setBrokerName(bName);
+    }
 
     let ectnVal = parseNullableBoolean(
       initialData.ectn_field ??
@@ -4502,15 +4527,19 @@ export function ContractDocumentForm({
       'sales_broker_title',
       'brokerTitle',
     ]);
-    if (brField) setBrokerTitle(brField);
+    if (userClearedBrokerRef.current) {
+      setBrokerTitle('BROKER SIGNATURE');
+    } else if (brField) {
+      setBrokerTitle(brField);
+    }
 
     const brSig = resolveSigValue(initialData, [
       'broker_signature',
       'sales_broker_signature',
       'brokerSignature',
     ]);
-    if (hasUserClearedBrokerSigRef.current || !brokerSignature) {
-      if (hasUserClearedBrokerSigRef.current) {
+    if (userClearedBrokerRef.current || hasUserClearedBrokerSigRef.current || isSalesBrokerAllowed !== true || !brokerSignature) {
+      if (userClearedBrokerRef.current || hasUserClearedBrokerSigRef.current || isSalesBrokerAllowed !== true) {
         setBrokerSignature('');
       } else if (brSig) {
         setBrokerSignature(formatSignatureUrl(brSig));
@@ -4527,7 +4556,11 @@ export function ContractDocumentForm({
       'sales_broker_authority_title',
       'brokerAuthorityTitle',
     ]);
-    if (brLabel) setBrokerAuthorityTitle(brLabel);
+    if (userClearedBrokerRef.current) {
+      setBrokerAuthorityTitle('AUTHORISED SIGNATURE');
+    } else if (brLabel) {
+      setBrokerAuthorityTitle(brLabel);
+    }
 
     // Exporter / Seller Signature Fields
     const sField = resolveSigValue(initialData, [
@@ -4888,6 +4921,15 @@ export function ContractDocumentForm({
         formData.append('advance_amount', formattedAmt);
         formData.append('advance_payment', formattedAmt);
       }
+    } else {
+      formData.append('advance_payment_type', '');
+      formData.append('advance_type', '');
+      formData.append('advance_payment_amt', '0');
+      formData.append('advance_amount', '0');
+      formData.append('advance_payment', '0');
+      formData.append('advance_payment_pct', '0');
+      formData.append('advance_percentage', '0');
+      formData.append('advance_pct', '0');
     }
 
     // Broker Details - if user did not explicitly choose Allowed with a commission type, defaults to NOT ALLOWED (false) at submit/save time
@@ -4913,6 +4955,16 @@ export function ContractDocumentForm({
         formData.append('broker_name', brokerName.trim());
         formData.append('sales_broker_name', brokerName.trim());
       }
+    } else {
+      formData.append('broker_commission_type', '');
+      formData.append('sales_broker_type', '');
+      formData.append('broker_commission', '0');
+      formData.append('sales_broker_commission', '0');
+      formData.append('broker_commission_amt', '0');
+      formData.append('broker_commission_amount', '0');
+      formData.append('sales_broker_amount', '0');
+      formData.append('broker_name', '');
+      formData.append('sales_broker_name', '');
     }
 
     // Broker Signature
@@ -4931,6 +4983,7 @@ export function ContractDocumentForm({
         }
       }
       formData.append('remove_broker_signature', 'false');
+      formData.append('remove_sales_broker_signature', 'false');
     } else {
       formData.append('remove_broker_signature', 'true');
       formData.append('remove_sales_broker_signature', 'true');
@@ -5131,7 +5184,7 @@ export function ContractDocumentForm({
                 ? (effectiveContractTotalValue * (parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0)) / 100
                 : parseFloat(String(calculatedAdvanceAmount).replace(/[^\d.]/g, '')) || 0
             ).toFixed(2)
-        : undefined,
+        : null,
       advance_amount: hasAdvance === true && advanceType
         ? advanceType === 'AMOUNT'
           ? (parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0).toFixed(2)
@@ -5140,7 +5193,7 @@ export function ContractDocumentForm({
                 ? (effectiveContractTotalValue * (parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0)) / 100
                 : parseFloat(String(calculatedAdvanceAmount).replace(/[^\d.]/g, '')) || 0
             ).toFixed(2)
-        : undefined,
+        : null,
       advance_payment: hasAdvance === true && advanceType
         ? advanceType === 'AMOUNT'
           ? (parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0).toFixed(2)
@@ -5149,7 +5202,7 @@ export function ContractDocumentForm({
                 ? (effectiveContractTotalValue * (parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0)) / 100
                 : parseFloat(String(calculatedAdvanceAmount).replace(/[^\d.]/g, '')) || 0
             ).toFixed(2)
-        : undefined,
+        : null,
       advance_payment_pct: hasAdvance === true && advanceType
         ? advanceType === 'PERCENTAGE'
           ? Math.min(parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0, 100).toFixed(2)
@@ -5158,7 +5211,7 @@ export function ContractDocumentForm({
                 ? Math.min(((parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0) / effectiveContractTotalValue) * 100, 100)
                 : 0
             ).toFixed(2)
-        : undefined,
+        : null,
       advance_percentage: hasAdvance === true && advanceType
         ? advanceType === 'PERCENTAGE'
           ? Math.min(parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0, 100).toFixed(2)
@@ -5167,7 +5220,7 @@ export function ContractDocumentForm({
                 ? Math.min(((parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0) / effectiveContractTotalValue) * 100, 100)
                 : 0
             ).toFixed(2)
-        : undefined,
+        : null,
       advance_pct: hasAdvance === true && advanceType
         ? advanceType === 'PERCENTAGE'
           ? Math.min(parseFloat(String(advancePercentage).replace(/[^\d.]/g, '')) || 0, 100).toFixed(2)
@@ -5176,18 +5229,18 @@ export function ContractDocumentForm({
                 ? Math.min(((parseFloat(String(advanceAmount).replace(/[^\d.]/g, '')) || 0) / effectiveContractTotalValue) * 100, 100)
                 : 0
             ).toFixed(2)
-        : undefined,
+        : null,
       is_broker: Boolean(isSalesBrokerAllowed === true && brokerCommissionType),
       sales_broker_allowed: Boolean(isSalesBrokerAllowed === true && brokerCommissionType),
       broker_commission_type: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) ? brokerCommissionType : null,
-      broker_commission: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerCommission ? Number(brokerCommission) : undefined,
-      broker_commission_amt: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : undefined,
-      broker_commission_amount: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : undefined,
-      broker_name: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerName.trim() ? brokerName.trim() : undefined,
+      broker_commission: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerCommission ? Number(brokerCommission) : null,
+      broker_commission_amt: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : null,
+      broker_commission_amount: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : null,
+      broker_name: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerName.trim() ? brokerName.trim() : null,
       sales_broker_type: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) ? brokerCommissionType : null,
-      sales_broker_commission: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerCommission ? Number(brokerCommission) : undefined,
-      sales_broker_amount: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : undefined,
-      sales_broker_name: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerName.trim() ? brokerName.trim() : undefined,
+      sales_broker_commission: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerCommission ? Number(brokerCommission) : null,
+      sales_broker_amount: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && (calculatedBrokerCommission || brokerCommissionAmt) ? (parseFloat(String(calculatedBrokerCommission || brokerCommissionAmt).replace(/[^\d.]/g, '')) || 0).toFixed(2) : null,
+      sales_broker_name: Boolean(isSalesBrokerAllowed === true && brokerCommissionType) && brokerName.trim() ? brokerName.trim() : null,
       ectn_field: ectnField,
       coc_fields: cocFields,
       free_days: freeDays.trim(),
@@ -5217,8 +5270,8 @@ export function ContractDocumentForm({
       remove_seller_signature: !exporterSignature,
       remove_exporter_signature: !exporterSignature,
 
-      broker_signature_field: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : undefined,
-      broker_signature_label: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : undefined,
+      broker_signature_field: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : null,
+      broker_signature_label: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : null,
       broker_signature: isSalesBrokerAllowed === true && brokerCommissionType && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
       broker_signature_url: isSalesBrokerAllowed === true && brokerCommissionType && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
       remove_broker_signature: isSalesBrokerAllowed !== true || !brokerCommissionType || !brokerSignature,
@@ -5236,12 +5289,12 @@ export function ContractDocumentForm({
       importer_signature: importerSignature ? normalizeSignaturePayload(importerSignature) : null,
       importer_signature_url: importerSignature ? normalizeSignaturePayload(importerSignature) : null,
       importer_authority_title: importerAuthorityTitle.trim(),
-      broker_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : undefined,
-      broker_authority_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : undefined,
-      sales_broker_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : undefined,
+      broker_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : null,
+      broker_authority_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : null,
+      sales_broker_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerTitle.trim() : null,
       sales_broker_signature: isSalesBrokerAllowed === true && brokerCommissionType && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
       sales_broker_signature_url: isSalesBrokerAllowed === true && brokerCommissionType && brokerSignature ? normalizeSignaturePayload(brokerSignature) : null,
-      sales_broker_authority_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : undefined,
+      sales_broker_authority_title: isSalesBrokerAllowed === true && brokerCommissionType ? brokerAuthorityTitle.trim() : null,
       exporter_title: exporterTitle.trim(),
       exporter_signature: exporterSignature ? normalizeSignaturePayload(exporterSignature) : null,
       exporter_signature_url: exporterSignature ? normalizeSignaturePayload(exporterSignature) : null,
@@ -6826,8 +6879,10 @@ export function ContractDocumentForm({
                 value={hasAdvance}
                 onChange={(val) => {
                   markDirty();
+                  userToggledAdvanceRef.current = true;
                   setHasAdvance(val);
                   if (val !== true) {
+                    userClearedAdvanceRef.current = true;
                     setAdvanceType(null);
                     setAdvancePercentage('');
                     setAdvanceAmount('');
@@ -6836,8 +6891,14 @@ export function ContractDocumentForm({
                       delete copy.advanceType;
                       delete copy.advanceAmount;
                       delete copy.advancePercentage;
+                      delete copy.advance;
+                      delete copy.any_advance;
                       return copy;
                     });
+                  } else if (userClearedAdvanceRef.current) {
+                    setAdvanceType(null);
+                    setAdvancePercentage('');
+                    setAdvanceAmount('');
                   }
                 }}
                 trueLabel="YES"
@@ -6855,7 +6916,21 @@ export function ContractDocumentForm({
                       onChange={(val: 'PERCENTAGE' | 'AMOUNT') => {
                         markDirty();
                         setAdvanceType(val);
-                        setErrors((prev) => ({ ...prev, advanceType: '' }));
+                        if (val === 'PERCENTAGE') {
+                          setAdvanceAmount('');
+                        } else if (val === 'AMOUNT') {
+                          setAdvancePercentage('');
+                        } else {
+                          setAdvanceAmount('');
+                          setAdvancePercentage('');
+                        }
+                        setErrors((prev) => {
+                          const copy = { ...prev };
+                          delete copy.advanceType;
+                          delete copy.advanceAmount;
+                          delete copy.advancePercentage;
+                          return copy;
+                        });
                       }}
                       options={DEFAULT_ADVANCE_TYPE_OPTIONS}
                       allowDeselect={true}
@@ -6979,16 +7054,38 @@ export function ContractDocumentForm({
                   userToggledBrokerRef.current = true;
                   setIsSalesBrokerAllowed(val);
                   if (val !== true) {
+                    userClearedBrokerRef.current = true;
+                    hasUserClearedBrokerSigRef.current = true;
                     setBrokerCommissionType(null);
                     setBrokerCommission('');
+                    setBrokerCommissionAmt('');
                     setBrokerName('');
+                    setBrokerSignature('');
+                    setBrokerTitle('BROKER SIGNATURE');
+                    setBrokerAuthorityTitle('AUTHORISED SIGNATURE');
                     setErrors((prev) => {
                       const copy = { ...prev };
                       delete copy.brokerCommissionType;
                       delete copy.brokerCommission;
+                      delete copy.brokerCommissionAmt;
                       delete copy.brokerName;
+                      delete copy.brokerSignature;
+                      delete copy.broker_signature;
+                      delete copy.brokerTitle;
+                      delete copy.brokerAuthorityTitle;
+                      delete copy.salesBroker;
+                      delete copy.sales_broker;
                       return copy;
                     });
+                  } else if (userClearedBrokerRef.current) {
+                    setBrokerCommissionType(null);
+                    setBrokerCommission('');
+                    setBrokerCommissionAmt('');
+                    setBrokerName('');
+                    setBrokerSignature('');
+                    setBrokerTitle('BROKER SIGNATURE');
+                    setBrokerAuthorityTitle('AUTHORISED SIGNATURE');
+                    hasUserClearedBrokerSigRef.current = true;
                   }
                 }}
                 trueLabel="ALLOWED"
@@ -7007,7 +7104,17 @@ export function ContractDocumentForm({
                       onChange={(val) => {
                         markDirty();
                         setBrokerCommissionType(val);
-                        setErrors((prev) => ({ ...prev, brokerCommissionType: '' }));
+                        if (!val) {
+                          setBrokerCommission('');
+                          setBrokerCommissionAmt('');
+                        }
+                        setErrors((prev) => {
+                          const copy = { ...prev };
+                          delete copy.brokerCommissionType;
+                          delete copy.brokerCommission;
+                          delete copy.brokerCommissionAmt;
+                          return copy;
+                        });
                       }}
                       options={DEFAULT_BROKER_COMMISSION_TYPE_OPTIONS}
                       allowDeselect={true}
