@@ -104,6 +104,7 @@ import { ChartActionButton } from '@/components/ui/charts/ChartActionButton';
 import { ChartDeleteButton } from '@/components/ui/charts/ChartDeleteButton';
 import { DeleteConfirmModal } from '@/components/ui/charts/DeleteConfirmModal';
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
+import { getMembershipStatus } from '@/lib/membership-status';
 import { SwipeableCard } from '@/components/ui/charts/SwipeableCard';
 import { ChartMobileEmptyCard } from '@/components/ui/charts/ChartMobileEmptyCard';
 import { ChartMobileItemCard } from '@/components/ui/charts/ChartMobileItemCard';
@@ -202,8 +203,8 @@ export default function ProductChartsClient({
         if (limitRes?.isUnauthorized) {
           setKycTitle('Watchlist Access');
           setKycMessage(limitRes?.message || 'Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
-          setKycIndicationText('Start Free Trial');
-          setKycRedirectUrl(`/${lang}/pricing`);
+          setKycIndicationText('Free Trial');
+          setKycRedirectUrl(`/${lang}/login?redirectUrl=/${lang}/membership`);
           setKycSecondaryText('Log In');
           setKycSecondaryUrl(`/${lang}/login`);
         } else {
@@ -214,8 +215,9 @@ export default function ProductChartsClient({
             setKycIndicationText('Submit Documents');
             setKycRedirectUrl(`/${lang}/profile`);
           } else {
-            setKycIndicationText('Upgrade Plan');
-            setKycRedirectUrl(`/${lang}/pricing`);
+            const status = getMembershipStatus(null, lang);
+            setKycIndicationText(status.buttonText);
+            setKycRedirectUrl(status.redirectUrl);
           }
           setKycSecondaryText(undefined);
           setKycSecondaryUrl(undefined);
@@ -292,8 +294,9 @@ export default function ProductChartsClient({
             setKycIndicationText('Submit Documents');
             setKycRedirectUrl(`/${lang}/profile`);
           } else {
-            setKycIndicationText('Upgrade Plan');
-            setKycRedirectUrl(`/${lang}/profile`);
+            const status = getMembershipStatus(null, lang);
+            setKycIndicationText(status.buttonText);
+            setKycRedirectUrl(status.redirectUrl);
           }
           setKycSecondaryText(undefined);
           setKycSecondaryUrl(undefined);
@@ -1710,14 +1713,21 @@ export default function ProductChartsClient({
         onClose={() => setActionIndication(null)}
         onConfirm={() => {
           setActionIndication(null);
-          if (userType) {
-            router.push(`/${lang}/pricing`);
+          if (actionIndication?.indication === 'NOT_VERIFIED' || actionIndication?.indication === 'KYC_REQUIRED') {
+            router.push(`/${lang}/profile`);
           } else {
-            router.push(`/${lang}/login`);
+            const status = getMembershipStatus(null, lang);
+            router.push(status.redirectUrl);
           }
         }}
+        title="Action Required"
         description={actionIndication?.message}
-        indicationText={actionIndication?.indication}
+        indicationText={
+          actionIndication?.indication === 'NOT_VERIFIED' || actionIndication?.indication === 'KYC_REQUIRED'
+            ? 'Submit Documents'
+            : getMembershipStatus(null, lang).buttonText
+        }
+        type="warning"
       />
 
       {/* Bottom Sheet for Mobile Actions */}

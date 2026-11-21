@@ -11,6 +11,7 @@ import { decryptData } from '@/lib/crypto-utils';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { ChartProductInquiryModal } from '@/components/marketed-products/ChartProductInquiryModal';
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
+import { getMembershipStatus } from '@/lib/membership-status';
 import { fetchProductDetails, fetchShippingTerms, fetchPaymentTerms, checkKYCStatus, fetchFavoriteProductDetails } from '@/app/actions/product';
 import { ProductAlertCard } from '@/components/alerts/ProductAlertCard';
 import { FreightAlertCard } from '@/components/alerts/FreightAlertCard';
@@ -354,8 +355,9 @@ export default function MobileCommodityChart({
             setKycIndicationText('Submit Documents');
             setKycRedirectUrl(`/${lang}/profile`);
           } else {
-            setKycIndicationText('Upgrade Plan');
-            setKycRedirectUrl(`/${lang}/profile`);
+            const status = getMembershipStatus(null, lang);
+            setKycIndicationText(status.buttonText);
+            setKycRedirectUrl(`/${lang}/membership`);
           }
           setIsKYCModalOpen(true);
           setIsActionLoading(false);
@@ -734,12 +736,22 @@ export default function MobileCommodityChart({
           errorJson.response_indication === 'LIMIT_OVER';
 
         if (isMembershipRestricted) {
-          setKycTitle('Free Trial Membership');
-          setKycMessage('To access this feature Please become a member. Try our free trial membership plan & get access.');
-          setKycIndicationText('Free Trial');
-          setKycRedirectUrl(`/${lang}/become-member`);
-          setKycType('warning');
-          setKycIcon('fa-solid fa-gift');
+          const status = getMembershipStatus(null, lang);
+          if (status.isMember) {
+            setKycTitle('Upgrade Your Plan');
+            setKycMessage('Please upgrade your membership plan to continue using AI Price Analysis.');
+            setKycIndicationText('Upgrade Plan');
+            setKycRedirectUrl(`/${lang}/membership`);
+            setKycType('warning');
+            setKycIcon('fa-solid fa-crown');
+          } else {
+            setKycTitle('Free Trial');
+            setKycMessage('Start your free trial today and get instant access to full commodity charts, analytics, and AI predictions.');
+            setKycIndicationText('Free Trial');
+            setKycRedirectUrl(status.redirectUrl);
+            setKycType('warning');
+            setKycIcon('fa-solid fa-gift');
+          }
           setIsKYCModalOpen(true);
         } else {
           toast.error(errorMsg);
@@ -1744,14 +1756,12 @@ export default function MobileCommodityChart({
           res?.response_indication === 'LIMIT_OVER';
 
         if (isMembershipRestricted) {
-          const isNotAMember = /become a member/i.test(resMsg) || res?.response_indication === 'MEMBERSHIP_REQUIRED';
-          const isQuotaLimitOver = !isNotAMember && (res as any)?.is_free_trial_applicable === false;
-          
-          if (isQuotaLimitOver) {
+          const status = getMembershipStatus(null, lang);
+          if (status.isMember) {
             // Quota limit exceeded for existing member
             setKycTitle('Upgrade Your Plan');
             setKycMessage(
-              errorText || 'You have already utilized your free trial. Please upgrade your membership plan to create custom price alerts.'
+              errorText || 'You have already utilized your quota. Please upgrade your membership plan to create custom price alerts.'
             );
             setKycIndicationText('Upgrade Plan');
             setKycRedirectUrl(`/${lang}/membership`);
@@ -1759,13 +1769,13 @@ export default function MobileCommodityChart({
             setKycIcon('fa-solid fa-crown');
             setIsKYCModalOpen(true);
           } else {
-            // Free Trial Membership Popup (User is not yet a member)
-            setKycTitle('Free Trial Membership');
+            // Free Trial Popup (User is not yet a member or guest)
+            setKycTitle('Free Trial');
             setKycMessage(
-              'To access this feature Please become a member. Try our free trial membership plan & get access.'
+              'Start your free trial today and unlock real-time price alerts, commodity charts, and market tracking.'
             );
             setKycIndicationText('Free Trial');
-            setKycRedirectUrl(`/${lang}/become-member`);
+            setKycRedirectUrl(status.redirectUrl);
             setKycType('info');
             setKycIcon('fa-solid fa-gift');
             setIsKYCModalOpen(true);

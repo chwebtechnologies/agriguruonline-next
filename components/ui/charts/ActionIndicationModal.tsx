@@ -24,7 +24,7 @@ export function ActionIndicationModal({
   title = 'Action Required',
   description = 'An error occurred.',
   indicationText = 'Confirm',
-  type = 'error',
+  type = 'warning',
   icon,
   secondaryActionText,
   onSecondaryAction

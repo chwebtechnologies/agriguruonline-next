@@ -26,6 +26,7 @@ import {
 import { useScrollLock } from '@/lib/scroll-lock';
 import { FreightInquiryModal } from '@/components/freight-chart/FreightInquiryModal';
 import { prefetchPriceHistory } from '@/components/product-charts/MobileCommodityChart';
+import { getMembershipStatus } from '@/lib/membership-status';
 
 // --- Shared Interfaces ---
 export interface ShippingContainer {
@@ -508,8 +509,9 @@ export default function FreightChartClient({
             setKycIndicationText('Submit Documents');
             setKycRedirectUrl(`/${lang}/profile`);
           } else {
-            setKycIndicationText('Upgrade Plan');
-            setKycRedirectUrl(`/${lang}/profile`);
+            const status = getMembershipStatus(null, lang);
+            setKycIndicationText(status.buttonText);
+            setKycRedirectUrl(status.redirectUrl);
           }
           setIsKYCModalOpen(true);
           return;
@@ -1113,14 +1115,21 @@ export default function FreightChartClient({
         onClose={() => setActionIndication(null)}
         onConfirm={() => {
           setActionIndication(null);
-          if (initialUserType) {
-            router.push(`/${lang}/pricing`);
+          if (actionIndication?.indication === 'NOT_VERIFIED' || actionIndication?.indication === 'KYC_REQUIRED') {
+            router.push(`/${lang}/profile`);
           } else {
-            router.push(`/${lang}/login`);
+            const status = getMembershipStatus(null, lang);
+            router.push(status.redirectUrl);
           }
         }}
+        title="Action Required"
         description={actionIndication?.message}
-        indicationText={actionIndication?.indication}
+        indicationText={
+          actionIndication?.indication === 'NOT_VERIFIED' || actionIndication?.indication === 'KYC_REQUIRED'
+            ? 'Submit Documents'
+            : getMembershipStatus(null, lang).buttonText
+        }
+        type="warning"
       />
 
       {/* Bottom Sheet / Chart Modal for Freight Charts */}

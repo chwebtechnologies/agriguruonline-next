@@ -611,7 +611,7 @@ export function SettingsClient({
 
             <div className="flex gap-2 pt-1">
               <Link
-                href={`/${lang}/membership-plans`}
+                href={`/${lang}/membership`}
                 onClick={() => setConflictErrorMessage(null)}
                 className="flex-1 py-2.5 rounded-xl border border-border bg-background hover:bg-muted font-semibold text-xs text-center transition-colors flex items-center justify-center cursor-pointer"
               >

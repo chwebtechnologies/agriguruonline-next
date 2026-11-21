@@ -985,7 +985,7 @@ export const tradingService = {
     if (isExplicitError) {
       return { 
         success: false, 
-        error: msg || 'Please become a member to create price alert', 
+        error: msg || 'Please start your free trial to create price alerts', 
         response_indication: responseIndication || (/member/i.test(msg) ? 'MEMBERSHIP_REQUIRED' : undefined)
       };
     }

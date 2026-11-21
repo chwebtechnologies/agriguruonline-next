@@ -83,7 +83,7 @@ export default function BecomeMemberModal({
             id="become-member-title"
             className="text-xl sm:text-2xl font-bold tracking-tight text-foreground"
           >
-            Become a Member
+            Free Trial
           </h2>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Unlock Full Trading Features on AgriGuru Online
@@ -114,7 +114,7 @@ export default function BecomeMemberModal({
             className="w-full py-3 px-4 rounded-xl bg-brand-blue hover:bg-brand-blue/90 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
           >
             <i className="fa-solid fa-arrow-right text-xs"></i>
-            <span>View Membership Plans</span>
+            <span>Start Free Trial</span>
           </Link>
 
           <a

@@ -342,16 +342,16 @@ export default function BecomeMemberClient({
         <div className="w-12 h-12 mx-auto rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-xl">
           <i className="fa-solid fa-layer-group"></i>
         </div>
-        <h2 className="text-xl font-black text-foreground">Select a Membership Plan First</h2>
+        <h2 className="text-xl font-black text-foreground">Select a Plan First</h2>
         <p className="text-xs text-muted-foreground leading-relaxed max-w-sm mx-auto">
-          Please select a plan before completing your member onboarding.
+          Please select a plan before completing your onboarding.
         </p>
         <div className="pt-1">
           <Link
             href={`/${lang}/membership`}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-blue/90 text-white text-xs font-bold shadow-sm transition-all active:scale-[0.98]"
           >
-            <span>Browse Membership Plans</span>
+            <span>Browse Free Trial Plans</span>
             <i className="fa-solid fa-arrow-right text-xs"></i>
           </Link>
         </div>
@@ -664,7 +664,7 @@ export default function BecomeMemberClient({
               </>
             ) : (
               <>
-                <span>Proceed to Membership Confirmation</span>
+                <span>Proceed to Free Trial Confirmation</span>
                 <i className="fa-solid fa-arrow-right text-xs"></i>
               </>
             )}

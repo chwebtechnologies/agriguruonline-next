@@ -102,6 +102,17 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
                     profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
                     profile?.membership?.plan_name?.toLowerCase() === 'regular';
 
+  const planName = String(profile?.membership?.plan_name || profile?.membership?.name || '').toLowerCase();
+  const hasActivePlan = Boolean(
+    profile?.membership &&
+    planName &&
+    planName !== 'guest' &&
+    planName !== 'regular' &&
+    planName !== 'null' &&
+    planName !== 'undefined'
+  );
+  const isMember = hasActivePlan && !isRegular;
+
 
 
   // Notification and alert state initialized from SSR props with client-side refresh capability
@@ -712,10 +723,10 @@ export function HeaderAuth({ token, dict, activeLang, categories: apiCategories,
             <div className="flex items-center gap-2 sm:gap-4 select-none border-l border-border pl-2 sm:pl-4 dir-none">
               <div className="flex items-center gap-1.5 sm:gap-3">
                 <Link
-                  href={`/${activeLang}/membership`}
+                  href={profile ? `/${activeLang}/membership` : `/${activeLang}/login?redirectUrl=/${activeLang}/membership`}
                   className="h-10 px-5 hidden lg:inline-flex items-center justify-center rounded-lg bg-primary-gradient text-[15px] font-black text-white shadow-md hover:scale-105 active:scale-95 transition-all duration-200"
                 >
-                  {profile?.membership && !isRegular ? (dict.header.upgrade_plan || 'Upgrade Plan') : (dict.header.free_trial || 'Free Trial')}
+                  {isMember ? (dict.header.upgrade_plan || 'Upgrade Plan') : (dict.header.free_trial || 'Free Trial')}
                 </Link>
 
                 <div className="relative" ref={notificationsRef}>

@@ -146,6 +146,17 @@ export function SmartDocsMenu({
     profile?.membership?.plan_name?.toLowerCase() === 'guest' ||
     profile?.membership?.plan_name?.toLowerCase() === 'regular';
 
+  const planName = String(profile?.membership?.plan_name || profile?.membership?.name || '').toLowerCase();
+  const hasActivePlan = Boolean(
+    profile?.membership &&
+    planName &&
+    planName !== 'guest' &&
+    planName !== 'regular' &&
+    planName !== 'null' &&
+    planName !== 'undefined'
+  );
+  const isMember = hasActivePlan && !isRegular;
+
   // Smart Docs Dedicated Menu Structure
   // Group 1: Core Navigation (My Docs, Dashboard, Marketplace)
   // Group 2: Master Management with common Group Title (Sellers, Buyers, Products, Payment Terms)
@@ -327,13 +338,13 @@ export function SmartDocsMenu({
             <div className="lg:hidden flex justify-center my-1.5 mb-3.5">
               <a
                 onClick={() => setIsOpen(false)}
-                href={`/${lang}/membership`}
+                href={profile ? `/${lang}/membership` : `/${lang}/login?redirectUrl=/${lang}/membership`}
                 className="w-full max-w-xs mx-auto px-4 min-[390px]:px-8 bg-plan-platinum p-3 min-[390px]:p-3.5 rounded-full text-white font-black flex items-center justify-center gap-2 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden cursor-pointer"
               >
                 <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
                 <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[13px] min-[390px]:text-[14px]"></i>
                 <span className="tracking-wider uppercase text-[12px] min-[390px]:text-[13px] relative z-10 drop-shadow-md whitespace-nowrap">
-                  {profile && !isRegular ? 'Upgrade Plan' : 'Membership Plan'}
+                  {isMember ? (dict?.header?.upgrade_plan || 'Upgrade Plan') : (dict?.header?.free_trial || 'Free Trial')}
                 </span>
                 <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-[14px] min-[390px]:text-[16px]"></i>
               </a>

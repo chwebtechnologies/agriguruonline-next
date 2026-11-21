@@ -14,6 +14,7 @@ import {
   getShippingTermsAction
 } from '@/app/actions/charts';
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
+import { getMembershipStatus } from '@/lib/membership-status';
 import { toast } from 'sonner';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
@@ -873,12 +874,16 @@ export function AddFavoriteProductModal({
           if (actionIndication.indication === 'NOT_VERIFIED' || actionIndication.indication === 'KYC_REQUIRED') {
             router.push(`/${lang}/profile`);
           } else {
-            router.push(`/${lang}/pricing`);
+            router.push(`/${lang}/membership`);
           }
         }}
         title="Action Required"
         description={actionIndication.message}
-        indicationText={actionIndication.indication === 'NOT_VERIFIED' || actionIndication.indication === 'KYC_REQUIRED' ? 'Submit Documents' : 'Upgrade Plan'}
+        indicationText={
+          actionIndication.indication === 'NOT_VERIFIED' || actionIndication.indication === 'KYC_REQUIRED'
+            ? 'Submit Documents'
+            : getMembershipStatus(null, lang).buttonText
+        }
         type="warning"
       />
     </>,

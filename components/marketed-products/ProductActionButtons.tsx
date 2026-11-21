@@ -17,6 +17,7 @@ const AddFavoriteProductModal = dynamic(
   { ssr: false }
 );
 import { ActionIndicationModal } from '@/components/ui/charts/ActionIndicationModal';
+import { getMembershipStatus } from '@/lib/membership-status';
 
 interface ProductActionButtonsProps {
   productSlugOrId: string;
@@ -167,8 +168,8 @@ export function ProductActionButtons({
           if (limitResponse?.isUnauthorized) {
             setKycTitle('Watchlist Access');
             setKycMessage('Track real-time commodity prices, daily trends, and historical charts. Sign up for a free trial or log in to add products to your watchlist.');
-            setKycIndicationText('Start Free Trial');
-            setKycRedirectUrl(`/${lang}/pricing`);
+            setKycIndicationText('Free Trial');
+            setKycRedirectUrl(`/${lang}/membership`);
             setKycSecondaryText('Log In');
             setKycSecondaryUrl(`/${lang}/login`);
           } else {
@@ -178,8 +179,9 @@ export function ProductActionButtons({
               setKycIndicationText('Submit Documents');
               setKycRedirectUrl(`/${lang}/profile`);
             } else {
-              setKycIndicationText('Upgrade Plan');
-              setKycRedirectUrl(`/${lang}/pricing`);
+              const status = getMembershipStatus(null, lang);
+              setKycIndicationText(status.buttonText);
+              setKycRedirectUrl(`/${lang}/membership`);
             }
             setKycSecondaryText(undefined);
             setKycSecondaryUrl(undefined);
@@ -222,8 +224,9 @@ export function ProductActionButtons({
               setKycIndicationText('Submit Documents');
               setKycRedirectUrl(`/${lang}/profile`);
             } else {
-              setKycIndicationText('Upgrade Plan');
-              setKycRedirectUrl(`/${lang}/profile`);
+              const status = getMembershipStatus(null, lang);
+              setKycIndicationText(status.buttonText);
+              setKycRedirectUrl(`/${lang}/membership`);
             }
             setKycSecondaryText(undefined);
             setKycSecondaryUrl(undefined);

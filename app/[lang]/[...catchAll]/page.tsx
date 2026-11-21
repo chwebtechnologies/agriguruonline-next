@@ -55,7 +55,7 @@ export async function generateStaticParams() {
     for (const lang of languages) {
       for (const slug of slugs) {
         // Exclude dedicated pages from catchAll params
-        if (['about-us', 'contact-us', 'membership', 'career'].includes(slug)) continue;
+        if (['about-us', 'contact-us', 'membership', 'career', 'pricing', 'become-member', 'membership-plans'].includes(slug)) continue;
         params.push({ lang, catchAll: [slug] });
       }
     }
@@ -85,7 +85,7 @@ export async function generateMetadata(props: {
   const slug = resolveSlug(segments[0]);
 
   // If pointing to dedicated routes, fallback gracefully
-  if (['about-us', 'contact-us', 'membership', 'career'].includes(slug)) {
+  if (['about-us', 'contact-us', 'membership', 'career', 'pricing', 'become-member', 'membership-plans'].includes(slug)) {
     return { title: 'AgriGuru Online' };
   }
 
@@ -168,7 +168,7 @@ export default async function DynamicCmsCatchAllPage(props: {
   if (slug === 'contact-us') {
     redirect(`/${lang}/contact-us`);
   }
-  if (slug === 'membership' || slug === 'become-member') {
+  if (['membership', 'become-member', 'pricing', 'pricing-plan', 'membership-plans', 'membership-plan'].includes(slug)) {
     redirect(`/${lang}/membership`);
   }
   if (slug === 'career') {

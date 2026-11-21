@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getDictionary } from '@/app/[lang]/dictionaries'
@@ -300,13 +301,18 @@ async function ProfilePageContent({ lang, token }: { lang: string; token: string
               <KycSection profileData={sanitizedProfileData} lang={lang} initialKycDocs={rawKycDocs} />
             </div>
             
-            {/* Mobile-only Upgrade Plan Button */}
-            <button className="lg:hidden w-[60%] mx-auto mt-2 mb-2 sm:mb-0 bg-plan-platinum p-3.5 sm:p-4 rounded-full text-white font-black flex items-center justify-center gap-2.5 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden">
+            {/* Mobile-only Membership / Upgrade Plan Link */}
+            <Link
+              href={`/${lang}/membership`}
+              className="lg:hidden w-[60%] mx-auto mt-2 mb-2 sm:mb-0 bg-plan-platinum p-3.5 sm:p-4 rounded-full text-white font-black flex items-center justify-center gap-2.5 shadow-xl shadow-sky-900/20 active:scale-[0.98] transition-all relative overflow-hidden"
+            >
               <div className="absolute inset-0 opacity-[0.08] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none z-0"></div>
               <i className="fa-solid fa-crown text-white drop-shadow-md relative z-10 text-[15px]"></i>
-              <span className="tracking-widest uppercase text-sm sm:text-base relative z-10 drop-shadow-md">Upgrade Plan</span>
+              <span className="tracking-widest uppercase text-sm sm:text-base relative z-10 drop-shadow-md">
+                {profileData?.membership && !isRegular ? (dict?.header?.upgrade_plan || 'Upgrade Plan') : (dict?.header?.free_trial || 'Free Trial')}
+              </span>
               <i className="fa-solid fa-award text-white drop-shadow-md relative z-10 text-lg"></i>
-            </button>
+            </Link>
             
           </div>
 
