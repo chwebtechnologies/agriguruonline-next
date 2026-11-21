@@ -331,15 +331,13 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
           {/* Product Image Section (Side-by-side with title on mobile) */}
           <div className="flex flex-row md:flex-col gap-4 md:gap-0 md:space-y-4 md:col-span-5 lg:col-span-4">
             <div className="relative w-2/5 md:w-full aspect-square bg-muted rounded-xl overflow-hidden border border-border flex-shrink-0">
-              <Image
+              <ImageWithSkeleton
                 src={imageUrl}
                 alt={productName}
                 title={productName}
                 fill
                 className="object-cover"
                 priority={true}
-                loading="eager"
-                fetchPriority="high"
                 sizes="(max-width: 768px) 40vw, (max-width: 1200px) 33vw, 420px"
               />
             </div>

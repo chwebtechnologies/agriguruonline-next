@@ -12,8 +12,10 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, lang, dict = {}, priority = false }: EventCardProps) {
-  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  const imageUrl = event.thumbnail.startsWith('http') ? event.thumbnail : `${imageBaseUrl}${event.thumbnail}`
+  const assetsUrl = getAssetsUrl();
+  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
+  const thumbnail = event?.thumbnail || '';
+  const imageUrl = thumbnail.startsWith('http') ? thumbnail : (thumbnail ? `${imageBaseUrl}${thumbnail}` : '');
   
   const translation = event.translations?.find(t => t.lang_code === lang)
   const title = translation?.title || event.title

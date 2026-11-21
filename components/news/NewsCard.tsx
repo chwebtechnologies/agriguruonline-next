@@ -17,8 +17,10 @@ export default function NewsCard({ article, lang, dict = {}, priority = false }:
   const description = translation?.description || article.description || ''
   const source = translation?.source || article.source || ''
   
-  const assetsUrl = getAssetsUrl();const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`
-  const imageUrl = article.thumbnail.startsWith('http') ? article.thumbnail : `${imageBaseUrl}${article.thumbnail}`
+  const assetsUrl = getAssetsUrl();
+  const imageBaseUrl = assetsUrl.endsWith('/') ? assetsUrl : `${assetsUrl}/`;
+  const thumbnail = article?.thumbnail || '';
+  const imageUrl = thumbnail.startsWith('http') ? thumbnail : (thumbnail ? `${imageBaseUrl}${thumbnail}` : '');
 
   const formattedDate = new Intl.DateTimeFormat(lang, {
     year: 'numeric',
