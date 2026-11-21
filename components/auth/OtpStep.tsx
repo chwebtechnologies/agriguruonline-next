@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition } from "react";
 import { toast } from "sonner";
-import { createSession, serverVerifyOtp, serverVerifyAppleOtp } from "@/app/actions/auth";
+import { createSession, serverVerifyOtp, serverVerifyAppleOtp, serverSendOtp, serverSendOtpApple } from "@/app/actions/auth";
 import { authService } from "@/lib/api";
 
 interface OtpStepProps {
@@ -60,19 +60,15 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
           appleTxnId = localStorage.getItem("apple_txn_id");
         } catch (e) {}
 
-        let response;
+        let result;
         if (appleTxnId) {
-          response = await authService.sendOtpApple(email, appleTxnId, lang);
+          result = await serverSendOtpApple(email, appleTxnId, lang);
         } else {
-          response = await authService.sendOtp(email, lang);
+          result = await serverSendOtp(email, lang);
         }
 
-        if (!response.ok) {
-          let errorMessage = "Failed to resend OTP. Please try again.";
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorData.error || errorMessage;
-          } catch (e) {}
+        if (!result.ok) {
+          const errorMessage = result.error || "Failed to resend OTP. Please try again.";
           setError(errorMessage);
           toast.error(errorMessage);
           return;
@@ -83,8 +79,9 @@ export default function OtpStep({ email, onBack, onVerify, lang, dict }: OtpStep
         } catch (e) {}
         setCountdown(120);
         toast.success("OTP resent successfully!");
-      } catch (err) {
-        const errMsg = "Something went wrong resending the OTP.";
+      } catch (err: any) {
+        console.error("[OtpStep] handleResend error:", err);
+        const errMsg = err?.message || "Something went wrong resending the OTP.";
         setError(errMsg);
         toast.error(errMsg);
       }

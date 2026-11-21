@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import { isValidPhoneNumber, parsePhoneNumber, type Country } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { toast } from "sonner";
-import { createSession } from "@/app/actions/auth";
+import { createSession, serverRegister, serverRegisterApple } from "@/app/actions/auth";
 import SearchablePhoneInput from "@/components/ui/SearchablePhoneInput";
 import { authService } from "@/lib/api";
 import { getDefaultUserCountry, getCountryName, fetchGeoCountry } from "@/lib/country";
@@ -85,47 +85,30 @@ export default function RegisterStep({ email, onComplete, lang, dict }: Register
         let res;
         if (appleTxnId) {
           payload.transaction_id = appleTxnId;
-          res = await authService.registerApple(payload, lang);
+          res = await serverRegisterApple(payload, lang);
         } else {
-          res = await authService.register(payload, lang);
+          res = await serverRegister(payload, lang);
         }
 
         if (!res.ok) {
-          let errorMessage = "Failed to register. Please try again.";
-          try {
-            const errorData = await res.json();
-            errorMessage = errorData.message || errorData.error || errorMessage;
-          } catch (e) {}
+          const errorMessage = res.error || "Failed to register. Please try again.";
           toast.error(errorMessage);
           return;
         }
 
-        const data = await res.json();
-        const token = data?.data?.access_token || data?.data?.token || data?.access_token || data?.token;
-        const refreshToken = data?.data?.refresh_token || data?.data?.refreshToken || data?.data?.web_refresh_token || data?.refresh_token || data?.refreshToken || null;
-        const user = data?.data?.user || data?.user || null;
+        // Clean up Apple Auth state
+        try {
+          localStorage.removeItem("apple_txn_id");
+          localStorage.removeItem("apple_email");
+          localStorage.removeItem("apple_first_name");
+          localStorage.removeItem("apple_last_name");
+        } catch (e) {}
         
-        if ((data.success === 1 || data.success === true || data.status === true) && token) {
-           await createSession(
-             token, 
-             refreshToken,
-             user
-           );
-           // Clean up Apple Auth state
-           try {
-             localStorage.removeItem("apple_txn_id");
-             localStorage.removeItem("apple_email");
-             localStorage.removeItem("apple_first_name");
-             localStorage.removeItem("apple_last_name");
-           } catch (e) {}
-           
-           toast.success("Account created successfully!");
-           onComplete();
-        } else {
-           toast.error(data.message || data.error || "Something went wrong.");
-        }
-      } catch (err) {
-        toast.error("An error occurred during registration.");
+        toast.success("Account created successfully!");
+        onComplete();
+      } catch (err: any) {
+        console.error("[RegisterStep] registration error:", err);
+        toast.error("An error occurred during registration. Please try again.");
       }
     });
   };

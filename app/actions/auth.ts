@@ -3,7 +3,7 @@
 import disposableDomains from "disposable-email-domains";
 import { cookies } from "next/headers";
 import { authService, userService, invalidateUserAuthCache } from "@/lib/api";
-import { getUserApiUrl } from "@/lib/api-utils";
+import { getUserApiUrl, sanitizeErrorMessage } from "@/lib/api-utils";
 import { getIsSecureCookie, extractRefreshTokenFromResponse } from "@/lib/auth-cookie";
 import { executeRefreshToken, getValidAuthToken } from "@/lib/auth-token";
 
@@ -121,6 +121,207 @@ export async function createSession(accessToken: string, refreshToken: string | 
     path: "/",
     maxAge: 7 * 24 * 60 * 60, // 7 days
   });
+}
+
+export async function serverSendOtp(email: string, lang: string = "en") {
+  const cleanEmail = (email || "").trim().toLowerCase();
+  if (!cleanEmail) {
+    return { ok: false, error: "Please enter your email address." };
+  }
+
+  const domainValidation = await validateEmailDomain(cleanEmail);
+  if (!domainValidation.isValid) {
+    return { ok: false, error: domainValidation.error || "Temporary or disposable emails are not allowed." };
+  }
+
+  const apiUrl = getUserApiUrl();
+  const url = `${apiUrl}/auth/send-otp?lang_code=${lang}&source=web`;
+
+  try {
+    const response = await authFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-app-source": "web",
+        "source": "web",
+      },
+      body: JSON.stringify({ email: cleanEmail }),
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      return { ok: false, error: "Invalid response from server. Please try again.", status: response.status };
+    }
+
+    const isSuccess = response.ok && (data?.success === 1 || data?.success === true || data?.status === true);
+    if (isSuccess) {
+      return { ok: true, data, message: data?.message || "OTP sent successfully" };
+    }
+
+    const rawError = data?.message || data?.error || "Failed to send OTP. Please try again.";
+    return {
+      ok: false,
+      error: sanitizeErrorMessage(rawError, "Failed to send OTP. Please try again."),
+      status: response.status,
+      data,
+    };
+  } catch (err: any) {
+    console.error("[serverSendOtp] Error:", err);
+    return { ok: false, error: "Network error sending OTP. Please try again." };
+  }
+}
+
+export async function serverSendOtpApple(email: string, transactionId: string, lang: string = "en") {
+  const cleanEmail = (email || "").trim().toLowerCase();
+  const apiUrl = getUserApiUrl();
+  const url = `${apiUrl}/auth/send-otp-apple?lang_code=${lang}&source=web`;
+
+  try {
+    const response = await authFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-app-source": "web",
+        "source": "web",
+      },
+      body: JSON.stringify({ email: cleanEmail, transaction_id: transactionId }),
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      return { ok: false, error: "Invalid response from server. Please try again.", status: response.status };
+    }
+
+    const isSuccess = response.ok && (data?.success === 1 || data?.success === true || data?.status === true);
+    if (isSuccess) {
+      return { ok: true, data, message: data?.message || "OTP sent successfully" };
+    }
+
+    const rawError = data?.message || data?.error || "Failed to send OTP. Please try again.";
+    return {
+      ok: false,
+      error: sanitizeErrorMessage(rawError, "Failed to send OTP. Please try again."),
+      status: response.status,
+      data,
+    };
+  } catch (err: any) {
+    console.error("[serverSendOtpApple] Error:", err);
+    return { ok: false, error: "Network error sending OTP. Please try again." };
+  }
+}
+
+export async function serverRegister(payload: any, lang: string = "en") {
+  const apiUrl = getUserApiUrl();
+  const url = `${apiUrl}/auth/register?lang_code=${lang}&source=web`;
+
+  try {
+    const response = await authFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-app-source": "web",
+        "source": "web",
+      },
+      body: JSON.stringify({ ...payload, source: "WEB" }),
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      return { ok: false, error: "Invalid response from server. Please try again.", status: response.status };
+    }
+
+    const backendRefreshToken = extractRefreshTokenFromResponse(response, data);
+    const isSuccess = response.ok && (data?.success === 1 || data?.success === true || data?.status === true);
+
+    if (isSuccess) {
+      const token = data?.data?.access_token || data?.data?.token || data?.access_token || data?.token;
+      const refreshToken = backendRefreshToken || data?.data?.refresh_token || data?.data?.refreshToken || data?.refresh_token || null;
+      const user = data?.data?.user || data?.user || null;
+
+      if (token) {
+        try {
+          await createSession(token, refreshToken, user);
+        } catch (sessionErr: any) {
+          console.error("Failed to create session cookies:", sessionErr);
+          return { ok: false, error: "Failed to setup session. Please try again." };
+        }
+      }
+
+      return { ok: true, data, backendRefreshToken: refreshToken };
+    }
+
+    const rawError = data?.message || data?.error || "Registration failed. Please try again.";
+    return {
+      ok: false,
+      error: sanitizeErrorMessage(rawError, "Registration failed. Please try again."),
+      status: response.status,
+      data,
+    };
+  } catch (err: any) {
+    console.error("[serverRegister] Error:", err);
+    return { ok: false, error: "Network error during registration. Please try again." };
+  }
+}
+
+export async function serverRegisterApple(payload: any, lang: string = "en") {
+  const apiUrl = getUserApiUrl();
+  const url = `${apiUrl}/auth/register-apple?lang_code=${lang}&source=web`;
+
+  try {
+    const response = await authFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-app-source": "web",
+        "source": "web",
+      },
+      body: JSON.stringify({ ...payload, source: "WEB" }),
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      return { ok: false, error: "Invalid response from server. Please try again.", status: response.status };
+    }
+
+    const backendRefreshToken = extractRefreshTokenFromResponse(response, data);
+    const isSuccess = response.ok && (data?.success === 1 || data?.success === true || data?.status === true);
+
+    if (isSuccess) {
+      const token = data?.data?.access_token || data?.data?.token || data?.access_token || data?.token;
+      const refreshToken = backendRefreshToken || data?.data?.refresh_token || data?.data?.refreshToken || data?.refresh_token || null;
+      const user = data?.data?.user || data?.user || null;
+
+      if (token) {
+        try {
+          await createSession(token, refreshToken, user);
+        } catch (sessionErr: any) {
+          console.error("Failed to create session cookies:", sessionErr);
+          return { ok: false, error: "Failed to setup session. Please try again." };
+        }
+      }
+
+      return { ok: true, data, backendRefreshToken: refreshToken };
+    }
+
+    const rawError = data?.message || data?.error || "Registration failed. Please try again.";
+    return {
+      ok: false,
+      error: sanitizeErrorMessage(rawError, "Registration failed. Please try again."),
+      status: response.status,
+      data,
+    };
+  } catch (err: any) {
+    console.error("[serverRegisterApple] Error:", err);
+    return { ok: false, error: "Network error during registration. Please try again." };
+  }
 }
 
 export async function serverVerifyOtp(email: string, otp: string, lang: string) {

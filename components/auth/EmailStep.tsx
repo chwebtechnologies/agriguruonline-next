@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { authService } from "@/lib/api";
-import { validateEmailDomain } from "@/app/actions/auth";
+import { validateEmailDomain, serverSendOtp, serverSendOtpApple } from "@/app/actions/auth";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import GoogleLoginButton from "./GoogleLoginButton";
 import AppleLoginButton from "./AppleLoginButton";
@@ -117,29 +117,25 @@ export default function EmailStep({
       try {
         appleTxnId = isAppleActive ? localStorage.getItem("apple_txn_id") : null;
       } catch (e) {}
-      let response: Response;
+      let result: { ok: boolean; error?: string; status?: number; data?: any };
 
       if (appleTxnId) {
-        response = await authService.sendOtpApple(trimmedEmail, appleTxnId, lang);
+        result = await serverSendOtpApple(trimmedEmail, appleTxnId, lang);
       } else {
-        response = await authService.sendOtp(trimmedEmail, lang);
+        result = await serverSendOtp(trimmedEmail, lang);
       }
 
-      if (!response.ok) {
-        let errorMessage = "Failed to send OTP. Please try again.";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-          
-          // If the Apple transaction is expired or invalid, clear it so user isn't permanently stuck
-          if (appleTxnId && (response.status === 400 || response.status === 401 || response.status === 404)) {
-            try {
-              localStorage.removeItem("apple_txn_id");
-              localStorage.removeItem("apple_email");
-            } catch (e) {}
-            if (onCancelAppleFlow) onCancelAppleFlow();
-          }
-        } catch (e) {}
+      if (!result.ok) {
+        const errorMessage = result.error || "Failed to send OTP. Please try again.";
+        
+        // If the Apple transaction is expired or invalid, clear it so user isn't permanently stuck
+        if (appleTxnId && (result.status === 400 || result.status === 401 || result.status === 404)) {
+          try {
+            localStorage.removeItem("apple_txn_id");
+            localStorage.removeItem("apple_email");
+          } catch (e) {}
+          if (onCancelAppleFlow) onCancelAppleFlow();
+        }
         setError(errorMessage);
         toast.error(errorMessage);
         setIsPending(false);
@@ -156,8 +152,9 @@ export default function EmailStep({
       toast.success("OTP sent successfully!");
       setIsPending(false);
       onNext(trimmedEmail);
-    } catch (err) {
-      const errMsg = "Something went wrong sending OTP.";
+    } catch (err: any) {
+      console.error("[EmailStep] sendOtp error:", err);
+      const errMsg = err?.message || "Something went wrong sending OTP.";
       setError(errMsg);
       toast.error(errMsg);
       setIsPending(false);

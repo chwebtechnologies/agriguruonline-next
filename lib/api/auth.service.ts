@@ -13,6 +13,14 @@ export const authService = {
    * Request OTP sent to user email.
    */
   sendOtp: async (email: string, lang: string = 'en'): Promise<Response> => {
+    if (typeof window !== 'undefined') {
+      const { serverSendOtp } = await import('@/app/actions/auth');
+      const res = await serverSendOtp(email, lang);
+      return new Response(JSON.stringify(res.ok ? (res.data || { success: 1, message: res.message }) : { success: 0, message: res.error, ...res.data }), {
+        status: res.ok ? 200 : (res.status || 400),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/send-otp`;
     return await customFetch(url, {
@@ -27,6 +35,14 @@ export const authService = {
    * Verify entered OTP.
    */
   verifyOtp: async (email: string, otp: string, lang: string = 'en'): Promise<Response> => {
+    if (typeof window !== 'undefined') {
+      const { serverVerifyOtp } = await import('@/app/actions/auth');
+      const res = await serverVerifyOtp(email, otp, lang);
+      return new Response(JSON.stringify(res.ok ? (res.data || { success: 1 }) : { success: 0, message: res.error, ...res.data }), {
+        status: res.ok ? 200 : (res.status || 400),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/verify-otp`;
     return await customFetch(url, {
@@ -41,6 +57,14 @@ export const authService = {
    * Register new user.
    */
   register: async (payload: Record<string, unknown>, lang: string = 'en'): Promise<Response> => {
+    if (typeof window !== 'undefined') {
+      const { serverRegister } = await import('@/app/actions/auth');
+      const res = await serverRegister(payload, lang);
+      return new Response(JSON.stringify(res.ok ? (res.data || { success: 1 }) : { success: 0, message: res.error, ...res.data }), {
+        status: res.ok ? 200 : (res.status || 400),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/register`;
     return await customFetch(url, {
@@ -55,6 +79,14 @@ export const authService = {
    * Register/sync FCM device token with backend.
    */
   setFcmToken: async (fcmToken: string, token: string): Promise<Response> => {
+    if (typeof window !== 'undefined') {
+      const { syncFcmTokenAction } = await import('@/app/actions/auth');
+      const res = await syncFcmTokenAction(fcmToken);
+      return new Response(JSON.stringify(res), {
+        status: res.success ? 200 : 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/set-fcm`;
     return await customFetch(url, {
@@ -94,6 +126,14 @@ export const authService = {
    * Google OAuth Login/Registration
    */
   googleLogin: async (idToken: string, lang: string = 'en'): Promise<Response> => {
+    if (typeof window !== 'undefined') {
+      const { serverGoogleLogin } = await import('@/app/actions/auth');
+      const res = await serverGoogleLogin(idToken, lang);
+      return new Response(JSON.stringify(res.ok ? (res.data || { success: 1 }) : { success: 0, message: res.error, ...res.data }), {
+        status: res.ok ? 200 : (res.status || 400),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/google-login`;
     return await customFetch(url, {
@@ -108,6 +148,14 @@ export const authService = {
    * Send Apple OTP
    */
   sendOtpApple: async (email: string, transactionId: string, lang: string = 'en'): Promise<Response> => {
+    if (typeof window !== 'undefined') {
+      const { serverSendOtpApple } = await import('@/app/actions/auth');
+      const res = await serverSendOtpApple(email, transactionId, lang);
+      return new Response(JSON.stringify(res.ok ? (res.data || { success: 1, message: res.message }) : { success: 0, message: res.error, ...res.data }), {
+        status: res.ok ? 200 : (res.status || 400),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/send-otp-apple`;
     return await customFetch(url, {
@@ -122,6 +170,14 @@ export const authService = {
    * Register Apple User
    */
   registerApple: async (payload: Record<string, unknown>, lang: string = 'en'): Promise<Response> => {
+    if (typeof window !== 'undefined') {
+      const { serverRegisterApple } = await import('@/app/actions/auth');
+      const res = await serverRegisterApple(payload, lang);
+      return new Response(JSON.stringify(res.ok ? (res.data || { success: 1 }) : { success: 0, message: res.error, ...res.data }), {
+        status: res.ok ? 200 : (res.status || 400),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     const apiUrl = getUserApiUrl();
     const url = `${apiUrl}/auth/register-apple`;
     return await customFetch(url, {
