@@ -14,6 +14,7 @@ interface SettingsClientProps {
   lang: string;
   initialNotificationSettings?: NotificationSettingsData | null;
   userProfile?: any;
+  isAuthenticated?: boolean;
 }
 
 const LANGUAGES = [
@@ -109,6 +110,7 @@ export function SettingsClient({
   lang,
   initialNotificationSettings,
   userProfile,
+  isAuthenticated = false,
 }: SettingsClientProps) {
   const router = useRouter();
   const pathname = usePathname() || `/${lang}/my-settings`;
@@ -116,6 +118,20 @@ export function SettingsClient({
 
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [isAuth, setIsAuth] = useState(Boolean(isAuthenticated));
+
+  useEffect(() => {
+    setIsAuth(Boolean(isAuthenticated));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    setMounted(true);
+    const handleAuthChange = () => {
+      router.refresh();
+    };
+    window.addEventListener('auth-state-change', handleAuthChange);
+    return () => window.removeEventListener('auth-state-change', handleAuthChange);
+  }, [router]);
 
   const [settings, setSettings] = useState<Record<string, any>>(() => {
     const raw = initialNotificationSettings || {};
@@ -134,9 +150,6 @@ export function SettingsClient({
   const [isDeleting, setIsDeleting] = useState(false);
   const [conflictErrorMessage, setConflictErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Standard notification keys matching backend response order
   const standardKeys = [
@@ -161,6 +174,7 @@ export function SettingsClient({
   const notificationListKeys = Array.from(new Set([...standardKeys, ...allKeys]));
 
   const handleToggleNotification = async (key: string) => {
+    if (!isAuth) return;
     const previousState = { ...settings };
     const nextVal = !Boolean(settings[key]);
     let newSettings: Record<string, any>;
@@ -225,7 +239,7 @@ export function SettingsClient({
   const isEmailMatched = Boolean(targetEmail && deleteInput.trim().toLowerCase() === targetEmail);
 
   const handleDeleteAccount = async () => {
-    if (!isEmailMatched || isDeleting) return;
+    if (!isAuth || !isEmailMatched || isDeleting) return;
     setIsDeleting(true);
     try {
       const userId = userProfile?.id || userProfile?._id || userProfile?.customer_id;
@@ -301,8 +315,8 @@ export function SettingsClient({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* LEFT COLUMN */}
         <div className="lg:col-span-8 flex flex-col gap-4">
-          {/* User Summary Strip */}
-          {userProfile && (
+          {/* User Summary Strip - Only for authenticated users */}
+          {isAuth && userProfile && (
             <div className="flex items-center gap-3 px-4 py-3 bg-card border border-border/70 rounded-2xl">
               <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
                 {userProfile.first_name?.[0]?.toUpperCase() || 'U'}
@@ -349,43 +363,45 @@ export function SettingsClient({
             </div>
           </Section>
 
-          {/* Notifications */}
-          <Section
-            title="Notifications"
-            icon="fa-solid fa-bell"
-            action={
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium">All</span>
-                <Toggle
-                  checked={Boolean(settings.all_notifications)}
-                  onChange={() => handleToggleNotification('all_notifications')}
-                />
-              </div>
-            }
-          >
-            <div className="divide-y divide-border/40">
-              {notificationListKeys.map((key) => {
-                const isEnabled = Boolean(settings[key]);
-                const label = formatNotificationTitle(key);
-                const icon = getNotificationIcon(key);
+          {/* Notifications - Only displayed to authenticated users */}
+          {isAuth && (
+            <Section
+              title="Notifications"
+              icon="fa-solid fa-bell"
+              action={
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-medium">All</span>
+                  <Toggle
+                    checked={Boolean(settings.all_notifications)}
+                    onChange={() => handleToggleNotification('all_notifications')}
+                  />
+                </div>
+              }
+            >
+              <div className="divide-y divide-border/40">
+                {notificationListKeys.map((key) => {
+                  const isEnabled = Boolean(settings[key]);
+                  const label = formatNotificationTitle(key);
+                  const icon = getNotificationIcon(key);
 
-                return (
-                  <div key={key} className="flex items-center justify-between py-3 first:pt-0 last:pb-0 gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <i className={`${icon} text-xs text-muted-foreground w-4 text-center shrink-0`} />
-                      <span className="text-sm text-foreground truncate">
-                        {label}
-                      </span>
+                  return (
+                    <div key={key} className="flex items-center justify-between py-3 first:pt-0 last:pb-0 gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <i className={`${icon} text-xs text-muted-foreground w-4 text-center shrink-0`} />
+                        <span className="text-sm text-foreground truncate">
+                          {label}
+                        </span>
+                      </div>
+                      <Toggle
+                        checked={isEnabled}
+                        onChange={() => handleToggleNotification(key)}
+                      />
                     </div>
-                    <Toggle
-                      checked={isEnabled}
-                      onChange={() => handleToggleNotification(key)}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </Section>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
 
           {/* Language */}
           <Section title="Language" icon="fa-solid fa-globe">
@@ -463,36 +479,38 @@ export function SettingsClient({
             </div>
           </div>
 
-          {/* Danger Zone */}
-          <div className="bg-card border border-rose-500/20 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <i className="fa-solid fa-trash-can text-xs text-rose-500" />
-              <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wide">
-                Delete Account
-              </span>
+          {/* Danger Zone - Only displayed to authenticated users */}
+          {isAuth && (
+            <div className="bg-card border border-rose-500/20 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <i className="fa-solid fa-trash-can text-xs text-rose-500" />
+                <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wide">
+                  Delete Account
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                All of your data, including membership plan details, profile
+                information, inquiries, offers &amp; complete communication
+                history, will be permanently deleted.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteInput('');
+                  setShowDeleteModal(true);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/15 text-rose-600 dark:text-rose-400 font-semibold text-xs transition-all cursor-pointer"
+              >
+                <i className="fa-solid fa-trash-can text-[11px]" />
+                Delete My Account
+              </button>
             </div>
-            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-              All of your data, including membership plan details, profile
-              information, inquiries, offers &amp; complete communication
-              history, will be permanently deleted.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setDeleteInput('');
-                setShowDeleteModal(true);
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/15 text-rose-600 dark:text-rose-400 font-semibold text-xs transition-all cursor-pointer"
-            >
-              <i className="fa-solid fa-trash-can text-[11px]" />
-              Delete My Account
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
+      {/* Delete Confirmation Modal - Only for authenticated users */}
+      {isAuth && showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-card text-foreground border border-border rounded-2xl shadow-2xl p-6 space-y-4">
             <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto text-xl border border-rose-500/20">
@@ -585,8 +603,8 @@ export function SettingsClient({
           </div>
         </div>
       )}
-      {/* 409 Conflict / Subscription Active Popup */}
-      {conflictErrorMessage && (
+      {/* 409 Conflict / Subscription Active Popup - Only for authenticated users */}
+      {isAuth && conflictErrorMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-card text-foreground border border-border/80 rounded-2xl shadow-2xl p-6 space-y-4">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto text-xl border border-amber-500/20">
