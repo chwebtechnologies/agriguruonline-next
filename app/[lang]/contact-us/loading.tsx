@@ -39,15 +39,23 @@ export default function ContactUsLoading() {
               </div>
 
               {/* Global Footprint */}
-              <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-muted animate-pulse shrink-0" />
-                  <div className="space-y-1.5 flex-1">
-                    <div className="h-5 w-40 bg-muted animate-pulse rounded" />
-                    <div className="h-3.5 w-28 bg-muted/70 animate-pulse rounded" />
+              <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-xs flex-1 flex flex-col space-y-3">
+                <div className="flex items-center justify-between pb-3 border-b border-border/70">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-muted animate-pulse shrink-0" />
+                    <div className="space-y-1.5">
+                      <div className="h-5 w-44 bg-muted animate-pulse rounded" />
+                      <div className="h-3.5 w-32 bg-muted/70 animate-pulse rounded" />
+                    </div>
                   </div>
+                  <div className="h-7 w-32 bg-muted/60 animate-pulse rounded-xl" />
                 </div>
-                <div className="h-12 w-full bg-muted/60 animate-pulse rounded-xl" />
+                <div className="h-[220px] sm:h-[260px] md:h-[290px] w-full bg-muted/50 animate-pulse rounded-xl" />
+                <div className="pt-2 flex gap-2">
+                  <div className="h-8 w-24 bg-muted animate-pulse rounded-xl" />
+                  <div className="h-8 w-20 bg-muted animate-pulse rounded-xl" />
+                  <div className="h-8 w-20 bg-muted animate-pulse rounded-xl" />
+                </div>
               </div>
             </div>
 

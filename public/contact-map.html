@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
   <style>
     * {
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
     html, body {
       margin: 0;
@@ -16,12 +17,33 @@
       height: 100%;
       background: #f8fafc;
       overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     #map {
       width: 100%;
       height: 100%;
+      background: #e2e8f0;
       z-index: 1;
+    }
+    @media (prefers-color-scheme: dark) {
+      html, body {
+        background: #090d16;
+      }
+      #map {
+        background: #090d16;
+      }
+      /* Apply filter to tile-pane container as a single GPU texture layer, NEVER to individual tiles */
+      .leaflet-tile-pane {
+        filter: brightness(0.68) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.35);
+      }
+      .leaflet-popup-content-wrapper {
+        background: #0f172a !important;
+        color: #f1f5f9 !important;
+        border: 1px solid #334155;
+      }
+      .leaflet-popup-tip {
+        background: #0f172a !important;
+      }
     }
     .custom-marker {
       display: flex;
@@ -38,9 +60,9 @@
       font-size: 11px;
       font-weight: 700;
       white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.28);
       border: 1.5px solid #ffffff;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
       display: flex;
       align-items: center;
       gap: 4px;
@@ -50,7 +72,7 @@
       font-size: 12px;
       padding: 4px 10px;
       border: 2px solid #ffffff;
-      box-shadow: 0 3px 12px rgba(5,150,105,0.4);
+      box-shadow: 0 3px 12px rgba(5,150,105,0.45);
     }
     .pin-tip {
       width: 0;
@@ -68,16 +90,17 @@
     }
     .leaflet-popup-content-wrapper {
       border-radius: 12px;
-      padding: 4px 6px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-      font-size: 13px;
-      font-weight: 600;
+      padding: 4px 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      font-size: 12px;
+      line-height: 1.35;
     }
     .leaflet-control-zoom {
       border: none !important;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18) !important;
       border-radius: 8px !important;
       overflow: hidden;
+      margin: 10px !important;
     }
     .leaflet-control-zoom a {
       background: #ffffff !important;
@@ -86,6 +109,15 @@
       width: 28px !important;
       height: 28px !important;
       line-height: 28px !important;
+      font-size: 16px !important;
+      font-weight: bold !important;
+      cursor: pointer !important;
+    }
+    @media (prefers-color-scheme: dark) {
+      .leaflet-control-zoom a {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+      }
     }
     .leaflet-control-zoom a:hover {
       background: #f1f5f9 !important;
@@ -95,33 +127,80 @@
       background: rgba(255,255,255,0.7) !important;
       backdrop-filter: blur(4px);
     }
+    @media (prefers-color-scheme: dark) {
+      .leaflet-control-attribution {
+        background: rgba(15,23,42,0.7) !important;
+        color: #94a3b8 !important;
+      }
+      .leaflet-control-attribution a {
+        color: #38bdf8 !important;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script>
+    var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth < 768);
+
+    // Initializing map with zoomAnimation: false and fadeAnimation: false
+    // This PREVENTS the notorious Leaflet opacity:0 tile pane disappearance bug during zoom in/out in iframes!
     var map = L.map('map', {
       center: [20, 20],
       zoom: 2,
-      minZoom: 1,
-      maxZoom: 12,
+      minZoom: 2,
+      maxZoom: 18,
+      zoomSnap: 1,
+      zoomDelta: 1,
+      zoomAnimation: false,        // CRITICAL: prevents tiles from vanishing during +/- zoom
+      fadeAnimation: false,        // CRITICAL: prevents opacity 0 fade freeze
+      markerZoomAnimation: false,  // Prevents marker-to-tile desync
       zoomControl: true,
-      scrollWheelZoom: false
+      scrollWheelZoom: false,
+      dragging: true,
+      tap: false,
+      touchZoom: true
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Primary Tile Layer with high keepBuffer to prevent grey flicker on zoom
+    var tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    var fallbackTileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+    var tileLayer = L.tileLayer(tileUrl, {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19
+      minZoom: 2,
+      maxZoom: 19,
+      keepBuffer: 8,              // Keep 8 extra tile buffers so zooming never runs out of tiles
+      updateWhenZooming: true,     // Immediately render new tiles during zoom
+      updateWhenIdle: false,       // Do not delay tile loading
+      noWrap: false
     }).addTo(map);
 
+    // Automatic fallback if any tile fails (e.g. rate limit 429)
+    tileLayer.on('tileerror', function(error, tile) {
+      if (tile && tile.tile && !tile.tile._retried) {
+        tile.tile._retried = true;
+        var subdomains = ['a', 'b', 'c', 'd'];
+        var s = subdomains[Math.floor(Math.random() * subdomains.length)];
+        var coords = tile.coords;
+        var fallbackSrc = fallbackTileUrl
+          .replace('{s}', s)
+          .replace('{z}', coords.z)
+          .replace('{x}', coords.x)
+          .replace('{y}', coords.y)
+          .replace('{r}', '');
+        tile.tile.src = fallbackSrc;
+      }
+    });
+
     var locations = [
-      { name: "India (HQ)", fullName: "India - Ahmedabad (Global Headquarters)", lat: 20.0000, lng: 78.0000, isHq: true },
-      { name: "UAE", fullName: "United Arab Emirates (Dubai)", lat: 32.0000, lng: 48.0000 },
-      { name: "China", fullName: "China Office Network", lat: 38.0000, lng: 110.0000 },
-      { name: "France", fullName: "France Office Network", lat: 48.8566, lng: 2.3522 },
-      { name: "Kenya", fullName: "Kenya - Nairobi Office", lat: 2.0000, lng: 28.0000 },
-      { name: "Mombasa", fullName: "Kenya - Mombasa Port Hub", lat: -16.0000, lng: 45.0000 },
-      { name: "Brazil", fullName: "Brazil Office Network", lat: -14.2350, lng: -51.9253 }
+      { name: "India (HQ)", flag: "🇮🇳", fullName: "India - Ahmedabad (Global Headquarters)", lat: 23.0225, lng: 72.5714, isHq: true, role: "Global Corporate HQ & Trade Operations" },
+      { name: "UAE", flag: "🇦🇪", fullName: "United Arab Emirates (Dubai)", lat: 25.2048, lng: 55.2708, isHq: false, role: "Middle East Commercial Trade Hub" },
+      { name: "China", flag: "🇨🇳", fullName: "China Office Network", lat: 31.2304, lng: 121.4737, isHq: false, role: "Asia-Pacific Sourcing & Trade Network" },
+      { name: "France", flag: "🇫🇷", fullName: "France Office Network", lat: 48.8566, lng: 2.3522, isHq: false, role: "European Trade & Representation Hub" },
+      { name: "Kenya", flag: "🇰🇪", fullName: "Kenya - Nairobi Office", lat: -1.2921, lng: 36.8219, isHq: false, role: "East Africa Regional Operations" },
+      { name: "Mombasa", flag: "🇰🇪", fullName: "Kenya - Mombasa Port Hub", lat: -4.0435, lng: 39.6682, isHq: false, role: "Key Agri Shipping & Port Logistics Hub" },
+      { name: "Brazil", flag: "🇧🇷", fullName: "Brazil Office Network", lat: -15.7801, lng: -47.9292, isHq: false, role: "South America Agri Sourcing & Trade Hub" }
     ];
 
     locations.forEach(function(loc) {
@@ -135,26 +214,35 @@
       var customMarker = L.divIcon({
         className: '',
         html: html,
-        iconSize: [loc.isHq ? 85 : 65, 30],
-        iconAnchor: [loc.isHq ? 42 : 32, 28]
+        iconSize: [loc.isHq ? 88 : 66, 32],
+        iconAnchor: [loc.isHq ? 44 : 33, 30]
       });
 
       var marker = L.marker([loc.lat, loc.lng], { icon: customMarker }).addTo(map);
-      marker.bindPopup('<div style="padding:4px 2px;">' +
-        '<div style="font-weight:700;font-size:13px;color:' + (loc.isHq ? '#059669' : '#0284c7') + ';">' + loc.fullName + '</div>' +
-        '<div style="font-size:11px;color:#64748b;margin-top:2px;">Active AgriGuru Trade Network</div>' +
+      marker.bindPopup('<div style="padding:2px;">' +
+        '<div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;color:' + (loc.isHq ? '#059669' : '#0284c7') + ';">' +
+          '<span>' + loc.flag + '</span> ' + loc.fullName +
+        '</div>' +
+        '<div style="font-size:11px;opacity:0.85;margin-top:3px;font-weight:500;">' + loc.role + '</div>' +
+        '<div style="font-size:10px;color:#10b981;font-weight:600;margin-top:4px;">● Active AgriGuru Trade Network</div>' +
       '</div>');
     });
 
     var bounds = L.latLngBounds(locations.map(function(loc) { return [loc.lat, loc.lng]; }));
-    map.fitBounds(bounds, { padding: [30, 30] });
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 4 });
+
+    // Refresh size and ensure tile consistency after zoom and resize
+    map.on('zoomend', function() {
+      map.invalidateSize({ pan: false });
+    });
 
     window.addEventListener('resize', function() {
       map.invalidateSize();
     });
+
     setTimeout(function() {
       map.invalidateSize();
-    }, 300);
+    }, 200);
   </script>
 </body>
 </html>
