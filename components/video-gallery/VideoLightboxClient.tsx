@@ -35,6 +35,8 @@ function YouTubeEmbedPlayer({
       try {
         const cw = iframeRef.current?.contentWindow;
         if (!cw) return;
+        cw.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+        cw.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
         cw.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
       } catch {}
     };
@@ -59,7 +61,7 @@ function YouTubeEmbedPlayer({
   }, [ytId]);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const embedUrl = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1&controls=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
+  const embedUrl = `https://www.youtube.com/embed/${ytId}?autoplay=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1&controls=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
 
   return (
     <iframe
@@ -206,10 +208,15 @@ export function VideoLightboxClient({ slides }: { slides: any[] }) {
                         src={url} 
                         controls 
                         autoPlay 
-                        muted
                         playsInline 
                         ref={(el) => {
-                          if (el) el.play().catch(() => {});
+                          if (el) {
+                            el.muted = false;
+                            el.play().catch(() => {
+                              el.muted = true;
+                              el.play().catch(() => {});
+                            });
+                          }
                         }}
                       />
                     )}
@@ -236,10 +243,15 @@ export function VideoLightboxClient({ slides }: { slides: any[] }) {
                         src={url} 
                         controls 
                         autoPlay 
-                        muted
                         playsInline 
                         ref={(el) => {
-                          if (el) el.play().catch(() => {});
+                          if (el) {
+                            el.muted = false;
+                            el.play().catch(() => {
+                              el.muted = true;
+                              el.play().catch(() => {});
+                            });
+                          }
                         }}
                       />
                     )}
