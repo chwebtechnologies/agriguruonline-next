@@ -484,62 +484,6 @@ async function ProductDetailContent({ lang, slug }: { lang: string; slug: string
               )}
             </div>
 
-            <hr className="border-border" />
-
-            {/* Additional Information Grids */}
-            {(product.packing_types?.length || product.containers?.length || product.loading_ports?.length) ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {product.packing_types && product.packing_types.length > 0 && (
-                  <div className="bg-muted/40 p-4 rounded-xl border border-border">
-                     <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                      <i className="fa-solid fa-box text-brand-blue"></i> Packing Types
-                     </h4>
-                     <ul className="space-y-2">
-                       {product.packing_types.map(pt => (
-                         <li key={pt.id} className="text-sm text-muted-foreground flex justify-between">
-                           <span>{pt.title}</span>
-                           <span className="font-medium text-foreground">{pt.quantity} qty</span>
-                         </li>
-                       ))}
-                     </ul>
-                  </div>
-                )}
-                {product.containers && product.containers.length > 0 && (
-                  <div className="bg-muted/40 p-4 rounded-xl border border-border">
-                     <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                      <i className="fa-solid fa-truck-fast text-brand-blue"></i> Containers
-                     </h4>
-                     <ul className="space-y-2">
-                       {product.containers.map(c => (
-                         <li key={c.id} className="text-sm text-muted-foreground flex justify-between">
-                           <span className="line-clamp-1">{c.shipping_container?.title}</span>
-                           <span className="font-medium text-foreground ml-2">{c.loading_capacity} {c.unit?.title}</span>
-                         </li>
-                       ))}
-                     </ul>
-                  </div>
-                )}
-                {product.loading_ports && product.loading_ports.length > 0 && (
-                  <div className="bg-muted/40 p-4 rounded-xl border border-border sm:col-span-2 xl:col-span-1">
-                     <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                      <i className="fa-solid fa-ship text-brand-blue"></i> Loading Ports
-                     </h4>
-                     <ul className="space-y-2">
-                       {product.loading_ports.slice(0, 3).map(lp => (
-                         <li key={lp.id} className="text-sm text-muted-foreground flex justify-between">
-                           <span>{lp.name}</span>
-                           <span className="font-medium text-foreground">${lp.price}</span>
-                         </li>
-                       ))}
-                       {product.loading_ports.length > 3 && (
-                         <li className="text-xs text-brand-blue italic">+ {product.loading_ports.length - 3} more</li>
-                       )}
-                     </ul>
-                  </div>
-                )}
-              </div>
-            ) : null}
-
             {/* Action Buttons (Mobile) */}
             <ProductActionButtons 
               productSlugOrId={slug}
