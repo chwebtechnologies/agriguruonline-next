@@ -22,6 +22,7 @@ import {
   getStepperListAction,
   getBuyerConsigneesAction,
   getBuyerNotifyPartiesAction,
+  getSmartDocsCountriesAction,
 } from '@/app/actions/smart-docs';
 import {
   type StepperDocumentItem,
@@ -345,6 +346,8 @@ export const SHIPMENT_FORM_FIELD_VISUAL_ORDER = [
   'marksImage',
   'freight',
   'cocFieldsValue',
+  'transitClauseValue',
+  'transitClauseCountry',
   'specialInstruction',
   'disclaimer',
   'remarksTitle',
@@ -449,6 +452,13 @@ export function humanizeShipmentValidationMessage(rawMessage: string, targetKey?
         return 'Please enter freight details';
       case 'cocFieldsValue':
         return 'Please enter COC details (IDF / UCR / PIP)';
+      case 'transitClauseValue':
+      case 'transit_clause_value':
+        return 'Please enter transit clause';
+      case 'transitClauseCountry':
+      case 'transit_clause_country_id':
+      case 'transit_clause_country':
+        return 'Please select transit clause country';
       case 'specialInstruction':
       case 'special_instruction':
       case 'disclaimer':
@@ -567,6 +577,15 @@ export function parseShipmentInstructionBackendErrors(
       case 'coc_field':
       case 'cocvalue':
         return 'cocFieldsValue';
+      case 'transitclausevalue':
+      case 'transit_clause_value':
+      case 'transitclause':
+        return 'transitClauseValue';
+      case 'transitclausecountry':
+      case 'transitclausecountryid':
+      case 'transit_clause_country_id':
+      case 'transit_clause_country':
+        return 'transitClauseCountry';
       case 'specialinstruction':
       case 'specialnote':
       case 'instruction':
@@ -640,6 +659,12 @@ export function parseShipmentInstructionBackendErrors(
     }
     if (s.includes('coc')) {
       return { key: 'cocFieldsValue', label: 'COC Details' };
+    }
+    if (s.includes('transit clause country') || s.includes('transit country')) {
+      return { key: 'transitClauseCountry', label: 'Transit Clause Country' };
+    }
+    if (s.includes('transit clause') || s.includes('transit')) {
+      return { key: 'transitClauseValue', label: 'Transit Clause' };
     }
     if (s.includes('special instruction') || s.includes('special note') || s.includes('disclaimer')) {
       return { key: 'specialInstruction', label: 'Special Instruction' };
@@ -2096,6 +2121,50 @@ export function ShipmentInstructionDocumentForm({
     return resolveInitialSpecialInstruction(initialData);
   });
 
+  // Transit Clause (when transit_clause is allowed/true in contract)
+  const isTransitClause = useMemo(() => {
+    const raw =
+      initialData?.transit_clause ??
+      initialData?.transit_clause_allowed ??
+      initialData?.contract?.transit_clause ??
+      initialData?.contract?.transit_clause_allowed ??
+      initialData?.confirmation?.transit_clause ??
+      initialData?.confirmation?.transit_clause_allowed;
+    return parseNullableBoolean(raw) === true;
+  }, [initialData]);
+
+  const [transitClauseValue, setTransitClauseValue] = useState<string>(() => {
+    return safeString(initialData?.transit_clause_value, '');
+  });
+
+  const [transitClauseCountry, setTransitClauseCountry] = useState<string>(() => {
+    return safeString(
+      initialData?.transit_clause_country?.id ??
+      initialData?.transit_clause_country_id ??
+      initialData?.transit_clause_country,
+      ''
+    );
+  });
+
+  const [countriesList, setCountriesList] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getSmartDocsCountriesAction({ lang, source: 'web' })
+      .then((res) => {
+        if (!isMounted) return;
+        if (res?.success && Array.isArray(res.countries)) {
+          setCountriesList(res.countries);
+        }
+      })
+      .catch((err) => {
+        console.error('[ShipmentInstruction] Error fetching countries:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [lang]);
+
   // COLUMN 3: Gross Weight (STATIC TEXT DISPLAY):
   const grossWeight = useMemo(() => {
     return safeString(initialData?.gross_weight, '-');
@@ -2341,6 +2410,28 @@ export function ShipmentInstructionDocumentForm({
       setSpecialInstruction(nextSi);
     }
 
+    // Transit Clause value & country
+    const rawTcVal = safeString(
+      initialData.transit_clause_value ??
+      initialData.transitClauseValue ??
+      initialData.contract?.transit_clause_value,
+      ''
+    );
+    if (isDataVersionTriggered || !isDirty) {
+      if (rawTcVal) setTransitClauseValue(rawTcVal);
+    }
+    const rawTcCountry = safeString(
+      initialData.transit_clause_country?.id ??
+      initialData.transit_clause_country_id ??
+      initialData.transit_clause_country ??
+      initialData.transitClauseCountry ??
+      initialData.contract?.transit_clause_country_id,
+      ''
+    );
+    if (isDataVersionTriggered || !isDirty) {
+      if (rawTcCountry) setTransitClauseCountry(rawTcCountry);
+    }
+
     // Remarks
     const rt = safeString(
       initialData.remarks_title ||
@@ -2418,19 +2509,24 @@ export function ShipmentInstructionDocumentForm({
   // Build Payload
   const getFormDataPayload = useCallback((): FormData => {
     const fd = new FormData();
-    const isSelfIdValid =
-      draftId &&
-      draftId !== contractId &&
-      draftId !== confirmationId &&
-      draftId !== proformaId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(draftId);
-    if (isSelfIdValid) {
-      fd.append('id', draftId);
-      fd.append('shipment_instruction_id', draftId);
+    const cleanDraft = sanitizeDocId(draftId);
+    const cleanProformaId = sanitizeDocId(proformaId);
+    const cleanContractId = sanitizeDocId(contractId);
+    const cleanConfId = sanitizeDocId(confirmationId);
+
+    const effectiveId =
+      (cleanDraft && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanDraft) ? cleanDraft : '') ||
+      cleanProformaId ||
+      cleanContractId ||
+      cleanConfId;
+
+    if (effectiveId) {
+      fd.append('id', effectiveId);
+      fd.append('shipment_instruction_id', effectiveId);
     }
-    if (proformaId) fd.append('proforma_id', proformaId);
-    if (contractId) fd.append('contract_id', contractId);
-    if (confirmationId) fd.append('confirmation_id', confirmationId);
+    if (cleanProformaId) fd.append('proforma_id', cleanProformaId);
+    if (cleanContractId) fd.append('contract_id', cleanContractId);
+    if (cleanConfId) fd.append('confirmation_id', cleanConfId);
     if (effectiveBuyerInstructionId) fd.append('buyer_instruction_id', effectiveBuyerInstructionId);
 
     fd.append('document_title', documentTitle);
@@ -2594,6 +2690,7 @@ export function ShipmentInstructionDocumentForm({
       }
     } else if (marksImageUrl && !marksImageUrl.startsWith('blob:')) {
       // Existing server URL from response
+      fd.append('bag_photo', marksImageUrl);
       fd.append('bag_photo_url', marksImageUrl);
       fd.append('container_marks_image', marksImageUrl);
       fd.append('marks_image', marksImageUrl);
@@ -2644,6 +2741,19 @@ export function ShipmentInstructionDocumentForm({
     } else if (initialData?.coc_field !== undefined || initialData?.coc_fields !== undefined) {
       fd.append('coc_field', String(Boolean(initialData.coc_field ?? initialData.coc_fields)));
       fd.append('coc_fields', String(Boolean(initialData.coc_field ?? initialData.coc_fields)));
+    }
+
+    // Transit Clause value & country
+    if (isTransitClause) {
+      fd.append('transit_clause', 'true');
+      if (transitClauseValue && transitClauseValue.trim()) {
+        fd.append('transit_clause_value', transitClauseValue.trim());
+      }
+      if (transitClauseCountry && transitClauseCountry.trim()) {
+        fd.append('transit_clause_country_id', transitClauseCountry.trim());
+      }
+    } else if (initialData?.transit_clause !== undefined || initialData?.transit_clause_allowed !== undefined) {
+      fd.append('transit_clause', String(Boolean(initialData.transit_clause ?? initialData.transit_clause_allowed)));
     }
 
     if (freeDays && freeDays.trim()) fd.append('free_days', freeDays.trim());
@@ -2733,14 +2843,16 @@ export function ShipmentInstructionDocumentForm({
     setErrors({}); // Always clear any existing error indicators on Save As Draft
     try {
       const payload = getFormDataPayload();
-      const isSelfIdValid = Boolean(
-        draftId &&
-        draftId !== contractId &&
-        draftId !== confirmationId &&
-        draftId !== proformaId &&
-        !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(draftId)
-      );
-      const validActionId = isSelfIdValid ? draftId : undefined;
+      const cleanDraft = sanitizeDocId(draftId);
+      const cleanProformaId = sanitizeDocId(proformaId);
+      const cleanContractId = sanitizeDocId(contractId);
+      const cleanConfId = sanitizeDocId(confirmationId);
+      const validActionId =
+        (cleanDraft && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanDraft) ? cleanDraft : undefined) ||
+        cleanProformaId ||
+        cleanContractId ||
+        cleanConfId ||
+        undefined;
       let res: any;
       if (onSaveDraft) {
         res = await onSaveDraft(payload);
@@ -2824,16 +2936,36 @@ export function ShipmentInstructionDocumentForm({
 
     setIsSubmitting(true);
     setErrors({});
+
+    if (isTransitClause) {
+      const tcErrors: Record<string, string> = {};
+      if (!transitClauseValue.trim()) {
+        tcErrors.transitClauseValue = 'Please enter transit clause';
+      }
+      if (!transitClauseCountry.trim()) {
+        tcErrors.transitClauseCountry = 'Please select transit clause country';
+      }
+      if (Object.keys(tcErrors).length > 0) {
+        setIsSubmitting(false);
+        setErrors(tcErrors);
+        scrollToAndFocusShipmentField(tcErrors);
+        toast.error(Object.values(tcErrors)[0]);
+        return;
+      }
+    }
+
     try {
       const payload = getFormDataPayload();
-      const isSelfIdValid = Boolean(
-        draftId &&
-        draftId !== contractId &&
-        draftId !== confirmationId &&
-        draftId !== proformaId &&
-        !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(draftId)
-      );
-      const validActionId = isSelfIdValid ? draftId : undefined;
+      const cleanDraft = sanitizeDocId(draftId);
+      const cleanProformaId = sanitizeDocId(proformaId);
+      const cleanContractId = sanitizeDocId(contractId);
+      const cleanConfId = sanitizeDocId(confirmationId);
+      const validActionId =
+        (cleanDraft && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanDraft) ? cleanDraft : undefined) ||
+        cleanProformaId ||
+        cleanContractId ||
+        cleanConfId ||
+        undefined;
       let res: any;
       if (onSubmitInstruction) {
         res = await onSubmitInstruction(payload, validActionId, targetNextStep);
@@ -3866,6 +3998,55 @@ export function ShipmentInstructionDocumentForm({
                       inputClassName="text-[14px] font-semibold uppercase text-foreground resize-none leading-relaxed"
                       className="w-full"
                     />
+                  </div>
+                ) : null}
+
+                {/* TRANSIT CLAUSE (when transit_clause is true) */}
+                {isTransitClause ? (
+                  <div className="mt-2 w-full space-y-2" id="field-transitClause" data-field="transitClause">
+                    <DocUnderlineInput
+                      flush
+                      value={transitClauseValue}
+                      onChange={(v) => {
+                        markDirty();
+                        setTransitClauseValue(v);
+                        if (errors.transitClauseValue || errors.transit_clause_value) {
+                          setErrors((prev) => ({ ...prev, transitClauseValue: '', transit_clause_value: '' }));
+                        }
+                      }}
+                      error={errors.transitClauseValue || errors.transit_clause_value}
+                      disabled={readOnly}
+                      placeholder="Enter transit clause"
+                      icon="fa-solid fa-pen"
+                      inputClassName="text-[14px] font-semibold uppercase text-foreground"
+                      className="w-full"
+                    />
+                    <div className="w-full">
+                      <select
+                        value={transitClauseCountry}
+                        onChange={(e) => {
+                          markDirty();
+                          setTransitClauseCountry(e.target.value);
+                          if (errors.transitClauseCountry || errors.transit_clause_country_id) {
+                            setErrors((prev) => ({ ...prev, transitClauseCountry: '', transit_clause_country_id: '' }));
+                          }
+                        }}
+                        disabled={readOnly}
+                        className="w-full text-[13px] font-semibold uppercase bg-transparent border-b border-border text-foreground py-1 focus:outline-none focus:border-primary transition-colors cursor-pointer"
+                      >
+                        <option value="" className="bg-background text-foreground">Select transit clause country</option>
+                        {countriesList.map((c) => (
+                          <option key={c.id || c.value} value={c.id || c.value} className="bg-background text-foreground">
+                            {c.name || c.label}
+                          </option>
+                        ))}
+                      </select>
+                      {(errors.transitClauseCountry || errors.transit_clause_country_id) && (
+                        <p className="text-xs text-destructive mt-0.5">
+                          {errors.transitClauseCountry || errors.transit_clause_country_id}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ) : null}
 

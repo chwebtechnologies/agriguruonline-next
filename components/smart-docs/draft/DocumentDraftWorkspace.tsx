@@ -68,7 +68,7 @@ import {
   mergeStepperWithHidden,
   getWorkflowSubmitButtonInfo,
 } from '@/lib/api/smart-docs.service';
-import DocumentStatusStepper, { cleanDocNumber, isPureDbId, isPlaceholderDocNumber, isLikelyInvoiceNumber } from './DocumentStatusStepper';
+import DocumentStatusStepper, { cleanDocNumber, isPureDbId, isPlaceholderDocNumber, isLikelyInvoiceNumber, cleanBaseContractNumber } from './DocumentStatusStepper';
 import ConfirmationDocumentForm, { FormOptionItem } from './form/ConfirmationDocumentForm';
 import ContractDocumentForm from './form/ContractDocumentForm';
 import ProformaDocumentForm from './form/ProformaDocumentForm';
@@ -168,7 +168,18 @@ export function getSafeInstructionString(val: any): string {
   return '';
 }
 
-export { isPureDbId, isPlaceholderDocNumber, isLikelyInvoiceNumber };
+export { isPureDbId, isPlaceholderDocNumber, isLikelyInvoiceNumber, cleanBaseContractNumber };
+
+export function isInvalidPlaceholder(val?: string | null): boolean {
+  if (!val) return true;
+  const clean = String(val).trim().toLowerCase();
+  return (
+    clean === '' ||
+    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+      clean
+    )
+  );
+}
 
 /**
  * Extracts contract number or contract_id from Shipment Instruction response.
@@ -199,15 +210,17 @@ export function extractContractFromSiResponse(data: any): string | null {
     if (!candidate) return null;
     const clean = cleanDocNumber(candidate);
     if (!clean || isPlaceholderDocNumber(clean) || isLikelyInvoiceNumber(clean)) return null;
-    if (isPartialContractNumber(clean)) return clean;
     if (rawSplit !== undefined && rawSplit !== null && String(rawSplit).trim()) {
       const splitStr = String(rawSplit).trim();
       const splitLetter = /^\d+$/.test(splitStr)
         ? String.fromCharCode(65 + (parseInt(splitStr, 10) - 1))
         : splitStr.toUpperCase();
-      return `${clean}/${splitLetter}`;
+      // Strip any existing trailing split suffix(es) so we never get /A/A or /A/B
+      const baseClean = clean.replace(/(\s*[\/\-][A-Za-z]{1,2})+$/, '');
+      return `${baseClean}/${splitLetter}`;
     }
-    return clean;
+    // If no split is active, clean any repeated split suffixes like /A/A
+    return clean.replace(/(\s*[\/\-][A-Za-z]{1,2}){2,}$/, '');
   };
 
   // 1. Explicit partial
@@ -328,19 +341,18 @@ export function extractDocContractNumber(data: any): string | null {
     const clean = cleanDocNumber(candidate);
     if (!clean || isPureDbId(clean) || isLikelyInvoiceNumber(clean)) return null;
 
-    if (isPartialContractNumber(clean)) {
-      return clean;
-    }
-
     if (rawSplit !== undefined && rawSplit !== null && String(rawSplit).trim()) {
       const splitStr = String(rawSplit).trim();
       const splitLetter = /^\d+$/.test(splitStr)
         ? String.fromCharCode(65 + (parseInt(splitStr, 10) - 1))
         : splitStr.toUpperCase();
-      return `${clean}/${splitLetter}`;
+      // Strip any existing trailing split suffix(es) so we never get /A/A or /A/B
+      const baseClean = clean.replace(/(\s*[\/\-][A-Za-z]{1,2})+$/, '');
+      return `${baseClean}/${splitLetter}`;
     }
 
-    return clean;
+    // If no split is active, clean any repeated split suffixes like /A/A
+    return clean.replace(/(\s*[\/\-][A-Za-z]{1,2}){2,}$/, '');
   };
 
   // 1. Explicit partial contract number fields:
@@ -758,11 +770,17 @@ export function DocumentDraftWorkspace({
       extractDocContractNumber(initialProformaData),
       extractDocContractNumber(initialContractData),
     ];
-    for (const c of initialCandidates) {
-      if (c && isPartialContractNumber(c)) return c;
+    for (const rawC of initialCandidates) {
+      if (rawC) {
+        const c = rawC.replace(/(\s*[\/\-][A-Za-z]{1,2}){2,}$/, '');
+        if (c && isPartialContractNumber(c)) return c;
+      }
     }
-    for (const c of initialCandidates) {
-      if (c && !isPureDbId(c) && !isLikelyInvoiceNumber(c)) return c;
+    for (const rawC of initialCandidates) {
+      if (rawC) {
+        const c = rawC.replace(/(\s*[\/\-][A-Za-z]{1,2}){2,}$/, '');
+        if (c && !isPureDbId(c) && !isLikelyInvoiceNumber(c)) return c;
+      }
     }
     return null;
   });
@@ -786,17 +804,23 @@ export function DocumentDraftWorkspace({
       extractDocContractNumber(contractData),
       extractDocContractNumber(initialContractData),
     ];
-    for (const c of liveCandidates) {
-      if (c && isPartialContractNumber(c)) {
-        setPinnedWorkflowContractNumber((prev) => (prev !== c ? c : prev));
-        return;
+    for (const rawC of liveCandidates) {
+      if (rawC) {
+        const c = rawC.replace(/(\s*[\/\-][A-Za-z]{1,2}){2,}$/, '');
+        if (c && isPartialContractNumber(c)) {
+          setPinnedWorkflowContractNumber((prev) => (prev !== c ? c : prev));
+          return;
+        }
       }
     }
     if (!pinnedWorkflowContractNumber) {
-      for (const c of liveCandidates) {
-        if (c && !isPureDbId(c) && !isLikelyInvoiceNumber(c)) {
-          setPinnedWorkflowContractNumber(c);
-          return;
+      for (const rawC of liveCandidates) {
+        if (rawC) {
+          const c = rawC.replace(/(\s*[\/\-][A-Za-z]{1,2}){2,}$/, '');
+          if (c && !isPureDbId(c) && !isLikelyInvoiceNumber(c)) {
+            setPinnedWorkflowContractNumber(c);
+            return;
+          }
         }
       }
     }
@@ -1029,7 +1053,6 @@ export function DocumentDraftWorkspace({
     );
     if (
       directContractId &&
-      directContractId !== effectiveConfirmationId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(directContractId)
     ) {
       return directContractId;
@@ -1046,7 +1069,6 @@ export function DocumentDraftWorkspace({
     );
     if (
       stepperContractId &&
-      stepperContractId !== effectiveConfirmationId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(stepperContractId)
     ) {
       return stepperContractId;
@@ -1063,21 +1085,23 @@ export function DocumentDraftWorkspace({
     );
     if (
       linked &&
-      linked !== effectiveConfirmationId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(linked)
     ) {
       return linked;
     }
 
-    // 4. Fallback to draftId ONLY if isContract is true and draftId is not confirmation ID
+    // 4. Fallback to draftId or confirmation ID if isContract is true
     const cleanDraft = sanitizeDocId(draftId);
     if (
       isContract &&
       cleanDraft &&
-      cleanDraft !== effectiveConfirmationId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanDraft)
     ) {
       return cleanDraft;
+    }
+
+    if (isContract && effectiveConfirmationId) {
+      return effectiveConfirmationId;
     }
 
     return '';
@@ -1098,7 +1122,7 @@ export function DocumentDraftWorkspace({
     initialId,
   ]);
 
-  // Canonical Proforma Document ID (strictly proforma, NEVER contract or confirmation ID)
+  // Canonical Proforma Document ID (strictly proforma)
   const canonicalProformaId = useMemo(() => {
     const hasProformaMarkers = (data: any) =>
       Boolean(
@@ -1117,14 +1141,12 @@ export function DocumentDraftWorkspace({
     );
     if (
       directProformaId &&
-      directProformaId !== effectiveConfirmationId &&
-      directProformaId !== canonicalContractId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(directProformaId)
     ) {
       return directProformaId;
     }
 
-    // 2. From Stepper step (current selection or proforma step) - strictly explicit proforma keys or redirect_id
+    // 2. From Stepper step (current selection or proforma step)
     const proformaStep = getProformaStep(steps, selectedStep);
     const fromStepper = sanitizeDocId(
       getStepSelfId(proformaStep) ||
@@ -1138,8 +1160,6 @@ export function DocumentDraftWorkspace({
     );
     if (
       fromStepper &&
-      fromStepper !== effectiveConfirmationId &&
-      fromStepper !== canonicalContractId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(fromStepper)
     ) {
       return fromStepper;
@@ -1156,23 +1176,23 @@ export function DocumentDraftWorkspace({
     );
     if (
       linkedCandidate &&
-      linkedCandidate !== effectiveConfirmationId &&
-      linkedCandidate !== canonicalContractId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(linkedCandidate)
     ) {
       return linkedCandidate;
     }
 
-    // 4. Fallback to cleanDraftId ONLY if draftId is genuine proforma ID
+    // 4. Fallback to cleanDraftId or parent workflow ID if isProforma
     const cleanDraftId = sanitizeDocId(draftId);
     if (
       isProforma &&
       cleanDraftId &&
-      cleanDraftId !== effectiveConfirmationId &&
-      cleanDraftId !== canonicalContractId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
+    }
+
+    if (isProforma && (canonicalContractId || effectiveConfirmationId)) {
+      return canonicalContractId || effectiveConfirmationId;
     }
 
     return '';
@@ -1213,9 +1233,6 @@ export function DocumentDraftWorkspace({
     );
     if (
       directShipmentId &&
-      directShipmentId !== effectiveConfirmationId &&
-      directShipmentId !== canonicalContractId &&
-      directShipmentId !== canonicalProformaId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(directShipmentId)
     ) {
       return directShipmentId;
@@ -1235,9 +1252,6 @@ export function DocumentDraftWorkspace({
     );
     if (
       fromStepper &&
-      fromStepper !== effectiveConfirmationId &&
-      fromStepper !== canonicalContractId &&
-      fromStepper !== canonicalProformaId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(fromStepper)
     ) {
       return fromStepper;
@@ -1254,25 +1268,23 @@ export function DocumentDraftWorkspace({
     );
     if (
       linkedCandidate &&
-      linkedCandidate !== effectiveConfirmationId &&
-      linkedCandidate !== canonicalContractId &&
-      linkedCandidate !== canonicalProformaId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(linkedCandidate)
     ) {
       return linkedCandidate;
     }
 
-    // 4. Fallback to cleanDraftId ONLY if draftId is genuine shipment instruction ID
+    // 4. Fallback to cleanDraftId or parent workflow ID if isShipmentInstruction
     const cleanDraftId = sanitizeDocId(draftId);
     if (
       (isShipmentInstruction || isInitialDocWorkflow) &&
       cleanDraftId &&
-      cleanDraftId !== effectiveConfirmationId &&
-      cleanDraftId !== canonicalContractId &&
-      cleanDraftId !== canonicalProformaId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
+    }
+
+    if ((isShipmentInstruction || isInitialDocWorkflow) && (canonicalProformaId || canonicalContractId || effectiveConfirmationId)) {
+      return canonicalProformaId || canonicalContractId || effectiveConfirmationId;
     }
 
     return '';
@@ -1366,13 +1378,13 @@ export function DocumentDraftWorkspace({
     if (
       isBillOfLading &&
       cleanDraftId &&
-      cleanDraftId !== effectiveConfirmationId &&
-      cleanDraftId !== canonicalContractId &&
-      cleanDraftId !== canonicalProformaId &&
-      cleanDraftId !== canonicalShipmentInstructionId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
+    }
+
+    if (isBillOfLading && (canonicalShipmentInstructionId || effectiveConfirmationId)) {
+      return canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -1471,14 +1483,13 @@ export function DocumentDraftWorkspace({
     if (
       isCustomInvoice &&
       cleanDraftId &&
-      cleanDraftId !== effectiveConfirmationId &&
-      cleanDraftId !== canonicalContractId &&
-      cleanDraftId !== canonicalProformaId &&
-      cleanDraftId !== canonicalShipmentInstructionId &&
-      cleanDraftId !== canonicalBillOfLadingId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
+    }
+
+    if (isCustomInvoice && (canonicalBillOfLadingId || canonicalShipmentInstructionId || effectiveConfirmationId)) {
+      return canonicalBillOfLadingId || canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -1576,15 +1587,13 @@ export function DocumentDraftWorkspace({
     if (
       isCommercialInvoice &&
       cleanDraftId &&
-      cleanDraftId !== effectiveConfirmationId &&
-      cleanDraftId !== canonicalContractId &&
-      cleanDraftId !== canonicalProformaId &&
-      cleanDraftId !== canonicalShipmentInstructionId &&
-      cleanDraftId !== canonicalBillOfLadingId &&
-      cleanDraftId !== canonicalCustomInvoiceId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
+    }
+
+    if (isCommercialInvoice && (canonicalCustomInvoiceId || canonicalBillOfLadingId || canonicalShipmentInstructionId || effectiveConfirmationId)) {
+      return canonicalCustomInvoiceId || canonicalBillOfLadingId || canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -1688,16 +1697,13 @@ export function DocumentDraftWorkspace({
     if (
       isPackingList &&
       cleanDraftId &&
-      cleanDraftId !== effectiveConfirmationId &&
-      cleanDraftId !== canonicalContractId &&
-      cleanDraftId !== canonicalProformaId &&
-      cleanDraftId !== canonicalShipmentInstructionId &&
-      cleanDraftId !== canonicalBillOfLadingId &&
-      cleanDraftId !== canonicalCustomInvoiceId &&
-      cleanDraftId !== canonicalCommercialInvoiceId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
+    }
+
+    if (isPackingList && (canonicalCommercialInvoiceId || canonicalCustomInvoiceId || canonicalShipmentInstructionId || effectiveConfirmationId)) {
+      return canonicalCommercialInvoiceId || canonicalCustomInvoiceId || canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -1806,17 +1812,13 @@ export function DocumentDraftWorkspace({
     if (
       isPhytoCertificate &&
       cleanDraftId &&
-      cleanDraftId !== effectiveConfirmationId &&
-      cleanDraftId !== canonicalContractId &&
-      cleanDraftId !== canonicalProformaId &&
-      cleanDraftId !== canonicalShipmentInstructionId &&
-      cleanDraftId !== canonicalBillOfLadingId &&
-      cleanDraftId !== canonicalCustomInvoiceId &&
-      cleanDraftId !== canonicalCommercialInvoiceId &&
-      cleanDraftId !== canonicalPackingListId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
+    }
+
+    if (isPhytoCertificate && (canonicalPackingListId || canonicalCommercialInvoiceId || canonicalCustomInvoiceId || canonicalShipmentInstructionId || effectiveConfirmationId)) {
+      return canonicalPackingListId || canonicalCommercialInvoiceId || canonicalCustomInvoiceId || canonicalShipmentInstructionId || effectiveConfirmationId;
     }
 
     return '';
@@ -2146,16 +2148,20 @@ export function DocumentDraftWorkspace({
     if (isDocumentWorkflow && (effectiveShipmentInstructionId || initialId)) {
       return 'document';
     }
-    // 4. If pinned to contract
+    // 4. If confirmation workflow, strictly keep 'confirmation'
+    if (effectiveConfirmationId) {
+      return 'confirmation';
+    }
+    // 5. If pinned to contract
     if (pinnedWorkflowAnchorType === 'contract') {
       return 'contract';
     }
-    // 5. If contract workflow / contract status
+    // 6. If contract workflow / contract status
     if (canonicalContractId || isContract) {
       return 'contract';
     }
-    // 6. Default to confirmation
-    return effectiveConfirmationId ? 'confirmation' : 'confirmation';
+    // 7. Default to confirmation
+    return 'confirmation';
   }, [
     pinnedWorkflowAnchorType,
     pinnedWorkflowAnchorId,
@@ -2163,9 +2169,9 @@ export function DocumentDraftWorkspace({
     effectiveShipmentInstructionId,
     isDocumentWorkflow,
     initialId,
+    effectiveConfirmationId,
     canonicalContractId,
     isContract,
-    effectiveConfirmationId,
   ]);
 
   const workflowAnchorId = useMemo(() => {
@@ -2181,7 +2187,11 @@ export function DocumentDraftWorkspace({
     if (isDocumentWorkflow && (effectiveShipmentInstructionId || initialId)) {
       return effectiveShipmentInstructionId || initialId;
     }
-    // 4. If pinned to contract
+    // 4. If confirmation workflow, strictly anchor to confirmation ID!
+    if (effectiveConfirmationId) {
+      return effectiveConfirmationId;
+    }
+    // 5. If pinned to contract
     if (pinnedWorkflowAnchorType === 'contract' && pinnedWorkflowAnchorId) {
       return pinnedWorkflowAnchorId;
     }
@@ -2189,16 +2199,18 @@ export function DocumentDraftWorkspace({
       return canonicalContractId;
     }
     if (isContract) {
-      return canonicalContractId || initialId || draftId || 'new-confirmation';
+      const cleanDraft = sanitizeDocId(draftId);
+      return canonicalContractId || sanitizeDocId(initialId) || (cleanDraft && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanDraft) ? cleanDraft : '');
     }
-    // 5. Confirmation
+    // 6. Confirmation / general fallback
+    const cleanDraft = sanitizeDocId(draftId);
     return (
       pinnedWorkflowAnchorId ||
       effectiveConfirmationId ||
       canonicalContractId ||
-      initialId ||
-      draftId ||
-      'new-confirmation'
+      sanitizeDocId(initialId) ||
+      (cleanDraft && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(cleanDraft) ? cleanDraft : '') ||
+      ''
     );
   }, [
     pinnedWorkflowAnchorType,
@@ -2206,9 +2218,9 @@ export function DocumentDraftWorkspace({
     isShipmentInstructionComplete,
     effectiveShipmentInstructionId,
     isDocumentWorkflow,
+    effectiveConfirmationId,
     canonicalContractId,
     isContract,
-    effectiveConfirmationId,
     initialId,
     draftId,
   ]);
@@ -2989,14 +3001,25 @@ export function DocumentDraftWorkspace({
               if (res?.success && res.data) {
                 const extracted = extractContractData(res.data) || res.data;
                 if (extracted) {
-                  if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
-                    extracted.contract_number = pinnedWorkflowContractNumber;
-                    extracted.contractNumber = pinnedWorkflowContractNumber;
-                    extracted.contract_no = pinnedWorkflowContractNumber;
+                  const hasSplits = Boolean(
+                    (extracted.splits && Array.isArray(extracted.splits) && extracted.splits.length > 0) ||
+                    extracted.has_splits ||
+                    extracted.is_split ||
+                    extracted.is_partial ||
+                    extracted.partial_shipment_allowed
+                  );
+                  const baseContNum = cleanBaseContractNumber(
+                    extracted.contract_number || extracted.contractNumber || extracted.contract_no,
+                    hasSplits
+                  );
+                  if (baseContNum) {
+                    extracted.contract_number = baseContNum;
+                    extracted.contractNumber = baseContNum;
+                    extracted.contract_no = baseContNum;
                     if (extracted.contract && typeof extracted.contract === 'object') {
-                      extracted.contract.contract_number = pinnedWorkflowContractNumber;
-                      extracted.contract.contractNumber = pinnedWorkflowContractNumber;
-                      extracted.contract.contract_no = pinnedWorkflowContractNumber;
+                      extracted.contract.contract_number = baseContNum;
+                      extracted.contract.contractNumber = baseContNum;
+                      extracted.contract.contract_no = baseContNum;
                     }
                   }
                   setContractData(extracted);
@@ -4126,6 +4149,58 @@ export function DocumentDraftWorkspace({
     }
   }, [initialPackingListData]);
 
+  // On initial mount / refresh, if the currently selected step does NOT have its data loaded, fetch it immediately!
+  const hasInitialFetchedStepRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (hasInitialFetchedStepRef.current) return;
+
+    const isTargetConfirmation = isConfirmationStep(selectedStep);
+    const isTargetContract = !isTargetConfirmation && isContractStep(selectedStep);
+    const isTargetProforma = !isTargetConfirmation && !isTargetContract && isProformaStep(selectedStep);
+    const isTargetShipment = !isTargetConfirmation && !isTargetContract && !isTargetProforma && isShipmentInstructionStep(selectedStep);
+    const isTargetBillOfLading = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && isBillOfLadingStep(selectedStep);
+    const isTargetCustomInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && isCustomInvoiceStep(selectedStep);
+    const isTargetCommercialInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && isCommercialInvoiceStep(selectedStep);
+    const isTargetPackingList = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && isPackingListStep(selectedStep);
+    const isTargetPhytoCertificate = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && isPhytoCertificateStep(selectedStep);
+
+    let needsFetch = false;
+    if (isTargetContract && !isCompleteContractData(contractData) && !isCompleteContractData(initialContractData)) needsFetch = true;
+    if (isTargetProforma && !isCompleteProformaData(proformaData) && !isCompleteProformaData(initialProformaData)) needsFetch = true;
+    if (isTargetShipment && !isCompleteShipmentInstructionData(shipmentInstructionData) && !isCompleteShipmentInstructionData(initialShipmentInstructionData)) needsFetch = true;
+    if (isTargetBillOfLading && !isCompleteBillOfLadingData(billOfLadingData) && !isCompleteBillOfLadingData(initialBillOfLadingData)) needsFetch = true;
+    if (isTargetCustomInvoice && !isCompleteCustomInvoiceData(customInvoiceData) && !isCompleteCustomInvoiceData(initialCustomInvoiceData)) needsFetch = true;
+    if (isTargetCommercialInvoice && !isCompleteCommercialInvoiceData(commercialInvoiceData) && !isCompleteCommercialInvoiceData(initialCommercialInvoiceData)) needsFetch = true;
+    if (isTargetPackingList && !isCompletePackingListData(packingListData) && !isCompletePackingListData(initialPackingListData)) needsFetch = true;
+    if (isTargetPhytoCertificate && !isCompletePhytoCertificateData(phytoCertificateData) && !isCompletePhytoCertificateData(initialPhytoCertificateData)) needsFetch = true;
+
+    if (needsFetch) {
+      hasInitialFetchedStepRef.current = true;
+      const currentSeq = ++activeFetchSeqRef.current;
+      fetchLatestStepData(selectedStep, selectedStepIndex, currentSeq);
+    }
+  }, [
+    selectedStep,
+    selectedStepIndex,
+    fetchLatestStepData,
+    contractData,
+    initialContractData,
+    proformaData,
+    initialProformaData,
+    shipmentInstructionData,
+    initialShipmentInstructionData,
+    billOfLadingData,
+    initialBillOfLadingData,
+    customInvoiceData,
+    initialCustomInvoiceData,
+    commercialInvoiceData,
+    initialCommercialInvoiceData,
+    packingListData,
+    initialPackingListData,
+    phytoCertificateData,
+    initialPhytoCertificateData,
+  ]);
+
   // Fetch confirmation data dynamically if confirmation step is active and data not yet loaded
   useEffect(() => {
     if (!isConfirmation || isCompleteConfirmationData(confirmationData) || isCompleteConfirmationData(initialData)) return;
@@ -4170,7 +4245,6 @@ export function DocumentDraftWorkspace({
 
     if (
       effectiveContractId &&
-      effectiveContractId !== effectiveConfirmationId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(effectiveContractId) &&
       attemptedContractFetchRef.current !== effectiveContractId
     ) {
@@ -4181,14 +4255,25 @@ export function DocumentDraftWorkspace({
           if (res?.success && res.data) {
             const extracted = extractContractData(res.data) || res.data;
             if (extracted) {
-              if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
-                extracted.contract_number = pinnedWorkflowContractNumber;
-                extracted.contractNumber = pinnedWorkflowContractNumber;
-                extracted.contract_no = pinnedWorkflowContractNumber;
+              const hasSplits = Boolean(
+                (extracted.splits && Array.isArray(extracted.splits) && extracted.splits.length > 0) ||
+                extracted.has_splits ||
+                extracted.is_split ||
+                extracted.is_partial ||
+                extracted.partial_shipment_allowed
+              );
+              const baseContNum = cleanBaseContractNumber(
+                extracted.contract_number || extracted.contractNumber || extracted.contract_no,
+                hasSplits
+              );
+              if (baseContNum) {
+                extracted.contract_number = baseContNum;
+                extracted.contractNumber = baseContNum;
+                extracted.contract_no = baseContNum;
                 if (extracted.contract && typeof extracted.contract === 'object') {
-                  extracted.contract.contract_number = pinnedWorkflowContractNumber;
-                  extracted.contract.contractNumber = pinnedWorkflowContractNumber;
-                  extracted.contract.contract_no = pinnedWorkflowContractNumber;
+                  extracted.contract.contract_number = baseContNum;
+                  extracted.contract.contractNumber = baseContNum;
+                  extracted.contract.contract_no = baseContNum;
                 }
               }
               setContractData(extracted);
@@ -5201,33 +5286,24 @@ export function DocumentDraftWorkspace({
     }
 
     if (isContract) {
-      // If the workflow was opened for a specific partial (e.g. Split B's SI),
-      // maintain that exact partial contract number (B) when viewing the Contract!
-      // "and if user confirmainon lisgin se B wali ke Shipment Instruction ko open kiya hai to Contract me jane par A wala continue nahi hona chahiye make sure SI se B wala hi aana chahiye"
-      if (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber)) {
-        return pinnedWorkflowContractNumber;
-      }
-      if (activePartial && isPartialContractNumber(activePartial)) {
-        return activePartial;
-      }
       const direct = extractDocContractNumber(contractData) || extractDocContractNumber(initialContractData);
       if (direct && !isPureDbId(direct) && !isLikelyInvoiceNumber(direct)) {
-        return direct;
+        return cleanBaseContractNumber(direct, true);
       }
       if (
         pinnedWorkflowContractNumber &&
         !isPureDbId(pinnedWorkflowContractNumber) &&
         !isLikelyInvoiceNumber(pinnedWorkflowContractNumber)
       ) {
-        return pinnedWorkflowContractNumber;
+        return cleanBaseContractNumber(pinnedWorkflowContractNumber, true);
       }
-      if (activePartial) return activePartial;
+      if (activePartial) return cleanBaseContractNumber(activePartial, true);
       if (
         resolvedContractNumber &&
         !isPureDbId(resolvedContractNumber) &&
         !isLikelyInvoiceNumber(resolvedContractNumber)
       ) {
-        return resolvedContractNumber;
+        return cleanBaseContractNumber(resolvedContractNumber, true);
       }
       return null;
     }
@@ -5322,34 +5398,49 @@ export function DocumentDraftWorkspace({
     ? (dict?.smart_docs?.confirmation_form?.confirmation_number || 'Confirmation No.')
     : (dict?.smart_docs?.contract_form?.contract_number || 'Contract No.');
 
-  // Effective initial data for Contract and Proforma forms:
-  // When a user enters the workflow from a specific partial (e.g. Split B's Shipment Instruction)
-  // or a partial contract number is detected, ensure the Contract and Proforma forms maintain Split B's contract number
-  // instead of reverting/defaulting back to Split A's contract number!
+  // Effective initial data for Contract form:
+  // Must always maintain the clean base contract number (e.g. CON/ABC/0001)
+  // and NEVER overwrite it with partial split suffixes (/A, /B) from other workflow documents!
   const effectiveContractInitialData = useMemo(() => {
     const base = contractData || initialContractData || confirmationData || initialData || null;
     if (!base) return null;
-    const activeDocContNum =
+
+    const rawContNum =
+      base.contract_number ||
+      base.contractNumber ||
+      base.contract_no ||
+      base.contract?.contract_number ||
+      base.contract?.contractNumber ||
+      base.contract?.contract_no ||
       (pinnedWorkflowContractNumber && !isPureDbId(pinnedWorkflowContractNumber) && !isLikelyInvoiceNumber(pinnedWorkflowContractNumber) ? pinnedWorkflowContractNumber : null) ||
-      extractDocContractNumber(shipmentInstructionData) ||
-      extractDocContractNumber(initialShipmentInstructionData) ||
       activeStepContractNumber;
-    if (activeDocContNum && !isPureDbId(activeDocContNum) && !isLikelyInvoiceNumber(activeDocContNum)) {
+
+    const hasSplits = Boolean(
+      (base.splits && Array.isArray(base.splits) && base.splits.length > 0) ||
+      base.has_splits ||
+      base.is_split ||
+      base.is_partial ||
+      base.partial_shipment_allowed
+    );
+
+    const cleanContNum = cleanBaseContractNumber(rawContNum, hasSplits || isPartialContractNumber(rawContNum));
+
+    if (cleanContNum) {
       const updatedContractObj =
         base.contract && typeof base.contract === 'object'
           ? {
               ...base.contract,
-              contract_number: activeDocContNum,
-              contractNumber: activeDocContNum,
-              contract_no: activeDocContNum,
+              contract_number: cleanContNum,
+              contractNumber: cleanContNum,
+              contract_no: cleanContNum,
             }
           : undefined;
 
       return {
         ...base,
-        contract_number: activeDocContNum,
-        contractNumber: activeDocContNum,
-        contract_no: activeDocContNum,
+        contract_number: cleanContNum,
+        contractNumber: cleanContNum,
+        contract_no: cleanContNum,
         ...(updatedContractObj ? { contract: updatedContractObj } : {}),
       };
     }
@@ -5359,8 +5450,6 @@ export function DocumentDraftWorkspace({
     initialContractData,
     confirmationData,
     initialData,
-    shipmentInstructionData,
-    initialShipmentInstructionData,
     pinnedWorkflowContractNumber,
     activeStepContractNumber,
   ]);
@@ -5578,10 +5667,9 @@ export function DocumentDraftWorkspace({
                 }));
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
-                  const targetWorkflowId = isDocumentWorkflow
-                    ? (workflowAnchorId || initialId || rootWorkflowId || savedId)
-                    : (rootWorkflowId || effectiveConfirmationId || savedId);
-                  if (targetWorkflowId) {
+                  const cleanSavedId = sanitizeDocId(savedId);
+                  const targetWorkflowId = cleanSavedId || effectiveConfirmationId || rootWorkflowId;
+                  if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                     url.searchParams.set('id', targetWorkflowId);
                   }
                   if (!url.searchParams.get('step')) {
@@ -5600,12 +5688,19 @@ export function DocumentDraftWorkspace({
                   res.data?.confirmation?.confirmation_number ||
                   (res as any)?.confirmation_number ||
                   formData?.confirmation_number;
+                const cleanSavedId =
+                  res.id ||
+                  res.data?.id ||
+                  res.data?._id ||
+                  res.data?.confirmation_id ||
+                  formData?.id ||
+                  formData?._id;
                 setConfirmationData((prev: any) => ({
                   ...(prev || {}),
+                  ...(formData || {}),
                   ...(res.data || {}),
                   ...(confNum ? { confirmation_number: confNum } : {}),
-                  id: res.id || prev?.id,
-                  _id: res.id || prev?._id,
+                  ...(cleanSavedId ? { id: cleanSavedId, _id: cleanSavedId } : {}),
                 }));
               }
               return res;
@@ -5614,60 +5709,109 @@ export function DocumentDraftWorkspace({
             onSubmitContract={async (formData, passedNextStep) => {
               const res = await submitConfirmationAction(formData, lang);
               if (res?.success) {
-                const newId =
-                  res.id ||
-                  res.data?.id ||
-                  res.data?.contract_id ||
+                const confId =
+                  res.confirmation_id ||
                   res.data?.confirmation_id ||
+                  (res.id && res.id !== res.data?.contract_id ? res.id : null) ||
                   formData?.id ||
                   draftId;
-                if (newId) {
-                  setDraftId(String(newId));
+                const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                const generatedContractId =
+                  res.contract_id ||
+                  res.data?.contract_id ||
+                  (nextDoc?.id ? String(nextDoc.id) : null) ||
+                  null;
+
+                if (confId && !isInvalidPlaceholder(String(confId))) {
+                  setDraftId(String(confId));
                 }
                 const confNum =
                   res.data?.confirmation_number ||
                   res.data?.confirmationNumber ||
                   res.data?.confirmation?.confirmation_number ||
                   formData?.confirmation_number;
-                if (confNum) {
-                  setConfirmationData((prev: any) => ({
+
+                setConfirmationData((prev: any) => ({
+                  ...(prev || {}),
+                  ...(formData || {}),
+                  ...(res.data || {}),
+                  ...(confNum ? { confirmation_number: confNum } : {}),
+                  status: 'COMPLETED',
+                  id: confId || prev?.id,
+                  _id: confId || prev?._id,
+                  confirmation_id: confId || prev?.confirmation_id,
+                }));
+
+                // Immediately update steps optimistically so confirmation is marked completed
+                // and contract redirect_id is set if generatedContractId exists
+                let updatedSteps = steps.map((s) => {
+                  if (isConfirmationStep(s)) {
+                    return {
+                      ...s,
+                      status: 'COMPLETED',
+                      completed: true,
+                      redirect_id: confId || s.redirect_id,
+                      redirectId: confId || s.redirectId,
+                    };
+                  }
+                  if (isContractStep(s) && generatedContractId) {
+                    return {
+                      ...s,
+                      redirect_id: generatedContractId,
+                      redirectId: generatedContractId,
+                    };
+                  }
+                  return s;
+                });
+                setSteps(updatedSteps);
+
+                if (generatedContractId) {
+                  setContractData((prev: any) => ({
                     ...(prev || {}),
-                    confirmation_number: confNum,
+                    id: generatedContractId,
+                    contract_id: generatedContractId,
                   }));
                 }
 
                 // Update stepper to reflect completion and switch to next step
                 try {
-                  const stepperParam = isDocumentWorkflow ? workflowAnchorId : (newId || workflowAnchorId);
+                  const stepperParam = confId || workflowAnchorId || draftId;
                   const stepperRes = await getStepperListAction({
-                    action: workflowAnchorType,
+                    action: 'confirmation',
                     step: String(stepperParam),
                     lang,
                   });
-                  let targetList = steps;
                   if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
-                    targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                    setSteps(targetList);
-                  }
-                  const visibleList = targetList.filter(isVisibleWorkflowStep);
-                  let nextStepToSelect: StepperDocumentItem | null = null;
-                  let targetIdx = -1;
-                  if (passedNextStep) {
-                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                  }
-                  if (!nextStepToSelect || targetIdx === -1) {
-                    const confIndex = visibleList.findIndex((s) => isConfirmationStep(s));
-                    if (confIndex >= 0 && confIndex + 1 < visibleList.length) {
-                      targetIdx = confIndex + 1;
-                      nextStepToSelect = visibleList[targetIdx];
-                    }
-                  }
-                  if (nextStepToSelect && targetIdx >= 0) {
-                    handleSelectStep(nextStepToSelect, targetIdx);
+                    updatedSteps = mergeStepperWithHidden(stepperRes.data, updatedSteps);
+                    setSteps(updatedSteps);
                   }
                 } catch (stepErr) {
                   console.error('[DocumentDraftWorkspace] Stepper refresh error:', stepErr);
+                }
+
+                // ALWAYS navigate to the contract step (next step)
+                const visibleList = updatedSteps.filter(isVisibleWorkflowStep);
+                let nextStepToSelect: StepperDocumentItem | null = null;
+                let targetIdx = -1;
+                if (passedNextStep) {
+                  targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                  if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                }
+                if (!nextStepToSelect || targetIdx === -1) {
+                  const confIndex = visibleList.findIndex((s) => isConfirmationStep(s));
+                  if (confIndex >= 0 && confIndex + 1 < visibleList.length) {
+                    targetIdx = confIndex + 1;
+                    nextStepToSelect = visibleList[targetIdx];
+                  } else {
+                    const contractIdx = visibleList.findIndex((s) => isContractStep(s));
+                    if (contractIdx >= 0) {
+                      targetIdx = contractIdx;
+                      nextStepToSelect = visibleList[contractIdx];
+                    }
+                  }
+                }
+                if (nextStepToSelect && targetIdx >= 0) {
+                  handleSelectStep(nextStepToSelect, targetIdx);
                 }
               }
               return res;
@@ -5678,7 +5822,7 @@ export function DocumentDraftWorkspace({
         {/* Contract Document Form: Visible when Contract Step is active */}
         <div className={`w-full h-full ${isContract ? 'flex flex-col' : 'hidden'}`}>
           <ContractDocumentForm
-            key={`contract-${canonicalContractId || contractData?.id || 'default'}-${activeStepContractNumber || ''}`}
+            key={`contract-${canonicalContractId || contractData?.id || 'default'}`}
             dataVersion={contractVersion}
             initialData={effectiveContractInitialData}
             contractId={contractIdFromStepper || canonicalContractId}
@@ -5697,16 +5841,23 @@ export function DocumentDraftWorkspace({
             documentsList={initialDocumentList}
             onSaveSuccess={(savedId: string, savedData?: any) => {
               if (savedId) {
-                setContractVersion((v) => v + 1);
                 if (!effectiveConfirmationId) {
                   setDraftId(savedId);
                 }
-                const contNum =
-                  (pinnedWorkflowContractNumber && isPartialContractNumber(pinnedWorkflowContractNumber) ? pinnedWorkflowContractNumber : null) ||
+                const rawSavedContNum =
                   savedData?.contract_number ||
                   savedData?.contractNumber ||
                   savedData?.contract_no ||
-                  savedData?.contract?.contract_number;
+                  savedData?.contract?.contract_number ||
+                  savedData?.contract?.contractNumber;
+                const hasSplits = Boolean(
+                  (savedData?.splits && Array.isArray(savedData.splits) && savedData.splits.length > 0) ||
+                  savedData?.has_splits ||
+                  savedData?.is_split ||
+                  savedData?.is_partial ||
+                  savedData?.partial_shipment_allowed
+                );
+                const contNum = cleanBaseContractNumber(rawSavedContNum, hasSplits || isPartialContractNumber(rawSavedContNum)) || rawSavedContNum;
                 setContractData((prev: any) => ({
                   ...(prev || {}),
                   ...(savedData || {}),
@@ -5724,10 +5875,11 @@ export function DocumentDraftWorkspace({
                 );
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
+                  const cleanSavedId = sanitizeDocId(savedId);
                   const targetWorkflowId = isDocumentWorkflow
-                    ? (workflowAnchorId || initialId || rootWorkflowId || canonicalContractId || savedId)
-                    : (rootWorkflowId || effectiveConfirmationId || canonicalContractId || savedId);
-                  if (targetWorkflowId) {
+                    ? (workflowAnchorId || initialId || rootWorkflowId || canonicalContractId || cleanSavedId)
+                    : (rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId);
+                  if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                     url.searchParams.set('id', targetWorkflowId);
                   }
                   if (url.searchParams.get('step') !== 'proforma') {
@@ -5777,13 +5929,21 @@ export function DocumentDraftWorkspace({
 
                   if (res.data) {
                     const extracted = extractContractData(res.data) || res.data;
-                    const contNum =
+                    const rawContNum =
                       extracted?.contract_number ||
                       extracted?.contractNumber ||
                       extracted?.contract_no ||
                       res.data?.contract_number ||
                       res.data?.contractNumber ||
                       (typeof formData?.get === 'function' ? formData.get('contract_number') : null);
+                    const hasSplits = Boolean(
+                      (extracted?.splits && Array.isArray(extracted.splits) && extracted.splits.length > 0) ||
+                      extracted?.has_splits ||
+                      extracted?.is_split ||
+                      extracted?.is_partial ||
+                      extracted?.partial_shipment_allowed
+                    );
+                    const contNum = cleanBaseContractNumber(rawContNum, hasSplits || isPartialContractNumber(rawContNum)) || rawContNum;
                     setContractData((prev: any) => {
                       const updated = { ...(prev || {}) };
                       if (extracted && typeof extracted === 'object') {
@@ -5920,13 +6080,21 @@ export function DocumentDraftWorkspace({
                   }
                   if (res.data) {
                     const extracted = extractContractData(res.data) || res.data;
-                    const contNum =
+                    const rawContNum =
                       extracted?.contract_number ||
                       extracted?.contractNumber ||
                       extracted?.contract_no ||
                       res.data?.contract_number ||
                       res.data?.contractNumber ||
                       (typeof formData?.get === 'function' ? formData.get('contract_number') : null);
+                    const hasSplits = Boolean(
+                      (extracted?.splits && Array.isArray(extracted.splits) && extracted.splits.length > 0) ||
+                      extracted?.has_splits ||
+                      extracted?.is_split ||
+                      extracted?.is_partial ||
+                      extracted?.partial_shipment_allowed
+                    );
+                    const contNum = cleanBaseContractNumber(rawContNum, hasSplits || isPartialContractNumber(rawContNum)) || rawContNum;
                     setContractData((prev: any) => {
                       const updated = { ...(prev || {}) };
                       if (extracted && typeof extracted === 'object') {
@@ -6004,7 +6172,18 @@ export function DocumentDraftWorkspace({
                       return updated;
                     });
                   }
+                  const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                  const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
+                  if (nextDocId) {
+                    setProformaData((prev: any) => ({
+                      ...(prev || {}),
+                      id: nextDocId,
+                      proforma_id: nextDocId,
+                    }));
+                  }
+
                   // Update stepper to reflect completion and switch to next step
+                  let targetList = steps;
                   try {
                     const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
@@ -6012,30 +6191,38 @@ export function DocumentDraftWorkspace({
                       step: String(stepperParam),
                       lang,
                     });
-                    let targetList = steps;
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
                       targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                      setSteps(targetList);
-                    }
-                    const visibleList = targetList.filter(isVisibleWorkflowStep);
-                    let nextStepToSelect: StepperDocumentItem | null = null;
-                    let targetIdx = -1;
-                    if (passedNextStep) {
-                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                    }
-                    if (!nextStepToSelect || targetIdx === -1) {
-                      const contIndex = visibleList.findIndex((s) => isContractStep(s));
-                      if (contIndex >= 0 && contIndex + 1 < visibleList.length) {
-                        targetIdx = contIndex + 1;
-                        nextStepToSelect = visibleList[targetIdx];
-                      }
-                    }
-                    if (nextStepToSelect && targetIdx >= 0) {
-                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit contract stepper error:', stepErr);
+                  }
+
+                  if (nextDocId) {
+                    targetList = targetList.map((s) =>
+                      isProformaStep(s)
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        : s
+                    );
+                  }
+                  setSteps(targetList);
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const contIndex = visibleList.findIndex((s) => isContractStep(s));
+                    if (contIndex >= 0 && contIndex + 1 < visibleList.length) {
+                      targetIdx = contIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 }
                 return res;
@@ -6066,7 +6253,6 @@ export function DocumentDraftWorkspace({
             shippingTerms={shippingTerms}
             onSaveSuccess={(savedId: string, savedData?: any) => {
               if (savedId) {
-                setProformaVersion((v) => v + 1);
                 setProformaData((prev: any) => ({
                   ...(prev || {}),
                   ...(savedData || {}),
@@ -6083,10 +6269,11 @@ export function DocumentDraftWorkspace({
                 );
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
+                  const cleanSavedId = sanitizeDocId(savedId);
                   const targetWorkflowId = isDocumentWorkflow
-                    ? (workflowAnchorId || initialId || rootWorkflowId || canonicalContractId)
-                    : (rootWorkflowId || effectiveConfirmationId || canonicalContractId);
-                  if (targetWorkflowId) {
+                    ? (workflowAnchorId || initialId || rootWorkflowId || canonicalContractId || cleanSavedId)
+                    : (rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId);
+                  if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                     url.searchParams.set('id', targetWorkflowId);
                   }
                   url.searchParams.set('step', 'proforma');
@@ -6346,6 +6533,17 @@ export function DocumentDraftWorkspace({
                     }
                     return updated;
                   });
+                  const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                  const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
+                  if (nextDocId) {
+                    setShipmentInstructionData((prev: any) => ({
+                      ...(prev || {}),
+                      id: nextDocId,
+                      shipment_instruction_id: nextDocId,
+                    }));
+                  }
+
+                  let targetList = steps;
                   try {
                     const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
@@ -6353,30 +6551,38 @@ export function DocumentDraftWorkspace({
                       step: String(stepperParam),
                       lang,
                     });
-                    let targetList = steps;
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
                       targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                      setSteps(targetList);
-                    }
-                    const visibleList = targetList.filter(isVisibleWorkflowStep);
-                    let nextStepToSelect: StepperDocumentItem | null = null;
-                    let targetIdx = -1;
-                    if (passedNextStep) {
-                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                    }
-                    if (!nextStepToSelect || targetIdx === -1) {
-                      const profIndex = visibleList.findIndex((s) => isProformaStep(s));
-                      if (profIndex >= 0 && profIndex + 1 < visibleList.length) {
-                        targetIdx = profIndex + 1;
-                        nextStepToSelect = visibleList[targetIdx];
-                      }
-                    }
-                    if (nextStepToSelect && targetIdx >= 0) {
-                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit proforma stepper error:', stepErr);
+                  }
+
+                  if (nextDocId) {
+                    targetList = targetList.map((s) =>
+                      isShipmentInstructionStep(s)
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        : s
+                    );
+                  }
+                  setSteps(targetList);
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const profIndex = visibleList.findIndex((s) => isProformaStep(s));
+                    if (profIndex >= 0 && profIndex + 1 < visibleList.length) {
+                      targetIdx = profIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 }
                 return res;
@@ -6424,7 +6630,6 @@ export function DocumentDraftWorkspace({
               shippingTerms={shippingTerms}
               onSaveSuccess={(savedId: string, savedData?: any) => {
                 if (savedId) {
-                  setShipmentVersion((v) => v + 1);
                   setShipmentInstructionData((prev: any) => ({
                     ...(prev || {}),
                     ...(savedData || {}),
@@ -6441,8 +6646,9 @@ export function DocumentDraftWorkspace({
                   );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
-                    if (targetWorkflowId) {
+                    const cleanSavedId = sanitizeDocId(savedId);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
                     url.searchParams.set('step', 'shipment');
@@ -6631,6 +6837,17 @@ export function DocumentDraftWorkspace({
                     ...(newId ? { id: String(newId), shipment_instruction_id: String(newId) } : {}),
                   }));
 
+                  const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                  const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
+                  if (nextDocId) {
+                    setBillOfLadingData((prev: any) => ({
+                      ...(prev || {}),
+                      id: nextDocId,
+                      bill_of_lading_id: nextDocId,
+                    }));
+                  }
+
+                  let targetList = steps;
                   try {
                     const siCompletedId = String(newId || effectiveShipmentInstructionId || workflowAnchorId);
                     setPinnedWorkflowAnchorId(siCompletedId);
@@ -6640,30 +6857,38 @@ export function DocumentDraftWorkspace({
                       step: siCompletedId,
                       lang,
                     });
-                    let targetList = steps;
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
                       targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                      setSteps(targetList);
-                    }
-                    const visibleList = targetList.filter(isVisibleWorkflowStep);
-                    let nextStepToSelect: StepperDocumentItem | null = null;
-                    let targetIdx = -1;
-                    if (passedNextStep) {
-                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                    }
-                    if (!nextStepToSelect || targetIdx === -1) {
-                      const shipIndex = visibleList.findIndex((s) => isShipmentInstructionStep(s));
-                      if (shipIndex >= 0 && shipIndex + 1 < visibleList.length) {
-                        targetIdx = shipIndex + 1;
-                        nextStepToSelect = visibleList[targetIdx];
-                      }
-                    }
-                    if (nextStepToSelect && targetIdx >= 0) {
-                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit shipment stepper error:', stepErr);
+                  }
+
+                  if (nextDocId) {
+                    targetList = targetList.map((s) =>
+                      isBillOfLadingStep(s)
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        : s
+                    );
+                  }
+                  setSteps(targetList);
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const shipIndex = visibleList.findIndex((s) => isShipmentInstructionStep(s));
+                    if (shipIndex >= 0 && shipIndex + 1 < visibleList.length) {
+                      targetIdx = shipIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 }
                 return res;
@@ -6700,7 +6925,6 @@ export function DocumentDraftWorkspace({
             readOnly={false}
             onSaveSuccess={(savedId, savedData) => {
               if (savedId) {
-                setBillOfLadingVersion((v) => v + 1);
                 setBillOfLadingData((prev: any) => ({
                   ...(prev || {}),
                   ...(savedData || {}),
@@ -6716,8 +6940,9 @@ export function DocumentDraftWorkspace({
                 );
                 if (typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
-                  const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
-                  if (targetWorkflowId) {
+                  const cleanSavedId = sanitizeDocId(savedId);
+                  const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                  if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                     url.searchParams.set('id', targetWorkflowId);
                   }
                   url.searchParams.set('step', 'bill-of-lading');
@@ -6916,6 +7141,17 @@ export function DocumentDraftWorkspace({
                   ...(cleanNewId ? { id: cleanNewId, bill_of_lading_id: cleanNewId } : {}),
                 }));
 
+                const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
+                if (nextDocId) {
+                  setCustomInvoiceData((prev: any) => ({
+                    ...(prev || {}),
+                    id: nextDocId,
+                    custom_invoice_id: nextDocId,
+                  }));
+                }
+
+                let targetList = steps;
                 try {
                   const stepperParam = workflowAnchorId;
                   const stepperRes = await getStepperListAction({
@@ -6923,30 +7159,38 @@ export function DocumentDraftWorkspace({
                     step: String(stepperParam),
                     lang,
                   });
-                  let targetList = steps;
                   if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
                     targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                    setSteps(targetList);
-                  }
-                  const visibleList = targetList.filter(isVisibleWorkflowStep);
-                  let nextStepToSelect: StepperDocumentItem | null = null;
-                  let targetIdx = -1;
-                  if (passedNextStep) {
-                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                  }
-                  if (!nextStepToSelect || targetIdx === -1) {
-                    const ladingIndex = visibleList.findIndex((s) => isBillOfLadingStep(s));
-                    if (ladingIndex >= 0 && ladingIndex + 1 < visibleList.length) {
-                      targetIdx = ladingIndex + 1;
-                      nextStepToSelect = visibleList[targetIdx];
-                    }
-                  }
-                  if (nextStepToSelect && targetIdx >= 0) {
-                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 } catch (stepErr) {
                   console.error('[DocumentDraftWorkspace] Post-submit bill of lading stepper error:', stepErr);
+                }
+
+                if (nextDocId) {
+                  targetList = targetList.map((s) =>
+                    isCustomInvoiceStep(s)
+                      ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                      : s
+                  );
+                }
+                setSteps(targetList);
+
+                const visibleList = targetList.filter(isVisibleWorkflowStep);
+                let nextStepToSelect: StepperDocumentItem | null = null;
+                let targetIdx = -1;
+                if (passedNextStep) {
+                  targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                  if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                }
+                if (!nextStepToSelect || targetIdx === -1) {
+                  const ladingIndex = visibleList.findIndex((s) => isBillOfLadingStep(s));
+                  if (ladingIndex >= 0 && ladingIndex + 1 < visibleList.length) {
+                    targetIdx = ladingIndex + 1;
+                    nextStepToSelect = visibleList[targetIdx];
+                  }
+                }
+                if (nextStepToSelect && targetIdx >= 0) {
+                  handleSelectStep(nextStepToSelect, targetIdx);
                 }
               }
               return res;
@@ -6980,7 +7224,6 @@ export function DocumentDraftWorkspace({
               readOnly={false}
               onSaveSuccess={(savedId, savedData) => {
                 if (savedId) {
-                  setCustomInvoiceVersion((v) => v + 1);
                   setCustomInvoiceData((prev: any) => ({
                     ...(prev || {}),
                     ...(savedData || {}),
@@ -6996,8 +7239,9 @@ export function DocumentDraftWorkspace({
                   );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
-                    if (targetWorkflowId) {
+                    const cleanSavedId = sanitizeDocId(savedId);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
                     url.searchParams.set('step', 'custom-invoice');
@@ -7310,6 +7554,17 @@ export function DocumentDraftWorkspace({
                   }));
                   setCustomInvoiceVersion((v) => v + 1);
 
+                  const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                  const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
+                  if (nextDocId) {
+                    setCommercialInvoiceData((prev: any) => ({
+                      ...(prev || {}),
+                      id: nextDocId,
+                      commercial_invoice_id: nextDocId,
+                    }));
+                  }
+
+                  let targetList = steps;
                   try {
                     const stepperParam = workflowAnchorId;
                     const stepperRes = await getStepperListAction({
@@ -7317,30 +7572,38 @@ export function DocumentDraftWorkspace({
                       step: String(stepperParam),
                       lang,
                     });
-                    let targetList = steps;
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
                       targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                      setSteps(targetList);
-                    }
-                    const visibleList = targetList.filter(isVisibleWorkflowStep);
-                    let nextStepToSelect: StepperDocumentItem | null = null;
-                    let targetIdx = -1;
-                    if (passedNextStep) {
-                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                    }
-                    if (!nextStepToSelect || targetIdx === -1) {
-                      const customIndex = visibleList.findIndex((s) => isCustomInvoiceStep(s));
-                      if (customIndex >= 0 && customIndex + 1 < visibleList.length) {
-                        targetIdx = customIndex + 1;
-                        nextStepToSelect = visibleList[targetIdx];
-                      }
-                    }
-                    if (nextStepToSelect && targetIdx >= 0) {
-                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit custom invoice stepper error:', stepErr);
+                  }
+
+                  if (nextDocId) {
+                    targetList = targetList.map((s) =>
+                      isCommercialInvoiceStep(s)
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        : s
+                    );
+                  }
+                  setSteps(targetList);
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const customIndex = visibleList.findIndex((s) => isCustomInvoiceStep(s));
+                    if (customIndex >= 0 && customIndex + 1 < visibleList.length) {
+                      targetIdx = customIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 }
                 return res;
@@ -7378,7 +7641,6 @@ export function DocumentDraftWorkspace({
               readOnly={false}
               onSaveSuccess={(savedId, savedData) => {
                 if (savedId) {
-                  setCommercialInvoiceVersion((v) => v + 1);
                   setCommercialInvoiceData((prev: any) => ({
                     ...(prev || {}),
                     ...(savedData || {}),
@@ -7394,8 +7656,9 @@ export function DocumentDraftWorkspace({
                   );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
-                    if (targetWorkflowId) {
+                    const cleanSavedId = sanitizeDocId(savedId);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
                     url.searchParams.set('step', 'commercial-invoice');
@@ -7526,36 +7789,55 @@ export function DocumentDraftWorkspace({
                   }));
                   setCommercialInvoiceVersion((v) => v + 1);
 
+                  const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                  const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
+                  if (nextDocId) {
+                    setPackingListData((prev: any) => ({
+                      ...(prev || {}),
+                      id: nextDocId,
+                      packing_list_id: nextDocId,
+                    }));
+                  }
+
+                  let targetList = steps;
                   try {
                     const stepperRes = await getStepperListAction({
                       action: workflowAnchorType,
                       step: String(workflowAnchorId),
                       lang,
                     });
-                    let targetList = steps;
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0) {
                       targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                      setSteps(targetList);
-                    }
-                    const visibleList = targetList.filter(isVisibleWorkflowStep);
-                    let nextStepToSelect: StepperDocumentItem | null = null;
-                    let targetIdx = -1;
-                    if (passedNextStep) {
-                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                    }
-                    if (!nextStepToSelect || targetIdx === -1) {
-                      const commIndex = visibleList.findIndex((s) => isCommercialInvoiceStep(s));
-                      if (commIndex >= 0 && commIndex + 1 < visibleList.length) {
-                        targetIdx = commIndex + 1;
-                        nextStepToSelect = visibleList[targetIdx];
-                      }
-                    }
-                    if (nextStepToSelect && targetIdx >= 0) {
-                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit commercial invoice stepper error:', stepErr);
+                  }
+
+                  if (nextDocId) {
+                    targetList = targetList.map((s) =>
+                      isPackingListStep(s)
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        : s
+                    );
+                  }
+                  setSteps(targetList);
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const commIndex = visibleList.findIndex((s) => isCommercialInvoiceStep(s));
+                    if (commIndex >= 0 && commIndex + 1 < visibleList.length) {
+                      targetIdx = commIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 }
                 return res;
@@ -7601,7 +7883,6 @@ export function DocumentDraftWorkspace({
               readOnly={false}
               onSaveSuccess={(savedId, savedData) => {
                 if (savedId) {
-                  setPackingListVersion((v) => v + 1);
                   setPackingListData((prev: any) => ({
                     ...(prev || {}),
                     ...(savedData || {}),
@@ -7617,8 +7898,9 @@ export function DocumentDraftWorkspace({
                   );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
-                    if (targetWorkflowId) {
+                    const cleanSavedId = sanitizeDocId(savedId);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
                     url.searchParams.set('step', 'packing-list');
@@ -7751,36 +8033,55 @@ export function DocumentDraftWorkspace({
                   }));
                   setPackingListVersion((v) => v + 1);
 
+                  const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
+                  const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
+                  if (nextDocId) {
+                    setPhytoCertificateData((prev: any) => ({
+                      ...(prev || {}),
+                      id: nextDocId,
+                      phyto_certificate_id: nextDocId,
+                    }));
+                  }
+
+                  let targetList = steps;
                   try {
                     const stepperRes = await getStepperListAction({
                       action: workflowAnchorType,
                       step: String(workflowAnchorId),
                       lang,
                     });
-                    let targetList = steps;
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
                       targetList = mergeStepperWithHidden(stepperRes.data, steps);
-                      setSteps(targetList);
-                    }
-                    const visibleList = targetList.filter(isVisibleWorkflowStep);
-                    let nextStepToSelect: StepperDocumentItem | null = null;
-                    let targetIdx = -1;
-                    if (passedNextStep) {
-                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                    }
-                    if (!nextStepToSelect || targetIdx === -1) {
-                      const packingIndex = visibleList.findIndex((s) => isPackingListStep(s));
-                      if (packingIndex >= 0 && packingIndex + 1 < visibleList.length) {
-                        targetIdx = packingIndex + 1;
-                        nextStepToSelect = visibleList[targetIdx];
-                      }
-                    }
-                    if (nextStepToSelect && targetIdx >= 0) {
-                      handleSelectStep(nextStepToSelect, targetIdx);
                     }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit packing list stepper error:', stepErr);
+                  }
+
+                  if (nextDocId) {
+                    targetList = targetList.map((s) =>
+                      isPhytoCertificateStep(s)
+                        ? { ...s, redirect_id: nextDocId, redirectId: nextDocId }
+                        : s
+                    );
+                  }
+                  setSteps(targetList);
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const packingIndex = visibleList.findIndex((s) => isPackingListStep(s));
+                    if (packingIndex >= 0 && packingIndex + 1 < visibleList.length) {
+                      targetIdx = packingIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 }
                 return res;
@@ -7827,7 +8128,6 @@ export function DocumentDraftWorkspace({
               readOnly={false}
               onSaveSuccess={(savedId, savedData) => {
                 if (savedId) {
-                  setPhytoCertificateVersion((v) => v + 1);
                   setPhytoCertificateData((prev: any) => ({
                     ...(prev || {}),
                     ...(savedData || {}),
@@ -7843,8 +8143,9 @@ export function DocumentDraftWorkspace({
                   );
                   if (typeof window !== 'undefined') {
                     const url = new URL(window.location.href);
-                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId;
-                    if (targetWorkflowId) {
+                    const cleanSavedId = sanitizeDocId(savedId);
+                    const targetWorkflowId = rootWorkflowId || effectiveConfirmationId || canonicalContractId || cleanSavedId;
+                    if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
                       url.searchParams.set('id', targetWorkflowId);
                     }
                     url.searchParams.set('step', 'phyto-certificate');
@@ -7977,36 +8278,37 @@ export function DocumentDraftWorkspace({
                   }));
                   setPhytoCertificateVersion((v) => v + 1);
 
+                  let targetList = steps;
                   try {
                     const stepperRes = await getStepperListAction({
                       action: workflowAnchorType,
                       step: String(workflowAnchorId),
                       lang,
                     });
-                    let targetList = steps;
                     if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
                       targetList = mergeStepperWithHidden(stepperRes.data, steps);
                       setSteps(targetList);
                     }
-                    const visibleList = targetList.filter(isVisibleWorkflowStep);
-                    let nextStepToSelect: StepperDocumentItem | null = null;
-                    let targetIdx = -1;
-                    if (passedNextStep) {
-                      targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
-                      if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
-                    }
-                    if (!nextStepToSelect || targetIdx === -1) {
-                      const phytoIndex = visibleList.findIndex((s) => isPhytoCertificateStep(s));
-                      if (phytoIndex >= 0 && phytoIndex + 1 < visibleList.length) {
-                        targetIdx = phytoIndex + 1;
-                        nextStepToSelect = visibleList[targetIdx];
-                      }
-                    }
-                    if (nextStepToSelect && targetIdx >= 0) {
-                      handleSelectStep(nextStepToSelect, targetIdx);
-                    }
                   } catch (stepErr) {
                     console.error('[DocumentDraftWorkspace] Post-submit phyto certificate stepper error:', stepErr);
+                  }
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const phytoIndex = visibleList.findIndex((s) => isPhytoCertificateStep(s));
+                    if (phytoIndex >= 0 && phytoIndex + 1 < visibleList.length) {
+                      targetIdx = phytoIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
                   }
                 }
                 return res;

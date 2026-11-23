@@ -92,7 +92,7 @@ export function DocUnderlineSelect({
     .map((opt: any) => {
       if (typeof opt === 'string') {
         const clean = opt.trim();
-        if (!clean || clean === '[object Object]' || clean === 'undefined' || clean === 'null' || isRawDbId(clean)) {
+        if (!clean || clean === '[object Object]' || clean === 'undefined' || clean === 'null') {
           return null;
         }
         return { value: clean, label: clean };
@@ -108,7 +108,14 @@ export function DocUnderlineSelect({
       let cleanLbl = lbl === '[object Object]' ? cleanVal : lbl;
 
       if (!cleanVal && !cleanLbl) return null;
-      if (cleanLbl && isRawDbId(cleanLbl)) return null;
+
+      // If cleanLbl is equal to a raw ID, check if human readable subLabel or name exists
+      if (cleanLbl && isRawDbId(cleanLbl)) {
+        const humanName = opt.name || opt.title || opt.subLabel || opt.code || (typeof opt.country === 'string' ? opt.country : opt.country?.name);
+        if (humanName && typeof humanName === 'string' && humanName.trim() && !isRawDbId(humanName.trim())) {
+          cleanLbl = humanName.trim();
+        }
+      }
 
       const upperVal = cleanVal.toUpperCase().trim();
       const upperLbl = cleanLbl.toUpperCase().trim();
@@ -392,7 +399,7 @@ export function DocUnderlineSelect({
         } bg-transparent print:border-none ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
       >
         {(() => {
-          if (loading && !selectedOption && !value) {
+          if (loading && !selectedOption) {
             return (
               <span className="flex-1 flex items-center py-1">
                 <span className="inline-block h-3.5 w-28 max-w-full bg-muted/60 dark:bg-muted/40 rounded animate-pulse" />
@@ -403,7 +410,12 @@ export function DocUnderlineSelect({
           const displayText = (() => {
             if (selectedOption && selectedOption.label && selectedOption.label !== '[object Object]') {
               if (isRawDbId(selectedOption.label)) {
-                return lastKnownLabelRef.current[String(value)] || placeholder;
+                const subOrName = selectedOption.subLabel || (selectedOption as any).name || (selectedOption as any).title;
+                if (subOrName && typeof subOrName === 'string' && subOrName.trim() && !isRawDbId(subOrName.trim())) {
+                  lastKnownLabelRef.current[String(value)] = subOrName.trim();
+                  return subOrName.trim();
+                }
+                return lastKnownLabelRef.current[String(value)] || selectedOption.label;
               }
               lastKnownLabelRef.current[String(value)] = selectedOption.label;
               return selectedOption.label;
@@ -413,9 +425,6 @@ export function DocUnderlineSelect({
             }
             const cleanVal = typeof value === 'string' ? value.trim() : '';
             if (cleanVal && cleanVal !== '[object Object]' && cleanVal !== 'undefined' && cleanVal !== 'null') {
-              if (isRawDbId(cleanVal) || (!cleanVal.includes(' ') && cleanVal.length >= 14)) {
-                return placeholder;
-              }
               const upperClean = cleanVal.toUpperCase();
               if (upperClean === 'US DOLLAR' || upperClean === 'US DOLLARS' || upperClean === 'USD') {
                 return 'USD ($)';
@@ -428,6 +437,9 @@ export function DocUnderlineSelect({
               }
               if (upperClean === 'VESSEL' || upperClean === 'BULK') {
                 return 'Vessel';
+              }
+              if (isRawDbId(cleanVal) || (!cleanVal.includes(' ') && cleanVal.length >= 14)) {
+                return lastKnownLabelRef.current[cleanVal] || cleanVal;
               }
               return cleanVal;
             }

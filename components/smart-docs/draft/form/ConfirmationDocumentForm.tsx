@@ -151,7 +151,6 @@ export function toCleanLabel(val: any): string {
   if (typeof val === 'string') {
     const t = val.trim();
     if (!t || t === '[object Object]' || t === 'undefined' || t === 'null') return '';
-    if (isRawDbId(t)) return '';
     return t;
   }
   if (typeof val === 'number') return String(val);
@@ -2173,26 +2172,40 @@ export function ConfirmationDocumentForm({
           }
         }
         if (cached.packingTypes && cached.packingTypes.length > 0) {
-          setInternalPackingOptions(cached.packingTypes);
-        } else {
+          setInternalPackingOptions((prev) => {
+            const incomingIds = new Set(cached.packingTypes.map((p: any) => toCleanId(p.value || p.id)));
+            const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+            return [...cached.packingTypes, ...preserved];
+          });
+        } else if (forceOverwrite) {
           setInternalPackingOptions([]);
         }
         if (cached.loadingPorts && cached.loadingPorts.length > 0) {
-          setInternalLoadingPorts(cached.loadingPorts);
-        } else {
+          setInternalLoadingPorts((prev) => {
+            const incomingIds = new Set(cached.loadingPorts.map((p: any) => toCleanId(p.value || p.id)));
+            const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+            return [...cached.loadingPorts, ...preserved];
+          });
+        } else if (forceOverwrite) {
           setInternalLoadingPorts([]);
         }
         if (cached.destinationPorts && cached.destinationPorts.length > 0) {
-          setInternalDestinationPorts(cached.destinationPorts);
-        } else {
+          setInternalDestinationPorts((prev) => {
+            const incomingIds = new Set(cached.destinationPorts.map((p: any) => toCleanId(p.value || p.id)));
+            const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+            return [...cached.destinationPorts, ...preserved];
+          });
+        } else if (forceOverwrite) {
           setInternalDestinationPorts([]);
         }
         return;
       }
 
-      setInternalPackingOptions([]);
-      setInternalLoadingPorts([]);
-      setInternalDestinationPorts([]);
+      if (forceOverwrite) {
+        setInternalPackingOptions([]);
+        setInternalLoadingPorts([]);
+        setInternalDestinationPorts([]);
+      }
       setIsLoadingProductDetails(true);
       try {
         const res = await getSmartDocsProductDetailsAction(cleanId, { lang });
@@ -2221,13 +2234,25 @@ export function ConfirmationDocumentForm({
             }
           }
           if (d.packingTypes && d.packingTypes.length > 0) {
-            setInternalPackingOptions(d.packingTypes);
+            setInternalPackingOptions((prev) => {
+              const incomingIds = new Set(d.packingTypes.map((p: any) => toCleanId(p.value || p.id)));
+              const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+              return [...d.packingTypes, ...preserved];
+            });
           }
           if (d.loadingPorts && d.loadingPorts.length > 0) {
-            setInternalLoadingPorts(d.loadingPorts);
+            setInternalLoadingPorts((prev) => {
+              const incomingIds = new Set(d.loadingPorts.map((p: any) => toCleanId(p.value || p.id)));
+              const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+              return [...d.loadingPorts, ...preserved];
+            });
           }
           if (d.destinationPorts && d.destinationPorts.length > 0) {
-            setInternalDestinationPorts(d.destinationPorts);
+            setInternalDestinationPorts((prev) => {
+              const incomingIds = new Set(d.destinationPorts.map((p: any) => toCleanId(p.value || p.id)));
+              const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+              return [...d.destinationPorts, ...preserved];
+            });
           }
         }
       } catch (err) {
@@ -2845,7 +2870,7 @@ export function ConfirmationDocumentForm({
 
     // Once the form was already initialized, NEVER overwrite the user's active in-progress edits
     // UNLESS stepper navigation / explicit version trigger or doc ID change occurred!
-    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && hasDraftChanges) {
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
       return;
     }
 
@@ -3087,7 +3112,11 @@ export function ConfirmationDocumentForm({
       rawPayload.packing_type_id = cleanPack;
     }
 
-    const cleanTerm = (toCleanLabel(selectedTerm?.value || selectedTerm?.label || shippingTerm) || '').trim();
+    const rawCleanTerm = (toCleanLabel(selectedTerm?.value || shippingTerm || selectedTerm?.label) || '').trim();
+    let cleanTerm = rawCleanTerm;
+    if (/^fob\b/i.test(cleanTerm)) cleanTerm = 'FOB';
+    else if (/^cnf\b/i.test(cleanTerm) || /^c&f\b/i.test(cleanTerm)) cleanTerm = 'CNF';
+    else if (/^cif\b/i.test(cleanTerm)) cleanTerm = 'CIF';
     if (cleanTerm) {
       rawPayload.shipping_term = cleanTerm;
     }
@@ -3209,6 +3238,11 @@ export function ConfirmationDocumentForm({
     const selectedDest = destinationPortsList.find((p) => p.value === destinationPort || p.label === destinationPort);
     const selectedPacking = packingList.find((p) => p.value === packing || p.label === packing);
     const selectedTerm = shippingTermsList.find((t) => t.value === shippingTerm);
+    const rawTerm = toCleanLabel(shippingTerm);
+    let normalizedTerm = rawTerm;
+    if (/^fob\b/i.test(normalizedTerm)) normalizedTerm = 'FOB';
+    else if (/^cnf\b/i.test(normalizedTerm) || /^c&f\b/i.test(normalizedTerm)) normalizedTerm = 'CNF';
+    else if (/^cif\b/i.test(normalizedTerm)) normalizedTerm = 'CIF';
     const selectedPay = paymentTermsList.find((t) => t.value === paymentTerm);
 
     return {
@@ -3241,8 +3275,8 @@ export function ConfirmationDocumentForm({
       destination_port_id: selectedDest?.id || selectedDest?.value || destinationPort || '',
       packing: selectedPacking?.label || packing || '',
       packing_type_id: selectedPacking?.id || selectedPacking?.value || packing || '',
-      shippingTerm: selectedTerm?.label || shippingTerm || '',
-      shipping_term: selectedTerm?.label || shippingTerm || '',
+      shippingTerm: selectedTerm?.value || normalizedTerm || shippingTerm || '',
+      shipping_term: selectedTerm?.value || normalizedTerm || shippingTerm || '',
       fclQty: isFcl ? fclQty : '',
       fclCapacity: isFcl ? fclCapacity : '',
       mtQty: isFcl
@@ -3367,6 +3401,7 @@ export function ConfirmationDocumentForm({
       }
 
       const returnData = {
+        ...payload,
         ...(result?.data || result?.raw?.data || result || {}),
         ...(respConfNum ? { confirmation_number: respConfNum } : {}),
       };
@@ -3544,11 +3579,11 @@ export function ConfirmationDocumentForm({
       setHasDraftChanges(false);
       setHasSubmitChanges(false);
       const cleanId = toCleanId(
-        result.id ||
+        result.confirmation_id ||
+        result.data?.confirmation_id ||
+        (result.id && result.id !== result.data?.contract_id ? result.id : null) ||
         result.data?.id ||
         result.data?._id ||
-        result.data?.confirmation_id ||
-        result.data?.contract_id ||
         payload.id ||
         draftId
       );
@@ -3565,6 +3600,7 @@ export function ConfirmationDocumentForm({
       }
 
       const submitReturnData = {
+        ...payload,
         ...(result?.data || result?.raw?.data || result || {}),
         ...(submitConfNum ? { confirmation_number: submitConfNum } : {}),
       };

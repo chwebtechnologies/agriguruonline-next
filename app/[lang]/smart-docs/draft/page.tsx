@@ -175,7 +175,11 @@ export default async function SmartDocsDraftPage(props: {
   const params = await props.params;
   const searchParams = props.searchParams ? await props.searchParams : undefined;
   const lang = getSafeLanguage(params?.lang);
-  const draftId = searchParams?.id ? String(searchParams.id).trim() : '';
+  const rawDraftId = searchParams?.id ? String(searchParams.id).trim() : '';
+  const draftId =
+    rawDraftId && !/^(new-confirmation|null|undefined|nan|\[object object\]|step-\d+)$/i.test(rawDraftId)
+      ? rawDraftId
+      : '';
   const initialStepParam = searchParams?.step ? String(searchParams.step).trim() : '';
   const isProformaRequested = initialStepParam === 'proforma' || initialStepParam === '3';
   const isShipmentRequested =
@@ -298,9 +302,7 @@ async function DraftPageDataLoader({
     initialStepParam === '9';
 
   try {
-    const targetAction = isContractRequested
-      ? 'contract'
-      : isShipmentRequested || isBillOfLadingRequested || isCustomInvoiceRequested || isCommercialInvoiceRequested || isPackingListRequested || isPhytoCertificateRequested
+    const targetAction = isShipmentRequested || isBillOfLadingRequested || isCustomInvoiceRequested || isCommercialInvoiceRequested || isPackingListRequested || isPhytoCertificateRequested
       ? 'document'
       : 'confirmation';
 
@@ -613,17 +615,16 @@ async function DraftPageDataLoader({
 
     const stepperConfirmationStep = initialSteps.find((s) => isConfirmationStep(s)) || null;
     const confId =
-      (!isContractRequested && !isDocRequested ? draftId : '') ||
       discoveredConfId ||
+      initialConfirmationData?.id ||
       extractStepRedirectId(stepperConfirmationStep) ||
       getStepSelfId(stepperConfirmationStep) ||
       extractStepId(stepperConfirmationStep) ||
-      initialConfirmationData?.id ||
+      (!isContractRequested && !isDocRequested ? draftId : '') ||
       '';
 
     const stepperContractStep = initialSteps.find((s) => isContractStep(s)) || null;
     const contractId =
-      (isContractRequested ? draftId : '') ||
       discoveredContractId ||
       stepperContractStep?.contract_id ||
       (stepperContractStep as any)?.contractId ||
@@ -631,11 +632,11 @@ async function DraftPageDataLoader({
       extractStepRedirectId(stepperContractStep) ||
       getStepSelfId(stepperContractStep) ||
       extractLinkedContractId(initialConfirmationData) ||
-      extractLinkedContractId(initialShipmentInstructionData);
+      extractLinkedContractId(initialShipmentInstructionData) ||
+      (isContractRequested && !initialConfirmationData ? draftId : '');
 
     const stepperProformaStep = initialSteps.find((s) => isProformaStep(s)) || null;
     const proformaId =
-      (isProformaRequested ? draftId : '') ||
       discoveredProformaId ||
       stepperProformaStep?.proforma_id ||
       (stepperProformaStep as any)?.proformaId ||
@@ -644,11 +645,11 @@ async function DraftPageDataLoader({
       getStepSelfId(stepperProformaStep) ||
       extractLinkedProformaId(initialContractData) ||
       extractLinkedProformaId(initialConfirmationData) ||
-      extractLinkedProformaId(initialShipmentInstructionData);
+      extractLinkedProformaId(initialShipmentInstructionData) ||
+      (isProformaRequested && !initialConfirmationData && !initialContractData ? draftId : '');
 
     const stepperShipmentStep = initialSteps.find((s) => isShipmentInstructionStep(s)) || null;
     const shipmentId =
-      (isShipmentRequested ? draftId : '') ||
       stepperShipmentStep?.shipment_instruction_id ||
       (stepperShipmentStep as any)?.shipmentInstructionId ||
       stepperShipmentStep?.shipment_id ||
@@ -657,11 +658,11 @@ async function DraftPageDataLoader({
       getStepSelfId(stepperShipmentStep) ||
       extractLinkedShipmentInstructionId(initialProformaData) ||
       extractLinkedShipmentInstructionId(initialContractData) ||
-      extractLinkedShipmentInstructionId(initialConfirmationData);
+      extractLinkedShipmentInstructionId(initialConfirmationData) ||
+      (isShipmentRequested && !initialConfirmationData && !initialContractData ? draftId : '');
 
     const stepperBillOfLadingStep = initialSteps.find((s) => isBillOfLadingStep(s)) || null;
     const billOfLadingId =
-      (isBillOfLadingRequested ? draftId : '') ||
       stepperBillOfLadingStep?.bill_of_lading_id ||
       (stepperBillOfLadingStep as any)?.billOfLadingId ||
       stepperBillOfLadingStep?.lading_id ||
@@ -670,11 +671,11 @@ async function DraftPageDataLoader({
       extractLinkedBillOfLadingId(initialShipmentInstructionData) ||
       extractLinkedBillOfLadingId(initialProformaData) ||
       extractLinkedBillOfLadingId(initialContractData) ||
-      extractLinkedBillOfLadingId(initialConfirmationData);
+      extractLinkedBillOfLadingId(initialConfirmationData) ||
+      (isBillOfLadingRequested && !initialConfirmationData && !initialContractData ? draftId : '');
 
     const stepperCustomInvoiceStep = initialSteps.find((s) => isCustomInvoiceStep(s)) || null;
     const customInvoiceId =
-      (isCustomInvoiceRequested ? draftId : '') ||
       stepperCustomInvoiceStep?.custom_invoice_id ||
       (stepperCustomInvoiceStep as any)?.customInvoiceId ||
       stepperCustomInvoiceStep?.invoice_id ||
@@ -684,11 +685,11 @@ async function DraftPageDataLoader({
       extractLinkedCustomInvoiceId(initialShipmentInstructionData) ||
       extractLinkedCustomInvoiceId(initialProformaData) ||
       extractLinkedCustomInvoiceId(initialContractData) ||
-      extractLinkedCustomInvoiceId(initialConfirmationData);
+      extractLinkedCustomInvoiceId(initialConfirmationData) ||
+      (isCustomInvoiceRequested && !initialConfirmationData && !initialContractData ? draftId : '');
 
     const stepperCommercialInvoiceStep = initialSteps.find((s) => isCommercialInvoiceStep(s)) || null;
     const commercialInvoiceId =
-      (isCommercialInvoiceRequested ? draftId : '') ||
       stepperCommercialInvoiceStep?.commercial_invoice_id ||
       (stepperCommercialInvoiceStep as any)?.commercialInvoiceId ||
       getStepSelfId(stepperCommercialInvoiceStep) ||
@@ -699,11 +700,11 @@ async function DraftPageDataLoader({
       extractLinkedCommercialInvoiceId(initialShipmentInstructionData) ||
       extractLinkedCommercialInvoiceId(initialProformaData) ||
       extractLinkedCommercialInvoiceId(initialContractData) ||
-      extractLinkedCommercialInvoiceId(initialConfirmationData);
+      extractLinkedCommercialInvoiceId(initialConfirmationData) ||
+      (isCommercialInvoiceRequested && !initialConfirmationData && !initialContractData ? draftId : '');
 
     const stepperPackingListStep = initialSteps.find((s) => isPackingListStep(s)) || null;
     const packingListId =
-      (isPackingListRequested ? draftId : '') ||
       stepperPackingListStep?.packing_list_id ||
       (stepperPackingListStep as any)?.packingListId ||
       getStepSelfId(stepperPackingListStep) ||
@@ -715,46 +716,47 @@ async function DraftPageDataLoader({
       extractLinkedPackingListId(initialShipmentInstructionData) ||
       extractLinkedPackingListId(initialProformaData) ||
       extractLinkedPackingListId(initialContractData) ||
-      extractLinkedPackingListId(initialConfirmationData);
+      extractLinkedPackingListId(initialConfirmationData) ||
+      (isPackingListRequested && !initialConfirmationData && !initialContractData ? draftId : '');
 
     const stepperPhytoCertificateStep = initialSteps.find((s) => isPhytoCertificateStep(s)) || null;
     const phytoCertificateId =
-      (isPhytoCertificateRequested ? draftId : '') ||
       stepperPhytoCertificateStep?.phyto_certificate_id ||
       (stepperPhytoCertificateStep as any)?.phytoCertificateId ||
       getStepSelfId(stepperPhytoCertificateStep) ||
       getPhytoCertificateIdFromStepper(initialSteps) ||
       extractStepRedirectId(stepperPhytoCertificateStep) ||
-      discoveredPhytoCertificateId;
+      discoveredPhytoCertificateId ||
+      (isPhytoCertificateRequested && !initialConfirmationData && !initialContractData ? draftId : '');
 
     // Phase 2: Fetch any missing documents in ONE clean parallel round trip!
     const [missingConfRes, missingContractRes, missingProformaRes, missingShipmentRes, missingBillOfLadingRes, missingCustomInvoiceRes, missingCommercialInvoiceRes, missingPackingListRes, missingPhytoCertificateRes] = await Promise.all([
-      !initialConfirmationData && confId && confId !== draftId
-        ? smartDocsService.getConfirmation(confId, { lang, source: 'web' }, token).catch(() => null)
+      !initialConfirmationData && (confId || draftId)
+        ? smartDocsService.getConfirmation(confId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialContractData && contractId && contractId !== confId && contractId !== draftId
-        ? smartDocsService.getContract(contractId, { lang, source: 'web' }, token).catch(() => null)
+      !initialContractData && (contractId || confId || (isContractRequested ? draftId : ''))
+        ? smartDocsService.getContract(contractId || confId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialProformaData && proformaId && proformaId !== confId && proformaId !== contractId && proformaId !== draftId
-        ? smartDocsService.getProforma(proformaId, { lang, source: 'web' }, token).catch(() => null)
+      !initialProformaData && (proformaId || confId || (isProformaRequested ? draftId : ''))
+        ? smartDocsService.getProforma(proformaId || confId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialShipmentInstructionData && shipmentId && shipmentId !== confId && shipmentId !== contractId && shipmentId !== proformaId && shipmentId !== draftId
-        ? smartDocsService.getShipmentInstruction(shipmentId, { lang, source: 'web' }, token).catch(() => null)
+      !initialShipmentInstructionData && (shipmentId || confId || (isShipmentRequested ? draftId : ''))
+        ? smartDocsService.getShipmentInstruction(shipmentId || confId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialBillOfLadingData && billOfLadingId && billOfLadingId !== draftId
-        ? smartDocsService.getBillOfLading(billOfLadingId, { lang, source: 'web' }, token).catch(() => null)
+      !initialBillOfLadingData && (billOfLadingId || (isBillOfLadingRequested ? draftId : ''))
+        ? smartDocsService.getBillOfLading(billOfLadingId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialCustomInvoiceData && customInvoiceId && customInvoiceId !== draftId
-        ? smartDocsService.getCustomInvoice(customInvoiceId, { lang, source: 'web' }, token).catch(() => null)
+      !initialCustomInvoiceData && (customInvoiceId || (isCustomInvoiceRequested ? draftId : ''))
+        ? smartDocsService.getCustomInvoice(customInvoiceId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialCommercialInvoiceData && commercialInvoiceId && commercialInvoiceId !== draftId
-        ? smartDocsService.getCommercialInvoice(commercialInvoiceId, { lang, source: 'web' }, token).catch(() => null)
+      !initialCommercialInvoiceData && (commercialInvoiceId || (isCommercialInvoiceRequested ? draftId : ''))
+        ? smartDocsService.getCommercialInvoice(commercialInvoiceId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialPackingListData && packingListId && packingListId !== draftId
-        ? smartDocsService.getPackingList(packingListId, { lang, source: 'web' }, token).catch(() => null)
+      !initialPackingListData && (packingListId || (isPackingListRequested ? draftId : ''))
+        ? smartDocsService.getPackingList(packingListId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
-      !initialPhytoCertificateData && phytoCertificateId && phytoCertificateId !== draftId
-        ? smartDocsService.getPhytoCertificate(phytoCertificateId, { lang, source: 'web' }, token).catch(() => null)
+      !initialPhytoCertificateData && (phytoCertificateId || (isPhytoCertificateRequested ? draftId : ''))
+        ? smartDocsService.getPhytoCertificate(phytoCertificateId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
     ]);
 

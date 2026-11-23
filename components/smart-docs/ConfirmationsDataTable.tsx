@@ -85,11 +85,12 @@ export function getMainContractNumber(row: any): string {
   if (/^[0-9a-fA-F]{24}$/.test(cleaned)) return '';
   if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(cleaned)) return '';
 
-  // 3. Strip trailing split suffix like "/A", "/B", "/C" etc.
+  // 3. Strip trailing split suffix like "/A", "/B", "/C" etc. (including repeated /A/A)
   // "CONT/00001/A" -> "CONT/00001"
   // "CONT/00001/B" -> "CONT/00001"
+  // "CONT/00001/A/A" -> "CONT/00001"
   // "SC/26-27/00142/A" -> "SC/26-27/00142"
-  return cleaned.replace(/\s*\/[A-Za-z]{1,2}$/, '');
+  return cleaned.replace(/(\s*[\/\-][A-Za-z]{1,2})+$/, '');
 }
 
 export const SMART_DOCS_ACTION_OPTIONS = [

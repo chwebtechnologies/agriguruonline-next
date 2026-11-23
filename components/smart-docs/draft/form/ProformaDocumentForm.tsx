@@ -3269,8 +3269,6 @@ export function ProformaDocumentForm({
     const cleanDraft = sanitizeDocId(draftId);
     if (
       cleanDraft &&
-      cleanDraft !== cleanContractId &&
-      cleanDraft !== cleanConfId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanDraft)
     ) {
       return cleanDraft;
@@ -3279,8 +3277,6 @@ export function ProformaDocumentForm({
     const cleanProp = sanitizeDocId(proformaId);
     if (
       cleanProp &&
-      cleanProp !== cleanContractId &&
-      cleanProp !== cleanConfId &&
       !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|step-\d+)$/i.test(cleanProp)
     ) {
       return cleanProp;
@@ -3376,17 +3372,16 @@ export function ProformaDocumentForm({
     const cleanContractId = sanitizeDocId(contractId);
     const cleanConfId = sanitizeDocId(confirmationId);
 
-    const isRealProformaId = Boolean(
-      activeDocId &&
-      activeDocId !== cleanContractId &&
-      activeDocId !== cleanConfId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(activeDocId)
-    );
+    const effectiveId =
+      activeDocId ||
+      cleanContractId ||
+      cleanConfId ||
+      (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(draftId) ? draftId : '');
 
-    if (isRealProformaId) {
-      formData.append('id', activeDocId);
-      formData.append('proforma_id', activeDocId);
-      formData.append('proforma_invoice_id', activeDocId);
+    if (effectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(effectiveId)) {
+      formData.append('id', effectiveId);
+      formData.append('proforma_id', effectiveId);
+      formData.append('proforma_invoice_id', effectiveId);
     }
 
     if (cleanContractId) {
@@ -3604,18 +3599,22 @@ export function ProformaDocumentForm({
     const activeDocId = getEffectiveProformaId();
     const cleanContractId = sanitizeDocId(contractId);
     const cleanConfId = sanitizeDocId(confirmationId);
-    const isRealProformaId = Boolean(
-      activeDocId &&
-      activeDocId !== cleanContractId &&
-      activeDocId !== cleanConfId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(activeDocId)
-    );
+    const effectiveId =
+      activeDocId ||
+      cleanContractId ||
+      cleanConfId ||
+      (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(draftId) ? draftId : '');
+    const validEffectiveId =
+      effectiveId && !/^(contract|confirmation|new-confirmation|sales-contract|proforma|step-\d+)$/i.test(effectiveId)
+        ? effectiveId
+        : undefined;
+
     const titleVal = safeString(documentTitle).trim() || 'PROFORMA INVOICE';
     const effectiveSellerInstId = sellerInstructionId || sellerId || '';
     return {
-      id: isRealProformaId ? activeDocId : undefined,
-      proforma_id: isRealProformaId ? activeDocId : undefined,
-      proforma_invoice_id: isRealProformaId ? activeDocId : undefined,
+      id: validEffectiveId,
+      proforma_id: validEffectiveId,
+      proforma_invoice_id: validEffectiveId,
       contract_id: cleanContractId || undefined,
       confirmation_id: cleanConfId || undefined,
       seller_instruction_id: effectiveSellerInstId || undefined,

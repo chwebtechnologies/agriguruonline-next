@@ -52,6 +52,9 @@ import {
 } from '@/lib/api/smart-docs.service';
 import type { FormOptionItem } from './ConfirmationDocumentForm';
 import { normalizeCountryString, normalizeHsnString, deduplicateValidationMessage } from './ConfirmationDocumentForm';
+import { cleanBaseContractNumber } from '../DocumentStatusStepper';
+
+export { cleanBaseContractNumber };
 
 export interface ContractDocumentFormProps {
   initialData?: any;
@@ -1484,7 +1487,9 @@ export function parseInitialSplits(data: any): ContractSplitItem[] {
       if (typeof item === 'object' && item !== null) {
         const qty =
           item.fcl_quantity ??
+          item.mt_quantity ??
           item.fclQuantity ??
+          item.mtQuantity ??
           item.quantity ??
           item.qty ??
           '';
@@ -2344,9 +2349,15 @@ export function ContractDocumentForm({
   });
 
   // ROW 2: Contract Number & Date (User enters/selects or from backend)
-  const [contractNumber, setContractNumber] = useState<string>(
-    () => toCleanLabel(initialData?.contract_number || initialData?.contractNumber) || ''
-  );
+  const [contractNumber, setContractNumber] = useState<string>(() => {
+    const raw = toCleanLabel(initialData?.contract_number || initialData?.contractNumber);
+    const hasSplits = Boolean(
+      (initialData?.splits && Array.isArray(initialData.splits) && initialData.splits.length > 0) ||
+      initialData?.is_partial ||
+      initialData?.partial_shipment_allowed
+    );
+    return cleanBaseContractNumber(raw, hasSplits);
+  });
   const contractInputRef = useRef<HTMLInputElement>(null);
   const [contractDate, setContractDate] = useState<string>(() => {
     const raw = toCleanLabel(initialData?.contract_date || initialData?.contractDate);
@@ -3900,13 +3911,25 @@ export function ContractDocumentForm({
           }
 
           if (d.loadingPorts && Array.isArray(d.loadingPorts)) {
-            setInternalLoadingPorts(d.loadingPorts);
+            setInternalLoadingPorts((prev) => {
+              const incomingIds = new Set(d.loadingPorts.map((p: any) => toCleanId(p.value || p.id)));
+              const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+              return [...d.loadingPorts, ...preserved];
+            });
           }
           if (d.destinationPorts && Array.isArray(d.destinationPorts)) {
-            setInternalDestinationPorts(d.destinationPorts);
+            setInternalDestinationPorts((prev) => {
+              const incomingIds = new Set(d.destinationPorts.map((p: any) => toCleanId(p.value || p.id)));
+              const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+              return [...d.destinationPorts, ...preserved];
+            });
           }
           if (d.packingTypes && Array.isArray(d.packingTypes)) {
-            setInternalPackingOptions(d.packingTypes);
+            setInternalPackingOptions((prev) => {
+              const incomingIds = new Set(d.packingTypes.map((p: any) => toCleanId(p.value || p.id)));
+              const preserved = prev.filter((p) => !incomingIds.has(toCleanId(p.value || p.id)));
+              return [...d.packingTypes, ...preserved];
+            });
           }
         }
       } catch (err) {
@@ -4054,8 +4077,8 @@ export function ContractDocumentForm({
     );
     const hasDocIdChanged = Boolean(contractIdCandidate && contractIdCandidate !== lastLoadedDocIdRef.current);
 
-    // Once the form has been initialized, protect user edits IF user has active draft changes, UNLESS stepper navigation / explicit version trigger or doc ID change occurred
-    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged && hasDraftChanges) {
+    // Once the form has been initialized, protect user edits UNLESS stepper navigation / explicit version trigger or doc ID change occurred
+    if (isFormInitializedRef.current && !isDataVersionTriggered && !hasDocIdChanged) {
       // Still update fresh signature URLs from backend if available and not cleared by user
       const sSig = resolveSigValue(initialData, [
         'seller_signature',
@@ -4126,7 +4149,14 @@ export function ContractDocumentForm({
     const confDate = toCleanText(initialData.confirmation_date || initialData.confirmationDate);
     if (confDate) setConfirmationDate(confDate.includes('T') ? confDate.split('T')[0] : confDate);
 
-    const contNum = toCleanText(initialData.contract_number || initialData.contractNumber);
+    const rawContNum = toCleanText(initialData.contract_number || initialData.contractNumber);
+    const hasSplits = Boolean(
+      (initialData?.splits && Array.isArray(initialData.splits) && initialData.splits.length > 0) ||
+      initialData?.is_partial ||
+      initialData?.partial_shipment_allowed ||
+      isPartialAllowed
+    );
+    const contNum = cleanBaseContractNumber(rawContNum, hasSplits);
     if (contNum) setContractNumber(contNum);
 
     const contDate = toCleanText(initialData.contract_date || initialData.contractDate);
@@ -4761,9 +4791,10 @@ export function ContractDocumentForm({
     const formData = new FormData();
     const cleanConfId = sanitizeDocId(confirmationId);
     const cleanEffectiveId = getEffectiveContractId();
-    const effectiveContractId = (cleanEffectiveId && cleanEffectiveId !== cleanConfId)
-      ? cleanEffectiveId
-      : (draftId && draftId !== cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : '');
+    const effectiveContractId =
+      cleanEffectiveId ||
+      cleanConfId ||
+      (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : '');
 
     if (effectiveContractId) {
       formData.append('id', effectiveContractId);
@@ -4783,7 +4814,8 @@ export function ContractDocumentForm({
     const formattedConfDate = confirmationDate ? String(confirmationDate).trim() : '';
     formData.append('confirmation_date', formattedConfDate);
 
-    formData.append('contract_number', contractNumber.trim());
+    const finalContractNum = cleanBaseContractNumber(contractNumber, isPartialAllowed);
+    formData.append('contract_number', (finalContractNum || contractNumber).trim());
     const formattedContractDate = contractDate ? String(contractDate).trim() : '';
     formData.append('contract_date', formattedContractDate);
 
@@ -4855,9 +4887,14 @@ export function ContractDocumentForm({
       formData.append('total_value', String(totalValue));
     }
 
+    let cleanInco = incoterm.trim();
+    if (/^fob\b/i.test(cleanInco)) cleanInco = 'FOB';
+    else if (/^cnf\b/i.test(cleanInco) || /^c&f\b/i.test(cleanInco)) cleanInco = 'CNF';
+    else if (/^cif\b/i.test(cleanInco)) cleanInco = 'CIF';
+
     formData.append('inspection', inspection.trim());
-    formData.append('shipping_term', incoterm.trim());
-    formData.append('incoterm', incoterm.trim());
+    formData.append('shipping_term', cleanInco);
+    formData.append('incoterm', cleanInco);
     formData.append('insurance', (effectiveInsurance || insurance || '').trim());
 
     // Splits / Partial Shipment
@@ -4870,9 +4907,15 @@ export function ContractDocumentForm({
         const splitLetter = formatSplitNumber(s.split_number, idx);
         const qtyVal = s.fcl_quantity !== undefined && s.fcl_quantity !== null && s.fcl_quantity !== ''
           ? String(s.fcl_quantity)
-          : '0';
+          : (s.mt_quantity !== undefined && s.mt_quantity !== null && s.mt_quantity !== '' ? String(s.mt_quantity) : '0');
         formData.append(`splits[${idx}][split_number]`, splitLetter);
-        formData.append(`splits[${idx}][fcl_quantity]`, qtyVal);
+        const quantityField = !isFcl ? 'mt_quantity' : 'fcl_quantity';
+        formData.append(`splits[${idx}][${quantityField}]`, qtyVal);
+        if (!isFcl) {
+          formData.append(`splits[${idx}][fcl_quantity]`, qtyVal);
+        } else {
+          formData.append(`splits[${idx}][mt_quantity]`, qtyVal);
+        }
       });
     } else {
       formData.append('split_count', '0');
@@ -5099,13 +5142,18 @@ export function ContractDocumentForm({
         (initialData?.confirmation_number || initialData?.confirmation_date ? initialData?.id || initialData?._id : '')
       ) || undefined;
 
+    let cleanInco = incoterm.trim();
+    if (/^fob\b/i.test(cleanInco)) cleanInco = 'FOB';
+    else if (/^cnf\b/i.test(cleanInco) || /^c&f\b/i.test(cleanInco)) cleanInco = 'CNF';
+    else if (/^cif\b/i.test(cleanInco)) cleanInco = 'CIF';
+
     return {
       id: effectiveContractId,
       contract_id: effectiveContractId,
       confirmation_id: confId,
       confirmation_number: confirmationNumber.trim(),
       confirmation_date: confirmationDate,
-      contract_number: contractNumber.trim(),
+      contract_number: (cleanBaseContractNumber(contractNumber, isPartialAllowed) || contractNumber).trim(),
       contract_date: contractDate,
       pdf_title: documentTitle.trim() || 'CONTRACT',
       letterhead_space: Boolean(letterhead),
@@ -5145,8 +5193,8 @@ export function ContractDocumentForm({
       price: price ? Number(price) : undefined,
       total_value: totalValue ? Number(totalValue) : undefined,
       inspection: inspection.trim(),
-      shipping_term: incoterm,
-      incoterm: incoterm,
+      shipping_term: cleanInco,
+      incoterm: cleanInco,
       insurance: effectiveInsurance || insurance,
       is_partial: isPartialAllowed,
       partial_shipment_allowed: isPartialAllowed,
@@ -5155,19 +5203,26 @@ export function ContractDocumentForm({
       partial_count: isPartialAllowed && splitCount ? Math.min(Number(splitCount), 30) : undefined,
       splits:
         isPartialAllowed && splits.length > 0
-          ? splits.slice(0, 30).map((s, idx) => ({
-              ...s,
-              split_number: formatSplitNumber(s.split_number, idx),
-              fcl_quantity: s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined ? Number(s.fcl_quantity) : 0,
-            }))
+          ? splits.slice(0, 30).map((s, idx) => {
+              const qtyNum =
+                s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined
+                  ? Number(s.fcl_quantity)
+                  : (s.mt_quantity !== '' && s.mt_quantity !== null && s.mt_quantity !== undefined ? Number(s.mt_quantity) : 0);
+              return {
+                ...s,
+                split_number: formatSplitNumber(s.split_number, idx),
+                fcl_quantity: qtyNum,
+                mt_quantity: qtyNum,
+              };
+            })
           : [],
       partial_breakdown:
         isPartialAllowed && splits.length > 0
-          ? splits.slice(0, 30).map((s) => (s.fcl_quantity !== '' ? Number(s.fcl_quantity) : 0))
+          ? splits.slice(0, 30).map((s) => (s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined ? Number(s.fcl_quantity) : (s.mt_quantity ? Number(s.mt_quantity) : 0)))
           : undefined,
       partial_quantities:
         isPartialAllowed && splits.length > 0
-          ? splits.slice(0, 30).map((s) => (s.fcl_quantity !== '' ? Number(s.fcl_quantity) : 0))
+          ? splits.slice(0, 30).map((s) => (s.fcl_quantity !== '' && s.fcl_quantity !== null && s.fcl_quantity !== undefined ? Number(s.fcl_quantity) : (s.mt_quantity ? Number(s.mt_quantity) : 0)))
           : undefined,
       transhipment: Boolean(isTranshipmentAllowed),
       transhipment_allowed: isTranshipmentAllowed !== null ? isTranshipmentAllowed : undefined,
@@ -5306,17 +5361,17 @@ export function ContractDocumentForm({
     const cleanConfId = sanitizeDocId(confirmationId);
 
     // 1. Explicit contractId prop
-    if (contractIdProp && !isInvalidPlaceholder(contractIdProp) && contractIdProp !== cleanConfId) {
+    if (contractIdProp && !isInvalidPlaceholder(contractIdProp)) {
       return contractIdProp.trim();
     }
     // 2. Saved Draft ID from current session
-    if (draftId && !isInvalidPlaceholder(draftId) && draftId !== cleanConfId) {
+    if (draftId && !isInvalidPlaceholder(draftId)) {
       return draftId.trim();
     }
     // 3. Extracted directly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
     const stepContract = getContractStep(steps, selectedStep);
     const stepperId = extractStepId(stepContract);
-    if (stepperId && !isInvalidPlaceholder(stepperId) && stepperId !== cleanConfId) {
+    if (stepperId && !isInvalidPlaceholder(stepperId)) {
       return stepperId.trim();
     }
     // 4. Initial contract data fields
@@ -5325,18 +5380,23 @@ export function ContractDocumentForm({
       initialData?.contractId ||
       (initialData?.contract && typeof initialData.contract === 'object' ? initialData.contract.id || initialData.contract._id : '')
     );
-    if (cid && !isInvalidPlaceholder(cid) && cid !== cleanConfId) {
+    if (cid && !isInvalidPlaceholder(cid)) {
       return cid.trim();
     }
     // 5. Initial data id (only if not a confirmation record)
     const isConfRecord = Boolean(initialData?.confirmation_number || initialData?.confirmation_date);
     if (!isConfRecord) {
-      if (initialData?.id && !isInvalidPlaceholder(initialData.id) && toCleanId(initialData.id) !== cleanConfId) {
+      if (initialData?.id && !isInvalidPlaceholder(initialData.id)) {
         return toCleanId(initialData.id);
       }
-      if (initialData?._id && !isInvalidPlaceholder(initialData._id) && toCleanId(initialData._id) !== cleanConfId) {
+      if (initialData?._id && !isInvalidPlaceholder(initialData._id)) {
         return toCleanId(initialData._id);
       }
+    }
+
+    // 6. Fallback to confirmationId for unified backend deal workflow
+    if (cleanConfId && !isInvalidPlaceholder(cleanConfId)) {
+      return cleanConfId;
     }
 
     return '';
@@ -5488,9 +5548,10 @@ export function ContractDocumentForm({
       const formDataPayload = getContractFormData();
       const cleanConfId = sanitizeDocId(confirmationId);
       const cleanEffectiveId = getEffectiveContractId();
-      const effectiveId = (cleanEffectiveId && cleanEffectiveId !== cleanConfId)
-        ? cleanEffectiveId
-        : (draftId && draftId !== cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
+      const effectiveId =
+        cleanEffectiveId ||
+        cleanConfId ||
+        (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
       let res: any = null;
       if (onSaveDraft) {
         res = await onSaveDraft(formDataPayload);
@@ -5564,7 +5625,7 @@ export function ContractDocumentForm({
           ? extractContractData(res.data) || res.data
           : null;
 
-      const respContNum =
+      const rawRespContNum =
         savedContract?.contract_number ||
         savedContract?.contractNumber ||
         savedContract?.contract_no ||
@@ -5573,6 +5634,7 @@ export function ContractDocumentForm({
         res?.contract_number ||
         (typeof formDataPayload?.get === 'function' ? formDataPayload.get('contract_number') : null);
 
+      const respContNum = cleanBaseContractNumber(rawRespContNum, isPartialAllowed);
       if (respContNum && typeof respContNum === 'string' && respContNum.trim()) {
         setContractNumber(respContNum.trim());
       }
@@ -5583,6 +5645,18 @@ export function ContractDocumentForm({
         isFormInitializedRef.current = true;
         if (onSaveSuccess) {
           onSaveSuccess(newId, {
+            buyer_id: buyerId,
+            seller_id: sellerId,
+            buyer_instruction: buyerInstruction,
+            seller_instruction: sellerInstruction,
+            shipping_instruction: shippingInstruction,
+            product_id: productId,
+            hsn_code: hsnCode,
+            country: productCountry,
+            currency: currency,
+            price: price,
+            splits: splits,
+            payment_term_id: paymentTerm,
             ...(savedContract || res?.data || res || {}),
             ...(respContNum ? { contract_number: respContNum } : {}),
             documents_required: effectiveDocs,
@@ -5674,9 +5748,10 @@ export function ContractDocumentForm({
       const payload = getContractFormData();
       const cleanConfId = sanitizeDocId(confirmationId);
       const cleanEffectiveId = getEffectiveContractId();
-      const effectiveId = (cleanEffectiveId && cleanEffectiveId !== cleanConfId)
-        ? cleanEffectiveId
-        : (draftId && draftId !== cleanConfId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
+      const effectiveId =
+        cleanEffectiveId ||
+        cleanConfId ||
+        (draftId && !/^(contract|confirmation|new-confirmation|sales-contract|step-\d+)$/i.test(draftId) ? draftId : undefined);
       if (onSubmitContract) {
         const res = await onSubmitContract(payload, effectiveId, targetNextStep);
         const hasFieldErrors = Boolean(
@@ -5704,7 +5779,12 @@ export function ContractDocumentForm({
             nextStepName: targetNextStepName,
           });
           toast.success(successToast);
-          const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.contract_id || effectiveId;
+          const newId =
+            res.contract_id ||
+            res.data?.contract_id ||
+            (res.id && res.id !== res.data?.proforma_id ? res.id : null) ||
+            res.data?.id ||
+            effectiveId;
           if (newId && !isInvalidPlaceholder(String(newId))) {
             setDraftId(String(newId));
             lastLoadedDocIdRef.current = String(newId);
@@ -7798,15 +7878,18 @@ export function ContractDocumentForm({
         contractId={getEffectiveContractId()}
         confirmationId={confirmationId}
         docNumber={
-          contractNumber ||
-          toCleanLabel(
-            initialData?.contract_number ||
-            initialData?.contractNumber ||
-            initialData?.contract_no ||
-            initialData?.contractNo ||
-            (initialData?.contract && typeof initialData.contract === 'object'
-              ? initialData.contract.contract_number || initialData.contract.contract_no
-              : '')
+          cleanBaseContractNumber(contractNumber, isPartialAllowed) ||
+          cleanBaseContractNumber(
+            toCleanLabel(
+              initialData?.contract_number ||
+              initialData?.contractNumber ||
+              initialData?.contract_no ||
+              initialData?.contractNo ||
+              (initialData?.contract && typeof initialData.contract === 'object'
+                ? initialData.contract.contract_number || initialData.contract.contract_no
+                : '')
+            ),
+            isPartialAllowed
           ) ||
           ''
         }

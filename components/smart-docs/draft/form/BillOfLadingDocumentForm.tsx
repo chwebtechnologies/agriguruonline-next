@@ -1184,9 +1184,11 @@ export default function BillOfLadingDocumentForm({
       ) ||
       extractStepRedirectId(selfStep) ||
       extractLinkedBillOfLadingId(initialData) ||
+      shipmentInstructionId ||
+      confirmationId ||
       ''
     );
-  }, [billOfLadingId, cleanSelfId, initialData, selfStep]);
+  }, [billOfLadingId, cleanSelfId, initialData, selfStep, shipmentInstructionId, confirmationId]);
 
   const [draftId, setDraftId] = useState<string>(() => sanitizeDocId(effectiveBLId) || '');
   const [isDirty, setIsDirty] = useState(false);

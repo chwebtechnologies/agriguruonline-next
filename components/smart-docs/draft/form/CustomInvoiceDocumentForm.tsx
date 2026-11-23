@@ -208,6 +208,14 @@ export function detectCustomInvoiceFieldInSentence(text: string): { key: string;
     return { key: 'freight_rate', rawField: 'freight_rate' };
   }
   if (
+    normalized.includes('insurance rate') ||
+    normalized.includes('insurance amount') ||
+    lower.includes('insurancerate') ||
+    lower.includes('insurance_rate')
+  ) {
+    return { key: 'insurance_rate', rawField: 'insurance_rate' };
+  }
+  if (
     normalized.includes('commission rate') ||
     lower.includes('commissionrate') ||
     lower.includes('commission_rate')
@@ -320,6 +328,7 @@ export const CUSTOM_INVOICE_FORM_FIELD_VISUAL_ORDER: string[] = [
   'bank_account_id',
   'fob_rate',
   'freight_rate',
+  'insurance_rate',
   'commission_rate',
   'price_per_bag',
   'pricePerBag',
@@ -388,6 +397,8 @@ export function scrollToAndFocusCustomInvoiceField(
     selectors.unshift('#field-fob_rate', '[data-field="fob_rate"]');
   } else if (targetKey === 'freight_rate' || targetKey === 'freight') {
     selectors.unshift('#field-freight_rate', '[data-field="freight_rate"]');
+  } else if (targetKey === 'insurance_rate' || targetKey === 'insurance') {
+    selectors.unshift('#field-insurance_rate', '[data-field="insurance_rate"]');
   } else if (targetKey === 'commission_rate' || targetKey === 'commission') {
     selectors.unshift('#field-commission_rate', '[data-field="commission_rate"]');
   } else if (
@@ -552,6 +563,10 @@ export function parseCustomInvoiceBackendErrors(
       case 'freight':
       case 'freightprice':
         return 'freight_rate';
+      case 'insurancerate':
+      case 'insurance':
+      case 'insuranceamount':
+        return 'insurance_rate';
       case 'commissionrate':
       case 'commission':
         return 'commission_rate';
@@ -642,6 +657,9 @@ export function parseCustomInvoiceBackendErrors(
     } else if (fieldKey === 'freight_rate') {
       fieldErrors.freight_rate = cleanMsg;
       fieldErrors.freight = cleanMsg;
+    } else if (fieldKey === 'insurance_rate') {
+      fieldErrors.insurance_rate = cleanMsg;
+      fieldErrors.insurance = cleanMsg;
     } else if (fieldKey === 'commission_rate') {
       fieldErrors.commission_rate = cleanMsg;
       fieldErrors.commission = cleanMsg;
@@ -1041,6 +1059,15 @@ export function CustomInvoiceDocumentForm({
       initialData?.freight_price
     )
   );
+  const [insuranceRate, setInsuranceRate] = useState<string>(() =>
+    parseNumericInputValue(
+      initialData?.custom_invoice?.insurance_rate,
+      initialData?.insurance_rate,
+      initialData?.insuranceRate,
+      initialData?.insurance_amount,
+      initialData?.insuranceAmount
+    )
+  );
   const [commissionRate, setCommissionRate] = useState<string>(() =>
     parseNumericInputValue(
       initialData?.custom_invoice?.commission_rate,
@@ -1125,8 +1152,8 @@ export function CustomInvoiceDocumentForm({
     const invoiceIdCandidate = safeString(
       initialData?.custom_invoice_id ||
       initialData?.invoice_id ||
-      (initialData?.id !== contractId && initialData?.id !== confirmationId && initialData?.id !== proformaId && initialData?.id !== shipmentInstructionId ? initialData?.id : '') ||
-      (initialData?._id !== contractId && initialData?._id !== confirmationId && initialData?._id !== proformaId && initialData?._id !== shipmentInstructionId ? initialData?._id : ''),
+      (hasCustomMarkers && initialData?.id ? initialData.id : '') ||
+      (hasCustomMarkers && initialData?._id ? initialData._id : ''),
       ''
     );
     const hasDocIdChanged = Boolean(invoiceIdCandidate && invoiceIdCandidate !== lastLoadedDocIdRef.current);
@@ -1227,6 +1254,15 @@ export function CustomInvoiceDocumentForm({
       initialData.freight_price
     );
     setFreightRate(nextFreight);
+
+    const nextInsurance = parseNumericInputValue(
+      initialData.custom_invoice?.insurance_rate,
+      initialData.insurance_rate,
+      initialData.insuranceRate,
+      initialData.insurance_amount,
+      initialData.insuranceAmount
+    );
+    setInsuranceRate(nextInsurance);
 
     const nextCommission = parseNumericInputValue(
       initialData.custom_invoice?.commission_rate,
@@ -2032,6 +2068,10 @@ export function CustomInvoiceDocumentForm({
     );
   }, [initialData]);
 
+  const isCifTerm = useMemo(() => {
+    return incoterm.trim().toLowerCase() === 'cif';
+  }, [incoterm]);
+
   const ratePrice = useMemo(() => {
     const raw =
       initialData?.cnf ??
@@ -2129,9 +2169,16 @@ export function CustomInvoiceDocumentForm({
     return rate * quantityMt;
   }, [commissionRate, quantityMt]);
 
+  const calculatedInsuranceAmount = useMemo(() => {
+    if (!isCifTerm) return 0;
+    const rate = parseFloat(String(insuranceRate).replace(/,/g, ''));
+    if (isNaN(rate) || rate <= 0) return 0;
+    return rate * quantityMt;
+  }, [insuranceRate, quantityMt, isCifTerm]);
+
   const calculatedRateTotal = useMemo(() => {
-    return calculatedFobAmount + calculatedFreightAmount + calculatedCommissionAmount;
-  }, [calculatedFobAmount, calculatedFreightAmount, calculatedCommissionAmount]);
+    return calculatedFobAmount + calculatedFreightAmount + calculatedInsuranceAmount + calculatedCommissionAmount;
+  }, [calculatedFobAmount, calculatedFreightAmount, calculatedInsuranceAmount, calculatedCommissionAmount]);
 
   // Bag Quantity, Rate Per Bag, and Accounting Match Calculations
   const bagQuantityNum = useMemo(() => {
@@ -2445,6 +2492,9 @@ export function CustomInvoiceDocumentForm({
     if (freightRate !== '' && !isNaN(Number(freightRate))) {
       formData.append('freight_rate', String(Number(freightRate)));
     }
+    if (insuranceRate !== '' && !isNaN(Number(insuranceRate))) {
+      formData.append('insurance_rate', String(Number(insuranceRate)));
+    }
     if (commissionRate !== '' && !isNaN(Number(commissionRate))) {
       formData.append('commission_rate', String(Number(commissionRate)));
     }
@@ -2525,6 +2575,7 @@ export function CustomInvoiceDocumentForm({
     bankAccountDetails,
     fobRate,
     freightRate,
+    insuranceRate,
     commissionRate,
     ratePerBag,
     stampImageUrl,
@@ -2573,6 +2624,7 @@ export function CustomInvoiceDocumentForm({
       bank_details: bankAccountDetails || undefined,
       fob_rate: fobRate !== '' && !isNaN(Number(fobRate)) ? Number(fobRate) : undefined,
       freight_rate: freightRate !== '' && !isNaN(Number(freightRate)) ? Number(freightRate) : undefined,
+      insurance_rate: insuranceRate !== '' && !isNaN(Number(insuranceRate)) ? Number(insuranceRate) : undefined,
       commission_rate: commissionRate !== '' && !isNaN(Number(commissionRate)) ? Number(commissionRate) : undefined,
       price_per_bag: ratePerBag !== '' && !isNaN(Number(ratePerBag)) ? Number(ratePerBag) : (ratePerBag || undefined),
       rate_per_bag: ratePerBag !== '' && !isNaN(Number(ratePerBag)) ? Number(ratePerBag) : (ratePerBag || undefined),
@@ -2617,6 +2669,7 @@ export function CustomInvoiceDocumentForm({
     bankAccountDetails,
     fobRate,
     freightRate,
+    insuranceRate,
     commissionRate,
     ratePerBag,
     stampImageUrl,
@@ -3755,6 +3808,45 @@ export function CustomInvoiceDocumentForm({
                               {currencySymbol} {formatCurrencyAmount(calculatedFreightAmount, 2, currency)}
                             </td>
                           </tr>
+
+                          {/* Row 3b: Insurance Rate (NUMBER INPUT - shown when CIF) */}
+                          {isCifTerm && (
+                            <tr className="divide-x divide-border" id="field-insurance_rate" data-field="insurance_rate">
+                              <td className="py-2 px-3 font-bold text-muted-foreground/85 uppercase text-[14px] tracking-wider">
+                                + Insurance
+                              </td>
+                              <td className="py-2 px-3 text-right">
+                                <div className="flex items-center justify-end gap-1.5 flex-1 min-w-0">
+                                  <span className="font-medium text-[13px] sm:text-[14px] text-foreground">{currencySymbol}</span>
+                                  <div className="w-24 shrink-0">
+                                    <DocUnderlineInput
+                                      type="number"
+                                      step="any"
+                                      min="0"
+                                      align="right"
+                                      value={insuranceRate}
+                                      onChange={(val) => {
+                                        markDirty();
+                                        setInsuranceRate(val);
+                                        setErrors((prev) => ({ ...prev, insurance_rate: '', insurance: '' }));
+                                      }}
+                                      disabled={readOnly}
+                                      placeholder="0.00"
+                                      icon="fa-solid fa-pencil"
+                                      error={errors.insurance_rate || errors.insurance}
+                                      inputClassName="text-[14px] font-semibold text-foreground text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                  </div>
+                                  <span className="text-[12px] sm:text-[13px] font-medium text-muted-foreground shrink-0">
+                                    X {formatNumberWithCommas(quantityMt)} (MT)
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-2 px-3 text-right font-semibold text-[13px] sm:text-[14px] text-foreground tabular-nums">
+                                {currencySymbol} {formatCurrencyAmount(calculatedInsuranceAmount, 2, currency)}
+                              </td>
+                            </tr>
+                          )}
 
                           {/* Row 4: Commission Rate (NUMBER INPUT) */}
                           <tr className="divide-x divide-border" id="field-commission_rate" data-field="commission_rate">

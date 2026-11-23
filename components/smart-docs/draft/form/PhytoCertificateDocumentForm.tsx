@@ -298,8 +298,35 @@ export function PhytoCertificateDocumentForm({
     if (stepId && !/^(phyto|phyto-certificate|phyto_certificate|phytosanitary|null|undefined|nan)$/i.test(stepId)) {
       return stepId;
     }
+
+    for (const fallbackId of [
+      packingListId,
+      commercialInvoiceId,
+      customInvoiceId,
+      shipmentInstructionId,
+      proformaId,
+      contractId,
+      confirmationId,
+    ]) {
+      const clean = sanitizeDocId(fallbackId);
+      if (clean && !/^(phyto|phyto-certificate|phyto_certificate|phytosanitary|null|undefined|nan)$/i.test(clean)) {
+        return clean;
+      }
+    }
+
     return '';
-  }, [getOwnPhytoId, steps, selectedStep]);
+  }, [
+    getOwnPhytoId,
+    steps,
+    selectedStep,
+    packingListId,
+    commercialInvoiceId,
+    customInvoiceId,
+    shipmentInstructionId,
+    proformaId,
+    contractId,
+    confirmationId,
+  ]);
 
   // Document status
   const docStatus = useMemo(() => {

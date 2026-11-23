@@ -1739,6 +1739,37 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches countries list:
+   * GET /country?lang_code=en&source=web
+   */
+  getCountries: async (
+    params: { lang?: string; source?: string } = {},
+    token?: string
+  ): Promise<any[] | null> => {
+    if (!token) return null;
+    const baseUrl = getSmartDocsApiUrl();
+    const safeLang = getSafeLang(params.lang || 'en');
+    const url = `${baseUrl}/country`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'default',
+      });
+
+      const records = response?.data?.countries ?? response?.countries ?? response?.data ?? [];
+      return Array.isArray(records) ? records : [];
+    } catch (error) {
+      console.error('[smartDocsService.getCountries] error:', error);
+      return [];
+    }
+  },
+
+  /**
    * Fetches payment terms listing with pagination, search and authentication:
    * GET /payment-term?page=1&limit=10&lang_code=en&source=web
    */

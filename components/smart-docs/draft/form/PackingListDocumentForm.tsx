@@ -1336,9 +1336,11 @@ export function PackingListDocumentForm({
     const fd = new FormData();
     const ownId = getOwnPackingListId();
 
-    if (ownId) {
-      fd.append('packing_list_id', ownId);
-      fd.append('id', ownId);
+    const effId = ownId || getEffectivePackingListId();
+
+    if (effId) {
+      fd.append('packing_list_id', effId);
+      fd.append('id', effId);
     }
     if (commercialInvoiceId) fd.append('commercial_invoice_id', commercialInvoiceId);
     if (customInvoiceId) fd.append('custom_invoice_id', customInvoiceId);

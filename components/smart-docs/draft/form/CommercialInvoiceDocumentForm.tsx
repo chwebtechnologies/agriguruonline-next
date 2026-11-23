@@ -1980,8 +1980,11 @@ export function CommercialInvoiceDocumentForm({
         const file = dataUrlToFile(stampImageUrl, 'seller_signature.png');
         if (file) formData.append('seller_signature', file);
       } else {
-        const relUrl = normalizeSignaturePayload(stampImageUrl);
-        if (relUrl) formData.append('seller_signature_url', relUrl);
+        const relUrl = normalizeSignaturePayload(stampImageUrl) || stampImageUrl;
+        if (relUrl) {
+          formData.append('seller_signature_url', relUrl);
+          formData.append('seller_signature', relUrl);
+        }
       }
       formData.append('remove_seller_signature', 'false');
     } else if (hasUserClearedSignatureRef.current) {

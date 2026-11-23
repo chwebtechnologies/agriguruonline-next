@@ -1009,6 +1009,41 @@ export async function getSmartDocsCurrenciesAction(
   }
 }
 
+export interface GetSmartDocsCountriesActionResult {
+  success: boolean;
+  countries: any[];
+  message?: string;
+  error?: string;
+}
+
+export async function getSmartDocsCountriesAction(
+  params: { lang?: string; source?: string } = {}
+): Promise<GetSmartDocsCountriesActionResult> {
+  try {
+    let token = await getActionToken();
+    const safeLang = getSafeLang(params.lang || "en");
+    const rawRes = await smartDocsService.getCountries(
+      {
+        lang: safeLang,
+        source: params.source || "web",
+      },
+      token || ""
+    );
+
+    return {
+      success: true,
+      countries: Array.isArray(rawRes) ? rawRes : [],
+    };
+  } catch (error: any) {
+    console.error("[getSmartDocsCountriesAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch countries",
+      countries: [],
+    };
+  }
+}
+
 export interface GetSmartDocsDocumentListActionResult {
   success: boolean;
   documents: SmartDocsSelectionDocumentOption[];
@@ -1153,6 +1188,11 @@ export async function saveConfirmationDraftAction(
       rawRes?.confirmation_id;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message:
@@ -1602,6 +1642,11 @@ export async function saveContractDraftAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Contract draft saved successfully!",
@@ -1664,6 +1709,8 @@ export interface SubmitContractActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  contract_id?: string;
+  proforma_id?: string;
   raw?: any;
 }
 
@@ -1851,23 +1898,38 @@ export async function submitContractAction(
       (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false && (!rawRes.error_fields || rawRes.error_fields.length === 0))
     );
 
-    const generatedId =
-      rawRes?.data?.proforma_id ||
-      rawRes?.proforma_id ||
+    const contractId =
       rawRes?.data?.contract_id ||
       rawRes?.contract_id ||
+      rawRes?.data?.contract?.id ||
+      rawRes?.contract?.id ||
       rawRes?.data?.id ||
       rawRes?.data?._id ||
       rawRes?.id ||
       rawRes?._id ||
       effectiveId;
 
+    const proformaId =
+      rawRes?.data?.proforma_id ||
+      rawRes?.proforma_id ||
+      rawRes?.data?.proforma_invoice_id ||
+      rawRes?.data?.proforma?.id;
+
+    const generatedId = contractId || proformaId || effectiveId;
+
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Contract submitted successfully!",
         data: rawRes.data || rawRes,
         id: generatedId ? String(generatedId) : effectiveId,
+        contract_id: contractId ? String(contractId) : undefined,
+        proforma_id: proformaId ? String(proformaId) : undefined,
         raw: rawRes.raw || rawRes,
       };
     }
@@ -2214,6 +2276,11 @@ export async function saveProformaDraftAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Proforma draft saved successfully!",
@@ -2480,6 +2547,11 @@ export async function submitProformaAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Proforma Invoice submitted successfully!",
@@ -2826,6 +2898,11 @@ export async function saveShipmentInstructionDraftAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Shipment instruction draft saved successfully!",
@@ -3088,6 +3165,11 @@ export async function submitShipmentInstructionAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Shipment Instruction submitted successfully!",
@@ -3442,6 +3524,11 @@ export async function saveCustomInvoiceDraftAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Custom Invoice draft saved successfully!",
@@ -3733,6 +3820,11 @@ export async function submitCustomInvoiceAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Custom Invoice submitted successfully!",
@@ -4054,6 +4146,11 @@ export async function saveBillOfLadingDraftAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Bill of Lading draft saved successfully!",
@@ -4284,6 +4381,11 @@ export async function submitBillOfLadingAction(
       effectiveId;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message: rawRes.message || "Bill of Lading submitted successfully!",
@@ -4346,6 +4448,8 @@ export interface SubmitConfirmationActionResult {
   errors?: any;
   error_fields?: any;
   id?: string;
+  confirmation_id?: string;
+  contract_id?: string;
   raw?: any;
 }
 
@@ -4422,24 +4526,42 @@ export async function submitConfirmationAction(
       (rawRes.data && !rawRes.error && rawRes.success !== 0 && rawRes.success !== false && (!rawRes.error_fields || rawRes.error_fields.length === 0))
     );
 
-    const generatedId =
-      rawRes?.data?.contract_id ||
-      rawRes?.contract_id ||
+    const confirmationId =
+      rawRes?.data?.confirmation_id ||
+      rawRes?.confirmation_id ||
+      rawRes?.data?.confirmation?.id ||
+      rawRes?.confirmation?.id ||
       rawRes?.data?.id ||
       rawRes?.data?._id ||
       rawRes?.id ||
       rawRes?._id ||
-      rawRes?.data?.confirmation_id ||
-      rawRes?.confirmation_id;
+      payload.id;
+
+    const contractId =
+      rawRes?.data?.contract_id ||
+      rawRes?.contract_id ||
+      rawRes?.data?.contract?.id ||
+      rawRes?.contract?.id ||
+      rawRes?.data?.sales_contract_id ||
+      rawRes?.sales_contract_id;
+
+    const generatedId = confirmationId || contractId || payload.id;
 
     if (isSuccess) {
+      try {
+        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+        revalidatePath(`/${safeLang}/smart-docs`, "page");
+      } catch {}
+
       return {
         success: true,
         message:
           rawRes.message ||
           "Confirmation submitted successfully for Contract generation!",
         data: rawRes.data || rawRes,
-        id: generatedId ? String(generatedId) : payload.id,
+        id: confirmationId ? String(confirmationId) : (contractId ? String(contractId) : payload.id),
+        confirmation_id: confirmationId ? String(confirmationId) : undefined,
+        contract_id: contractId ? String(contractId) : undefined,
         raw: rawRes.raw || rawRes,
       };
     }
@@ -4825,6 +4947,11 @@ export async function submitCommercialInvoiceAction(
         ""
     );
 
+    try {
+      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
+    } catch {}
+
     return {
       success: true,
       message: rawRes.message || "Commercial Invoice submitted successfully!",
@@ -5152,6 +5279,11 @@ export async function submitPackingListAction(
       rawRes._id ||
       id;
 
+    try {
+      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
+    } catch {}
+
     return {
       success: true,
       message: rawRes.message || "Packing list submitted successfully",
@@ -5473,6 +5605,11 @@ export async function submitPhytoCertificateAction(
       rawRes.data?.phyto_certificate_id ||
       rawRes._id ||
       id;
+
+    try {
+      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
+    } catch {}
 
     return {
       success: true,

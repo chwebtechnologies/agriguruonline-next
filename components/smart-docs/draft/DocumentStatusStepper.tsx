@@ -77,6 +77,25 @@ export function isLikelyInvoiceNumber(val: any): boolean {
   return false;
 }
 
+/**
+ * Cleans the base contract number for a Sales Contract.
+ * 1. Strips any repeated split suffixes like /A/A, /A/B, /B/B, /A/A/A.
+ * 2. Unless splits are explicitly disabled (hasSplits === false), strips trailing partial split suffixes (/A, /B)
+ *    so the main contract number (e.g. CON/ABC/0001) is strictly preserved without partial split letters.
+ */
+export function cleanBaseContractNumber(val?: string | null, hasSplits?: boolean | null): string {
+  if (!val || typeof val !== 'string') return '';
+  let str = val.trim();
+  if (!str) return '';
+  // 1. Strip repeated split suffixes like /A/A, /A/B, /B/B, /A/A/A
+  str = str.replace(/(\s*[\/\-][A-Za-z]{1,2}){2,}$/, '');
+  // 2. Unless explicitly marked as having no splits, strip trailing single split suffix
+  if (hasSplits !== false) {
+    str = str.replace(/\s*[\/\-][A-Za-z]{1,2}$/, '');
+  }
+  return str.trim();
+}
+
 export type NormalizedStatus = 'completed' | 'in_progress' | 'pending' | 'locked';
 
 export function normalizeStepStatus(rawStatus?: string | boolean, step?: any): NormalizedStatus {
