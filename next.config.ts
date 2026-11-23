@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
-    cpus: 4,
+    cpus: 2,
     serverActions: {
       bodySizeLimit: '10mb',
       allowedOrigins: [

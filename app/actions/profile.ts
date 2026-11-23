@@ -2,8 +2,9 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { userService } from "@/lib/api";
+import { userService, invalidateUserAuthCache } from "@/lib/api";
 import { getValidAuthToken } from "@/lib/auth-token";
+import { getIsSecureCookie } from "@/lib/auth-cookie";
 
 export interface ServerActionResponse {
   success: boolean;
@@ -41,6 +42,65 @@ export async function updateProfile(
       };
     }
 
+    // 1. Invalidate shared in-memory auth caches across all bundles immediately
+    invalidateUserAuthCache(token);
+
+    // 2. Fetch fresh profile from API to prime cache and sync user_info cookie
+    try {
+      const profileRes = await userService.getUserProfile(token, lang, true);
+      if (profileRes.userProfile) {
+        const u = profileRes.userProfile;
+        const cookieStore = await cookies();
+        const rawUserType =
+          typeof u.user_type === 'object' && u.user_type !== null
+            ? (u.user_type.name || u.user_type.title || '')
+            : (u.user_type || '');
+        const rawRole =
+          typeof u.role === 'object' && u.role !== null
+            ? (u.role.name || u.role.title || '')
+            : (u.role || '');
+        let effectiveType = '';
+        const norm = String(rawUserType).toLowerCase();
+        if (norm.includes('buyer')) effectiveType = 'buyer';
+        else if (norm.includes('seller')) effectiveType = 'seller';
+        else effectiveType = norm || String(rawRole).toLowerCase() || 'business user';
+
+        const safeUser = {
+          id: u.id || u._id || u.customer_id || '',
+          customer_id: u.customer_id || u.id || '',
+          first_name: u.first_name || '',
+          last_name: u.last_name || '',
+          name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+          email: u.email || '',
+          mobile_no: u.mobile_no || u.phone || '',
+          phone: u.phone || u.mobile_no || '',
+          country_code: u.country_code || '',
+          role: rawRole || 'Business User',
+          user_type: effectiveType,
+          company_name: u.company_name || u.business_name || '',
+          business_name: u.business_name || u.company_name || '',
+          is_kyc_verified: u.is_kyc_verified ?? false,
+          membership: u.membership || null,
+        };
+
+        const isSecure = await getIsSecureCookie();
+        cookieStore.set('user_info', JSON.stringify(safeUser), {
+          httpOnly: false,
+          secure: isSecure,
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60,
+        });
+      }
+    } catch (cookieErr) {
+      console.error('Failed to sync user_info cookie after profile update:', cookieErr);
+    }
+
+    // 3. Purge Router Cache and trigger Server Component revalidation
+    revalidatePath(`/${lang}/profile`);
+    revalidatePath(`/${lang}/my-profile`);
+    revalidatePath(`/`, "layout");
+
     return {
       success: true,
       message: data.message || "Profile updated successfully!",
@@ -58,10 +118,10 @@ export async function updateProfile(
 export async function revalidateProfile(lang: string = "en") {
   const token = await getValidAuthToken();
   if (token) {
-    const { invalidateUserAuthCache } = await import("@/lib/api");
     invalidateUserAuthCache(token);
   }
   revalidatePath(`/${lang}/profile`);
+  revalidatePath(`/${lang}/my-profile`);
   revalidatePath(`/`, "layout");
 }
 
@@ -89,7 +149,9 @@ export async function uploadKycDocument(
       };
     }
 
+    invalidateUserAuthCache(token);
     revalidatePath(`/${lang}/profile`);
+    revalidatePath(`/${lang}/my-profile`);
     revalidatePath(`/`, "layout");
 
     return {

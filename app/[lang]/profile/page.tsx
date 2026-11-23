@@ -87,10 +87,10 @@ function ProfilePageSkeleton() {
 }
 
 async function ProfilePageContent({ lang, token }: { lang: string; token: string }) {
-  // Parallel Fetching for Dictionary and Profile
+  // Parallel Fetching for Dictionary and Profile (bypassCache = true guarantees 100% fresh data on profile view/refresh)
   const [dict, userResult] = await Promise.all([
     getDictionary(lang),
-    withTimeout(getUserProfile(token, lang), 8000, { userProfile: null, shouldLogout: false }),
+    withTimeout(getUserProfile(token, lang, true), 8000, { userProfile: null, shouldLogout: false }),
   ]);
   const common = dict.common || { back: 'Back', profile: 'My Profile' };
 

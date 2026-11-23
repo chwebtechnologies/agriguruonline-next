@@ -181,21 +181,41 @@ export function extractAlerts(data: any | null): any[] {
 import crypto from 'crypto';
 
 // Server in-memory caching for auth data (eliminates duplicate network calls on link clicks)
+// Attached to globalThis so Server Actions, Server Components, and Route Handlers share the exact same cache
 interface MemoryCacheEntry<T> {
   data: T;
   timestamp: number;
 }
 
-const userProfileMemoryCache = new Map<string, MemoryCacheEntry<UserProfileResult>>();
-const authDataMemoryCache = new Map<string, MemoryCacheEntry<AuthDataResult>>();
+interface GlobalWithAuthCache {
+  __AGY_USER_PROFILE_CACHE__?: Map<string, MemoryCacheEntry<UserProfileResult>>;
+  __AGY_AUTH_DATA_CACHE__?: Map<string, MemoryCacheEntry<AuthDataResult>>;
+}
+
+const gAuth = globalThis as unknown as GlobalWithAuthCache;
+
+if (!gAuth.__AGY_USER_PROFILE_CACHE__) {
+  gAuth.__AGY_USER_PROFILE_CACHE__ = new Map<string, MemoryCacheEntry<UserProfileResult>>();
+}
+if (!gAuth.__AGY_AUTH_DATA_CACHE__) {
+  gAuth.__AGY_AUTH_DATA_CACHE__ = new Map<string, MemoryCacheEntry<AuthDataResult>>();
+}
+
+const userProfileMemoryCache = gAuth.__AGY_USER_PROFILE_CACHE__;
+const authDataMemoryCache = gAuth.__AGY_AUTH_DATA_CACHE__;
 const AUTH_CACHE_TTL_MS = 45 * 1000; // 45 seconds
 
+function cleanAuthToken(token: string): string {
+  return token.trim().replace(/^Bearer\s+/i, '');
+}
+
 function getAuthCacheKey(token: string, lang: string): string {
+  const clean = cleanAuthToken(token);
   try {
-    const hash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+    const hash = crypto.createHash('sha256').update(clean).digest('hex');
     return `${hash}_${lang}`;
   } catch {
-    return `${token.trim()}_${lang}`;
+    return `${clean}_${lang}`;
   }
 }
 
@@ -219,21 +239,23 @@ function cleanOldCacheEntries() {
 
 export function invalidateUserAuthCache(token?: string) {
   if (token) {
+    const clean = cleanAuthToken(token);
+    let hash = '';
     try {
-      const hash = crypto.createHash('sha256').update(token.trim()).digest('hex');
-      for (const key of userProfileMemoryCache.keys()) {
-        if (key.startsWith(hash)) userProfileMemoryCache.delete(key);
-      }
-      for (const key of authDataMemoryCache.keys()) {
-        if (key.startsWith(hash)) authDataMemoryCache.delete(key);
-      }
-    } catch {
-      for (const key of userProfileMemoryCache.keys()) {
-        if (key.startsWith(token.trim())) userProfileMemoryCache.delete(key);
-      }
-      for (const key of authDataMemoryCache.keys()) {
-        if (key.startsWith(token.trim())) authDataMemoryCache.delete(key);
-      }
+      hash = crypto.createHash('sha256').update(clean).digest('hex');
+    } catch {}
+
+    const shouldDelete = (key: string) => {
+      if (hash && (key.startsWith(hash) || key.includes(hash))) return true;
+      if (clean && (key.startsWith(clean) || key.includes(clean))) return true;
+      return false;
+    };
+
+    for (const key of Array.from(userProfileMemoryCache.keys())) {
+      if (shouldDelete(key)) userProfileMemoryCache.delete(key);
+    }
+    for (const key of Array.from(authDataMemoryCache.keys())) {
+      if (shouldDelete(key)) authDataMemoryCache.delete(key);
     }
   } else {
     userProfileMemoryCache.clear();
@@ -244,17 +266,20 @@ export function invalidateUserAuthCache(token?: string) {
 export const userService = {
   /**
    * Fetch user profile with deduplication and in-memory TTL caching.
+   * Supports bypassCache: true to guarantee fetching 100% fresh data from API.
    */
-  getUserProfile: cache(async (token: string, lang: string = 'en'): Promise<UserProfileResult> => {
+  getUserProfile: cache(async (token: string, lang: string = 'en', bypassCache: boolean = false): Promise<UserProfileResult> => {
     if (!token) {
       return { userProfile: null, shouldLogout: false };
     }
 
     const safeLang = lang || 'en';
     const cacheKey = getAuthCacheKey(token, safeLang);
-    const cached = userProfileMemoryCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < AUTH_CACHE_TTL_MS) {
-      return cached.data;
+    if (!bypassCache) {
+      const cached = userProfileMemoryCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < AUTH_CACHE_TTL_MS) {
+        return cached.data;
+      }
     }
 
     const url = `${getUserApiUrl()}/user/my-profile?lang_code=${safeLang}&source=web`;
@@ -355,8 +380,9 @@ export const userService = {
 
   /**
    * Combined auth data fetching for Header with React cache deduplication and in-memory TTL caching.
+   * Supports bypassCache: true to force refreshing auth data.
    */
-  getAuthData: cache(async (token: string, lang: string = 'en'): Promise<AuthDataResult> => {
+  getAuthData: cache(async (token: string, lang: string = 'en', bypassCache: boolean = false): Promise<AuthDataResult> => {
     if (!token) {
       return {
         userProfile: null,
@@ -369,13 +395,15 @@ export const userService = {
 
     const safeLang = lang || 'en';
     const cacheKey = getAuthCacheKey(token, safeLang);
-    const cached = authDataMemoryCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < AUTH_CACHE_TTL_MS) {
-      return cached.data;
+    if (!bypassCache) {
+      const cached = authDataMemoryCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < AUTH_CACHE_TTL_MS) {
+        return cached.data;
+      }
     }
 
     const [profileRes, alertsData, notificationsData, aiPredictsData] = await Promise.all([
-      userService.getUserProfile(token, safeLang),
+      userService.getUserProfile(token, safeLang, bypassCache),
       userService.getUserAlerts(token, safeLang),
       userService.getUserNotifications(token, safeLang),
       userService.getUserAiPredicts(token, safeLang)
@@ -547,6 +575,9 @@ export const userService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    if (res.ok) {
+      invalidateUserAuthCache(token);
+    }
     return res;
   },
 

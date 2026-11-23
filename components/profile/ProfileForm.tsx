@@ -205,6 +205,83 @@ export default function ProfileForm({ categories = [], countries = [], lang = "e
     altEmail !== initialState.current.altEmail ||
     website !== initialState.current.website;
 
+  // Synchronize internal state whenever profileData prop changes (e.g., after router.refresh() completes)
+  useEffect(() => {
+    if (!profileData) return;
+
+    const newFullName = profileData?.first_name 
+      ? `${profileData.first_name} ${profileData.last_name || ''}`.trim() 
+      : (profileData?.name || "");
+    const newPhone = getE164Phone(profileData?.country_code, profileData?.mobile_no, profileData?.phone);
+    const newCompany = profileData?.company_name || profileData?.business_name || "";
+    const newAddress = profileData?.business_address || profileData?.address || "";
+    const newAltNumber = profileData?.alternate_mobile_no || profileData?.alternate_phone || "";
+    const newAltEmail = profileData?.other_email || profileData?.alternate_email || "";
+    const newWebsite = profileData?.website || "";
+
+    let newCountry = "AE";
+    if (profileData?.country?.iso2) {
+      newCountry = String(profileData.country.iso2).toUpperCase();
+    } else {
+      const dbCountryId = profileData?.country_id || profileData?.country?.id || profileData?.country;
+      if (dbCountryId && countries.length > 0) {
+        const matched = countries.find(c => 
+          c.id === dbCountryId || 
+          c.iso2?.toUpperCase() === (typeof dbCountryId === 'string' ? dbCountryId.toUpperCase() : '')
+        );
+        if (matched && matched.iso2) {
+          newCountry = matched.iso2.toUpperCase();
+        }
+      } else {
+        try {
+          if (profileData?.mobile_no || profileData?.phone) {
+            const { parsePhoneNumber } = require('react-phone-number-input');
+            const phoneStr = getE164Phone(profileData?.country_code, profileData?.mobile_no, profileData?.phone);
+            const parsed = parsePhoneNumber(phoneStr);
+            if (parsed && parsed.country) {
+              newCountry = parsed.country;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    const cats = profileData?.category || profileData?.categories || profileData?.user_category || profileData?.user_categories;
+    let newCats: string[] = [];
+    if (cats && Array.isArray(cats)) {
+      newCats = cats.map((c: any) => {
+        const val = typeof c === 'string' ? c : (c.category_id || c.id || c._id || c.name);
+        const matched = categoryOptions.find(opt => 
+          String(opt.id) === String(val) || 
+          opt.name?.toLowerCase() === (typeof c === 'string' ? c.toLowerCase() : c.name?.toLowerCase())
+        );
+        return matched ? String(matched.id) : (c.id || c.category_id || val);
+      }).filter(Boolean).map(String);
+    }
+
+    setFullName(newFullName);
+    setPhone(newPhone);
+    setCompanyName(newCompany);
+    setCountry(newCountry);
+    setSelectedCategories(newCats);
+    setBusinessAddress(newAddress);
+    setAltNumber(newAltNumber);
+    setAltEmail(newAltEmail);
+    setWebsite(newWebsite);
+
+    initialState.current = {
+      fullName: newFullName,
+      phone: newPhone,
+      companyName: newCompany,
+      country: newCountry,
+      selectedCategories: newCats,
+      businessAddress: newAddress,
+      altNumber: newAltNumber,
+      altEmail: newAltEmail,
+      website: newWebsite,
+    };
+  }, [profileData]);
+
 
 
   useEffect(() => {
