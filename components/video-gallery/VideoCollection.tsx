@@ -28,9 +28,12 @@ interface VideoCollectionProps {
 
 function getYoutubeId(url: string): string | null {
   if (!url) return null;
-  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/|live\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
-  const match = url.match(regExp);
-  return match ? match[1] : null;
+  const str = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+  const match = str.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|vi\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+  if (match) return match[1];
+  const generalMatch = str.match(/(?:[?&]v=|\/embed\/|\/shorts\/|\/vi\/|\/v\/|youtu\.be\/)([\w-]{11})/i);
+  return generalMatch ? generalMatch[1] : null;
 }
 
 function checkIsShort(url: string, videoType?: string): boolean {
@@ -46,10 +49,15 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
     const title = video.title
     const thumbnailPath = video.video_thumbnail || video.image
     const imageUrl = thumbnailPath?.startsWith('http') ? thumbnailPath : `${imageBaseUrl}${thumbnailPath}`
+    const rawVideoUrl = video.video_url || video.url || ''
+    const ytId = getYoutubeId(rawVideoUrl)
     
     return {
       type: 'custom-video',
       video,
+      ytId,
+      videoId: ytId,
+      videoUrl: rawVideoUrl,
       title,
       src: imageUrl
     }

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
+import YouTubeEmbedPlayer from '@/components/ui/YouTubeEmbedPlayer';
 
 interface YouTubeFacadeProps {
   videoId: string;
@@ -17,71 +18,6 @@ const DEFAULT_POSTERS: Record<string, string> = {
   'vi0fcb-IjLA': '/media/tutorial-thumbnail.jpg',
   'neEQrat8yuU': '/media/seller-tutorial-thumbnail.jpg',
 };
-
-function YouTubeEmbedPlayer({
-  videoId,
-  title,
-}: {
-  videoId: string;
-  title?: string;
-}) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    const sendPlay = () => {
-      try {
-        const cw = iframeRef.current?.contentWindow;
-        if (!cw) return;
-        cw.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
-        cw.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
-        cw.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
-      } catch {}
-    };
-
-    const handleMessage = (e: MessageEvent) => {
-      if (typeof e.data === 'string' && (e.data.includes('onReady') || e.data.includes('listening') || e.data.includes('initialDelivery'))) {
-        sendPlay();
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    const t1 = setTimeout(sendPlay, 300);
-    const t2 = setTimeout(sendPlay, 800);
-    const t3 = setTimeout(sendPlay, 1500);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [videoId]);
-
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1&controls=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
-
-  return (
-    <iframe
-      ref={iframeRef}
-      className="w-full h-full absolute inset-0 border-0 block bg-black"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#000000',
-        colorScheme: 'dark',
-        border: 0,
-        display: 'block',
-      }}
-      src={embedUrl}
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowFullScreen
-      title={title || "Video player"}
-    />
-  );
-}
 
 export default function YouTubeFacade({ videoId, title, className = '', poster }: YouTubeFacadeProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -130,10 +66,26 @@ export default function YouTubeFacade({ videoId, title, className = '', poster }
         role="button"
         tabIndex={0}
         aria-label={`Play video: ${title}`}
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          try {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioCtx) {
+              const ctx = new AudioCtx();
+              ctx.resume().catch(() => {});
+            }
+          } catch {}
+          setIsOpen(true);
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
+            try {
+              const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+              if (AudioCtx) {
+                const ctx = new AudioCtx();
+                ctx.resume().catch(() => {});
+              }
+            } catch {}
             setIsOpen(true);
           }
         }}

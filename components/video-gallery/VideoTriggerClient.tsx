@@ -5,6 +5,13 @@ import { useEffect, useState } from 'react'
 export function VideoTriggerClient({ index }: { index: number }) {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        ctx.resume().catch(() => {});
+      }
+    } catch {}
     const event = new CustomEvent('open-video-lightbox', { detail: { index } });
     window.dispatchEvent(event);
   }

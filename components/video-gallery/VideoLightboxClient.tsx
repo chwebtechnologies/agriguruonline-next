@@ -3,12 +3,16 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
+import YouTubeEmbedPlayer from '@/components/ui/YouTubeEmbedPlayer'
 
 function getYoutubeId(url: string): string | null {
   if (!url) return null;
-  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/|live\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
-  const match = url.match(regExp);
-  return match ? match[1] : null;
+  const str = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+  const match = str.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|vi\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+  if (match) return match[1];
+  const generalMatch = str.match(/(?:[?&]v=|\/embed\/|\/shorts\/|\/vi\/|\/v\/|youtu\.be\/)([\w-]{11})/i);
+  return generalMatch ? generalMatch[1] : null;
 }
 
 function checkIsShort(url: string, videoType?: string): boolean {
@@ -17,73 +21,6 @@ function checkIsShort(url: string, videoType?: string): boolean {
   }
   if (!url) return false;
   return /\/shorts\//i.test(url) || /[?&]type=shorts/i.test(url);
-}
-
-function YouTubeEmbedPlayer({
-  ytId,
-  title,
-  isShort = false,
-}: {
-  ytId: string;
-  title?: string;
-  isShort?: boolean;
-}) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    const sendPlay = () => {
-      try {
-        const cw = iframeRef.current?.contentWindow;
-        if (!cw) return;
-        cw.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
-        cw.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
-        cw.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
-      } catch {}
-    };
-
-    const handleMessage = (e: MessageEvent) => {
-      if (typeof e.data === 'string' && (e.data.includes('onReady') || e.data.includes('listening') || e.data.includes('initialDelivery'))) {
-        sendPlay();
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    const t1 = setTimeout(sendPlay, 300);
-    const t2 = setTimeout(sendPlay, 800);
-    const t3 = setTimeout(sendPlay, 1500);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [ytId]);
-
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const embedUrl = `https://www.youtube.com/embed/${ytId}?autoplay=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1&controls=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
-
-  return (
-    <iframe
-      ref={iframeRef}
-      className="w-full h-full absolute inset-0 border-0 block bg-black"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#000000',
-        colorScheme: 'dark',
-        border: 0,
-        display: 'block',
-      }}
-      src={embedUrl}
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowFullScreen
-      title={title || "Video player"}
-    />
-  );
 }
 
 export function VideoLightboxClient({ slides }: { slides: any[] }) {
@@ -148,10 +85,11 @@ export function VideoLightboxClient({ slides }: { slides: any[] }) {
           const customSlide = slide as any;
           if (customSlide.type === "custom-video") {
             const video = customSlide.video || {};
-            const url = video.video_url || video.url || customSlide.src || '';
-            const ytId = getYoutubeId(url);
+            const rawUrl = video.video_url || video.url || customSlide.videoUrl || '';
+            const ytId = customSlide.ytId || customSlide.videoId || getYoutubeId(rawUrl) || getYoutubeId(customSlide.src);
             const isYoutube = !!ytId;
-            const isShort = isYoutube && checkIsShort(`${video.video_url || ''} ${video.url || ''} ${url}`, video.video_type);
+            const isShort = isYoutube && checkIsShort(`${video.video_url || ''} ${video.url || ''} ${rawUrl}`, video.video_type);
+            const mediaUrl = rawUrl || customSlide.src || '';
 
             if (offset !== 0) {
               return (
@@ -205,7 +143,7 @@ export function VideoLightboxClient({ slides }: { slides: any[] }) {
                           backgroundColor: '#000000',
                           display: 'block',
                         }}
-                        src={url} 
+                        src={mediaUrl} 
                         controls 
                         autoPlay 
                         playsInline 
@@ -240,7 +178,7 @@ export function VideoLightboxClient({ slides }: { slides: any[] }) {
                           backgroundColor: '#000000',
                           display: 'block',
                         }}
-                        src={url} 
+                        src={mediaUrl} 
                         controls 
                         autoPlay 
                         playsInline 
