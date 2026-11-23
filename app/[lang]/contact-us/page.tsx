@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { PageHeader } from '@/components/ui/PageHeader'
 import ContactForm from './ContactForm'
-import WorldwideLocationsMap from './WorldwideLocationsMap'
 import { getDictionary } from '@/app/[lang]/dictionaries'
 
 import { getStandardMetadata, getSafeLanguage, getSiteUrl, serializeJsonLd } from '@/lib/seo'
@@ -159,9 +158,24 @@ async function ContactUsContent({ lang }: { lang: string }) {
           </div>
 
           {/* Global Footprint */}
-          <WorldwideLocationsMap
-            title={contactDict.locations_title || "We Operate in 7 Locations Worldwide Network."}
-          />
+          <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-xs flex-1 flex flex-col">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue shrink-0">
+                <i className="fa-solid fa-earth-americas text-lg"></i>
+              </div>
+              <h2 className="text-[15px] sm:text-[17px] font-bold text-foreground leading-tight">{contactDict.locations_title || "We Operate in 7 Locations Worldwide Network."}</h2>
+            </div>
+            
+            {/* Actual Interactive Map */}
+            <div className="w-full h-[280px] sm:h-[310px] rounded-xl overflow-hidden border border-border mt-0 shadow-xs bg-muted">
+              <iframe
+                src="/contact-map.html"
+                className="w-full h-full border-0 block"
+                title={contactDict.locations_title || "We Operate in 7 Locations Worldwide Network"}
+                loading="lazy"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Contact Form */}
