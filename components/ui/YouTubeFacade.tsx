@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Lightbox from 'yet-another-react-lightbox';
+import 'yet-another-react-lightbox/styles.css';
 
 interface YouTubeFacadeProps {
   videoId: string;
@@ -16,10 +18,89 @@ const DEFAULT_POSTERS: Record<string, string> = {
   'neEQrat8yuU': '/media/seller-tutorial-thumbnail.jpg',
 };
 
+function YouTubeEmbedPlayer({
+  videoId,
+  title,
+}: {
+  videoId: string;
+  title?: string;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const sendPlay = () => {
+      try {
+        const cw = iframeRef.current?.contentWindow;
+        if (!cw) return;
+        cw.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+      } catch {}
+    };
+
+    const handleMessage = (e: MessageEvent) => {
+      if (typeof e.data === 'string' && (e.data.includes('onReady') || e.data.includes('listening') || e.data.includes('initialDelivery'))) {
+        sendPlay();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    const t1 = setTimeout(sendPlay, 300);
+    const t2 = setTimeout(sendPlay, 800);
+    const t3 = setTimeout(sendPlay, 1500);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [videoId]);
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1&controls=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
+
+  return (
+    <iframe
+      ref={iframeRef}
+      className="w-full h-full absolute inset-0 border-0 block bg-black"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#000000',
+        colorScheme: 'dark',
+        border: 0,
+        display: 'block',
+      }}
+      src={embedUrl}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+      title={title || "Video player"}
+    />
+  );
+}
+
 export default function YouTubeFacade({ videoId, title, className = '', poster }: YouTubeFacadeProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+
+  // Toggle .video-lightbox-active on <html> and <body> to disable CSS zoom while modal is active.
+  // This guarantees 100% full-width and eliminates WebKit iframe scaling/cut-off bugs on mobile.
+  useEffect(() => {
+    if (isOpen) {
+      document.documentElement.classList.add('video-lightbox-active');
+      document.body.classList.add('video-lightbox-active');
+    } else {
+      document.documentElement.classList.remove('video-lightbox-active');
+      document.body.classList.remove('video-lightbox-active');
+    }
+    return () => {
+      document.documentElement.classList.remove('video-lightbox-active');
+      document.body.classList.remove('video-lightbox-active');
+    };
+  }, [isOpen]);
 
   const localPoster = poster || DEFAULT_POSTERS[videoId];
 
@@ -33,21 +114,6 @@ export default function YouTubeFacade({ videoId, title, className = '', poster }
     `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
   ];
 
-  if (isPlaying) {
-    return (
-      <div className={`relative aspect-video rounded-xl overflow-hidden shadow-lg border border-border ${className}`}>
-        <iframe
-          className="absolute inset-0 w-full h-full"
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
-          title={title}
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
   const handleThumbError = () => {
     if (attempt + 1 < candidates.length) {
       setAttempt(prev => prev + 1);
@@ -57,56 +123,106 @@ export default function YouTubeFacade({ videoId, title, className = '', poster }
   };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Play video: ${title}`}
-      onClick={() => setIsPlaying(true)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          setIsPlaying(true);
-        }
-      }}
-      className={`relative aspect-video rounded-xl overflow-hidden shadow-lg border border-border bg-card group cursor-pointer select-none ${className}`}
-    >
-      {/* Video Poster Image */}
-      {!hasError ? (
-        <Image
-          key={`thumb-${attempt}-${candidates[attempt]}`}
-          src={candidates[attempt]}
-          alt={title}
-          fill
-          unoptimized
-          priority
-          referrerPolicy="no-referrer"
-          onError={handleThumbError}
-          className="object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
-          sizes="(max-width: 768px) 100vw, 50vw"
-        />
-      ) : (
-        /* Fallback branded card if external YouTube CDN is blocked or unreachable */
-        <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 flex flex-col items-center justify-center p-4 text-center">
-          <div className="w-12 h-12 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center mb-2">
-            <i className="fa-brands fa-youtube text-2xl text-red-500"></i>
+    <>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`Play video: ${title}`}
+        onClick={() => setIsOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsOpen(true);
+          }
+        }}
+        className={`relative aspect-video rounded-xl overflow-hidden shadow-lg border border-border bg-card group cursor-pointer select-none ${className}`}
+      >
+        {/* Video Poster Image */}
+        {!hasError ? (
+          <Image
+            key={`thumb-${attempt}-${candidates[attempt]}`}
+            src={candidates[attempt]}
+            alt={title}
+            fill
+            unoptimized
+            priority
+            referrerPolicy="no-referrer"
+            onError={handleThumbError}
+            className="object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+            sizes="(max-width: 768px) 100vw, 50vw"
+          />
+        ) : (
+          /* Fallback branded card if external YouTube CDN is blocked or unreachable */
+          <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 flex flex-col items-center justify-center p-4 text-center">
+            <div className="w-12 h-12 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center mb-2">
+              <i className="fa-brands fa-youtube text-2xl text-red-500"></i>
+            </div>
+            <span className="text-xs sm:text-sm font-semibold text-white/90 line-clamp-2 max-w-[80%]">
+              {title}
+            </span>
           </div>
-          <span className="text-xs sm:text-sm font-semibold text-white/90 line-clamp-2 max-w-[80%]">
-            {title}
-          </span>
-        </div>
-      )}
+        )}
 
-      {/* Subtle Dark Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
+        {/* Subtle Dark Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
 
-      {/* Custom YouTube-style Play Button */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-16 h-11 sm:w-18 sm:h-12 bg-red-600 group-hover:bg-red-700 transition-colors duration-200 rounded-2xl flex items-center justify-center shadow-2xl group-hover:scale-110 transform transition-transform">
-          <svg className="w-6 h-6 text-white translate-x-0.5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
-          </svg>
+        {/* Custom YouTube-style Play Button */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-16 h-11 sm:w-18 sm:h-12 bg-red-600 group-hover:bg-red-700 transition-colors duration-200 rounded-2xl flex items-center justify-center shadow-2xl group-hover:scale-110 transform transition-transform">
+            <svg className="w-6 h-6 text-white translate-x-0.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Full-width Video Lightbox Modal (Identical to Video Gallery) */}
+      {isOpen && (
+        <Lightbox
+          open={true}
+          close={() => setIsOpen(false)}
+          slides={[{
+            type: 'custom-video',
+            videoId,
+            title,
+          }] as any}
+          index={0}
+          carousel={{ finite: true, padding: 0 }}
+          controller={{ closeOnBackdropClick: true }}
+          portal={{ container: { className: "video-lightbox-portal" } }}
+          className="video-lightbox-portal"
+          styles={{
+            container: {
+              backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            },
+            slide: {
+              padding: 0,
+              backgroundColor: 'transparent',
+            },
+          }}
+          render={{
+            buttonPrev: () => null,
+            buttonNext: () => null,
+            slide: () => (
+              <div className="w-full h-full flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden">
+                <div 
+                  className="relative w-full max-w-5xl aspect-video max-h-[calc(100vh-100px)] rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl bg-black border border-white/10"
+                  style={{ backgroundColor: '#000000' }}
+                >
+                  <YouTubeEmbedPlayer videoId={videoId} title={title} />
+                </div>
+              </div>
+            ),
+            controls: () => (
+              <div className="absolute top-2 sm:top-4 left-0 right-0 flex justify-center pointer-events-none z-[1000] pl-4 pr-14 sm:px-16">
+                <h3 className="text-white text-xs sm:text-base md:text-lg font-semibold truncate drop-shadow-md max-w-xl text-center px-2">
+                  {title}
+                </h3>
+              </div>
+            )
+          }}
+        />
+      )}
+    </>
   );
 }

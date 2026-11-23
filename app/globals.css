@@ -768,6 +768,49 @@ a, button, input, select, textarea, label, [role="button"] {
 }
 
 /* ==========================================================================
+   Video Lightbox / Modal Scale Normalizer
+   Disables CSS zoom on html while video lightbox or modal is open.
+   Guarantees 100% full-width and prevents WebKit cross-origin iframe scaling
+   bugs (which cut off video and leave white gaps on right/bottom) across all
+   screen sizes, text zoom settings, and device accessibility modes.
+   ========================================================================== */
+html.video-lightbox-active,
+body.video-lightbox-active,
+html:has(.video-lightbox-portal),
+html:has(.yarl__portal_open) {
+  zoom: 1 !important;
+}
+
+.video-lightbox-portal.yarl__portal,
+.video-lightbox-portal .yarl__container {
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  color-scheme: dark !important;
+}
+.video-lightbox-portal .yarl__carousel,
+.video-lightbox-portal .yarl__slide {
+  background-color: transparent !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.video-lightbox-portal iframe {
+  background-color: #000000 !important;
+  color-scheme: dark !important;
+  border: 0 !important;
+}
+.video-lightbox-portal .yarl__button {
+  color: #fff !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8)) !important;
+}
+@media (max-width: 768px) {
+  .video-lightbox-portal .yarl__navigation_prev,
+  .video-lightbox-portal .yarl__navigation_next {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
    Table Row Striping & Hover Utility Classes (100% Solid & Opaque)
    Guarantees sticky columns remain completely opaque on hover and scroll.
    ========================================================================== */

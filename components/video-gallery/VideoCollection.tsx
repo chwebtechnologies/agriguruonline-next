@@ -100,7 +100,7 @@ export default function VideoCollection({ videos, imageBaseUrl, dict = {} }: Omi
 
               <div className="px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col flex-1 justify-between pointer-events-none">
                 <div>
-                  <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug h-[44px] sm:h-[52px] flex items-center tracking-tight">
+                  <h2 className="text-[16px] sm:text-[19px] font-bold text-foreground mb-1 leading-snug min-h-[44px] sm:min-h-[52px] h-auto flex items-center tracking-tight">
                     <span className="hover:text-brand-blue transition-colors text-left line-clamp-2 break-words w-full">
                       {title}
                     </span>
