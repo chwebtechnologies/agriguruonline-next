@@ -7637,7 +7637,6 @@ export function DocumentDraftWorkspace({
                 const contractDocId = validEffectiveId || (canonicalContractId && canonicalContractId !== confId ? canonicalContractId : undefined);
                 const res = await submitContractAction(formData, lang, contractDocId);
                 if (res?.success) {
-                  setContractVersion((v) => v + 1);
                   const returnedContractId =
                     res.contract_id ||
                     (res.id && res.id !== res.proforma_id ? res.id : null) ||
@@ -8030,7 +8029,6 @@ export function DocumentDraftWorkspace({
 
                 const res = await submitProformaAction(formData, lang, validEffectiveId);
                 if (res?.success) {
-                  setProformaVersion((v) => v + 1);
                   const newId = res.id || res.data?.id || res.data?.proforma_id || res.data?.proforma_invoice_id;
                   if (newId) {
                     setSteps((prevSteps) =>
@@ -8238,7 +8236,6 @@ export function DocumentDraftWorkspace({
                     id: cleanSavedId,
                     shipment_instruction_id: cleanSavedId,
                   }));
-                  setShipmentVersion((v) => v + 1);
                   // Update stepper item for shipment instruction so checkmark and redirect_id reflect the saved document
                   setSteps((prevSteps) =>
                     prevSteps.map((s) =>
@@ -8358,7 +8355,6 @@ export function DocumentDraftWorkspace({
                       id: cleanNewId,
                       shipment_instruction_id: cleanNewId,
                     }));
-                    setShipmentVersion((v) => v + 1);
                     setPinnedWorkflowAnchorId(cleanNewId);
                     setPinnedWorkflowAnchorType('document');
                     if (typeof window !== 'undefined') {
@@ -8464,7 +8460,6 @@ export function DocumentDraftWorkspace({
                     shipment_status: 'COMPLETED',
                     ...(newId ? { id: String(newId), shipment_instruction_id: String(newId) } : {}),
                   }));
-                  setShipmentVersion((v) => v + 1);
 
                   const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
                   const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
@@ -9262,7 +9257,6 @@ export function DocumentDraftWorkspace({
                     document_status: 'COMPLETED',
                     ...(newId ? { id: String(newId), custom_invoice_id: String(newId) } : {}),
                   }));
-                  setCustomInvoiceVersion((v) => v + 1);
 
                   const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
                   const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
@@ -9506,7 +9500,6 @@ export function DocumentDraftWorkspace({
                     document_status: 'COMPLETED',
                     ...(newId ? { id: String(newId), commercial_invoice_id: String(newId) } : {}),
                   }));
-                  setCommercialInvoiceVersion((v) => v + 1);
 
                   const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
                   const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
@@ -9765,7 +9758,6 @@ export function DocumentDraftWorkspace({
                     document_status: 'COMPLETED',
                     ...(newId ? { id: String(newId), packing_list_id: String(newId) } : {}),
                   }));
-                  setPackingListVersion((v) => v + 1);
 
                   const nextDoc = (res as any)?.next_doc || res?.data?.next_doc || res?.data?.data?.next_doc;
                   const nextDocId = nextDoc?.id ? String(nextDoc.id) : '';
@@ -10007,7 +9999,6 @@ export function DocumentDraftWorkspace({
                     document_status: 'COMPLETED',
                     ...(newId ? { id: String(newId), phyto_certificate_id: String(newId) } : {}),
                   }));
-                  setPhytoCertificateVersion((v) => v + 1);
 
                   let targetList = steps;
                   try {
@@ -10233,7 +10224,6 @@ export function DocumentDraftWorkspace({
                     document_status: 'COMPLETED',
                     ...(newId ? { id: String(newId), fumigation_certificate_id: String(newId) } : {}),
                   }));
-                  setFumigationCertificateVersion((v) => v + 1);
 
                   let targetList = steps;
                   try {
@@ -10474,7 +10464,6 @@ export function DocumentDraftWorkspace({
                   }
                   if (freshData) {
                     setCertificateOfOriginData(freshData);
-                    setCertificateOfOriginVersion((v) => v + 1);
                   }
 
                   let targetList = steps;
@@ -10742,7 +10731,6 @@ export function DocumentDraftWorkspace({
                   }
                   if (freshData) {
                     setWqCertificateData(freshData);
-                    setWqCertificateVersion((v) => v + 1);
                   }
 
                   let targetList = steps;

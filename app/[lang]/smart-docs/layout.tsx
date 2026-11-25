@@ -8,6 +8,7 @@ import { getClientAuthData } from '@/app/actions/authData';
 import { SmartDocsHeader } from '@/components/smart-docs/SmartDocsHeader';
 import { SmartDocsFooter } from '@/components/smart-docs/SmartDocsFooter';
 import { getValidAuthToken } from '@/lib/auth-token';
+import { withTimeout } from '@/lib/api-utils';
 
 export async function generateMetadata(props: {
   params: Promise<{ lang: string }>;
@@ -45,9 +46,44 @@ export default async function SmartDocsLayout({
     redirect(`/${activeLang}/login?redirectUrl=/${activeLang}/smart-docs`);
   }
 
+  // Fast, instant cookie-based user profile lookup (0ms, non-blocking)
+  const cookieStore = await cookies();
+  let userProfile: any = null;
+  try {
+    const userInfoStr = cookieStore.get('user_info')?.value;
+    if (userInfoStr) {
+      userProfile = JSON.parse(userInfoStr);
+    }
+  } catch {}
+
+  // Dictionary is loaded locally in memory (0ms)
+  // If userProfile exists from cookie, resolve authState immediately to avoid blocking layout stream
   const [rawDict, authState] = await Promise.all([
     getDictionary(activeLang).catch(() => ({})),
-    getClientAuthData(activeLang).catch(() => ({ isAuthenticated: false })),
+    userProfile
+      ? Promise.resolve({
+          isAuthenticated: true,
+          token,
+          userProfile,
+          alertsData: [],
+          notificationsData: [],
+          aiPredictsData: [],
+        })
+      : withTimeout(getClientAuthData(activeLang), 350, {
+          isAuthenticated: true,
+          token,
+          userProfile: null,
+          alertsData: [],
+          notificationsData: [],
+          aiPredictsData: [],
+        }).catch(() => ({
+          isAuthenticated: true,
+          token,
+          userProfile: null,
+          alertsData: [],
+          notificationsData: [],
+          aiPredictsData: [],
+        })),
   ]);
 
   const defaultNav = {

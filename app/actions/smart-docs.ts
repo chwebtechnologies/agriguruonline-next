@@ -1187,7 +1187,6 @@ export async function saveConfirmationDraftAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -1699,7 +1698,6 @@ export async function saveContractDraftAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -2186,7 +2184,6 @@ export async function submitContractAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -2606,7 +2603,6 @@ export async function saveProformaDraftAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -2939,7 +2935,6 @@ export async function submitProformaAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -3352,7 +3347,6 @@ export async function saveShipmentInstructionDraftAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -3690,7 +3684,6 @@ export async function submitShipmentInstructionAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -4069,7 +4062,6 @@ export async function saveCustomInvoiceDraftAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -4385,7 +4377,6 @@ export async function submitCustomInvoiceAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -4739,7 +4730,6 @@ export async function saveBillOfLadingDraftAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -5034,7 +5024,6 @@ export async function submitBillOfLadingAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -5224,7 +5213,6 @@ export async function submitConfirmationAction(
 
     if (isSuccess) {
       try {
-        revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
         revalidatePath(`/${safeLang}/smart-docs`, "page");
       } catch {}
 
@@ -5624,7 +5612,6 @@ export async function submitCommercialInvoiceAction(
     );
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
       revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {}
 
@@ -5957,7 +5944,6 @@ export async function submitPackingListAction(
       id;
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
       revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {}
 
@@ -6285,7 +6271,6 @@ export async function submitPhytoCertificateAction(
       id;
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
       revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {}
 
@@ -6498,7 +6483,6 @@ export async function saveFumigationCertificateDraftAction(
       id;
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
       revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {}
 
@@ -6636,7 +6620,6 @@ export async function submitFumigationCertificateAction(
       id;
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
       revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {}
 
@@ -6845,7 +6828,7 @@ export async function saveCertificateOfOriginDraftAction(
       id;
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {
       // ignore
     }
@@ -6980,7 +6963,7 @@ export async function submitCertificateOfOriginAction(
       id;
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {
       // ignore
     }
@@ -7170,8 +7153,7 @@ export async function saveWqCertificateDraftAction(
     );
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs`);
-      revalidatePath(`/${safeLang}/smart-docs/draft`);
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {
       // ignore
     }
@@ -7299,8 +7281,7 @@ export async function submitWqCertificateAction(
     );
 
     try {
-      revalidatePath(`/${safeLang}/smart-docs`);
-      revalidatePath(`/${safeLang}/smart-docs/draft`);
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
     } catch {
       // ignore
     }

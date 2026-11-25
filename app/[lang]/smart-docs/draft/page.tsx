@@ -229,6 +229,35 @@ export default async function SmartDocsDraftPage(props: {
     initialStepParam === 'phyto_certificate' ||
     initialStepParam === 'phyto' ||
     initialStepParam === '9';
+  const isFumigationCertificateRequested =
+    initialStepParam === 'fumigation-certificate' ||
+    initialStepParam === 'fumigation_certificate' ||
+    initialStepParam === 'fumigation' ||
+    initialStepParam === '10';
+  const isCertificateOfOriginRequested =
+    initialStepParam === 'certificate-of-origin' ||
+    initialStepParam === 'certificate_of_origin' ||
+    initialStepParam === 'origin' ||
+    initialStepParam === 'origin-certificate' ||
+    initialStepParam === '11';
+  const isWqCertificateRequested =
+    initialStepParam === 'wq-certificate' ||
+    initialStepParam === 'wq_certificate' ||
+    initialStepParam === 'wq' ||
+    initialStepParam === '12';
+
+  const isContractMode =
+    isContractRequested ||
+    isProformaRequested ||
+    isShipmentRequested ||
+    isBillOfLadingRequested ||
+    isCustomInvoiceRequested ||
+    isCommercialInvoiceRequested ||
+    isPackingListRequested ||
+    isPhytoCertificateRequested ||
+    isFumigationCertificateRequested ||
+    isCertificateOfOriginRequested ||
+    isWqCertificateRequested;
 
   // Secure token verification at top page level BEFORE Suspense boundary
   const token = await getValidAuthToken();
@@ -245,11 +274,7 @@ export default async function SmartDocsDraftPage(props: {
     <Suspense
       fallback={
         <DocumentDraftSkeleton
-          mode={
-            isPhytoCertificateRequested || isPackingListRequested || isCommercialInvoiceRequested || isCustomInvoiceRequested || isBillOfLadingRequested || isShipmentRequested || isProformaRequested || isContractRequested
-              ? 'contract'
-              : 'confirmation'
-          }
+          mode={isContractMode ? 'contract' : 'confirmation'}
         />
       }
     >
@@ -1323,7 +1348,7 @@ async function DraftPageDataLoader({
           <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
             {/* SaaS Single Page Workspace (Fluid on mobile, locked on desktop) */}
             <DocumentDraftWorkspace
-              key={`${draftId || effectiveDraftId || 'draft'}-${effectiveStepParam || 'default'}`}
+              key="smart-docs-workspace"
               lang={lang}
               dict={dict}
               initialSteps={initialSteps && initialSteps.length > 0 ? initialSteps : DEFAULT_WORKFLOW_STEPPER_ITEMS}
@@ -1366,7 +1391,7 @@ async function DraftPageDataLoader({
         <div className="w-full pad-for-badges flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
           <div className="max-w-7xl w-full mx-auto pt-0 sm:pt-0 pb-1 sm:pb-1.5 lg:pb-2 flex-1 flex flex-col min-h-fit lg:min-h-0 lg:h-full">
             <DocumentDraftWorkspace
-              key={`${draftId || 'draft'}-${initialStepParam || 'default'}`}
+              key="smart-docs-workspace"
               lang={lang}
               dict={safeDict}
               initialSteps={DEFAULT_WORKFLOW_STEPPER_ITEMS}
