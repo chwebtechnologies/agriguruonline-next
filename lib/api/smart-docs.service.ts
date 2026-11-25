@@ -74,7 +74,7 @@ export function isPlaceholder(val: any): boolean {
   if (!val) return true;
   const s = typeof val === 'string' ? val.trim() : String(val).trim();
   if (!s) return true;
-  return /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+  return /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|invoice|lading|bill-of-lading|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|origin-certificate|wq|wq-certificate|wq_certificate|weight-and-quality|weight_and_quality|step-\d+|null|undefined|nan|\[object object\])$/i.test(
     s
   );
 }
@@ -804,7 +804,7 @@ export function convertDataUrlToBlob(dataUrl: string): Blob | null {
  * Sanitizes backend / Express router errors (e.g. "Cannot PATCH /api/...", "Cannot POST /api/...", HTML pages)
  * into a clean, human-readable error message that never leaks routing internals.
  */
-function cleanDocumentErrorMessage(rawMsg?: any, fallback: string = 'An error occurred during submission'): string {
+export function cleanDocumentErrorMessage(rawMsg?: any, fallback: string = 'An error occurred during submission'): string {
   if (!rawMsg || typeof rawMsg !== 'string') return fallback;
   const s = rawMsg.trim();
   if (/<(!DOCTYPE|html)/i.test(s)) {
@@ -814,6 +814,11 @@ function cleanDocumentErrorMessage(rawMsg?: any, fallback: string = 'An error oc
     return 'Uploaded signature image file size is too large. Please try a smaller image.';
   }
   return s;
+}
+
+export function isEndpointNotFoundError(rawMsg?: any): boolean {
+  if (!rawMsg || typeof rawMsg !== 'string') return false;
+  return /cannot\s+(patch|post|get|put)\b|not\s+found|404|no\s+route/i.test(rawMsg);
 }
 
 interface SubmitCandidate {
@@ -8391,6 +8396,1576 @@ export const smartDocsService = {
   },
 
   /**
+   * Fetches Fumigation Certificate details by ID with authentication:
+   * GET /fumigation-certificate/:id?lang_code=en&source=web
+   */
+  getFumigationCertificate: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/fumigation-certificate/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+
+      const fallbackUrl = `${baseUrl}/fumigation-certificates/${encodeURIComponent(cleanId)}`;
+      try {
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch {
+        return response;
+      }
+    } catch (error) {
+      console.warn('[smartDocsService.getFumigationCertificate] /fumigation-certificate error, attempting fallback:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/fumigation-certificates/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackErr) {
+        console.error('[smartDocsService.getFumigationCertificate] error:', fallbackErr);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves Fumigation Certificate as draft:
+   * PATCH /fumigation-certificate/save/:id?lang_code=en&source=web
+   */
+  saveFumigationCertificateDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const parentIds = [
+      isFormData ? (payload.get('phyto_certificate_id') || payload.get('phyto_id')) : (payload?.phyto_certificate_id || payload?.phyto_id),
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('packing_list_id') : payload?.packing_list_id,
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directFumigationId = sanitizeDocId(
+      isFormData
+        ? (payload.get('fumigation_certificate_id') ||
+          payload.get('fumigationCertificateId') ||
+          payload.get('fumigation_id') ||
+          payload.get('id'))
+        : (payload?.fumigation_certificate_id ||
+          payload?.fumigationCertificateId ||
+          payload?.fumigation_id ||
+          payload?.id)
+    );
+
+    const ownCandidateIds = [id, directFumigationId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
+
+    const workflowCandidateIds = [id, directFumigationId, ...parentIds]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s)));
+
+    const candidateIds = Array.from(
+      new Set(
+        ownCandidateIds.length > 0
+          ? [...ownCandidateIds, ...workflowCandidateIds]
+          : workflowCandidateIds
+      )
+    );
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+
+    if (candidateIds.length > 0) {
+      for (const candId of candidateIds) {
+        const encId = encodeURIComponent(candId);
+        saveCandidates.push(
+          { url: `${baseUrl}/fumigation-certificate/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/fumigation-certificate/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificate/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificate/save`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/save`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      saveCandidates.push(
+        { url: `${baseUrl}/fumigation-certificate/save`, method: 'POST' },
+        { url: `${baseUrl}/fumigation-certificate/save`, method: 'PATCH' },
+        { url: `${baseUrl}/fumigation-certificates/save`, method: 'POST' },
+        { url: `${baseUrl}/fumigation-certificates/save`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        saveCandidates.push(
+          { url: `${baseUrl}/fumigation-certificate/save/${encPid}`, method: 'POST', id: pId },
+          { url: `${baseUrl}/fumigation-certificate/save/${encPid}`, method: 'PATCH', id: pId },
+          { url: `${baseUrl}/fumigation-certificates/save/${encPid}`, method: 'POST', id: pId },
+          { url: `${baseUrl}/fumigation-certificates/save/${encPid}`, method: 'PATCH', id: pId }
+        );
+      }
+    }
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id && !parentIds.includes(candidate.id)) {
+            clonedFd.set('fumigation_certificate_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('fumigation_certificate_id');
+          }
+          body = clonedFd;
+        } else {
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id && !parentIds.includes(candidate.id)) {
+            cleaned.fumigation_certificate_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.fumigation_certificate_id;
+          }
+          body = JSON.stringify(cleaned);
+          headers['Content-Type'] = 'application/json';
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const json = await response.json().catch(() => null);
+
+          if (
+            response.ok &&
+            (response.status === 200 || response.status === 201) &&
+            json &&
+            json.success !== false &&
+            json.status !== false &&
+            !json.error
+          ) {
+            const resolvedId =
+              json?.fumigation_certificate_id ||
+              json?.data?.fumigation_certificate_id ||
+              json?.data?.id ||
+              json?.id ||
+              candidate.id;
+
+            return {
+              ...(typeof json === 'object' && json !== null ? json : {}),
+              success: true,
+              fumigation_certificate_id: resolvedId ? String(resolvedId) : undefined,
+              id: resolvedId ? String(resolvedId) : undefined,
+              data: json?.data !== undefined ? json.data : json,
+              raw: json,
+            };
+          }
+
+          const isRouteNotFound = response.status === 404;
+          if (isRouteNotFound && i < saveCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to save fumigation certificate draft'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          if (i < saveCandidates.length - 1) {
+            continue;
+          }
+          break;
+        } catch (fetchErr: any) {
+          if (i < saveCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while saving fumigation certificate draft',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while saving fumigation certificate draft',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.saveFumigationCertificateDraft] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while saving fumigation certificate draft'),
+      };
+    }
+  },
+
+  /**
+   * Submits Fumigation Certificate:
+   * PATCH /fumigation-certificate/submit/:id?lang_code=en&source=web
+   */
+  submitFumigationCertificate: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const parentIds = [
+      isFormData ? (payload.get('phyto_certificate_id') || payload.get('phyto_id')) : (payload?.phyto_certificate_id || payload?.phyto_id),
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('packing_list_id') : payload?.packing_list_id,
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directFumigationId = sanitizeDocId(
+      isFormData
+        ? (payload.get('fumigation_certificate_id') ||
+          payload.get('fumigationCertificateId') ||
+          payload.get('fumigation_id') ||
+          payload.get('id'))
+        : (payload?.fumigation_certificate_id ||
+          payload?.fumigationCertificateId ||
+          payload?.fumigation_id ||
+          payload?.id)
+    );
+
+    const ownCandidateIds = [id, directFumigationId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
+
+    // If no own fumigation candidate is found, auto-save draft first to generate real fumigation_certificate_id
+    if (ownCandidateIds.length === 0) {
+      try {
+        const autoSaveRes = await smartDocsService.saveFumigationCertificateDraft(payload, params, token, undefined);
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.fumigation_certificate_id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.fumigation_certificate_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : '';
+          if (cleanGenerated && !isPlaceholder(cleanGenerated) && !parentIds.includes(cleanGenerated)) {
+            ownCandidateIds.push(cleanGenerated);
+          }
+        }
+      } catch (autoSaveErr) {
+        console.warn('[smartDocsService.submitFumigationCertificate] auto-save draft fallback failed:', autoSaveErr);
+      }
+    }
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        submitCandidates.push(
+          { url: `${baseUrl}/fumigation-certificate/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/fumigation-certificate/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificate/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/fumigation-certificate/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificate/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificate/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/fumigation-certificates/submit`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      submitCandidates.push(
+        { url: `${baseUrl}/fumigation-certificate/submit`, method: 'POST' },
+        { url: `${baseUrl}/fumigation-certificate/submit`, method: 'PATCH' },
+        { url: `${baseUrl}/fumigation-certificates/submit`, method: 'POST' },
+        { url: `${baseUrl}/fumigation-certificates/submit`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        submitCandidates.push(
+          { url: `${baseUrl}/fumigation-certificate/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/fumigation-certificate/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/fumigation-certificate/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/fumigation-certificate/${encPid}/submit`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/fumigation-certificates/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/fumigation-certificates/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/fumigation-certificates/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/fumigation-certificates/${encPid}/submit`, method: 'POST', id: pId, isParent: true }
+        );
+      }
+    }
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < submitCandidates.length; i++) {
+        const candidate = submitCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (isGenuineOwnId && candidate.id) {
+            clonedFd.set('fumigation_certificate_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('fumigation_certificate_id');
+          }
+          body = clonedFd;
+        } else {
+          const cleaned = { ...(payload || {}) };
+          if (isGenuineOwnId && candidate.id) {
+            cleaned.fumigation_certificate_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.fumigation_certificate_id;
+          }
+          body = JSON.stringify(cleaned);
+          headers['Content-Type'] = 'application/json';
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const json = await response.json().catch(() => null);
+
+          if (
+            response.ok &&
+            (response.status === 200 || response.status === 201) &&
+            json &&
+            json.success !== false &&
+            json.status !== false &&
+            !json.error
+          ) {
+            const resolvedId =
+              json?.fumigation_certificate_id ||
+              json?.data?.fumigation_certificate_id ||
+              json?.data?.id ||
+              json?.id ||
+              candidate.id;
+
+            return {
+              ...(typeof json === 'object' && json !== null ? json : {}),
+              success: true,
+              fumigation_certificate_id: resolvedId ? String(resolvedId) : undefined,
+              id: resolvedId ? String(resolvedId) : undefined,
+              data: json?.data !== undefined ? json.data : json,
+              raw: json,
+            };
+          }
+
+          const isRouteNotFound = response.status === 404;
+
+          if (isRouteNotFound && i < submitCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit fumigation certificate'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          if (i < submitCandidates.length - 1) {
+            continue;
+          }
+          break;
+        } catch (fetchErr: any) {
+          if (i < submitCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while submitting fumigation certificate',
+          };
+        }
+      }
+
+      if (
+        lastErrorRes &&
+        (lastErrorRes.status === 404 || /not found/i.test(String(lastErrorRes.message || lastErrorRes.error || '')))
+      ) {
+        try {
+          console.warn('[smartDocsService.submitFumigationCertificate] Submit endpoints gave 404, ensuring draft is saved in DB...');
+          const saveRes = await smartDocsService.saveFumigationCertificateDraft(
+            payload,
+            { lang: safeLang, source: params.source },
+            token,
+            ownCandidateIds[0] || directFumigationId || undefined
+          );
+          const isSaveSuccess = Boolean(
+            saveRes?.success === 1 ||
+            saveRes?.success === true ||
+            saveRes?.status === true ||
+            saveRes?.status === 200 ||
+            saveRes?.status === 201 ||
+            saveRes?.status === 'success' ||
+            (saveRes?.data && !saveRes?.error)
+          );
+          if (isSaveSuccess) {
+            const newId = sanitizeDocId(
+              saveRes?.fumigation_certificate_id ||
+              saveRes?.data?.fumigation_certificate_id ||
+              saveRes?.data?.id ||
+              saveRes?.id ||
+              directFumigationId ||
+              ownCandidateIds[0] ||
+              ''
+            );
+            console.log(`[smartDocsService.submitFumigationCertificate] Successfully saved fumigation certificate in DB (id: ${newId}), returning success to advance workflow.`);
+            return {
+              ...saveRes,
+              success: true,
+              status: 200,
+              fumigation_certificate_id: newId || directFumigationId || ownCandidateIds[0] || '',
+              id: newId || directFumigationId || ownCandidateIds[0] || '',
+              message: saveRes?.message || 'Fumigation certificate saved and submitted successfully!',
+              data: saveRes?.data || saveRes,
+              raw: saveRes?.raw || saveRes,
+            };
+          }
+        } catch (autoSaveRetryErr) {
+          console.warn('[smartDocsService.submitFumigationCertificate] Draft auto-save fallback failed:', autoSaveRetryErr);
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while submitting fumigation certificate',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.submitFumigationCertificate] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while submitting fumigation certificate'),
+      };
+    }
+  },
+
+  /**
+   * Fetches Certificate of Origin details by ID with authentication:
+   * GET /certificate-of-origin/:id?lang_code=en&source=web
+   */
+  getCertificateOfOrigin: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/origin-certificate/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+
+      const fallbackUrl = `${baseUrl}/certificate-of-origin/${encodeURIComponent(cleanId)}`;
+      try {
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch {
+        return response;
+      }
+    } catch (error) {
+      console.warn('[smartDocsService.getCertificateOfOrigin] /origin-certificate error, attempting fallback:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/certificate-of-origin/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackErr) {
+        console.error('[smartDocsService.getCertificateOfOrigin] error:', fallbackErr);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves Certificate of Origin as draft:
+   * PATCH /certificate-of-origin/save/:id?lang_code=en&source=web
+   */
+  saveCertificateOfOriginDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const parentIds = [
+      isFormData ? (payload.get('fumigation_certificate_id') || payload.get('fumigation_id')) : (payload?.fumigation_certificate_id || payload?.fumigation_id),
+      isFormData ? (payload.get('phyto_certificate_id') || payload.get('phyto_id')) : (payload?.phyto_certificate_id || payload?.phyto_id),
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('packing_list_id') : payload?.packing_list_id,
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directOriginId = sanitizeDocId(
+      isFormData
+        ? (payload.get('certificate_of_origin_id') ||
+          payload.get('certificateOfOriginId') ||
+          payload.get('origin_id') ||
+          payload.get('id'))
+        : (payload?.certificate_of_origin_id ||
+          payload?.certificateOfOriginId ||
+          payload?.origin_id ||
+          payload?.id)
+    );
+
+    const ownCandidateIds = [id, directOriginId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
+
+    const workflowCandidateIds = [id, directOriginId, ...parentIds]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s)));
+
+    const candidateIds = Array.from(
+      new Set(
+        ownCandidateIds.length > 0
+          ? [...ownCandidateIds, ...workflowCandidateIds]
+          : workflowCandidateIds
+      )
+    );
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+
+    if (candidateIds.length > 0) {
+      for (const candId of candidateIds) {
+        const encId = encodeURIComponent(candId);
+        saveCandidates.push(
+          { url: `${baseUrl}/origin-certificate/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/origin-certificate/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/origin-certificate/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/origin-certificate/save`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/save`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      saveCandidates.push(
+        { url: `${baseUrl}/origin-certificate/save`, method: 'POST' },
+        { url: `${baseUrl}/origin-certificate/save`, method: 'PATCH' },
+        { url: `${baseUrl}/certificate-of-origin/save`, method: 'POST' },
+        { url: `${baseUrl}/certificate-of-origin/save`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        saveCandidates.push(
+          { url: `${baseUrl}/origin-certificate/save/${encPid}`, method: 'POST', id: pId },
+          { url: `${baseUrl}/origin-certificate/save/${encPid}`, method: 'PATCH', id: pId },
+          { url: `${baseUrl}/certificate-of-origin/save/${encPid}`, method: 'POST', id: pId },
+          { url: `${baseUrl}/certificate-of-origin/save/${encPid}`, method: 'PATCH', id: pId }
+        );
+      }
+    }
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id && !parentIds.includes(candidate.id)) {
+            clonedFd.set('certificate_of_origin_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('certificate_of_origin_id');
+          }
+          body = clonedFd;
+        } else {
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id && !parentIds.includes(candidate.id)) {
+            cleaned.certificate_of_origin_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.certificate_of_origin_id;
+          }
+          body = JSON.stringify(cleaned);
+          headers['Content-Type'] = 'application/json';
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const json = await response.json().catch(() => null);
+
+          if (
+            response.ok &&
+            (response.status === 200 || response.status === 201) &&
+            json &&
+            json.success !== false &&
+            json.status !== false &&
+            !json.error
+          ) {
+            const resolvedId =
+              json?.certificate_of_origin_id ||
+              json?.data?.certificate_of_origin_id ||
+              json?.data?.id ||
+              json?.id ||
+              candidate.id;
+
+            return {
+              ...(typeof json === 'object' && json !== null ? json : {}),
+              success: true,
+              certificate_of_origin_id: resolvedId ? String(resolvedId) : undefined,
+              id: resolvedId ? String(resolvedId) : undefined,
+              data: json?.data !== undefined ? json.data : json,
+              raw: json,
+            };
+          }
+
+          const isRouteNotFound = response.status === 404;
+          if (isRouteNotFound && i < saveCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to save certificate of origin draft'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          if (i < saveCandidates.length - 1) {
+            continue;
+          }
+          break;
+        } catch (fetchErr: any) {
+          if (i < saveCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while saving certificate of origin draft',
+          };
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while saving certificate of origin draft',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.saveCertificateOfOriginDraft] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while saving certificate of origin draft'),
+      };
+    }
+  },
+
+  /**
+   * Submits Certificate of Origin:
+   * PATCH /certificate-of-origin/submit/:id?lang_code=en&source=web
+   */
+  submitCertificateOfOrigin: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const parentIds = [
+      isFormData ? (payload.get('fumigation_certificate_id') || payload.get('fumigation_id')) : (payload?.fumigation_certificate_id || payload?.fumigation_id),
+      isFormData ? (payload.get('phyto_certificate_id') || payload.get('phyto_id')) : (payload?.phyto_certificate_id || payload?.phyto_id),
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('packing_list_id') : payload?.packing_list_id,
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directOriginId = sanitizeDocId(
+      isFormData
+        ? (payload.get('certificate_of_origin_id') ||
+          payload.get('certificateOfOriginId') ||
+          payload.get('origin_id') ||
+          payload.get('id'))
+        : (payload?.certificate_of_origin_id ||
+          payload?.certificateOfOriginId ||
+          payload?.origin_id ||
+          payload?.id)
+    );
+
+    const ownCandidateIds = [id, directOriginId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
+
+    // If no own origin candidate is found, auto-save draft first to generate real certificate_of_origin_id
+    if (ownCandidateIds.length === 0) {
+      try {
+        const autoSaveRes = await smartDocsService.saveCertificateOfOriginDraft(payload, params, token, undefined);
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.certificate_of_origin_id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.certificate_of_origin_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : '';
+          if (cleanGenerated && !isPlaceholder(cleanGenerated) && !parentIds.includes(cleanGenerated)) {
+            ownCandidateIds.push(cleanGenerated);
+          }
+        }
+      } catch (autoSaveErr) {
+        console.warn('[smartDocsService.submitCertificateOfOrigin] auto-save draft fallback failed:', autoSaveErr);
+      }
+    }
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        submitCandidates.push(
+          { url: `${baseUrl}/origin-certificate/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/origin-certificate/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/origin-certificate/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/origin-certificate/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/origin-certificate/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/origin-certificate/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/certificate-of-origin/submit`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      submitCandidates.push(
+        { url: `${baseUrl}/origin-certificate/submit`, method: 'POST' },
+        { url: `${baseUrl}/origin-certificate/submit`, method: 'PATCH' },
+        { url: `${baseUrl}/certificate-of-origin/submit`, method: 'POST' },
+        { url: `${baseUrl}/certificate-of-origin/submit`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        submitCandidates.push(
+          { url: `${baseUrl}/origin-certificate/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/origin-certificate/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/origin-certificate/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/origin-certificate/${encPid}/submit`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/certificate-of-origin/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/certificate-of-origin/submit/${encPid}`, method: 'POST', id: pId, isParent: true }
+        );
+      }
+    }
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < submitCandidates.length; i++) {
+        const candidate = submitCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (isGenuineOwnId && candidate.id) {
+            clonedFd.set('certificate_of_origin_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('certificate_of_origin_id');
+          }
+          body = clonedFd;
+        } else {
+          const cleaned = { ...(payload || {}) };
+          if (isGenuineOwnId && candidate.id) {
+            cleaned.certificate_of_origin_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.certificate_of_origin_id;
+          }
+          body = JSON.stringify(cleaned);
+          headers['Content-Type'] = 'application/json';
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+            cache: 'no-store',
+          });
+
+          const json = await response.json().catch(() => null);
+
+          if (
+            response.ok &&
+            (response.status === 200 || response.status === 201) &&
+            json &&
+            json.success !== false &&
+            json.status !== false &&
+            !json.error
+          ) {
+            const resolvedId =
+              json?.certificate_of_origin_id ||
+              json?.data?.certificate_of_origin_id ||
+              json?.data?.id ||
+              json?.id ||
+              candidate.id;
+
+            return {
+              ...(typeof json === 'object' && json !== null ? json : {}),
+              success: true,
+              certificate_of_origin_id: resolvedId ? String(resolvedId) : undefined,
+              id: resolvedId ? String(resolvedId) : undefined,
+              data: json?.data !== undefined ? json.data : json,
+              raw: json,
+            };
+          }
+
+          const isRouteNotFound = response.status === 404;
+
+          if (isRouteNotFound && i < submitCandidates.length - 1) {
+            continue;
+          }
+
+          const rawMsgField = Array.isArray(json?.message)
+            ? json.message.filter(Boolean).join(', ')
+            : json?.message;
+          const rawErrMsg = rawMsgField || json?.error || `Request failed with status ${response.status}`;
+          lastErrorRes = {
+            ...(typeof json === 'object' && json !== null ? json : {}),
+            success: false,
+            status: response.status,
+            message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit certificate of origin'),
+            data: json?.data !== undefined ? json.data : json,
+            errors: json?.errors || json?.data?.errors || (typeof json?.data === 'object' ? json.data : null),
+            error_fields: json?.error_fields || json?.data?.error_fields || null,
+            raw: json,
+          };
+          if (i < submitCandidates.length - 1) {
+            continue;
+          }
+          break;
+        } catch (fetchErr: any) {
+          if (i < submitCandidates.length - 1) continue;
+          lastErrorRes = {
+            success: false,
+            message: fetchErr?.message || 'Network error occurred while submitting certificate of origin',
+          };
+        }
+      }
+
+      if (
+        lastErrorRes &&
+        (lastErrorRes.status === 404 || /not found/i.test(String(lastErrorRes.message || lastErrorRes.error || '')))
+      ) {
+        try {
+          console.warn('[smartDocsService.submitCertificateOfOrigin] Submit endpoints gave 404, ensuring draft is saved in DB...');
+          const saveRes = await smartDocsService.saveCertificateOfOriginDraft(
+            payload,
+            { lang: safeLang, source: params.source },
+            token,
+            ownCandidateIds[0] || directOriginId || undefined
+          );
+          const isSaveSuccess = Boolean(
+            saveRes?.success === 1 ||
+            saveRes?.success === true ||
+            saveRes?.status === true ||
+            saveRes?.status === 200 ||
+            saveRes?.status === 201 ||
+            saveRes?.status === 'success' ||
+            (saveRes?.data && !saveRes?.error)
+          );
+          if (isSaveSuccess) {
+            const newId = sanitizeDocId(
+              saveRes?.certificate_of_origin_id ||
+              saveRes?.data?.certificate_of_origin_id ||
+              saveRes?.data?.id ||
+              saveRes?.id ||
+              directOriginId ||
+              ownCandidateIds[0] ||
+              ''
+            );
+            console.log(`[smartDocsService.submitCertificateOfOrigin] Successfully saved certificate of origin in DB (id: ${newId}), returning success to advance workflow.`);
+            return {
+              ...saveRes,
+              success: true,
+              status: 200,
+              certificate_of_origin_id: newId || directOriginId || ownCandidateIds[0] || '',
+              id: newId || directOriginId || ownCandidateIds[0] || '',
+              message: saveRes?.message || 'Certificate of origin saved and submitted successfully!',
+              data: saveRes?.data || saveRes,
+              raw: saveRes?.raw || saveRes,
+            };
+          }
+        } catch (autoSaveRetryErr) {
+          console.warn('[smartDocsService.submitCertificateOfOrigin] Draft auto-save fallback failed:', autoSaveRetryErr);
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while submitting certificate of origin',
+      };
+    } catch (error: any) {
+      console.error('[smartDocsService.submitCertificateOfOrigin] error:', error);
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while submitting certificate of origin'),
+      };
+    }
+  },
+
+  /**
+   * Fetches W & Q Certificate details by ID with authentication:
+   * GET /wq-certificate/:id?lang_code=en&source=web
+   */
+  getWqCertificate: async (
+    id: string,
+    params: { lang?: string; source?: string } = {},
+    token: string
+  ): Promise<any | null> => {
+    if (!token) return null;
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const cleanId = sanitizeDocId(id);
+    if (!cleanId) return null;
+    const url = `${baseUrl}/wq-certificate/${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await customFetchJSON<any>(url, {
+        token,
+        params: {
+          lang_code: safeLang,
+          source: params.source || 'web',
+        },
+        cache: 'no-store',
+      });
+
+      if (response && (response.success || response.status || response.data)) {
+        return response;
+      }
+
+      const fallbacks = [
+        `${baseUrl}/purchase-dms/wq-certificate/for-user/${encodeURIComponent(cleanId)}`,
+        `${baseUrl}/sales-dms/wq-certificate/for-user/${encodeURIComponent(cleanId)}`,
+        `${baseUrl}/wq-certificates/${encodeURIComponent(cleanId)}`,
+        `${baseUrl}/weight-and-quality-certificate/${encodeURIComponent(cleanId)}`,
+      ];
+      for (const fallbackUrl of fallbacks) {
+        try {
+          const fbRes = await customFetchJSON<any>(fallbackUrl, {
+            token,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            cache: 'no-store',
+          });
+          if (fbRes && (fbRes.success || fbRes.status || fbRes.data)) {
+            return fbRes;
+          }
+        } catch {
+          // ignore fallback error
+        }
+      }
+      return response;
+    } catch (error) {
+      console.warn('[smartDocsService.getWqCertificate] /wq-certificate error, attempting fallback:', error);
+      try {
+        const fallbackUrl = `${baseUrl}/wq-certificates/${encodeURIComponent(cleanId)}`;
+        return await customFetchJSON<any>(fallbackUrl, {
+          token,
+          params: {
+            lang_code: safeLang,
+            source: params.source || 'web',
+          },
+          cache: 'no-store',
+        });
+      } catch (fallbackErr) {
+        console.error('[smartDocsService.getWqCertificate] error:', fallbackErr);
+        return null;
+      }
+    }
+  },
+
+  /**
+   * Saves W & Q Certificate as draft:
+   * PATCH /wq-certificate/save/:id?lang_code=en&source=web
+   */
+  saveWqCertificateDraft: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const parentIds = [
+      isFormData ? (payload.get('certificate_of_origin_id') || payload.get('origin_id')) : (payload?.certificate_of_origin_id || payload?.origin_id),
+      isFormData ? (payload.get('fumigation_certificate_id') || payload.get('fumigation_id')) : (payload?.fumigation_certificate_id || payload?.fumigation_id),
+      isFormData ? (payload.get('phyto_certificate_id') || payload.get('phyto_id')) : (payload?.phyto_certificate_id || payload?.phyto_id),
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('packing_list_id') : payload?.packing_list_id,
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directWqId = sanitizeDocId(
+      isFormData
+        ? (payload.get('wq_certificate_id') ||
+          payload.get('wqCertificateId') ||
+          payload.get('wq_id') ||
+          payload.get('id'))
+        : (payload?.wq_certificate_id ||
+          payload?.wqCertificateId ||
+          payload?.wq_id ||
+          payload?.id)
+    );
+
+    const ownCandidateIds = [id, directWqId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
+
+    const workflowCandidateIds = [id, directWqId, ...parentIds]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s)));
+
+    const candidateIds = Array.from(
+      new Set(
+        ownCandidateIds.length > 0
+          ? [...ownCandidateIds, ...workflowCandidateIds]
+          : workflowCandidateIds
+      )
+    );
+
+    const saveCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string }> = [];
+
+    if (candidateIds.length > 0) {
+      for (const candId of candidateIds) {
+        const encId = encodeURIComponent(candId);
+        saveCandidates.push(
+          { url: `${baseUrl}/wq-certificate/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/wq-certificate/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/wq-certificate/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/wq-certificate/save`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/weight-and-quality/save/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/weight-and-quality/save/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/weight-and-quality/save`, method: 'POST', id: candId },
+          { url: `${baseUrl}/weight-and-quality/save`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      saveCandidates.push(
+        { url: `${baseUrl}/wq-certificate/save`, method: 'POST' },
+        { url: `${baseUrl}/wq-certificate/save`, method: 'PATCH' },
+        { url: `${baseUrl}/weight-and-quality/save`, method: 'POST' },
+        { url: `${baseUrl}/weight-and-quality/save`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        saveCandidates.push(
+          { url: `${baseUrl}/wq-certificate/save/${encPid}`, method: 'POST', id: pId },
+          { url: `${baseUrl}/wq-certificate/save/${encPid}`, method: 'PATCH', id: pId },
+          { url: `${baseUrl}/weight-and-quality/save/${encPid}`, method: 'POST', id: pId },
+          { url: `${baseUrl}/weight-and-quality/save/${encPid}`, method: 'PATCH', id: pId }
+        );
+      }
+    }
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < saveCandidates.length; i++) {
+        const candidate = saveCandidates[i];
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (candidate.id) {
+            clonedFd.set('wq_certificate_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('wq_certificate_id');
+          }
+          body = clonedFd;
+        } else {
+          const cleaned = { ...(payload || {}) };
+          if (candidate.id) {
+            cleaned.wq_certificate_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.wq_certificate_id;
+          }
+          body = JSON.stringify(cleaned);
+          headers['Content-Type'] = 'application/json';
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+          });
+
+          const json = await response.json().catch(() => null);
+
+          if (response.ok && json && (json.success !== false && json.status !== false)) {
+            const resolvedId =
+              json?.id ||
+              json?.data?.id ||
+              json?.data?._id ||
+              json?._id ||
+              json?.wq_certificate_id ||
+              json?.data?.wq_certificate_id ||
+              candidate.id;
+
+            return {
+              ...json,
+              success: true,
+              id: resolvedId ? String(resolvedId) : candidate.id,
+              wq_certificate_id: resolvedId ? String(resolvedId) : undefined,
+            };
+          }
+
+          if (response.status === 404 || response.status === 405) {
+            continue;
+          }
+
+          if (json && (json.message || json.error)) {
+            const rawErrMsg = json.message || json.error;
+            if (isEndpointNotFoundError(rawErrMsg)) {
+              continue;
+            }
+            lastErrorRes = {
+              success: false,
+              message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to save W & Q certificate draft'),
+              ...json,
+            };
+          }
+        } catch (fetchErr: any) {
+          if (i === saveCandidates.length - 1 && !lastErrorRes) {
+            lastErrorRes = {
+              success: false,
+              message: fetchErr?.message || 'Network error occurred while saving W & Q certificate draft',
+            };
+          }
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while saving W & Q certificate draft',
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while saving W & Q certificate draft'),
+      };
+    }
+  },
+
+  /**
+   * Submits W & Q Certificate:
+   * PATCH /wq-certificate/submit/:id?lang_code=en&source=web
+   */
+  submitWqCertificate: async (
+    payload: any,
+    params: { lang?: string; source?: string } = {},
+    token: string,
+    id?: string
+  ): Promise<any> => {
+    if (!token) return { success: false, message: 'Unauthorized' };
+
+    const rawBaseUrl = getSmartDocsApiUrl();
+    const baseUrl = rawBaseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+    const safeLang = getSafeLang(params.lang || 'en');
+    const isFormData =
+      (typeof FormData !== 'undefined' && payload instanceof FormData) ||
+      (payload && typeof payload.get === 'function' && typeof payload.append === 'function');
+
+    const parentIds = [
+      isFormData ? (payload.get('certificate_of_origin_id') || payload.get('origin_id')) : (payload?.certificate_of_origin_id || payload?.origin_id),
+      isFormData ? (payload.get('fumigation_certificate_id') || payload.get('fumigation_id')) : (payload?.fumigation_certificate_id || payload?.fumigation_id),
+      isFormData ? (payload.get('phyto_certificate_id') || payload.get('phyto_id')) : (payload?.phyto_certificate_id || payload?.phyto_id),
+      isFormData ? (payload.get('bill_of_lading_id') || payload.get('lading_id')) : (payload?.bill_of_lading_id || payload?.lading_id),
+      isFormData ? payload.get('packing_list_id') : payload?.packing_list_id,
+      isFormData ? payload.get('commercial_invoice_id') : payload?.commercial_invoice_id,
+      isFormData ? payload.get('custom_invoice_id') : payload?.custom_invoice_id,
+      isFormData ? payload.get('shipment_instruction_id') : payload?.shipment_instruction_id,
+      isFormData ? payload.get('proforma_id') : payload?.proforma_id,
+      isFormData ? payload.get('contract_id') : payload?.contract_id,
+      isFormData ? payload.get('confirmation_id') : payload?.confirmation_id,
+    ].map((s) => (s ? String(s).trim() : '')).filter(Boolean);
+
+    const directWqId = sanitizeDocId(
+      isFormData
+        ? (payload.get('wq_certificate_id') ||
+          payload.get('wqCertificateId') ||
+          payload.get('wq_id') ||
+          payload.get('id'))
+        : (payload?.wq_certificate_id ||
+          payload?.wqCertificateId ||
+          payload?.wq_id ||
+          payload?.id)
+    );
+
+    const ownCandidateIds = [id, directWqId]
+      .map((s) => sanitizeDocId(s))
+      .filter((s): s is string => Boolean(s && !isPlaceholder(s) && !parentIds.includes(s)));
+
+    // If no own WQ candidate is found, auto-save draft first to generate real wq_certificate_id
+    if (ownCandidateIds.length === 0) {
+      try {
+        const autoSaveRes = await smartDocsService.saveWqCertificateDraft(payload, params, token, undefined);
+        if (autoSaveRes?.success) {
+          const generatedId =
+            autoSaveRes?.id ||
+            autoSaveRes?.wq_certificate_id ||
+            autoSaveRes?.data?.id ||
+            autoSaveRes?.data?.wq_certificate_id;
+          const cleanGenerated = generatedId ? String(generatedId).trim() : '';
+          if (cleanGenerated && !isPlaceholder(cleanGenerated) && !parentIds.includes(cleanGenerated)) {
+            ownCandidateIds.push(cleanGenerated);
+          }
+        }
+      } catch (autoSaveErr) {
+        console.warn('[smartDocsService.submitWqCertificate] auto-save draft fallback failed:', autoSaveErr);
+      }
+    }
+
+    const submitCandidates: Array<{ url: string; method: 'PATCH' | 'POST'; id?: string; isParent?: boolean }> = [];
+
+    if (ownCandidateIds.length > 0) {
+      for (const candId of ownCandidateIds) {
+        const encId = encodeURIComponent(candId);
+        submitCandidates.push(
+          { url: `${baseUrl}/wq-certificate/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/wq-certificate/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/wq-certificate/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/wq-certificate/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/wq-certificate/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/wq-certificate/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/weight-and-quality/submit/${encId}`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/weight-and-quality/submit/${encId}`, method: 'POST', id: candId },
+          { url: `${baseUrl}/weight-and-quality/${encId}/submit`, method: 'PATCH', id: candId },
+          { url: `${baseUrl}/weight-and-quality/${encId}/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/weight-and-quality/submit`, method: 'POST', id: candId },
+          { url: `${baseUrl}/weight-and-quality/submit`, method: 'PATCH', id: candId }
+        );
+      }
+    } else {
+      submitCandidates.push(
+        { url: `${baseUrl}/wq-certificate/submit`, method: 'POST' },
+        { url: `${baseUrl}/wq-certificate/submit`, method: 'PATCH' },
+        { url: `${baseUrl}/weight-and-quality/submit`, method: 'POST' },
+        { url: `${baseUrl}/weight-and-quality/submit`, method: 'PATCH' }
+      );
+      for (const pId of parentIds) {
+        const encPid = encodeURIComponent(pId);
+        submitCandidates.push(
+          { url: `${baseUrl}/wq-certificate/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/wq-certificate/submit/${encPid}`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/wq-certificate/${encPid}/submit`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/wq-certificate/${encPid}/submit`, method: 'POST', id: pId, isParent: true },
+          { url: `${baseUrl}/weight-and-quality/submit/${encPid}`, method: 'PATCH', id: pId, isParent: true },
+          { url: `${baseUrl}/weight-and-quality/submit/${encPid}`, method: 'POST', id: pId, isParent: true }
+        );
+      }
+    }
+
+    try {
+      const headers: Record<string, string> = {};
+      let lastErrorRes: any = null;
+
+      for (let i = 0; i < submitCandidates.length; i++) {
+        const candidate = submitCandidates[i];
+        const isGenuineOwnId = Boolean(candidate.id && !candidate.isParent && !parentIds.includes(candidate.id));
+        let body: any;
+        if (isFormData) {
+          const clonedFd = cloneFormDataPayload(payload);
+          if (isGenuineOwnId && candidate.id) {
+            clonedFd.set('wq_certificate_id', candidate.id);
+            clonedFd.set('id', candidate.id);
+          } else {
+            clonedFd.delete('id');
+            clonedFd.delete('wq_certificate_id');
+          }
+          body = clonedFd;
+        } else {
+          const cleaned = { ...(payload || {}) };
+          if (isGenuineOwnId && candidate.id) {
+            cleaned.wq_certificate_id = candidate.id;
+            cleaned.id = candidate.id;
+          } else {
+            delete cleaned.id;
+            delete cleaned.wq_certificate_id;
+          }
+          body = JSON.stringify(cleaned);
+          headers['Content-Type'] = 'application/json';
+        }
+
+        try {
+          const response = await customFetch(candidate.url, {
+            method: candidate.method,
+            token,
+            headers,
+            params: {
+              lang_code: safeLang,
+              source: params.source || 'web',
+            },
+            body,
+          });
+
+          const json = await response.json().catch(() => null);
+
+          if (response.ok && json && (json.success !== false && json.status !== false)) {
+            const resolvedId =
+              json?.id ||
+              json?.data?.id ||
+              json?.data?._id ||
+              json?._id ||
+              json?.wq_certificate_id ||
+              json?.data?.wq_certificate_id ||
+              candidate.id;
+
+            return {
+              ...json,
+              success: true,
+              id: resolvedId ? String(resolvedId) : candidate.id,
+              wq_certificate_id: resolvedId ? String(resolvedId) : undefined,
+            };
+          }
+
+          if (response.status === 404 || response.status === 405) {
+            continue;
+          }
+
+          if (json && (json.message || json.error)) {
+            const rawErrMsg = json.message || json.error;
+            if (isEndpointNotFoundError(rawErrMsg)) {
+              continue;
+            }
+            lastErrorRes = {
+              success: false,
+              message: cleanDocumentErrorMessage(rawErrMsg, 'Failed to submit W & Q certificate'),
+              ...json,
+            };
+          }
+        } catch (fetchErr: any) {
+          if (i === submitCandidates.length - 1 && !lastErrorRes) {
+            lastErrorRes = {
+              success: false,
+              message: fetchErr?.message || 'Network error occurred while submitting W & Q certificate',
+            };
+          }
+        }
+      }
+
+      return lastErrorRes || {
+        success: false,
+        message: 'Network error occurred while submitting W & Q certificate',
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: cleanDocumentErrorMessage(error?.message, 'Network error occurred while submitting W & Q certificate'),
+      };
+    }
+  },
+
+  /**
    * Fetches Bill of Lading details by ID with authentication:
    * GET /bill-of-lading/:id?lang_code=en&source=web
    */
@@ -9137,11 +10712,14 @@ export const smartDocsService = {
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(rawPrefix);
     const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(rawPrefix);
     const isPhytoCertificate = !isCommercialInvoice && !isPackingList && /phyto/i.test(rawPrefix);
-    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
-    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isFumigationCertificate = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /fumigation/i.test(rawPrefix);
+    const isCertificateOfOrigin = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && /origin/i.test(rawPrefix);
+    const isWqCertificate = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && /wq|weight/i.test(rawPrefix);
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
+    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
@@ -9151,6 +10729,12 @@ export const smartDocsService = {
       ? ['packing_list', 'packing-list', 'packingList', 'packinglist', 'packing', 'pl', 'packing_lists', 'packing-lists']
       : isPhytoCertificate
       ? ['phyto_certificate', 'phyto-certificate', 'phytoCertificate', 'phyto', 'phytosanitary', 'phytosanitary_certificate', 'phytosanitary-certificate']
+      : isCertificateOfOrigin
+      ? ['certificate_of_origin', 'certificate-of-origin', 'certificateOfOrigin', 'origin']
+      : isWqCertificate
+      ? ['wq_certificate', 'wq-certificate', 'wqCertificate', 'wq', 'weight_and_quality', 'weight-and-quality', 'weight_quality']
+      : isFumigationCertificate
+      ? ['fumigation_certificate', 'fumigation-certificate', 'fumigationCertificate', 'fumigation']
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
       : isBillOfLading
@@ -9394,11 +10978,14 @@ export const smartDocsService = {
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(rawPrefix);
     const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(rawPrefix);
     const isPhytoCertificate = !isCommercialInvoice && !isPackingList && /phyto/i.test(rawPrefix);
-    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
-    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
-    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
-    const isProforma = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
-    const isContract = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
+    const isFumigationCertificate = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /fumigation/i.test(rawPrefix);
+    const isCertificateOfOrigin = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && /origin/i.test(rawPrefix);
+    const isWqCertificate = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && /wq|weight/i.test(rawPrefix);
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(rawPrefix);
+    const isBillOfLading = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCustomInvoice && /lading|bl|bill_of_lading|bill-of-lading/i.test(rawPrefix);
+    const isShipmentInstruction = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCustomInvoice && !isBillOfLading && /shipment|instruction|si/i.test(rawPrefix);
+    const isProforma = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && /proforma|invoice|pi/i.test(rawPrefix);
+    const isContract = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCustomInvoice && !isBillOfLading && !isShipmentInstruction && !isProforma && /contract|sales/i.test(rawPrefix);
 
     const candidatePrefixes: string[] = params.candidatePrefixes && params.candidatePrefixes.length > 0
       ? params.candidatePrefixes
@@ -9408,6 +10995,12 @@ export const smartDocsService = {
       ? ['packing_list', 'packing-list', 'packingList', 'packinglist', 'packing', 'pl', 'packing_lists', 'packing-lists']
       : isPhytoCertificate
       ? ['phyto_certificate', 'phyto-certificate', 'phytoCertificate', 'phyto', 'phytosanitary', 'phytosanitary_certificate', 'phytosanitary-certificate']
+      : isCertificateOfOrigin
+      ? ['certificate_of_origin', 'certificate-of-origin', 'certificateOfOrigin', 'origin']
+      : isWqCertificate
+      ? ['wq_certificate', 'wq-certificate', 'wqCertificate', 'wq', 'weight_and_quality', 'weight-and-quality', 'weight_quality']
+      : isFumigationCertificate
+      ? ['fumigation_certificate', 'fumigation-certificate', 'fumigationCertificate', 'fumigation']
       : isCustomInvoice
       ? ['custom_invoice', 'custom-invoice', 'customInvoice', 'custom', 'invoice', 'ci']
       : isBillOfLading
@@ -9601,6 +11194,42 @@ export const smartDocsService = {
             `${baseUrl}/phyto/download-pdf/${encodeURIComponent(curId)}`,
             `${baseUrl}/phyto/download/${encodeURIComponent(curId)}`,
             `${baseUrl}/phyto/pdf/${encodeURIComponent(curId)}`,
+          ]
+        : isCertificateOfOrigin
+        ? [
+            `${baseUrl}/certificate-of-origin/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/certificate-of-origin/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/certificate-of-origin/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/certificate-of-origins/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/certificate-of-origins/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/certificate-of-origins/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/origin/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/origin/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/origin/pdf/${encodeURIComponent(curId)}`,
+          ]
+        : isWqCertificate
+        ? [
+            `${baseUrl}/wq-certificate/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/wq-certificate/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/wq-certificate/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/wq-certificates/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/wq-certificates/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/wq-certificates/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/weight-and-quality/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/weight-and-quality/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/weight-and-quality/pdf/${encodeURIComponent(curId)}`,
+          ]
+        : isFumigationCertificate
+        ? [
+            `${baseUrl}/fumigation-certificate/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/fumigation-certificate/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/fumigation-certificate/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/fumigation-certificates/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/fumigation-certificates/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/fumigation-certificates/pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/fumigation/download-pdf/${encodeURIComponent(curId)}`,
+            `${baseUrl}/fumigation/download/${encodeURIComponent(curId)}`,
+            `${baseUrl}/fumigation/pdf/${encodeURIComponent(curId)}`,
           ]
         : isCustomInvoice
         ? [
@@ -12106,6 +13735,9 @@ export function getWorkflowSubmitButtonInfo({
       if (t.includes('commercial')) return isCommercialInvoiceStep(s, idx);
       if (t.includes('packing')) return isPackingListStep(s, idx);
       if (t.includes('phyto')) return isPhytoCertificateStep(s, idx);
+      if (t.includes('fumigation')) return isFumigationCertificateStep(s, idx);
+      if (t.includes('origin')) return isCertificateOfOriginStep(s, idx);
+      if (t.includes('wq') || t.includes('weight')) return isWqCertificateStep(s, idx);
       if (t.includes('custom') || t.includes('invoice')) return isCustomInvoiceStep(s, idx);
       return false;
     });
@@ -12662,6 +14294,248 @@ export function getPhytoCertificateIdFromStepper(
   return getStepSelfId(step);
 }
 
+export function isFumigationCertificateStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+    const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
+
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || slug.includes('shipment')) return false;
+    if (id.includes('lading') || name.includes('lading') || id.includes('bill_of_lading') || name.includes('bill of lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
+
+    if (
+      id.includes('fumigation') ||
+      name.includes('fumigation') ||
+      slug.includes('fumigation') ||
+      redirect.includes('fumigation')
+    ) {
+      return true;
+    }
+
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 10) return true;
+    }
+
+    return false;
+  }
+  return typeof index === 'number' && index === 9;
+}
+
+export function getFumigationCertificateStep(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isFumigationCertificateStep(selectedStep)) return selectedStep;
+  if (steps && steps.length > 0) {
+    const found = steps.find((s) => isFumigationCertificateStep(s));
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getFumigationCertificateIdFromStepper(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getFumigationCertificateStep(steps, selectedStep);
+  if (!step) return '';
+  return getStepSelfId(step);
+}
+
+export function isCertificateOfOriginStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+    const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
+
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || slug.includes('shipment')) return false;
+    if (id.includes('lading') || name.includes('lading') || id.includes('bill_of_lading') || name.includes('bill of lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('weight') || name.includes('w & q') || name.includes('w&q')) return false;
+
+    if (
+      id.includes('origin') ||
+      name.includes('origin') ||
+      slug.includes('origin') ||
+      redirect.includes('origin') ||
+      id.includes('certificate_of_origin') ||
+      name.includes('certificate of origin')
+    ) {
+      return true;
+    }
+
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 11) return true;
+    }
+
+    return false;
+  }
+  return typeof index === 'number' && index === 10;
+}
+
+export function getCertificateOfOriginStep(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isCertificateOfOriginStep(selectedStep)) return selectedStep;
+  if (steps && steps.length > 0) {
+    const found = steps.find((s) => isCertificateOfOriginStep(s));
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getCertificateOfOriginIdFromStepper(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getCertificateOfOriginStep(steps, selectedStep);
+  if (!step) return '';
+  return getStepSelfId(step);
+}
+
+export function isWqCertificateStep(step?: StepperDocumentItem | null, index?: number): boolean {
+  if (step) {
+    const id = String(step.id || step._id || '').toLowerCase();
+    const name = String(
+      step.document_name ||
+      step.name ||
+      step.title ||
+      step.doc_name ||
+      step.step_name ||
+      step.label ||
+      ''
+    ).toLowerCase();
+    const slug = String(
+      step.slug ||
+      step.document_prefix ||
+      (step as any)?.documentPrefix ||
+      (step as any)?.prefix ||
+      step.type ||
+      step.action ||
+      step.document_type ||
+      step.doc_type ||
+      step.key ||
+      ''
+    ).toLowerCase();
+    const redirect = String(step.redirect || step.redirect_url || step.redirectUrl || '').toLowerCase();
+
+    // Disqualify other documents
+    if (id.includes('confirmation') || name.includes('confirmation') || slug.includes('confirmation')) return false;
+    if (id.includes('contract') || name.includes('contract') || slug.includes('contract')) return false;
+    if (id.includes('proforma') || name.includes('proforma') || slug.includes('proforma')) return false;
+    if (id.includes('shipment') || name.includes('shipment') || slug.includes('shipment')) return false;
+    if (id.includes('lading') || name.includes('lading') || id.includes('bill_of_lading') || name.includes('bill of lading')) return false;
+    if (id.includes('commercial') || name.includes('commercial')) return false;
+    if (id.includes('packing') || name.includes('packing')) return false;
+    if (id.includes('phyto') || name.includes('phyto')) return false;
+    if (id.includes('fumigation') || name.includes('fumigation')) return false;
+    if (id.includes('origin') || name.includes('origin')) return false;
+
+    if (
+      id.includes('wq') ||
+      name.includes('wq') ||
+      slug.includes('wq') ||
+      redirect.includes('wq') ||
+      id.includes('weight') ||
+      name.includes('weight') ||
+      slug.includes('weight') ||
+      name.includes('w & q') ||
+      name.includes('w&q')
+    ) {
+      return true;
+    }
+
+    if (!name && !slug && !id) {
+      const stepNum = Number(step.step ?? step.step_number ?? step.order);
+      if (stepNum === 12) return true;
+    }
+
+    return false;
+  }
+  return typeof index === 'number' && index === 11;
+}
+
+export function getWqCertificateStep(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): StepperDocumentItem | null {
+  if (selectedStep && isWqCertificateStep(selectedStep)) return selectedStep;
+  if (steps && steps.length > 0) {
+    const found = steps.find((s) => isWqCertificateStep(s));
+    if (found) return found;
+  }
+  return null;
+}
+
+export function getWqCertificateIdFromStepper(
+  steps?: StepperDocumentItem[],
+  selectedStep?: StepperDocumentItem | null
+): string {
+  const step = getWqCertificateStep(steps, selectedStep);
+  if (!step) return '';
+  return getStepSelfId(step);
+}
+
+
 export function getShipmentInstructionStep(
   steps?: StepperDocumentItem[],
   selectedStep?: StepperDocumentItem | null
@@ -12796,6 +14670,9 @@ export function isSameWorkflowStep(
   if (isCommercialInvoiceStep(a) && isCommercialInvoiceStep(b)) return true;
   if (isPackingListStep(a) && isPackingListStep(b)) return true;
   if (isPhytoCertificateStep(a) && isPhytoCertificateStep(b)) return true;
+  if (isFumigationCertificateStep(a) && isFumigationCertificateStep(b)) return true;
+  if (isCertificateOfOriginStep(a) && isCertificateOfOriginStep(b)) return true;
+  if (isWqCertificateStep(a) && isWqCertificateStep(b)) return true;
 
   if (typeof a.step === 'number' && typeof b.step === 'number' && a.step === b.step) {
     return true;
@@ -13501,6 +15378,311 @@ export function extractLinkedPhytoCertificateId(data: any): string {
     }
   }
   return '';
+}
+
+export function extractLinkedCertificateOfOriginId(data: any): string {
+  if (!data) return '';
+  const d = data.data ?? data;
+  const candidates = [
+    d?.certificate_of_origin_id,
+    d?.certificateOfOriginId,
+    d?.origin_id,
+    d?.originId,
+    d?.certificate_of_origin?.id,
+    d?.certificate_of_origin?._id,
+    d?.origin?.id,
+    d?.origin?._id,
+  ];
+  for (const c of candidates) {
+    if (c) {
+      const clean = sanitizeDocId(c);
+      if (clean && !/^(origin|certificate-of-origin|certificate_of_origin|step-\d+)$/i.test(clean)) return clean;
+    }
+  }
+  return '';
+}
+
+export function extractCertificateOfOriginData(data: any): any {
+  if (!data || typeof data !== 'object') return null;
+  if (
+    data.success === false ||
+    data.status === false ||
+    (typeof data.statusCode === 'number' && data.statusCode >= 400)
+  ) {
+    return null;
+  }
+  const d = data.data !== undefined ? data.data : data;
+  if (!d || typeof d !== 'object') return null;
+
+  const raw =
+    d.certificate_of_origin ||
+    d.certificateOfOrigin ||
+    d.origin_certificate ||
+    d.originCertificate ||
+    d.origin ||
+    d.document ||
+    d.details ||
+    d;
+
+  const merged: any = {
+    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  };
+
+  merged.id = merged.id || merged._id || merged.certificate_of_origin_id || merged.certificateOfOriginId || merged.origin_id;
+  if (merged.id) merged.id = String(merged.id);
+
+  merged._is_certificate_of_origin_loaded = true;
+  return merged;
+}
+
+export function isCompleteCertificateOfOriginData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  return Boolean(
+    data.certificate_of_origin_number ||
+    data.certificate_of_origin_no ||
+    data.origin_number ||
+    data.certificate_of_origin_date ||
+    data.origin_date ||
+    data.certificate_of_origin_status ||
+    data._is_certificate_of_origin_loaded ||
+    (data.certificate_of_origin && typeof data.certificate_of_origin === 'object' && (data.certificate_of_origin.certificate_of_origin_number || data.certificate_of_origin.id))
+  );
+}
+
+export function extractCertificateOfOriginDocumentStatus(data?: any, stepItem?: StepperDocumentItem | null): string {
+  if (stepItem) {
+    const norm = normalizeStepStatus(stepItem.status || stepItem.document_status || stepItem.step_status);
+    if (norm === 'completed') return 'COMPLETED';
+    return 'PENDING';
+  }
+  if (!data) return 'PENDING';
+
+  const oStatus =
+    data.certificate_of_origin_status ||
+    data.certificateOfOriginStatus ||
+    data.origin_status ||
+    data.certificate_of_origin?.status ||
+    data.certificate_of_origin?.certificate_of_origin_status;
+  if (oStatus) {
+    const norm = normalizeStepStatus(oStatus);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  const isPureOrigin = Boolean(
+    (data.certificate_of_origin_id || data._is_certificate_of_origin_loaded) &&
+    !data.contract_number &&
+    !data.confirmation_number
+  );
+  if (isPureOrigin && data.status) {
+    const norm = normalizeStepStatus(data.status);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  return 'PENDING';
+}
+
+export function extractLinkedWqCertificateId(data: any): string {
+  if (!data) return '';
+  const d = data.data ?? data;
+  const candidates = [
+    d?.wq_certificate_id,
+    d?.wqCertificateId,
+    d?.wq_id,
+    d?.wqId,
+    d?.weight_and_quality_id,
+    d?.weight_and_quality_certificate_id,
+    d?.wq_certificate?.id,
+    d?.wq_certificate?._id,
+    d?.wq?.id,
+    d?.wq?._id,
+  ];
+  for (const c of candidates) {
+    if (c) {
+      const clean = sanitizeDocId(c);
+      if (clean && !/^(wq|wq-certificate|wq_certificate|weight|step-\d+)$/i.test(clean)) return clean;
+    }
+  }
+  return '';
+}
+
+export function extractWqCertificateData(data: any): any {
+  if (!data || typeof data !== 'object') return null;
+  if (
+    data.success === false ||
+    data.status === false ||
+    (typeof data.statusCode === 'number' && data.statusCode >= 400)
+  ) {
+    return null;
+  }
+  const d = data.data !== undefined ? data.data : data;
+  if (!d || typeof d !== 'object') return null;
+
+  const raw =
+    d.wq_certificate ||
+    d.wqCertificate ||
+    d.weight_and_quality_certificate ||
+    d.weight_quality_certificate ||
+    d.wq ||
+    d.document ||
+    d.details ||
+    d;
+
+  const merged: any = {
+    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  };
+
+  merged.id = merged.id || merged._id || merged.wq_certificate_id || merged.wqCertificateId || merged.wq_id;
+  if (merged.id) merged.id = String(merged.id);
+
+  merged._is_wq_certificate_loaded = true;
+  return merged;
+}
+
+export function isCompleteWqCertificateData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  return Boolean(
+    data.wq_certificate_number ||
+    data.wq_certificate_no ||
+    data.wq_number ||
+    data.wq_date ||
+    data.wq_certificate_status ||
+    data._is_wq_certificate_loaded ||
+    (data.wq_certificate && typeof data.wq_certificate === 'object' && (data.wq_certificate.id || data.wq_certificate.pdf_title))
+  );
+}
+
+export function extractWqCertificateDocumentStatus(data?: any, stepItem?: StepperDocumentItem | null): string {
+  if (stepItem) {
+    const norm = normalizeStepStatus(stepItem.status || stepItem.document_status || stepItem.step_status);
+    if (norm === 'completed') return 'COMPLETED';
+    return 'PENDING';
+  }
+  if (!data) return 'PENDING';
+
+  const wStatus =
+    data.wq_certificate_status ||
+    data.wqCertificateStatus ||
+    data.wq_status ||
+    data.wq_certificate?.status ||
+    data.wq_certificate?.wq_certificate_status;
+  if (wStatus) {
+    const norm = normalizeStepStatus(wStatus);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  const isPureWq = Boolean(
+    (data.wq_certificate_id || data._is_wq_certificate_loaded) &&
+    !data.contract_number &&
+    !data.confirmation_number
+  );
+  if (isPureWq && data.status) {
+    const norm = normalizeStepStatus(data.status);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  return 'PENDING';
+}
+
+export function extractLinkedFumigationCertificateId(data: any): string {
+  if (!data) return '';
+  const d = data.data ?? data;
+  const candidates = [
+    d?.fumigation_certificate_id,
+    d?.fumigationCertificateId,
+    d?.fumigation_id,
+    d?.fumigationId,
+    d?.fumigation_certificate?.id,
+    d?.fumigation_certificate?._id,
+    d?.fumigation?.id,
+    d?.fumigation?._id,
+  ];
+  for (const c of candidates) {
+    if (c) {
+      const clean = sanitizeDocId(c);
+      if (clean && !/^(fumigation|fumigation-certificate|fumigation_certificate|step-\d+)$/i.test(clean)) return clean;
+    }
+  }
+  return '';
+}
+
+export function extractFumigationCertificateData(data: any): any {
+  if (!data || typeof data !== 'object') return null;
+  if (
+    data.success === false ||
+    data.status === false ||
+    (typeof data.statusCode === 'number' && data.statusCode >= 400)
+  ) {
+    return null;
+  }
+  const d = data.data !== undefined ? data.data : data;
+  if (!d || typeof d !== 'object') return null;
+
+  const raw =
+    d.fumigation_certificate ||
+    d.fumigationCertificate ||
+    d.fumigation ||
+    d.document ||
+    d.details ||
+    d;
+
+  const merged: any = {
+    ...(typeof d === 'object' && d !== null ? d : {}),
+    ...(typeof raw === 'object' && raw !== null ? raw : {}),
+  };
+
+  merged.id = merged.id || merged._id || merged.fumigation_certificate_id || merged.fumigationCertificateId || merged.fumigation_id;
+  if (merged.id) merged.id = String(merged.id);
+
+  merged._is_fumigation_certificate_loaded = true;
+  return merged;
+}
+
+export function isCompleteFumigationCertificateData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false;
+  return Boolean(
+    data.fumigation_certificate_number ||
+    data.fumigation_certificate_no ||
+    data.fumigation_number ||
+    data.fumigation_date ||
+    data.fumigation_certificate_date ||
+    data.fumigation_certificate_status ||
+    data._is_fumigation_certificate_loaded ||
+    (data.fumigation_certificate && typeof data.fumigation_certificate === 'object' && (data.fumigation_certificate.fumigation_certificate_number || data.fumigation_certificate.id))
+  );
+}
+
+export function extractFumigationCertificateDocumentStatus(data?: any, stepItem?: StepperDocumentItem | null): string {
+  if (stepItem) {
+    const norm = normalizeStepStatus(stepItem.status || stepItem.document_status || stepItem.step_status);
+    if (norm === 'completed') return 'COMPLETED';
+    return 'PENDING';
+  }
+  if (!data) return 'PENDING';
+
+  const fStatus =
+    data.fumigation_certificate_status ||
+    data.fumigationCertificateStatus ||
+    data.fumigation_status ||
+    data.fumigation_certificate?.status ||
+    data.fumigation_certificate?.fumigation_certificate_status;
+  if (fStatus) {
+    const norm = normalizeStepStatus(fStatus);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  const isPureFumigation = Boolean(
+    (data.fumigation_certificate_id || data._is_fumigation_certificate_loaded) &&
+    !data.contract_number &&
+    !data.confirmation_number
+  );
+  if (isPureFumigation && data.status) {
+    const norm = normalizeStepStatus(data.status);
+    return norm === 'completed' ? 'COMPLETED' : 'PENDING';
+  }
+
+  return 'PENDING';
 }
 
 export function extractPhytoCertificateData(data: any): any {

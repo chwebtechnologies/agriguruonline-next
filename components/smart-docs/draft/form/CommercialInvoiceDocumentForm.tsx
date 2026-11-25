@@ -476,7 +476,30 @@ function extractCommercialQuantityMt(data: any): string {
 }
 
 /**
- * Extracts AMOUNT IN (top cell) from balance_payment.
+ * Extracts AMOUNT IN (top cell) from total_value.
+ */
+function extractCommercialTotalValue(data: any): string {
+  if (!data || typeof data !== 'object') return '';
+  const candidates = [
+    data?.commercial_invoice?.total_value,
+    data?.total_value,
+    data?.totalValue,
+    data?.data?.total_value,
+    data?.custom_invoice?.total_value,
+    data?.proforma?.total_value,
+    data?.contract?.total_value,
+    data?.confirmation?.total_value,
+  ];
+  for (const raw of candidates) {
+    if (raw === undefined || raw === null) continue;
+    const str = String(raw).replace(/,/g, '').trim();
+    if (str !== '') return str;
+  }
+  return '';
+}
+
+/**
+ * Extracts balance payment from balance_payment.
  */
 function extractCommercialBalancePayment(data: any): string {
   if (!data || typeof data !== 'object') return '';
@@ -495,19 +518,25 @@ function extractCommercialBalancePayment(data: any): string {
 }
 
 /**
- * Extracts TOTAL from total_value.
+ * Extracts advance payment from advance_payment candidates.
  */
-function extractCommercialTotalValue(data: any): string {
+function extractCommercialAdvancePayment(data: any): string {
   if (!data || typeof data !== 'object') return '';
   const candidates = [
-    data?.commercial_invoice?.total_value,
-    data?.total_value,
-    data?.totalValue,
-    data?.data?.total_value,
-    data?.custom_invoice?.total_value,
-    data?.proforma?.total_value,
-    data?.contract?.total_value,
-    data?.confirmation?.total_value,
+    data?.commercial_invoice?.advance_payment,
+    data?.commercial_invoice?.advance_payment_amt,
+    data?.advance_payment,
+    data?.advance_payment_amt,
+    data?.advance_amount,
+    data?.advancePayment,
+    data?.advancePaymentAmt,
+    data?.advanceAmount,
+    data?.data?.advance_payment,
+    data?.data?.advance_payment_amt,
+    data?.proforma?.advance_payment,
+    data?.proforma?.advance_payment_amt,
+    data?.contract?.advance_payment,
+    data?.contract?.advance_payment_amt,
   ];
   for (const raw of candidates) {
     if (raw === undefined || raw === null) continue;
@@ -558,6 +587,11 @@ function resolveAnyAdvance(data: any): boolean {
     const lower = raw.trim().toLowerCase();
     if (lower === 'true' || lower === '1' || lower === 'yes') return true;
     if (lower === 'false' || lower === '0' || lower === 'no') return false;
+  }
+  const advStr = extractCommercialAdvancePayment(data);
+  if (advStr) {
+    const num = Math.abs(parseFloat(advStr));
+    if (!isNaN(num) && num > 0) return true;
   }
   return false;
 }
@@ -1063,10 +1097,10 @@ export function CommercialInvoiceDocumentForm({
     return '';
   });
 
-  // Whether ADVANCE PAYMENT shows an editable input (controlled by any_advance)
+  // Whether ADVANCE PAYMENT shows an editable input (controlled by any_advance or advance payment present)
   const [hasAnyAdvance, setHasAnyAdvance] = useState<boolean>(() => resolveAnyAdvance(initialData));
 
-  // Balance Payment (AMOUNT IN top cell) & Total Value (TOTAL cell)
+  // Balance Payment & Total Value
   const [balancePayment, setBalancePayment] = useState<string>(() =>
     extractCommercialBalancePayment(initialData)
   );
@@ -1074,25 +1108,10 @@ export function CommercialInvoiceDocumentForm({
     extractCommercialTotalValue(initialData)
   );
 
-  // Editable Advance Payment Input (Specific to Commercial Invoice ONLY when any_advance is true)
-  const [advancePayment, setAdvancePayment] = useState<string>(() => {
-    if (!resolveAnyAdvance(initialData)) return '';
-    const rawAdv =
-      initialData?.commercial_invoice?.advance_payment ??
-      initialData?.commercial_invoice?.advance_payment_amt ??
-      initialData?.advance_payment ??
-      initialData?.advance_payment_amt ??
-      initialData?.advance_amount ??
-      initialData?.advancePayment ??
-      initialData?.advancePaymentAmt ??
-      initialData?.advanceAmount ??
-      initialData?.data?.advance_payment ??
-      initialData?.data?.advance_payment_amt;
-    if (rawAdv !== undefined && rawAdv !== null && String(rawAdv).trim() !== '') {
-      return String(rawAdv).trim().replace(/,/g, '');
-    }
-    return '';
-  });
+  // Editable Advance Payment Input (Specific to Commercial Invoice)
+  const [advancePayment, setAdvancePayment] = useState<string>(() =>
+    extractCommercialAdvancePayment(initialData)
+  );
 
   const formatAmountWithoutExtraZeros = useCallback((val: number | string): string => {
     if (val === undefined || val === null || val === '') return '';
@@ -1113,25 +1132,38 @@ export function CommercialInvoiceDocumentForm({
     return q * r;
   }, [quantityMt, ratePrice]);
 
-  const effectiveBalancePayment = useMemo(() => {
-    if (balancePayment !== '') {
-      const parsed = parseFloat(String(balancePayment).replace(/,/g, ''));
-      if (!isNaN(parsed)) return parsed;
-    }
-    return computedItemAmount;
-  }, [balancePayment, computedItemAmount]);
-
-  const computedTotal = useMemo(() => {
+  // Effective Total Value (top cell under AMOUNT IN {currency}):
+  // Shows total_value from data, or falls back to quantity * rate. Never negative.
+  const effectiveTotalValue = useMemo(() => {
     if (totalValue !== '') {
       const parsed = parseFloat(String(totalValue).replace(/,/g, ''));
-      if (!isNaN(parsed)) return parsed;
+      if (!isNaN(parsed) && parsed > 0) return parsed;
     }
     return computedItemAmount;
   }, [totalValue, computedItemAmount]);
 
+  // Parsed Advance Payment (always non-negative)
+  const parsedAdvancePayment = useMemo(() => {
+    if (advancePayment !== '' && advancePayment !== undefined && advancePayment !== null) {
+      const parsed = Math.abs(parseFloat(String(advancePayment).replace(/,/g, '')));
+      if (!isNaN(parsed)) return parsed;
+    }
+    return 0;
+  }, [advancePayment]);
+
+  // Calculated Net Payable Total (bottom cell under TOTAL: "kitna abhi dena hai"):
+  // If advance is mentioned, calculates effectiveTotalValue - parsedAdvancePayment.
+  const calculatedPayableTotal = useMemo(() => {
+    if (parsedAdvancePayment > 0) {
+      return Math.max(0, effectiveTotalValue - parsedAdvancePayment);
+    }
+    return effectiveTotalValue;
+  }, [effectiveTotalValue, parsedAdvancePayment]);
+
+  // Amount in words reflects the payable total at the bottom ("kitna abhi dena hai")
   const effectiveAmountInWords = useMemo(
-    () => convertAmountToWords(computedTotal, currency),
-    [computedTotal, currency]
+    () => convertAmountToWords(calculatedPayableTotal, currency),
+    [calculatedPayableTotal, currency]
   );
 
   // Bank Accounts Management (Fetched via /dms-fields/bank-details/:sellerId)
@@ -1733,7 +1765,9 @@ export function CommercialInvoiceDocumentForm({
       setCountVessel(safeString(initialData.count_vessel));
     }
 
-    const nextAnyAdvance = resolveAnyAdvance(initialData);
+    const resolvedAdvance = extractCommercialAdvancePayment(initialData);
+    const nextAnyAdvance =
+      resolveAnyAdvance(initialData) || Boolean(resolvedAdvance && parseFloat(resolvedAdvance) > 0);
     setHasAnyAdvance(nextAnyAdvance);
 
     const resolvedBalancePay = extractCommercialBalancePayment(initialData);
@@ -1750,25 +1784,10 @@ export function CommercialInvoiceDocumentForm({
       setTotalValue('');
     }
 
-    if (!nextAnyAdvance) {
+    if (resolvedAdvance !== '') {
+      setAdvancePayment(resolvedAdvance);
+    } else if (hasDocChanged || isDataVersionTriggered) {
       setAdvancePayment('');
-    } else {
-      const rawAdv =
-        initialData?.commercial_invoice?.advance_payment ??
-        initialData?.commercial_invoice?.advance_payment_amt ??
-        initialData?.advance_payment ??
-        initialData?.advance_payment_amt ??
-        initialData?.advance_amount ??
-        initialData?.advancePayment ??
-        initialData?.advancePaymentAmt ??
-        initialData?.advanceAmount ??
-        initialData?.data?.advance_payment ??
-        initialData?.data?.advance_payment_amt;
-      if (rawAdv !== undefined && rawAdv !== null && String(rawAdv).trim() !== '') {
-        setAdvancePayment(String(rawAdv).trim().replace(/,/g, ''));
-      } else if (hasDocChanged || isDataVersionTriggered) {
-        setAdvancePayment('');
-      }
     }
 
     const bNote = extractBankChargesNote(initialData);
@@ -1982,12 +2001,17 @@ export function CommercialInvoiceDocumentForm({
       formData.append('invoice_date', cleanInvoiceDate);
     }
 
-    // Advance Payment & Balance Payment
-    formData.append(
-      'advance_payment',
-      hasAnyAdvance ? formatDecimal2ForPayload(advancePayment, false) : '0.00'
-    );
-    formData.append('balance_payment', formatDecimal2ForPayload(effectiveBalancePayment, true));
+    // Advance Payment, Balance Payment & Total Value
+    const cleanAdv =
+      hasAnyAdvance && advancePayment
+        ? formatDecimal2ForPayload(parsedAdvancePayment, false)
+        : parsedAdvancePayment > 0
+          ? formatDecimal2ForPayload(parsedAdvancePayment, false)
+          : '0.00';
+    formData.append('advance_payment', cleanAdv);
+    formData.append('balance_payment', formatDecimal2ForPayload(calculatedPayableTotal, true));
+    formData.append('total_value', formatDecimal2ForPayload(effectiveTotalValue, true));
+    formData.append('total_amount', formatDecimal2ForPayload(effectiveTotalValue, true));
 
     // Bank Account (editable)
     if (
@@ -2041,7 +2065,9 @@ export function CommercialInvoiceDocumentForm({
     invoiceDate,
     hasAnyAdvance,
     advancePayment,
-    effectiveBalancePayment,
+    parsedAdvancePayment,
+    calculatedPayableTotal,
+    effectiveTotalValue,
     selectedBankId,
     commentLabel,
     commentValue,
@@ -3244,15 +3270,15 @@ export function CommercialInvoiceDocumentForm({
                     </span>
                   </td>
 
-                  {/* AMOUNT (balance_payment) */}
-                  <td className="py-3 px-3 align-top text-right" id="field-balancePayment" data-field="balancePayment">
+                  {/* AMOUNT (Total Value: Quantity * Rate or total_value) */}
+                  <td className="py-3 px-3 align-top text-right" id="field-totalValue" data-field="totalValue">
                     <span className="font-bold text-[14px] text-foreground tracking-wide select-all tabular-nums">
-                      {currencySymbol} {formatAmountWithoutExtraZeros(effectiveBalancePayment) || '0.00'}
+                      {currencySymbol} {formatAmountWithoutExtraZeros(effectiveTotalValue) || '0.00'}
                     </span>
-                    {(errors.balancePayment || errors.balance_payment) && (
+                    {(errors.totalValue || errors.total_value) && (
                       <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center justify-end gap-1.5">
                         <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
-                        <span className="text-brand-red">{errors.balancePayment || errors.balance_payment}</span>
+                        <span className="text-brand-red">{errors.totalValue || errors.total_value}</span>
                       </span>
                     )}
                   </td>
@@ -3309,7 +3335,7 @@ export function CommercialInvoiceDocumentForm({
                       />
                     ) : (
                       <span className="font-bold text-[14px] text-foreground tracking-wide select-all tabular-nums">
-                        {currencySymbol} 0.00
+                        {currencySymbol} {formatAmountWithoutExtraZeros(parsedAdvancePayment) || '0.00'}
                       </span>
                     )}
                   </td>
@@ -3333,14 +3359,16 @@ export function CommercialInvoiceDocumentForm({
                   >
                     TOTAL
                   </td>
-                  <td className="py-2.5 px-3 align-top text-right" id="field-totalValue" data-field="totalValue">
+                  <td className="py-2.5 px-3 align-top text-right" id="field-balancePayment" data-field="balancePayment">
                     <span className="font-bold text-[14px] text-foreground tracking-wide select-all tabular-nums">
-                      {currencySymbol} {formatAmountWithoutExtraZeros(computedTotal) || '0.00'}
+                      {currencySymbol} {formatAmountWithoutExtraZeros(calculatedPayableTotal) || '0.00'}
                     </span>
-                    {(errors.totalValue || errors.total_value) && (
+                    {(errors.balancePayment || errors.balance_payment || errors.totalValue || errors.total_value) && (
                       <span className="text-[11px] text-brand-red font-semibold mt-1 px-0.5 tracking-tight animate-in fade-in duration-200 flex items-center justify-end gap-1.5">
                         <i className="fa-solid fa-circle-exclamation text-[11px] shrink-0 text-brand-red" />
-                        <span className="text-brand-red">{errors.totalValue || errors.total_value}</span>
+                        <span className="text-brand-red">
+                          {errors.balancePayment || errors.balance_payment || errors.totalValue || errors.total_value}
+                        </span>
                       </span>
                     )}
                   </td>

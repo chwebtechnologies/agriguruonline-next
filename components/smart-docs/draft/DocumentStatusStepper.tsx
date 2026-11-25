@@ -15,11 +15,12 @@ import {
   isCommercialInvoiceStep,
   isPackingListStep,
   isPhytoCertificateStep,
+  isFumigationCertificateStep,
+  isCertificateOfOriginStep,
   extractStepRedirectId,
   extractStepId,
   getStepSelfId,
   isSameWorkflowStep,
-  isStepEnabled,
 } from '@/lib/api/smart-docs.service';
 import {
   getStepperListAction,
@@ -538,15 +539,6 @@ export function DocumentStatusStepper({
   };
 
   const handleStepClick = (step: StepperDocumentItem, index: number) => {
-    const isEnabled = isStepEnabled(step, index, visibleSteps, selectedIndex, {
-      isConfirmation: isCurrentConfirmation,
-      isContract: isCurrentContract,
-      isDocumentWorkflow: resolvedStepperType === 'document',
-      confirmationId: propConfirmationId,
-      contractId: contractNumber,
-      shipmentInstructionId: resolvedStepperType === 'document' ? resolvedStepperId : undefined,
-    });
-    if (!isEnabled) return;
     setSelectedIndex(index);
     if (onSelectStep) {
       onSelectStep(step, index);
@@ -572,11 +564,13 @@ export function DocumentStatusStepper({
       const isCommercialInvoice = !isBillOfLading && (isCommercialInvoiceStep(step) || stepName.includes('commercial') || step.step === 7);
       const isPackingList = !isBillOfLading && !isCommercialInvoice && (isPackingListStep(step) || stepName.includes('packing') || step.step === 8);
       const isPhyto = !isBillOfLading && !isCommercialInvoice && !isPackingList && (isPhytoCertificateStep(step) || stepName.includes('phyto') || step.step === 9);
-      const isCustomInvoice = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && (isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 6);
-      const isShipment = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
-      const isContract = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
-      const isProforma = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
-      const prefix = isBillOfLading ? 'bill_of_lading' : isCommercialInvoice ? 'commercial_invoice' : isPackingList ? 'packing_list' : isPhyto ? 'phyto_certificate' : isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
+      const isFumigation = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && (isFumigationCertificateStep(step) || stepName.includes('fumigation') || step.step === 10);
+      const isOrigin = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isFumigation && (isCertificateOfOriginStep(step) || stepName.includes('origin') || step.step === 11);
+      const isCustomInvoice = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isFumigation && (isCustomInvoiceStep(step) || stepName.includes('custom') || (stepName.includes('invoice') && !stepName.includes('proforma')) || step.step === 6);
+      const isShipment = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isFumigation && !isCustomInvoice && (stepName.includes('shipment') || stepName.includes('instruction') || step.step === 4);
+      const isContract = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isFumigation && !isCustomInvoice && !isShipment && (stepName.includes('contract') || step.step === 2);
+      const isProforma = !isBillOfLading && !isCommercialInvoice && !isPackingList && !isPhyto && !isFumigation && !isCustomInvoice && !isShipment && !isContract && (stepName.includes('proforma') || step.step === 3);
+      const prefix = isBillOfLading ? 'bill_of_lading' : isCommercialInvoice ? 'commercial_invoice' : isPackingList ? 'packing_list' : isPhyto ? 'phyto_certificate' : isOrigin ? 'certificate_of_origin' : isFumigation ? 'fumigation_certificate' : isCustomInvoice ? 'custom_invoice' : isShipment ? 'shipment_instruction' : isContract ? 'contract' : isProforma ? 'proforma' : 'confirmation';
 
       const res = await downloadDocPdfAction({
         prefix,
@@ -585,6 +579,8 @@ export function DocumentStatusStepper({
         commercialInvoiceId: isCommercialInvoice ? cleanId : undefined,
         packingListId: isPackingList ? cleanId : undefined,
         phytoCertificateId: isPhyto ? cleanId : undefined,
+        fumigationCertificateId: isFumigation ? cleanId : undefined,
+        certificateOfOriginId: isOrigin ? cleanId : undefined,
         lang,
       });
 
@@ -615,6 +611,8 @@ export function DocumentStatusStepper({
     if (isCommercialInvoiceStep(stepItem) && isCommercialInvoiceStep(docConfig as any)) return true;
     if (isPackingListStep(stepItem) && isPackingListStep(docConfig as any)) return true;
     if (isPhytoCertificateStep(stepItem) && isPhytoCertificateStep(docConfig as any)) return true;
+    if (isFumigationCertificateStep(stepItem) && isFumigationCertificateStep(docConfig as any)) return true;
+    if (isCertificateOfOriginStep(stepItem) && isCertificateOfOriginStep(docConfig as any)) return true;
 
     return false;
   }, []);
@@ -1099,15 +1097,7 @@ export function DocumentStatusStepper({
                 const stepNumber = step.step ?? step.step_number ?? step.order ?? index + 1;
                 const pdfUrl = step.pdf_url || step.pdf || step.download_url || step.file_url;
 
-                const isEnabled = isStepEnabled(step, index, visibleSteps, selectedIndex, {
-                  isConfirmation: isCurrentConfirmation,
-                  isContract: isCurrentContract,
-                  isDocumentWorkflow: resolvedStepperType === 'document',
-                  confirmationId: propConfirmationId,
-                  contractId: contractNumber,
-                  shipmentInstructionId: resolvedStepperType === 'document' ? resolvedStepperId : undefined,
-                });
-                const isStepLocked = !isEnabled;
+                const isStepLocked = Boolean(step.is_locked || step.locked || normalized === 'locked');
 
                 return (
                   <div
@@ -1240,16 +1230,10 @@ function StatusBadge({
     );
   }
 
-  const rawClean = typeof rawStatus === 'string' ? rawStatus.trim() : '';
-  const displayStatus =
-    rawClean && !['locked', 'disabled', 'pending'].includes(rawClean.toLowerCase())
-      ? rawClean.charAt(0).toUpperCase() + rawClean.slice(1).toLowerCase().replace(/_/g, ' ')
-      : dict?.smart_docs?.status_pending || 'Pending';
-
   return (
     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 leading-none">
       <i className="fa-regular fa-clock text-[7px]" />
-      <span>{displayStatus}</span>
+      <span>{dict?.smart_docs?.status_pending || 'Pending'}</span>
     </span>
   );
 }

@@ -22,6 +22,10 @@ import {
   extractCommercialInvoiceData,
   extractPackingListData,
   extractPhytoCertificateData,
+  extractFumigationCertificateData,
+  extractLinkedFumigationCertificateId,
+  extractCertificateOfOriginData,
+  extractLinkedCertificateOfOriginId,
   extractDocumentListData,
   isConfirmationStep,
   isContractStep,
@@ -32,6 +36,9 @@ import {
   isCommercialInvoiceStep,
   isPackingListStep,
   isPhytoCertificateStep,
+  isFumigationCertificateStep,
+  isCertificateOfOriginStep,
+  isWqCertificateStep,
   extractStepId,
   extractStepRedirectId,
   getStepSelfId,
@@ -41,6 +48,11 @@ import {
   getCommercialInvoiceIdFromStepper,
   getPackingListIdFromStepper,
   getPhytoCertificateIdFromStepper,
+  getFumigationCertificateIdFromStepper,
+  getCertificateOfOriginIdFromStepper,
+  getWqCertificateIdFromStepper,
+  extractLinkedWqCertificateId,
+  extractWqCertificateData,
   DEFAULT_WORKFLOW_STEPPER_ITEMS,
   isRealStepperList,
   normalizeStepStatus,
@@ -300,9 +312,25 @@ async function DraftPageDataLoader({
     initialStepParam === 'phyto_certificate' ||
     initialStepParam === 'phyto' ||
     initialStepParam === '9';
+  const isFumigationCertificateRequested =
+    initialStepParam === 'fumigation-certificate' ||
+    initialStepParam === 'fumigation_certificate' ||
+    initialStepParam === 'fumigation' ||
+    initialStepParam === '10';
+  const isCertificateOfOriginRequested =
+    initialStepParam === 'certificate-of-origin' ||
+    initialStepParam === 'certificate_of_origin' ||
+    initialStepParam === 'origin' ||
+    initialStepParam === 'origin-certificate' ||
+    initialStepParam === '11';
+  const isWqCertificateRequested =
+    initialStepParam === 'wq-certificate' ||
+    initialStepParam === 'wq_certificate' ||
+    initialStepParam === 'wq' ||
+    initialStepParam === '12';
 
   try {
-    const targetAction = isShipmentRequested || isBillOfLadingRequested || isCustomInvoiceRequested || isCommercialInvoiceRequested || isPackingListRequested || isPhytoCertificateRequested
+    const targetAction = isShipmentRequested || isBillOfLadingRequested || isCustomInvoiceRequested || isCommercialInvoiceRequested || isPackingListRequested || isPhytoCertificateRequested || isFumigationCertificateRequested || isCertificateOfOriginRequested || isWqCertificateRequested
       ? 'document'
       : 'confirmation';
 
@@ -328,6 +356,9 @@ async function DraftPageDataLoader({
       commercialInvoiceRes,
       packingListRes,
       phytoCertificateRes,
+      fumigationCertificateRes,
+      certificateOfOriginRes,
+      wqCertificateRes,
     ] = await Promise.all([
       getDictionary(lang).catch(() => ({})),
       smartDocsService
@@ -395,6 +426,15 @@ async function DraftPageDataLoader({
       (isPhytoCertificateRequested || draftId)
         ? smartDocsService.getPhytoCertificate(draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
+      (isFumigationCertificateRequested || draftId)
+        ? smartDocsService.getFumigationCertificate(draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      (isCertificateOfOriginRequested || draftId)
+        ? smartDocsService.getCertificateOfOrigin(draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      (isWqCertificateRequested || draftId)
+        ? smartDocsService.getWqCertificate(draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
     ]);
 
     const dict = rawDict as any;
@@ -450,6 +490,21 @@ async function DraftPageDataLoader({
       extractPhytoCertificateData(phytoCertificateRes) ||
       (phytoCertificateRes?.data && typeof phytoCertificateRes.data === 'object' && !Array.isArray(phytoCertificateRes.data) && phytoCertificateRes.success !== false
         ? { ...phytoCertificateRes.data, _is_phyto_certificate_loaded: true }
+        : null);
+    let initialFumigationCertificateData: any =
+      extractFumigationCertificateData(fumigationCertificateRes) ||
+      (fumigationCertificateRes?.data && typeof fumigationCertificateRes.data === 'object' && !Array.isArray(fumigationCertificateRes.data) && fumigationCertificateRes.success !== false
+        ? { ...fumigationCertificateRes.data, _is_fumigation_certificate_loaded: true }
+        : null);
+    let initialCertificateOfOriginData: any =
+      extractCertificateOfOriginData(certificateOfOriginRes) ||
+      (certificateOfOriginRes?.data && typeof certificateOfOriginRes.data === 'object' && !Array.isArray(certificateOfOriginRes.data) && certificateOfOriginRes.success !== false
+        ? { ...certificateOfOriginRes.data, _is_certificate_of_origin_loaded: true }
+        : null);
+    let initialWqCertificateData: any =
+      extractWqCertificateData(wqCertificateRes) ||
+      (wqCertificateRes?.data && typeof wqCertificateRes.data === 'object' && !Array.isArray(wqCertificateRes.data) && wqCertificateRes.success !== false
+        ? { ...wqCertificateRes.data, _is_wq_certificate_loaded: true }
         : null);
 
     // If initialShipmentInstructionData contains nested contract/confirmation/proforma objects, seed missing data
@@ -519,6 +574,45 @@ async function DraftPageDataLoader({
       extractLinkedPhytoCertificateId(initialProformaData) ||
       extractLinkedPhytoCertificateId(initialContractData) ||
       extractLinkedPhytoCertificateId(initialConfirmationData);
+
+    const discoveredFumigationCertificateId =
+      extractLinkedFumigationCertificateId(initialFumigationCertificateData) ||
+      extractLinkedFumigationCertificateId(initialPhytoCertificateData) ||
+      extractLinkedFumigationCertificateId(initialPackingListData) ||
+      extractLinkedFumigationCertificateId(initialCommercialInvoiceData) ||
+      extractLinkedFumigationCertificateId(initialCustomInvoiceData) ||
+      extractLinkedFumigationCertificateId(initialBillOfLadingData) ||
+      extractLinkedFumigationCertificateId(initialShipmentInstructionData) ||
+      extractLinkedFumigationCertificateId(initialProformaData) ||
+      extractLinkedFumigationCertificateId(initialContractData) ||
+      extractLinkedFumigationCertificateId(initialConfirmationData);
+
+    const discoveredCertificateOfOriginId =
+      extractLinkedCertificateOfOriginId(initialCertificateOfOriginData) ||
+      extractLinkedCertificateOfOriginId(initialFumigationCertificateData) ||
+      extractLinkedCertificateOfOriginId(initialPhytoCertificateData) ||
+      extractLinkedCertificateOfOriginId(initialPackingListData) ||
+      extractLinkedCertificateOfOriginId(initialCommercialInvoiceData) ||
+      extractLinkedCertificateOfOriginId(initialCustomInvoiceData) ||
+      extractLinkedCertificateOfOriginId(initialBillOfLadingData) ||
+      extractLinkedCertificateOfOriginId(initialShipmentInstructionData) ||
+      extractLinkedCertificateOfOriginId(initialProformaData) ||
+      extractLinkedCertificateOfOriginId(initialContractData) ||
+      extractLinkedCertificateOfOriginId(initialConfirmationData);
+
+    const discoveredWqCertificateId =
+      extractLinkedWqCertificateId(initialWqCertificateData) ||
+      extractLinkedWqCertificateId(initialCertificateOfOriginData) ||
+      extractLinkedWqCertificateId(initialFumigationCertificateData) ||
+      extractLinkedWqCertificateId(initialPhytoCertificateData) ||
+      extractLinkedWqCertificateId(initialPackingListData) ||
+      extractLinkedWqCertificateId(initialCommercialInvoiceData) ||
+      extractLinkedWqCertificateId(initialCustomInvoiceData) ||
+      extractLinkedWqCertificateId(initialBillOfLadingData) ||
+      extractLinkedWqCertificateId(initialShipmentInstructionData) ||
+      extractLinkedWqCertificateId(initialProformaData) ||
+      extractLinkedWqCertificateId(initialContractData) ||
+      extractLinkedWqCertificateId(initialConfirmationData);
 
     // If shipment instruction data was loaded for this draftId, ensure stepper is anchored to document!
     if (initialShipmentInstructionData && stepperTarget && stepperTarget !== 'new-confirmation') {
@@ -741,8 +835,71 @@ async function DraftPageDataLoader({
       discoveredPhytoCertificateId ||
       (isPhytoCertificateRequested && !initialConfirmationData && !initialContractData ? draftId : '');
 
+    const stepperFumigationCertificateStep = initialSteps.find((s) => isFumigationCertificateStep(s)) || null;
+    const fumigationCertificateId =
+      stepperFumigationCertificateStep?.fumigation_certificate_id ||
+      (stepperFumigationCertificateStep as any)?.fumigationCertificateId ||
+      getStepSelfId(stepperFumigationCertificateStep) ||
+      getFumigationCertificateIdFromStepper(initialSteps) ||
+      extractStepRedirectId(stepperFumigationCertificateStep) ||
+      discoveredFumigationCertificateId ||
+      (isFumigationCertificateRequested && !initialConfirmationData && !initialContractData ? draftId : '');
+
+    const stepperCertificateOfOriginStep = initialSteps.find((s) => isCertificateOfOriginStep(s)) || null;
+    const certificateOfOriginId =
+      stepperCertificateOfOriginStep?.certificate_of_origin_id ||
+      (stepperCertificateOfOriginStep as any)?.certificateOfOriginId ||
+      getStepSelfId(stepperCertificateOfOriginStep) ||
+      getCertificateOfOriginIdFromStepper(initialSteps) ||
+      extractStepRedirectId(stepperCertificateOfOriginStep) ||
+      discoveredCertificateOfOriginId ||
+      (isCertificateOfOriginRequested && !initialConfirmationData && !initialContractData ? draftId : '');
+
+    const originFetchId =
+      certificateOfOriginId ||
+      (isCertificateOfOriginRequested
+        ? stepperCertificateOfOriginStep?.redirect_id ||
+          (stepperCertificateOfOriginStep as any)?.redirectId ||
+          confId ||
+          contractId ||
+          draftId
+        : '');
+
+    const stepperWqCertificateStep = initialSteps.find((s) => isWqCertificateStep(s)) || null;
+    const wqCertificateId =
+      stepperWqCertificateStep?.wq_certificate_id ||
+      (stepperWqCertificateStep as any)?.wqCertificateId ||
+      getStepSelfId(stepperWqCertificateStep) ||
+      getWqCertificateIdFromStepper(initialSteps) ||
+      extractStepRedirectId(stepperWqCertificateStep) ||
+      discoveredWqCertificateId ||
+      (isWqCertificateRequested && !initialConfirmationData && !initialContractData ? draftId : '');
+
+    const wqFetchId =
+      wqCertificateId ||
+      (isWqCertificateRequested
+        ? stepperWqCertificateStep?.redirect_id ||
+          (stepperWqCertificateStep as any)?.redirectId ||
+          confId ||
+          contractId ||
+          draftId
+        : '');
+
     // Phase 2: Fetch any missing documents in ONE clean parallel round trip!
-    const [missingConfRes, missingContractRes, missingProformaRes, missingShipmentRes, missingBillOfLadingRes, missingCustomInvoiceRes, missingCommercialInvoiceRes, missingPackingListRes, missingPhytoCertificateRes] = await Promise.all([
+    const [
+      missingConfRes,
+      missingContractRes,
+      missingProformaRes,
+      missingShipmentRes,
+      missingBillOfLadingRes,
+      missingCustomInvoiceRes,
+      missingCommercialInvoiceRes,
+      missingPackingListRes,
+      missingPhytoCertificateRes,
+      missingFumigationCertificateRes,
+      missingCertificateOfOriginRes,
+      missingWqCertificateRes,
+    ] = await Promise.all([
       !initialConfirmationData && (confId || draftId)
         ? smartDocsService.getConfirmation(confId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
@@ -769,6 +926,15 @@ async function DraftPageDataLoader({
         : Promise.resolve(null),
       !initialPhytoCertificateData && (phytoCertificateId || (isPhytoCertificateRequested ? draftId : ''))
         ? smartDocsService.getPhytoCertificate(phytoCertificateId || draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      !initialFumigationCertificateData && (fumigationCertificateId || (isFumigationCertificateRequested ? draftId : ''))
+        ? smartDocsService.getFumigationCertificate(fumigationCertificateId || draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      !initialCertificateOfOriginData && (originFetchId || certificateOfOriginId || (isCertificateOfOriginRequested ? draftId : ''))
+        ? smartDocsService.getCertificateOfOrigin(originFetchId || certificateOfOriginId || draftId, { lang, source: 'web' }, token).catch(() => null)
+        : Promise.resolve(null),
+      !initialWqCertificateData && (wqFetchId || wqCertificateId || (isWqCertificateRequested ? draftId : ''))
+        ? smartDocsService.getWqCertificate(wqFetchId || wqCertificateId || draftId, { lang, source: 'web' }, token).catch(() => null)
         : Promise.resolve(null),
     ]);
 
@@ -838,6 +1004,30 @@ async function DraftPageDataLoader({
           ? { ...missingPhytoCertificateRes.data, _is_phyto_certificate_loaded: true }
           : null);
       if (ext) initialPhytoCertificateData = ext;
+    }
+    if (missingFumigationCertificateRes) {
+      const ext =
+        extractFumigationCertificateData(missingFumigationCertificateRes) ||
+        (missingFumigationCertificateRes?.data && typeof missingFumigationCertificateRes.data === 'object'
+          ? { ...missingFumigationCertificateRes.data, _is_fumigation_certificate_loaded: true }
+          : null);
+      if (ext) initialFumigationCertificateData = ext;
+    }
+    if (missingCertificateOfOriginRes) {
+      const ext =
+        extractCertificateOfOriginData(missingCertificateOfOriginRes) ||
+        (missingCertificateOfOriginRes?.data && typeof missingCertificateOfOriginRes.data === 'object'
+          ? { ...missingCertificateOfOriginRes.data, _is_certificate_of_origin_loaded: true }
+          : null);
+      if (ext) initialCertificateOfOriginData = ext;
+    }
+    if (missingWqCertificateRes) {
+      const ext =
+        extractWqCertificateData(missingWqCertificateRes) ||
+        (missingWqCertificateRes?.data && typeof missingWqCertificateRes.data === 'object'
+          ? { ...missingWqCertificateRes.data, _is_wq_certificate_loaded: true }
+          : null);
+      if (ext) initialWqCertificateData = ext;
     }
 
     // Pre-fetch buyer consignees and notify parties strictly for this trade's Importer (buyer_instruction_id).
@@ -1032,6 +1222,45 @@ async function DraftPageDataLoader({
         } else if (s.status) {
           updated.status = s.status;
         }
+      } else if (isFumigationCertificateStep(s)) {
+        if (fumigationCertificateId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
+          updated.redirect_id = fumigationCertificateId;
+          updated.redirectId = fumigationCertificateId;
+        }
+        const isFumigationDone =
+          normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
+          isStatusCompleted(initialFumigationCertificateData?.status || initialFumigationCertificateData?.document_status || initialFumigationCertificateData?.fumigation_certificate_status);
+        if (isFumigationDone) {
+          updated.status = 'completed';
+        } else if (s.status) {
+          updated.status = s.status;
+        }
+      } else if (isCertificateOfOriginStep(s)) {
+        if (certificateOfOriginId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
+          updated.redirect_id = certificateOfOriginId;
+          updated.redirectId = certificateOfOriginId;
+        }
+        const isOriginDone =
+          normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
+          isStatusCompleted(initialCertificateOfOriginData?.status || initialCertificateOfOriginData?.document_status || initialCertificateOfOriginData?.certificate_of_origin_status);
+        if (isOriginDone) {
+          updated.status = 'completed';
+        } else if (s.status) {
+          updated.status = s.status;
+        }
+      } else if (isWqCertificateStep(s)) {
+        if (wqCertificateId && (!updated.redirect_id || updated.redirect_id === 'new-confirmation')) {
+          updated.redirect_id = wqCertificateId;
+          updated.redirectId = wqCertificateId;
+        }
+        const isWqDone =
+          normalizeStepStatus(s.status || s.document_status || s.step_status) === 'completed' ||
+          isStatusCompleted(initialWqCertificateData?.status || initialWqCertificateData?.document_status || initialWqCertificateData?.wq_certificate_status);
+        if (isWqDone) {
+          updated.status = 'completed';
+        } else if (s.status) {
+          updated.status = s.status;
+        }
       }
       if (updated.status === 'completed' || (updated.redirect_id && updated.redirect_id !== 'new-confirmation' && !/^(null|undefined|step-\d+)$/i.test(String(updated.redirect_id)))) {
         updated.is_enabled = true;
@@ -1043,7 +1272,13 @@ async function DraftPageDataLoader({
     // If this ID is a Contract or Proforma or Shipment or Bill of Lading or Custom Invoice or Commercial Invoice or Packing List or Phyto Certificate (or step requested), ensure initialStepParam defaults accordingly
     const effectiveStepParam =
       initialStepParam ||
-      (isPhytoCertificateRequested
+      (isWqCertificateRequested
+        ? 'wq-certificate'
+        : isCertificateOfOriginRequested
+        ? 'certificate-of-origin'
+        : isFumigationCertificateRequested
+        ? 'fumigation-certificate'
+        : isPhytoCertificateRequested
         ? 'phyto-certificate'
         : isPackingListRequested
         ? 'packing-list'
@@ -1108,6 +1343,9 @@ async function DraftPageDataLoader({
               initialCommercialInvoiceData={initialCommercialInvoiceData}
               initialPackingListData={initialPackingListData}
               initialPhytoCertificateData={initialPhytoCertificateData}
+              initialFumigationCertificateData={initialFumigationCertificateData}
+              initialCertificateOfOriginData={initialCertificateOfOriginData}
+              initialWqCertificateData={initialWqCertificateData}
               initialConsignees={initialConsignees}
               initialNotifyParties={initialNotifyParties}
               initialConsigneesBuyerId={effectiveBuyerId}
@@ -1148,6 +1386,9 @@ async function DraftPageDataLoader({
               initialCommercialInvoiceData={null}
               initialPackingListData={null}
               initialPhytoCertificateData={null}
+              initialFumigationCertificateData={null}
+              initialCertificateOfOriginData={null}
+              initialWqCertificateData={null}
               initialId={draftId}
               initialStepParam={initialStepParam}
             />

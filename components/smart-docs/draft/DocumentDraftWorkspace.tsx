@@ -26,6 +26,9 @@ import {
   isCommercialInvoiceStep,
   isPackingListStep,
   isPhytoCertificateStep,
+  isFumigationCertificateStep,
+  isCertificateOfOriginStep,
+  isWqCertificateStep,
   getContractStep,
   getProformaStep,
   getShipmentInstructionStep,
@@ -34,6 +37,9 @@ import {
   getCommercialInvoiceStep,
   getPackingListStep,
   getPhytoCertificateStep,
+  getFumigationCertificateStep,
+  getCertificateOfOriginStep,
+  getWqCertificateStep,
   getContractIdFromStepper,
   getProformaIdFromStepper,
   getConfirmationIdFromStepper,
@@ -43,6 +49,9 @@ import {
   getCommercialInvoiceIdFromStepper,
   getPackingListIdFromStepper,
   getPhytoCertificateIdFromStepper,
+  getFumigationCertificateIdFromStepper,
+  getCertificateOfOriginIdFromStepper,
+  getWqCertificateIdFromStepper,
   extractShipmentInstructionData,
   extractBillOfLadingData,
   isCompleteBillOfLadingData,
@@ -59,6 +68,15 @@ import {
   extractPhytoCertificateData,
   isCompletePhytoCertificateData,
   extractLinkedPhytoCertificateId,
+  extractFumigationCertificateData,
+  isCompleteFumigationCertificateData,
+  extractLinkedFumigationCertificateId,
+  extractCertificateOfOriginData,
+  isCompleteCertificateOfOriginData,
+  extractLinkedCertificateOfOriginId,
+  extractWqCertificateData,
+  isCompleteWqCertificateData,
+  extractLinkedWqCertificateId,
   sanitizeDocId,
   isRealStepperList,
   isStatusCompleted,
@@ -79,6 +97,9 @@ import CustomInvoiceDocumentForm from './form/CustomInvoiceDocumentForm';
 import CommercialInvoiceDocumentForm from './form/CommercialInvoiceDocumentForm';
 import PackingListDocumentForm from './form/PackingListDocumentForm';
 import PhytoCertificateDocumentForm from './form/PhytoCertificateDocumentForm';
+import FumigationCertificateDocumentForm from './form/FumigationCertificateDocumentForm';
+import CertificateOfOriginDocumentForm from './form/CertificateOfOriginDocumentForm';
+import WqCertificateDocumentForm from './form/WqCertificateDocumentForm';
 import DocumentDraftSkeleton from './DocumentDraftSkeleton';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
@@ -110,6 +131,15 @@ import {
   getPhytoCertificateAction,
   savePhytoCertificateDraftAction,
   submitPhytoCertificateAction,
+  getFumigationCertificateAction,
+  saveFumigationCertificateDraftAction,
+  submitFumigationCertificateAction,
+  getCertificateOfOriginAction,
+  saveCertificateOfOriginDraftAction,
+  submitCertificateOfOriginAction,
+  getWqCertificateAction,
+  saveWqCertificateDraftAction,
+  submitWqCertificateAction,
 } from '@/app/actions/smart-docs';
 
 export function getSafeDisplayString(val: any, fallback = 'N/A'): string {
@@ -176,7 +206,7 @@ export function isInvalidPlaceholder(val?: string | null): boolean {
   const clean = String(val).trim().toLowerCase();
   return (
     clean === '' ||
-    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+    /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
       clean
     )
   );
@@ -556,6 +586,9 @@ export interface DocumentDraftWorkspaceProps {
   initialCommercialInvoiceData?: any;
   initialPackingListData?: any;
   initialPhytoCertificateData?: any;
+  initialFumigationCertificateData?: any;
+  initialCertificateOfOriginData?: any;
+  initialWqCertificateData?: any;
   initialConsignees?: any[];
   initialNotifyParties?: any[];
   initialConsigneesBuyerId?: string;
@@ -573,6 +606,9 @@ export function getStepSlug(step?: StepperDocumentItem | null, index?: number): 
   if (isCommercialInvoiceStep(step)) return 'commercial-invoice';
   if (isPackingListStep(step)) return 'packing-list';
   if (isPhytoCertificateStep(step)) return 'phyto-certificate';
+  if (isFumigationCertificateStep(step)) return 'fumigation-certificate';
+  if (isCertificateOfOriginStep(step)) return 'certificate-of-origin';
+  if (isWqCertificateStep(step)) return 'wq-certificate';
 
   if (step) {
     const name = String(step.document_name || step.name || step.title || '').trim().toLowerCase();
@@ -597,6 +633,9 @@ export function getStepSlug(step?: StepperDocumentItem | null, index?: number): 
     if (index === 6) return 'commercial-invoice';
     if (index === 7) return 'packing-list';
     if (index === 8) return 'phyto-certificate';
+    if (index === 9) return 'fumigation-certificate';
+    if (index === 10) return 'certificate-of-origin';
+    if (index === 11) return 'wq-certificate';
     return `step-${index + 1}`;
   }
   return 'confirmation';
@@ -664,6 +703,21 @@ export function resolveInitialStepIndex(
       const phytoIdx = stepList.findIndex((s) => isPhytoCertificateStep(s));
       return phytoIdx >= 0 ? phytoIdx : (stepList.length > 8 ? 8 : 0);
     }
+    if (clean === 'fumigation-certificate' || clean === 'fumigation_certificate' || clean === 'fumigation' || clean === '10') {
+      if (!stepList || stepList.length === 0) return 0;
+      const fumigationIdx = stepList.findIndex((s) => isFumigationCertificateStep(s));
+      return fumigationIdx >= 0 ? fumigationIdx : (stepList.length > 9 ? 9 : 0);
+    }
+    if (clean === 'certificate-of-origin' || clean === 'certificate_of_origin' || clean === 'origin' || clean === 'origin-certificate' || clean === '11') {
+      if (!stepList || stepList.length === 0) return 0;
+      const originIdx = stepList.findIndex((s) => isCertificateOfOriginStep(s));
+      return originIdx >= 0 ? originIdx : (stepList.length > 10 ? 10 : 0);
+    }
+    if (clean === 'wq-certificate' || clean === 'wq_certificate' || clean === 'wq' || clean === 'weight' || clean === '12') {
+      if (!stepList || stepList.length === 0) return 0;
+      const wqIdx = stepList.findIndex((s) => isWqCertificateStep(s));
+      return wqIdx >= 0 ? wqIdx : (stepList.length > 11 ? 11 : 0);
+    }
     if (stepList && stepList.length > 0) {
       const matchedIdx = stepList.findIndex((s, i) => {
         const id = String(s.id || '').toLowerCase();
@@ -701,6 +755,9 @@ export function DocumentDraftWorkspace({
   initialCommercialInvoiceData,
   initialPackingListData,
   initialPhytoCertificateData,
+  initialFumigationCertificateData,
+  initialCertificateOfOriginData,
+  initialWqCertificateData,
   initialConsignees = [],
   initialNotifyParties = [],
   initialConsigneesBuyerId = '',
@@ -756,7 +813,12 @@ export function DocumentDraftWorkspace({
   const [isLoadingPackingList, setIsLoadingPackingList] = useState<boolean>(false);
   const [phytoCertificateData, setPhytoCertificateData] = useState<any>(initialPhytoCertificateData || null);
   const [isLoadingPhytoCertificate, setIsLoadingPhytoCertificate] = useState<boolean>(false);
-  const [phytoCertificateVersion, setPhytoCertificateVersion] = useState<number>(0);
+  const [fumigationCertificateData, setFumigationCertificateData] = useState<any>(initialFumigationCertificateData || null);
+  const [certificateOfOriginData, setCertificateOfOriginData] = useState<any>(initialCertificateOfOriginData || null);
+  const [wqCertificateData, setWqCertificateData] = useState<any>(initialWqCertificateData || null);
+  const [isLoadingFumigationCertificate, setIsLoadingFumigationCertificate] = useState<boolean>(false);
+  const [isLoadingCertificateOfOrigin, setIsLoadingCertificateOfOrigin] = useState<boolean>(false);
+  const [isLoadingWqCertificate, setIsLoadingWqCertificate] = useState<boolean>(false);
 
   // Pinned workflow partial contract number:
   // When a workflow is opened for a specific partial split (e.g. Split B's Shipment Instruction),
@@ -922,6 +984,10 @@ export function DocumentDraftWorkspace({
   const [customInvoiceVersion, setCustomInvoiceVersion] = useState<number>(0);
   const [commercialInvoiceVersion, setCommercialInvoiceVersion] = useState<number>(0);
   const [packingListVersion, setPackingListVersion] = useState<number>(0);
+  const [phytoCertificateVersion, setPhytoCertificateVersion] = useState<number>(0);
+  const [fumigationCertificateVersion, setFumigationCertificateVersion] = useState<number>(0);
+  const [certificateOfOriginVersion, setCertificateOfOriginVersion] = useState<number>(0);
+  const [wqCertificateVersion, setWqCertificateVersion] = useState<number>(0);
 
   // Compute initial selected step (honoring explicit URL param or defaulting to latest open step)
   const [selectedStepIndex, setSelectedStepIndex] = useState<number>(() =>
@@ -951,6 +1017,9 @@ export function DocumentDraftWorkspace({
   const isCommercialInvoice = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && isCommercialInvoiceStep(fallbackStep);
   const isPackingList = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && isPackingListStep(fallbackStep);
   const isPhytoCertificate = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList && isPhytoCertificateStep(fallbackStep);
+  const isFumigationCertificate = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList && !isPhytoCertificate && isFumigationCertificateStep(fallbackStep);
+  const isCertificateOfOrigin = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && isCertificateOfOriginStep(fallbackStep);
+  const isWqCertificate = !isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && isWqCertificateStep(fallbackStep);
 
   // Contract ID extracted strictly from Stepper list / selectedStep (user: "id tumhe stepper se milegi")
   const contractIdFromStepper = useMemo(() => {
@@ -1008,7 +1077,8 @@ export function DocumentDraftWorkspace({
       isCustomInvoice ||
       isCommercialInvoice ||
       isPackingList ||
-      isPhytoCertificate;
+      isPhytoCertificate ||
+      isFumigationCertificate;
 
     const cleanInitial = sanitizeDocId(initialId);
     if (
@@ -1842,7 +1912,7 @@ export function DocumentDraftWorkspace({
       directPhytoId !== canonicalCustomInvoiceId &&
       directPhytoId !== canonicalCommercialInvoiceId &&
       directPhytoId !== canonicalPackingListId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(directPhytoId)
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(directPhytoId)
     ) {
       return directPhytoId;
     }
@@ -1867,7 +1937,7 @@ export function DocumentDraftWorkspace({
       fromStepper !== canonicalCommercialInvoiceId &&
       fromStepper !== canonicalPackingListId &&
       !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(fromStepper)
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(fromStepper)
     ) {
       return fromStepper;
     }
@@ -1894,7 +1964,7 @@ export function DocumentDraftWorkspace({
       linkedCandidate !== canonicalCustomInvoiceId &&
       linkedCandidate !== canonicalCommercialInvoiceId &&
       linkedCandidate !== canonicalPackingListId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(linkedCandidate)
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(linkedCandidate)
     ) {
       return linkedCandidate;
     }
@@ -1911,7 +1981,7 @@ export function DocumentDraftWorkspace({
       cleanDraftId !== canonicalCustomInvoiceId &&
       cleanDraftId !== canonicalCommercialInvoiceId &&
       cleanDraftId !== canonicalPackingListId &&
-      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+)$/i.test(cleanDraftId)
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(cleanDraftId)
     ) {
       return cleanDraftId;
     }
@@ -1939,6 +2009,434 @@ export function DocumentDraftWorkspace({
     contractData,
     confirmationData,
     isPhytoCertificate,
+    draftId,
+  ]);
+
+  // Canonical Fumigation Certificate ID
+  const canonicalFumigationCertificateId = useMemo(() => {
+    const hasFumigationMarkers = (d: any) =>
+      Boolean(
+        d?.fumigation_certificate_number ||
+        d?.fumigation_certificate_no ||
+        d?.fumigation_number ||
+        d?.fumigation_certificate ||
+        d?.fumigationCertificate ||
+        d?.fumigation_certificate_id ||
+        d?._is_fumigation_certificate_loaded
+      );
+
+    const directFumigationId = sanitizeDocId(
+      (hasFumigationMarkers(fumigationCertificateData) ? fumigationCertificateData?.id || fumigationCertificateData?._id : '') ||
+      fumigationCertificateData?.fumigation_certificate_id ||
+      (hasFumigationMarkers(initialFumigationCertificateData) ? initialFumigationCertificateData?.id || initialFumigationCertificateData?._id : '') ||
+      initialFumigationCertificateData?.fumigation_certificate_id
+    );
+    if (
+      directFumigationId &&
+      directFumigationId !== effectiveConfirmationId &&
+      directFumigationId !== canonicalContractId &&
+      directFumigationId !== canonicalProformaId &&
+      directFumigationId !== canonicalShipmentInstructionId &&
+      directFumigationId !== canonicalBillOfLadingId &&
+      directFumigationId !== canonicalCustomInvoiceId &&
+      directFumigationId !== canonicalCommercialInvoiceId &&
+      directFumigationId !== canonicalPackingListId &&
+      directFumigationId !== canonicalPhytoCertificateId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(directFumigationId)
+    ) {
+      return directFumigationId;
+    }
+
+    const fumigationStep = getFumigationCertificateStep(steps, selectedStep);
+    const fromStepper = sanitizeDocId(
+      getStepSelfId(fumigationStep) ||
+      getFumigationCertificateIdFromStepper(steps, selectedStep) ||
+      fumigationStep?.fumigation_certificate_id ||
+      (fumigationStep as any)?.fumigationCertificateId ||
+      fumigationStep?.redirect_id ||
+      (fumigationStep as any)?.redirectId
+    );
+    if (
+      fromStepper &&
+      fromStepper !== effectiveConfirmationId &&
+      fromStepper !== canonicalContractId &&
+      fromStepper !== canonicalProformaId &&
+      fromStepper !== canonicalShipmentInstructionId &&
+      fromStepper !== canonicalBillOfLadingId &&
+      fromStepper !== canonicalCustomInvoiceId &&
+      fromStepper !== canonicalCommercialInvoiceId &&
+      fromStepper !== canonicalPackingListId &&
+      fromStepper !== canonicalPhytoCertificateId &&
+      !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(fromStepper)
+    ) {
+      return fromStepper;
+    }
+
+    const linkedCandidate = sanitizeDocId(
+      extractLinkedFumigationCertificateId(fumigationCertificateData) ||
+      extractLinkedFumigationCertificateId(initialFumigationCertificateData) ||
+      extractLinkedFumigationCertificateId(phytoCertificateData) ||
+      extractLinkedFumigationCertificateId(packingListData) ||
+      extractLinkedFumigationCertificateId(commercialInvoiceData) ||
+      extractLinkedFumigationCertificateId(customInvoiceData) ||
+      extractLinkedFumigationCertificateId(billOfLadingData) ||
+      extractLinkedFumigationCertificateId(shipmentInstructionData) ||
+      extractLinkedFumigationCertificateId(proformaData) ||
+      extractLinkedFumigationCertificateId(contractData) ||
+      extractLinkedFumigationCertificateId(confirmationData)
+    );
+    if (
+      linkedCandidate &&
+      linkedCandidate !== effectiveConfirmationId &&
+      linkedCandidate !== canonicalContractId &&
+      linkedCandidate !== canonicalProformaId &&
+      linkedCandidate !== canonicalShipmentInstructionId &&
+      linkedCandidate !== canonicalBillOfLadingId &&
+      linkedCandidate !== canonicalCustomInvoiceId &&
+      linkedCandidate !== canonicalCommercialInvoiceId &&
+      linkedCandidate !== canonicalPackingListId &&
+      linkedCandidate !== canonicalPhytoCertificateId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(linkedCandidate)
+    ) {
+      return linkedCandidate;
+    }
+
+    const cleanDraftId = sanitizeDocId(draftId);
+    if (
+      isFumigationCertificate &&
+      cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
+      cleanDraftId !== canonicalCommercialInvoiceId &&
+      cleanDraftId !== canonicalPackingListId &&
+      cleanDraftId !== canonicalPhytoCertificateId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(cleanDraftId)
+    ) {
+      return cleanDraftId;
+    }
+
+    return '';
+  }, [
+    fumigationCertificateData,
+    initialFumigationCertificateData,
+    steps,
+    selectedStep,
+    effectiveConfirmationId,
+    canonicalContractId,
+    canonicalProformaId,
+    canonicalShipmentInstructionId,
+    canonicalBillOfLadingId,
+    canonicalCustomInvoiceId,
+    canonicalCommercialInvoiceId,
+    canonicalPackingListId,
+    canonicalPhytoCertificateId,
+    phytoCertificateData,
+    packingListData,
+    commercialInvoiceData,
+    customInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    confirmationData,
+    isFumigationCertificate,
+    draftId,
+  ]);
+
+  // Canonical Certificate Of Origin ID
+  const canonicalCertificateOfOriginId = useMemo(() => {
+    const hasOriginMarkers = (d: any) =>
+      Boolean(
+        d?.certificate_of_origin_number ||
+        d?.certificate_of_origin_no ||
+        d?.origin_number ||
+        d?.certificate_of_origin ||
+        d?.certificateOfOrigin ||
+        d?.certificate_of_origin_id ||
+        d?._is_certificate_of_origin_loaded
+      );
+
+    const directOriginId = sanitizeDocId(
+      (hasOriginMarkers(certificateOfOriginData) ? certificateOfOriginData?.id || certificateOfOriginData?._id : '') ||
+      certificateOfOriginData?.certificate_of_origin_id ||
+      (hasOriginMarkers(initialCertificateOfOriginData) ? initialCertificateOfOriginData?.id || initialCertificateOfOriginData?._id : '') ||
+      initialCertificateOfOriginData?.certificate_of_origin_id
+    );
+    if (
+      directOriginId &&
+      directOriginId !== effectiveConfirmationId &&
+      directOriginId !== canonicalContractId &&
+      directOriginId !== canonicalProformaId &&
+      directOriginId !== canonicalShipmentInstructionId &&
+      directOriginId !== canonicalBillOfLadingId &&
+      directOriginId !== canonicalCustomInvoiceId &&
+      directOriginId !== canonicalCommercialInvoiceId &&
+      directOriginId !== canonicalPackingListId &&
+      directOriginId !== canonicalPhytoCertificateId &&
+      directOriginId !== canonicalFumigationCertificateId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+)$/i.test(directOriginId)
+    ) {
+      return directOriginId;
+    }
+
+    const originStep = getCertificateOfOriginStep(steps, selectedStep);
+    const fromStepper = sanitizeDocId(
+      getStepSelfId(originStep) ||
+      getCertificateOfOriginIdFromStepper(steps, selectedStep) ||
+      originStep?.certificate_of_origin_id ||
+      (originStep as any)?.certificateOfOriginId ||
+      originStep?.redirect_id ||
+      (originStep as any)?.redirectId
+    );
+    if (
+      fromStepper &&
+      fromStepper !== effectiveConfirmationId &&
+      fromStepper !== canonicalContractId &&
+      fromStepper !== canonicalProformaId &&
+      fromStepper !== canonicalShipmentInstructionId &&
+      fromStepper !== canonicalBillOfLadingId &&
+      fromStepper !== canonicalCustomInvoiceId &&
+      fromStepper !== canonicalCommercialInvoiceId &&
+      fromStepper !== canonicalPackingListId &&
+      fromStepper !== canonicalPhytoCertificateId &&
+      fromStepper !== canonicalFumigationCertificateId &&
+      !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+)$/i.test(fromStepper)
+    ) {
+      return fromStepper;
+    }
+
+    const linkedCandidate = sanitizeDocId(
+      extractLinkedCertificateOfOriginId(certificateOfOriginData) ||
+      extractLinkedCertificateOfOriginId(initialCertificateOfOriginData) ||
+      extractLinkedCertificateOfOriginId(fumigationCertificateData) ||
+      extractLinkedCertificateOfOriginId(phytoCertificateData) ||
+      extractLinkedCertificateOfOriginId(packingListData) ||
+      extractLinkedCertificateOfOriginId(commercialInvoiceData) ||
+      extractLinkedCertificateOfOriginId(customInvoiceData) ||
+      extractLinkedCertificateOfOriginId(billOfLadingData) ||
+      extractLinkedCertificateOfOriginId(shipmentInstructionData) ||
+      extractLinkedCertificateOfOriginId(proformaData) ||
+      extractLinkedCertificateOfOriginId(contractData) ||
+      extractLinkedCertificateOfOriginId(confirmationData)
+    );
+    if (
+      linkedCandidate &&
+      linkedCandidate !== effectiveConfirmationId &&
+      linkedCandidate !== canonicalContractId &&
+      linkedCandidate !== canonicalProformaId &&
+      linkedCandidate !== canonicalShipmentInstructionId &&
+      linkedCandidate !== canonicalBillOfLadingId &&
+      linkedCandidate !== canonicalCustomInvoiceId &&
+      linkedCandidate !== canonicalCommercialInvoiceId &&
+      linkedCandidate !== canonicalPackingListId &&
+      linkedCandidate !== canonicalPhytoCertificateId &&
+      linkedCandidate !== canonicalFumigationCertificateId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+)$/i.test(linkedCandidate)
+    ) {
+      return linkedCandidate;
+    }
+
+    const cleanDraftId = sanitizeDocId(draftId);
+    if (
+      isCertificateOfOrigin &&
+      cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
+      cleanDraftId !== canonicalCommercialInvoiceId &&
+      cleanDraftId !== canonicalPackingListId &&
+      cleanDraftId !== canonicalPhytoCertificateId &&
+      cleanDraftId !== canonicalFumigationCertificateId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+)$/i.test(cleanDraftId)
+    ) {
+      return cleanDraftId;
+    }
+
+    return '';
+  }, [
+    certificateOfOriginData,
+    initialCertificateOfOriginData,
+    steps,
+    selectedStep,
+    effectiveConfirmationId,
+    canonicalContractId,
+    canonicalProformaId,
+    canonicalShipmentInstructionId,
+    canonicalBillOfLadingId,
+    canonicalCustomInvoiceId,
+    canonicalCommercialInvoiceId,
+    canonicalPackingListId,
+    canonicalPhytoCertificateId,
+    canonicalFumigationCertificateId,
+    fumigationCertificateData,
+    phytoCertificateData,
+    packingListData,
+    commercialInvoiceData,
+    customInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    confirmationData,
+    isCertificateOfOrigin,
+    draftId,
+  ]);
+
+  const canonicalWqCertificateId = useMemo(() => {
+    const hasWqMarkers = (d: any) =>
+      Boolean(
+        d?.wq_certificate_number ||
+        d?.wq_certificate_no ||
+        d?.wq_number ||
+        d?.wq_certificate ||
+        d?.wqCertificate ||
+        d?.wq_certificate_id ||
+        d?._is_wq_certificate_loaded
+      );
+
+    const directWqId = sanitizeDocId(
+      (hasWqMarkers(wqCertificateData) ? wqCertificateData?.id || wqCertificateData?._id : '') ||
+      wqCertificateData?.wq_certificate_id ||
+      (hasWqMarkers(initialWqCertificateData) ? initialWqCertificateData?.id || initialWqCertificateData?._id : '') ||
+      initialWqCertificateData?.wq_certificate_id
+    );
+    if (
+      directWqId &&
+      directWqId !== effectiveConfirmationId &&
+      directWqId !== canonicalContractId &&
+      directWqId !== canonicalProformaId &&
+      directWqId !== canonicalShipmentInstructionId &&
+      directWqId !== canonicalBillOfLadingId &&
+      directWqId !== canonicalCustomInvoiceId &&
+      directWqId !== canonicalCommercialInvoiceId &&
+      directWqId !== canonicalPackingListId &&
+      directWqId !== canonicalPhytoCertificateId &&
+      directWqId !== canonicalFumigationCertificateId &&
+      directWqId !== canonicalCertificateOfOriginId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|wq|wq-certificate|wq_certificate|weight|invoice|step-\d+)$/i.test(directWqId)
+    ) {
+      return directWqId;
+    }
+
+    const wqStep = getWqCertificateStep(steps, selectedStep);
+    const fromStepper = sanitizeDocId(
+      getStepSelfId(wqStep) ||
+      getWqCertificateIdFromStepper(steps, selectedStep) ||
+      wqStep?.wq_certificate_id ||
+      (wqStep as any)?.wqCertificateId ||
+      wqStep?.redirect_id ||
+      (wqStep as any)?.redirectId
+    );
+    if (
+      fromStepper &&
+      fromStepper !== effectiveConfirmationId &&
+      fromStepper !== canonicalContractId &&
+      fromStepper !== canonicalProformaId &&
+      fromStepper !== canonicalShipmentInstructionId &&
+      fromStepper !== canonicalBillOfLadingId &&
+      fromStepper !== canonicalCustomInvoiceId &&
+      fromStepper !== canonicalCommercialInvoiceId &&
+      fromStepper !== canonicalPackingListId &&
+      fromStepper !== canonicalPhytoCertificateId &&
+      fromStepper !== canonicalFumigationCertificateId &&
+      fromStepper !== canonicalCertificateOfOriginId &&
+      !(/^\d+$/.test(fromStepper) && Number(fromStepper) <= 20) &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|wq|wq-certificate|wq_certificate|weight|invoice|step-\d+)$/i.test(fromStepper)
+    ) {
+      return fromStepper;
+    }
+
+    const linkedCandidate = sanitizeDocId(
+      extractLinkedWqCertificateId(wqCertificateData) ||
+      extractLinkedWqCertificateId(initialWqCertificateData) ||
+      extractLinkedWqCertificateId(certificateOfOriginData) ||
+      extractLinkedWqCertificateId(fumigationCertificateData) ||
+      extractLinkedWqCertificateId(phytoCertificateData) ||
+      extractLinkedWqCertificateId(packingListData) ||
+      extractLinkedWqCertificateId(commercialInvoiceData) ||
+      extractLinkedWqCertificateId(customInvoiceData) ||
+      extractLinkedWqCertificateId(billOfLadingData) ||
+      extractLinkedWqCertificateId(shipmentInstructionData) ||
+      extractLinkedWqCertificateId(proformaData) ||
+      extractLinkedWqCertificateId(contractData) ||
+      extractLinkedWqCertificateId(confirmationData)
+    );
+    if (
+      linkedCandidate &&
+      linkedCandidate !== effectiveConfirmationId &&
+      linkedCandidate !== canonicalContractId &&
+      linkedCandidate !== canonicalProformaId &&
+      linkedCandidate !== canonicalShipmentInstructionId &&
+      linkedCandidate !== canonicalBillOfLadingId &&
+      linkedCandidate !== canonicalCustomInvoiceId &&
+      linkedCandidate !== canonicalCommercialInvoiceId &&
+      linkedCandidate !== canonicalPackingListId &&
+      linkedCandidate !== canonicalPhytoCertificateId &&
+      linkedCandidate !== canonicalFumigationCertificateId &&
+      linkedCandidate !== canonicalCertificateOfOriginId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|wq|wq-certificate|wq_certificate|weight|invoice|step-\d+)$/i.test(linkedCandidate)
+    ) {
+      return linkedCandidate;
+    }
+
+    const cleanDraftId = sanitizeDocId(draftId);
+    if (
+      isWqCertificate &&
+      cleanDraftId &&
+      cleanDraftId !== effectiveConfirmationId &&
+      cleanDraftId !== canonicalContractId &&
+      cleanDraftId !== canonicalProformaId &&
+      cleanDraftId !== canonicalShipmentInstructionId &&
+      cleanDraftId !== canonicalBillOfLadingId &&
+      cleanDraftId !== canonicalCustomInvoiceId &&
+      cleanDraftId !== canonicalCommercialInvoiceId &&
+      cleanDraftId !== canonicalPackingListId &&
+      cleanDraftId !== canonicalPhytoCertificateId &&
+      cleanDraftId !== canonicalFumigationCertificateId &&
+      cleanDraftId !== canonicalCertificateOfOriginId &&
+      !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|wq|wq-certificate|wq_certificate|weight|invoice|step-\d+)$/i.test(cleanDraftId)
+    ) {
+      return cleanDraftId;
+    }
+
+    return '';
+  }, [
+    wqCertificateData,
+    initialWqCertificateData,
+    steps,
+    selectedStep,
+    effectiveConfirmationId,
+    canonicalContractId,
+    canonicalProformaId,
+    canonicalShipmentInstructionId,
+    canonicalBillOfLadingId,
+    canonicalCustomInvoiceId,
+    canonicalCommercialInvoiceId,
+    canonicalPackingListId,
+    canonicalPhytoCertificateId,
+    canonicalFumigationCertificateId,
+    canonicalCertificateOfOriginId,
+    certificateOfOriginData,
+    fumigationCertificateData,
+    phytoCertificateData,
+    packingListData,
+    commercialInvoiceData,
+    customInvoiceData,
+    billOfLadingData,
+    shipmentInstructionData,
+    proformaData,
+    contractData,
+    confirmationData,
+    isWqCertificate,
     draftId,
   ]);
 
@@ -2943,6 +3441,9 @@ export function DocumentDraftWorkspace({
       const isTargetCommercialInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && isCommercialInvoiceStep(targetStep);
       const isTargetPackingList = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && isPackingListStep(targetStep);
       const isTargetPhytoCertificate = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && isPhytoCertificateStep(targetStep);
+      const isTargetFumigationCertificate = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && !isTargetPhytoCertificate && isFumigationCertificateStep(targetStep);
+      const isTargetCertificateOfOrigin = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && !isTargetPhytoCertificate && !isTargetFumigationCertificate && isCertificateOfOriginStep(targetStep);
+      const isTargetWqCertificate = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && !isTargetPhytoCertificate && !isTargetFumigationCertificate && !isTargetCertificateOfOrigin && isWqCertificateStep(targetStep);
 
       const stepSelfId = getStepSelfId(targetStep);
 
@@ -3863,6 +4364,342 @@ export function DocumentDraftWorkspace({
         }
         return;
       }
+
+      if (isTargetFumigationCertificate) {
+        setIsLoadingFumigationCertificate(true);
+
+        const fumigationParentIds = new Set(
+          [canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+            .map((x) => sanitizeDocId(x))
+            .filter(Boolean)
+        );
+
+        const isPlaceholderFumigationId = (val?: string | null) =>
+          !val ||
+          fumigationParentIds.has(String(val).trim()) ||
+          (/^\d+$/.test(val) && Number(val) <= 20) ||
+          /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+)$/i.test(val);
+
+        const candidateId = sanitizeDocId(
+          (!isPlaceholderFumigationId(stepSelfId) ? stepSelfId : '') ||
+          targetStep?.fumigation_certificate_id ||
+          (targetStep as any)?.fumigationCertificateId ||
+          extractStepRedirectId(targetStep) ||
+          getFumigationCertificateIdFromStepper(steps, targetStep) ||
+          canonicalFumigationCertificateId ||
+          extractLinkedFumigationCertificateId(fumigationCertificateData) ||
+          extractLinkedFumigationCertificateId(phytoCertificateData) ||
+          extractLinkedFumigationCertificateId(packingListData) ||
+          extractLinkedFumigationCertificateId(commercialInvoiceData) ||
+          extractLinkedFumigationCertificateId(customInvoiceData) ||
+          extractLinkedFumigationCertificateId(billOfLadingData) ||
+          extractLinkedFumigationCertificateId(shipmentInstructionData) ||
+          extractLinkedFumigationCertificateId(proformaData) ||
+          extractLinkedFumigationCertificateId(contractData)
+        );
+
+        const applyFreshFumigationCertificate = (rawData: any): boolean => {
+          if (!rawData || typeof rawData !== 'object') return false;
+          const extracted = extractFumigationCertificateData(rawData) || {
+            ...rawData,
+            _is_fumigation_certificate_loaded: true,
+          };
+          if (extracted) {
+            setFumigationCertificateData(extracted);
+            setFumigationCertificateVersion((v) => v + 1);
+            return true;
+          }
+          return false;
+        };
+
+        let didPrimaryFetchSucceed = false;
+
+        const stepperPromise = getStepperListAction({
+          action: workflowAnchorType,
+          step: String(workflowAnchorId),
+          lang,
+        })
+          .then(async (sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
+              const freshFumigationStep = getFumigationCertificateStep(sRes.data);
+              const freshFumigationId = sanitizeDocId(
+                getStepSelfId(freshFumigationStep) ||
+                getFumigationCertificateIdFromStepper(sRes.data, freshFumigationStep) ||
+                freshFumigationStep?.fumigation_certificate_id ||
+                (freshFumigationStep as any)?.fumigationCertificateId ||
+                freshFumigationStep?.redirect_id ||
+                (freshFumigationStep as any)?.redirectId
+              );
+              if (
+                freshFumigationId &&
+                !isPlaceholderFumigationId(freshFumigationId) &&
+                (!candidateId || isPlaceholderFumigationId(candidateId))
+              ) {
+                try {
+                  const freshRes = await getFumigationCertificateAction(freshFumigationId, lang);
+                  if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
+                    applyFreshFumigationCertificate(freshRes.data);
+                  }
+                } catch (freshErr) {
+                  console.warn('[DocumentDraftWorkspace] Error fetching fresh fumigation certificate from stepper:', freshErr);
+                }
+              }
+            }
+          })
+          .catch(() => {});
+
+        if (candidateId && !isPlaceholderFumigationId(candidateId)) {
+          try {
+            const res = await getFumigationCertificateAction(candidateId, lang);
+            if (activeFetchSeqRef.current === currentSeq && res?.success && res.data) {
+              didPrimaryFetchSucceed = applyFreshFumigationCertificate(res.data);
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest fumigation certificate:', err);
+          } finally {
+            if (!didPrimaryFetchSucceed) {
+              await stepperPromise;
+            }
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingFumigationCertificate(false);
+            }
+          }
+        } else {
+          await stepperPromise;
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingFumigationCertificate(false);
+            setFumigationCertificateVersion((v) => v + 1);
+          }
+        }
+        return;
+      }
+
+      if (isTargetCertificateOfOrigin) {
+        setIsLoadingCertificateOfOrigin(true);
+
+        const originParentIds = new Set(
+          [canonicalFumigationCertificateId, canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId]
+            .map((x) => sanitizeDocId(x))
+            .filter(Boolean)
+        );
+
+        const isPlaceholderOriginId = (val?: string | null) =>
+          !val ||
+          originParentIds.has(String(val).trim()) ||
+          (/^\d+$/.test(val) && Number(val) <= 20) ||
+          /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+)$/i.test(val);
+
+        const explicitCandidateId = sanitizeDocId(
+          (!isPlaceholderOriginId(stepSelfId) ? stepSelfId : '') ||
+          targetStep?.certificate_of_origin_id ||
+          (targetStep as any)?.certificateOfOriginId ||
+          extractStepRedirectId(targetStep) ||
+          getCertificateOfOriginIdFromStepper(steps, targetStep) ||
+          canonicalCertificateOfOriginId ||
+          extractLinkedCertificateOfOriginId(certificateOfOriginData)
+        );
+
+        // Fallback target: If no direct origin document ID exists yet, query /origin-certificate/:id with confirmationId or contractId
+        // which returns the pre-populated origin certificate data template from the trade!
+        const fetchTargetId =
+          (explicitCandidateId && !isPlaceholderOriginId(explicitCandidateId) ? explicitCandidateId : '') ||
+          canonicalCertificateOfOriginId ||
+          effectiveConfirmationId ||
+          canonicalContractId ||
+          rootWorkflowId;
+
+        const applyFreshCertificateOfOrigin = (rawData: any): boolean => {
+          if (!rawData || typeof rawData !== 'object') return false;
+          const extracted = extractCertificateOfOriginData(rawData) || {
+            ...rawData,
+            _is_certificate_of_origin_loaded: true,
+          };
+          if (extracted) {
+            setCertificateOfOriginData((prev: any) => ({
+              ...(prev || {}),
+              ...extracted,
+            }));
+            setCertificateOfOriginVersion((v) => v + 1);
+            return true;
+          }
+          return false;
+        };
+
+        let didPrimaryFetchSucceed = false;
+
+        const stepperPromise = getStepperListAction({
+          action: workflowAnchorType,
+          step: String(workflowAnchorId),
+          lang,
+        })
+          .then(async (sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
+              const freshOriginStep = getCertificateOfOriginStep(sRes.data);
+              const freshOriginId = sanitizeDocId(
+                getStepSelfId(freshOriginStep) ||
+                getCertificateOfOriginIdFromStepper(sRes.data, freshOriginStep) ||
+                freshOriginStep?.certificate_of_origin_id ||
+                (freshOriginStep as any)?.certificateOfOriginId ||
+                freshOriginStep?.redirect_id ||
+                (freshOriginStep as any)?.redirectId
+              );
+              if (
+                freshOriginId &&
+                !isPlaceholderOriginId(freshOriginId) &&
+                (!explicitCandidateId || isPlaceholderOriginId(explicitCandidateId))
+              ) {
+                try {
+                  const freshRes = await getCertificateOfOriginAction(freshOriginId, lang);
+                  if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
+                    applyFreshCertificateOfOrigin(freshRes.data);
+                  }
+                } catch (freshErr) {
+                  console.warn('[DocumentDraftWorkspace] Error fetching fresh certificate of origin from stepper:', freshErr);
+                }
+              }
+            }
+          })
+          .catch(() => {});
+
+        if (fetchTargetId && !isPlaceholderOriginId(fetchTargetId)) {
+          try {
+            const res = await getCertificateOfOriginAction(fetchTargetId, lang);
+            if (activeFetchSeqRef.current === currentSeq && res?.success && res.data) {
+              didPrimaryFetchSucceed = applyFreshCertificateOfOrigin(res.data);
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest certificate of origin:', err);
+          } finally {
+            if (!didPrimaryFetchSucceed) {
+              await stepperPromise;
+            }
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingCertificateOfOrigin(false);
+            }
+          }
+        } else {
+          await stepperPromise;
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingCertificateOfOrigin(false);
+            setCertificateOfOriginVersion((v) => v + 1);
+          }
+        }
+        return;
+      }
+
+      if (isTargetWqCertificate) {
+        setIsLoadingWqCertificate(true);
+
+        const wqParentIds = new Set(
+          [canonicalCertificateOfOriginId, canonicalFumigationCertificateId, canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId]
+            .map((x) => sanitizeDocId(x))
+            .filter(Boolean)
+        );
+
+        const isPlaceholderWqId = (val?: string | null) =>
+          !val ||
+          wqParentIds.has(String(val).trim()) ||
+          (/^\d+$/.test(val) && Number(val) <= 20) ||
+          /^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|wq|wq-certificate|wq_certificate|weight|invoice|step-\d+)$/i.test(val);
+
+        const explicitCandidateId = sanitizeDocId(
+          (!isPlaceholderWqId(stepSelfId) ? stepSelfId : '') ||
+          targetStep?.wq_certificate_id ||
+          (targetStep as any)?.wqCertificateId ||
+          extractStepRedirectId(targetStep) ||
+          getWqCertificateIdFromStepper(steps, targetStep) ||
+          canonicalWqCertificateId ||
+          extractLinkedWqCertificateId(wqCertificateData)
+        );
+
+        const fetchTargetId =
+          (explicitCandidateId && !isPlaceholderWqId(explicitCandidateId) ? explicitCandidateId : '') ||
+          canonicalWqCertificateId ||
+          effectiveConfirmationId ||
+          canonicalContractId ||
+          rootWorkflowId;
+
+        const applyFreshWqCertificate = (rawData: any): boolean => {
+          if (!rawData || typeof rawData !== 'object') return false;
+          const extracted = extractWqCertificateData(rawData) || {
+            ...rawData,
+            _is_wq_certificate_loaded: true,
+          };
+          if (extracted) {
+            setWqCertificateData((prev: any) => ({
+              ...(prev || {}),
+              ...extracted,
+            }));
+            setWqCertificateVersion((v) => v + 1);
+            return true;
+          }
+          return false;
+        };
+
+        let didPrimaryFetchSucceed = false;
+
+        const stepperPromise = getStepperListAction({
+          action: workflowAnchorType,
+          step: String(workflowAnchorId),
+          lang,
+        })
+          .then(async (sRes) => {
+            if (sRes?.success && sRes.data && sRes.data.length > 0 && isRealStepperList(sRes.data)) {
+              setSteps((prevSteps) => mergeStepperWithHidden(sRes.data, prevSteps));
+              const freshWqStep = getWqCertificateStep(sRes.data);
+              const freshWqId = sanitizeDocId(
+                getStepSelfId(freshWqStep) ||
+                getWqCertificateIdFromStepper(sRes.data, freshWqStep) ||
+                freshWqStep?.wq_certificate_id ||
+                (freshWqStep as any)?.wqCertificateId ||
+                freshWqStep?.redirect_id ||
+                (freshWqStep as any)?.redirectId
+              );
+              if (
+                freshWqId &&
+                !isPlaceholderWqId(freshWqId) &&
+                (!explicitCandidateId || isPlaceholderWqId(explicitCandidateId))
+              ) {
+                try {
+                  const freshRes = await getWqCertificateAction(freshWqId, lang);
+                  if (activeFetchSeqRef.current === currentSeq && freshRes?.success && freshRes.data) {
+                    applyFreshWqCertificate(freshRes.data);
+                  }
+                } catch (freshErr) {
+                  console.warn('[DocumentDraftWorkspace] Error fetching fresh W & Q certificate from stepper:', freshErr);
+                }
+              }
+            }
+          })
+          .catch(() => {});
+
+        if (fetchTargetId && !isPlaceholderWqId(fetchTargetId)) {
+          try {
+            const res = await getWqCertificateAction(fetchTargetId, lang);
+            if (activeFetchSeqRef.current === currentSeq && res?.success && res.data) {
+              didPrimaryFetchSucceed = applyFreshWqCertificate(res.data);
+            }
+          } catch (err) {
+            console.warn('[DocumentDraftWorkspace] Error fetching latest W & Q certificate:', err);
+          } finally {
+            if (!didPrimaryFetchSucceed) {
+              await stepperPromise;
+            }
+            if (activeFetchSeqRef.current === currentSeq) {
+              setIsLoadingWqCertificate(false);
+            }
+          }
+        } else {
+          await stepperPromise;
+          if (activeFetchSeqRef.current === currentSeq) {
+            setIsLoadingWqCertificate(false);
+            setWqCertificateVersion((v) => v + 1);
+          }
+        }
+        return;
+      }
     },
     [
       steps,
@@ -3951,6 +4788,9 @@ export function DocumentDraftWorkspace({
       const isSelectingCommercialInvoice = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && isCommercialInvoiceStep(step);
       const isSelectingPackingList = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && !isSelectingCommercialInvoice && isPackingListStep(step);
       const isSelectingPhytoCertificate = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && !isSelectingCommercialInvoice && !isSelectingPackingList && isPhytoCertificateStep(step);
+      const isSelectingFumigationCertificate = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && !isSelectingCommercialInvoice && !isSelectingPackingList && !isSelectingPhytoCertificate && isFumigationCertificateStep(step);
+      const isSelectingCertificateOfOrigin = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && !isSelectingCommercialInvoice && !isSelectingPackingList && !isSelectingPhytoCertificate && !isSelectingFumigationCertificate && isCertificateOfOriginStep(step);
+      const isSelectingWqCertificate = !isSelectingConfirmation && !isSelectingContract && !isSelectingProforma && !isSelectingShipment && !isSelectingBillOfLading && !isSelectingCustomInvoice && !isSelectingCommercialInvoice && !isSelectingPackingList && !isSelectingPhytoCertificate && !isSelectingFumigationCertificate && !isSelectingCertificateOfOrigin && isWqCertificateStep(step);
 
       if (isSelectingConfirmation) {
         setConfirmationVersion((v) => v + 1);
@@ -3970,6 +4810,12 @@ export function DocumentDraftWorkspace({
         setPackingListVersion((v) => v + 1);
       } else if (isSelectingPhytoCertificate) {
         setPhytoCertificateVersion((v) => v + 1);
+      } else if (isSelectingFumigationCertificate) {
+        setFumigationCertificateVersion((v) => v + 1);
+      } else if (isSelectingCertificateOfOrigin) {
+        setCertificateOfOriginVersion((v) => v + 1);
+      } else if (isSelectingWqCertificate) {
+        setWqCertificateVersion((v) => v + 1);
       }
 
       const stepSelfId = getStepSelfId(step);
@@ -4000,6 +4846,15 @@ export function DocumentDraftWorkspace({
       }
       if (isSelectingPhytoCertificate && !isCompletePhytoCertificateData(phytoCertificateData) && !isCompletePhytoCertificateData(initialPhytoCertificateData) && (stepSelfId || getPhytoCertificateIdFromStepper(steps, step) || canonicalPhytoCertificateId)) {
         setIsLoadingPhytoCertificate(true);
+      }
+      if (isSelectingFumigationCertificate && !isCompleteFumigationCertificateData(fumigationCertificateData) && !isCompleteFumigationCertificateData(initialFumigationCertificateData) && (stepSelfId || getFumigationCertificateIdFromStepper(steps, step) || canonicalFumigationCertificateId)) {
+        setIsLoadingFumigationCertificate(true);
+      }
+      if (isSelectingCertificateOfOrigin && !isCompleteCertificateOfOriginData(certificateOfOriginData) && !isCompleteCertificateOfOriginData(initialCertificateOfOriginData) && (stepSelfId || getCertificateOfOriginIdFromStepper(steps, step) || canonicalCertificateOfOriginId)) {
+        setIsLoadingCertificateOfOrigin(true);
+      }
+      if (isSelectingWqCertificate && !isCompleteWqCertificateData(wqCertificateData) && !isCompleteWqCertificateData(initialWqCertificateData) && (stepSelfId || getWqCertificateIdFromStepper(steps, step) || canonicalWqCertificateId)) {
+        setIsLoadingWqCertificate(true);
       }
 
       const slug = getStepSlug(step, resolvedIndex);
@@ -4157,6 +5012,27 @@ export function DocumentDraftWorkspace({
           initialStepParam === 'phytosanitary' ||
           initialStepParam === '9'))
     ? dict?.smart_docs?.draft_phyto_certificate_title || 'Draft Phyto Certificate'
+    : isFumigationCertificate ||
+      (!selectedStep &&
+        (initialStepParam === 'fumigation-certificate' ||
+          initialStepParam === 'fumigation_certificate' ||
+          initialStepParam === 'fumigation' ||
+          initialStepParam === '10'))
+    ? dict?.smart_docs?.draft_fumigation_certificate_title || 'Draft Fumigation Certificate'
+    : isCertificateOfOrigin ||
+      (!selectedStep &&
+        (initialStepParam === 'certificate-of-origin' ||
+          initialStepParam === 'certificate_of_origin' ||
+          initialStepParam === 'origin' ||
+          initialStepParam === '11'))
+    ? dict?.smart_docs?.draft_certificate_of_origin_title || 'Draft Certificate of Origin'
+    : isWqCertificate ||
+      (!selectedStep &&
+        (initialStepParam === 'wq-certificate' ||
+          initialStepParam === 'wq_certificate' ||
+          initialStepParam === 'wq' ||
+          initialStepParam === '12'))
+    ? dict?.smart_docs?.draft_wq_certificate_title || 'Draft W & Q Certificate'
     : isConfirmation || !selectedStep
     ? dict?.smart_docs?.draft_confirmation_title ||
       dict?.smart_docs?.draft_title ||
@@ -4295,6 +5171,18 @@ export function DocumentDraftWorkspace({
     }
   }, [initialPackingListData]);
 
+  useEffect(() => {
+    if (initialWqCertificateData) {
+      setWqCertificateData((prev: any) => {
+        if (!prev || (prev.id && initialWqCertificateData.id && String(prev.id) !== String(initialWqCertificateData.id))) {
+          return initialWqCertificateData;
+        }
+        return { ...initialWqCertificateData, ...prev };
+      });
+      setWqCertificateVersion((v) => v + 1);
+    }
+  }, [initialWqCertificateData]);
+
   // On initial mount / refresh, if the currently selected step does NOT have its data loaded, fetch it immediately!
   const hasInitialFetchedStepRef = useRef<boolean>(false);
   useEffect(() => {
@@ -4309,6 +5197,9 @@ export function DocumentDraftWorkspace({
     const isTargetCommercialInvoice = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && isCommercialInvoiceStep(selectedStep);
     const isTargetPackingList = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && isPackingListStep(selectedStep);
     const isTargetPhytoCertificate = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && isPhytoCertificateStep(selectedStep);
+    const isTargetFumigationCertificate = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && !isTargetPhytoCertificate && isFumigationCertificateStep(selectedStep);
+    const isTargetCertificateOfOrigin = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && !isTargetPhytoCertificate && !isTargetFumigationCertificate && isCertificateOfOriginStep(selectedStep);
+    const isTargetWqCertificate = !isTargetConfirmation && !isTargetContract && !isTargetProforma && !isTargetShipment && !isTargetBillOfLading && !isTargetCustomInvoice && !isTargetCommercialInvoice && !isTargetPackingList && !isTargetPhytoCertificate && !isTargetFumigationCertificate && !isTargetCertificateOfOrigin && isWqCertificateStep(selectedStep);
 
     let needsFetch = false;
     if (isTargetContract && !isCompleteContractData(contractData) && !isCompleteContractData(initialContractData)) needsFetch = true;
@@ -4319,6 +5210,9 @@ export function DocumentDraftWorkspace({
     if (isTargetCommercialInvoice && !isCompleteCommercialInvoiceData(commercialInvoiceData) && !isCompleteCommercialInvoiceData(initialCommercialInvoiceData)) needsFetch = true;
     if (isTargetPackingList && !isCompletePackingListData(packingListData) && !isCompletePackingListData(initialPackingListData)) needsFetch = true;
     if (isTargetPhytoCertificate && !isCompletePhytoCertificateData(phytoCertificateData) && !isCompletePhytoCertificateData(initialPhytoCertificateData)) needsFetch = true;
+    if (isTargetFumigationCertificate && !isCompleteFumigationCertificateData(fumigationCertificateData) && !isCompleteFumigationCertificateData(initialFumigationCertificateData)) needsFetch = true;
+    if (isTargetCertificateOfOrigin && !isCompleteCertificateOfOriginData(certificateOfOriginData) && !isCompleteCertificateOfOriginData(initialCertificateOfOriginData)) needsFetch = true;
+    if (isTargetWqCertificate && !isCompleteWqCertificateData(wqCertificateData) && !isCompleteWqCertificateData(initialWqCertificateData)) needsFetch = true;
 
     if (needsFetch) {
       hasInitialFetchedStepRef.current = true;
@@ -4345,6 +5239,12 @@ export function DocumentDraftWorkspace({
     initialPackingListData,
     phytoCertificateData,
     initialPhytoCertificateData,
+    fumigationCertificateData,
+    initialFumigationCertificateData,
+    certificateOfOriginData,
+    initialCertificateOfOriginData,
+    wqCertificateData,
+    initialWqCertificateData,
   ]);
 
   // Fetch confirmation data dynamically if confirmation step is active and data not yet loaded
@@ -5425,6 +6325,11 @@ export function DocumentDraftWorkspace({
             key === 'phyto_number' ||
             key === 'phyto_certificate_date' ||
             key === 'phyto_date' ||
+            key === 'fumigation_certificate_number' ||
+            key === 'fumigation_certificate_no' ||
+            key === 'fumigation_number' ||
+            key === 'fumigation_certificate_date' ||
+            key === 'fumigation_date' ||
             isDocCommentKey(key) ||
             isDocInvoiceOrBankKey(key))
         ) {
@@ -5462,6 +6367,214 @@ export function DocumentDraftWorkspace({
     packingListData,
     initialPhytoCertificateData,
     phytoCertificateData,
+    initialFumigationCertificateData,
+    fumigationCertificateData,
+  ]);
+
+  // Comprehensive data merge for Certificate of Origin so trade, parties, and container context is inherited if creating new.
+  // CRITICAL: When real certificate of origin data is loaded from API (_is_certificate_of_origin_loaded: true), it takes absolute precedence if trade data is present!
+  const mergedCertificateOfOriginData = useMemo(() => {
+    if (
+      certificateOfOriginData &&
+      certificateOfOriginData._is_certificate_of_origin_loaded &&
+      (certificateOfOriginData.product_name ||
+        certificateOfOriginData.product ||
+        certificateOfOriginData.seller_instruction ||
+        certificateOfOriginData.seller_name)
+    ) {
+      return certificateOfOriginData;
+    }
+    const sources = [
+      initialData,
+      confirmationData,
+      initialContractData,
+      contractData,
+      initialProformaData,
+      proformaData,
+      initialShipmentInstructionData,
+      shipmentInstructionData,
+      initialBillOfLadingData,
+      billOfLadingData,
+      initialCustomInvoiceData,
+      customInvoiceData,
+      initialCommercialInvoiceData,
+      commercialInvoiceData,
+      initialPackingListData,
+      packingListData,
+      initialPhytoCertificateData,
+      phytoCertificateData,
+      initialFumigationCertificateData,
+      fumigationCertificateData,
+      initialCertificateOfOriginData,
+      certificateOfOriginData,
+    ];
+    const merged: Record<string, any> = {};
+    for (const src of sources) {
+      if (!src || typeof src !== 'object') continue;
+      for (const [key, val] of Object.entries(src)) {
+        if (val === undefined || val === null || val === '') continue;
+        if (
+          src !== certificateOfOriginData &&
+          src !== initialCertificateOfOriginData &&
+          (key === 'id' ||
+            key === '_id' ||
+            key === 'status' ||
+            key === 'document_status' ||
+            key === 'title' ||
+            key === 'pdf_title' ||
+            key === 'document_title' ||
+            key === 'certificate_of_origin_number' ||
+            key === 'certificate_of_origin_no' ||
+            key === 'origin_number' ||
+            key === 'phyto_certificate_number' ||
+            key === 'fumigation_certificate_number' ||
+            isDocCommentKey(key) ||
+            isDocInvoiceOrBankKey(key))
+        ) {
+          continue;
+        }
+        if (
+          (key === 'loading_port' || key === 'destination_port') &&
+          typeof merged[key] === 'object' &&
+          merged[key] !== null &&
+          merged[key].country &&
+          (typeof val !== 'object' || val === null || !(val as any).country)
+        ) {
+          continue;
+        }
+        merged[key] = val;
+      }
+    }
+    return merged;
+  }, [
+    initialData,
+    confirmationData,
+    initialContractData,
+    contractData,
+    initialProformaData,
+    proformaData,
+    initialShipmentInstructionData,
+    shipmentInstructionData,
+    initialBillOfLadingData,
+    billOfLadingData,
+    initialCustomInvoiceData,
+    customInvoiceData,
+    initialCommercialInvoiceData,
+    commercialInvoiceData,
+    initialPackingListData,
+    packingListData,
+    initialPhytoCertificateData,
+    phytoCertificateData,
+    initialFumigationCertificateData,
+    fumigationCertificateData,
+    initialCertificateOfOriginData,
+    certificateOfOriginData,
+  ]);
+
+  // Comprehensive data merge for W & Q Certificate so trade, parties, and container context is inherited if creating new.
+  // CRITICAL: When real W & Q Certificate data is loaded from API (_is_wq_certificate_loaded: true), it takes absolute precedence if trade data is present!
+  const mergedWqCertificateData = useMemo(() => {
+    if (
+      wqCertificateData &&
+      wqCertificateData._is_wq_certificate_loaded &&
+      (wqCertificateData.product_name ||
+        wqCertificateData.product ||
+        wqCertificateData.seller_instruction ||
+        wqCertificateData.seller_name)
+    ) {
+      return wqCertificateData;
+    }
+    const sources = [
+      initialData,
+      confirmationData,
+      initialContractData,
+      contractData,
+      initialProformaData,
+      proformaData,
+      initialShipmentInstructionData,
+      shipmentInstructionData,
+      initialBillOfLadingData,
+      billOfLadingData,
+      initialCustomInvoiceData,
+      customInvoiceData,
+      initialCommercialInvoiceData,
+      commercialInvoiceData,
+      initialPackingListData,
+      packingListData,
+      initialPhytoCertificateData,
+      phytoCertificateData,
+      initialFumigationCertificateData,
+      fumigationCertificateData,
+      initialCertificateOfOriginData,
+      certificateOfOriginData,
+      initialWqCertificateData,
+      wqCertificateData,
+    ];
+    const merged: Record<string, any> = {};
+    for (const src of sources) {
+      if (!src || typeof src !== 'object') continue;
+      for (const [key, val] of Object.entries(src)) {
+        if (val === undefined || val === null || val === '') continue;
+        if (
+          src !== wqCertificateData &&
+          src !== initialWqCertificateData &&
+          (key === 'id' ||
+            key === '_id' ||
+            key === 'status' ||
+            key === 'document_status' ||
+            key === 'title' ||
+            key === 'pdf_title' ||
+            key === 'document_title' ||
+            key === 'certificate_of_origin_number' ||
+            key === 'certificate_of_origin_no' ||
+            key === 'origin_number' ||
+            key === 'phyto_certificate_number' ||
+            key === 'fumigation_certificate_number' ||
+            key === 'wq_certificate_number' ||
+            key === 'wq_certificate_no' ||
+            isDocCommentKey(key) ||
+            isDocInvoiceOrBankKey(key))
+        ) {
+          continue;
+        }
+        if (
+          (key === 'loading_port' || key === 'destination_port') &&
+          typeof merged[key] === 'object' &&
+          merged[key] !== null &&
+          merged[key].country &&
+          (typeof val !== 'object' || val === null || !(val as any).country)
+        ) {
+          continue;
+        }
+        merged[key] = val;
+      }
+    }
+    return merged;
+  }, [
+    initialData,
+    confirmationData,
+    initialContractData,
+    contractData,
+    initialProformaData,
+    proformaData,
+    initialShipmentInstructionData,
+    shipmentInstructionData,
+    initialBillOfLadingData,
+    billOfLadingData,
+    initialCustomInvoiceData,
+    customInvoiceData,
+    initialCommercialInvoiceData,
+    commercialInvoiceData,
+    initialPackingListData,
+    packingListData,
+    initialPhytoCertificateData,
+    phytoCertificateData,
+    initialFumigationCertificateData,
+    fumigationCertificateData,
+    initialCertificateOfOriginData,
+    certificateOfOriginData,
+    initialWqCertificateData,
+    wqCertificateData,
   ]);
 
   // Active Contract Number strictly resolved from the currently open form's API response:
@@ -5474,6 +6587,12 @@ export function DocumentDraftWorkspace({
         return pinnedWorkflowContractNumber;
       }
       const candidates = [
+        extractDocContractNumber(wqCertificateData),
+        extractDocContractNumber(initialWqCertificateData),
+        extractDocContractNumber(certificateOfOriginData),
+        extractDocContractNumber(initialCertificateOfOriginData),
+        extractDocContractNumber(fumigationCertificateData),
+        extractDocContractNumber(initialFumigationCertificateData),
         extractDocContractNumber(phytoCertificateData),
         extractDocContractNumber(initialPhytoCertificateData),
         extractDocContractNumber(packingListData),
@@ -5580,6 +6699,27 @@ export function DocumentDraftWorkspace({
       if (fromSi) return fromSi;
     }
 
+    if (isFumigationCertificate) {
+      const direct = getValidDocContract(fumigationCertificateData, initialFumigationCertificateData);
+      if (direct) return direct;
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
+    }
+
+    if (isCertificateOfOrigin) {
+      const direct = getValidDocContract(certificateOfOriginData, initialCertificateOfOriginData);
+      if (direct) return direct;
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
+    }
+
+    if (isWqCertificate) {
+      const direct = getValidDocContract(wqCertificateData, initialWqCertificateData);
+      if (direct) return direct;
+      const fromSi = extractContractFromSiResponse(shipmentInstructionData) || extractContractFromSiResponse(initialShipmentInstructionData);
+      if (fromSi) return fromSi;
+    }
+
     if (isContract) {
       const direct = extractDocContractNumber(contractData) || extractDocContractNumber(initialContractData);
       if (direct && !isPureDbId(direct) && !isLikelyInvoiceNumber(direct)) {
@@ -5656,6 +6796,9 @@ export function DocumentDraftWorkspace({
     isCommercialInvoice,
     isPackingList,
     isPhytoCertificate,
+    isFumigationCertificate,
+    isCertificateOfOrigin,
+    isWqCertificate,
     isContract,
     isProforma,
     pinnedWorkflowContractNumber,
@@ -5671,6 +6814,12 @@ export function DocumentDraftWorkspace({
     initialPackingListData,
     phytoCertificateData,
     initialPhytoCertificateData,
+    fumigationCertificateData,
+    initialFumigationCertificateData,
+    certificateOfOriginData,
+    initialCertificateOfOriginData,
+    wqCertificateData,
+    initialWqCertificateData,
     contractData,
     initialContractData,
     proformaData,
@@ -8905,8 +10054,769 @@ export function DocumentDraftWorkspace({
           )}
         </div>
 
-        {/* Subsequent Workflow Steps View (Post-Phyto Certificate): Clean placeholder */}
-        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList && !isPhytoCertificate ? 'flex' : 'hidden'}`} />
+        {/* Fumigation Certificate Document Form: Visible when Fumigation Certificate Step is active */}
+        <div className={`w-full h-full ${isFumigationCertificate ? 'flex flex-col' : 'hidden'}`}>
+          {isLoadingFumigationCertificate && !fumigationCertificateData && !initialFumigationCertificateData ? (
+            <DocumentDraftSkeleton mode="contract" />
+          ) : (
+            <FumigationCertificateDocumentForm
+              key="draft-form-fumigation-certificate"
+              dataVersion={fumigationCertificateVersion}
+              initialData={
+                fumigationCertificateData && Object.keys(fumigationCertificateData).length > 2
+                  ? fumigationCertificateData
+                  : initialFumigationCertificateData && Object.keys(initialFumigationCertificateData).length > 2
+                  ? initialFumigationCertificateData
+                  : fumigationCertificateData || initialFumigationCertificateData || null
+              }
+              fumigationCertificateId={canonicalFumigationCertificateId || ''}
+              phytoCertificateId={canonicalPhytoCertificateId}
+              packingListId={canonicalPackingListId}
+              commercialInvoiceId={canonicalCommercialInvoiceId}
+              customInvoiceId={canonicalCustomInvoiceId}
+              shipmentInstructionId={canonicalShipmentInstructionId}
+              proformaId={canonicalProformaId}
+              contractId={canonicalContractId}
+              confirmationId={effectiveConfirmationId}
+              steps={steps}
+              selectedStep={selectedStep}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
+              sellers={initialSellers}
+              buyers={initialBuyers}
+              products={initialProducts}
+              paymentTerms={initialPaymentTerms}
+              currencies={initialCurrencies}
+              shippingTerms={shippingTerms}
+              lang={lang}
+              dict={dict}
+              readOnly={false}
+              onSaveSuccess={(savedId, savedData) => {
+                if (savedId) {
+                  setFumigationCertificateData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(savedData || {}),
+                    id: savedId,
+                    fumigation_certificate_id: savedId,
+                  }));
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s) =>
+                      isFumigationCertificateStep(s)
+                        ? { ...s, redirect_id: savedId, redirectId: savedId, status: s.status || 'draft' }
+                        : s
+                    )
+                  );
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    const cleanSavedId = sanitizeDocId(savedId);
+                    const targetWorkflowId = cleanSavedId || canonicalFumigationCertificateId || rootWorkflowId;
+                    if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
+                      url.searchParams.set('id', targetWorkflowId);
+                    }
+                    url.searchParams.set('step', 'fumigation-certificate');
+                    window.history.replaceState(null, '', url.toString());
+                  }
+                }
+              }}
+              onSaveDraft={async (formData: any) => {
+                const fumigationStep = steps.find(isFumigationCertificateStep);
+                const parentIds = new Set(
+                  [canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
+                const activeDocId =
+                  canonicalFumigationCertificateId ||
+                  sanitizeDocId(
+                    fumigationCertificateData?.fumigation_certificate_id ||
+                    (fumigationCertificateData?.fumigation_certificate_number ? fumigationCertificateData?.id : '')
+                  ) ||
+                  getStepSelfId(fumigationStep) ||
+                  extractStepRedirectId(fumigationStep) ||
+                  fumigationStep?.redirect_id ||
+                  (fumigationStep as any)?.redirectId ||
+                  extractLinkedFumigationCertificateId(fumigationCertificateData);
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !parentIds.has(activeDocId) &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await saveFumigationCertificateDraftAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.fumigation_certificate_id;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isFumigationCertificateStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
+                          : s
+                      )
+                    );
+                    setFumigationCertificateData((prev: any) => ({
+                      ...(prev || {}),
+                      ...(res.data || {}),
+                      id: cleanNewId,
+                      fumigation_certificate_id: cleanNewId,
+                    }));
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', cleanNewId);
+                      url.searchParams.set('step', 'fumigation-certificate');
+                      window.history.replaceState(null, '', url.toString());
+                    }
+                  }
+                }
+                return res;
+              }}
+              onSubmitFumigationCertificate={async (formData: any, id?: string, passedNextStep?: StepperDocumentItem | null) => {
+                const cleanPassed = sanitizeDocId(id);
+                const fumigationStep = steps.find(isFumigationCertificateStep);
+                const parentIds = new Set(
+                  [canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
+                const activeDocId =
+                  (cleanPassed && !parentIds.has(cleanPassed) ? cleanPassed : '') ||
+                  canonicalFumigationCertificateId ||
+                  sanitizeDocId(
+                    fumigationCertificateData?.fumigation_certificate_id ||
+                    (fumigationCertificateData?.fumigation_certificate_number ? fumigationCertificateData?.id : '')
+                  ) ||
+                  getStepSelfId(fumigationStep) ||
+                  extractStepRedirectId(fumigationStep) ||
+                  fumigationStep?.redirect_id ||
+                  (fumigationStep as any)?.redirectId ||
+                  extractLinkedFumigationCertificateId(fumigationCertificateData);
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !parentIds.has(activeDocId) &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const submitTargetId = validEffectiveId || undefined;
+
+                const res = await submitFumigationCertificateAction(formData, lang, submitTargetId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.fumigation_certificate_id || validEffectiveId;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isFumigationCertificateStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
+                          : s
+                      )
+                    );
+                  }
+                  let freshData = res.data;
+                  try {
+                    if (newId) {
+                      const freshRes = await getFumigationCertificateAction(String(newId), lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('[DocumentDraftWorkspace] Re-fetch fumigation certificate after submit warning:', e);
+                  }
+                  setFumigationCertificateData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(freshData || {}),
+                    status: 'COMPLETED',
+                    document_status: 'COMPLETED',
+                    ...(newId ? { id: String(newId), fumigation_certificate_id: String(newId) } : {}),
+                  }));
+                  setFumigationCertificateVersion((v) => v + 1);
+
+                  let targetList = steps;
+                  try {
+                    const stepperRes = await getStepperListAction({
+                      action: workflowAnchorType,
+                      step: String(workflowAnchorId),
+                      lang,
+                    });
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                    }
+                  } catch (stepErr) {
+                    console.error('[DocumentDraftWorkspace] Post-submit fumigation certificate stepper error:', stepErr);
+                  }
+
+                  targetList = targetList.map((s) =>
+                    isFumigationCertificateStep(s)
+                      ? { ...s, status: 'COMPLETED', is_enabled: true, isEnabled: true }
+                      : s
+                  );
+                  setSteps(targetList);
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const fumigationIndex = visibleList.findIndex((s) => isFumigationCertificateStep(s));
+                    if (fumigationIndex >= 0 && fumigationIndex + 1 < visibleList.length) {
+                      targetIdx = fumigationIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    handleSelectStep(nextStepToSelect, targetIdx);
+                  }
+                }
+                return res;
+              }}
+            />
+          )}
+        </div>
+
+        {/* Certificate of Origin Document Form: Visible when Certificate of Origin Step is active */}
+        <div className={`w-full h-full ${isCertificateOfOrigin ? 'flex flex-col' : 'hidden'}`}>
+          {isLoadingCertificateOfOrigin && !certificateOfOriginData && !initialCertificateOfOriginData ? (
+            <DocumentDraftSkeleton mode="contract" />
+          ) : (
+            <CertificateOfOriginDocumentForm
+              key="draft-form-certificate-of-origin"
+              dataVersion={certificateOfOriginVersion}
+              initialData={
+                certificateOfOriginData && Object.keys(certificateOfOriginData).length > 2
+                  ? { ...mergedCertificateOfOriginData, ...certificateOfOriginData }
+                  : initialCertificateOfOriginData && Object.keys(initialCertificateOfOriginData).length > 2
+                  ? { ...mergedCertificateOfOriginData, ...initialCertificateOfOriginData }
+                  : mergedCertificateOfOriginData || certificateOfOriginData || initialCertificateOfOriginData || null
+              }
+              certificateOfOriginId={canonicalCertificateOfOriginId || ''}
+              fumigationCertificateId={canonicalFumigationCertificateId}
+              phytoCertificateId={canonicalPhytoCertificateId}
+              packingListId={canonicalPackingListId}
+              commercialInvoiceId={canonicalCommercialInvoiceId}
+              customInvoiceId={canonicalCustomInvoiceId}
+              shipmentInstructionId={canonicalShipmentInstructionId}
+              proformaId={canonicalProformaId}
+              contractId={canonicalContractId}
+              confirmationId={effectiveConfirmationId}
+              steps={steps}
+              selectedStep={selectedStep}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
+              sellers={initialSellers}
+              buyers={initialBuyers}
+              products={initialProducts}
+              paymentTerms={initialPaymentTerms}
+              currencies={initialCurrencies}
+              shippingTerms={shippingTerms}
+              lang={lang}
+              dict={dict}
+              readOnly={false}
+              onSaveSuccess={(savedId, savedData) => {
+                if (savedId) {
+                  setCertificateOfOriginData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(savedData || {}),
+                    id: String(savedId),
+                    certificate_of_origin_id: String(savedId),
+                    _is_certificate_of_origin_loaded: true,
+                  }));
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s) =>
+                      isCertificateOfOriginStep(s)
+                        ? { ...s, redirect_id: String(savedId), redirectId: String(savedId), status: s.status || 'draft' }
+                        : s
+                    )
+                  );
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    const cleanSavedId = sanitizeDocId(savedId);
+                    const targetWorkflowId = cleanSavedId || canonicalCertificateOfOriginId || rootWorkflowId;
+                    if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
+                      url.searchParams.set('id', targetWorkflowId);
+                    }
+                    if (url.searchParams.get('step') === 'certificate-of-origin') {
+                      url.searchParams.set('step', 'certificate-of-origin');
+                      window.history.replaceState(null, '', url.toString());
+                    }
+                  }
+                }
+              }}
+              onSaveDraft={async (formData: any) => {
+                const originStep = steps.find(isCertificateOfOriginStep);
+                const parentIds = new Set(
+                  [canonicalFumigationCertificateId, canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
+                const activeDocId =
+                  canonicalCertificateOfOriginId ||
+                  sanitizeDocId(
+                    certificateOfOriginData?.certificate_of_origin_id ||
+                    (certificateOfOriginData?.certificate_of_origin_number ? certificateOfOriginData?.id : '')
+                  ) ||
+                  getStepSelfId(originStep) ||
+                  extractStepRedirectId(originStep) ||
+                  originStep?.redirect_id ||
+                  (originStep as any)?.redirectId ||
+                  extractLinkedCertificateOfOriginId(certificateOfOriginData) ||
+                  effectiveConfirmationId ||
+                  canonicalContractId ||
+                  rootWorkflowId;
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !parentIds.has(activeDocId) &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await saveCertificateOfOriginDraftAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.certificate_of_origin_id;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isCertificateOfOriginStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
+                          : s
+                      )
+                    );
+
+                    let freshData = res.data;
+                    try {
+                      const freshRes = await getCertificateOfOriginAction(cleanNewId, lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    } catch {
+                      // fallback
+                    }
+
+                    setCertificateOfOriginData((prev: any) => ({
+                      ...(prev || {}),
+                      ...(formData || {}),
+                      ...(freshData || {}),
+                      id: cleanNewId,
+                      certificate_of_origin_id: cleanNewId,
+                      _is_certificate_of_origin_loaded: true,
+                    }));
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', cleanNewId);
+                      url.searchParams.set('step', 'certificate-of-origin');
+                      window.history.replaceState(null, '', url.toString());
+                    }
+                  }
+                }
+                return res;
+              }}
+              onSubmitCertificateOfOrigin={async (formData: any, id?: string, passedNextStep?: StepperDocumentItem | null) => {
+                const cleanPassed = sanitizeDocId(id);
+                const originStep = steps.find(isCertificateOfOriginStep);
+                const parentIds = new Set(
+                  [canonicalFumigationCertificateId, canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
+                const activeDocId =
+                  (cleanPassed && !parentIds.has(cleanPassed) ? cleanPassed : '') ||
+                  canonicalCertificateOfOriginId ||
+                  sanitizeDocId(
+                    certificateOfOriginData?.certificate_of_origin_id ||
+                    (certificateOfOriginData?.certificate_of_origin_number ? certificateOfOriginData?.id : '')
+                  ) ||
+                  getStepSelfId(originStep) ||
+                  extractStepRedirectId(originStep) ||
+                  originStep?.redirect_id ||
+                  (originStep as any)?.redirectId ||
+                  extractLinkedCertificateOfOriginId(certificateOfOriginData);
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !parentIds.has(activeDocId) &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const submitTargetId = validEffectiveId || undefined;
+
+                const res = await submitCertificateOfOriginAction(formData, lang, submitTargetId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.certificate_of_origin_id || validEffectiveId;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isCertificateOfOriginStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
+                          : s
+                      )
+                    );
+                  }
+                  let freshData = res.data;
+                  try {
+                    if (newId) {
+                      const freshRes = await getCertificateOfOriginAction(String(newId), lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('[DocumentDraftWorkspace] Re-fetch certificate of origin after submit warning:', e);
+                  }
+                  if (freshData) {
+                    setCertificateOfOriginData(freshData);
+                    setCertificateOfOriginVersion((v) => v + 1);
+                  }
+
+                  let targetList = steps;
+                  try {
+                    const stepperRes = await getStepperListAction({
+                      action: workflowAnchorType,
+                      step: String(workflowAnchorId),
+                      lang,
+                    });
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                    }
+                  } catch (stepErr) {
+                    console.error('[DocumentDraftWorkspace] Post-submit certificate of origin stepper error:', stepErr);
+                  }
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const originIndex = visibleList.findIndex((s) => isCertificateOfOriginStep(s));
+                    if (originIndex >= 0 && originIndex + 1 < visibleList.length) {
+                      targetIdx = originIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+
+                  targetList = targetList.map((s) => {
+                    if (isCertificateOfOriginStep(s)) {
+                      return {
+                        ...s,
+                        status: 'completed',
+                        is_enabled: true,
+                        isEnabled: true,
+                        is_locked: false,
+                        locked: false,
+                      };
+                    }
+                    if (nextStepToSelect && isSameWorkflowStep(s, nextStepToSelect)) {
+                      return {
+                        ...s,
+                        is_enabled: true,
+                        isEnabled: true,
+                        is_locked: false,
+                        locked: false,
+                      };
+                    }
+                    return s;
+                  });
+                  setSteps(targetList);
+
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    const enabledNextStep: StepperDocumentItem = {
+                      ...nextStepToSelect,
+                      is_enabled: true,
+                      isEnabled: true,
+                      is_locked: false,
+                      locked: false,
+                    };
+                    handleSelectStep(enabledNextStep, targetIdx);
+                  }
+                }
+                return res;
+              }}
+            />
+          )}
+        </div>
+
+        {/* W & Q Certificate Document Form: Visible when W & Q Certificate Step is active */}
+        <div className={`w-full h-full ${isWqCertificate ? 'flex flex-col' : 'hidden'}`}>
+          {isLoadingWqCertificate && !wqCertificateData && !initialWqCertificateData ? (
+            <DocumentDraftSkeleton mode="contract" />
+          ) : (
+            <WqCertificateDocumentForm
+              key="draft-form-wq-certificate"
+              dataVersion={wqCertificateVersion}
+              initialData={
+                wqCertificateData && Object.keys(wqCertificateData).length > 2
+                  ? { ...mergedWqCertificateData, ...wqCertificateData }
+                  : initialWqCertificateData && Object.keys(initialWqCertificateData).length > 2
+                  ? { ...mergedWqCertificateData, ...initialWqCertificateData }
+                  : mergedWqCertificateData || wqCertificateData || initialWqCertificateData || null
+              }
+              wqCertificateId={canonicalWqCertificateId || ''}
+              certificateOfOriginId={canonicalCertificateOfOriginId}
+              fumigationCertificateId={canonicalFumigationCertificateId}
+              phytoCertificateId={canonicalPhytoCertificateId}
+              packingListId={canonicalPackingListId}
+              commercialInvoiceId={canonicalCommercialInvoiceId}
+              customInvoiceId={canonicalCustomInvoiceId}
+              shipmentInstructionId={canonicalShipmentInstructionId}
+              proformaId={canonicalProformaId}
+              contractId={canonicalContractId}
+              confirmationId={effectiveConfirmationId}
+              steps={steps}
+              selectedStep={selectedStep}
+              onUpdateSteps={handleUpdateSteps}
+              onSelectStep={handleSelectStep}
+              sellers={initialSellers}
+              buyers={initialBuyers}
+              products={initialProducts}
+              paymentTerms={initialPaymentTerms}
+              currencies={initialCurrencies}
+              shippingTerms={shippingTerms}
+              lang={lang}
+              dict={dict}
+              readOnly={false}
+              onSaveSuccess={(savedId, savedData) => {
+                if (savedId) {
+                  setWqCertificateData((prev: any) => ({
+                    ...(prev || {}),
+                    ...(savedData || {}),
+                    id: String(savedId),
+                    wq_certificate_id: String(savedId),
+                    _is_wq_certificate_loaded: true,
+                  }));
+                  setSteps((prevSteps) =>
+                    prevSteps.map((s) =>
+                      isWqCertificateStep(s)
+                        ? { ...s, redirect_id: String(savedId), redirectId: String(savedId), status: s.status || 'draft' }
+                        : s
+                    )
+                  );
+                  if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    const cleanSavedId = sanitizeDocId(savedId);
+                    const targetWorkflowId = cleanSavedId || canonicalWqCertificateId || rootWorkflowId;
+                    if (targetWorkflowId && !isInvalidPlaceholder(targetWorkflowId)) {
+                      url.searchParams.set('id', targetWorkflowId);
+                    }
+                    if (url.searchParams.get('step') === 'wq-certificate') {
+                      url.searchParams.set('step', 'wq-certificate');
+                      window.history.replaceState(null, '', url.toString());
+                    }
+                  }
+                }
+              }}
+              onSaveDraft={async (formData: any) => {
+                const wqStep = steps.find(isWqCertificateStep);
+                const parentIds = new Set(
+                  [canonicalCertificateOfOriginId, canonicalFumigationCertificateId, canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
+                const activeDocId =
+                  canonicalWqCertificateId ||
+                  sanitizeDocId(
+                    wqCertificateData?.wq_certificate_id ||
+                    (wqCertificateData?.wq_certificate_number ? wqCertificateData?.id : '')
+                  ) ||
+                  getStepSelfId(wqStep) ||
+                  extractStepRedirectId(wqStep) ||
+                  wqStep?.redirect_id ||
+                  (wqStep as any)?.redirectId ||
+                  extractLinkedWqCertificateId(wqCertificateData) ||
+                  effectiveConfirmationId ||
+                  canonicalContractId ||
+                  rootWorkflowId;
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !parentIds.has(activeDocId) &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|wq|wq-certificate|wq_certificate|weight|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const res = await saveWqCertificateDraftAction(formData, lang, validEffectiveId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.wq_certificate_id;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isWqCertificateStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: s.status || 'draft' }
+                          : s
+                      )
+                    );
+
+                    let freshData = res.data;
+                    try {
+                      const freshRes = await getWqCertificateAction(cleanNewId, lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    } catch {
+                      // fallback
+                    }
+
+                    setWqCertificateData((prev: any) => ({
+                      ...(prev || {}),
+                      ...(formData || {}),
+                      ...(freshData || {}),
+                      id: cleanNewId,
+                      wq_certificate_id: cleanNewId,
+                      _is_wq_certificate_loaded: true,
+                    }));
+                    if (typeof window !== 'undefined') {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('id', cleanNewId);
+                      url.searchParams.set('step', 'wq-certificate');
+                      window.history.replaceState(null, '', url.toString());
+                    }
+                  }
+                }
+                return res;
+              }}
+              onSubmitWqCertificate={async (formData: any, id?: string, passedNextStep?: StepperDocumentItem | null) => {
+                const cleanPassed = sanitizeDocId(id);
+                const wqStep = steps.find(isWqCertificateStep);
+                const parentIds = new Set(
+                  [canonicalCertificateOfOriginId, canonicalFumigationCertificateId, canonicalPhytoCertificateId, canonicalPackingListId, canonicalCommercialInvoiceId, canonicalCustomInvoiceId, canonicalBillOfLadingId, canonicalShipmentInstructionId, canonicalProformaId, canonicalContractId, effectiveConfirmationId, rootWorkflowId]
+                    .map((x) => sanitizeDocId(x))
+                    .filter(Boolean)
+                );
+                const activeDocId =
+                  (cleanPassed && !parentIds.has(cleanPassed) ? cleanPassed : '') ||
+                  canonicalWqCertificateId ||
+                  sanitizeDocId(
+                    wqCertificateData?.wq_certificate_id ||
+                    (wqCertificateData?.wq_certificate_number ? wqCertificateData?.id : '')
+                  ) ||
+                  getStepSelfId(wqStep) ||
+                  extractStepRedirectId(wqStep) ||
+                  wqStep?.redirect_id ||
+                  (wqStep as any)?.redirectId ||
+                  extractLinkedWqCertificateId(wqCertificateData);
+
+                const validEffectiveId =
+                  activeDocId &&
+                  !parentIds.has(activeDocId) &&
+                  !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|wq|wq-certificate|wq_certificate|weight|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(activeDocId)
+                    ? activeDocId
+                    : undefined;
+
+                const submitTargetId = validEffectiveId || undefined;
+
+                const res = await submitWqCertificateAction(formData, lang, submitTargetId);
+                if (res?.success) {
+                  const newId = res.id || res.data?.id || res.data?.wq_certificate_id || validEffectiveId;
+                  if (newId) {
+                    const cleanNewId = String(newId);
+                    setSteps((prevSteps) =>
+                      prevSteps.map((s) =>
+                        isWqCertificateStep(s)
+                          ? { ...s, redirect_id: cleanNewId, redirectId: cleanNewId, status: 'completed' }
+                          : s
+                      )
+                    );
+                  }
+                  let freshData = res.data;
+                  try {
+                    if (newId) {
+                      const freshRes = await getWqCertificateAction(String(newId), lang);
+                      if (freshRes?.success && freshRes.data) {
+                        freshData = freshRes.data;
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('[DocumentDraftWorkspace] Re-fetch W & Q certificate after submit warning:', e);
+                  }
+                  if (freshData) {
+                    setWqCertificateData(freshData);
+                    setWqCertificateVersion((v) => v + 1);
+                  }
+
+                  let targetList = steps;
+                  try {
+                    const stepperRes = await getStepperListAction({
+                      action: workflowAnchorType,
+                      step: String(workflowAnchorId),
+                      lang,
+                    });
+                    if (stepperRes?.success && stepperRes.data && stepperRes.data.length > 0 && isRealStepperList(stepperRes.data)) {
+                      targetList = mergeStepperWithHidden(stepperRes.data, steps);
+                    }
+                  } catch (stepErr) {
+                    console.error('[DocumentDraftWorkspace] Post-submit W & Q certificate stepper error:', stepErr);
+                  }
+
+                  const visibleList = targetList.filter(isVisibleWorkflowStep);
+                  let nextStepToSelect: StepperDocumentItem | null = null;
+                  let targetIdx = -1;
+                  if (passedNextStep) {
+                    targetIdx = visibleList.findIndex((s) => isSameWorkflowStep(s, passedNextStep));
+                    if (targetIdx >= 0) nextStepToSelect = visibleList[targetIdx];
+                  }
+                  if (!nextStepToSelect || targetIdx === -1) {
+                    const wqIndex = visibleList.findIndex((s) => isWqCertificateStep(s));
+                    if (wqIndex >= 0 && wqIndex + 1 < visibleList.length) {
+                      targetIdx = wqIndex + 1;
+                      nextStepToSelect = visibleList[targetIdx];
+                    }
+                  }
+
+                  targetList = targetList.map((s) => {
+                    if (isWqCertificateStep(s)) {
+                      return {
+                        ...s,
+                        status: 'completed',
+                        is_enabled: true,
+                        isEnabled: true,
+                        is_locked: false,
+                        locked: false,
+                      };
+                    }
+                    if (nextStepToSelect && isSameWorkflowStep(s, nextStepToSelect)) {
+                      return {
+                        ...s,
+                        is_enabled: true,
+                        isEnabled: true,
+                        is_locked: false,
+                        locked: false,
+                      };
+                    }
+                    return s;
+                  });
+                  setSteps(targetList);
+
+                  if (nextStepToSelect && targetIdx >= 0) {
+                    const enabledNextStep: StepperDocumentItem = {
+                      ...nextStepToSelect,
+                      is_enabled: true,
+                      isEnabled: true,
+                      is_locked: false,
+                      locked: false,
+                    };
+                    handleSelectStep(enabledNextStep, targetIdx);
+                  }
+                }
+                return res;
+              }}
+            />
+          )}
+        </div>
+
+        {/* Subsequent Workflow Steps View (Post-W & Q Certificate): Clean placeholder */}
+        <div className={`w-full h-full flex-col ${!isConfirmation && !isContract && !isProforma && !isShipmentInstruction && !isBillOfLading && !isCustomInvoice && !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate ? 'flex' : 'hidden'}`} />
       </div>
 
       {/* 

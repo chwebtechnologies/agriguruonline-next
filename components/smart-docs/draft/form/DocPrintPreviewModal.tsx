@@ -21,6 +21,9 @@ export interface DocPrintPreviewModalProps {
   commercialInvoiceId?: string;
   packingListId?: string;
   phytoCertificateId?: string;
+  fumigationCertificateId?: string;
+  certificateOfOriginId?: string;
+  wqCertificateId?: string;
   billOfLadingId?: string;
 }
 
@@ -160,6 +163,9 @@ export default function DocPrintPreviewModal({
   commercialInvoiceId,
   packingListId,
   phytoCertificateId,
+  fumigationCertificateId,
+  certificateOfOriginId,
+  wqCertificateId,
   billOfLadingId,
 }: DocPrintPreviewModalProps) {
   const [mounted, setMounted] = useState(false);
@@ -191,6 +197,9 @@ export default function DocPrintPreviewModal({
         [
           cleanId,
           ...(candidateIds || []).map((id) => String(id || '').trim()),
+          String(certificateOfOriginId || '').trim(),
+          String(wqCertificateId || '').trim(),
+          String(fumigationCertificateId || '').trim(),
           String(phytoCertificateId || '').trim(),
           String(packingListId || '').trim(),
           String(commercialInvoiceId || '').trim(),
@@ -200,7 +209,7 @@ export default function DocPrintPreviewModal({
           String(proformaId || '').trim(),
           String(contractId || '').trim(),
           String(confirmationId || '').trim(),
-        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(id)))
+        ].filter((id): id is string => Boolean(id && !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|lading|bill-of-lading|bl|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(id)))
       )
     );
 
@@ -225,6 +234,9 @@ export default function DocPrintPreviewModal({
         commercialInvoiceId,
         packingListId,
         phytoCertificateId,
+        fumigationCertificateId,
+        certificateOfOriginId,
+        wqCertificateId,
         lang,
       });
 
@@ -241,7 +253,7 @@ export default function DocPrintPreviewModal({
     } finally {
       setLoading(false);
     }
-  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, commercialInvoiceId, packingListId, phytoCertificateId, billOfLadingId, lang]);
+  }, [prefix, docId, candidateIds, contractId, confirmationId, proformaId, shipmentInstructionId, customInvoiceId, commercialInvoiceId, packingListId, phytoCertificateId, fumigationCertificateId, certificateOfOriginId, wqCertificateId, billOfLadingId, lang]);
 
   useEffect(() => {
     if (!isOpen) {

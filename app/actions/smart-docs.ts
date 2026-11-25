@@ -55,8 +55,12 @@ import {
   extractCommercialInvoiceData,
   extractPackingListData,
   extractPhytoCertificateData,
+  extractFumigationCertificateData,
+  extractCertificateOfOriginData,
+  extractWqCertificateData,
   extractBillOfLadingData,
   extractProductDetailData,
+  cleanDocumentErrorMessage,
   extractPaymentTermDetailData,
   extractSellerDetailData,
   sanitizeDocId,
@@ -6302,6 +6306,1023 @@ export async function submitPhytoCertificateAction(
   }
 }
 
+export interface GetFumigationCertificateActionResult {
+  success: boolean;
+  data: any | null;
+  error?: string;
+  message?: string;
+}
+
+export async function getFumigationCertificateAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetFumigationCertificateActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Fumigation Certificate ID is required",
+        data: null,
+      };
+    }
+
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getFumigationCertificate(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch fumigation certificate details",
+        data: null,
+      };
+    }
+
+    const extData = extractFumigationCertificateData(rawRes);
+    return {
+      success: true,
+      data: extData || rawRes.data || rawRes,
+    };
+  } catch (error: any) {
+    console.error("[getFumigationCertificateAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch fumigation certificate details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveFumigationCertificateDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  next_doc?: any;
+  raw?: any;
+}
+
+export async function saveFumigationCertificateDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveFumigationCertificateDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveFumigationCertificateDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.saveFumigationCertificateDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveFumigationCertificateDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save fumigation certificate draft",
+        message: "Failed to save fumigation certificate draft",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && !rawRes.errors)
+    );
+
+    if (!isSuccess) {
+      let errorFields =
+        rawRes.error_fields ||
+        rawRes.data?.error_fields ||
+        rawRes.errors ||
+        rawRes.data?.errors ||
+        rawRes.raw?.error_fields ||
+        rawRes.raw?.errors ||
+        null;
+
+      const extracted = extractApiValidationErrors(rawRes);
+      if (!errorFields && extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = Object.keys(errMap).length > 0 ? errMap : null;
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        "Failed to save fumigation certificate draft";
+      const cleanMessage = isRawRoutingOrHtmlError(rawBackendMsg)
+        ? "Failed to save fumigation certificate draft"
+        : rawBackendMsg;
+
+      return {
+        success: false,
+        error: cleanMessage,
+        message: cleanMessage,
+        error_fields: errorFields,
+        errors: errorFields,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const resolvedId =
+      rawRes.id ||
+      rawRes.data?.id ||
+      rawRes.data?._id ||
+      rawRes.data?.fumigation_certificate_id ||
+      rawRes._id ||
+      id;
+
+    try {
+      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
+    } catch {}
+
+    return {
+      success: true,
+      message: rawRes.message || "Fumigation certificate draft saved successfully",
+      id: resolvedId ? String(resolvedId) : undefined,
+      data: rawRes.data !== undefined ? rawRes.data : rawRes,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[saveFumigationCertificateDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving fumigation certificate draft",
+      message: error?.message || "Internal error occurred while saving fumigation certificate draft",
+    };
+  }
+}
+
+export async function submitFumigationCertificateAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveFumigationCertificateDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitFumigationCertificate(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitFumigationCertificate(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitFumigationCertificateAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit fumigation certificate",
+        message: "Failed to submit fumigation certificate",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error && !rawRes.errors)
+    );
+
+    if (!isSuccess) {
+      let errorFields =
+        rawRes.error_fields ||
+        rawRes.data?.error_fields ||
+        rawRes.errors ||
+        rawRes.data?.errors ||
+        rawRes.raw?.error_fields ||
+        rawRes.raw?.errors ||
+        null;
+
+      const extracted = extractApiValidationErrors(rawRes);
+      if (!errorFields && extracted.length > 0) {
+        const errMap: Record<string, string> = {};
+        extracted.forEach((e) => {
+          if (e.field) errMap[e.field] = e.message;
+        });
+        errorFields = Object.keys(errMap).length > 0 ? errMap : null;
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        "Failed to submit fumigation certificate";
+      const cleanMessage = isRawRoutingOrHtmlError(rawBackendMsg)
+        ? "Failed to submit fumigation certificate"
+        : rawBackendMsg;
+
+      return {
+        success: false,
+        error: cleanMessage,
+        message: cleanMessage,
+        error_fields: errorFields,
+        errors: errorFields,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const resolvedId =
+      rawRes.id ||
+      rawRes.data?.id ||
+      rawRes.data?._id ||
+      rawRes.data?.fumigation_certificate_id ||
+      rawRes._id ||
+      id;
+
+    try {
+      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+      revalidatePath(`/${safeLang}/smart-docs`, "page");
+    } catch {}
+
+    return {
+      success: true,
+      message: rawRes.message || "Fumigation certificate submitted successfully",
+      id: resolvedId ? String(resolvedId) : undefined,
+      data: rawRes.data !== undefined ? rawRes.data : rawRes,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[submitFumigationCertificateAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to submit fumigation certificate",
+      message: error?.message || "Failed to submit fumigation certificate",
+    };
+  }
+}
+
+export interface GetCertificateOfOriginActionResult {
+  success: boolean;
+  data: any | null;
+  error?: string;
+  message?: string;
+}
+
+export async function getCertificateOfOriginAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetCertificateOfOriginActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "Certificate of Origin ID is required",
+        data: null,
+      };
+    }
+
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getCertificateOfOrigin(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch certificate of origin details",
+        data: null,
+      };
+    }
+
+    const extData = extractCertificateOfOriginData(rawRes);
+    return {
+      success: true,
+      data: extData || rawRes.data || rawRes,
+    };
+  } catch (error: any) {
+    console.error("[getCertificateOfOriginAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch certificate of origin details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveCertificateOfOriginDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  next_doc?: any;
+  raw?: any;
+}
+
+export async function saveCertificateOfOriginDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveCertificateOfOriginDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveCertificateOfOriginDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.saveCertificateOfOriginDraft(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveCertificateOfOriginDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to save certificate of origin draft",
+        message: "Failed to save certificate of origin draft",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error)
+    );
+
+    if (!isSuccess) {
+      if (rawRes.errors || rawRes.error_fields) {
+        return {
+          success: false,
+          error:
+            cleanDocumentErrorMessage(rawRes.message, "Failed to save certificate of origin draft") ||
+            "Failed to save certificate of origin draft",
+          message:
+            cleanDocumentErrorMessage(rawRes.message, "Failed to save certificate of origin draft") ||
+            "Failed to save certificate of origin draft",
+          errors: rawRes.errors,
+          error_fields: rawRes.error_fields,
+          data: rawRes.data,
+          raw: rawRes,
+        };
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        "Failed to save certificate of origin draft";
+      const cleanMessage = isRawRoutingOrHtmlError(rawBackendMsg)
+        ? "Failed to save certificate of origin draft"
+        : rawBackendMsg;
+
+      return {
+        success: false,
+        error: cleanMessage,
+        message: cleanMessage,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const resolvedId =
+      rawRes.id ||
+      rawRes.data?.id ||
+      rawRes.data?._id ||
+      rawRes.data?.certificate_of_origin_id ||
+      rawRes._id ||
+      id;
+
+    try {
+      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+    } catch {
+      // ignore
+    }
+
+    return {
+      success: true,
+      message: rawRes.message || "Certificate of Origin draft saved successfully",
+      id: resolvedId,
+      data: rawRes.data,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[saveCertificateOfOriginDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal error occurred while saving certificate of origin draft",
+      message: error?.message || "Internal error occurred while saving certificate of origin draft",
+    };
+  }
+}
+
+export async function submitCertificateOfOriginAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveCertificateOfOriginDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitCertificateOfOrigin(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      rawRes &&
+      (rawRes.message === "Unauthorized" ||
+        rawRes.error_code === "UNAUTHORIZED" ||
+        rawRes.status === 401)
+    ) {
+      try {
+        const refreshRes = await refreshTokensAction();
+        if (refreshRes.success && refreshRes.access_token) {
+          token = refreshRes.access_token;
+          rawRes = await smartDocsService.submitCertificateOfOrigin(
+            payload,
+            {
+              lang: safeLang,
+              source: "web",
+            },
+            refreshRes.access_token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitCertificateOfOriginAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to submit certificate of origin",
+        message: "Failed to submit certificate of origin",
+      };
+    }
+
+    const isSuccess = Boolean(
+      rawRes.success === 1 ||
+      rawRes.success === true ||
+      rawRes.status === true ||
+      rawRes.status === 200 ||
+      rawRes.status === 201 ||
+      rawRes.status === "success" ||
+      (rawRes.data && !rawRes.error)
+    );
+
+    if (!isSuccess) {
+      if (rawRes.errors || rawRes.error_fields) {
+        return {
+          success: false,
+          error:
+            cleanDocumentErrorMessage(rawRes.message, "Failed to submit certificate of origin") ||
+            "Failed to submit certificate of origin",
+          message:
+            cleanDocumentErrorMessage(rawRes.message, "Failed to submit certificate of origin") ||
+            "Failed to submit certificate of origin",
+          errors: rawRes.errors,
+          error_fields: rawRes.error_fields,
+          data: rawRes.data,
+          raw: rawRes,
+        };
+      }
+
+      const rawBackendMsg =
+        (typeof rawRes.message === "string" && rawRes.message.trim()) ||
+        (typeof rawRes.error === "string" && rawRes.error.trim()) ||
+        "Failed to submit certificate of origin";
+      const cleanMessage = isRawRoutingOrHtmlError(rawBackendMsg)
+        ? "Failed to submit certificate of origin"
+        : rawBackendMsg;
+
+      return {
+        success: false,
+        error: cleanMessage,
+        message: cleanMessage,
+        data: rawRes.data,
+        raw: rawRes,
+      };
+    }
+
+    const resolvedId =
+      rawRes.id ||
+      rawRes.data?.id ||
+      rawRes.data?._id ||
+      rawRes.data?.certificate_of_origin_id ||
+      rawRes._id ||
+      id;
+
+    try {
+      revalidatePath(`/${safeLang}/smart-docs/draft`, "page");
+    } catch {
+      // ignore
+    }
+
+    return {
+      success: true,
+      message: rawRes.message || "Certificate of Origin submitted successfully",
+      id: resolvedId,
+      data: rawRes.data,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[submitCertificateOfOriginAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to submit certificate of origin",
+      message: error?.message || "Failed to submit certificate of origin",
+    };
+  }
+}
+
+export interface GetWqCertificateActionResult {
+  success: boolean;
+  data: any | null;
+  error?: string;
+  message?: string;
+}
+
+export async function getWqCertificateAction(
+  id: string,
+  lang: string = "en"
+): Promise<GetWqCertificateActionResult> {
+  try {
+    if (!id || !String(id).trim()) {
+      return {
+        success: false,
+        error: "W & Q Certificate ID is required",
+        data: null,
+      };
+    }
+
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized: Please sign in again",
+        data: null,
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    const rawRes = await smartDocsService.getWqCertificate(
+      id,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token
+    );
+
+    if (!rawRes) {
+      return {
+        success: false,
+        error: "Failed to fetch W & Q certificate details",
+        data: null,
+      };
+    }
+
+    const extData = extractWqCertificateData(rawRes);
+    return {
+      success: true,
+      data: extData || rawRes.data || rawRes,
+    };
+  } catch (error: any) {
+    console.error("[getWqCertificateAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to fetch W & Q certificate details",
+      data: null,
+    };
+  }
+}
+
+export interface SaveWqCertificateDraftActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  next_doc?: any;
+  raw?: any;
+}
+
+export async function saveWqCertificateDraftAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SaveWqCertificateDraftActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.saveWqCertificateDraft(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      !rawRes?.success &&
+      (rawRes?.status === 401 ||
+        rawRes?.message?.includes("token") ||
+        rawRes?.message?.includes("Unauthorized") ||
+        rawRes?.message?.includes("jwt expired"))
+    ) {
+      try {
+        const refRes = await refreshTokensAction();
+        if (refRes?.success && refRes.access_token) {
+          token = refRes.access_token;
+          rawRes = await smartDocsService.saveWqCertificateDraft(
+            payload,
+            { lang: safeLang, source: "web" },
+            token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[saveWqCertificateDraftAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    const isSuccess =
+      rawRes &&
+      (rawRes.success === true ||
+        rawRes.status === true ||
+        rawRes.status === "success" ||
+        rawRes.status === 200 ||
+        rawRes.status === 201 ||
+        (rawRes.data && !rawRes.error));
+
+    if (!isSuccess) {
+      const errs = rawRes?.errors || rawRes?.data?.errors;
+      let detailedMsg = rawRes?.message || rawRes?.error || "Failed to save W & Q Certificate draft";
+      if (errs && typeof errs === "object" && !Array.isArray(errs)) {
+        const firstErrVal = Object.values(errs)[0];
+        if (typeof firstErrVal === "string" && firstErrVal.trim()) {
+          detailedMsg = firstErrVal.trim();
+        } else if (Array.isArray(firstErrVal) && typeof firstErrVal[0] === "string") {
+          detailedMsg = firstErrVal[0].trim();
+        }
+      }
+
+      return {
+        success: false,
+        error: detailedMsg,
+        message: detailedMsg,
+        errors: errs || null,
+        error_fields: rawRes?.error_fields || null,
+        data: rawRes?.data,
+        raw: rawRes,
+      };
+    }
+
+    const savedId = sanitizeDocId(
+      rawRes?.id ||
+      rawRes?.wq_certificate_id ||
+      rawRes?.wq_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?.wq_certificate_id ||
+      rawRes?.data?.wq_id ||
+      id
+    );
+
+    try {
+      revalidatePath(`/${safeLang}/smart-docs`);
+      revalidatePath(`/${safeLang}/smart-docs/draft`);
+    } catch {
+      // ignore
+    }
+
+    return {
+      success: true,
+      message: rawRes?.message || "W & Q Certificate draft saved successfully",
+      id: savedId,
+      data: rawRes?.data || rawRes,
+      next_doc: rawRes?.next_doc,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[saveWqCertificateDraftAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to save W & Q Certificate draft",
+      message: error?.message || "Failed to save W & Q Certificate draft",
+    };
+  }
+}
+
+export interface SubmitWqCertificateActionResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+  errors?: any;
+  error_fields?: any;
+  id?: string;
+  next_doc?: any;
+  raw?: any;
+}
+
+export async function submitWqCertificateAction(
+  payload: any,
+  lang: string = "en",
+  id?: string
+): Promise<SubmitWqCertificateActionResult> {
+  try {
+    let token = await getActionToken();
+
+    if (!token) {
+      return {
+        success: false,
+        error: "Unauthorized",
+        message: "Authentication token missing. Please sign in again.",
+      };
+    }
+
+    const safeLang = getSafeLang(lang || "en");
+    let rawRes = await smartDocsService.submitWqCertificate(
+      payload,
+      {
+        lang: safeLang,
+        source: "web",
+      },
+      token,
+      id
+    );
+
+    if (
+      !rawRes?.success &&
+      (rawRes?.status === 401 ||
+        rawRes?.message?.includes("token") ||
+        rawRes?.message?.includes("Unauthorized") ||
+        rawRes?.message?.includes("jwt expired"))
+    ) {
+      try {
+        const refRes = await refreshTokensAction();
+        if (refRes?.success && refRes.access_token) {
+          token = refRes.access_token;
+          rawRes = await smartDocsService.submitWqCertificate(
+            payload,
+            { lang: safeLang, source: "web" },
+            token,
+            id
+          );
+        }
+      } catch (refErr) {
+        console.warn("[submitWqCertificateAction] Retry token refresh failed:", refErr);
+      }
+    }
+
+    const isSuccess =
+      rawRes &&
+      (rawRes.success === true ||
+        rawRes.status === true ||
+        rawRes.status === "success" ||
+        rawRes.status === 200 ||
+        rawRes.status === 201 ||
+        (rawRes.data && !rawRes.error));
+
+    if (!isSuccess) {
+      const errs = rawRes?.errors || rawRes?.data?.errors;
+      let detailedMsg = rawRes?.message || rawRes?.error || "Failed to submit W & Q Certificate";
+      if (errs && typeof errs === "object" && !Array.isArray(errs)) {
+        const firstErrVal = Object.values(errs)[0];
+        if (typeof firstErrVal === "string" && firstErrVal.trim()) {
+          detailedMsg = firstErrVal.trim();
+        } else if (Array.isArray(firstErrVal) && typeof firstErrVal[0] === "string") {
+          detailedMsg = firstErrVal[0].trim();
+        }
+      }
+
+      return {
+        success: false,
+        error: detailedMsg,
+        message: detailedMsg,
+        errors: errs || null,
+        error_fields: rawRes?.error_fields || null,
+        data: rawRes?.data,
+        raw: rawRes,
+      };
+    }
+
+    const submittedId = sanitizeDocId(
+      rawRes?.id ||
+      rawRes?.wq_certificate_id ||
+      rawRes?.wq_id ||
+      rawRes?.data?.id ||
+      rawRes?.data?.wq_certificate_id ||
+      rawRes?.data?.wq_id ||
+      id
+    );
+
+    try {
+      revalidatePath(`/${safeLang}/smart-docs`);
+      revalidatePath(`/${safeLang}/smart-docs/draft`);
+    } catch {
+      // ignore
+    }
+
+    return {
+      success: true,
+      message: rawRes?.message || "W & Q Certificate submitted successfully",
+      id: submittedId,
+      data: rawRes?.data || rawRes,
+      next_doc: rawRes?.next_doc,
+      raw: rawRes,
+    };
+  } catch (error: any) {
+    console.error("[submitWqCertificateAction] Error:", error);
+    return {
+      success: false,
+      error: error?.message || "Failed to submit W & Q Certificate",
+      message: error?.message || "Failed to submit W & Q Certificate",
+    };
+  }
+}
+
 export interface GetDocPreviewActionParams {
   prefix?: string;
   id: string;
@@ -6315,6 +7336,9 @@ export interface GetDocPreviewActionParams {
   commercialInvoiceId?: string;
   packingListId?: string;
   phytoCertificateId?: string;
+  fumigationCertificateId?: string;
+  certificateOfOriginId?: string;
+  wqCertificateId?: string;
 }
 
 export interface GetDocPreviewActionResult {
@@ -6335,19 +7359,72 @@ export async function getDocPreviewAction(
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(params.prefix || "");
     const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(params.prefix || "");
     const isPhytoCertificate = !isCommercialInvoice && !isPackingList && /phyto/i.test(params.prefix || "");
-    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
+    const isFumigationCertificate = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /fumigation/i.test(params.prefix || "");
+    const isCertificateOfOrigin = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && /origin/i.test(params.prefix || "");
+    const isWqCertificate = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && /wq|weight.*quality|w&q|w & q/i.test(params.prefix || "");
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
     const commercialId = String(params.commercialInvoiceId || "").trim();
     const packingListId = String(params.packingListId || "").trim();
     const phytoId = String(params.phytoCertificateId || "").trim();
+    const fumigationId = String(params.fumigationCertificateId || "").trim();
+    const originId = String(params.certificateOfOriginId || "").trim();
+    const wqId = String(params.wqCertificateId || "").trim();
     const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
-        (isPhytoCertificate
+        (isWqCertificate
+          ? [
+              wqId,
+              originId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              fumigationId,
+              phytoId,
+              packingListId,
+              commercialId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isCertificateOfOrigin
+          ? [
+              originId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              fumigationId,
+              phytoId,
+              packingListId,
+              commercialId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isFumigationCertificate
+          ? [
+              fumigationId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              originId,
+              phytoId,
+              packingListId,
+              commercialId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isPhytoCertificate
           ? [
               phytoId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              fumigationId,
               packingListId,
               commercialId,
               customId,
@@ -6363,6 +7440,7 @@ export async function getDocPreviewAction(
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
               phytoId,
+              fumigationId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -6376,6 +7454,7 @@ export async function getDocPreviewAction(
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               commercialId,
               phytoId,
+              fumigationId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -6389,6 +7468,7 @@ export async function getDocPreviewAction(
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
               phytoId,
+              fumigationId,
               commercialId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -6400,6 +7480,7 @@ export async function getDocPreviewAction(
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
               phytoId,
+              fumigationId,
               commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
@@ -6502,6 +7583,9 @@ export interface DownloadDocPdfActionParams {
   commercialInvoiceId?: string;
   packingListId?: string;
   phytoCertificateId?: string;
+  fumigationCertificateId?: string;
+  certificateOfOriginId?: string;
+  wqCertificateId?: string;
 }
 
 export interface DownloadDocPdfActionResult {
@@ -6527,19 +7611,72 @@ export async function downloadDocPdfAction(
     const isCommercialInvoice = /commercial.*invoice|commercial_invoice|commercial-invoice/i.test(params.prefix || "");
     const isPackingList = !isCommercialInvoice && /packing.*list|packing_list|packing-list|packing/i.test(params.prefix || "");
     const isPhytoCertificate = !isCommercialInvoice && !isPackingList && /phyto/i.test(params.prefix || "");
-    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
+    const isFumigationCertificate = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && /fumigation/i.test(params.prefix || "");
+    const isCertificateOfOrigin = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && /origin/i.test(params.prefix || "");
+    const isWqCertificate = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && /wq|weight.*quality|w&q|w & q/i.test(params.prefix || "");
+    const isCustomInvoice = !isCommercialInvoice && !isPackingList && !isPhytoCertificate && !isFumigationCertificate && !isCertificateOfOrigin && !isWqCertificate && /custom.*invoice|custom_invoice|custom-invoice/i.test(params.prefix || "");
     const cleanId = String(params.id || "").trim();
     const commercialId = String(params.commercialInvoiceId || "").trim();
     const packingListId = String(params.packingListId || "").trim();
     const phytoId = String(params.phytoCertificateId || "").trim();
+    const fumigationId = String(params.fumigationCertificateId || "").trim();
+    const originId = String(params.certificateOfOriginId || "").trim();
+    const wqId = String(params.wqCertificateId || "").trim();
     const customId = String(params.customInvoiceId || "").trim();
     const candidateIds = Array.from(
       new Set(
-        (isPhytoCertificate
+        (isWqCertificate
+          ? [
+              wqId,
+              originId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              fumigationId,
+              phytoId,
+              packingListId,
+              commercialId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isCertificateOfOrigin
+          ? [
+              originId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              fumigationId,
+              phytoId,
+              packingListId,
+              commercialId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isFumigationCertificate
+          ? [
+              fumigationId,
+              cleanId,
+              ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              originId,
+              phytoId,
+              packingListId,
+              commercialId,
+              customId,
+              String(params.shipmentInstructionId || "").trim(),
+              String(params.proformaId || "").trim(),
+              String(params.contractId || "").trim(),
+              String(params.confirmationId || "").trim(),
+            ]
+          : isPhytoCertificate
           ? [
               phytoId,
               cleanId,
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
+              fumigationId,
               packingListId,
               commercialId,
               customId,
@@ -6555,6 +7692,7 @@ export async function downloadDocPdfAction(
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
               phytoId,
+              fumigationId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -6568,6 +7706,7 @@ export async function downloadDocPdfAction(
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               commercialId,
               phytoId,
+              fumigationId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -6581,6 +7720,7 @@ export async function downloadDocPdfAction(
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
               phytoId,
+              fumigationId,
               commercialId,
               String(params.shipmentInstructionId || "").trim(),
               String(params.proformaId || "").trim(),
@@ -6592,6 +7732,7 @@ export async function downloadDocPdfAction(
               ...(params.candidateIds || []).map((id) => String(id || "").trim()),
               packingListId,
               phytoId,
+              fumigationId,
               commercialId,
               customId,
               String(params.shipmentInstructionId || "").trim(),
@@ -6603,7 +7744,7 @@ export async function downloadDocPdfAction(
           (id): id is string =>
             Boolean(
               id &&
-                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
+                !/^(contract|confirmation|new-confirmation|sales-contract|trade-confirmation|proforma|shipment|shipment-instruction|custom|custom-invoice|commercial|commercial-invoice|packing|packing-list|phyto|phyto-certificate|fumigation|fumigation-certificate|certificate-of-origin|certificate_of_origin|origin|invoice|step-\d+|null|undefined|nan|\[object object\])$/i.test(
                   id
                 )
             )
